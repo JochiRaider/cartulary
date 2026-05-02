@@ -75,11 +75,16 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/AGENTS.md" "${dest}/AGENTS.md"
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
+  cp "${ROOT_DIR}/tools/execution_topology_manifest.json" "${dest}/tools/execution_topology_manifest.json"
+  cp "${ROOT_DIR}/tools/scheduler_resource_registry.json" "${dest}/tools/scheduler_resource_registry.json"
+  cp "${ROOT_DIR}"/tools/*duration_baselines.json "${dest}/tools/"
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-shellcheck.sh" "${dest}/scripts/bootstrap-shellcheck.sh"
   cp "${ROOT_DIR}/scripts/check-setup-blockers.sh" "${dest}/scripts/check-setup-blockers.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
+  mkdir -p "${dest}/scripts/lib"
+  cp -R "${ROOT_DIR}/scripts/lib/." "${dest}/scripts/lib/"
   mkdir -p \
     "${dest}/apps/web" \
     "${dest}/cmd/migrate" \

@@ -185,6 +185,71 @@ write_valid_bootstrap_admin() {
 JSON
 }
 
+write_valid_tool_run_summary() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.tool_run_summary.v1",
+  "target": "json-shape-check",
+  "command": {
+    "cwd": "/repo",
+    "argv": ["make", "json-shape-check"],
+    "make_target": "json-shape-check",
+    "env": {}
+  },
+  "status": "pass",
+  "exit_code": 0,
+  "started_at": "2026-01-01T00:00:00Z",
+  "completed_at": "2026-01-01T00:00:01Z",
+  "duration_ms": 1000,
+  "output_mode": "summary",
+  "artifact_root": ".cartulary/test-results/run/json-shape-check",
+  "summary_artifacts": [
+    {
+      "role": "tool_run_summary",
+      "kind": "json",
+      "path": ".cartulary/test-results/run/json-shape-check/tool-run-summary.json"
+    }
+  ],
+  "log_artifacts": [],
+  "work_units": [],
+  "evidence_targets": [],
+  "helper_units": [],
+  "counts": {
+    "phases": 0,
+    "tests": 0,
+    "failed": 0,
+    "non_test": 0,
+    "non_test_failed": 0,
+    "packages": 0
+  },
+  "phase_accounting": {
+    "authoritative": 0,
+    "support": 0,
+    "raw": 0,
+    "tooling_support": 0,
+    "unowned_regression": 0,
+    "unmapped": 0,
+    "authoritative_failed": 0,
+    "support_failed": 0,
+    "raw_failed": 0,
+    "tooling_support_failed": 0,
+    "unowned_regression_failed": 0,
+    "unmapped_failed": 0,
+    "missing": 0
+  },
+  "failure_class": null,
+  "failure_origin": null,
+  "failures": [],
+  "slowest": [],
+  "warnings": [],
+  "rerun_commands": ["make json-shape-check"],
+  "extensions": {}
+}
+JSON
+}
+
 mutate_json_fixture() {
   local mutation="$1"
   local file="$2"
@@ -198,6 +263,29 @@ const value = JSON.parse(fs.readFileSync(file, "utf8"));
 const mutations = {
   "bootstrap-admin-bad-email": (fixture) => {
     fixture.email = "not-an-email";
+  },
+  "tool-run-summary-empty-started-at": (fixture) => {
+    fixture.started_at = "";
+  },
+  "tool-run-summary-null-completed-at": (fixture) => {
+    fixture.completed_at = null;
+  },
+  "tool-run-summary-invalid-started-at": (fixture) => {
+    fixture.started_at = "not-a-timestamp";
+  },
+  "tool-run-summary-unsorted-artifacts": (fixture) => {
+    fixture.summary_artifacts = [
+      {
+        role: "z_artifact",
+        kind: "json",
+        path: ".cartulary/test-results/run/json-shape-check/z.json",
+      },
+      {
+        role: "a_artifact",
+        kind: "json",
+        path: ".cartulary/test-results/run/json-shape-check/a.json",
+      },
+    ];
   },
   "check-schedule-schema-v6": (fixture) => {
     fixture.schema_id = "cartulary.check_schedule.v6";
@@ -314,5 +402,35 @@ write_valid_bootstrap_admin "$bad_bootstrap_admin"
 mutate_json_fixture bootstrap-admin-bad-email "$bad_bootstrap_admin"
 bad_bootstrap_output="$(assert_fails "invalid bootstrap admin JSON" run_shape_check bootstrap-admin "$bad_bootstrap_admin")"
 assert_contains "$bad_bootstrap_output" "email has invalid value" "invalid bootstrap-admin JSON"
+
+tool_run_summary="$tmp_dir/tool-run-summary.json"
+write_valid_tool_run_summary "$tool_run_summary"
+assert_contains "$(assert_passes "valid tool run summary" run_shape_check tool-run-summary "$tool_run_summary")" \
+  "json shape check passed" \
+  "valid tool run summary"
+
+empty_started_at="$tmp_dir/tool-run-summary-empty-started-at.json"
+write_valid_tool_run_summary "$empty_started_at"
+mutate_json_fixture tool-run-summary-empty-started-at "$empty_started_at"
+empty_started_output="$(assert_fails "empty tool run started_at" run_shape_check tool-run-summary "$empty_started_at")"
+assert_contains "$empty_started_output" "started_at must be a non-empty string" "empty tool run started_at"
+
+null_completed_at="$tmp_dir/tool-run-summary-null-completed-at.json"
+write_valid_tool_run_summary "$null_completed_at"
+mutate_json_fixture tool-run-summary-null-completed-at "$null_completed_at"
+null_completed_output="$(assert_fails "null tool run completed_at" run_shape_check tool-run-summary "$null_completed_at")"
+assert_contains "$null_completed_output" "completed_at must be a non-empty string" "null tool run completed_at"
+
+invalid_started_at="$tmp_dir/tool-run-summary-invalid-started-at.json"
+write_valid_tool_run_summary "$invalid_started_at"
+mutate_json_fixture tool-run-summary-invalid-started-at "$invalid_started_at"
+invalid_started_output="$(assert_fails "invalid tool run started_at" run_shape_check tool-run-summary "$invalid_started_at")"
+assert_contains "$invalid_started_output" "started_at must be an RFC3339 timestamp" "invalid tool run started_at"
+
+unsorted_artifacts="$tmp_dir/tool-run-summary-unsorted-artifacts.json"
+write_valid_tool_run_summary "$unsorted_artifacts"
+mutate_json_fixture tool-run-summary-unsorted-artifacts "$unsorted_artifacts"
+unsorted_artifacts_output="$(assert_fails "unsorted tool run artifacts" run_shape_check tool-run-summary "$unsorted_artifacts")"
+assert_contains "$unsorted_artifacts_output" "summary_artifacts must be sorted" "unsorted tool run artifacts"
 
 echo "json shape harness tests passed"

@@ -5,7 +5,12 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-make-sequence.sh"
+task_surface_makefile="$ROOT_DIR/Makefile"
+task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
 cleanup_paths=()
+
+# shellcheck source=scripts/lib/task-surface-check-common.sh
+source "$ROOT_DIR/scripts/lib/task-surface-check-common.sh"
 
 cleanup() {
   local path
@@ -99,22 +104,20 @@ assert_count() {
   assert_equals "${actual}" "${expected}" "${label}"
 }
 
-make_target_block() {
-  local target="$1"
+assert_output_occurrences() {
+  local haystack="$1"
+  local needle="$2"
+  local expected="$3"
+  local label="$4"
+  local remaining="${haystack}"
+  local actual=0
 
-  cat "${ROOT_DIR}/tools/task_surface.generated.mk" "${ROOT_DIR}/Makefile" | awk -v target="${target}" '
-    $0 ~ "^" target ":" {
-      in_target = 1
-      print
-      next
-    }
-    in_target && /^[^[:space:]#][^:]*:/ {
-      exit
-    }
-    in_target {
-      print
-    }
-  '
+  while [[ "${remaining}" == *"${needle}"* ]]; do
+    remaining="${remaining#*"${needle}"}"
+    actual=$((actual + 1))
+  done
+
+  assert_equals "${actual}" "${expected}" "${label}"
 }
 
 line_count() {
@@ -230,6 +233,7 @@ success_results="${success_dir}/results"
 success_output="$(
   VERBOSE="" \
   CI_VERBOSE="" \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_OUTPUT_MODE="" \
   MAKE="${success_dir}/fake-make" \
   FAKE_MAKE_LOG="${success_dir}/make.log" \
@@ -240,12 +244,10 @@ success_output="$(
     "${SCRIPT}" --sequence smoke \
     2>&1
 )"
-assert_contains "${success_output}" "[RUN] smoke work_units=2 summary_targets=2 helper_units=0 jobs=3 run_id=success" "success run start output"
-assert_contains "${success_output}" "[STEP] smoke 1/2 alpha mode=serial jobs=1" "success serial step output"
-assert_contains "${success_output}" "[STEP] smoke 2/2 beta mode=parallel jobs=3" "success parallel step output"
-assert_contains "${success_output}" "[PASS] smoke" "success run summary output"
-assert_contains "${success_output}" "[GROUP] smoke alpha-group summary_targets=alpha status=pass" "success alpha group output"
-assert_contains "${success_output}" "[GROUP] smoke beta-group summary_targets=beta status=pass" "success beta group output"
+assert_not_contains "${success_output}" "[RUN]" "success run start output"
+assert_not_contains "${success_output}" "[STEP]" "success step output"
+assert_contains "${success_output}" "[RESULT] target=smoke status=pass" "success run summary output"
+assert_contains "${success_output}" "[ARTIFACTS] target=smoke" "success artifact output"
 success_summary="${success_results}/success/run-summary.json"
 assert_equals "$(json_field "${success_summary}" "status")" "pass" "success status"
 assert_equals "$(json_field "${success_summary}" "work_units.completed")" "2" "success completed work units"
@@ -271,6 +273,7 @@ set +e
 aggregate_missing_output="$(
   VERBOSE="" \
   CI_VERBOSE="" \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_OUTPUT_MODE="" \
   MAKE="${aggregate_missing_dir}/fake-make" \
   FAKE_MAKE_LOG="${aggregate_missing_dir}/make.log" \
@@ -284,9 +287,10 @@ aggregate_missing_output="$(
 aggregate_missing_status=$?
 set -e
 assert_equals "${aggregate_missing_status}" "1" "aggregate missing target exit status"
-assert_contains "${aggregate_missing_output}" "[RUN] aggregate-missing work_units=1 summary_targets=2 helper_units=0 jobs=1 run_id=aggregate-missing" "aggregate missing run start output"
-assert_contains "${aggregate_missing_output}" "[STEP] aggregate-missing 1/1 alpha mode=serial jobs=1" "aggregate missing step output"
-assert_contains "${aggregate_missing_output}" "[FAIL] aggregate-missing" "aggregate missing target run summary output"
+assert_not_contains "${aggregate_missing_output}" "[RUN]" "aggregate missing run start output"
+assert_not_contains "${aggregate_missing_output}" "[STEP]" "aggregate missing step output"
+assert_contains "${aggregate_missing_output}" "[FAIL] target=aggregate-missing" "aggregate missing target run summary output"
+assert_output_occurrences "${aggregate_missing_output}" "[FAIL] target=aggregate-missing" "1" "aggregate missing single failure block"
 aggregate_missing_summary="${aggregate_missing_results}/aggregate-missing/run-summary.json"
 assert_equals "$(json_field "${aggregate_missing_summary}" "status")" "fail" "aggregate missing target status"
 assert_equals "$(json_field "${aggregate_missing_summary}" "summary_targets.missing.0")" "missing-target" "aggregate missing target list"
@@ -299,6 +303,7 @@ set +e
 failure_output="$(
   VERBOSE="" \
   CI_VERBOSE="" \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_OUTPUT_MODE="" \
   MAKE="${failure_dir}/fake-make" \
   FAKE_MAKE_LOG="${failure_dir}/make.log" \
@@ -312,10 +317,10 @@ failure_output="$(
 failure_status=$?
 set -e
 assert_equals "${failure_status}" "7" "failure child exit status"
-assert_contains "${failure_output}" "[RUN] fail-smoke work_units=3 summary_targets=2 helper_units=1 jobs=1 run_id=failure" "failure run start output"
-assert_contains "${failure_output}" "[STEP] fail-smoke 1/3 alpha mode=serial jobs=1" "failure alpha step output"
-assert_contains "${failure_output}" "[STEP] fail-smoke 2/3 fail-step mode=serial jobs=1" "failure failing step output"
-assert_contains "${failure_output}" "[FAIL] fail-smoke" "failure run summary output"
+assert_not_contains "${failure_output}" "[RUN]" "failure run start output"
+assert_not_contains "${failure_output}" "[STEP]" "failure step output"
+assert_contains "${failure_output}" "[FAIL] target=fail-smoke" "failure run summary output"
+assert_output_occurrences "${failure_output}" "[FAIL] target=fail-smoke" "1" "sequence single failure block"
 failure_summary="${failure_results}/failure/run-summary.json"
 assert_equals "$(json_field "${failure_summary}" "status")" "fail" "failure status"
 assert_equals "$(json_field "${failure_summary}" "work_units.completed")" "1" "failure completed work units"
@@ -390,23 +395,23 @@ assert_count "$(line_count '^RUN_HARNESS_SMOKE_SCRIPT :=')" "1" "harness smoke h
 assert_count "$(line_count '^RUN_SERVICE_BACKED_SCHEDULE_SCRIPT :=')" "1" "service-backed scheduler helper declaration"
 assert_count "$(line_count '^RUN_CHECK_SCHEDULE_SCRIPT :=')" "1" "check scheduler helper declaration"
 
-test_block="$(make_target_block test)"
-test_fast_block="$(make_target_block test-fast)"
-ci_block="$(make_target_block ci)"
-release_check_block="$(make_target_block release-check)"
-check_block="$(make_target_block check)"
-run_harness_smoke_fast_block="$(make_target_block run-harness-smoke-fast)"
-run_harness_smoke_extended_block="$(make_target_block run-harness-smoke-extended)"
-run_harness_smoke_full_block="$(make_target_block run-harness-smoke-full)"
-check_harness_smoke_block="$(make_target_block check-harness-smoke)"
-test_service_backed_block="$(make_target_block test-service-backed)"
-test_fast_service_backed_block="$(make_target_block test-fast-service-backed)"
-check_service_backed_block="$(make_target_block check-service-backed)"
-task_guide_block="$(make_target_block task-guide)"
-target_plan_block="$(make_target_block target-plan)"
-fixture_report_block="$(make_target_block fixture-report)"
-go_test_duration_baseline_drift_block="$(make_target_block go-test-duration-baseline-drift)"
-browser_e2e_duration_baselines_block="$(make_target_block browser-e2e-duration-baselines)"
+test_block="$(extract_target_definition test)"
+test_fast_block="$(extract_target_definition test-fast)"
+ci_block="$(extract_target_definition ci)"
+release_check_block="$(extract_target_definition release-check)"
+check_block="$(extract_target_definition check)"
+run_harness_smoke_fast_block="$(extract_target_definition run-harness-smoke-fast)"
+run_harness_smoke_extended_block="$(extract_target_definition run-harness-smoke-extended)"
+run_harness_smoke_full_block="$(extract_target_definition run-harness-smoke-full)"
+check_harness_smoke_block="$(extract_target_definition check-harness-smoke)"
+test_service_backed_block="$(extract_target_definition test-service-backed)"
+test_fast_service_backed_block="$(extract_target_definition test-fast-service-backed)"
+check_service_backed_block="$(extract_target_definition check-service-backed)"
+task_guide_block="$(extract_target_definition task-guide)"
+target_plan_block="$(extract_target_definition target-plan)"
+fixture_report_block="$(extract_target_definition fixture-report)"
+go_test_duration_baseline_drift_block="$(extract_target_definition go-test-duration-baseline-drift)"
+browser_e2e_duration_baselines_block="$(extract_target_definition browser-e2e-duration-baselines)"
 assert_contains "${test_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make test helper invocation"
 assert_contains "${test_block}" "--sequence test" "make test manifest sequence"
 assert_contains "${test_fast_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make test-fast helper invocation"

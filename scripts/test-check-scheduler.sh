@@ -7,7 +7,7 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 
-unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE LINT_SHELL_STRICT
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS LINT_SHELL_STRICT
 
 cleanup() {
   local path
@@ -199,7 +199,7 @@ if (!fs.statSync(resolveArtifact(summary.artifacts.progress_summary_log)).isFile
 if (!progressLog.includes(`[CHECK-SCHEDULER] ${summary.target} start `)) {
   throw new Error("progress summary log must retain scheduler start");
 }
-if (!progressLog.includes(`[CHECK-SCHEDULER] ${summary.target} summary `)) {
+if (!progressLog.includes(`[SUMMARY] target=${summary.target} `)) {
   throw new Error("progress summary log must retain scheduler summary");
 }
 if (!Array.isArray(summary.progress_snapshots) || summary.progress_snapshots.length > 8) {
@@ -239,7 +239,7 @@ if (progressEvents.length > 0) {
   if (summary.progress_snapshots.length === 0) {
     throw new Error("summary must retain progress snapshots when progress events were emitted");
   }
-  if (!progressLog.includes(`[PROGRESS] ${summary.target} `)) {
+  if (!progressLog.includes(`[PROGRESS] target=${summary.target} `)) {
     throw new Error("progress summary log must retain human progress lines");
   }
   if (progressEvents.some((event) => event.slowest_running || event.nested_scheduler_progress?.some((progress) => progress.slowest_running)) && summary.slowest_running_observations.length === 0) {
@@ -286,6 +286,94 @@ if (value === undefined || value === null) {
 }
 process.stdout.write(String(value));
 ' "$file" "$path"
+}
+
+assert_output_budget() {
+  local manifest="$1"
+  local target="$2"
+  local stdout_file="$3"
+  local stderr_file="$4"
+  local label="$5"
+
+  "$NODE_BIN" - "$manifest" "$target" "$stdout_file" "$stderr_file" "$label" <<'EOF'
+const fs = require("node:fs");
+const [manifestPath, targetName, stdoutFile, stderrFile, label] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const target = manifest.targets.find((entry) => entry.name === targetName);
+if (!target?.output_policy?.success_budget) {
+  throw new Error(`${label}: missing success budget for ${targetName}`);
+}
+const budget = target.output_policy.success_budget;
+const readText = (file) => fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+const lineCount = (text) => {
+  if (text.length === 0) return 0;
+  const trimmed = text.endsWith("\n") ? text.slice(0, -1) : text;
+  return trimmed.length === 0 ? 0 : trimmed.split(/\r?\n/).length;
+};
+for (const [key, actual] of [
+  ["stdout_lines", lineCount(readText(stdoutFile))],
+  ["stdout_bytes", Buffer.byteLength(readText(stdoutFile))],
+  ["stderr_lines", lineCount(readText(stderrFile))],
+  ["stderr_bytes", Buffer.byteLength(readText(stderrFile))],
+]) {
+  const limit = budget[key];
+  if (Number.isInteger(limit) && actual > limit) {
+    throw new Error(`${label}: ${key} ${actual} exceeds budget ${limit}`);
+  }
+}
+EOF
+}
+
+assert_single_machine_json() {
+  local stdout_file="$1"
+  local stderr_file="$2"
+  local expected_target="$3"
+  local label="$4"
+  shift 4
+
+  "$NODE_BIN" - "$stdout_file" "$stderr_file" "$expected_target" "$label" "$@" <<'EOF'
+const fs = require("node:fs");
+const [stdoutFile, stderrFile, expectedTarget, label, ...roleArgs] = process.argv.slice(2);
+const logSeparator = roleArgs.indexOf("--log");
+const expectedSummaryRoles = logSeparator === -1 ? roleArgs : roleArgs.slice(0, logSeparator);
+const expectedLogRoles = logSeparator === -1 ? [] : roleArgs.slice(logSeparator + 1);
+const stdout = fs.readFileSync(stdoutFile, "utf8");
+const stderr = fs.readFileSync(stderrFile, "utf8");
+if (stderr !== "") {
+  throw new Error(`${label}: expected empty stderr in machine mode, got ${JSON.stringify(stderr)}`);
+}
+if (stdout.includes("[RESULT]") || stdout.includes("[ARTIFACTS]") || stdout.includes("[PROGRESS]")) {
+  throw new Error(`${label}: machine mode must not include human summary or progress lines`);
+}
+const lines = stdout.split(/\r?\n/).filter((line) => line.trim() !== "");
+if (lines.length !== 1) {
+  throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
+}
+const summary = JSON.parse(lines[0]);
+if (summary.schema_id !== "cartulary.tool_run_summary.v1") {
+  throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
+}
+if (summary.target !== expectedTarget) {
+  throw new Error(`${label}: expected target ${expectedTarget}, got ${summary.target}`);
+}
+for (const field of ["started_at", "completed_at"]) {
+  if (typeof summary[field] !== "string" || summary[field].trim() === "" || Number.isNaN(Date.parse(summary[field]))) {
+    throw new Error(`${label}: ${field} must be a non-empty timestamp`);
+  }
+}
+const summaryRoles = new Set((summary.summary_artifacts ?? []).map((artifact) => artifact.role));
+for (const role of expectedSummaryRoles) {
+  if (!summaryRoles.has(role)) {
+    throw new Error(`${label}: missing summary artifact role ${role}`);
+  }
+}
+const logRoles = new Set((summary.log_artifacts ?? []).map((artifact) => artifact.role));
+for (const role of expectedLogRoles) {
+  if (!logRoles.has(role)) {
+    throw new Error(`${label}: missing log artifact role ${role}`);
+  }
+}
+EOF
 }
 
 assert_fake_make_overlap() {
@@ -783,28 +871,23 @@ if (summary.resource_limit_sources?.host_io !== "env:CHECK_HOST_IO_JOBS") {
 }
 EOF
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
-assert_contains "$success_output" "[RUN] check work_units=5 summary_targets=3 helper_units=2 jobs=2 run_id=success" "success run start"
+assert_not_contains "$success_output" "[RUN] check" "success hides legacy run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,service_stack:1}" "success concise scheduler start"
-assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
-assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10 artifacts=tmp/check-scheduler-success" "success concise scheduler start shows artifact path"
-assert_contains "$success_output" "[PROGRESS] check 0/5: check 0/5, running setup, blocked by dependencies, waiting on build,setup, unblocks after setup, slowest setup " "success human scheduler progress"
-assert_contains "$success_output" "; bottleneck service 3/6" "success human scheduler progress includes nested service bottleneck"
-assert_contains "$success_output" "blocked by go_io, waiting on backend-store, unblocks after backend-integration/shard-a, slowest backend-integration/shard-a 1.23s" "success human nested scheduler progress"
-assert_occurrences "$success_output" "bottleneck service 3/6" "1" "success human nested scheduler progress is material-change throttled"
-assert_contains "$success_output" "logs tmp/check-scheduler-success" "success human scheduler progress artifact path"
-assert_contains "$success_output" "/results/success/check" "success concise scheduler progress artifact path suffix"
+assert_contains "$success_output" "[PROGRESS] target=check completed=0/5" "success human scheduler progress"
+assert_contains "$success_output" "blocker=dependencies" "success human scheduler progress explains blocker"
+assert_contains "$success_output" "bottleneck=service:3/6" "success human scheduler progress includes nested service bottleneck"
+assert_occurrences "$success_output" "bottleneck=service:3/6" "1" "success human nested scheduler progress is material-change throttled"
 assert_not_contains "$success_output" "[CHECK-SCHEDULER] check progress completed_work_units=" "quiet check scheduler hides key/value progress"
 assert_not_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress" "quiet check scheduler hides key/value nested progress"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed_work_units=5/5 failed=none slowest=" "success concise scheduler summary"
+assert_contains "$success_output" "[SUMMARY] target=check status=pass work_units=5/5 failed=none slowest=" "success concise scheduler summary"
 assert_contains "$success_output" "slowest=" "success concise scheduler summary includes slowest work"
-assert_contains "$success_output" "artifacts=tmp/check-scheduler-success" "success concise scheduler summary artifact path"
 assert_not_contains "$success_output" "active_resource_claims=" "default scheduler output hides raw active resources"
 assert_not_contains "$success_output" "resource_limits=" "default scheduler output hides raw resource limits"
 assert_not_contains "$success_output" "claims={" "default scheduler output hides raw claims"
 assert_not_contains "$success_output" "[STEP] check" "default scheduler output hides per-unit steps"
 assert_not_contains "$success_output" "running_units=" "default scheduler output hides raw running units"
 assert_not_contains "$success_output" "blocked_resources=" "default scheduler output hides raw blocked resources"
-assert_contains "$success_output" "[PASS] check" "success summary"
+assert_contains "$success_output" "[RESULT] target=check status=pass" "success summary"
 assert_contains "$(cat "${success_dir}/make-args.log")" "--output-sync=target -j2 build" "build uses claimed host_cpu jobs"
 success_events="$(cat "${success_dir}/events.log")"
 assert_contains "$success_events" "end local" "success local completed"
@@ -943,15 +1026,58 @@ for (const [index, event] of events.entries()) {
 }
 EOF
 
+success_budget_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-budget.XXXXXX")"
+cleanup_paths+=("$success_budget_dir")
+write_fake_make "$success_budget_dir"
+success_budget_manifest="${success_budget_dir}/manifest.json"
+cat >"$success_budget_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v7",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 1 },
+      "work_units": [
+        { "target": "alpha", "weight": 1, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+FAKE_SLEEP_ALPHA=0.01 \
+  run_scheduler "$success_budget_dir" "$success_budget_manifest" success-budget --resource-limit host_cpu=1 \
+  >"${success_budget_dir}/stdout.log" \
+  2>"${success_budget_dir}/stderr.log"
+assert_output_budget "${ROOT_DIR}/tools/task_surface_manifest.json" check "${success_budget_dir}/stdout.log" "${success_budget_dir}/stderr.log" "scheduler success budget"
+
 verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" verbose --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup claims={host_cpu:1} active=1 pending=4" "verbose scheduler start telemetry"
 assert_contains "$verbose_output" "active_resource_claims={host_cpu:1}" "verbose scheduler active resource telemetry"
 assert_contains "$verbose_output" "resource_limits={host_cpu:2,host_io:3,service_stack:1}" "verbose scheduler resource limit telemetry"
 
-machine_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_SERVICE=0.2 CARTULARY_OUTPUT_MODE=machine run_scheduler "$success_dir" "$success_manifest" machine --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
-assert_contains "$machine_output" "[CHECK-SCHEDULER] check progress completed_work_units=" "machine scheduler prints key/value progress"
-assert_contains "$machine_output" "[CHECK-SCHEDULER] check nested-progress work_unit=service nested_target=service" "machine scheduler prints key/value nested progress"
-assert_not_contains "$machine_output" "[PROGRESS] check" "machine scheduler does not print human progress"
+machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-machine.XXXXXX")"
+cleanup_paths+=("$machine_dir")
+write_fake_make "$machine_dir"
+CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 \
+FAKE_SLEEP_SERVICE=0.2 \
+CARTULARY_OUTPUT_MODE=machine \
+  run_scheduler "$machine_dir" "$success_manifest" machine --resource-limit host_cpu=2 --resource-limit host_io=3 \
+  >"${machine_dir}/stdout.log" \
+  2>"${machine_dir}/stderr.log"
+assert_single_machine_json \
+  "${machine_dir}/stdout.log" \
+  "${machine_dir}/stderr.log" \
+  check \
+  "machine check scheduler summary" \
+  tool_run_summary \
+  target_summary \
+  run_summary \
+  run_tool_run_summary \
+  scheduler_summary \
+  scheduler_events \
+  --log \
+  scheduler_progress \
+  scheduler_logs
 
 partial_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-partial-nested.XXXXXX")"
 cleanup_paths+=("$partial_dir")
@@ -985,7 +1111,7 @@ cat >"$partial_manifest" <<'JSON'
 }
 JSON
 partial_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_PARTIAL_SERVICE=0.15 run_scheduler "$partial_dir" "$partial_manifest" partial --resource-limit host_cpu=1 --resource-limit host_io=1 2>&1)"
-assert_contains "$partial_output" "[PASS] check" "partial nested event does not fail check scheduler"
+assert_contains "$partial_output" "[RESULT] target=check status=pass" "partial nested event does not fail check scheduler"
 assert_not_contains "$partial_output" "nested-progress work_unit=partial-service" "partial nested event is ignored until newline-complete"
 
 makeflags_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-makeflags.XXXXXX")"
@@ -1011,7 +1137,7 @@ makeflags_output="$(
   MFLAGS='--jobserver-fds=3,4 -j' \
     run_scheduler "$makeflags_dir" "$makeflags_manifest" makeflags --resource-limit host_cpu=1 2>&1
 )"
-assert_contains "$makeflags_output" "[PASS] check" "makeflags sanitize summary"
+assert_contains "$makeflags_output" "[RESULT] target=check status=pass" "makeflags sanitize summary"
 makeflags_events="$(cat "${makeflags_dir}/events.log")"
 assert_not_contains "$makeflags_events" "jobserver" "check child make env strips inherited jobserver tokens"
 assert_not_contains "$makeflags_events" "MFLAGS=-j" "check child make env strips inherited mflags jobs"
@@ -1049,8 +1175,9 @@ failure_status=$?
 set -e
 assert_equals "$failure_status" "7" "failure exit status"
 assert_contains "$failure_output" "fake failure for beta" "failure child output"
-assert_contains "$failure_output" "[FAIL] check" "failure summary"
-assert_contains "$failure_output" "[CHECK-SCHEDULER] check summary status=fail" "failure scheduler status summary"
+assert_contains "$failure_output" "[FAIL] target=check" "failure summary"
+assert_occurrences "$failure_output" "[FAIL] target=check" "1" "failure single check failure block"
+assert_contains "$failure_output" "[SUMMARY] target=check status=fail" "failure scheduler status summary"
 assert_contains "$failure_output" "failure_class=helper" "failure scheduler class output"
 assert_contains "$failure_output" "failed=beta" "failure scheduler failed work unit"
 failure_events="$(cat "${failure_dir}/events.log")"

@@ -45,7 +45,12 @@ function parseFlagArgs(argv) {
   return options;
 }
 
-function runWithContext(context, command, args, { env = process.env, stdio = "inherit" } = {}) {
+function runWithContext(
+  context,
+  command,
+  args,
+  { env = process.env, stdio = "inherit" } = {},
+) {
   const result = spawnSync(command, args, {
     cwd: context.repoRoot,
     env,
@@ -74,13 +79,19 @@ function serviceBackedTarget(context, argv) {
   const target = options.target || "";
   const phaseLabel = options.phase_label || "";
   const serviceWrapper = options.service_wrapper || "";
-  if (!target || !phaseLabel || !serviceWrapper || options.projection !== undefined) {
+  if (
+    !target ||
+    !phaseLabel ||
+    !serviceWrapper ||
+    options.projection !== undefined
+  ) {
     usage();
   }
 
   const env = runnerEnv(context, {
     CARTULARY_TEST_GO_TARGET_RUNNER:
       process.env.CARTULARY_TEST_GO_TARGET_RUNNER || context.runnerScript,
+    CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   });
   const schedulerArgs = [
     context.runPhaseScript,
@@ -98,14 +109,23 @@ function serviceBackedTarget(context, argv) {
   let status = 0;
   if (serviceWrapper === "test-services") {
     if (!context.testServicesBin) {
-      process.stderr.write("TEST_SERVICES_BIN is required for --service-wrapper test-services\n");
+      process.stderr.write(
+        "TEST_SERVICES_BIN is required for --service-wrapper test-services\n",
+      );
       return 2;
     }
-    status = runWithContext(context, context.testServicesBin, ["run", "--", ...schedulerArgs], {
+    status = runWithContext(
+      context,
+      context.testServicesBin,
+      ["run", "--", ...schedulerArgs],
+      {
+        env,
+      },
+    );
+  } else if (serviceWrapper === "none") {
+    status = runWithContext(context, schedulerArgs[0], schedulerArgs.slice(1), {
       env,
     });
-  } else if (serviceWrapper === "none") {
-    status = runWithContext(context, schedulerArgs[0], schedulerArgs.slice(1), { env });
   } else {
     usage();
   }
@@ -116,15 +136,16 @@ function serviceBackedTarget(context, argv) {
   });
   const children = serviceBackedScheduleChildren(topologyContext, target);
   if (children.length === 0) {
-    process.stderr.write(`service-backed schedule ${target} has no derived summary children\n`);
+    process.stderr.write(
+      `service-backed schedule ${target} has no derived summary children\n`,
+    );
     return 2;
   }
-  const summaryStatus = runTargetSummary(context, [
-    target,
-    requested,
-    "--children",
-    children.join(","),
-  ]);
+  const summaryArgs = [target, requested, "--children", children.join(",")];
+  if (process.env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1") {
+    summaryArgs.push("--quiet-success");
+  }
+  const summaryStatus = runTargetSummary(context, summaryArgs);
   return status === 0 ? summaryStatus : status;
 }
 
@@ -134,8 +155,7 @@ function summaryTarget(context, argv) {
   const childTarget = options.child_target || "";
   const requestedStatus = options.status || "";
   const projection = options.projection || "";
-  const phaseLabel =
-    options.phase_label || `${target} child ${childTarget}`;
+  const phaseLabel = options.phase_label || `${target} child ${childTarget}`;
   if (
     !target ||
     !childTarget ||
@@ -148,23 +168,15 @@ function summaryTarget(context, argv) {
   const childStatus = runWithContext(
     context,
     context.runPhaseScript,
-    [
-      phaseLabel,
-      "--",
-      context.makeBin,
-      "--no-print-directory",
-      childTarget,
-    ],
+    [phaseLabel, "--", context.makeBin, "--no-print-directory", childTarget],
     {
       env: runnerEnv(context, {
         CARTULARY_TEST_TARGET: target,
+        CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
       }),
     },
   );
-  const summaryArgs = [
-    target,
-    childStatus === 0 ? requestedStatus : "fail",
-  ];
+  const summaryArgs = [target, childStatus === 0 ? requestedStatus : "fail"];
   if (projection) {
     summaryArgs.push("--projection", projection);
     summaryArgs.push("--skipped-from-child", childTarget);

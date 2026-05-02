@@ -12,6 +12,7 @@ GOSEC_AUDIT_RUNTIME_PATTERNS="${GOSEC_AUDIT_RUNTIME_PATTERNS:-./cmd/... ./intern
 GOSEC_AUDIT_SUPPORT_RULES="${GOSEC_AUDIT_SUPPORT_RULES:-G122,G301,G302,G303,G304,G305,G306,G307}"
 GOSEC_AUDIT_SUPPORT_FLAGS="${GOSEC_AUDIT_SUPPORT_FLAGS:--exclude-generated -no-fail -quiet}"
 GOSEC_AUDIT_SUPPORT_PATTERNS="${GOSEC_AUDIT_SUPPORT_PATTERNS:-./internal/testutil/... ./tools/...}"
+profile_metadata="${CARTULARY_PHASE_ARTIFACT_DIR:+${CARTULARY_PHASE_ARTIFACT_DIR}/security-profiles.jsonl}"
 
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then
   GO_BIN="$(command -v "$GO_BIN")"
@@ -61,6 +62,11 @@ run_profile() {
   local patterns=()
   read -r -a patterns <<<"$patterns_value"
 
+  if [[ -n "$profile_metadata" ]]; then
+    mkdir -p "$(dirname "$profile_metadata")"
+    printf '{"tool":"gosec","target":"go-gosec-audit","profile":"%s","rules":"%s","flags":"%s","patterns":"%s"}\n' \
+      "$label" "$rules" "$flags" "$patterns_value" >>"$profile_metadata"
+  fi
   printf 'go-gosec-audit %s profile rules=%s patterns=%s\n' "$label" "$rules" "$patterns_value"
   env GOCACHE="$GO_CACHE_DIR" \
     GOMODCACHE="$GO_MOD_CACHE_DIR" \

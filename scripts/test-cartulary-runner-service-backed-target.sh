@@ -205,6 +205,7 @@ chmod +x "$summary_make"
 summary_pass_results="$tmp_dir/summary-pass-results"
 summary_pass_log="$tmp_dir/summary-pass-make.log"
 summary_pass_output="$(
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   FAKE_SUMMARY_MAKE_LOG="$summary_pass_log" \
   MAKE_BIN="$summary_make" \
   NODE_BIN="$node_bin" \
@@ -216,7 +217,7 @@ summary_pass_output="$(
     "$node_bin" "$HELPER" summary-target --target check-summary-pass --child-target child-pass --status pass --phase-label "summary pass child" \
     2>&1
 )"
-assert_contains "$summary_pass_output" "[PASS] check-summary-pass kind=leaf" "summary pass output"
+assert_contains "$summary_pass_output" "[RESULT] target=check-summary-pass status=pass" "summary pass output"
 assert_contains "$(cat "$summary_pass_log")" "summary-make target=child-pass test-target=check-summary-pass" "summary pass child target env"
 summary_pass_file="$summary_pass_results/summary-pass/check-summary-pass/target-summary.json"
 assert_json_field_equals "$summary_pass_file" "status" "pass" "summary pass status"
@@ -243,7 +244,7 @@ summary_fail_output="$(
 summary_fail_status=$?
 set -e
 assert_equals "$summary_fail_status" "6" "summary child failure exit status"
-assert_contains "$summary_fail_output" "[FAIL] check-summary-fail" "summary fail output"
+assert_contains "$summary_fail_output" "[FAIL] target=check-summary-fail" "summary fail output"
 assert_json_field_equals "$summary_fail_results/summary-fail/check-summary-fail/target-summary.json" "status" "fail" "summary fail status"
 
 projection_run_phase="$tmp_dir/projection-run-phase.sh"

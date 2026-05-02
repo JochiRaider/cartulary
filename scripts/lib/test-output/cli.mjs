@@ -10,17 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-
-import { collectEntries, loadManifest, phaseManifestNames } from "../phase-manifest.mjs";
 import { helperArtifactReferences } from "../artifact-discovery.mjs";
-import { collectTargetPlanRows, findTargetDescriptor } from "../target-plan.mjs";
-import {
-  combineFixtureSummaries,
-  emptyFixtureSummary,
-  fixtureSummaryLine,
-  normalizeFixtureSummary,
-  summarizeFixtureActivities,
-} from "../fixture-reporting.mjs";
 import {
   artifactFailureRecord,
   classifyExecutionFailure,
@@ -31,10 +21,40 @@ import {
   timingFailureRecord,
 } from "../failure-taxonomy.mjs";
 import {
+  combineFixtureSummaries,
+  emptyFixtureSummary,
+  fixtureSummaryLine,
+  normalizeFixtureSummary,
+  summarizeFixtureActivities,
+} from "../fixture-reporting.mjs";
+import {
+  collectEntries,
+  loadManifest,
+  phaseManifestNames,
+} from "../phase-manifest.mjs";
+import {
   defaultTaskSurfaceManifestPath,
   loadSummaryTopologyContext,
   summaryProjectionChildren,
 } from "../summary-topology.mjs";
+import {
+  collectTargetPlanRows,
+  findTargetDescriptor,
+} from "../target-plan.mjs";
+import {
+  artifactLine,
+  artifactRef,
+  buildToolRunSummary,
+  machineOutput,
+  normalizeOutputMode,
+  quietLikeOutput,
+  resultLine,
+  slowestTargetRef,
+  suppressChildSuccess,
+  terminalArtifactPath,
+  toolSummaryPath,
+  verboseOutput,
+} from "../tool-output.mjs";
 import {
   phaseSummarySchemaID,
   repoRoot,
@@ -45,8 +65,8 @@ import {
   targetSummarySchemaID,
   targetTimingSchemaID,
   testAccountingClassificationSchemaID,
-  testCoverageBuckets,
   testCoverageBucketSet,
+  testCoverageBuckets,
   timingBucketOrder,
   timingBucketSet,
   validPhaseCountingModes,
@@ -58,6 +78,23 @@ const runId = resolveRunId();
 let cachedGoModulePath;
 let cachedManifestIndex;
 let cachedTestAccountingClassification;
+
+function firstArtifactPath(value) {
+  if (!value || value === "-") {
+    return "-";
+  }
+  const paths = String(value)
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return (
+    paths.find((part) =>
+      existsSync(path.isAbsolute(part) ? part : path.join(repoRoot, part)),
+    ) ??
+    paths[0] ??
+    "-"
+  );
+}
 
 function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -299,7 +336,9 @@ function formatDurationFields(
 ) {
   const effectiveLogical = clampDurationMs(logicalDurationMs);
   const effectiveExecuted = clampDurationMs(executedDurationMs);
-  const effectiveWall = Number.isFinite(wallDurationMs) ? wallDurationMs : effectiveLogical;
+  const effectiveWall = Number.isFinite(wallDurationMs)
+    ? wallDurationMs
+    : effectiveLogical;
   const effectiveCriticalPath = Number.isFinite(criticalPathWallDurationMs)
     ? criticalPathWallDurationMs
     : effectiveWall;
@@ -308,14 +347,11 @@ function formatDurationFields(
 }
 
 function resolveOutputMode() {
-  if (process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1") {
-    return "normal";
-  }
-  return process.env.CARTULARY_OUTPUT_MODE || "quiet";
+  return normalizeOutputMode();
 }
 
 function quietOutputMode() {
-  return resolveOutputMode() === "quiet";
+  return quietLikeOutput();
 }
 
 function parseLifecycleOptions(args) {
@@ -342,7 +378,8 @@ function parseLifecycleOptions(args) {
 }
 
 function shouldEmitLifecycle(options) {
-  return options.force || resolveOutputMode() === "quiet";
+  const mode = resolveOutputMode();
+  return options.force || verboseOutput() || mode === "ci";
 }
 
 function parseNonNegativeInteger(value, label) {
@@ -366,17 +403,32 @@ function parseTargetListValue(value) {
 function handleRunStart(args) {
   const options = parseLifecycleOptions(args);
   const [label] = options.positional;
-  if (!label || options.steps === undefined || options.summary_targets === undefined || options.jobs === undefined) {
-    throw new Error("usage: test-output.mjs run-start <label> --steps <n> --summary-targets <n> [--helper-units <n>] --jobs <n> [--force]");
+  if (
+    !label ||
+    options.steps === undefined ||
+    options.summary_targets === undefined ||
+    options.jobs === undefined
+  ) {
+    throw new Error(
+      "usage: test-output.mjs run-start <label> --steps <n> --summary-targets <n> [--helper-units <n>] --jobs <n> [--force]",
+    );
   }
   if (!shouldEmitLifecycle(options)) {
     return 0;
   }
   const workUnits = parseNonNegativeInteger(options.steps, "steps");
-  const summaryTargets = parseNonNegativeInteger(options.summary_targets, "summary-targets");
-  const helperUnits = parseNonNegativeInteger(options.helper_units ?? "0", "helper-units");
+  const summaryTargets = parseNonNegativeInteger(
+    options.summary_targets,
+    "summary-targets",
+  );
+  const helperUnits = parseNonNegativeInteger(
+    options.helper_units ?? "0",
+    "helper-units",
+  );
   const jobs = parseNonNegativeInteger(options.jobs, "jobs");
-  process.stdout.write(`[RUN] ${label} work_units=${workUnits} summary_targets=${summaryTargets} helper_units=${helperUnits} jobs=${jobs} run_id=${runId}\n`);
+  process.stdout.write(
+    `[RUN] ${label} work_units=${workUnits} summary_targets=${summaryTargets} helper_units=${helperUnits} jobs=${jobs} run_id=${runId}\n`,
+  );
   return 0;
 }
 
@@ -386,7 +438,9 @@ function handleStepStart(args) {
   const mode = options.mode ?? options.positional[4] ?? "serial";
   const jobsText = options.jobs ?? options.positional[5] ?? "1";
   if (!label || !indexText || !totalText || !target) {
-    throw new Error("usage: test-output.mjs step-start <label> <index> <total> <target> [--mode <mode>] [--jobs <n>] [--force]");
+    throw new Error(
+      "usage: test-output.mjs step-start <label> <index> <total> <target> [--mode <mode>] [--jobs <n>] [--force]",
+    );
   }
   if (!shouldEmitLifecycle(options)) {
     return 0;
@@ -394,7 +448,9 @@ function handleStepStart(args) {
   const index = parseNonNegativeInteger(indexText, "index");
   const total = parseNonNegativeInteger(totalText, "total");
   const jobs = parseNonNegativeInteger(jobsText, "jobs");
-  process.stdout.write(`[STEP] ${label} ${index}/${total} ${target} mode=${mode} jobs=${jobs}\n`);
+  process.stdout.write(
+    `[STEP] ${label} ${index}/${total} ${target} mode=${mode} jobs=${jobs}\n`,
+  );
   return 0;
 }
 
@@ -407,8 +463,11 @@ function targetStartStats(target, children) {
     return row.target === target;
   });
   const descriptor = findTargetDescriptor(target);
-  const serviceBacked = descriptor?.serviceBacked ?? rows.some((row) => row.service_backed);
-  const manifestPhases = new Set(rows.map((row) => row.manifest_phase).filter(Boolean));
+  const serviceBacked =
+    descriptor?.serviceBacked ?? rows.some((row) => row.service_backed);
+  const manifestPhases = new Set(
+    rows.map((row) => row.manifest_phase).filter(Boolean),
+  );
   const rawRows = rows.filter((row) => row.manifest_phase === "").length;
   return {
     serviceBacked,
@@ -421,7 +480,9 @@ function handleTargetStart(args) {
   const options = parseLifecycleOptions(args);
   const [target] = options.positional;
   if (!target) {
-    throw new Error("usage: test-output.mjs target-start <target> [--children <a,b>] [--service-backed <0|1>] [--expected-phases <n>] [--expected-tests <n>] [--force]");
+    throw new Error(
+      "usage: test-output.mjs target-start <target> [--children <a,b>] [--service-backed <0|1>] [--expected-phases <n>] [--expected-tests <n>] [--force]",
+    );
   }
   if (!shouldEmitLifecycle(options)) {
     return 0;
@@ -440,7 +501,8 @@ function handleTargetStart(args) {
     options.expected_tests === undefined
       ? stats.expectedTests
       : parseNonNegativeInteger(options.expected_tests, "expected-tests");
-  const childField = children.length > 0 ? ` children=${children.join(",")}` : "";
+  const childField =
+    children.length > 0 ? ` children=${children.join(",")}` : "";
   process.stdout.write(
     `[TARGET] start ${target} service_backed=${serviceBacked ? 1 : 0} expected_phases=${expectedPhases} expected_tests=${expectedTests}${childField}\n`,
   );
@@ -462,13 +524,6 @@ function formatBucketSummary(bucket) {
     return "none";
   }
   return `${bucket.name}(${formatDuration(bucket.duration_ms)})`;
-}
-
-function formatTargetBucketSummary(bucket) {
-  if (!bucket) {
-    return "none";
-  }
-  return `${bucket.target}:${bucket.name}(${formatDuration(bucket.duration_ms)})`;
 }
 
 function computeWindowDurationMs(startTime, endTime) {
@@ -579,7 +634,8 @@ function loadManifestIndex() {
         continue;
       }
       if (entry.runner === "go_test") {
-        const symbols = entry.symbol !== undefined ? [entry.symbol] : entry.symbols;
+        const symbols =
+          entry.symbol !== undefined ? [entry.symbol] : entry.symbols;
         for (const symbol of symbols) {
           index.authoritativeGo.set(
             `${toGoImportPath(entry.package)}::${symbol}`,
@@ -623,15 +679,25 @@ function normalizeAccountingRule(rule, label, scope) {
   }
   const requiresFile = scope === "vitest" || scope === "playwright";
   const requiresPackage = scope === "go_packages" || scope === "go_tests";
-  if (requiresFile && typeof rule.file !== "string" && typeof rule.file_pattern !== "string") {
+  if (
+    requiresFile &&
+    typeof rule.file !== "string" &&
+    typeof rule.file_pattern !== "string"
+  ) {
     throw new Error(`${label} must declare file or file_pattern`);
   }
-  if (requiresPackage && typeof rule.package !== "string" && typeof rule.package_pattern !== "string") {
+  if (
+    requiresPackage &&
+    typeof rule.package !== "string" &&
+    typeof rule.package_pattern !== "string"
+  ) {
     throw new Error(`${label} must declare package or package_pattern`);
   }
   const coverage = normalizeTestCoverage(rule.coverage, "");
   if (coverage === "unmapped") {
-    throw new Error(`${label}.coverage must be raw|tooling_support|unowned_regression|support|authoritative`);
+    throw new Error(
+      `${label}.coverage must be raw|tooling_support|unowned_regression|support|authoritative`,
+    );
   }
   return {
     ...rule,
@@ -645,7 +711,11 @@ function loadTestAccountingClassification() {
   if (cachedTestAccountingClassification) {
     return cachedTestAccountingClassification;
   }
-  const file = path.join(repoRoot, "tools", "test_accounting_classification.json");
+  const file = path.join(
+    repoRoot,
+    "tools",
+    "test_accounting_classification.json",
+  );
   const empty = {
     vitest: [],
     go_packages: [],
@@ -658,20 +728,30 @@ function loadTestAccountingClassification() {
   }
   const manifest = JSON.parse(readFileSync(file, "utf8"));
   if (manifest.schema_id !== testAccountingClassificationSchemaID) {
-    throw new Error(`${file} must declare schema_id ${testAccountingClassificationSchemaID}`);
+    throw new Error(
+      `${file} must declare schema_id ${testAccountingClassificationSchemaID}`,
+    );
   }
   cachedTestAccountingClassification = {
     vitest: (manifest.vitest ?? []).map((rule, index) =>
       normalizeAccountingRule(rule, `${file}.vitest[${index}]`, "vitest"),
     ),
     go_packages: (manifest.go_packages ?? []).map((rule, index) =>
-      normalizeAccountingRule(rule, `${file}.go_packages[${index}]`, "go_packages"),
+      normalizeAccountingRule(
+        rule,
+        `${file}.go_packages[${index}]`,
+        "go_packages",
+      ),
     ),
     go_tests: (manifest.go_tests ?? []).map((rule, index) =>
       normalizeAccountingRule(rule, `${file}.go_tests[${index}]`, "go_tests"),
     ),
     playwright: (manifest.playwright ?? []).map((rule, index) =>
-      normalizeAccountingRule(rule, `${file}.playwright[${index}]`, "playwright"),
+      normalizeAccountingRule(
+        rule,
+        `${file}.playwright[${index}]`,
+        "playwright",
+      ),
     ),
   };
   return cachedTestAccountingClassification;
@@ -679,10 +759,16 @@ function loadTestAccountingClassification() {
 
 function ruleStringMatches(rule, exactKey, patternKey, value) {
   const normalized = normalizePath(value ?? "");
-  if (typeof rule[exactKey] === "string" && normalizePath(rule[exactKey]) !== normalized) {
+  if (
+    typeof rule[exactKey] === "string" &&
+    normalizePath(rule[exactKey]) !== normalized
+  ) {
     return false;
   }
-  if (typeof rule[patternKey] === "string" && !globToRegExp(normalizePath(rule[patternKey])).test(normalized)) {
+  if (
+    typeof rule[patternKey] === "string" &&
+    !globToRegExp(normalizePath(rule[patternKey])).test(normalized)
+  ) {
     return false;
   }
   return true;
@@ -692,7 +778,10 @@ function ruleTitleMatches(rule, title) {
   if (typeof rule.title === "string" && rule.title !== title) {
     return false;
   }
-  if (typeof rule.title_pattern === "string" && !globToRegExp(rule.title_pattern).test(title)) {
+  if (
+    typeof rule.title_pattern === "string" &&
+    !globToRegExp(rule.title_pattern).test(title)
+  ) {
     return false;
   }
   return true;
@@ -716,7 +805,12 @@ function accountingOverrideClassification(owner, phase = "") {
   };
 }
 
-function accountingManifestClassification(runner, owner, title = "", fallbackPhase = "") {
+function accountingManifestClassification(
+  runner,
+  owner,
+  title = "",
+  fallbackPhase = "",
+) {
   const manifest = loadTestAccountingClassification();
   const rules = manifest[runner] ?? [];
   for (const rule of rules) {
@@ -820,12 +914,16 @@ function firstShellCheckDiagnosticLine(lines) {
       continue;
     }
 
-    const humanDiagnosticMatch = line.match(/^(?:\^--\s*)?(SC[0-9]+)\s+\([^)]+\):\s*(.+)$/);
+    const humanDiagnosticMatch = line.match(
+      /^(?:\^--\s*)?(SC[0-9]+)\s+\([^)]+\):\s*(.+)$/,
+    );
     if (humanDiagnosticMatch && pendingLocation) {
       return `ShellCheck ${humanDiagnosticMatch[1]} at ${pendingLocation.file}:${pendingLocation.line}: ${humanDiagnosticMatch[2]}`;
     }
 
-    const gccDiagnosticMatch = line.match(/^(.+?):([0-9]+):[0-9]+:\s+[^:]+:\s+(.+?)\s+\[(SC[0-9]+)\]$/);
+    const gccDiagnosticMatch = line.match(
+      /^(.+?):([0-9]+):[0-9]+:\s+[^:]+:\s+(.+?)\s+\[(SC[0-9]+)\]$/,
+    );
     if (gccDiagnosticMatch) {
       return `ShellCheck ${gccDiagnosticMatch[4]} at ${gccDiagnosticMatch[1]}:${gccDiagnosticMatch[2]}: ${gccDiagnosticMatch[3]}`;
     }
@@ -879,14 +977,41 @@ function printBlock(header, fields) {
   process.stderr.write(`${lines.join("\n")}\n`);
 }
 
+function showPhaseDetailOutput(context) {
+  return verboseOutput() || context.target === "adhoc";
+}
+
+function optionalJSONEnv(name, fallback = null) {
+  const value = optionalEnv(name);
+  if (!value) {
+    return fallback;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function resolveArtifactPath(value) {
+  if (!value) {
+    return "";
+  }
+  return path.isAbsolute(value) ? value : path.join(repoRoot, value);
+}
+
 function createBasePhaseContext(runner) {
   const phaseDir = requiredEnv("CARTULARY_PHASE_DIR");
   ensureDir(phaseDir);
   const accountingMode =
     optionalEnv("CARTULARY_REPORT_SLICE") === "1"
-      ? normalizeAccountingMode(optionalEnv("CARTULARY_PHASE_ACCOUNTING_MODE", "actual"))
+      ? normalizeAccountingMode(
+          optionalEnv("CARTULARY_PHASE_ACCOUNTING_MODE", "actual"),
+        )
       : "actual";
-  const countingMode = normalizePhaseCountingMode(optionalEnv("CARTULARY_PHASE_COUNTING_MODE", "counted"));
+  const countingMode = normalizePhaseCountingMode(
+    optionalEnv("CARTULARY_PHASE_COUNTING_MODE", "counted"),
+  );
   const legacyDurationMs = parseInteger("CARTULARY_PHASE_DURATION_MS", 0);
   const logicalDurationMs = clampDurationMs(
     parseInteger("CARTULARY_PHASE_LOGICAL_DURATION_MS", legacyDurationMs),
@@ -902,8 +1027,12 @@ function createBasePhaseContext(runner) {
     phaseDir,
     target: optionalEnv("CARTULARY_TEST_TARGET", "adhoc"),
     command: requiredEnv("CARTULARY_PHASE_COMMAND"),
+    commandArgv: optionalJSONEnv("CARTULARY_PHASE_COMMAND_ARGV", null),
     runner,
-    timingBucket: normalizeTimingBucket(optionalEnv("CARTULARY_PHASE_TIMING_BUCKET"), runner),
+    timingBucket: normalizeTimingBucket(
+      optionalEnv("CARTULARY_PHASE_TIMING_BUCKET"),
+      runner,
+    ),
     startTime: requiredEnv("CARTULARY_PHASE_START_TIME"),
     endTime: requiredEnv("CARTULARY_PHASE_END_TIME"),
     accountingMode,
@@ -912,7 +1041,9 @@ function createBasePhaseContext(runner) {
     logicalDurationMs,
     reusedDurationMs: accountingMode === "reused" ? logicalDurationMs : 0,
     derivedDurationMs: accountingMode === "derived" ? logicalDurationMs : 0,
-    wallDurationMs: clampDurationMs(parseInteger("CARTULARY_PHASE_WALL_DURATION_MS", logicalDurationMs)),
+    wallDurationMs: clampDurationMs(
+      parseInteger("CARTULARY_PHASE_WALL_DURATION_MS", logicalDurationMs),
+    ),
     exitStatus: parseInteger("CARTULARY_PHASE_EXIT_STATUS", 0),
   };
 }
@@ -928,6 +1059,12 @@ function writePhaseArtifacts(context, details) {
   const artifacts = {};
   for (const [key, value] of Object.entries({
     ...(details.artifacts ?? {}),
+    shellcheck_inventory: existsSync(path.join(context.phaseDir, "shellcheck-inventory.txt"))
+      ? path.join(context.phaseDir, "shellcheck-inventory.txt")
+      : "",
+    security_profiles: existsSync(path.join(context.phaseDir, "security-profiles.jsonl"))
+      ? path.join(context.phaseDir, "security-profiles.jsonl")
+      : "",
     playwright_timing: playwrightTimingPath,
   })) {
     if (!value) {
@@ -954,7 +1091,10 @@ function writePhaseArtifacts(context, details) {
       : []),
     ...(details.failures ?? []),
   ];
-  const failureFields = failureFieldsForJSON(failureRecords, details.counts ?? {});
+  const failureFields = failureFieldsForJSON(
+    failureRecords,
+    details.counts ?? {},
+  );
 
   const meta = {
     label: context.label,
@@ -971,7 +1111,8 @@ function writePhaseArtifacts(context, details) {
     derived_duration_ms: context.derivedDurationMs,
     wall_duration_ms: context.wallDurationMs,
     critical_path_wall_duration_ms: context.wallDurationMs,
-    teardown_duration_ms: context.timingBucket === "teardown" ? context.wallDurationMs : 0,
+    teardown_duration_ms:
+      context.timingBucket === "teardown" ? context.wallDurationMs : 0,
     timing_bucket: context.timingBucket,
     status: details.status,
     counts: details.counts,
@@ -983,10 +1124,16 @@ function writePhaseArtifacts(context, details) {
   writeJson(path.join(context.phaseDir, "meta.json"), meta);
 
   if (details.manifestSummary) {
-    writeJson(path.join(context.phaseDir, "manifest-summary.json"), details.manifestSummary);
+    writeJson(
+      path.join(context.phaseDir, "manifest-summary.json"),
+      details.manifestSummary,
+    );
   }
   if (details.manifestMismatch) {
-    writeJson(path.join(context.phaseDir, "manifest-mismatch.json"), details.manifestMismatch);
+    writeJson(
+      path.join(context.phaseDir, "manifest-mismatch.json"),
+      details.manifestMismatch,
+    );
   }
 
   const summary = {
@@ -1006,7 +1153,8 @@ function writePhaseArtifacts(context, details) {
     derived_duration_ms: context.derivedDurationMs,
     wall_duration_ms: context.wallDurationMs,
     critical_path_wall_duration_ms: context.wallDurationMs,
-    teardown_duration_ms: context.timingBucket === "teardown" ? context.wallDurationMs : 0,
+    teardown_duration_ms:
+      context.timingBucket === "teardown" ? context.wallDurationMs : 0,
     timing_bucket: context.timingBucket,
     exit_status: context.exitStatus,
     counting_mode: context.countingMode,
@@ -1019,6 +1167,130 @@ function writePhaseArtifacts(context, details) {
     manifest_mismatch: details.manifestMismatch,
   };
   writeJson(path.join(context.phaseDir, "phase-summary.json"), summary);
+  const targetArtifactRoot =
+    context.target === "adhoc"
+      ? context.phaseDir
+      : path.dirname(context.phaseDir);
+  const toolSummaryFile = toolSummaryPath(targetArtifactRoot);
+  const toolSummaryRel = relToRepo(toolSummaryFile);
+  const shellcheckInventoryPath = artifacts.shellcheck_inventory
+    ? resolveArtifactPath(artifacts.shellcheck_inventory)
+    : "";
+  const securityProfilesPath = artifacts.security_profiles
+    ? resolveArtifactPath(artifacts.security_profiles)
+    : "";
+  const shellcheckFilesChecked =
+    shellcheckInventoryPath && existsSync(shellcheckInventoryPath)
+      ? readFileSync(shellcheckInventoryPath, "utf8")
+          .split(/\r?\n/u)
+          .filter(Boolean).length
+      : null;
+  const securityProfileCount =
+    securityProfilesPath && existsSync(securityProfilesPath)
+      ? readFileSync(securityProfilesPath, "utf8")
+          .split(/\r?\n/u)
+          .filter(Boolean).length
+      : null;
+  const toolSummary = buildToolRunSummary({
+    target: context.target,
+    command:
+      Array.isArray(context.commandArgv) && context.commandArgv.length > 0
+        ? context.commandArgv
+        : context.command,
+    status: details.status,
+    exitCode: details.status === "pass" ? 0 : context.exitStatus || 1,
+    startedAt: context.startTime,
+    completedAt: context.endTime,
+    durationMs: context.wallDurationMs,
+    outputMode: resolveOutputMode(),
+    artifactRoot: relToRepo(targetArtifactRoot),
+    summaryArtifacts: [
+      artifactRef("tool_run_summary", toolSummaryRel),
+      artifactRef(
+        "phase_summary",
+        relToRepo(path.join(context.phaseDir, "phase-summary.json")),
+      ),
+      details.manifestSummary
+        ? artifactRef(
+            "manifest_summary",
+            relToRepo(path.join(context.phaseDir, "manifest-summary.json")),
+          )
+        : null,
+      details.manifestMismatch
+        ? artifactRef(
+            "manifest_mismatch",
+            relToRepo(path.join(context.phaseDir, "manifest-mismatch.json")),
+          )
+        : null,
+      artifacts.shellcheck_inventory
+        ? artifactRef("shellcheck_inventory", artifacts.shellcheck_inventory, "text")
+        : null,
+      artifacts.security_profiles
+        ? artifactRef("security_profiles", artifacts.security_profiles, "jsonl")
+        : null,
+    ],
+    logArtifacts: Object.entries(artifacts)
+      .filter(([key]) => key.endsWith("_log"))
+      .map(([key, value]) => artifactRef(key, value, "log")),
+    workUnits: [],
+    evidenceTargets: [
+      {
+        target: context.target,
+        status: details.status,
+        artifact_root: relToRepo(targetArtifactRoot),
+      },
+    ],
+    helperUnits: [],
+    counts: details.counts ?? {},
+    failureClass: failureFields.failure_class,
+    failures: failureRecords,
+    slowest: [],
+    rerunCommands: context.command ? [context.command] : [],
+    extensions: {
+      ...(shellcheckFilesChecked !== null
+        ? { lint_shell: { files_checked: shellcheckFilesChecked } }
+        : {}),
+      ...(securityProfileCount !== null
+        ? { security: { profile_count: securityProfileCount } }
+        : {}),
+    },
+  });
+  writeToolSummary(toolSummaryFile, toolSummary);
+
+  if (details.status !== "pass" && !suppressChildSuccess()) {
+    if (machineOutput()) {
+      process.stdout.write(`${JSON.stringify(toolSummary)}\n`);
+    } else if (!verboseOutput()) {
+      const logArtifact =
+        toolSummary.log_artifacts?.find((artifact) => artifact.role === "stderr_log")?.path ??
+        toolSummary.log_artifacts?.[0]?.path ??
+        "-";
+      const failure = failureRecords[0] ?? {};
+      process.stderr.write(
+        `[FAIL] target=${context.target} exit_code=${toolSummary.exit_code} failure_class=${toolSummary.failure_class ?? "helper"} failure_origin=${toolSummary.failure_origin ?? "helper"} work_unit=- child_target=- duration_ms=${toolSummary.duration_ms} headline="${failure.headline ?? `${context.label} failed`}"\n`,
+      );
+      process.stderr.write(
+        `[ARTIFACTS] target=${context.target} root=${toolSummary.artifact_root} summary_json=${terminalArtifactPath(toolSummary.artifact_root, toolSummaryRel)} log_artifact=${terminalArtifactPath(toolSummary.artifact_root, logArtifact)} scheduler_json=- progress_log=-\n`,
+      );
+      process.stderr.write(`[RERUN] command="${context.command}"\n`);
+      process.stderr.write(
+        `[INVESTIGATE] command="make explain-run RESULTS_DIR=${relToRepo(path.join(resultsRoot, runId))} TARGET=${context.target} DETAIL=logs"\n`,
+      );
+    }
+  }
+
+  if (details.status === "pass" && !suppressChildSuccess()) {
+    if (machineOutput()) {
+      process.stdout.write(`${JSON.stringify(toolSummary)}\n`);
+    } else {
+      process.stdout.write(resultLine(toolSummary, toolSummaryRel));
+      process.stdout.write(
+        artifactLine(toolSummary, toolSummaryRel, {
+          investigate: `make explain-run RESULTS_DIR=${relToRepo(path.join(resultsRoot, runId))} TARGET=${context.target}`,
+        }),
+      );
+    }
+  }
 }
 
 function timingSpanPath(target) {
@@ -1026,7 +1298,11 @@ function timingSpanPath(target) {
   const label = optionalEnv("CARTULARY_TIMING_LABEL", "timing-span");
   const slug = slugifyLabel(label) || "timing-span";
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return path.join(targetDir, "timing-spans", `${timestamp}-${process.pid}-${slug}.json`);
+  return path.join(
+    targetDir,
+    "timing-spans",
+    `${timestamp}-${process.pid}-${slug}.json`,
+  );
 }
 
 function createTargetOwnedTimingSpan(source = "target") {
@@ -1036,7 +1312,9 @@ function createTargetOwnedTimingSpan(source = "target") {
   }
   const bucket = normalizeTimingBucket(optionalEnv("CARTULARY_TIMING_BUCKET"));
   const label = requiredEnv("CARTULARY_TIMING_LABEL");
-  const durationMs = clampDurationMs(parseInteger("CARTULARY_TIMING_DURATION_MS", 0));
+  const durationMs = clampDurationMs(
+    parseInteger("CARTULARY_TIMING_DURATION_MS", 0),
+  );
   const startTime = optionalEnv("CARTULARY_TIMING_START_TIME");
   const endTime = optionalEnv("CARTULARY_TIMING_END_TIME");
   return {
@@ -1060,8 +1338,16 @@ function handleTimingSpan() {
 }
 
 function handleSharedExecution(args) {
-  const [group, sharedReport, status, startTime, endTime, durationText, exitStatusText, outputPath] =
-    args;
+  const [
+    group,
+    sharedReport,
+    status,
+    startTime,
+    endTime,
+    durationText,
+    exitStatusText,
+    outputPath,
+  ] = args;
   if (
     !group ||
     !sharedReport ||
@@ -1103,7 +1389,9 @@ function loadTargetOwnedTimingSpans(targetDir) {
     if (!entry.isFile() || !entry.name.endsWith(".json")) {
       continue;
     }
-    const span = JSON.parse(readFileSync(path.join(spansDir, entry.name), "utf8"));
+    const span = JSON.parse(
+      readFileSync(path.join(spansDir, entry.name), "utf8"),
+    );
     if (!span?.bucket || !timingBucketSet.has(span.bucket)) {
       continue;
     }
@@ -1121,7 +1409,12 @@ function loadTargetOwnedTimingSpans(targetDir) {
 }
 
 function loadServiceTimingSpans(target) {
-  const servicesRoot = path.join(resultsRoot, runId, "_shared", "test-services");
+  const servicesRoot = path.join(
+    resultsRoot,
+    runId,
+    "_shared",
+    "test-services",
+  );
   if (!existsSync(servicesRoot)) {
     return [];
   }
@@ -1185,9 +1478,14 @@ function phaseSummaryTimingSpan(summary) {
     start_time: summary.start_time ?? "",
     end_time: summary.end_time ?? "",
     duration_ms: clampDurationMs(
-      summary.wall_duration_ms ?? summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+      summary.wall_duration_ms ??
+        summary.logical_duration_ms ??
+        summary.duration_ms ??
+        0,
     ),
-    logical_duration_ms: clampDurationMs(summary.logical_duration_ms ?? summary.duration_ms ?? 0),
+    logical_duration_ms: clampDurationMs(
+      summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+    ),
     executed_duration_ms: clampDurationMs(summary.executed_duration_ms ?? 0),
     artifacts: summary.artifacts ?? {},
   };
@@ -1223,7 +1521,11 @@ function disjointSpanDurationMs(spans) {
     const durationMs = clampDurationMs(span.duration_ms ?? 0);
     const startMs = Date.parse(span.start_time ?? "");
     const endMs = Date.parse(span.end_time ?? "");
-    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
+    if (
+      Number.isFinite(startMs) &&
+      Number.isFinite(endMs) &&
+      endMs >= startMs
+    ) {
       intervals.push([startMs, endMs]);
       continue;
     }
@@ -1254,18 +1556,27 @@ function disjointSpanDurationMs(spans) {
 }
 
 function lifecycleTimingSpans(target, targetDir) {
-  return [...loadTargetOwnedTimingSpans(targetDir), ...loadServiceTimingSpans(target)].filter(
-    (span) => span.janitorial !== true,
-  );
+  return [
+    ...loadTargetOwnedTimingSpans(targetDir),
+    ...loadServiceTimingSpans(target),
+  ].filter((span) => span.janitorial !== true);
 }
 
 function janitorialTimingSpans(target) {
-  return loadServiceTimingSpans(target).filter((span) => span.janitorial === true);
+  return loadServiceTimingSpans(target).filter(
+    (span) => span.janitorial === true,
+  );
 }
 
 function timingStatusFailed(status) {
-  const normalized = String(status ?? "").trim().toLowerCase();
-  if (normalized === "" || normalized === "pass" || normalized === "succeeded") {
+  const normalized = String(status ?? "")
+    .trim()
+    .toLowerCase();
+  if (
+    normalized === "" ||
+    normalized === "pass" ||
+    normalized === "succeeded"
+  ) {
     return false;
   }
   return true;
@@ -1283,12 +1594,16 @@ function createDurationFields() {
   };
 }
 
-function readSummaryDurationFields(summary, accountingMode = normalizeAccountingMode(summary?.accounting_mode)) {
+function readSummaryDurationFields(
+  summary,
+  accountingMode = normalizeAccountingMode(summary?.accounting_mode),
+) {
   const logicalDurationMs = clampDurationMs(
     summary?.logical_duration_ms ?? summary?.duration_ms ?? 0,
   );
   const wallDurationMs = clampDurationMs(
-    summary?.wall_duration_ms ?? (accountingMode === "actual" ? logicalDurationMs : 0),
+    summary?.wall_duration_ms ??
+      (accountingMode === "actual" ? logicalDurationMs : 0),
   );
   return {
     wall_duration_ms: wallDurationMs,
@@ -1296,17 +1611,21 @@ function readSummaryDurationFields(summary, accountingMode = normalizeAccounting
       summary?.critical_path_wall_duration_ms ?? wallDurationMs,
     ),
     executed_duration_ms: clampDurationMs(
-      summary?.executed_duration_ms ?? (accountingMode === "actual" ? logicalDurationMs : 0),
+      summary?.executed_duration_ms ??
+        (accountingMode === "actual" ? logicalDurationMs : 0),
     ),
     logical_duration_ms: logicalDurationMs,
     reused_duration_ms: clampDurationMs(
-      summary?.reused_duration_ms ?? (accountingMode === "reused" ? logicalDurationMs : 0),
+      summary?.reused_duration_ms ??
+        (accountingMode === "reused" ? logicalDurationMs : 0),
     ),
     derived_duration_ms: clampDurationMs(
-      summary?.derived_duration_ms ?? (accountingMode === "derived" ? logicalDurationMs : 0),
+      summary?.derived_duration_ms ??
+        (accountingMode === "derived" ? logicalDurationMs : 0),
     ),
     teardown_duration_ms: clampDurationMs(
-      summary?.teardown_duration_ms ?? (summary?.timing_bucket === "teardown" ? wallDurationMs : 0),
+      summary?.teardown_duration_ms ??
+        (summary?.timing_bucket === "teardown" ? wallDurationMs : 0),
     ),
   };
 }
@@ -1319,16 +1638,25 @@ function addDurationFields(target, fields) {
 
 function durationFieldsForJSON(fields, overrides = {}) {
   return {
-    wall_duration_ms: clampDurationMs(overrides.wall_duration_ms ?? fields.wall_duration_ms),
+    wall_duration_ms: clampDurationMs(
+      overrides.wall_duration_ms ?? fields.wall_duration_ms,
+    ),
     critical_path_wall_duration_ms: clampDurationMs(
-      overrides.critical_path_wall_duration_ms ?? fields.critical_path_wall_duration_ms,
+      overrides.critical_path_wall_duration_ms ??
+        fields.critical_path_wall_duration_ms,
     ),
     executed_duration_ms: clampDurationMs(
       overrides.executed_duration_ms ?? fields.executed_duration_ms,
     ),
-    logical_duration_ms: clampDurationMs(overrides.logical_duration_ms ?? fields.logical_duration_ms),
-    reused_duration_ms: clampDurationMs(overrides.reused_duration_ms ?? fields.reused_duration_ms),
-    derived_duration_ms: clampDurationMs(overrides.derived_duration_ms ?? fields.derived_duration_ms),
+    logical_duration_ms: clampDurationMs(
+      overrides.logical_duration_ms ?? fields.logical_duration_ms,
+    ),
+    reused_duration_ms: clampDurationMs(
+      overrides.reused_duration_ms ?? fields.reused_duration_ms,
+    ),
+    derived_duration_ms: clampDurationMs(
+      overrides.derived_duration_ms ?? fields.derived_duration_ms,
+    ),
     teardown_duration_ms: clampDurationMs(
       overrides.teardown_duration_ms ?? fields.teardown_duration_ms,
     ),
@@ -1358,7 +1686,10 @@ function retryScheduledStartupAttempt(span) {
 
 function timingFailuresFromSpans(spans) {
   return spans
-    .filter((span) => timingStatusFailed(span.status) && !retryScheduledStartupAttempt(span))
+    .filter(
+      (span) =>
+        timingStatusFailed(span.status) && !retryScheduledStartupAttempt(span),
+    )
     .map(timingFailureReference);
 }
 
@@ -1396,7 +1727,10 @@ function loadSharedExecutionRecords() {
       } catch {
         continue;
       }
-      if (record?.schema_id !== sharedExecutionGroupSchemaID || !record.execution_group) {
+      if (
+        record?.schema_id !== sharedExecutionGroupSchemaID ||
+        !record.execution_group
+      ) {
         continue;
       }
       records.push({
@@ -1406,7 +1740,9 @@ function loadSharedExecutionRecords() {
         start_time: record.start_time ?? "",
         end_time: record.end_time ?? "",
         duration_ms: clampDurationMs(record.duration_ms ?? 0),
-        wall_duration_ms: clampDurationMs(record.wall_duration_ms ?? record.duration_ms ?? 0),
+        wall_duration_ms: clampDurationMs(
+          record.wall_duration_ms ?? record.duration_ms ?? 0,
+        ),
         executed_duration_ms: clampDurationMs(
           record.executed_duration_ms ?? record.duration_ms ?? 0,
         ),
@@ -1434,10 +1770,11 @@ function buildSharedExecutionGroups() {
   return [...byGroup.entries()]
     .sort((left, right) => left[0].localeCompare(right[0]))
     .map(([name, records]) => {
-      const startTime = records
-        .map((record) => record.start_time)
-        .filter((value) => Number.isFinite(Date.parse(value)))
-        .sort((left, right) => Date.parse(left) - Date.parse(right))[0] ?? "";
+      const startTime =
+        records
+          .map((record) => record.start_time)
+          .filter((value) => Number.isFinite(Date.parse(value)))
+          .sort((left, right) => Date.parse(left) - Date.parse(right))[0] ?? "";
       const endTimes = records
         .map((record) => record.end_time)
         .filter((value) => Number.isFinite(Date.parse(value)))
@@ -1454,7 +1791,9 @@ function buildSharedExecutionGroups() {
         (total, record) => total + clampDurationMs(record.executed_duration_ms),
         0,
       );
-      const failed = records.some((record) => timingStatusFailed(record.status));
+      const failed = records.some((record) =>
+        timingStatusFailed(record.status),
+      );
       const failureFields = failureFieldsForJSON(
         failed
           ? [
@@ -1477,7 +1816,10 @@ function buildSharedExecutionGroups() {
         wall_duration_ms: wallDurationMs,
         critical_path_wall_duration_ms: wallDurationMs,
         executed_duration_ms: executedDurationMs,
-        shared_reports: records.map((record) => record.shared_report).filter(Boolean).sort(),
+        shared_reports: records
+          .map((record) => record.shared_report)
+          .filter(Boolean)
+          .sort(),
         reports: records.length,
         ...failureFields,
       };
@@ -1533,7 +1875,9 @@ function summarizeTargetTiming(
   lifecycleSpans = lifecycleTimingSpans(target, targetDir),
 ) {
   const buckets = new Map();
-  const phaseSpans = phaseSummaries.map((summary) => phaseSummaryTimingSpan(summary));
+  const phaseSpans = phaseSummaries.map((summary) =>
+    phaseSummaryTimingSpan(summary),
+  );
   for (const span of phaseSpans) {
     addTimingSpanToBuckets(buckets, span);
   }
@@ -1541,7 +1885,10 @@ function summarizeTargetTiming(
     addTimingSpanToBuckets(buckets, span);
   }
   addTimingSpanToBuckets(buckets, reportCollationSpan);
-  const accountableWindow = summarizeAccountableTargetWindow([...phaseSpans, ...lifecycleSpans]);
+  const accountableWindow = summarizeAccountableTargetWindow([
+    ...phaseSpans,
+    ...lifecycleSpans,
+  ]);
 
   const bucketList = timingBucketOrder
     .map((name) => buckets.get(name))
@@ -1595,10 +1942,14 @@ function summarizeTargetDir(target) {
       }
     }
   }
-  summaries.sort((left, right) => left.start_time.localeCompare(right.start_time));
+  summaries.sort((left, right) =>
+    left.start_time.localeCompare(right.start_time),
+  );
 
   const owners = new Set();
-  const inventoryByCoverage = Object.fromEntries(testCoverageBuckets.map((coverage) => [coverage, []]));
+  const inventoryByCoverage = Object.fromEntries(
+    testCoverageBuckets.map((coverage) => [coverage, []]),
+  );
   const counts = {
     phases: summaries.length,
     ...createCounts(),
@@ -1614,7 +1965,9 @@ function summarizeTargetDir(target) {
 
   for (const summary of summaries) {
     const accountingMode = normalizeAccountingMode(summary.accounting_mode);
-    const countingMode = normalizePhaseCountingMode(summary.counting_mode ?? "counted");
+    const countingMode = normalizePhaseCountingMode(
+      summary.counting_mode ?? "counted",
+    );
     const summaryDurations = readSummaryDurationFields(summary, accountingMode);
     if (startTime === "" || summary.start_time < startTime) {
       startTime = summary.start_time;
@@ -1636,7 +1989,8 @@ function summarizeTargetDir(target) {
       counts.tests += summary.counts?.tests ?? 0;
       for (const coverage of testCoverageBuckets) {
         counts[coverage] += summary.counts?.[coverage] ?? 0;
-        counts[`${coverage}_failed`] += summary.counts?.[`${coverage}_failed`] ?? 0;
+        counts[`${coverage}_failed`] +=
+          summary.counts?.[`${coverage}_failed`] ?? 0;
       }
     }
     counts.failed += summary.counts?.failed ?? 0;
@@ -1660,9 +2014,14 @@ function summarizeTargetDir(target) {
   }
   counts.packages = owners.size;
 
-  const actualWindowWallDurationMs = computeWindowDurationMs(actualStartTime, actualEndTime);
+  const actualWindowWallDurationMs = computeWindowDurationMs(
+    actualStartTime,
+    actualEndTime,
+  );
   const wallDurationMs =
-    actualWindowWallDurationMs > 0 ? actualWindowWallDurationMs : durations.wall_duration_ms;
+    actualWindowWallDurationMs > 0
+      ? actualWindowWallDurationMs
+      : durations.wall_duration_ms;
 
   return {
     target,
@@ -1709,7 +2068,9 @@ function printInventory(targetSummary) {
         ]),
       ).values(),
     );
-    process.stdout.write(`[INVENTORY] ${targetSummary.target} ${coverage}=${uniqueItems.length}\n`);
+    process.stdout.write(
+      `[INVENTORY] ${targetSummary.target} ${coverage}=${uniqueItems.length}\n`,
+    );
     const sorted = [...uniqueItems].sort((left, right) => {
       const leftKey = `${left.phase}::${left.id}::${left.package_or_file}::${left.symbol_or_title}`;
       const rightKey = `${right.phase}::${right.id}::${right.package_or_file}::${right.symbol_or_title}`;
@@ -1733,12 +2094,16 @@ function parseTargetList(value) {
 function parseTargetSummaryArgs(args) {
   const [target, ...rest] = args;
   if (!target) {
-    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success]");
+    throw new Error(
+      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success] [--quiet-failure] [--suppress-machine-output]",
+    );
   }
 
   let requestedStatus = "pass";
   let projectionTarget = "";
   let quietSuccess = false;
+  let quietFailure = false;
+  let suppressMachineOutput = false;
   let skippedAfterFailure = [];
   let skippedFromChildTargets = [];
   let failedDependency = "";
@@ -1752,6 +2117,14 @@ function parseTargetSummaryArgs(args) {
     const option = remaining.shift();
     if (option === "--quiet-success") {
       quietSuccess = true;
+      continue;
+    }
+    if (option === "--quiet-failure") {
+      quietFailure = true;
+      continue;
+    }
+    if (option === "--suppress-machine-output") {
+      suppressMachineOutput = true;
       continue;
     }
     if (option === "--projection") {
@@ -1774,7 +2147,9 @@ function parseTargetSummaryArgs(args) {
       if (value === undefined) {
         throw new Error("--skipped-from-child requires <target>");
       }
-      skippedFromChildTargets = skippedFromChildTargets.concat(parseTargetList(value));
+      skippedFromChildTargets = skippedFromChildTargets.concat(
+        parseTargetList(value),
+      );
       continue;
     }
     if (option === "--failed-dependency") {
@@ -1796,14 +2171,28 @@ function parseTargetSummaryArgs(args) {
 
   if (projectionTarget && childTargetNames.length === 0) {
     const context = loadSummaryTopologyContext({
-      taskSurfaceManifestPath: process.env.TASK_SURFACE_MANIFEST ?? defaultTaskSurfaceManifestPath,
-      serviceBackedScheduleManifestPath: process.env.SERVICE_BACKED_SCHEDULE_MANIFEST,
+      taskSurfaceManifestPath:
+        process.env.TASK_SURFACE_MANIFEST ?? defaultTaskSurfaceManifestPath,
+      serviceBackedScheduleManifestPath:
+        process.env.SERVICE_BACKED_SCHEDULE_MANIFEST,
       browserBatchManifestPath: process.env.BROWSER_E2E_BATCH_MANIFEST,
     });
-    childTargetNames.push(...summaryProjectionChildren(context, projectionTarget));
+    childTargetNames.push(
+      ...summaryProjectionChildren(context, projectionTarget),
+    );
   }
 
-  return { target, requestedStatus, childTargetNames, skippedAfterFailure, skippedFromChildTargets, failedDependency, quietSuccess };
+  return {
+    target,
+    requestedStatus,
+    childTargetNames,
+    skippedAfterFailure,
+    skippedFromChildTargets,
+    failedDependency,
+    quietSuccess,
+    quietFailure,
+    suppressMachineOutput,
+  };
 }
 
 function targetSummaryPath(target) {
@@ -1830,6 +2219,17 @@ function loadSchedulerSummary(target) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+function readJsonIfExists(file) {
+  if (!existsSync(file)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function normalizeCounts(counts = {}) {
   const normalized = {
     phases: clampDurationMs(counts.phases ?? 0),
@@ -1841,7 +2241,9 @@ function normalizeCounts(counts = {}) {
   };
   for (const coverage of testCoverageBuckets) {
     normalized[coverage] = clampDurationMs(counts[coverage] ?? 0);
-    normalized[`${coverage}_failed`] = clampDurationMs(counts[`${coverage}_failed`] ?? 0);
+    normalized[`${coverage}_failed`] = clampDurationMs(
+      counts[`${coverage}_failed`] ?? 0,
+    );
   }
   return normalized;
 }
@@ -1872,7 +2274,9 @@ function sectionFromFlatSummary(summary, fallbackTarget) {
         : counts.non_test_failed > 0
           ? [
               {
-                failure_class: classifyExecutionFailure(summary?.target ?? fallbackTarget),
+                failure_class: classifyExecutionFailure(
+                  summary?.target ?? fallbackTarget,
+                ),
                 kind: "failure",
                 target: summary?.target ?? fallbackTarget,
                 message: "reported non-test failure",
@@ -1887,19 +2291,30 @@ function sectionFromFlatSummary(summary, fallbackTarget) {
     start_time: summary?.start_time ?? "",
     end_time: summary?.end_time ?? "",
     ...durations,
-    accounting_modes: resolveAccountingModes(summary?.accounting_modes, counts.phases),
+    accounting_modes: resolveAccountingModes(
+      summary?.accounting_modes,
+      counts.phases,
+    ),
     counts,
     failure_class: summary?.failure_class ?? failureFields.failure_class,
     failure_classes: summary?.failure_classes ?? failureFields.failure_classes,
     failures: summary?.failures ?? failureFields.failures,
-    failure_headline: summary?.failure_headline ?? failureFields.failure_headline,
+    failure_headline:
+      summary?.failure_headline ?? failureFields.failure_headline,
     slowest_lifecycle_bucket: summary?.slowest_lifecycle_bucket ?? null,
     timing_failures: summary?.timing_failures ?? [],
-    teardown_status: summary?.teardown_status ?? teardownStatus(durations.teardown_duration_ms, []),
+    teardown_status:
+      summary?.teardown_status ??
+      teardownStatus(durations.teardown_duration_ms, []),
     teardown_failures: summary?.teardown_failures ?? [],
-    fixture: normalizeFixtureSummary(summary?.target ?? fallbackTarget, summary?.fixture),
+    fixture: normalizeFixtureSummary(
+      summary?.target ?? fallbackTarget,
+      summary?.fixture,
+    ),
     artifacts: {
-      dir: summary?.artifacts?.dir ?? relToRepo(path.join(resultsRoot, runId, fallbackTarget)),
+      dir:
+        summary?.artifacts?.dir ??
+        relToRepo(path.join(resultsRoot, runId, fallbackTarget)),
       timing_json: summary?.artifacts?.timing_json ?? "",
     },
   };
@@ -1907,12 +2322,18 @@ function sectionFromFlatSummary(summary, fallbackTarget) {
 
 function targetSummarySection(summary, sectionName, fallbackTarget) {
   if (summary?.[sectionName]) {
-    return sectionFromFlatSummary(summary[sectionName], summary.target ?? fallbackTarget);
+    return sectionFromFlatSummary(
+      summary[sectionName],
+      summary.target ?? fallbackTarget,
+    );
   }
   return sectionFromFlatSummary(summary, fallbackTarget);
 }
 
-function targetSummaryAccountingView(summary, fallbackTarget = summary?.target ?? "") {
+function targetSummaryAccountingView(
+  summary,
+  fallbackTarget = summary?.target ?? "",
+) {
   return targetSummarySection(summary, "totals", fallbackTarget);
 }
 
@@ -1994,7 +2415,8 @@ function skippedChildTargetSummaries(
         target: childTarget,
         work_unit: skipped.label ?? childTarget,
         reason: skipped.reason ?? "unknown",
-        failed_dependency: skipped.failed_dependency ?? schedulerSummary.failed_work_unit ?? "",
+        failed_dependency:
+          skipped.failed_dependency ?? schedulerSummary.failed_work_unit ?? "",
       });
     }
   }
@@ -2005,15 +2427,25 @@ function skippedChildTargetSummaries(
       continue;
     }
     for (const skipped of skippedChildren) {
-      const childTarget = typeof skipped?.target === "string" ? skipped.target : "";
+      const childTarget =
+        typeof skipped?.target === "string" ? skipped.target : "";
       if (!missing.has(childTarget) || skippedByTarget.has(childTarget)) {
         continue;
       }
       skippedByTarget.set(childTarget, {
         target: childTarget,
-        work_unit: typeof skipped.work_unit === "string" && skipped.work_unit ? skipped.work_unit : childTarget,
-        reason: typeof skipped.reason === "string" && skipped.reason ? skipped.reason : "unknown",
-        failed_dependency: typeof skipped.failed_dependency === "string" ? skipped.failed_dependency : "",
+        work_unit:
+          typeof skipped.work_unit === "string" && skipped.work_unit
+            ? skipped.work_unit
+            : childTarget,
+        reason:
+          typeof skipped.reason === "string" && skipped.reason
+            ? skipped.reason
+            : "unknown",
+        failed_dependency:
+          typeof skipped.failed_dependency === "string"
+            ? skipped.failed_dependency
+            : "",
       });
     }
   }
@@ -2044,7 +2476,10 @@ function combineSummarySections(target, sections, status = "pass") {
   let failed = status !== "pass";
 
   for (const section of sections) {
-    const view = targetSummaryAccountingView(section, section?.target ?? target);
+    const view = targetSummaryAccountingView(
+      section,
+      section?.target ?? target,
+    );
     addCounts(aggregate, view.counts);
     addDurationFields(aggregate, view);
     mergeAccountingModes(accountingModes, view.accounting_modes);
@@ -2063,9 +2498,15 @@ function combineSummarySections(target, sections, status = "pass") {
   }
 
   const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
-  const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
+  const wallDurationMs =
+    windowWallDurationMs > 0
+      ? windowWallDurationMs
+      : aggregate.wall_duration_ms;
   const criticalPathWallDurationMs = wallDurationMs;
-  const failureFields = failureFieldsForJSON(failures, countsForJSON(aggregate));
+  const failureFields = failureFieldsForJSON(
+    failures,
+    countsForJSON(aggregate),
+  );
   return {
     target,
     status: failed ? "fail" : "pass",
@@ -2080,7 +2521,10 @@ function combineSummarySections(target, sections, status = "pass") {
     ...failureFields,
     slowest_lifecycle_bucket: findSlowestLifecycleBucket(sections),
     timing_failures: timingFailures,
-    teardown_status: teardownStatus(aggregate.teardown_duration_ms, teardownFailures),
+    teardown_status: teardownStatus(
+      aggregate.teardown_duration_ms,
+      teardownFailures,
+    ),
     teardown_failures: teardownFailures,
   };
 }
@@ -2099,7 +2543,9 @@ function writeTargetLine(stream, label, targetSummary) {
       ? `${slowestChild.target}(${formatDuration(slowestChild.critical_path_wall_duration_ms)})`
       : "none";
     const failedChildren =
-      (children.failed_targets ?? []).length > 0 ? children.failed_targets.join(",") : "none";
+      (children.failed_targets ?? []).length > 0
+        ? children.failed_targets.join(",")
+        : "none";
     stream.write(
       `${label} ${target} kind=aggregate${failureClassField} children=${children.present.length}/${children.expected.length} child_tests=${children.counts.tests} child_failed=${children.counts.failed} failed_children=${failedChildren} slowest_child=${slowestChildField} own_phases=${own.counts.phases} own_tests=${own.counts.tests} own_failed=${own.counts.failed} total_tests=${totals.counts.tests} total_failed=${totals.counts.failed} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} own_fixture_count=${own.fixture.total_count} own_fixture_duration=${formatDuration(own.fixture.total_duration_ms)} child_fixture_count=${children.fixture.total_count} child_fixture_duration=${formatDuration(children.fixture.total_duration_ms)} total_fixture_count=${totals.fixture.total_count} total_fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
     );
@@ -2109,6 +2555,264 @@ function writeTargetLine(stream, label, targetSummary) {
   const totals = targetSummary.totals;
   stream.write(
     `${label} ${target} kind=leaf${failureClassField} phases=${totals.counts.phases} tests=${totals.counts.tests} failed=${totals.counts.failed} ${formatCoverageCountFields(totals.counts)} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
+  );
+}
+
+function targetToolSummary(targetSummary, summaryJsonPath) {
+  const totals = targetSummary.totals ?? {};
+  const counts = totals.counts ?? {};
+  const artifactRoot =
+    targetSummary.artifacts?.dir ?? targetSummary.own?.artifacts?.dir ?? "";
+  const missingChildren = targetSummary.children?.missing ?? [];
+  const runArtifactRoot = path.join(resultsRoot, runId);
+  const runSummaryFile = path.join(runArtifactRoot, "run-summary.json");
+  const runToolSummaryFile = toolSummaryPath(runArtifactRoot);
+  const schedulerSummaryFile = schedulerSummaryPath(targetSummary.target);
+  const schedulerSummary = existsSync(schedulerSummaryFile)
+    ? loadSchedulerSummary(targetSummary.target)
+    : null;
+  const schedulerArtifacts = schedulerSummary?.artifacts ?? {};
+  const serviceMetadata = serviceSharedMetadata(runArtifactRoot);
+  const workUnits =
+    targetSummary.kind === "aggregate"
+      ? [
+          {
+            id: targetSummary.target,
+            completed: targetSummary.children?.present?.length ?? 0,
+            total: targetSummary.children?.expected?.length ?? 0,
+            status: targetSummary.status,
+          },
+        ]
+      : [];
+  const slowest = slowestTargetRef(targetSummary);
+  return buildToolRunSummary({
+    target: targetSummary.target,
+    command: ["make", targetSummary.target],
+    status: targetSummary.status,
+    exitCode: targetSummary.status === "pass" ? 0 : 1,
+    startedAt: targetSummary.start_time,
+    completedAt: targetSummary.end_time,
+    durationMs: totals.wall_duration_ms ?? targetSummary.wall_duration_ms,
+    outputMode: resolveOutputMode(),
+    artifactRoot,
+    summaryArtifacts: [
+      artifactRef("tool_run_summary", summaryJsonPath),
+      artifactRef(
+        "target_summary",
+        path.join(artifactRoot, "target-summary.json"),
+      ),
+      artifactRef("target_timing", targetSummary.artifacts?.timing_json),
+      existsSync(runSummaryFile)
+        ? artifactRef("run_summary", relToRepo(runSummaryFile))
+        : null,
+      existsSync(runToolSummaryFile)
+        ? artifactRef("run_tool_run_summary", relToRepo(runToolSummaryFile))
+        : null,
+      existsSync(schedulerSummaryFile)
+        ? artifactRef("scheduler_summary", relToRepo(schedulerSummaryFile))
+        : null,
+      schedulerArtifacts.events_jsonl
+        ? artifactRef("scheduler_events", schedulerArtifacts.events_jsonl, "jsonl")
+        : null,
+      ...serviceSharedSummaryArtifacts(runArtifactRoot),
+    ],
+    logArtifacts: [
+      schedulerArtifacts.progress_summary_log
+        ? artifactRef("scheduler_progress", schedulerArtifacts.progress_summary_log, "log")
+        : null,
+      schedulerArtifacts.scheduler_logs_dir
+        ? artifactRef("scheduler_logs", schedulerArtifacts.scheduler_logs_dir, "directory")
+        : null,
+      ...serviceSharedLogArtifacts(runArtifactRoot),
+    ],
+    workUnits,
+    evidenceTargets:
+      targetSummary.kind === "aggregate"
+        ? (targetSummary.children?.present ?? []).map((summary) => ({
+            target: summary.target,
+            status: summary.status,
+            artifact_root: summary.artifacts?.dir ?? "",
+          }))
+        : [
+            {
+              target: targetSummary.target,
+              status: targetSummary.status,
+              artifact_root: artifactRoot,
+            },
+          ],
+    helperUnits: [],
+    counts,
+    phaseAccounting: {
+      missing: missingChildren.length,
+    },
+    failureClass: targetSummary.failure_class,
+    failures: targetSummary.failures ?? [],
+    slowest: slowest ? [slowest] : [],
+    rerunCommands: [`make ${targetSummary.target}`],
+    extensions: {
+      ...(serviceMetadata ? { service_backed: serviceMetadata } : {}),
+    },
+  });
+}
+
+function serviceSharedLogArtifacts(runArtifactRoot) {
+  const serviceRoot = path.join(runArtifactRoot, "_shared", "test-services");
+  if (!existsSync(serviceRoot)) {
+    return [];
+  }
+  return readdirSync(serviceRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right))
+    .flatMap((suiteID) => {
+      const suiteRoot = path.join(serviceRoot, suiteID);
+      return [
+        ["service_child_process_log", "child-process.log"],
+        ["service_goose_log", "goose.log"],
+      ]
+        .map(([role, filename]) => {
+          const file = path.join(suiteRoot, filename);
+          return existsSync(file) ? artifactRef(role, relToRepo(file), "log") : null;
+        })
+        .filter(Boolean);
+    });
+}
+
+function serviceSharedSummaryArtifacts(runArtifactRoot) {
+  const serviceRoot = path.join(runArtifactRoot, "_shared", "test-services");
+  if (!existsSync(serviceRoot)) {
+    return [];
+  }
+  return readdirSync(serviceRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right))
+    .flatMap((suiteID) => {
+      const suiteRoot = path.join(serviceRoot, suiteID);
+      return [
+        ["service_lease", "service-lease.json"],
+        ["service_scope", "service-scope.json"],
+      ]
+        .map(([role, filename]) => {
+          const file = path.join(suiteRoot, filename);
+          return existsSync(file) ? artifactRef(role, relToRepo(file)) : null;
+        })
+        .filter(Boolean);
+    });
+}
+
+function statusFromBooleans(values) {
+  if (values.length === 0) {
+    return "unknown";
+  }
+  return values.every(Boolean) ? "pass" : "fail";
+}
+
+function serviceSharedMetadata(runArtifactRoot) {
+  const serviceRoot = path.join(runArtifactRoot, "_shared", "test-services");
+  if (!existsSync(serviceRoot)) {
+    return null;
+  }
+  const suites = readdirSync(serviceRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right))
+    .map((suiteID) => {
+      const scope = readJsonIfExists(
+        path.join(serviceRoot, suiteID, "service-scope.json"),
+      );
+      const serviceNames = ["postgres", "minio"].filter(
+        (name) => scope?.[name]?.started === true,
+      );
+      const startupStatuses = serviceNames.map(
+        (name) => scope?.[name]?.startup?.final_status === "pass",
+      );
+      const cleanupStatus = scope?.cleanup?.status ?? "unknown";
+      return {
+        suite_id: suiteID,
+        services: serviceNames,
+        readiness_status: statusFromBooleans(startupStatuses),
+        cleanup_status: cleanupStatus,
+        teardown_status: cleanupStatus === "succeeded" ? "pass" : cleanupStatus,
+        leak_status: cleanupStatus === "succeeded" ? "pass" : cleanupStatus,
+      };
+    });
+  if (suites.length === 0) {
+    return null;
+  }
+  return {
+    suite_count: suites.length,
+    services: [...new Set(suites.flatMap((suite) => suite.services))].sort(
+      (left, right) => left.localeCompare(right),
+    ),
+    readiness_status: statusFromBooleans(
+      suites.map((suite) => suite.readiness_status === "pass"),
+    ),
+    teardown_status: statusFromBooleans(
+      suites.map((suite) => suite.teardown_status === "pass"),
+    ),
+    leak_status: statusFromBooleans(
+      suites.map((suite) => suite.leak_status === "pass"),
+    ),
+    suites,
+  };
+}
+
+function writeToolSummary(file, summary) {
+  writeJson(file, summary);
+  return relToRepo(file);
+}
+
+function writeTargetResult(stream, targetSummary, summaryJsonPath) {
+  const summary = targetToolSummary(targetSummary, summaryJsonPath);
+  stream.write(resultLine(summary, summaryJsonPath));
+  if (targetSummary.status === "pass") {
+    stream.write(
+      artifactLine(summary, summaryJsonPath, {
+        investigate: `make explain-target TARGET=${targetSummary.target} DETAIL=artifacts`,
+      }),
+    );
+  }
+}
+
+function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
+  const summary = targetToolSummary(targetSummary, summaryJsonPath);
+  const failureClass = summary.failure_class ?? "helper";
+  const headline = targetSummary.failure_headline ?? "target failed";
+  const failedChildTarget = targetSummary.children?.failed_targets?.[0] ?? "";
+  const schedulerSummary = loadSchedulerSummary(summary.target);
+  const failedWorkUnit =
+    schedulerSummary?.failed_work_unit ??
+    targetSummary.children?.skipped?.[0]?.failed_dependency ??
+    targetSummary.failures?.[0]?.label ??
+    "";
+  const failureTarget = targetSummary.failures?.[0]?.target ?? "";
+  const childTarget =
+    failedChildTarget ||
+    targetSummary.children?.missing?.[0] ||
+    (failureTarget && failureTarget !== summary.target ? failureTarget : "") ||
+    targetSummary.children?.skipped?.[0]?.target ||
+    "";
+  const logArtifact = firstArtifactPath(
+    targetSummary.failures?.find((failure) => failure.artifact)?.artifact ??
+      summary.log_artifacts?.find((artifact) => artifact.role === "scheduler_progress")?.path ??
+      summary.log_artifacts?.[0]?.path,
+  );
+  const progressLog =
+    summary.log_artifacts?.find((artifact) => artifact.role === "scheduler_progress")?.path ??
+    "-";
+  const schedulerJson = schedulerSummary
+    ? relToRepo(schedulerSummaryPath(summary.target))
+    : "-";
+  stream.write(
+    `[FAIL] target=${summary.target} exit_code=${summary.exit_code} failure_class=${failureClass} failure_origin=${summary.failure_origin ?? "helper"} work_unit=${failedWorkUnit || "-"} child_target=${childTarget || "-"} duration_ms=${summary.duration_ms} headline="${headline}"\n`,
+  );
+  stream.write(
+    `[ARTIFACTS] target=${summary.target} root=${summary.artifact_root} summary_json=${terminalArtifactPath(summary.artifact_root, summaryJsonPath)} log_artifact=${terminalArtifactPath(summary.artifact_root, logArtifact)} scheduler_json=${terminalArtifactPath(summary.artifact_root, schedulerJson)} progress_log=${terminalArtifactPath(summary.artifact_root, progressLog)}\n`,
+  );
+  stream.write(`[RERUN] command="make ${summary.target}"\n`);
+  stream.write(
+    `[INVESTIGATE] command="make explain-target TARGET=${summary.target} DETAIL=artifacts"\n`,
   );
 }
 
@@ -2122,7 +2826,8 @@ function writeFailureHeadline(stream, label, summary) {
 function fixtureLineOptions() {
   return {
     thresholdMs:
-      process.env.FIXTURE_THRESHOLD_MS ?? process.env.CARTULARY_FIXTURE_THRESHOLD_MS,
+      process.env.FIXTURE_THRESHOLD_MS ??
+      process.env.CARTULARY_FIXTURE_THRESHOLD_MS,
     top: process.env.FIXTURE_TOP ?? process.env.CARTULARY_FIXTURE_TOP,
   };
 }
@@ -2134,10 +2839,18 @@ function writeFixtureLine(stream, fixture) {
   }
 }
 
-function writeChildTargetLines(stream, parentTarget, childTargets, missingChildTargetSummaries) {
+function writeChildTargetLines(
+  stream,
+  parentTarget,
+  childTargets,
+  missingChildTargetSummaries,
+) {
   for (const child of childTargets) {
-    const totals = child.totals ?? targetSummaryAccountingView(child, child.target);
-    const failureClass = child.failure_class ? ` failure_class=${child.failure_class}` : "";
+    const totals =
+      child.totals ?? targetSummaryAccountingView(child, child.target);
+    const failureClass = child.failure_class
+      ? ` failure_class=${child.failure_class}`
+      : "";
     stream.write(
       `[CHILD] ${parentTarget} ${child.target} status=${child.status}${failureClass} phases=${totals.counts?.phases ?? 0} tests=${totals.counts?.tests ?? 0} failed=${totals.counts?.failed ?? 0} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
     );
@@ -2149,7 +2862,11 @@ function writeChildTargetLines(stream, parentTarget, childTargets, missingChildT
   }
 }
 
-function writeSkippedChildTargetLines(stream, parentTarget, skippedChildTargets) {
+function writeSkippedChildTargetLines(
+  stream,
+  parentTarget,
+  skippedChildTargets,
+) {
   for (const child of skippedChildTargets) {
     stream.write(
       `[CHILD-SKIPPED] ${parentTarget} ${child.target} reason=${child.reason} failed_dependency=${child.failed_dependency || "unknown"} work_unit=${child.work_unit}\n`,
@@ -2159,12 +2876,26 @@ function writeSkippedChildTargetLines(stream, parentTarget, skippedChildTargets)
 
 function handleTargetSummary(args) {
   const reportCollationStartMs = Date.now();
-  const reportCollationStartTime = new Date(reportCollationStartMs).toISOString();
-  const { target, requestedStatus, childTargetNames, skippedAfterFailure, skippedFromChildTargets, failedDependency, quietSuccess } = parseTargetSummaryArgs(args);
+  const reportCollationStartTime = new Date(
+    reportCollationStartMs,
+  ).toISOString();
+  const {
+    target,
+    requestedStatus,
+    childTargetNames,
+    skippedAfterFailure,
+    skippedFromChildTargets,
+    failedDependency,
+    quietSuccess,
+    quietFailure,
+    suppressMachineOutput,
+  } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
   const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
   const timingFailures = timingFailuresFromSpans(lifecycleSpans);
-  const teardownFailures = timingFailures.filter((failure) => failure.bucket === "teardown");
+  const teardownFailures = timingFailures.filter(
+    (failure) => failure.bucket === "teardown",
+  );
   const { childTargets, missingChildTargetSummaries } =
     loadChildTargetSummaries(childTargetNames);
   const skippedChildTargets = skippedChildTargetSummaries(
@@ -2174,10 +2905,13 @@ function handleTargetSummary(args) {
     skippedFromChildTargets,
     failedDependency,
   );
-  const skippedChildTargetNames = new Set(skippedChildTargets.map((child) => child.target));
-  const unresolvedMissingChildTargetSummaries = missingChildTargetSummaries.filter(
-    (childTarget) => !skippedChildTargetNames.has(childTarget),
+  const skippedChildTargetNames = new Set(
+    skippedChildTargets.map((child) => child.target),
   );
+  const unresolvedMissingChildTargetSummaries =
+    missingChildTargetSummaries.filter(
+      (childTarget) => !skippedChildTargetNames.has(childTarget),
+    );
   const failedChildTargets = childTargets
     .filter((child) => child.status !== "pass")
     .map((child) => child.target);
@@ -2189,7 +2923,8 @@ function handleTargetSummary(args) {
   if (unresolvedMissingChildTargetSummaries.length > 0) {
     summary.counts.failed += unresolvedMissingChildTargetSummaries.length;
     summary.counts.non_test += unresolvedMissingChildTargetSummaries.length;
-    summary.counts.non_test_failed += unresolvedMissingChildTargetSummaries.length;
+    summary.counts.non_test_failed +=
+      unresolvedMissingChildTargetSummaries.length;
   }
   if (
     requestedStatus === "fail" &&
@@ -2221,7 +2956,9 @@ function handleTargetSummary(args) {
   const ownFailureFields = failureFieldsForJSON(
     [
       ...summary.failures,
-      ...timingFailures.map((failure) => timingFailureRecord(failure, { target })),
+      ...timingFailures.map((failure) =>
+        timingFailureRecord(failure, { target }),
+      ),
       ...unresolvedMissingChildTargetSummaries.map((childTarget) =>
         artifactFailureRecord(`missing child target summary: ${childTarget}`, {
           target,
@@ -2238,9 +2975,7 @@ function handleTargetSummary(args) {
     unresolvedMissingChildTargetSummaries.length > 0 ||
     (requestedStatus === "fail" && failedChildTargets.length === 0);
   const status =
-    ownFailed ||
-    failedChildTargets.length > 0 ||
-    requestedStatus === "fail"
+    ownFailed || failedChildTargets.length > 0 || requestedStatus === "fail"
       ? "FAIL"
       : "PASS";
   const reportCollationEndMs = Date.now();
@@ -2256,7 +2991,9 @@ function handleTargetSummary(args) {
       label: "target summary collation",
       start_time: reportCollationStartTime,
       end_time: reportCollationEndTime,
-      duration_ms: clampDurationMs(reportCollationEndMs - reportCollationStartMs),
+      duration_ms: clampDurationMs(
+        reportCollationEndMs - reportCollationStartMs,
+      ),
       status: status.toLowerCase(),
     },
     lifecycleSpans,
@@ -2266,11 +3003,20 @@ function handleTargetSummary(args) {
   summary.startTime = accountableWindow.startTime;
   summary.endTime = accountableWindow.endTime;
   summary.slowestLifecycleBucket = timing.slowest_lifecycle_bucket;
-  const ownFixture = summarizeFixtureActivities(target, { resultsRoot, runId, repoRoot });
+  const ownFixture = summarizeFixtureActivities(target, {
+    resultsRoot,
+    runId,
+    repoRoot,
+  });
   const childFixture = combineFixtureSummaries(target, null, childTargets);
-  const totalFixture = combineFixtureSummaries(target, ownFixture, childTargets);
+  const totalFixture = combineFixtureSummaries(
+    target,
+    ownFixture,
+    childTargets,
+  );
   summary.teardownDurationMs = clampDurationMs(
-    timing.buckets.find((bucket) => bucket.name === "teardown")?.duration_ms ?? 0,
+    timing.buckets.find((bucket) => bucket.name === "teardown")?.duration_ms ??
+      0,
   );
   summary.durations = durationFieldsForJSON(summary.durations, {
     wall_duration_ms: summary.wallDurationMs,
@@ -2289,7 +3035,10 @@ function handleTargetSummary(args) {
     slowest_lifecycle_bucket: timing.slowest_lifecycle_bucket,
     timing_failures: timingFailures,
     janitorial_timing: janitorialTimingSpans(target),
-    teardown_status: teardownStatus(summary.teardownDurationMs, teardownFailures),
+    teardown_status: teardownStatus(
+      summary.teardownDurationMs,
+      teardownFailures,
+    ),
     teardown_failures: teardownFailures,
     fixture: ownFixture,
     inventory_by_coverage: summary.inventoryByCoverage,
@@ -2330,7 +3079,11 @@ function handleTargetSummary(args) {
   const totalRollup =
     childTargetNames.length === 0
       ? ownSection
-      : combineSummarySections(target, [ownSection, childrenSection], status.toLowerCase());
+      : combineSummarySections(
+          target,
+          [ownSection, childrenSection],
+          status.toLowerCase(),
+        );
   const totalsSection =
     childTargetNames.length === 0
       ? { ...ownSection, fixture: ownFixture }
@@ -2344,8 +3097,9 @@ function handleTargetSummary(args) {
     target,
     kind: childTargetNames.length > 0 ? "aggregate" : "leaf",
     status: status.toLowerCase(),
-    start_time: summary.startTime,
-    end_time: summary.endTime,
+    start_time:
+      totalsSection.start_time || summary.startTime || reportCollationStartTime,
+    end_time: totalsSection.end_time || summary.endTime || reportCollationEndTime,
     ...durationFieldsForJSON(totalsSection),
     accounting_modes: totalsSection.accounting_modes,
     failure_class: totalsSection.failure_class,
@@ -2358,26 +3112,65 @@ function handleTargetSummary(args) {
     totals: totalsSection,
   };
   writeJson(path.join(summary.targetDir, "target-summary.json"), targetSummary);
+  const targetToolSummaryFile = toolSummaryPath(summary.targetDir);
+  const targetToolSummaryRel = writeToolSummary(
+    targetToolSummaryFile,
+    targetToolSummary(targetSummary, relToRepo(targetToolSummaryFile)),
+  );
+  const shouldSuppressMachineOutput =
+    suppressMachineOutput || suppressChildSuccess();
 
   if (status === "PASS") {
-    if (quietSuccess && quietOutputMode()) {
+    if (machineOutput()) {
+      if (!shouldSuppressMachineOutput) {
+        process.stdout.write(
+          `${JSON.stringify(targetToolSummary(targetSummary, targetToolSummaryRel))}\n`,
+        );
+      }
       return 0;
     }
-    writeTargetLine(process.stdout, "[PASS]", targetSummary);
-    writeFixtureLine(process.stdout, targetSummary.totals.fixture);
-    if (!quietOutputMode()) {
-      writeChildTargetLines(process.stdout, target, childTargets, unresolvedMissingChildTargetSummaries);
-      writeSkippedChildTargetLines(process.stdout, target, skippedChildTargets);
+    if ((quietSuccess || suppressChildSuccess()) && quietOutputMode()) {
+      return 0;
     }
-    printInventory(summary);
+    writeTargetResult(process.stdout, targetSummary, targetToolSummaryRel);
+    if (verboseOutput()) {
+      writeFixtureLine(process.stdout, targetSummary.totals.fixture);
+      writeChildTargetLines(
+        process.stdout,
+        target,
+        childTargets,
+        unresolvedMissingChildTargetSummaries,
+      );
+      writeSkippedChildTargetLines(process.stdout, target, skippedChildTargets);
+      printInventory(summary);
+    }
     return 0;
   }
 
-  writeTargetLine(process.stderr, "[FAIL]", targetSummary);
-  writeFailureHeadline(process.stderr, target, targetSummary);
-  writeFixtureLine(process.stderr, targetSummary.totals.fixture);
-  writeChildTargetLines(process.stderr, target, childTargets, unresolvedMissingChildTargetSummaries);
-  writeSkippedChildTargetLines(process.stderr, target, skippedChildTargets);
+  if (machineOutput()) {
+    if (!shouldSuppressMachineOutput) {
+      process.stdout.write(
+        `${JSON.stringify(targetToolSummary(targetSummary, targetToolSummaryRel))}\n`,
+      );
+    }
+    return 0;
+  }
+  if ((quietFailure || suppressChildSuccess()) && quietOutputMode()) {
+    return 0;
+  }
+  writeTargetFailure(process.stderr, targetSummary, targetToolSummaryRel);
+  if (verboseOutput()) {
+    writeTargetLine(process.stderr, "[FAIL]", targetSummary);
+    writeFailureHeadline(process.stderr, target, targetSummary);
+    writeFixtureLine(process.stderr, targetSummary.totals.fixture);
+    writeChildTargetLines(
+      process.stderr,
+      target,
+      childTargets,
+      unresolvedMissingChildTargetSummaries,
+    );
+    writeSkippedChildTargetLines(process.stderr, target, skippedChildTargets);
+  }
   return 0;
 }
 
@@ -2392,21 +3185,34 @@ function parseSummaryGroupsSpec(value) {
     .map((group) => {
       const separator = group.indexOf("=");
       if (separator <= 0) {
-        throw new Error(`invalid summary group ${group}; expected <name>=<target,target>`);
+        throw new Error(
+          `invalid summary group ${group}; expected <name>=<target,target>`,
+        );
       }
       const name = group.slice(0, separator).trim();
       const summaryTargets = parseTargetList(group.slice(separator + 1));
       if (summaryTargets.length === 0) {
-        throw new Error(`invalid summary group ${name}; expected at least one target`);
+        throw new Error(
+          `invalid summary group ${name}; expected at least one target`,
+        );
       }
       return { name, summaryTargets };
     });
 }
 
 function parseRunSummaryArgs(args) {
-  const [label, requestedStatus = "pass", completedText = "0", totalText = "0", abortedAfter = "", ...remaining] = args;
+  const [
+    label,
+    requestedStatus = "pass",
+    completedText = "0",
+    totalText = "0",
+    abortedAfter = "",
+    ...remaining
+  ] = args;
   if (!label) {
-    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [--skipped-after-failure <target,target>] [--helper-units <unit,unit>] [--completed-helper-units <unit,unit>] [--quiet-success] [summary_targets...]");
+    throw new Error(
+      "usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [--skipped-after-failure <target,target>] [--helper-units <unit,unit>] [--completed-helper-units <unit,unit>] [--quiet-success] [--quiet-failure] [--suppress-machine-output] [summary_targets...]",
+    );
   }
   const summaryTargets = [];
   const summaryGroups = [];
@@ -2414,10 +3220,20 @@ function parseRunSummaryArgs(args) {
   let helperUnits = [];
   let completedHelperUnits = [];
   let quietSuccess = false;
+  let quietFailure = false;
+  let suppressMachineOutput = false;
   while (remaining.length > 0) {
     const value = remaining.shift();
     if (value === "--quiet-success") {
       quietSuccess = true;
+      continue;
+    }
+    if (value === "--quiet-failure") {
+      quietFailure = true;
+      continue;
+    }
+    if (value === "--suppress-machine-output") {
+      suppressMachineOutput = true;
       continue;
     }
     if (value === "--summary-groups") {
@@ -2452,9 +3268,26 @@ function parseRunSummaryArgs(args) {
       completedHelperUnits = parseTargetList(spec);
       continue;
     }
+    if (value.startsWith("--")) {
+      throw new Error(`unknown run-summary option ${value}`);
+    }
     summaryTargets.push(value);
   }
-  return { label, requestedStatus, completedText, totalText, abortedAfter, summaryTargets, summaryGroups, skippedAfterFailure, helperUnits, completedHelperUnits, quietSuccess };
+  return {
+    label,
+    requestedStatus,
+    completedText,
+    totalText,
+    abortedAfter,
+    summaryTargets,
+    summaryGroups,
+    skippedAfterFailure,
+    helperUnits,
+    completedHelperUnits,
+    quietSuccess,
+    quietFailure,
+    suppressMachineOutput,
+  };
 }
 
 function createDurationAggregate() {
@@ -2531,7 +3364,7 @@ function summarizeTargetSummaries(
     const failureTarget =
       failureContext.abortedAfter && failureContext.abortedAfter !== "-"
         ? failureContext.abortedAfter
-        : failureContext.target ?? "";
+        : (failureContext.target ?? "");
     failures.push({
       failure_class: classifyExecutionFailure(
         failureTarget,
@@ -2558,7 +3391,9 @@ function summarizeTargetSummaries(
         : "";
     const missingClass =
       abortedClass ||
-      (classifyExecutionFailure(missingTarget) === "timing" ? "timing" : "artifact");
+      (classifyExecutionFailure(missingTarget) === "timing"
+        ? "timing"
+        : "artifact");
     failures.push({
       failure_class: missingClass,
       kind: missingClass === "timing" ? "timing" : "artifact",
@@ -2571,9 +3406,15 @@ function summarizeTargetSummaries(
   }
 
   const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
-  const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
+  const wallDurationMs =
+    windowWallDurationMs > 0
+      ? windowWallDurationMs
+      : aggregate.wall_duration_ms;
   const criticalPathWallDurationMs = wallDurationMs;
-  const failureFields = failureFieldsForJSON(failures, countsForJSON(aggregate));
+  const failureFields = failureFieldsForJSON(
+    failures,
+    countsForJSON(aggregate),
+  );
   return {
     aggregate,
     accountingModes,
@@ -2605,7 +3446,10 @@ function buildSummaryGroups(summaryGroups, skippedAfterFailureSet = new Set()) {
       }
       groupSummaries.push(summary);
     }
-    const summarized = summarizeTargetSummaries(groupSummaries, missingSummaryTargets);
+    const summarized = summarizeTargetSummaries(
+      groupSummaries,
+      missingSummaryTargets,
+    );
     return {
       name: group.name,
       status: summarized.failed ? "fail" : "pass",
@@ -2644,7 +3488,9 @@ function writeSummaryGroupLines(stream, label, summaryGroups) {
       group.skipped_after_failure.length > 0
         ? ` skipped_after_failure=${group.skipped_after_failure.join(",")}`
         : "";
-    const failureClass = group.failure_class ? ` failure_class=${group.failure_class}` : "";
+    const failureClass = group.failure_class
+      ? ` failure_class=${group.failure_class}`
+      : "";
     stream.write(
       `[GROUP] ${label} ${group.name} summary_targets=${group.summary_targets.join(",")} status=${group.status}${failureClass} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms, group.critical_path_wall_duration_ms, group.teardown_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}${skipped}\n`,
     );
@@ -2653,11 +3499,94 @@ function writeSummaryGroupLines(stream, label, summaryGroups) {
 
 function writeSharedExecutionGroupLines(stream, label, sharedExecutionGroups) {
   for (const group of sharedExecutionGroups) {
-    const failureClass = group.failure_class ? ` failure_class=${group.failure_class}` : "";
+    const failureClass = group.failure_class
+      ? ` failure_class=${group.failure_class}`
+      : "";
     stream.write(
       `[SHARED] ${label} ${group.name} status=${group.status}${failureClass} wall=${formatDuration(group.wall_duration_ms)} exec=${formatDuration(group.executed_duration_ms)} reports=${group.reports}\n`,
     );
   }
+}
+
+function runToolSummary(runSummary, summaryJsonPath) {
+  const slowest = slowestTargetRef(runSummary);
+  return buildToolRunSummary({
+    target: runSummary.label,
+    command: ["make", runSummary.label],
+    status: runSummary.status,
+    exitCode: runSummary.status === "pass" ? 0 : 1,
+    startedAt: runSummary.start_time,
+    completedAt: runSummary.end_time,
+    durationMs: runSummary.wall_duration_ms,
+    outputMode: resolveOutputMode(),
+    artifactRoot: runSummary.artifacts?.dir ?? "",
+    summaryArtifacts: [
+      artifactRef("tool_run_summary", summaryJsonPath),
+      artifactRef(
+        "run_summary",
+        path.join(runSummary.artifacts?.dir ?? "", "run-summary.json"),
+      ),
+    ],
+    logArtifacts: [],
+    workUnits: [
+      {
+        id: runSummary.label,
+        completed: runSummary.work_units?.completed ?? 0,
+        total: runSummary.work_units?.total ?? 0,
+        aborted_after: runSummary.work_units?.aborted_after ?? "",
+        status: runSummary.status,
+      },
+    ],
+    evidenceTargets: (runSummary.evidence_targets?.present ?? []).map(
+      (target) => ({ target }),
+    ),
+    helperUnits: (runSummary.helper_units?.names ?? []).map((name) => ({
+      target: name,
+    })),
+    counts: runSummary.counts,
+    phaseAccounting: {
+      missing: runSummary.summary_targets?.missing?.length ?? 0,
+    },
+    failureClass: runSummary.failure_class,
+    failures: runSummary.failures ?? [],
+    slowest: slowest ? [slowest] : [],
+    rerunCommands: [`make ${runSummary.label}`],
+  });
+}
+
+function writeRunResult(stream, runSummary, summaryJsonPath) {
+  const summary = runToolSummary(runSummary, summaryJsonPath);
+  stream.write(resultLine(summary, summaryJsonPath));
+  stream.write(
+    artifactLine(summary, summaryJsonPath, {
+      investigate: `make explain-run RESULTS_DIR=${summary.artifact_root}`,
+    }),
+  );
+}
+
+function writeRunFailure(stream, runSummary, summaryJsonPath) {
+  const summary = runToolSummary(runSummary, summaryJsonPath);
+  const failureClass = summary.failure_class ?? "helper";
+  const headline = runSummary.failure_headline ?? "run failed";
+  const abortedAfter = runSummary.work_units?.aborted_after || "";
+  const failedTarget =
+    abortedAfter ||
+    runSummary.summary_targets?.missing?.[0] ||
+    runSummary.failures?.[0]?.target ||
+    "";
+  const logArtifact = firstArtifactPath(
+    runSummary.failures?.find((failure) => failure.artifact)?.artifact,
+  );
+  stream.write(
+    `[FAIL] target=${summary.target} exit_code=${summary.exit_code} failure_class=${failureClass} failure_origin=${summary.failure_origin ?? "helper"} work_unit=${abortedAfter || "-"} child_target=${failedTarget || "-"} duration_ms=${summary.duration_ms} headline="${headline}"\n`,
+  );
+  stream.write(
+    `[ARTIFACTS] target=${summary.target} root=${summary.artifact_root} summary_json=${terminalArtifactPath(summary.artifact_root, summaryJsonPath)} log_artifact=${terminalArtifactPath(summary.artifact_root, logArtifact)} scheduler_json=- progress_log=-\n`,
+  );
+  stream.write(`[RERUN] command="make ${summary.target}"\n`);
+  stream.write(
+    `[INVESTIGATE] command="make explain-run RESULTS_DIR=${summary.artifact_root}"\n`,
+  );
 }
 
 function findSlowestTarget(targetSummaries) {
@@ -2682,7 +3611,8 @@ function findSlowestTarget(targetSummaries) {
 
 function findSlowestLifecycleBucket(targetSummaries) {
   return targetSummaries.reduce((current, summary) => {
-    const bucket = targetSummaryAccountingView(summary).slowest_lifecycle_bucket;
+    const bucket =
+      targetSummaryAccountingView(summary).slowest_lifecycle_bucket;
     if (!bucket) {
       return current;
     }
@@ -2699,8 +3629,21 @@ function findSlowestLifecycleBucket(targetSummaries) {
 }
 
 function handleRunSummary(args) {
-  const { label, requestedStatus, completedText, totalText, abortedAfter, summaryTargets, summaryGroups, skippedAfterFailure, helperUnits, completedHelperUnits, quietSuccess } =
-    parseRunSummaryArgs(args);
+  const {
+    label,
+    requestedStatus,
+    completedText,
+    totalText,
+    abortedAfter,
+    summaryTargets,
+    summaryGroups,
+    skippedAfterFailure,
+    helperUnits,
+    completedHelperUnits,
+    quietSuccess,
+    quietFailure,
+    suppressMachineOutput,
+  } = parseRunSummaryArgs(args);
   const completedWorkUnits = Number.parseInt(completedText, 10) || 0;
   const totalWorkUnits = Number.parseInt(totalText, 10) || 0;
   const skippedAfterFailureSet = new Set(skippedAfterFailure);
@@ -2728,7 +3671,10 @@ function handleRunSummary(args) {
   const accountingModes = summarized.accountingModes;
   const wallDurationMs = summarized.wallDurationMs;
   const criticalPathWallDurationMs = summarized.criticalPathWallDurationMs;
-  const renderedSummaryGroups = buildSummaryGroups(summaryGroups, skippedAfterFailureSet);
+  const renderedSummaryGroups = buildSummaryGroups(
+    summaryGroups,
+    skippedAfterFailureSet,
+  );
   const sharedExecutionGroups = buildSharedExecutionGroups();
   const runFailureFields = failureFieldsForJSON(
     [
@@ -2743,7 +3689,9 @@ function handleRunSummary(args) {
     renderedSummaryGroups.some((group) => group.status !== "pass") ||
     sharedExecutionGroups.some((group) => group.status !== "pass");
   const slowestTarget = findSlowestTarget(evidenceTargetSummaries);
-  const slowestLifecycleBucket = findSlowestLifecycleBucket(evidenceTargetSummaries);
+  const slowestLifecycleBucket = findSlowestLifecycleBucket(
+    evidenceTargetSummaries,
+  );
   const runFixture = combineFixtureSummaries(
     label,
     null,
@@ -2771,15 +3719,15 @@ function handleRunSummary(args) {
     names: helperUnits,
     artifacts: helperArtifactReferences(helperUnits, { root: repoRoot, runId }),
   };
-  const expectedEvidenceTargetCount = Math.max(0, summaryTargets.length - skippedAfterFailure.length);
+  const runSummaryCollationTime = new Date().toISOString();
 
   const runSummary = {
     schema_id: runSummarySchemaID,
     label,
     status: failed ? "fail" : "pass",
     work_units: workUnits,
-    start_time: summarized.startTime,
-    end_time: summarized.endTime,
+    start_time: summarized.startTime || runSummaryCollationTime,
+    end_time: summarized.endTime || runSummaryCollationTime,
     ...durationFieldsForJSON(aggregate, {
       wall_duration_ms: wallDurationMs,
       critical_path_wall_duration_ms: criticalPathWallDurationMs,
@@ -2790,7 +3738,10 @@ function handleRunSummary(args) {
     slowest_target: slowestTarget,
     slowest_lifecycle_bucket: slowestLifecycleBucket,
     timing_failures: summarized.timingFailures,
-    teardown_status: teardownStatus(aggregate.teardown_duration_ms, summarized.teardownFailures),
+    teardown_status: teardownStatus(
+      aggregate.teardown_duration_ms,
+      summarized.teardownFailures,
+    ),
     teardown_failures: summarized.teardownFailures,
     fixture: runFixture,
     artifacts: {
@@ -2803,27 +3754,61 @@ function handleRunSummary(args) {
     shared_execution_groups: sharedExecutionGroups,
   };
   writeJson(path.join(resultsRoot, runId, "run-summary.json"), runSummary);
+  const runToolSummaryFile = toolSummaryPath(path.join(resultsRoot, runId));
+  const runToolSummaryRel = writeToolSummary(
+    runToolSummaryFile,
+    runToolSummary(runSummary, relToRepo(runToolSummaryFile)),
+  );
+  const shouldSuppressMachineOutput =
+    suppressMachineOutput || suppressChildSuccess();
 
   if (!failed) {
+    if (machineOutput()) {
+      if (!shouldSuppressMachineOutput) {
+        process.stdout.write(
+          `${JSON.stringify(runToolSummary(runSummary, runToolSummaryRel))}\n`,
+        );
+      }
+      return 0;
+    }
     if (quietSuccess && quietOutputMode()) {
       return 0;
     }
-    process.stdout.write(
-      `[PASS] ${label} work_units=${completedWorkUnits}/${totalWorkUnits} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} ${formatCoverageCountFields(aggregate)} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
-    );
-    writeFixtureLine(process.stdout, runFixture);
-    writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
-    writeSharedExecutionGroupLines(process.stdout, label, sharedExecutionGroups);
+    writeRunResult(process.stdout, runSummary, runToolSummaryRel);
+    if (verboseOutput()) {
+      writeFixtureLine(process.stdout, runFixture);
+      writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
+      writeSharedExecutionGroupLines(
+        process.stdout,
+        label,
+        sharedExecutionGroups,
+      );
+    }
     return 0;
   }
 
-  process.stderr.write(
-    `[FAIL] ${label} failure_class=${runSummary.failure_class ?? "helper"} work_units=${completedWorkUnits}/${totalWorkUnits} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} ${formatCoverageCountFields(aggregate, { failed: true })} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
-  );
-  writeFailureHeadline(process.stderr, label, runSummary);
-  writeFixtureLine(process.stderr, runFixture);
-  writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
-  writeSharedExecutionGroupLines(process.stderr, label, sharedExecutionGroups);
+  if (machineOutput()) {
+    if (!shouldSuppressMachineOutput) {
+      process.stdout.write(
+        `${JSON.stringify(runToolSummary(runSummary, runToolSummaryRel))}\n`,
+      );
+    }
+    return 1;
+  }
+  if ((quietFailure || suppressChildSuccess()) && quietOutputMode()) {
+    return 1;
+  }
+  writeRunFailure(process.stderr, runSummary, runToolSummaryRel);
+  if (verboseOutput()) {
+    writeFailureHeadline(process.stderr, label, runSummary);
+    writeFixtureLine(process.stderr, runFixture);
+    writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
+    writeSharedExecutionGroupLines(
+      process.stderr,
+      label,
+      sharedExecutionGroups,
+    );
+  }
   return 1;
 }
 
@@ -2834,7 +3819,7 @@ function handleGoJSONStream() {
 
 function flushGoJSONStream(buffer, flushAll) {
   const lines = buffer.split(/\r?\n/);
-  const pending = flushAll ? "" : lines.pop() ?? "";
+  const pending = flushAll ? "" : (lines.pop() ?? "");
   for (const line of lines) {
     if (!line.trim()) {
       continue;
@@ -2887,8 +3872,10 @@ function finalizeShellPhase(context, stdoutLog, stderrLog, details) {
     return 0;
   }
 
-  for (const dossier of details.dossiers) {
-    printBlock(`failure: ${context.label}`, dossier);
+  if (showPhaseDetailOutput(context)) {
+    for (const dossier of details.dossiers) {
+      printBlock(`failure: ${context.label}`, dossier);
+    }
   }
   return 1;
 }
@@ -2937,7 +3924,11 @@ function handleShellPhase() {
     inventory: [],
     dossiers: [
       {
-        failure_class: classifyExecutionFailure(context.target, context.label, context.command),
+        failure_class: classifyExecutionFailure(
+          context.target,
+          context.label,
+          context.command,
+        ),
         coverage: "non_test",
         phase: inferPhaseFromText(context.label),
         id: "",
@@ -2966,7 +3957,9 @@ function readGoEvents(logFile) {
 
 function classifyGoTest(importPath, testName, phaseLabel) {
   const manifestIndex = loadManifestIndex();
-  const authoritative = manifestIndex.authoritativeGo.get(`${importPath}::${testName}`);
+  const authoritative = manifestIndex.authoritativeGo.get(
+    `${importPath}::${testName}`,
+  );
   const owner = toRepoRelativePackage(importPath);
   if (authoritative) {
     return {
@@ -2977,7 +3970,8 @@ function classifyGoTest(importPath, testName, phaseLabel) {
     };
   }
 
-  const inferredPhase = inferPhaseFromText(testName) || inferPhaseFromText(phaseLabel);
+  const inferredPhase =
+    inferPhaseFromText(testName) || inferPhaseFromText(phaseLabel);
   const override = accountingOverrideClassification(owner, inferredPhase);
   if (override) {
     return override;
@@ -2996,12 +3990,19 @@ function classifyGoTest(importPath, testName, phaseLabel) {
     };
   }
 
-  return accountingManifestClassification("go_tests", owner, testName, inferredPhase) ?? {
-    coverage: "unmapped",
-    phase: inferredPhase,
-    id: "",
-    owner,
-  };
+  return (
+    accountingManifestClassification(
+      "go_tests",
+      owner,
+      testName,
+      inferredPhase,
+    ) ?? {
+      coverage: "unmapped",
+      phase: inferredPhase,
+      id: "",
+      owner,
+    }
+  );
 }
 
 function classifyGoPackageFailure(importPath, phaseLabel) {
@@ -3010,7 +4011,9 @@ function classifyGoPackageFailure(importPath, phaseLabel) {
   const manifestCoverage = optionalEnv("CARTULARY_MANIFEST_COVERAGE");
   if (manifestPhase !== "" && manifestCoverage !== "") {
     return {
-      coverage: normalizeTestCoverage(manifestCoverage === "supplemental" ? "support" : manifestCoverage),
+      coverage: normalizeTestCoverage(
+        manifestCoverage === "supplemental" ? "support" : manifestCoverage,
+      ),
       phase: manifestPhase,
       id: "",
       owner,
@@ -3022,7 +4025,8 @@ function classifyGoPackageFailure(importPath, phaseLabel) {
   if (override) {
     return override;
   }
-  const support = /\bsupport\b/i.test(phaseLabel) || /\bsmoke\b/i.test(phaseLabel);
+  const support =
+    /\bsupport\b/i.test(phaseLabel) || /\bsmoke\b/i.test(phaseLabel);
   if (support) {
     return {
       coverage: "support",
@@ -3031,12 +4035,19 @@ function classifyGoPackageFailure(importPath, phaseLabel) {
       owner,
     };
   }
-  return accountingManifestClassification("go_packages", owner, "", inferredPhase) ?? {
-    coverage: "unmapped",
-    phase: inferredPhase,
-    id: "",
-    owner,
-  };
+  return (
+    accountingManifestClassification(
+      "go_packages",
+      owner,
+      "",
+      inferredPhase,
+    ) ?? {
+      coverage: "unmapped",
+      phase: inferredPhase,
+      id: "",
+      owner,
+    }
+  );
 }
 
 function createGoSelection({ manifestAware }) {
@@ -3047,7 +4058,9 @@ function createGoSelection({ manifestAware }) {
     const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
     const section = requiredEnv("CARTULARY_MANIFEST_SECTION");
     const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-    const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+    const executionDependency = optionalEnv(
+      "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
+    );
     const executionFamily = optionalEnv("CARTULARY_EXECUTION_FAMILY");
     const entries = selectGoManifestEntries(
       phase,
@@ -3060,7 +4073,8 @@ function createGoSelection({ manifestAware }) {
     const selectedTests = new Set();
     const selectedPackages = new Set();
     for (const entry of entries) {
-      const symbols = entry.symbol !== undefined ? [entry.symbol] : entry.symbols;
+      const symbols =
+        entry.symbol !== undefined ? [entry.symbol] : entry.symbols;
       selectedPackages.add(toGoImportPath(entry.package));
       for (const symbol of symbols) {
         selectedTests.add(`${toGoImportPath(entry.package)}::${symbol}`);
@@ -3085,7 +4099,9 @@ function createGoSelection({ manifestAware }) {
     matchesTest(importPath, testName) {
       if (
         packagePatterns.length > 0 &&
-        !packagePatterns.some((pattern) => packageMatchesPattern(toRepoRelativePackage(importPath), pattern))
+        !packagePatterns.some((pattern) =>
+          packageMatchesPattern(toRepoRelativePackage(importPath), pattern),
+        )
       ) {
         return false;
       }
@@ -3168,7 +4184,11 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     if (selection && !selection.matchesTest(testCase.package, testCase.test)) {
       continue;
     }
-    const classification = classifyGoTest(testCase.package, testCase.test, phaseLabel);
+    const classification = classifyGoTest(
+      testCase.package,
+      testCase.test,
+      phaseLabel,
+    );
     const owner = classification.owner;
     owners.add(owner);
     if (testCase.status !== "skip") {
@@ -3216,7 +4236,11 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     const classification = classifyGoPackageFailure(pkg, phaseLabel);
     const owner = classification.owner;
     owners.add(owner);
-    if ([...topLevel.values()].some((entry) => entry.package === pkg && entry.status === "fail")) {
+    if (
+      [...topLevel.values()].some(
+        (entry) => entry.package === pkg && entry.status === "fail",
+      )
+    ) {
       continue;
     }
     counts.failed += 1;
@@ -3236,7 +4260,10 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     });
   }
 
-  if (exitStatus === 0 && (passedCount === 0 || skippedCount > 0 || incompleteCount > 0)) {
+  if (
+    exitStatus === 0 &&
+    (passedCount === 0 || skippedCount > 0 || incompleteCount > 0)
+  ) {
     const coverageOverride = optionalEnv("CARTULARY_ACCOUNTING_COVERAGE");
     const coverage =
       coverageOverride !== ""
@@ -3271,7 +4298,11 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     counts,
     owners: Array.from(owners).sort(),
     inventory: cases
-      .filter((entry) => entry.classification.coverage !== "unmapped" || entry.classification.id)
+      .filter(
+        (entry) =>
+          entry.classification.coverage !== "unmapped" ||
+          entry.classification.id,
+      )
       .map((entry) =>
         createInventoryItem({
           coverage: entry.classification.coverage,
@@ -3295,16 +4326,25 @@ function selectGoManifestEntries(
 ) {
   const { manifest } = loadManifest(repoRoot, phase);
   return collectEntries(manifest).filter((entry) => {
-    if (entry.runner !== "go_test" || entry.section !== section || entry.coverage !== coverage) {
+    if (
+      entry.runner !== "go_test" ||
+      entry.section !== section ||
+      entry.coverage !== coverage
+    ) {
       return false;
     }
-    if (executionDependency && entry.execution_dependency !== executionDependency) {
+    if (
+      executionDependency &&
+      entry.execution_dependency !== executionDependency
+    ) {
       return false;
     }
     if (executionFamily && entry.execution_family !== executionFamily) {
       return false;
     }
-    return packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern));
+    return packagePatterns.some((pattern) =>
+      packageMatchesPattern(entry.package, pattern),
+    );
   });
 }
 
@@ -3320,7 +4360,9 @@ function evaluateGoManifest(summary) {
   const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
   const section = requiredEnv("CARTULARY_MANIFEST_SECTION");
   const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-  const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+  const executionDependency = optionalEnv(
+    "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
+  );
   const executionFamily = optionalEnv("CARTULARY_EXECUTION_FAMILY");
   const packagePatterns = optionalLines("CARTULARY_GO_PACKAGE_PATTERNS");
   const entries = selectGoManifestEntries(
@@ -3340,12 +4382,18 @@ function evaluateGoManifest(summary) {
     });
   }
   const passedTests = new Set(
-    summary.inventory.map((item) => `${toGoImportPath(item.package_or_file)}::${item.symbol_or_title}`),
+    summary.inventory.map(
+      (item) =>
+        `${toGoImportPath(item.package_or_file)}::${item.symbol_or_title}`,
+    ),
   );
   const missingIDs = [];
   for (const entry of entries) {
     const symbols = entry.symbol !== undefined ? [entry.symbol] : entry.symbols;
-    const missing = symbols.some((symbol) => !passedTests.has(`${toGoImportPath(entry.package)}::${symbol}`));
+    const missing = symbols.some(
+      (symbol) =>
+        !passedTests.has(`${toGoImportPath(entry.package)}::${symbol}`),
+    );
     if (missing) {
       missingIDs.push(entry.id);
     }
@@ -3353,7 +4401,11 @@ function evaluateGoManifest(summary) {
   const expectedIDs = new Set(entries.map((entry) => entry.id));
   const unexpectedIDs = [];
   for (const item of summary.inventory) {
-    if (item.coverage !== "authoritative" || item.id === "" || expectedIDs.has(item.id)) {
+    if (
+      item.coverage !== "authoritative" ||
+      item.id === "" ||
+      expectedIDs.has(item.id)
+    ) {
       continue;
     }
     unexpectedIDs.push(item.id);
@@ -3362,7 +4414,9 @@ function evaluateGoManifest(summary) {
     phase,
     missingIDs: [...new Set(missingIDs)].sort(),
     unexpectedIDs: [...new Set(unexpectedIDs)].sort(),
-    forbiddenIDFiles: Array.from(loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? []).sort(),
+    forbiddenIDFiles: Array.from(
+      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
+    ).sort(),
   };
 }
 
@@ -3378,17 +4432,25 @@ function handleGoPhase({ manifestAware }) {
     context.exitStatus,
     createGoSelection({ manifestAware }),
   );
-  let status = context.exitStatus === 0 && summary.dossiers.length === 0 ? "pass" : "fail";
+  let status =
+    context.exitStatus === 0 && summary.dossiers.length === 0 ? "pass" : "fail";
   let manifestMismatch = null;
   let manifestSummary = null;
 
-  if (manifestAware && context.exitStatus === 0 && summary.dossiers.length === 0) {
+  if (
+    manifestAware &&
+    context.exitStatus === 0 &&
+    summary.dossiers.length === 0
+  ) {
     const verification = evaluateGoManifest(summary);
     manifestSummary = {
       missing_ids: verification.missingIDs,
       unexpected_ids: verification.unexpectedIDs,
     };
-    if (verification.missingIDs.length > 0 || verification.unexpectedIDs.length > 0) {
+    if (
+      verification.missingIDs.length > 0 ||
+      verification.unexpectedIDs.length > 0
+    ) {
       status = "mismatch";
       manifestMismatch = {
         missing_ids: verification.missingIDs,
@@ -3419,27 +4481,33 @@ function handleGoPhase({ manifestAware }) {
   }
 
   if (status === "mismatch") {
-    printBlock(`manifest mismatch: ${context.label}`, {
-      missing_ids: renderList(manifestMismatch.missing_ids),
-      unexpected_ids: renderList(manifestMismatch.unexpected_ids),
-      forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
-      raw: manifestMismatch.raw,
-    });
+    if (showPhaseDetailOutput(context)) {
+      printBlock(`manifest mismatch: ${context.label}`, {
+        missing_ids: renderList(manifestMismatch.missing_ids),
+        unexpected_ids: renderList(manifestMismatch.unexpected_ids),
+        forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
+        raw: manifestMismatch.raw,
+      });
+    }
     return 1;
   }
 
-  for (const dossier of summary.dossiers) {
-    printBlock(`failure: ${context.label}`, {
-      ...dossier,
-      raw: renderRawList([runnerLog, stderrLog]),
-    });
+  if (showPhaseDetailOutput(context)) {
+    for (const dossier of summary.dossiers) {
+      printBlock(`failure: ${context.label}`, {
+        ...dossier,
+        raw: renderRawList([runnerLog, stderrLog]),
+      });
+    }
   }
   return 1;
 }
 
 function classifyVitestCase(ownerPath, title, phaseLabel) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
-  const authoritative = loadManifestIndex().authoritativeVitest.get(`${manifestFile}::${title}`);
+  const authoritative = loadManifestIndex().authoritativeVitest.get(
+    `${manifestFile}::${title}`,
+  );
   if (authoritative) {
     return {
       coverage: "authoritative",
@@ -3451,9 +4519,15 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
   const support =
     ownerPath.includes(".support.") ||
     supportNamedTitle(title) ||
-    isForbiddenFile(ownerPath, inferPhaseFromText(ownerPath) || inferPhaseFromText(title)) ||
+    isForbiddenFile(
+      ownerPath,
+      inferPhaseFromText(ownerPath) || inferPhaseFromText(title),
+    ) ||
     /\bsupport\b/i.test(phaseLabel);
-  const inferredPhase = inferPhaseFromText(ownerPath) || inferPhaseFromText(title) || inferPhaseFromText(phaseLabel);
+  const inferredPhase =
+    inferPhaseFromText(ownerPath) ||
+    inferPhaseFromText(title) ||
+    inferPhaseFromText(phaseLabel);
   if (support) {
     return {
       coverage: "support",
@@ -3462,12 +4536,19 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
       owner: ownerPath,
     };
   }
-  return accountingManifestClassification("vitest", ownerPath, title, inferredPhase) ?? {
-    coverage: "unmapped",
-    phase: inferredPhase,
-    id: "",
-    owner: ownerPath,
-  };
+  return (
+    accountingManifestClassification(
+      "vitest",
+      ownerPath,
+      title,
+      inferredPhase,
+    ) ?? {
+      coverage: "unmapped",
+      phase: inferredPhase,
+      id: "",
+      owner: ownerPath,
+    }
+  );
 }
 
 function normalizeVitestOwnerPath(filePath) {
@@ -3519,15 +4600,25 @@ function createVitestSelection({ manifestAware }) {
   if (manifestAware && reportSlice) {
     const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
     const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-    const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
-    const entries = selectVitestManifestEntries(phase, coverage, executionDependency);
+    const executionDependency = optionalEnv(
+      "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
+    );
+    const entries = selectVitestManifestEntries(
+      phase,
+      coverage,
+      executionDependency,
+    );
     const selected = new Set(
       entries.map((entry) => `${entry.file}::${entry.title}`),
     );
-    const selectedFiles = new Set(entries.map((entry) => normalizePath(entry.file)));
+    const selectedFiles = new Set(
+      entries.map((entry) => normalizePath(entry.file)),
+    );
     return {
       matches(ownerPath, title) {
-        return selected.has(`${vitestOwnerToSelectionFile(ownerPath)}::${title}`);
+        return selected.has(
+          `${vitestOwnerToSelectionFile(ownerPath)}::${title}`,
+        );
       },
       matchesFile(ownerPath) {
         return selectedFiles.has(vitestOwnerToSelectionFile(ownerPath));
@@ -3546,21 +4637,32 @@ function createVitestSelection({ manifestAware }) {
     };
   }
 
-  const excludedManifestDependency = optionalEnv("CARTULARY_VITEST_EXCLUDE_MANIFEST_EXECUTION_DEPENDENCY");
+  const excludedManifestDependency = optionalEnv(
+    "CARTULARY_VITEST_EXCLUDE_MANIFEST_EXECUTION_DEPENDENCY",
+  );
   const excluded = new Set();
   const excludedFiles = new Set();
   if (excludedManifestDependency !== "") {
-    for (const entry of collectVitestManifestEntries("authoritative", excludedManifestDependency)) {
+    for (const entry of collectVitestManifestEntries(
+      "authoritative",
+      excludedManifestDependency,
+    )) {
       excluded.add(`${normalizePath(entry.file)}::${entry.title}`);
       excludedFiles.add(normalizePath(entry.file));
     }
   }
 
   const selectedFiles = new Set(
-    optionalLines("CARTULARY_VITEST_FILES").map((value) => normalizeVitestSelectionFile(value)),
+    optionalLines("CARTULARY_VITEST_FILES").map((value) =>
+      normalizeVitestSelectionFile(value),
+    ),
   );
   const selectedTitles = optionalSetFromLines("CARTULARY_VITEST_TITLES");
-  if (selectedFiles.size === 0 && selectedTitles.size === 0 && excluded.size === 0) {
+  if (
+    selectedFiles.size === 0 &&
+    selectedTitles.size === 0 &&
+    excluded.size === 0
+  ) {
     return null;
   }
   return {
@@ -3640,7 +4742,8 @@ function appendVitestFileResults(value, fileResults, visited) {
 
 function findVitestAuthoritativeFileEntry(ownerPath, phaseLabel) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
-  const inferredPhase = inferPhaseFromText(ownerPath) || inferPhaseFromText(phaseLabel);
+  const inferredPhase =
+    inferPhaseFromText(ownerPath) || inferPhaseFromText(phaseLabel);
   let fallback = null;
 
   for (const entry of loadManifestIndex().authoritativeVitest.values()) {
@@ -3674,7 +4777,8 @@ function classifyVitestFileFailure(ownerPath, phaseLabel, selection = null) {
     };
   }
 
-  const inferredPhase = inferPhaseFromText(ownerPath) || inferPhaseFromText(phaseLabel);
+  const inferredPhase =
+    inferPhaseFromText(ownerPath) || inferPhaseFromText(phaseLabel);
   const support =
     ownerPath.includes(".support.") ||
     isForbiddenFile(ownerPath, inferredPhase) ||
@@ -3687,12 +4791,19 @@ function classifyVitestFileFailure(ownerPath, phaseLabel, selection = null) {
       owner: ownerPath,
     };
   }
-  return accountingManifestClassification("vitest", ownerPath, "", inferredPhase) ?? {
-    coverage: "unmapped",
-    phase: inferredPhase,
-    id: "",
-    owner: ownerPath,
-  };
+  return (
+    accountingManifestClassification(
+      "vitest",
+      ownerPath,
+      "",
+      inferredPhase,
+    ) ?? {
+      coverage: "unmapped",
+      phase: inferredPhase,
+      id: "",
+      owner: ownerPath,
+    }
+  );
 }
 
 function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
@@ -3742,7 +4853,11 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       if (selection && !selection.matches(ownerPath, assertion.title ?? "")) {
         continue;
       }
-      const classification = classifyVitestCase(ownerPath, assertion.title ?? "", phaseLabel);
+      const classification = classifyVitestCase(
+        ownerPath,
+        assertion.title ?? "",
+        phaseLabel,
+      );
       owners.add(classification.owner);
       counts.tests += 1;
       addCoverageCount(counts, classification.coverage);
@@ -3760,7 +4875,9 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       }
       counts.failed += 1;
       addCoverageFailureCount(counts, classification.coverage);
-      const failureMessage = Array.isArray(assertion.failureMessages) ? assertion.failureMessages[0] ?? "" : "";
+      const failureMessage = Array.isArray(assertion.failureMessages)
+        ? (assertion.failureMessages[0] ?? "")
+        : "";
       dossiers.push({
         coverage: classification.coverage,
         phase: classification.phase,
@@ -3768,7 +4885,9 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
         runner: "vitest",
         package_or_file: classification.owner,
         symbol_or_title: assertion.title ?? "(missing title)",
-        message: failureMessage.split("\n")[0] || `${assertion.title ?? "vitest assertion"} failed`,
+        message:
+          failureMessage.split("\n")[0] ||
+          `${assertion.title ?? "vitest assertion"} failed`,
         reproduce: renderVitestReproduceCommand(
           classification.owner,
           (assertion.title ?? "").trim(),
@@ -3812,10 +4931,17 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
 function selectVitestManifestEntries(phase, coverage, executionDependency) {
   const { manifest } = loadManifest(repoRoot, phase);
   return collectEntries(manifest).filter((entry) => {
-    if (entry.runner !== "vitest" || entry.section !== "unit" || entry.coverage !== coverage) {
+    if (
+      entry.runner !== "vitest" ||
+      entry.section !== "unit" ||
+      entry.coverage !== coverage
+    ) {
       return false;
     }
-    if (executionDependency && entry.execution_dependency !== executionDependency) {
+    if (
+      executionDependency &&
+      entry.execution_dependency !== executionDependency
+    ) {
       return false;
     }
     return true;
@@ -3831,8 +4957,14 @@ function collectVitestManifestEntries(coverage, executionDependency) {
 function evaluateVitestManifest(summary) {
   const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
   const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-  const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
-  const entries = selectVitestManifestEntries(phase, coverage, executionDependency);
+  const executionDependency = optionalEnv(
+    "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
+  );
+  const entries = selectVitestManifestEntries(
+    phase,
+    coverage,
+    executionDependency,
+  );
   const executedKeys = new Set(
     summary.inventory
       .filter((item) => item.coverage === "authoritative")
@@ -3845,7 +4977,12 @@ function evaluateVitestManifest(summary) {
     .sort();
   const expectedIDs = new Set(entries.map((entry) => entry.id));
   const unexpectedIDs = summary.inventory
-    .filter((item) => item.coverage === "authoritative" && item.id && !expectedIDs.has(item.id))
+    .filter(
+      (item) =>
+        item.coverage === "authoritative" &&
+        item.id &&
+        !expectedIDs.has(item.id),
+    )
     .map((item) => item.id)
     .sort();
 
@@ -3853,7 +4990,9 @@ function evaluateVitestManifest(summary) {
     phase,
     missingIDs,
     unexpectedIDs,
-    forbiddenIDFiles: Array.from(loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? []).sort(),
+    forbiddenIDFiles: Array.from(
+      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
+    ).sort(),
   };
 }
 
@@ -3900,7 +5039,9 @@ function handleVitestPhase({ manifestAware }) {
         watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
       },
     });
-    printBlock(`failure: ${context.label}`, dossier);
+    if (showPhaseDetailOutput(context)) {
+      printBlock(`failure: ${context.label}`, dossier);
+    }
     return 1;
   }
 
@@ -3940,7 +5081,10 @@ function handleVitestPhase({ manifestAware }) {
       missing_ids: verification.missingIDs,
       unexpected_ids: verification.unexpectedIDs,
     };
-    if (verification.missingIDs.length > 0 || verification.unexpectedIDs.length > 0) {
+    if (
+      verification.missingIDs.length > 0 ||
+      verification.unexpectedIDs.length > 0
+    ) {
       status = "mismatch";
       manifestMismatch = {
         missing_ids: verification.missingIDs,
@@ -3972,19 +5116,23 @@ function handleVitestPhase({ manifestAware }) {
     return 0;
   }
   if (status === "mismatch") {
-    printBlock(`manifest mismatch: ${context.label}`, {
-      missing_ids: renderList(manifestMismatch.missing_ids),
-      unexpected_ids: renderList(manifestMismatch.unexpected_ids),
-      forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
-      raw: manifestMismatch.raw,
-    });
+    if (showPhaseDetailOutput(context)) {
+      printBlock(`manifest mismatch: ${context.label}`, {
+        missing_ids: renderList(manifestMismatch.missing_ids),
+        unexpected_ids: renderList(manifestMismatch.unexpected_ids),
+        forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
+        raw: manifestMismatch.raw,
+      });
+    }
     return 1;
   }
-  for (const dossier of summary.dossiers) {
-    printBlock(`failure: ${context.label}`, {
-      ...dossier,
-      raw: renderRawList([reportFile, stdoutLog, stderrLog]),
-    });
+  if (showPhaseDetailOutput(context)) {
+    for (const dossier of summary.dossiers) {
+      printBlock(`failure: ${context.label}`, {
+        ...dossier,
+        raw: renderRawList([reportFile, stdoutLog, stderrLog]),
+      });
+    }
   }
   return 1;
 }
@@ -4007,7 +5155,9 @@ function isForbiddenFile(file, phase) {
 
 function classifyPlaywrightCase(file, title, phaseLabel) {
   const normalizedFile = normalizePlaywrightFile(file);
-  const manifested = loadManifestIndex().manifestPlaywright.get(`${normalizedFile}::${title}`);
+  const manifested = loadManifestIndex().manifestPlaywright.get(
+    `${normalizedFile}::${title}`,
+  );
   if (manifested && manifested.coverage !== "authoritative") {
     return {
       coverage: "support",
@@ -4016,7 +5166,9 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
       owner: normalizedFile,
     };
   }
-  const authoritative = loadManifestIndex().authoritativePlaywright.get(`${normalizedFile}::${title}`);
+  const authoritative = loadManifestIndex().authoritativePlaywright.get(
+    `${normalizedFile}::${title}`,
+  );
   if (authoritative) {
     return {
       coverage: "authoritative",
@@ -4026,7 +5178,9 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
     };
   }
   const inferredPhase =
-    inferPhaseFromText(normalizedFile) || inferPhaseFromText(title) || inferPhaseFromText(phaseLabel);
+    inferPhaseFromText(normalizedFile) ||
+    inferPhaseFromText(title) ||
+    inferPhaseFromText(phaseLabel);
   const support =
     normalizedFile.includes(".support.") ||
     isForbiddenFile(normalizedFile, inferredPhase) ||
@@ -4040,12 +5194,19 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
       owner: normalizedFile,
     };
   }
-  return accountingManifestClassification("playwright", normalizedFile, title, inferredPhase) ?? {
-    coverage: "unmapped",
-    phase: inferredPhase,
-    id: "",
-    owner: normalizedFile,
-  };
+  return (
+    accountingManifestClassification(
+      "playwright",
+      normalizedFile,
+      title,
+      inferredPhase,
+    ) ?? {
+      coverage: "unmapped",
+      phase: inferredPhase,
+      id: "",
+      owner: normalizedFile,
+    }
+  );
 }
 
 function flattenPlaywrightSuites(suites, specs = []) {
@@ -4077,7 +5238,11 @@ function updateTimingWindow(window, startMs, durationMs) {
 }
 
 function timingWindowDurationMs(window) {
-  if (window.startMs === null || window.endMs === null || window.endMs < window.startMs) {
+  if (
+    window.startMs === null ||
+    window.endMs === null ||
+    window.endMs < window.startMs
+  ) {
     return 0;
   }
   return window.endMs - window.startMs;
@@ -4151,10 +5316,17 @@ function summarizePlaywrightTiming(specs, phase) {
     files: fileSummaries,
     tests,
     executed_duration_ms: executedDurationMs,
-    wall_duration_ms: hasTimestamp ? timingWindowDurationMs(totalWindow) : executedDurationMs,
+    wall_duration_ms: hasTimestamp
+      ? timingWindowDurationMs(totalWindow)
+      : executedDurationMs,
     start_time:
-      hasTimestamp && totalWindow.startMs !== null ? new Date(totalWindow.startMs).toISOString() : "",
-    end_time: hasTimestamp && totalWindow.endMs !== null ? new Date(totalWindow.endMs).toISOString() : "",
+      hasTimestamp && totalWindow.startMs !== null
+        ? new Date(totalWindow.startMs).toISOString()
+        : "",
+    end_time:
+      hasTimestamp && totalWindow.endMs !== null
+        ? new Date(totalWindow.endMs).toISOString()
+        : "",
     source: hasTimestamp
       ? "playwright_result_timestamps"
       : hasDuration
@@ -4176,7 +5348,9 @@ function createPlaywrightSelection({ manifestAware }) {
   if (manifestAware && reportSlice) {
     const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
     const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-    const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+    const executionDependency = optionalEnv(
+      "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
+    );
     const selected = new Set(
       selectPlaywrightManifestEntries(phase, coverage, executionDependency).map(
         (entry) => `${entry.file}::${entry.title}`,
@@ -4190,7 +5364,9 @@ function createPlaywrightSelection({ manifestAware }) {
   }
 
   const selectedFiles = new Set(
-    optionalLines("CARTULARY_PLAYWRIGHT_FILES").map((value) => normalizePlaywrightFile(value)),
+    optionalLines("CARTULARY_PLAYWRIGHT_FILES").map((value) =>
+      normalizePlaywrightFile(value),
+    ),
   );
   const selectedTitles = optionalSetFromLines("CARTULARY_PLAYWRIGHT_TITLES");
   if (selectedFiles.size === 0 && selectedTitles.size === 0) {
@@ -4278,7 +5454,11 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
   }
 
   for (const spec of specs) {
-    const classification = classifyPlaywrightCase(spec.file ?? "", spec.title ?? "", phaseLabel);
+    const classification = classifyPlaywrightCase(
+      spec.file ?? "",
+      spec.title ?? "",
+      phaseLabel,
+    );
     owners.add(classification.owner);
     const executedResults = [];
     for (const test of spec.tests ?? []) {
@@ -4313,13 +5493,20 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
       );
     }
 
-    if (successful && executedResults.every((entry) => entry.status === "passed" || entry.status === "flaky")) {
+    if (
+      successful &&
+      executedResults.every(
+        (entry) => entry.status === "passed" || entry.status === "flaky",
+      )
+    ) {
       continue;
     }
 
     counts.failed += 1;
     addCoverageFailureCount(counts, classification.coverage);
-    for (const attempt of executedResults.filter((entry) => entry.status !== "passed" && entry.status !== "flaky")) {
+    for (const attempt of executedResults.filter(
+      (entry) => entry.status !== "passed" && entry.status !== "flaky",
+    )) {
       const attachments = (attempt.result.attachments ?? [])
         .map((attachment) => attachment?.path)
         .filter((entry) => typeof entry === "string" && entry !== "")
@@ -4340,7 +5527,10 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
         symbol_or_title: spec.title ?? "(missing title)",
         message: message.trim(),
         reproduce: `pnpm --dir apps/web exec playwright test ${classification.owner.replace(/^apps\/web\//, "")} -g '^${escapeSingleQuotes(spec.title ?? "")}$'`,
-        raw: attachments.length > 0 ? `${relToRepo(reportFile)};${attachments.join(";")}` : relToRepo(reportFile),
+        raw:
+          attachments.length > 0
+            ? `${relToRepo(reportFile)};${attachments.join(";")}`
+            : relToRepo(reportFile),
         retry: String(attempt.retry ?? 0),
       });
     }
@@ -4375,17 +5565,27 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     owners: Array.from(owners).sort(),
     inventory,
     dossiers,
-    playwrightTiming: summarizePlaywrightTiming(specs, inferPhaseFromText(phaseLabel)),
+    playwrightTiming: summarizePlaywrightTiming(
+      specs,
+      inferPhaseFromText(phaseLabel),
+    ),
   };
 }
 
 function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
   const { manifest } = loadManifest(repoRoot, phase);
   return collectEntries(manifest).filter((entry) => {
-    if (entry.runner !== "playwright" || entry.section !== "e2e" || entry.coverage !== coverage) {
+    if (
+      entry.runner !== "playwright" ||
+      entry.section !== "e2e" ||
+      entry.coverage !== coverage
+    ) {
       return false;
     }
-    if (executionDependency && entry.execution_dependency !== executionDependency) {
+    if (
+      executionDependency &&
+      entry.execution_dependency !== executionDependency
+    ) {
       return false;
     }
     return true;
@@ -4395,9 +5595,16 @@ function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
 function evaluatePlaywrightManifest(summary) {
   const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
   const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-  const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
-  const entries = selectPlaywrightManifestEntries(phase, coverage, executionDependency);
-  const expectedCoverage = coverage === "authoritative" ? "authoritative" : "support";
+  const executionDependency = optionalEnv(
+    "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
+  );
+  const entries = selectPlaywrightManifestEntries(
+    phase,
+    coverage,
+    executionDependency,
+  );
+  const expectedCoverage =
+    coverage === "authoritative" ? "authoritative" : "support";
   const executedKeys = new Set(
     summary.inventory
       .filter((item) => item.coverage === expectedCoverage)
@@ -4409,14 +5616,21 @@ function evaluatePlaywrightManifest(summary) {
     .sort();
   const expectedIDs = new Set(entries.map((entry) => entry.id));
   const unexpectedIDs = summary.inventory
-    .filter((item) => item.coverage === expectedCoverage && item.id && !expectedIDs.has(item.id))
+    .filter(
+      (item) =>
+        item.coverage === expectedCoverage &&
+        item.id &&
+        !expectedIDs.has(item.id),
+    )
     .map((item) => item.id)
     .sort();
   return {
     phase,
     missingIDs,
     unexpectedIDs,
-    forbiddenIDFiles: Array.from(loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? []).sort(),
+    forbiddenIDFiles: Array.from(
+      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
+    ).sort(),
   };
 }
 
@@ -4440,13 +5654,17 @@ function handlePlaywrightPhase({ manifestAware }) {
   );
   if (reportSlice && summary.playwrightTiming) {
     const timing = summary.playwrightTiming;
-    const executedDurationMs = clampDurationMs(timing.executed_duration_ms ?? 0);
+    const executedDurationMs = clampDurationMs(
+      timing.executed_duration_ms ?? 0,
+    );
     const wallDurationMs = clampDurationMs(timing.wall_duration_ms ?? 0);
     if (executedDurationMs > 0) {
       context.executedDurationMs = executedDurationMs;
       context.logicalDurationMs = executedDurationMs;
-      context.reusedDurationMs = context.accountingMode === "reused" ? executedDurationMs : 0;
-      context.derivedDurationMs = context.accountingMode === "derived" ? executedDurationMs : 0;
+      context.reusedDurationMs =
+        context.accountingMode === "reused" ? executedDurationMs : 0;
+      context.derivedDurationMs =
+        context.accountingMode === "derived" ? executedDurationMs : 0;
     }
     if (wallDurationMs > 0) {
       context.wallDurationMs = wallDurationMs;
@@ -4468,13 +5686,19 @@ function handlePlaywrightPhase({ manifestAware }) {
       missing_ids: verification.missingIDs,
       unexpected_ids: verification.unexpectedIDs,
     };
-    if (verification.missingIDs.length > 0 || verification.unexpectedIDs.length > 0) {
+    if (
+      verification.missingIDs.length > 0 ||
+      verification.unexpectedIDs.length > 0
+    ) {
       status = "mismatch";
       manifestMismatch = {
         missing_ids: verification.missingIDs,
         unexpected_ids: verification.unexpectedIDs,
         forbidden_id_files: verification.forbiddenIDFiles,
-        selection: selectionReport && existsSync(selectionReport) ? relToRepo(selectionReport) : "",
+        selection:
+          selectionReport && existsSync(selectionReport)
+            ? relToRepo(selectionReport)
+            : "",
         runner: relToRepo(reportFile),
       };
     }
@@ -4505,24 +5729,34 @@ function handlePlaywrightPhase({ manifestAware }) {
     return 0;
   }
   if (status === "mismatch") {
-    printBlock(`manifest mismatch: ${context.label}`, {
-      missing_ids: renderList(manifestMismatch.missing_ids),
-      unexpected_ids: renderList(manifestMismatch.unexpected_ids),
-      forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
-      selection: manifestMismatch.selection,
-      runner: manifestMismatch.runner,
-    });
+    if (showPhaseDetailOutput(context)) {
+      printBlock(`manifest mismatch: ${context.label}`, {
+        missing_ids: renderList(manifestMismatch.missing_ids),
+        unexpected_ids: renderList(manifestMismatch.unexpected_ids),
+        forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
+        selection: manifestMismatch.selection,
+        runner: manifestMismatch.runner,
+      });
+    }
     return 1;
   }
-  for (const dossier of summary.dossiers) {
-    const { runner, raw, ...rest } = dossier;
-    printBlock(`failure: ${context.label}`, {
-      ...rest,
-      test_runner: runner,
-      selection: selectionReport && existsSync(selectionReport) ? relToRepo(selectionReport) : "",
-      runner: relToRepo(reportFile),
-      raw: mergeRawPaths(raw, renderRawList([reportFile, outputDir, serverLog, webLog])),
-    });
+  if (showPhaseDetailOutput(context)) {
+    for (const dossier of summary.dossiers) {
+      const { runner, raw, ...rest } = dossier;
+      printBlock(`failure: ${context.label}`, {
+        ...rest,
+        test_runner: runner,
+        selection:
+          selectionReport && existsSync(selectionReport)
+            ? relToRepo(selectionReport)
+            : "",
+        runner: relToRepo(reportFile),
+        raw: mergeRawPaths(
+          raw,
+          renderRawList([reportFile, outputDir, serverLog, webLog]),
+        ),
+      });
+    }
   }
   return 1;
 }

@@ -140,11 +140,45 @@ function renderHuman(guidance, detail) {
   return renderSummary(guidance).join("\n");
 }
 
+function candidateTargets(target) {
+  const needle = target.toLowerCase();
+  return allTargetNames()
+    .map((candidate) => {
+      const lower = candidate.toLowerCase();
+      let score = 0;
+      if (lower === needle) {
+        score += 100;
+      }
+      if (lower.startsWith(needle) || needle.startsWith(lower)) {
+        score += 50;
+      }
+      if (lower.includes(needle) || needle.includes(lower)) {
+        score += 25;
+      }
+      for (const part of needle.split(/[-_.]+/u).filter(Boolean)) {
+        if (lower.includes(part)) {
+          score += 5;
+        }
+      }
+      return { candidate, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score || left.candidate.localeCompare(right.candidate))
+    .slice(0, 10)
+    .map((entry) => entry.candidate);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const guidance = targetGuidance(options.target);
   if (!guidance) {
-    throw new Error(`unknown target ${options.target}; expected one of: ${allTargetNames().join(", ")}`);
+    const candidates = candidateTargets(options.target);
+    const suffix = candidates.length > 0
+      ? ` nearest=${candidates.join(",")}`
+      : " nearest=none";
+    throw new Error(
+      `unknown target ${options.target}; expected="TARGET=<target> [DETAIL=summary|rows|artifacts]"; run make help-all for the complete target list;${suffix}`,
+    );
   }
   if (options.json) {
     process.stdout.write(`${JSON.stringify(guidance, null, 2)}\n`);

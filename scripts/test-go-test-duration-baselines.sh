@@ -23,6 +23,23 @@ assert_contains() {
   fi
 }
 
+tool_logs_from_result() {
+  local output="$1"
+  local root
+  root="$(printf '%s\n' "$output" | sed -n 's/.* artifact_root=\([^ ]*\) .*/\1/p' | head -n 1)"
+  if [[ -z "$root" ]]; then
+    fail "missing artifact_root in output: $output"
+  fi
+  local dir
+  if [[ "$root" = /* ]]; then
+    dir="$root"
+  else
+    dir="$ROOT_DIR/$root"
+  fi
+  [[ -f "$dir/stdout.log" ]] && cat "$dir/stdout.log"
+  [[ -f "$dir/stderr.log" ]] && cat "$dir/stderr.log"
+}
+
 write_empty_baseline() {
   local file="$1"
 
@@ -104,7 +121,8 @@ make_update_output="$(
   PRUNE_OBSERVED_PACKAGES=1 \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baselines 2>&1
 )"
-assert_contains "$make_update_output" "skipped contaminated Go shard timing artifacts" "make contaminated refresh skip output"
+assert_contains "$make_update_output" "[RESULT] target=go-test-duration-baselines status=pass" "make baseline update summary"
+assert_contains "$(tool_logs_from_result "$make_update_output")" "skipped contaminated Go shard timing artifacts" "make contaminated refresh skip output"
 RESULTS_DIR="$results_dir" \
 GO_TEST_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
   "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baseline-drift >/dev/null 2>/dev/null
@@ -177,7 +195,8 @@ allowed_output="$(
   ALLOW_COMMAND_OVERHEAD_DECREASE=1 \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baselines 2>&1
 )"
-assert_contains "$allowed_output" "updated 3 Go test baselines" "allowed command overhead update output"
+assert_contains "$allowed_output" "[RESULT] target=go-test-duration-baselines status=pass" "allowed command overhead update summary"
+assert_contains "$(tool_logs_from_result "$allowed_output")" "updated 3 Go test baselines" "allowed command overhead update output"
 
 "$NODE_BIN" - "$tmp_dir/allowed-command-overhead.json" <<'EOF'
 const fs = require("node:fs");

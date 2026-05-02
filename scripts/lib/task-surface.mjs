@@ -1,9 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
+import {
+  hasMakeNodeTool,
+  makeNodeToolMakeEnvVars,
+} from "./make-node-tools.mjs";
 import { resourceOverrideEnvVariablesForScheduler } from "./scheduler-resources.mjs";
-import { hasMakeNodeTool, makeNodeToolMakeEnvVars } from "./make-node-tools.mjs";
 import {
   collectExplicitSummaryProjectionErrors,
   loadSummaryTopologyContext,
@@ -17,12 +19,74 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "tools",
   "task_surface_manifest.json",
 );
-export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
+export const defaultGeneratedMakePath = path.join(
+  repoRoot,
+  "tools",
+  "task_surface.generated.mk",
+);
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
 
-const validClassifications = new Set(["public", "check_internal", "helper_only"]);
-const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
-const validServiceRequirements = new Set(["postgres", "minio", "browser_stack", "vite"]);
+const validClassifications = new Set([
+  "public",
+  "check_internal",
+  "helper_only",
+]);
+const validInclusions = new Set([
+  "test",
+  "check",
+  "ci",
+  "release-check",
+  "helper_only",
+]);
+const validServiceRequirements = new Set([
+  "postgres",
+  "minio",
+  "browser_stack",
+  "vite",
+]);
+const validOutputClasses = new Set([
+  "aggregate_summary_with_artifacts",
+  "destructive_human",
+  "human_summary",
+  "interactive_raw",
+  "machine_stdout",
+  "scheduler_summary_with_artifacts",
+  "service_summary",
+  "summary_with_artifacts",
+]);
+const validArtifactPolicies = new Set([
+  "none",
+  "run_and_target_summaries",
+  "scheduler_and_tool_run_summaries",
+  "service_logs_and_summary",
+  "tool_run_summary",
+]);
+const validRawStreamPolicies = new Set([
+  "explicit_detail_only",
+  "failure_or_verbose",
+  "human_visible_actions",
+  "interactive",
+  "machine_json_stdout",
+  "never_default",
+]);
+const standardSuccessBudgetKeys = new Set([
+  "stdout_lines",
+  "stdout_bytes",
+  "stderr_lines",
+  "stderr_bytes",
+]);
+const standardFailureBudgetKeys = new Set([
+  "stderr_lines",
+  "stderr_bytes",
+  "excerpt_lines",
+  "excerpt_bytes",
+]);
+const artifactPolicyNoneOutputClasses = new Set([
+  "destructive_human",
+  "human_summary",
+  "interactive_raw",
+  "machine_stdout",
+]);
 const validMakeRecipeTypes = new Set([
   "alias",
   "cleanup",
@@ -39,7 +103,9 @@ const validMakeRecipeTypes = new Set([
 ]);
 const compactHelpMaxEntries = 12;
 const helpTargetColumnWidth = 30;
-const helpDescriptionIndent = " ".repeat(2 + "make ".length + helpTargetColumnWidth + 1);
+const helpDescriptionIndent = " ".repeat(
+  2 + "make ".length + helpTargetColumnWidth + 1,
+);
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
@@ -75,7 +141,9 @@ export function harnessCheckEntries(manifest) {
 }
 
 export function harnessCheckEntryMap(manifest) {
-  return new Map(harnessCheckEntries(manifest).map((entry) => [entry.name, entry]));
+  return new Map(
+    harnessCheckEntries(manifest).map((entry) => [entry.name, entry]),
+  );
 }
 
 export function helpTiers(manifest) {
@@ -87,7 +155,10 @@ export function compactHelpEntries(manifest) {
 }
 
 export function summaryEntryMap(manifest) {
-  return new Map([...targetEntryMap(manifest), ...harnessCheckEntryMap(manifest)]);
+  return new Map([
+    ...targetEntryMap(manifest),
+    ...harnessCheckEntryMap(manifest),
+  ]);
 }
 
 export function harnessTierChecks(manifest, name) {
@@ -129,7 +200,9 @@ export function sequenceDefinition(manifest, name) {
 }
 
 export function makeRecipeEntries(manifest) {
-  return Object.entries(manifest.make_recipes ?? {}).map(([target, recipe]) => ({ target, ...recipe }));
+  return Object.entries(manifest.make_recipes ?? {}).map(
+    ([target, recipe]) => ({ target, ...recipe }),
+  );
 }
 
 export function makeIdentifier(value) {
@@ -139,7 +212,9 @@ export function makeIdentifier(value) {
 function validateTaskSurfaceManifest(manifest, manifestPath) {
   const errors = collectTaskSurfaceManifestErrors(manifest);
   if (errors.length > 0) {
-    throw new Error(`${manifestPath} is invalid:\n${errors.map((error) => `  - ${error}`).join("\n")}`);
+    throw new Error(
+      `${manifestPath} is invalid:\n${errors.map((error) => `  - ${error}`).join("\n")}`,
+    );
   }
 }
 
@@ -170,14 +245,18 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
     }
     targets.set(entry.name, entry);
     if (!validClassifications.has(entry.classification)) {
-      errors.push(`${entry.name} has invalid classification ${JSON.stringify(entry.classification)}`);
+      errors.push(
+        `${entry.name} has invalid classification ${JSON.stringify(entry.classification)}`,
+      );
     }
     if (!Array.isArray(entry.included_in) || entry.included_in.length === 0) {
       errors.push(`${entry.name} must declare included_in[]`);
     } else {
       for (const inclusion of entry.included_in) {
         if (!validInclusions.has(inclusion)) {
-          errors.push(`${entry.name} has invalid included_in value ${JSON.stringify(inclusion)}`);
+          errors.push(
+            `${entry.name} has invalid included_in value ${JSON.stringify(inclusion)}`,
+          );
         }
       }
     }
@@ -199,21 +278,31 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         errors.push(`${entry.name}.service_requirements must be an array`);
       } else {
         const seenRequirements = new Set();
-        for (const [requirementIndex, requirement] of entry.service_requirements.entries()) {
+        for (const [
+          requirementIndex,
+          requirement,
+        ] of entry.service_requirements.entries()) {
           const label = `${entry.name}.service_requirements[${requirementIndex + 1}]`;
           if (typeof requirement !== "string" || requirement.trim() === "") {
             errors.push(`${label} must be a non-empty string`);
             continue;
           }
           if (!validServiceRequirements.has(requirement)) {
-            errors.push(`${label} has invalid service requirement ${JSON.stringify(requirement)}`);
+            errors.push(
+              `${label} has invalid service requirement ${JSON.stringify(requirement)}`,
+            );
           }
           if (seenRequirements.has(requirement)) {
-            errors.push(`${entry.name}.service_requirements contains duplicate ${requirement}`);
+            errors.push(
+              `${entry.name}.service_requirements contains duplicate ${requirement}`,
+            );
           }
           seenRequirements.add(requirement);
         }
       }
+    }
+    if (entry.classification === "public") {
+      validateOutputPolicy(errors, entry);
     }
   }
 
@@ -240,7 +329,10 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         continue;
       }
       harnessChecks.set(entry.name, entry);
-      if (!Array.isArray(entry.backing_scripts) || entry.backing_scripts.length === 0) {
+      if (
+        !Array.isArray(entry.backing_scripts) ||
+        entry.backing_scripts.length === 0
+      ) {
         errors.push(`${entry.name}.backing_scripts must be a non-empty array`);
       } else {
         for (const script of entry.backing_scripts) {
@@ -251,7 +343,9 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
           }
         }
       }
-      validateCommandTokens(errors, entry.command, `${entry.name}.command`, { required: false });
+      validateCommandTokens(errors, entry.command, `${entry.name}.command`, {
+        required: false,
+      });
     }
   }
 
@@ -264,7 +358,9 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       browserStages: options.browserStages,
       serviceBackedScheduleManifest: options.serviceBackedScheduleManifest,
     });
-  errors.push(...collectExplicitSummaryProjectionErrors(manifest, topologyContext));
+  errors.push(
+    ...collectExplicitSummaryProjectionErrors(manifest, topologyContext),
+  );
 
   validateCompactHelp(errors, targets, manifest.compact_help);
 
@@ -272,7 +368,11 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
 
   validateHarnessTiers(errors, harnessChecks, manifest.harness_tiers);
 
-  if (!manifest.sequences || typeof manifest.sequences !== "object" || Array.isArray(manifest.sequences)) {
+  if (
+    !manifest.sequences ||
+    typeof manifest.sequences !== "object" ||
+    Array.isArray(manifest.sequences)
+  ) {
     errors.push("sequences must be an object");
   } else {
     for (const [name, sequence] of Object.entries(manifest.sequences)) {
@@ -280,11 +380,27 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         errors.push(`sequence ${name} does not match a declared target`);
       }
       if (sequence.summary_profile !== undefined) {
-        errors.push(`sequence ${name} must use summary_groups and step produces_summary_targets, not summary_profile`);
+        errors.push(
+          `sequence ${name} must use summary_groups and step produces_summary_targets, not summary_profile`,
+        );
       }
-      validateSummaryGroups(errors, summaryEntries, topologyContext, sequence.summary_groups, `sequence ${name}`);
-      if (!sequence.steps?.some((step) => Array.isArray(step.produces_summary_targets) && step.produces_summary_targets.length > 0)) {
-        errors.push(`sequence ${name} must declare step produces_summary_targets`);
+      validateSummaryGroups(
+        errors,
+        summaryEntries,
+        topologyContext,
+        sequence.summary_groups,
+        `sequence ${name}`,
+      );
+      if (
+        !sequence.steps?.some(
+          (step) =>
+            Array.isArray(step.produces_summary_targets) &&
+            step.produces_summary_targets.length > 0,
+        )
+      ) {
+        errors.push(
+          `sequence ${name} must declare step produces_summary_targets`,
+        );
       }
       if (!Array.isArray(sequence.steps) || sequence.steps.length === 0) {
         errors.push(`sequence ${name} must declare steps[]`);
@@ -296,21 +412,180 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
           errors.push(`${label}.type must be step or parallel`);
         }
         if (typeof step?.target !== "string" || !targets.has(step.target)) {
-          errors.push(`${label}.target references unknown target ${JSON.stringify(step?.target)}`);
+          errors.push(
+            `${label}.target references unknown target ${JSON.stringify(step?.target)}`,
+          );
         }
-        if (step.type === "parallel" && typeof step.jobs_variable !== "string" && !Number.isInteger(step.jobs)) {
-          errors.push(`${label} parallel step must declare jobs or jobs_variable`);
+        if (
+          step.type === "parallel" &&
+          typeof step.jobs_variable !== "string" &&
+          !Number.isInteger(step.jobs)
+        ) {
+          errors.push(
+            `${label} parallel step must declare jobs or jobs_variable`,
+          );
         }
-        validateNamedTargetList(errors, summaryEntries, step.produces_summary_targets, `${label}.produces_summary_targets`, {
-          required: false,
-        });
+        validateNamedTargetList(
+          errors,
+          summaryEntries,
+          step.produces_summary_targets,
+          `${label}.produces_summary_targets`,
+          {
+            required: false,
+          },
+        );
       }
     }
   }
 
-  validateMakeRecipes(errors, targets, manifest.sequences, manifest.make_recipes);
+  validateMakeRecipes(
+    errors,
+    targets,
+    manifest.sequences,
+    manifest.make_recipes,
+  );
+  validateOutputPolicyRouting(errors, targets, manifest.make_recipes);
 
   return errors;
+}
+
+function validateBudget(errors, budget, label, requiredKeys) {
+  if (!budget || typeof budget !== "object" || Array.isArray(budget)) {
+    errors.push(`${label} must be an object`);
+    return;
+  }
+  for (const key of requiredKeys) {
+    if (!Object.hasOwn(budget, key)) {
+      errors.push(`${label}.${key} must be declared`);
+    }
+  }
+  for (const key of Object.keys(budget)) {
+    if (!requiredKeys.has(key)) {
+      errors.push(`${label}.${key} is not a standard budget key`);
+      continue;
+    }
+    if (!/^[a-z_]+$/u.test(key)) {
+      errors.push(`${label}.${key} has invalid key syntax`);
+      continue;
+    }
+    if (!Number.isInteger(budget[key]) || budget[key] < 0) {
+      errors.push(`${label}.${key} must be a non-negative integer`);
+    }
+  }
+}
+
+function validateOutputPolicy(errors, entry) {
+  const policy = entry.output_policy;
+  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
+    errors.push(
+      `${entry.name}.output_policy must be declared for public targets`,
+    );
+    return;
+  }
+  if (!validOutputClasses.has(policy.output_class)) {
+    errors.push(
+      `${entry.name}.output_policy.output_class has invalid value ${JSON.stringify(policy.output_class)}`,
+    );
+  }
+  if (!validArtifactPolicies.has(policy.artifact_policy)) {
+    errors.push(
+      `${entry.name}.output_policy.artifact_policy has invalid value ${JSON.stringify(policy.artifact_policy)}`,
+    );
+  }
+  if (!validRawStreamPolicies.has(policy.raw_stream_policy)) {
+    errors.push(
+      `${entry.name}.output_policy.raw_stream_policy has invalid value ${JSON.stringify(policy.raw_stream_policy)}`,
+    );
+  }
+  if (
+    policy.artifact_policy === "none" &&
+    !artifactPolicyNoneOutputClasses.has(policy.output_class)
+  ) {
+    errors.push(
+      `${entry.name}.output_policy.artifact_policy=none is only allowed for help/investigation, interactive, machine-stdout, or destructive targets`,
+    );
+  }
+  if (
+    policy.summary_schema !== null &&
+    policy.summary_schema !== "cartulary.tool_run_summary.v1"
+  ) {
+    errors.push(
+      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v1 or null`,
+    );
+  }
+  if (policy.artifact_policy === "none" && policy.summary_schema !== null) {
+    errors.push(
+      `${entry.name}.output_policy.summary_schema must be null when artifact_policy is none`,
+    );
+  }
+  if (
+    policy.artifact_policy !== "none" &&
+    policy.summary_schema !== "cartulary.tool_run_summary.v1"
+  ) {
+    errors.push(
+      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v1 when artifact_policy is ${policy.artifact_policy}`,
+    );
+  }
+  validateBudget(
+    errors,
+    policy.success_budget,
+    `${entry.name}.output_policy.success_budget`,
+    standardSuccessBudgetKeys,
+  );
+  validateBudget(
+    errors,
+    policy.failure_budget,
+    `${entry.name}.output_policy.failure_budget`,
+    standardFailureBudgetKeys,
+  );
+}
+
+function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
+  if (artifactPolicy === "none") {
+    return true;
+  }
+  if (!recipe || typeof recipe !== "object") {
+    return false;
+  }
+  if (artifactPolicy === "run_and_target_summaries") {
+    return recipe.type === "sequence";
+  }
+  if (artifactPolicy === "scheduler_and_tool_run_summaries") {
+    return (
+      recipe.type === "check_schedule" ||
+      recipe.type === "service_backed_schedule" ||
+      (recipe.type === "node_tool" &&
+        ["phase-slice", "service-backed-slice"].includes(target))
+    );
+  }
+  if (artifactPolicy === "tool_run_summary") {
+    return (
+      recipe.type === "alias" ||
+      recipe.type === "node_tool" ||
+      recipe.type === "go_target" ||
+      recipe.type === "service_backed_target" ||
+      recipe.type === "browser_batch" ||
+      recipe.type === "summary_target" ||
+      recipe.type === "phase_command"
+    );
+  }
+  return false;
+}
+
+function validateOutputPolicyRouting(errors, targets, recipes) {
+  for (const [target, entry] of targets.entries()) {
+    if (entry.classification !== "public") {
+      continue;
+    }
+    const artifactPolicy = entry.output_policy?.artifact_policy ?? "none";
+    if (
+      !recipeCanProduceArtifactPolicy(target, recipes?.[target], artifactPolicy)
+    ) {
+      errors.push(
+        `${target}.output_policy.artifact_policy=${artifactPolicy} requires a centralized summary-producing recipe`,
+      );
+    }
+  }
 }
 
 function validateMakeRecipes(errors, targets, sequences, recipes) {
@@ -341,24 +616,36 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
       errors.push(`${label}.prerequisites must be an array`);
     } else {
       for (const prerequisite of recipe.prerequisites) {
-        if (typeof prerequisite !== "string" || !makePrerequisitePattern.test(prerequisite)) {
-          errors.push(`${label}.prerequisites contains unsafe prerequisite ${JSON.stringify(prerequisite)}`);
+        if (
+          typeof prerequisite !== "string" ||
+          !makePrerequisitePattern.test(prerequisite)
+        ) {
+          errors.push(
+            `${label}.prerequisites contains unsafe prerequisite ${JSON.stringify(prerequisite)}`,
+          );
         }
       }
     }
     if (!validMakeRecipeTypes.has(recipe.type)) {
-      errors.push(`${label}.type must be one of ${Array.from(validMakeRecipeTypes).join(", ")}`);
+      errors.push(
+        `${label}.type must be one of ${Array.from(validMakeRecipeTypes).join(", ")}`,
+      );
       continue;
     }
     if (recipe.test_target !== undefined && recipe.test_target !== "self") {
       errors.push(`${label}.test_target must be self when present`);
     }
-    if (recipe.success_summary !== undefined && typeof recipe.success_summary !== "boolean") {
+    if (
+      recipe.success_summary !== undefined &&
+      typeof recipe.success_summary !== "boolean"
+    ) {
       errors.push(`${label}.success_summary must be a boolean`);
     }
     validateMakeExports(errors, recipe.exports, `${label}.exports`);
     if (recipe.exports?.CARTULARY_TEST_TARGET !== undefined) {
-      errors.push(`${label}.exports.CARTULARY_TEST_TARGET is obsolete; use test_target: "self"`);
+      errors.push(
+        `${label}.exports.CARTULARY_TEST_TARGET is obsolete; use test_target: "self"`,
+      );
     }
     validateMakeComments(errors, recipe.comments, `${label}.comments`);
 
@@ -381,42 +668,71 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
     }
 
     if (recipe.type === "sequence") {
-      if (typeof recipe.sequence !== "string" || !sequences?.[recipe.sequence]) {
-        errors.push(`${label}.sequence references unknown sequence ${JSON.stringify(recipe.sequence)}`);
+      if (
+        typeof recipe.sequence !== "string" ||
+        !sequences?.[recipe.sequence]
+      ) {
+        errors.push(
+          `${label}.sequence references unknown sequence ${JSON.stringify(recipe.sequence)}`,
+        );
       }
       continue;
     }
 
     if (recipe.type === "check_schedule") {
       if (typeof recipe.target !== "string" || !targets.has(recipe.target)) {
-        errors.push(`${label}.target references unknown schedule target ${JSON.stringify(recipe.target)}`);
+        errors.push(
+          `${label}.target references unknown schedule target ${JSON.stringify(recipe.target)}`,
+        );
       }
       if (recipe.summary_profile !== undefined) {
-        errors.push(`${label}.summary_profile is obsolete; summary targets derive from the check schedule`);
+        errors.push(
+          `${label}.summary_profile is obsolete; summary targets derive from the check schedule`,
+        );
       }
-      if (typeof recipe.manifest_variable !== "string" || !makeVariablePattern.test(recipe.manifest_variable)) {
-        errors.push(`${label}.manifest_variable must be a safe Make variable name`);
+      if (
+        typeof recipe.manifest_variable !== "string" ||
+        !makeVariablePattern.test(recipe.manifest_variable)
+      ) {
+        errors.push(
+          `${label}.manifest_variable must be a safe Make variable name`,
+        );
       }
       if (
         typeof recipe.schedule_manifest !== "string" ||
         !repoJSONPathPattern.test(recipe.schedule_manifest) ||
         recipe.schedule_manifest.includes("..")
       ) {
-        errors.push(`${label}.schedule_manifest must be a safe repo-local JSON path`);
+        errors.push(
+          `${label}.schedule_manifest must be a safe repo-local JSON path`,
+        );
       } else {
-        const scheduleManifestPath = path.join(repoRoot, recipe.schedule_manifest);
+        const scheduleManifestPath = path.join(
+          repoRoot,
+          recipe.schedule_manifest,
+        );
         if (!existsSync(scheduleManifestPath)) {
-          errors.push(`${label}.schedule_manifest missing: ${recipe.schedule_manifest}`);
+          errors.push(
+            `${label}.schedule_manifest missing: ${recipe.schedule_manifest}`,
+          );
         } else {
           const scheduleManifest = readJSON(recipe.schedule_manifest);
-          const scheduleTargets = new Set((scheduleManifest.schedules ?? []).map((schedule) => schedule.target));
+          const scheduleTargets = new Set(
+            (scheduleManifest.schedules ?? []).map(
+              (schedule) => schedule.target,
+            ),
+          );
           if (!scheduleTargets.has(recipe.target)) {
-            errors.push(`${label}.target ${recipe.target} is missing from ${recipe.schedule_manifest}`);
+            errors.push(
+              `${label}.target ${recipe.target} is missing from ${recipe.schedule_manifest}`,
+            );
           }
         }
       }
       if (recipe.resource_limits !== undefined) {
-        errors.push(`${label}.resource_limits is obsolete; scheduler capacity overrides come from the resource registry`);
+        errors.push(
+          `${label}.resource_limits is obsolete; scheduler capacity overrides come from the resource registry`,
+        );
       }
       continue;
     }
@@ -432,7 +748,10 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
     }
 
     if (recipe.type === "service_backed_schedule") {
-      if (typeof recipe.phase_label !== "string" || recipe.phase_label.trim() === "") {
+      if (
+        typeof recipe.phase_label !== "string" ||
+        recipe.phase_label.trim() === ""
+      ) {
         errors.push(`${label}.phase_label must be a non-empty string`);
       }
       if (!["test-services"].includes(recipe.service_wrapper)) {
@@ -442,10 +761,16 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
     }
 
     if (recipe.type === "browser_batch") {
-      if (typeof recipe.stage !== "string" || !makeTargetPattern.test(recipe.stage)) {
+      if (
+        typeof recipe.stage !== "string" ||
+        !makeTargetPattern.test(recipe.stage)
+      ) {
         errors.push(`${label}.stage must be a safe browser stage name`);
       }
-      if (typeof recipe.workers !== "string" || !makeValuePattern.test(recipe.workers)) {
+      if (
+        typeof recipe.workers !== "string" ||
+        !makeValuePattern.test(recipe.workers)
+      ) {
         errors.push(`${label}.workers must be a safe Make value`);
       }
       if (!["direct", "test-services"].includes(recipe.service_wrapper)) {
@@ -458,27 +783,40 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
       if (!["run_phase", "node", "command"].includes(recipe.mode)) {
         errors.push(`${label}.mode must be run_phase, node, or command`);
       }
-      if (recipe.allow_success_log !== undefined && typeof recipe.allow_success_log !== "boolean") {
-        errors.push(`${label}.allow_success_log must be a boolean`);
+      if (recipe.allow_success_log !== undefined) {
+        errors.push(`${label}.allow_success_log is obsolete`);
       }
       if (
         recipe.failure_note !== undefined &&
-        (
-          typeof recipe.failure_note !== "string" ||
+        (typeof recipe.failure_note !== "string" ||
           !makeValuePattern.test(recipe.failure_note) ||
-          recipe.failure_note.trim() === ""
-        )
+          recipe.failure_note.trim() === "")
       ) {
-        errors.push(`${label}.failure_note must be a safe non-empty Make value`);
+        errors.push(
+          `${label}.failure_note must be a safe non-empty Make value`,
+        );
       }
       validateEnvEntries(errors, recipe.env, `${label}.env`);
-      validateCommandTokens(errors, recipe.command, `${label}.command`, { required: recipe.mode !== "node" });
-      validateCommandTokens(errors, recipe.args, `${label}.args`, { required: false });
-      if (recipe.mode === "run_phase" && (typeof recipe.phase_label !== "string" || recipe.phase_label.trim() === "")) {
-        errors.push(`${label}.phase_label must be a non-empty string for run_phase`);
+      validateCommandTokens(errors, recipe.command, `${label}.command`, {
+        required: recipe.mode !== "node",
+      });
+      validateCommandTokens(errors, recipe.args, `${label}.args`, {
+        required: false,
+      });
+      if (
+        recipe.mode === "run_phase" &&
+        (typeof recipe.phase_label !== "string" ||
+          recipe.phase_label.trim() === "")
+      ) {
+        errors.push(
+          `${label}.phase_label must be a non-empty string for run_phase`,
+        );
       }
       if (recipe.mode === "node") {
-        if (typeof recipe.script !== "string" || !makeTokenPattern.test(recipe.script)) {
+        if (
+          typeof recipe.script !== "string" ||
+          !makeTokenPattern.test(recipe.script)
+        ) {
           errors.push(`${label}.script must be a safe node script token`);
         } else {
           validateScriptTokenExists(errors, recipe.script, `${label}.script`);
@@ -488,23 +826,33 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
     }
 
     if (recipe.type === "summary_target") {
-      if (typeof recipe.child_target !== "string" || !targets.has(recipe.child_target)) {
-        errors.push(`${label}.child_target references unknown target ${JSON.stringify(recipe.child_target)}`);
+      if (
+        typeof recipe.child_target !== "string" ||
+        !targets.has(recipe.child_target)
+      ) {
+        errors.push(
+          `${label}.child_target references unknown target ${JSON.stringify(recipe.child_target)}`,
+        );
       }
-      if (recipe.status !== undefined && !["pass", "fail"].includes(recipe.status)) {
+      if (
+        recipe.status !== undefined &&
+        !["pass", "fail"].includes(recipe.status)
+      ) {
         errors.push(`${label}.status must be pass or fail`);
       }
       if (
         recipe.phase_label !== undefined &&
-        (
-          typeof recipe.phase_label !== "string" ||
+        (typeof recipe.phase_label !== "string" ||
           !makeValuePattern.test(recipe.phase_label) ||
-          recipe.phase_label.trim() === ""
-        )
+          recipe.phase_label.trim() === "")
       ) {
         errors.push(`${label}.phase_label must be a safe non-empty Make value`);
       }
-      if (recipe.projection !== undefined && (typeof recipe.projection !== "string" || !makeTargetPattern.test(recipe.projection))) {
+      if (
+        recipe.projection !== undefined &&
+        (typeof recipe.projection !== "string" ||
+          !makeTargetPattern.test(recipe.projection))
+      ) {
         errors.push(`${label}.projection must be a safe target token`);
       }
       continue;
@@ -512,7 +860,9 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
 
     if (recipe.type === "node_tool") {
       if (!hasMakeNodeTool(target)) {
-        errors.push(`${label} has no scripts/lib/make-node-tools.mjs registry entry`);
+        errors.push(
+          `${label} has no scripts/lib/make-node-tools.mjs registry entry`,
+        );
       }
       continue;
     }
@@ -548,7 +898,11 @@ function validateMakeComments(errors, comments, label) {
     return;
   }
   for (const [index, comment] of comments.entries()) {
-    if (typeof comment !== "string" || comment.trim() === "" || comment.includes("\n")) {
+    if (
+      typeof comment !== "string" ||
+      comment.trim() === "" ||
+      comment.includes("\n")
+    ) {
       errors.push(`${label}[${index + 1}] must be a single-line comment`);
     }
   }
@@ -572,7 +926,12 @@ function validateEnvEntries(errors, env, label) {
   }
 }
 
-function validateCommandTokens(errors, tokens, label, { required = true } = {}) {
+function validateCommandTokens(
+  errors,
+  tokens,
+  label,
+  { required = true } = {},
+) {
   if (tokens === undefined && !required) {
     return;
   }
@@ -590,13 +949,23 @@ function validateCommandTokens(errors, tokens, label, { required = true } = {}) 
 }
 
 function validateScriptTokenExists(errors, token, label) {
-  const script = token.startsWith("./scripts/") ? token.slice(2) : token.startsWith("scripts/") ? token : "";
+  const script = token.startsWith("./scripts/")
+    ? token.slice(2)
+    : token.startsWith("scripts/")
+      ? token
+      : "";
   if (script && !existsSync(path.join(repoRoot, script))) {
     errors.push(`${label} references missing script ${script}`);
   }
 }
 
-function validateNamedTargetList(errors, targets, targetList, label, { required = true } = {}) {
+function validateNamedTargetList(
+  errors,
+  targets,
+  targetList,
+  label,
+  { required = true } = {},
+) {
   if (targetList === undefined && !required) {
     return;
   }
@@ -620,14 +989,25 @@ function validateNamedTargetList(errors, targets, targetList, label, { required 
   }
 }
 
-function validateSummaryGroups(errors, targets, topologyContext, groups, label) {
+function validateSummaryGroups(
+  errors,
+  targets,
+  topologyContext,
+  groups,
+  label,
+) {
   if (!Array.isArray(groups)) {
     errors.push(`${label}.summary_groups must be an array`);
     return;
   }
   try {
     for (const group of resolveSummaryGroups(topologyContext, groups)) {
-      validateNamedTargetList(errors, targets, group.summaryTargets, `${label}.summary_groups.${group.name}.summary_targets`);
+      validateNamedTargetList(
+        errors,
+        targets,
+        group.summaryTargets,
+        `${label}.summary_groups.${group.name}.summary_targets`,
+      );
     }
   } catch (error) {
     errors.push(`${label}.summary_groups invalid: ${error.message}`);
@@ -652,18 +1032,26 @@ function validateHarnessTiers(errors, harnessChecks, tiers) {
         continue;
       }
       if (seen.has(check)) {
-        errors.push(`harness_tiers.${name}.checks contains duplicate check ${check}`);
+        errors.push(
+          `harness_tiers.${name}.checks contains duplicate check ${check}`,
+        );
       }
       seen.add(check);
       if (!harnessChecks.has(check)) {
-        errors.push(`harness_tiers.${name}.checks references unknown harness check ${check}`);
+        errors.push(
+          `harness_tiers.${name}.checks references unknown harness check ${check}`,
+        );
       }
     }
   }
 }
 
 function validateCompactHelp(errors, targets, compactHelp) {
-  if (!compactHelp || typeof compactHelp !== "object" || Array.isArray(compactHelp)) {
+  if (
+    !compactHelp ||
+    typeof compactHelp !== "object" ||
+    Array.isArray(compactHelp)
+  ) {
     errors.push("compact_help must be an object");
     return;
   }
@@ -672,13 +1060,18 @@ function validateCompactHelp(errors, targets, compactHelp) {
     return;
   }
   if (compactHelp.entries.length > compactHelpMaxEntries) {
-    errors.push(`compact_help.entries must not exceed ${compactHelpMaxEntries} entries`);
+    errors.push(
+      `compact_help.entries must not exceed ${compactHelpMaxEntries} entries`,
+    );
   }
 
   const compactTargets = new Set();
   for (const [entryIndex, helpEntry] of compactHelp.entries.entries()) {
     const label = `compact_help.entries[${entryIndex + 1}]`;
-    if (typeof helpEntry?.target !== "string" || helpEntry.target.trim() === "") {
+    if (
+      typeof helpEntry?.target !== "string" ||
+      helpEntry.target.trim() === ""
+    ) {
       errors.push(`${label}.target must be a non-empty string`);
       continue;
     }
@@ -693,7 +1086,9 @@ function validateCompactHelp(errors, targets, compactHelp) {
       continue;
     }
     if (target.classification !== "public") {
-      errors.push(`${helpEntry.target} appears in compact_help but is not classified public`);
+      errors.push(
+        `${helpEntry.target} appears in compact_help but is not classified public`,
+      );
     }
     validateHelpEntryText(errors, helpEntry, label);
   }
@@ -728,7 +1123,10 @@ function validateHelpTiers(errors, targets, tiers) {
     const tierTargets = new Set();
     for (const [entryIndex, helpEntry] of tier.entries.entries()) {
       const label = `${tierLabel}.entries[${entryIndex + 1}]`;
-      if (typeof helpEntry?.target !== "string" || helpEntry.target.trim() === "") {
+      if (
+        typeof helpEntry?.target !== "string" ||
+        helpEntry.target.trim() === ""
+      ) {
         errors.push(`${label}.target must be a non-empty string`);
         continue;
       }
@@ -743,7 +1141,9 @@ function validateHelpTiers(errors, targets, tiers) {
         continue;
       }
       if (target.classification !== "public") {
-        errors.push(`${helpEntry.target} appears in help tier ${tierName ?? "unknown"} but is not classified public`);
+        errors.push(
+          `${helpEntry.target} appears in help tier ${tierName ?? "unknown"} but is not classified public`,
+        );
       }
       const targetPlacements = placements.get(helpEntry.target) ?? [];
       targetPlacements.push(tierName ?? "unknown");
@@ -759,15 +1159,22 @@ function validateHelpTiers(errors, targets, tiers) {
     }
     const targetPlacements = placements.get(target.name) ?? [];
     if (targetPlacements.length === 0) {
-      errors.push(`public target ${target.name} is missing help tier placement`);
+      errors.push(
+        `public target ${target.name} is missing help tier placement`,
+      );
     } else if (targetPlacements.length > 1) {
-      errors.push(`public target ${target.name} appears in multiple help tiers: ${targetPlacements.join(",")}`);
+      errors.push(
+        `public target ${target.name} appears in multiple help tiers: ${targetPlacements.join(",")}`,
+      );
     }
   }
 }
 
 function validateHelpEntryText(errors, helpEntry, label) {
-  if (typeof helpEntry.description !== "string" || helpEntry.description.trim() === "") {
+  if (
+    typeof helpEntry.description !== "string" ||
+    helpEntry.description.trim() === ""
+  ) {
     errors.push(`${label}.description must be a non-empty string`);
   } else if (helpEntry.description.includes("\n")) {
     errors.push(`${label}.description must be a single line`);
@@ -786,7 +1193,11 @@ export function renderTaskSurfaceMake(manifest) {
     "# Code generated by scripts/render-task-surface-make.mjs; DO NOT EDIT.",
     "",
   ];
-  lines.push(`.PHONY: ${targetEntries(manifest).map((entry) => entry.name).join(" ")}`);
+  lines.push(
+    `.PHONY: ${targetEntries(manifest)
+      .map((entry) => entry.name)
+      .join(" ")}`,
+  );
   lines.push("");
   lines.push("TASK_SURFACE_HELP_LINES := \\");
   for (const line of helpLines(manifest)) {
@@ -800,12 +1211,24 @@ export function renderTaskSurfaceMake(manifest) {
   }
   lines.push("\t''");
   lines.push("");
-  lines.push('TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"');
-  lines.push('TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"');
-  lines.push('TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"');
-  lines.push(`TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV = ${checkSchedulerOverrideEnvExpression()}`);
-  lines.push('RUN_MAKE_NODE_TOOL = env NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)');
-  lines.push('RUN_TARGET_SUMMARY = $(Q)env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2)');
+  lines.push(
+    'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"',
+  );
+  lines.push(
+    'TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"',
+  );
+  lines.push(
+    'TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
+  );
+  lines.push(
+    `TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV = ${checkSchedulerOverrideEnvExpression()}`,
+  );
+  lines.push(
+    'RUN_MAKE_NODE_TOOL = env NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)',
+  );
+  lines.push(
+    "RUN_TARGET_SUMMARY = $(Q)env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2)",
+  );
   lines.push("");
   for (const recipe of makeRecipeEntries(manifest)) {
     lines.push(...renderMakeRecipe(recipe, manifest));
@@ -816,16 +1239,28 @@ export function renderTaskSurfaceMake(manifest) {
 
 function checkSchedulerOverrideEnvExpression() {
   return resourceOverrideEnvVariablesForScheduler("check")
-    .map((name) => `$(if $(filter undefined,$(origin ${name})),,${name}="$(${name})")`)
+    .map(
+      (name) =>
+        `$(if $(filter undefined,$(origin ${name})),,${name}="$(${name})")`,
+    )
     .join(" ");
 }
 
 function renderMakeRecipe(recipe, manifest) {
-  const prerequisites = (recipe.prerequisites ?? []).join(" ");
-  const header = prerequisites ? `${recipe.target}: ${prerequisites}` : `${recipe.target}:`;
-  const prefix = renderRecipePrefix(recipe);
+  const entry = targetEntryMap(manifest).get(recipe.target);
+  const prerequisitePrelude = renderPrerequisitePrelude(recipe, entry);
+  const prerequisites =
+    prerequisitePrelude.length > 0 ? "" : (recipe.prerequisites ?? []).join(" ");
+  const header = prerequisites
+    ? `${recipe.target}: ${prerequisites}`
+    : `${recipe.target}:`;
+  const prefix = renderRecipePrefix(recipe, entry);
   if (recipe.type === "alias") {
-    return [...prefix, header];
+    const lines = [...prefix, header, ...prerequisitePrelude];
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v1") {
+      lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
+    }
+    return lines;
   }
   if (recipe.type === "cleanup") {
     if (recipe.scope === "distclean") {
@@ -847,7 +1282,10 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   if (recipe.type === "print_help") {
-    const variable = recipe.scope === "all" ? "TASK_SURFACE_HELP_ALL_LINES" : "TASK_SURFACE_HELP_LINES";
+    const variable =
+      recipe.scope === "all"
+        ? "TASK_SURFACE_HELP_ALL_LINES"
+        : "TASK_SURFACE_HELP_LINES";
     return [...prefix, header, `\t$(Q)printf '%s\\n' $(${variable})`];
   }
   if (recipe.type === "sequence") {
@@ -866,6 +1304,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...prerequisitePrelude,
       `\t$(Q)${env.join(" ")} $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ${recipe.sequence}`,
     ];
   }
@@ -873,6 +1312,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...prerequisitePrelude,
       `\t$(Q)env MAKE="$(MAKE)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"`,
     ];
   }
@@ -880,6 +1320,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...prerequisitePrelude,
       `\t$(Q)env ${goTargetEnv(recipe).join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
     ];
   }
@@ -887,6 +1328,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...prerequisitePrelude,
       `\t$(Q)env ${goTargetEnv(recipe).join(" ")} $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
     ];
   }
@@ -894,19 +1336,29 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...prerequisitePrelude,
       `\t$(Q)env $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
     ];
   }
   if (recipe.type === "browser_batch") {
-    const wrapper = recipe.service_wrapper === "test-services" ? "$(TEST_SERVICES_BIN) run -- " : "";
+    const wrapper =
+      recipe.service_wrapper === "test-services"
+        ? "$(TEST_SERVICES_BIN) run -- "
+        : "";
     return [
       ...prefix,
       header,
+      ...prerequisitePrelude,
       `\t$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} ${wrapper}./scripts/run-browser-e2e-target.sh ${recipe.stage}`,
     ];
   }
   if (recipe.type === "phase_command") {
-    const lines = [...prefix, header, ...renderPhaseCommandRecipe(recipe)];
+    const lines = [
+      ...prefix,
+      header,
+      ...prerequisitePrelude,
+      ...renderPhaseCommandRecipe(recipe, entry),
+    ];
     if (recipe.success_summary === true) {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
@@ -914,8 +1366,11 @@ function renderMakeRecipe(recipe, manifest) {
   }
   if (recipe.type === "summary_target") {
     const status = recipe.status ?? "pass";
-    const phaseLabel = recipe.phase_label ?? `${recipe.target} child ${recipe.child_target}`;
-    const projection = recipe.projection ? ` --projection ${recipe.projection}` : "";
+    const phaseLabel =
+      recipe.phase_label ?? `${recipe.target} child ${recipe.child_target}`;
+    const projection = recipe.projection
+      ? ` --projection ${recipe.projection}`
+      : "";
     const env = [
       'MAKE_BIN="$(MAKE)"',
       'NODE_BIN="$(NODE_BIN)"',
@@ -926,6 +1381,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...prerequisitePrelude,
       `\t$(Q)env ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
     ];
   }
@@ -936,19 +1392,45 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...prerequisitePrelude,
       `\t$(Q)$(call RUN_MAKE_NODE_TOOL,${recipe.target},${env})`,
     ];
   }
   throw new Error(`unsupported Make recipe type ${recipe.type}`);
 }
 
-function renderRecipePrefix(recipe) {
+function shouldCentralizePrerequisiteOutput(recipe, entry = null) {
+  return (
+    entry?.classification === "public" &&
+    entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v1" &&
+    (recipe.prerequisites ?? []).length > 0 &&
+    !["cleanup", "print_help"].includes(recipe.type)
+  );
+}
+
+function renderPrerequisitePrelude(recipe, entry = null) {
+  if (!shouldCentralizePrerequisiteOutput(recipe, entry)) {
+    return [];
+  }
+  return [
+    `\t$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory ${(recipe.prerequisites ?? []).join(" ")}`,
+  ];
+}
+
+function renderRecipePrefix(recipe, entry = null) {
   const lines = [];
   for (const comment of recipe.comments ?? []) {
     lines.push(`# ${comment}`);
   }
   if (recipe.test_target === "self") {
-    lines.push(`${recipe.target}: export CARTULARY_TEST_TARGET ?= ${recipe.target}`);
+    lines.push(
+      `${recipe.target}: export CARTULARY_TEST_TARGET ?= ${recipe.target}`,
+    );
+  }
+  if (entry?.classification !== "public") {
+    lines.push(
+      `${recipe.target}: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1`,
+    );
   }
   for (const [name, value] of Object.entries(recipe.exports ?? {})) {
     lines.push(`${recipe.target}: export ${name} := ${value}`);
@@ -959,32 +1441,44 @@ function renderRecipePrefix(recipe) {
 function goTargetEnv(recipe) {
   return [
     "$(TASK_SURFACE_GO_ENV)",
-    ...Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}="${value}"`),
+    ...Object.entries(recipe.env ?? {}).map(
+      ([name, value]) => `${name}="${value}"`,
+    ),
     'GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)"',
   ];
 }
 
-function renderPhaseCommandRecipe(recipe) {
-  const env = Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}="${value}"`);
+function renderPhaseCommandRecipe(recipe, entry = null) {
+  const env = Object.entries(recipe.env ?? {}).map(
+    ([name, value]) => `${name}="${value}"`,
+  );
   const envPrefix = env.length > 0 ? `${env.join(" ")} ` : "";
   const args = (recipe.args ?? []).join(" ");
   const argsSuffix = args ? ` ${args}` : "";
   if (recipe.mode === "run_phase") {
     const runnerEnv = [];
-    if (recipe.allow_success_log === true) {
-      runnerEnv.push("CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1");
+    if (recipe.success_summary === true) {
+      runnerEnv.push("CARTULARY_SUPPRESS_CHILD_SUCCESS=1");
     }
     if (recipe.failure_note) {
       runnerEnv.push(`CARTULARY_PHASE_FAILURE_NOTE="${recipe.failure_note}"`);
     }
     const runnerPrefix = runnerEnv.length > 0 ? `${runnerEnv.join(" ")} ` : "";
     const childPrefix = env.length > 0 ? `env ${env.join(" ")} ` : "";
-    return [`\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${recipe.command.join(" ")}${argsSuffix}`];
+    return [
+      `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${recipe.command.join(" ")}${argsSuffix}`,
+    ];
   }
   if (recipe.mode === "node") {
     return [`\t$(Q)${envPrefix}$(NODE_BIN) ${recipe.script}${argsSuffix}`];
   }
   if (recipe.mode === "command") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v1") {
+      const childPrefix = env.length > 0 ? `env ${env.join(" ")} ` : "";
+      return [
+        `\t$(Q)CARTULARY_TEST_TARGET=${recipe.target} $(RUN_PHASE_SCRIPT) "${recipe.target}" -- ${childPrefix}${recipe.command.join(" ")}${argsSuffix}`,
+      ];
+    }
     return [`\t$(Q)${envPrefix}${recipe.command.join(" ")}${argsSuffix}`];
   }
   throw new Error(`unsupported phase command mode ${recipe.mode}`);
@@ -992,10 +1486,15 @@ function renderPhaseCommandRecipe(recipe) {
 
 export function helpLines(manifest) {
   const lines = ["Cartulary compact workflow task surface", ""];
-  appendHelpTierLines(lines, { name: "compact", entries: compactHelpEntries(manifest) });
+  appendHelpTierLines(lines, {
+    name: "compact",
+    entries: compactHelpEntries(manifest),
+  });
   lines.push("");
   lines.push("For all public targets, run: make help-all");
-  lines.push("For private/check internals, run: make task-surface-report TASK_SURFACE_REPORT_ARGS=--all");
+  lines.push(
+    "For private/check internals, run: make task-surface-report TASK_SURFACE_REPORT_ARGS=--all",
+  );
   return trimTrailingBlank(lines);
 }
 
@@ -1003,7 +1502,9 @@ export function helpAllLines(manifest) {
   const lines = ["Cartulary public task surface", ""];
   lines.push("How to read task evidence:");
   lines.push("  phase -> target -> scheduler work unit -> artifact");
-  lines.push("  public evidence is runnable from this surface; support/internal evidence is shown by task-guide and explain-*.");
+  lines.push(
+    "  public evidence is runnable from this surface; support/internal evidence is shown by task-guide and explain-*.",
+  );
   lines.push("");
   for (const tier of helpTiers(manifest)) {
     appendHelpTierLines(lines, tier);
@@ -1027,7 +1528,9 @@ function renderHelpEntryLines(entry) {
   const description = entry.description.trim();
   const usage = typeof entry.usage === "string" ? entry.usage.trim() : "";
   if (!usage && entry.target.length <= helpTargetColumnWidth) {
-    return [`  make ${entry.target.padEnd(helpTargetColumnWidth)} ${description}`];
+    return [
+      `  make ${entry.target.padEnd(helpTargetColumnWidth)} ${description}`,
+    ];
   }
   const detail = usage ? `${usage} ${description}` : description;
   return [`  ${command}`, `${helpDescriptionIndent}${detail}`];

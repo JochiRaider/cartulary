@@ -233,21 +233,14 @@ fi
 
 assert_target_absent lint-typecheck "lint-typecheck must not remain as a legacy alias; use frontend-typecheck"
 
-format_prereqs="$(extract_target_prereqs format)"
-if ! text_has_token "$format_prereqs" format-go || ! text_has_token "$format_prereqs" format-frontend; then
-  fail "format must delegate to format-go and format-frontend"
-fi
+assert_target_prereq format format-go "format must delegate to format-go and format-frontend"
+assert_target_prereq format format-frontend "format must delegate to format-go and format-frontend"
 format_go_block="$(extract_target_block format-go)"
 if ! text_contains "$format_go_block" 'scripts/run-go-format.sh --write'; then
   fail "format-go must run the curated Go formatter wrapper in write mode"
 fi
-format_frontend_prereqs="$(extract_target_prereqs format-frontend)"
-if ! text_matches "$format_frontend_prereqs" '(^|[[:space:]])\$\(NODE_BIN\)($|[[:space:]])'; then
-  fail "format-frontend must depend on NODE_BIN"
-fi
-if ! text_matches "$format_frontend_prereqs" '(^|[[:space:]])\$\(FRONTEND_INSTALL_STAMP\)($|[[:space:]])'; then
-  fail "format-frontend must depend on FRONTEND_INSTALL_STAMP"
-fi
+assert_target_prereq format-frontend '$(NODE_BIN)' "format-frontend must depend on NODE_BIN"
+assert_target_prereq format-frontend '$(FRONTEND_INSTALL_STAMP)' "format-frontend must depend on FRONTEND_INSTALL_STAMP"
 format_frontend_block="$(extract_target_block format-frontend)"
 if ! text_contains "$format_frontend_block" './scripts/run-frontend-biome.sh format'; then
   fail "format-frontend must run the curated frontend Biome formatter"

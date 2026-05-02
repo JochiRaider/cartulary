@@ -84,18 +84,27 @@ function resolveResultsRoot(repoRoot, env) {
   if (!configured) {
     return path.join(repoRoot, ".cartulary", "test-results");
   }
-  return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
+  return path.isAbsolute(configured)
+    ? configured
+    : path.join(repoRoot, configured);
 }
 
 function resolveRunID(env) {
-  return env.CARTULARY_TEST_RUN_ID || `${new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z")}-p${process.pid}`;
+  return (
+    env.CARTULARY_TEST_RUN_ID ||
+    `${new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z")}-p${process.pid}`
+  );
 }
 
 function resolveOutputMode(env) {
   if (env.VERBOSE === "1" || env.CI_VERBOSE === "1") {
     return "normal";
   }
-  return env.CARTULARY_OUTPUT_MODE || "quiet";
+  const mode = env.CARTULARY_OUTPUT_MODE || "summary";
+  if (mode === "verbose" || mode === "debug" || mode === "normal") {
+    return "normal";
+  }
+  return "quiet";
 }
 
 function shellQuote(value) {
@@ -137,8 +146,11 @@ export function createGoTargetContext(options = {}) {
     goCacheDir: env.GO_CACHE_DIR || "/tmp/cartulary-go-build",
     goModCacheDir: env.GO_MOD_CACHE_DIR || "/tmp/cartulary-go-mod",
     goTestPackageParallelism:
-      env.GO_TEST_PACKAGE_PARALLELISM || env.GO_TEST_SERVICE_PACKAGE_PARALLELISM || "1",
-    backendIntegrationShardJobs: Number.parseInt(env.BACKEND_INTEGRATION_SHARD_JOBS || "4", 10) || 4,
+      env.GO_TEST_PACKAGE_PARALLELISM ||
+      env.GO_TEST_SERVICE_PACKAGE_PARALLELISM ||
+      "1",
+    backendIntegrationShardJobs:
+      Number.parseInt(env.BACKEND_INTEGRATION_SHARD_JOBS || "4", 10) || 4,
     resultsRoot,
     runId,
     testTarget: env.CARTULARY_TEST_TARGET || "",
@@ -191,7 +203,9 @@ function targetRows(ctx) {
 
 function shardPlan(ctx) {
   if (!ctx.shardPlan) {
-    ctx.shardPlan = collectGoShardPlan(ctx.repoRoot, { phase: ctx.phaseSelection });
+    ctx.shardPlan = collectGoShardPlan(ctx.repoRoot, {
+      phase: ctx.phaseSelection,
+    });
   }
   return ctx.shardPlan;
 }
@@ -329,7 +343,12 @@ function collectAggregateEmissions(rows) {
     const key = aggregateKey(row);
     if (!groups.has(key)) {
       groups.set(key, {
-        mode: row.coverage === "raw" ? "raw" : row.support_only ? "support" : "manifest",
+        mode:
+          row.coverage === "raw"
+            ? "raw"
+            : row.support_only
+              ? "support"
+              : "manifest",
         label: row.execution_label,
         phase: row.manifest_phase,
         section: row.section,
@@ -373,7 +392,9 @@ function aggregateNames(ctx, target) {
 
 function targetOwnsShard(target, shard) {
   if (target === "backend-integration") {
-    return shard.items.some((item) => item.kind === "authoritative" || item.kind === "raw");
+    return shard.items.some(
+      (item) => item.kind === "authoritative" || item.kind === "raw",
+    );
   }
   if (target === "backend-integration-support") {
     return shard.items.some((item) => item.kind === "support");
@@ -392,16 +413,21 @@ function targetShards(ctx, target) {
       .map((aggregate) => aggregate.name),
   );
   return plan.shards.filter(
-    (shard) => aggregateSet.has(shard.aggregate_name) && targetOwnsShard(target, shard),
+    (shard) =>
+      aggregateSet.has(shard.aggregate_name) && targetOwnsShard(target, shard),
   );
 }
 
 function targetAggregates(ctx, target) {
-  return shardPlan(ctx).aggregates.filter((aggregate) => aggregate.target === target);
+  return shardPlan(ctx).aggregates.filter(
+    (aggregate) => aggregate.target === target,
+  );
 }
 
 function findShard(ctx, target, name) {
-  const shard = targetShards(ctx, target).find((candidate) => candidate.name === name);
+  const shard = targetShards(ctx, target).find(
+    (candidate) => candidate.name === name,
+  );
   if (!shard) {
     throw new Error(`unknown shard ${name} for ${target}`);
   }
@@ -411,7 +437,10 @@ function findShard(ctx, target, name) {
 function fixturePolicyAssignmentsForShard(shard, mode) {
   const assignments = [];
   for (const item of shard.items) {
-    if (!item.postgres_fixture_policy || item.postgres_fixture_policy === "migration_scratch") {
+    if (
+      !item.postgres_fixture_policy ||
+      item.postgres_fixture_policy === "migration_scratch"
+    ) {
       continue;
     }
     if (mode === "tests" && item.symbol) {
@@ -458,7 +487,9 @@ function targetGoTestArgs(ctx, target) {
     case "process":
       return ["-parallel", "4"];
     default:
-      throw new Error(`unsupported go_test_parallelism ${descriptor.goTestParallelism} for ${target}`);
+      throw new Error(
+        `unsupported go_test_parallelism ${descriptor.goTestParallelism} for ${target}`,
+      );
   }
 }
 
@@ -485,7 +516,11 @@ function resolveExecutionFamilySpec(ctx, target, familyOrShard) {
   return aggregateSpec(ctx, target, familyOrShard);
 }
 
-function resolveExecutionFamilyPostgresFixturePolicy(ctx, target, familyOrShard) {
+function resolveExecutionFamilyPostgresFixturePolicy(
+  ctx,
+  target,
+  familyOrShard,
+) {
   if (familyOrShard.includes("-shard-")) {
     const shard = findShard(ctx, target, familyOrShard);
     return {
@@ -580,7 +615,9 @@ async function acquireDirectoryLock(lockDir, label, timeoutSeconds, metadata) {
     }
 
     const ownerPid = Number.parseInt(
-      existsSync(path.join(lockDir, "pid")) ? readFileSync(path.join(lockDir, "pid"), "utf8") : "",
+      existsSync(path.join(lockDir, "pid"))
+        ? readFileSync(path.join(lockDir, "pid"), "utf8")
+        : "",
       10,
     );
     if (Number.isInteger(ownerPid)) {
@@ -604,9 +641,14 @@ async function acquireDirectoryLock(lockDir, label, timeoutSeconds, metadata) {
 async function warmGoTestDependencies(ctx) {
   const warmRoot = path.join(ctx.goModCacheDir, ".cartulary-go-test-warm");
   const lockDir = path.join(warmRoot, "lock");
-  const timeoutSeconds = Number.parseInt(ctx.env.CARTULARY_GO_TEST_WARM_LOCK_TIMEOUT_SECONDS || "300", 10);
+  const timeoutSeconds = Number.parseInt(
+    ctx.env.CARTULARY_GO_TEST_WARM_LOCK_TIMEOUT_SECONDS || "300",
+    10,
+  );
   if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1) {
-    throw new Error(`invalid CARTULARY_GO_TEST_WARM_LOCK_TIMEOUT_SECONDS=${ctx.env.CARTULARY_GO_TEST_WARM_LOCK_TIMEOUT_SECONDS}`);
+    throw new Error(
+      `invalid CARTULARY_GO_TEST_WARM_LOCK_TIMEOUT_SECONDS=${ctx.env.CARTULARY_GO_TEST_WARM_LOCK_TIMEOUT_SECONDS}`,
+    );
   }
   mkdirSync(warmRoot, { recursive: true });
   const warmKey = hashGoTestDependencyInputs(ctx);
@@ -614,15 +656,23 @@ async function warmGoTestDependencies(ctx) {
   if (existsSync(stampFile)) {
     return;
   }
-  await acquireDirectoryLock(lockDir, "go_test_dependency_warm_lock", timeoutSeconds, {
-    pid: process.pid,
-    acquired_at: nowUTC(),
-  });
+  await acquireDirectoryLock(
+    lockDir,
+    "go_test_dependency_warm_lock",
+    timeoutSeconds,
+    {
+      pid: process.pid,
+      acquired_at: nowUTC(),
+    },
+  );
   try {
     if (existsSync(stampFile)) {
       return;
     }
-    for (const args of [["mod", "download"], ["list", "-deps", "-test", "./..."]]) {
+    for (const args of [
+      ["mod", "download"],
+      ["list", "-deps", "-test", "./..."],
+    ]) {
       const result = spawnSync(ctx.goBin, args, {
         cwd: ctx.repoRoot,
         env: goChildEnv(ctx),
@@ -630,7 +680,9 @@ async function warmGoTestDependencies(ctx) {
       });
       if ((result.status ?? 1) !== 0) {
         process.exitCode = result.status ?? 1;
-        throw new Error(`${ctx.goBin} ${args.join(" ")} exited ${result.status ?? 1}`);
+        throw new Error(
+          `${ctx.goBin} ${args.join(" ")} exited ${result.status ?? 1}`,
+        );
       }
     }
     writeFileSync(
@@ -646,7 +698,9 @@ async function warmGoTestDependencies(ctx) {
 }
 
 async function runHelper(ctx, args, env = {}) {
-  const command = ctx.testOutputScript.endsWith(".mjs") ? ctx.nodeBin : ctx.testOutputScript;
+  const command = ctx.testOutputScript.endsWith(".mjs")
+    ? ctx.nodeBin
+    : ctx.testOutputScript;
   const commandArgs = ctx.testOutputScript.endsWith(".mjs")
     ? [ctx.testOutputScript, ...args]
     : args;
@@ -665,7 +719,14 @@ async function runHelper(ctx, args, env = {}) {
   });
 }
 
-async function emitTargetTimingSpan(ctx, bucket, label, window, status, exitStatus) {
+async function emitTargetTimingSpan(
+  ctx,
+  bucket,
+  label,
+  window,
+  status,
+  exitStatus,
+) {
   if (!ctx.testTarget) {
     return;
   }
@@ -765,26 +826,41 @@ async function runGoTestCapture(ctx, regex, args, reportDir, policy = {}) {
 }
 
 export async function acquireSharedReportLock(ctx, sharedDir, sharedName) {
-  const timeoutSeconds = Number.parseInt(ctx.env.CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS || "300", 10);
+  const timeoutSeconds = Number.parseInt(
+    ctx.env.CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS || "300",
+    10,
+  );
   if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1) {
-    throw new Error(`invalid CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS=${ctx.env.CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS}`);
+    throw new Error(
+      `invalid CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS=${ctx.env.CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS}`,
+    );
   }
   try {
-    await acquireDirectoryLock(path.join(sharedDir, "capture.lock"), "shared_go_report_lock", timeoutSeconds, {
-      pid: process.pid,
-      shared_report: sharedName,
-      acquired_at: nowUTC(),
-    });
+    await acquireDirectoryLock(
+      path.join(sharedDir, "capture.lock"),
+      "shared_go_report_lock",
+      timeoutSeconds,
+      {
+        pid: process.pid,
+        shared_report: sharedName,
+        acquired_at: nowUTC(),
+      },
+    );
   } catch (error) {
     if (String(error.message).startsWith("shared_go_report_lock_timeout")) {
-      process.stderr.write(`shared_go_report_lock_timeout report=${sharedName} lock=${path.join(sharedDir, "capture.lock")}\n`);
+      process.stderr.write(
+        `shared_go_report_lock_timeout report=${sharedName} lock=${path.join(sharedDir, "capture.lock")}\n`,
+      );
     }
     throw error;
   }
 }
 
 export function releaseSharedReportLock(sharedDir) {
-  rmSync(path.join(sharedDir, "capture.lock"), { recursive: true, force: true });
+  rmSync(path.join(sharedDir, "capture.lock"), {
+    recursive: true,
+    force: true,
+  });
 }
 
 function isCrossTargetSharedReport(ctx, target, sharedName) {
@@ -798,7 +874,13 @@ function isCrossTargetSharedReport(ctx, target, sharedName) {
   }
 }
 
-async function writeCrossTargetSharedExecutionMetadata(ctx, sharedDir, sharedName, window, status) {
+async function writeCrossTargetSharedExecutionMetadata(
+  ctx,
+  sharedDir,
+  sharedName,
+  window,
+  status,
+) {
   if (
     !isCrossTargetSharedReport(ctx, "backend-integration", sharedName) &&
     !isCrossTargetSharedReport(ctx, "backend-integration-support", sharedName)
@@ -818,7 +900,14 @@ async function writeCrossTargetSharedExecutionMetadata(ctx, sharedDir, sharedNam
   ]);
 }
 
-export async function captureGoReportLocked(ctx, sharedDir, sharedName, regex, args, policy = {}) {
+export async function captureGoReportLocked(
+  ctx,
+  sharedDir,
+  sharedName,
+  regex,
+  args,
+  policy = {},
+) {
   const commandText = renderGoTestCommand(ctx, regex, args, policy);
   const completeFile = path.join(sharedDir, "complete");
   if (existsSync(completeFile)) {
@@ -842,20 +931,45 @@ export async function captureGoReportLocked(ctx, sharedDir, sharedName, regex, a
   const status = await runGoTestCapture(ctx, regex, args, sharedDir, policy);
   const window = captureFinish(started);
   writeFileSync(path.join(sharedDir, "command.txt"), `${commandText}\n`);
-  writeFileSync(path.join(sharedDir, "start_time.txt"), `${window.startTime}\n`);
+  writeFileSync(
+    path.join(sharedDir, "start_time.txt"),
+    `${window.startTime}\n`,
+  );
   writeFileSync(path.join(sharedDir, "end_time.txt"), `${window.endTime}\n`);
-  writeFileSync(path.join(sharedDir, "duration_ms.txt"), `${window.durationMs}\n`);
+  writeFileSync(
+    path.join(sharedDir, "duration_ms.txt"),
+    `${window.durationMs}\n`,
+  );
   writeFileSync(path.join(sharedDir, "exit_status.txt"), `${status}\n`);
-  await writeCrossTargetSharedExecutionMetadata(ctx, sharedDir, sharedName, window, status);
+  await writeCrossTargetSharedExecutionMetadata(
+    ctx,
+    sharedDir,
+    sharedName,
+    window,
+    status,
+  );
   writeFileSync(completeFile, "");
   return { reportDir: sharedDir, usage: "actual" };
 }
 
-export async function captureGoReport(ctx, sharedName, regex, args, policy = {}) {
+export async function captureGoReport(
+  ctx,
+  sharedName,
+  regex,
+  args,
+  policy = {},
+) {
   const sharedDir = prepareSharedArtifactDir(ctx, sharedName);
   await acquireSharedReportLock(ctx, sharedDir, sharedName);
   try {
-    return await captureGoReportLocked(ctx, sharedDir, sharedName, regex, args, policy);
+    return await captureGoReportLocked(
+      ctx,
+      sharedDir,
+      sharedName,
+      regex,
+      args,
+      policy,
+    );
   } finally {
     releaseSharedReportLock(sharedDir);
   }
@@ -863,9 +977,22 @@ export async function captureGoReport(ctx, sharedName, regex, args, policy = {})
 
 export async function assignExecutionFamily(ctx, target, familyOrShard) {
   const spec = resolveExecutionFamilySpec(ctx, target, familyOrShard);
-  const policy = resolveExecutionFamilyPostgresFixturePolicy(ctx, target, familyOrShard);
-  const captured = await captureGoReport(ctx, familyOrShard, spec.regex, spec.args, policy);
-  if (captured.usage === "actual" && isCrossTargetSharedReport(ctx, target, familyOrShard)) {
+  const policy = resolveExecutionFamilyPostgresFixturePolicy(
+    ctx,
+    target,
+    familyOrShard,
+  );
+  const captured = await captureGoReport(
+    ctx,
+    familyOrShard,
+    spec.regex,
+    spec.args,
+    policy,
+  );
+  if (
+    captured.usage === "actual" &&
+    isCrossTargetSharedReport(ctx, target, familyOrShard)
+  ) {
     return { ...captured, usage: "reused" };
   }
   return captured;
@@ -874,13 +1001,21 @@ export async function assignExecutionFamily(ctx, target, familyOrShard) {
 function writeShardMetadata(metadataDir, sharedName, captured) {
   mkdirSync(metadataDir, { recursive: true });
   const file = path.join(metadataDir, `${sharedName}.meta`);
-  writeFileSync(`${file}.${process.pid}`, `${captured.reportDir}\n${captured.usage}\n`);
+  writeFileSync(
+    `${file}.${process.pid}`,
+    `${captured.reportDir}\n${captured.usage}\n`,
+  );
   rmSync(file, { force: true });
   writeFileSync(file, readFileSync(`${file}.${process.pid}`));
   rmSync(`${file}.${process.pid}`, { force: true });
 }
 
-export async function captureScheduledShard(ctx, target, sharedName, metadataDir) {
+export async function captureScheduledShard(
+  ctx,
+  target,
+  sharedName,
+  metadataDir,
+) {
   const captured = await assignExecutionFamily(ctx, target, sharedName);
   writeShardMetadata(metadataDir, sharedName, captured);
 }
@@ -902,7 +1037,13 @@ function isoWindowDurationMs(start, end) {
   return Number.isFinite(duration) && duration > 0 ? duration : 0;
 }
 
-export function createAggregateReport(ctx, metadataDir, aggregateName, target, shardNames) {
+export function createAggregateReport(
+  ctx,
+  metadataDir,
+  aggregateName,
+  target,
+  shardNames,
+) {
   const aggregateRoot = path.join(metadataDir, "aggregate-reports", target);
   const outputDir = path.join(aggregateRoot, aggregateName);
   const runnerLog = path.join(outputDir, "runner.jsonl");
@@ -926,28 +1067,53 @@ export function createAggregateReport(ctx, metadataDir, aggregateName, target, s
   for (const shardName of shardNames) {
     const metadata = readSharedReportMetadata(metadataDir, shardName);
     let usage = metadata.usage;
-    if (usage === "actual" && target === "backend-integration-support" && isCrossTargetSharedReport(ctx, target, shardName)) {
+    if (
+      usage === "actual" &&
+      target === "backend-integration-support" &&
+      isCrossTargetSharedReport(ctx, target, shardName)
+    ) {
       usage = "reused";
     }
     if (existsSync(path.join(metadata.reportDir, "runner.jsonl"))) {
-      appendFileSync(runnerLog, readFileSync(path.join(metadata.reportDir, "runner.jsonl")));
+      appendFileSync(
+        runnerLog,
+        readFileSync(path.join(metadata.reportDir, "runner.jsonl")),
+      );
     }
     if (existsSync(path.join(metadata.reportDir, "stderr.log"))) {
-      appendFileSync(stderrLog, readFileSync(path.join(metadata.reportDir, "stderr.log")));
+      appendFileSync(
+        stderrLog,
+        readFileSync(path.join(metadata.reportDir, "stderr.log")),
+      );
     }
     if (readFileSync(commandFile, "utf8").length > 0) {
       appendFileSync(commandFile, "\n");
     }
-    appendFileSync(commandFile, `${shardName}: ${readFileSync(path.join(metadata.reportDir, "command.txt"), "utf8").trimEnd()}\n`);
+    appendFileSync(
+      commandFile,
+      `${shardName}: ${readFileSync(path.join(metadata.reportDir, "command.txt"), "utf8").trimEnd()}\n`,
+    );
 
-    const shardDuration = clampDurationMs(readFileSync(path.join(metadata.reportDir, "duration_ms.txt"), "utf8"));
+    const shardDuration = clampDurationMs(
+      readFileSync(path.join(metadata.reportDir, "duration_ms.txt"), "utf8"),
+    );
     durationMs += shardDuration;
-    const shardStatus = Number.parseInt(readFileSync(path.join(metadata.reportDir, "exit_status.txt"), "utf8"), 10) || 0;
+    const shardStatus =
+      Number.parseInt(
+        readFileSync(path.join(metadata.reportDir, "exit_status.txt"), "utf8"),
+        10,
+      ) || 0;
     if (shardStatus !== 0) {
       exitStatus = shardStatus;
     }
-    const shardStart = readFileSync(path.join(metadata.reportDir, "start_time.txt"), "utf8").trim();
-    const shardEnd = readFileSync(path.join(metadata.reportDir, "end_time.txt"), "utf8").trim();
+    const shardStart = readFileSync(
+      path.join(metadata.reportDir, "start_time.txt"),
+      "utf8",
+    ).trim();
+    const shardEnd = readFileSync(
+      path.join(metadata.reportDir, "end_time.txt"),
+      "utf8",
+    ).trim();
     if (startTime === "" || shardStart < startTime) {
       startTime = shardStart;
     }
@@ -975,26 +1141,54 @@ export function createAggregateReport(ctx, metadataDir, aggregateName, target, s
   }
   writeFileSync(path.join(outputDir, "start_time.txt"), `${startTime}\n`);
   writeFileSync(path.join(outputDir, "end_time.txt"), `${endTime}\n`);
-  writeFileSync(path.join(outputDir, "duration_ms.txt"), `${clampDurationMs(durationMs)}\n`);
-  writeFileSync(path.join(outputDir, "wall_duration_ms.txt"), `${clampDurationMs(wallDurationMs)}\n`);
+  writeFileSync(
+    path.join(outputDir, "duration_ms.txt"),
+    `${clampDurationMs(durationMs)}\n`,
+  );
+  writeFileSync(
+    path.join(outputDir, "wall_duration_ms.txt"),
+    `${clampDurationMs(wallDurationMs)}\n`,
+  );
   writeFileSync(path.join(outputDir, "exit_status.txt"), `${exitStatus}\n`);
-  writeFileSync(path.join(outputDir, "aggregate.txt"), `${target}:${aggregateName}\n`);
+  writeFileSync(
+    path.join(outputDir, "aggregate.txt"),
+    `${target}:${aggregateName}\n`,
+  );
   return { reportDir: outputDir, usage };
 }
 
 function loadPhaseWindow(reportDir, mode) {
-  const command = readFileSync(path.join(reportDir, "command.txt"), "utf8").trimEnd();
-  const exitStatus = Number.parseInt(readFileSync(path.join(reportDir, "exit_status.txt"), "utf8"), 10) || 0;
-  const storedDurationMs = clampDurationMs(readFileSync(path.join(reportDir, "duration_ms.txt"), "utf8"));
-  const storedWallDurationMs = existsSync(path.join(reportDir, "wall_duration_ms.txt"))
-    ? clampDurationMs(readFileSync(path.join(reportDir, "wall_duration_ms.txt"), "utf8"))
+  const command = readFileSync(
+    path.join(reportDir, "command.txt"),
+    "utf8",
+  ).trimEnd();
+  const exitStatus =
+    Number.parseInt(
+      readFileSync(path.join(reportDir, "exit_status.txt"), "utf8"),
+      10,
+    ) || 0;
+  const storedDurationMs = clampDurationMs(
+    readFileSync(path.join(reportDir, "duration_ms.txt"), "utf8"),
+  );
+  const storedWallDurationMs = existsSync(
+    path.join(reportDir, "wall_duration_ms.txt"),
+  )
+    ? clampDurationMs(
+        readFileSync(path.join(reportDir, "wall_duration_ms.txt"), "utf8"),
+      )
     : storedDurationMs;
   if (mode === "actual") {
     return {
       command,
       exitStatus,
-      startTime: readFileSync(path.join(reportDir, "start_time.txt"), "utf8").trim(),
-      endTime: readFileSync(path.join(reportDir, "end_time.txt"), "utf8").trim(),
+      startTime: readFileSync(
+        path.join(reportDir, "start_time.txt"),
+        "utf8",
+      ).trim(),
+      endTime: readFileSync(
+        path.join(reportDir, "end_time.txt"),
+        "utf8",
+      ).trim(),
       durationMs: storedDurationMs,
       wallDurationMs: storedWallDurationMs,
     };
@@ -1010,11 +1204,19 @@ function loadPhaseWindow(reportDir, mode) {
   };
 }
 
-async function emitReportPhaseSummary(ctx, helperCommand, label, reportDir, mode, extraEnv = {}) {
+async function emitReportPhaseSummary(
+  ctx,
+  helperCommand,
+  label,
+  reportDir,
+  mode,
+  extraEnv = {},
+) {
   const phase = loadPhaseWindow(reportDir, mode);
   const phaseDir = preparePhaseArtifactDir(ctx, label);
   return await runHelper(ctx, [helperCommand], {
     CARTULARY_TEST_TARGET: ctx.testTarget,
+    CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
     CARTULARY_PHASE_LABEL: label,
     CARTULARY_PHASE_DIR: phaseDir,
     CARTULARY_PHASE_COMMAND: phase.command,
@@ -1035,7 +1237,15 @@ function packagePatternsEnv(packages) {
   return packages.join("\n");
 }
 
-async function emitGoRawPhase(ctx, label, mode, reportDir, regex, packages, coverage) {
+async function emitGoRawPhase(
+  ctx,
+  label,
+  mode,
+  reportDir,
+  regex,
+  packages,
+  coverage,
+) {
   return await emitReportPhaseSummary(ctx, "go-phase", label, reportDir, mode, {
     CARTULARY_GO_TEST_REGEX: regex,
     CARTULARY_ACCOUNTING_COVERAGE: coverage,
@@ -1055,19 +1265,34 @@ async function emitGoManifestPhase(
   executionFamily,
   packages,
 ) {
-  return await emitReportPhaseSummary(ctx, "go-manifest-phase", label, reportDir, mode, {
-    CARTULARY_MANIFEST_PHASE: manifestPhase,
-    CARTULARY_MANIFEST_SECTION: section,
-    CARTULARY_MANIFEST_COVERAGE: coverage,
-    CARTULARY_MANIFEST_EXECUTION_DEPENDENCY: executionDependency,
-    CARTULARY_EXECUTION_FAMILY: executionFamily,
-    CARTULARY_GO_PACKAGE_PATTERNS: packagePatternsEnv(packages),
-  });
+  return await emitReportPhaseSummary(
+    ctx,
+    "go-manifest-phase",
+    label,
+    reportDir,
+    mode,
+    {
+      CARTULARY_MANIFEST_PHASE: manifestPhase,
+      CARTULARY_MANIFEST_SECTION: section,
+      CARTULARY_MANIFEST_COVERAGE: coverage,
+      CARTULARY_MANIFEST_EXECUTION_DEPENDENCY: executionDependency,
+      CARTULARY_EXECUTION_FAMILY: executionFamily,
+      CARTULARY_GO_PACKAGE_PATTERNS: packagePatternsEnv(packages),
+    },
+  );
 }
 
-export async function emitExecutionFamily(ctx, target, family, usage, reportDir) {
+export async function emitExecutionFamily(
+  ctx,
+  target,
+  family,
+  usage,
+  reportDir,
+) {
   let status = 0;
-  const emissions = collectAggregateEmissions(rowsForAggregate(ctx, target, family));
+  const emissions = collectAggregateEmissions(
+    rowsForAggregate(ctx, target, family),
+  );
   for (const [index, emission] of emissions.entries()) {
     const emissionUsage = index === 0 ? usage : "derived";
     let result = 0;
@@ -1085,11 +1310,29 @@ export async function emitExecutionFamily(ctx, target, family, usage, reportDir)
         emission.packages,
       );
     } else if (emission.mode === "support") {
-      result = await emitGoRawPhase(ctx, emission.label, emissionUsage, reportDir, emission.regex, emission.packages, "support");
+      result = await emitGoRawPhase(
+        ctx,
+        emission.label,
+        emissionUsage,
+        reportDir,
+        emission.regex,
+        emission.packages,
+        "support",
+      );
     } else if (emission.mode === "raw") {
-      result = await emitGoRawPhase(ctx, emission.label, emissionUsage, reportDir, emission.regex, emission.packages, "raw");
+      result = await emitGoRawPhase(
+        ctx,
+        emission.label,
+        emissionUsage,
+        reportDir,
+        emission.regex,
+        emission.packages,
+        "raw",
+      );
     } else {
-      throw new Error(`unsupported execution family emission mode ${emission.mode}`);
+      throw new Error(
+        `unsupported execution family emission mode ${emission.mode}`,
+      );
     }
     if (result !== 0) {
       status = result;
@@ -1104,7 +1347,13 @@ export async function runUnshardedTarget(ctx, target) {
     try {
       const captured = await assignExecutionFamily(ctx, target, aggregateName);
       if (status === 0) {
-        status = await emitExecutionFamily(ctx, target, aggregateName, captured.usage, captured.reportDir);
+        status = await emitExecutionFamily(
+          ctx,
+          target,
+          aggregateName,
+          captured.usage,
+          captured.reportDir,
+        );
       }
     } catch (error) {
       process.stderr.write(`${error.message}\n`);
@@ -1118,9 +1367,21 @@ export async function finalizeScheduledShards(ctx, target, metadataDir) {
   let status = 0;
   for (const aggregate of targetAggregates(ctx, target)) {
     try {
-      const report = createAggregateReport(ctx, metadataDir, aggregate.name, target, aggregate.shards);
+      const report = createAggregateReport(
+        ctx,
+        metadataDir,
+        aggregate.name,
+        target,
+        aggregate.shards,
+      );
       if (status === 0) {
-        status = await emitExecutionFamily(ctx, target, aggregate.name, report.usage, report.reportDir);
+        status = await emitExecutionFamily(
+          ctx,
+          target,
+          aggregate.name,
+          report.usage,
+          report.reportDir,
+        );
       }
     } catch (error) {
       process.stderr.write(`${error.message}\n`);
@@ -1130,7 +1391,13 @@ export async function finalizeScheduledShards(ctx, target, metadataDir) {
   return await finishTarget(ctx, status);
 }
 
-export async function captureNamedSharedReportsParallel(ctx, target, jobs, metadataDir, shardNames) {
+export async function captureNamedSharedReportsParallel(
+  ctx,
+  target,
+  jobs,
+  metadataDir,
+  shardNames,
+) {
   if (!Number.isInteger(jobs) || jobs < 1) {
     throw new Error(`invalid shard job count: ${jobs}`);
   }
@@ -1156,7 +1423,9 @@ export async function captureNamedSharedReportsParallel(ctx, target, jobs, metad
 }
 
 export async function runShardedTarget(ctx, target) {
-  const metadataDir = mkdtempSync(path.join(os.tmpdir(), `cartulary-${target}-shards.`));
+  const metadataDir = mkdtempSync(
+    path.join(os.tmpdir(), `cartulary-${target}-shards.`),
+  );
   const shardNames = targetShards(ctx, target).map((shard) => shard.name);
   let status = await captureNamedSharedReportsParallel(
     ctx,
@@ -1176,7 +1445,11 @@ export async function runShardedTarget(ctx, target) {
 
 export function inspectAggregateCommand(ctx, target, familyOrShard) {
   const spec = resolveExecutionFamilySpec(ctx, target, familyOrShard);
-  const policy = resolveExecutionFamilyPostgresFixturePolicy(ctx, target, familyOrShard);
+  const policy = resolveExecutionFamilyPostgresFixturePolicy(
+    ctx,
+    target,
+    familyOrShard,
+  );
   return renderGoTestCommand(ctx, spec.regex, spec.args, policy);
 }
 
@@ -1203,7 +1476,9 @@ export async function runGoTargetCLI(argv, options = {}) {
           process.stderr.write(`${usage()}\n`);
           return 2;
         }
-        process.stdout.write(`${inspectAggregateCommand(ctx, rest[0], rest[1])}\n`);
+        process.stdout.write(
+          `${inspectAggregateCommand(ctx, rest[0], rest[1])}\n`,
+        );
         return 0;
       case "capture-shard":
         if (rest.length !== 3) {
@@ -1259,7 +1534,9 @@ export async function runGoTargetCLI(argv, options = {}) {
         return 2;
     }
   } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}\n`,
+    );
     return process.exitCode && process.exitCode !== 0 ? process.exitCode : 1;
   }
 }

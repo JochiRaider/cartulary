@@ -113,6 +113,7 @@ chmod +x "$fake_playwright"
 
 success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="playwright-manifest-success" \
   NODE_BIN="${NODE:-node}" \

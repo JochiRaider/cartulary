@@ -13,7 +13,7 @@ if [[ -n "${PNPM_INSTALL_FLAGS:-}" ]]; then
 fi
 
 mkdir -p "$(dirname "$stamp")"
-CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 "$run_phase" "check frontend install" -- \
+CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "$run_phase" "check frontend install" -- \
   "$pnpm" install --frozen-lockfile "${pnpm_flags[@]}"
 printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' \
   "${NODE_BIN:?NODE_BIN is required}" \

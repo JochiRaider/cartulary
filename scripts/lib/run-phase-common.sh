@@ -175,11 +175,31 @@ render_command() {
   printf '%s' "${rendered% }"
 }
 
+render_command_argv_json() {
+  if [[ -n "${NODE_BIN:-}" && -x "${NODE_BIN:-}" ]]; then
+    "${NODE_BIN}" -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' "$@"
+    return
+  fi
+  if command -v node >/dev/null 2>&1; then
+    node -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' "$@"
+    return
+  fi
+  printf '[]'
+}
+
 resolve_output_mode() {
-  local output_mode="${CARTULARY_OUTPUT_MODE:-quiet}"
+  local output_mode="${CARTULARY_OUTPUT_MODE:-summary}"
   if [[ "${VERBOSE:-0}" == "1" || "${CI_VERBOSE:-0}" == "1" ]]; then
     output_mode="normal"
   fi
+  case "$output_mode" in
+    "" | quiet | summary | ci | machine)
+      output_mode="quiet"
+      ;;
+    verbose | debug)
+      output_mode="normal"
+      ;;
+  esac
   printf '%s\n' "$output_mode"
 }
 
@@ -476,6 +496,7 @@ run_phase_command() {
   local stdout_log
   local stderr_log
   local command_text
+  local command_argv_json
   local start_time
   local end_time
   local start_ms
@@ -489,6 +510,7 @@ run_phase_command() {
   stdout_log="${phase_dir}/stdout.log"
   stderr_log="${phase_dir}/stderr.log"
   command_text="$(render_command "$@")"
+  command_argv_json="$(render_command_argv_json "$@")"
 
   if [[ "$output_mode" != "quiet" && "${RUN_PHASE_SHOW_BANNER:-1}" == "1" ]]; then
     echo "== ${phase} =="
@@ -498,10 +520,10 @@ run_phase_command() {
 
   set +e
   if [[ "$output_mode" != "quiet" ]]; then
-    "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+    CARTULARY_PHASE_ARTIFACT_DIR="$phase_dir" "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
     status=$?
   else
-    "$@" >"$stdout_log" 2>"$stderr_log"
+    CARTULARY_PHASE_ARTIFACT_DIR="$phase_dir" "$@" >"$stdout_log" 2>"$stderr_log"
     status=$?
   fi
   set -e
@@ -511,7 +533,7 @@ run_phase_command() {
   end_time="${PHASE_END_TIME}"
   duration_ms="${PHASE_DURATION_MS}"
 
-  if [[ "$status" -eq 0 && "$output_mode" == "quiet" && "${CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG:-0}" == "1" ]]; then
+  if [[ "$status" -eq 0 && "$output_mode" == "quiet" && "${CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG:-0}" == "1" && "${CARTULARY_ENABLE_LEGACY_SUCCESS_LOG:-0}" == "1" && "${CARTULARY_SUPPRESS_CHILD_SUCCESS:-0}" != "1" ]]; then
     if [[ -s "$stdout_log" ]]; then
       cat "$stdout_log"
     fi
@@ -524,6 +546,7 @@ run_phase_command() {
   CARTULARY_PHASE_LABEL="$phase" \
   CARTULARY_PHASE_DIR="$phase_dir" \
   CARTULARY_PHASE_COMMAND="$command_text" \
+  CARTULARY_PHASE_COMMAND_ARGV="$command_argv_json" \
   CARTULARY_PHASE_START_TIME="$start_time" \
   CARTULARY_PHASE_END_TIME="$end_time" \
   CARTULARY_PHASE_DURATION_MS="$duration_ms" \

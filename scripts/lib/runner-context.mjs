@@ -65,7 +65,9 @@ export function createRunnerContext(options = {}) {
     outputMode:
       process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1"
         ? "normal"
-        : process.env.CARTULARY_OUTPUT_MODE || "quiet",
+        : ["verbose", "debug", "normal"].includes(process.env.CARTULARY_OUTPUT_MODE ?? "")
+          ? "normal"
+          : "quiet",
     resultsDir: envPath("CARTULARY_TEST_RESULTS_DIR", ".cartulary/test-results", repoRoot),
     runId: process.env.CARTULARY_TEST_RUN_ID || "adhoc",
   };

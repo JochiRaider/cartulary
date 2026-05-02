@@ -4,8 +4,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
+task_surface_makefile="$ROOT_DIR/Makefile"
+task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
 # shellcheck source=scripts/lib/harness-scratch.sh
 source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
+# shellcheck source=scripts/lib/task-surface-check-common.sh
+source "$ROOT_DIR/scripts/lib/task-surface-check-common.sh"
 cleanup_paths=()
 
 cd "$ROOT_DIR"
@@ -112,24 +116,6 @@ run_isolated_make_probe() {
     make --no-print-directory "$@"
 }
 
-make_target_block() {
-  local target="$1"
-
-  cat "$ROOT_DIR/tools/task_surface.generated.mk" "$ROOT_DIR/Makefile" | awk -v target="$target" '
-    $0 ~ "^" target ":" {
-      in_target = 1
-      print
-      next
-    }
-    in_target && /^[^[:space:]#][^:]*:/ {
-      exit
-    }
-    in_target {
-      print
-    }
-  '
-}
-
 assert_make_fails() {
   local label="$1"
   shift
@@ -161,9 +147,9 @@ assert_make_passes() {
 }
 
 makefile_content="$(cat "$ROOT_DIR/Makefile"; printf '\n'; cat "$ROOT_DIR/tools/task_surface.generated.mk")"
-release_check_block="$(make_target_block release-check)"
-license_report_block="$(make_target_block license-report)"
-sbom_block="$(make_target_block sbom)"
+release_check_block="$(extract_target_definition release-check)"
+license_report_block="$(extract_target_definition license-report)"
+sbom_block="$(extract_target_definition sbom)"
 help_output="$(make --no-print-directory help)"
 help_all_output="$(make --no-print-directory help-all)"
 
@@ -205,4 +191,4 @@ assert_make_passes "valid SBOM" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true
 assert_no_ambient_summary "license-report"
 assert_no_ambient_summary "sbom"
 
-assert_equals "$(make_target_block release-check | grep -c '^release-check:')" "1" "release-check target declaration"
+assert_equals "$(extract_target_definition release-check | grep -c '^release-check:')" "1" "release-check target declaration"

@@ -210,7 +210,7 @@ try {
     CARTULARY_TEST_RUN_ID: "failure",
   }, { allowFailure: true });
   assert.notEqual(failed.status, 0, "failed selected work must fail the phase scheduler");
-  assert.match(failed.stdout, /\[PHASE-SCHEDULER\] phase-slice summary status=fail /);
+  assert.match(failed.stdout, /\[SUMMARY\] target=phase-slice status=fail /);
   const schedulerSummaryPath = path.join(failureResults, "failure/phase-slice/scheduler-summary.json");
   assert.ok(existsSync(schedulerSummaryPath), "failed phase slice must write scheduler summary");
   const schedulerSummary = readJSON(schedulerSummaryPath);

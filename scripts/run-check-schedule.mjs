@@ -612,6 +612,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
         ...nestedSchedulerEnv(unit),
         ...unit.env,
         CARTULARY_TEST_TARGET: unit.target,
+        CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
       }),
     });
   }
@@ -625,6 +626,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
     stopOnFirstFailure: true,
     progressExtras: nestedProgress.progressExtras,
     countCompletedUnit: (_unit, result) => result.status === 0,
+    shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,
     beforeRun: async () => {
       const capacityDisplay = schedule.resourceLimits.get("host_cpu") ?? Math.max(...schedule.resourceLimits.values());
       await runLifecycle(repoRoot, testOutputScript, [
@@ -672,6 +674,8 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
         String(reporter.completedCount),
         String(schedule.workUnits.length),
         firstFailureLabel ?? "-",
+        "--suppress-machine-output",
+        "--quiet-failure",
       ];
       if (summaryGroups) {
         summaryArgs.push("--summary-groups", summaryGroups);

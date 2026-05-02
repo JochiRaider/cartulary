@@ -139,7 +139,9 @@ class SchedulerReporter {
       workUnits: this.schedule.workUnits.filter(counted),
       artifacts: relToRepo(this.repoRoot, this.targetDir),
     });
-    process.stdout.write(line);
+    if (!this.machine) {
+      process.stdout.write(line);
+    }
     this.progressRecorder.recordStart(line);
   }
 
@@ -310,7 +312,7 @@ class SchedulerReporter {
     );
     const blockedKey = `${reason}:${blockedResources.join(",")}:${waitingOn.join(",")}:${JSON.stringify(blockedUnits)}`;
     await this.maybeProgress(state, reason, blockedResources, {
-      force: blockedKey !== this.lastBlockedKey,
+      force: (this.verbose || this.machine) && blockedKey !== this.lastBlockedKey,
       waitingOn,
       blockedUnits,
     });
@@ -430,12 +432,15 @@ class SchedulerReporter {
       slowestRunning: progressLine.slowestRunning,
       nestedProgress,
     });
-    if (this.verbose || this.machine) {
+    if (this.machine) {
+      // Machine mode reserves stdout for the canonical JSON summary emitted by
+      // the target summary writer; scheduler progress remains in artifacts.
+    } else if (this.verbose) {
       process.stdout.write(schedulerProgressLine(progressLine));
     } else {
       process.stdout.write(humanProgressLine);
     }
-    if ((this.verbose || this.machine) && extra.writeLines) {
+    if (this.verbose && extra.writeLines) {
       extra.writeLines();
     }
   }
@@ -512,7 +517,9 @@ class SchedulerReporter {
       slowest,
       artifacts: relToRepo(this.repoRoot, this.targetDir),
     });
-    process.stdout.write(summaryLine);
+    if (!this.machine) {
+      process.stdout.write(summaryLine);
+    }
     this.progressRecorder.recordSummary(summaryLine);
     const baseSummary = {
       schema_id: this.schedule.summarySchemaID,

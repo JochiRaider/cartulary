@@ -21,6 +21,20 @@ assert_contains() {
   fi
 }
 
+phase_stdout_from_result() {
+  local output="$1"
+  local root
+  root="$(printf '%s\n' "$output" | sed -n 's/.* artifact_root=\([^ ]*\) .*/\1/p' | head -n 1)"
+  if [[ -z "$root" ]]; then
+    fail "missing artifact_root in output: $output"
+  fi
+  if [[ "$root" = /* ]]; then
+    cat "$root/stdout.log"
+  else
+    cat "$ROOT_DIR/$root/stdout.log"
+  fi
+}
+
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/service-backed-make-target-duration-baselines.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -135,7 +149,8 @@ make_update_output="$(
   SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baselines 2>&1
 )"
-assert_contains "$make_update_output" "updated 2 service-backed make-target duration baselines" "make baseline update output"
+assert_contains "$make_update_output" "[RESULT] target=service-backed-make-target-duration-baselines status=pass" "make baseline update summary"
+assert_contains "$(phase_stdout_from_result "$make_update_output")" "updated 2 service-backed make-target duration baselines" "make baseline update output"
 RESULTS_DIR="$results_dir" \
 SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
 EXECUTION_TOPOLOGY_MANIFEST="$tmp_dir/topology.json" \

@@ -130,6 +130,7 @@ chmod +x "$fake_vitest"
 
 success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   NODE_BIN="${NODE:-node}" \
     "$HELPER" "vitest raw smoke" -- "$fake_vitest"
 )"

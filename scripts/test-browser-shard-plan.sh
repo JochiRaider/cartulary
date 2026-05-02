@@ -54,6 +54,23 @@ assert_contains() {
   fi
 }
 
+tool_logs_from_result() {
+  local output="$1"
+  local root
+  root="$(printf '%s\n' "$output" | sed -n 's/.* artifact_root=\([^ ]*\) .*/\1/p' | head -n 1)"
+  if [[ -z "$root" ]]; then
+    fail "missing artifact_root in output: $output"
+  fi
+  local dir
+  if [[ "$root" = /* ]]; then
+    dir="$root"
+  else
+    dir="$ROOT_DIR/$root"
+  fi
+  [[ -f "$dir/stdout.log" ]] && cat "$dir/stdout.log"
+  [[ -f "$dir/stderr.log" ]] && cat "$dir/stderr.log"
+}
+
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/browser-shard-plan.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 mkdir -p "$tmp_dir/manifests/tools"
@@ -406,7 +423,8 @@ make_refresh_output="$(
   RESULTS_DIR="$browser_results" \
     "${MAKE:-make}" --no-print-directory -C "$ROOT_DIR" browser-e2e-duration-baselines 2>&1
 )"
-assert_contains "$make_refresh_output" "updated 4 browser E2E duration baselines" "make browser baseline refresh output"
+assert_contains "$make_refresh_output" "[RESULT] target=browser-e2e-duration-baselines status=pass" "make browser baseline refresh summary"
+assert_contains "$(tool_logs_from_result "$make_refresh_output")" "updated 4 browser E2E duration baselines" "make browser baseline refresh output"
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" check-baseline-drift --baseline-file "$tmp_dir/browser-make-baseline.json" "$browser_results" >/dev/null
 

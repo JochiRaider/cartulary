@@ -79,7 +79,6 @@ RUN_SERVICE_BACKED_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-service-backed-sched
 RUN_CHECK_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-check-schedule.mjs
 BUILD_INPUTS_SCRIPT := $(CURDIR)/scripts/list-build-inputs.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
-RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT)
 
 define resolve_service_go_test_p
 $(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))
@@ -88,7 +87,7 @@ endef
 EFFECTIVE_BACKEND_STORE_GO_TEST_P := $(call resolve_service_go_test_p,BACKEND_STORE_GO_TEST_P)
 EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P := $(call resolve_service_go_test_p,BACKEND_INTEGRATION_GO_TEST_P)
 
-CARTULARY_OUTPUT_MODE ?= quiet
+CARTULARY_OUTPUT_MODE ?= summary
 CARTULARY_TEST_RESULTS_DIR ?= $(CURDIR)/.cartulary/test-results
 CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
 RELEASE_ARTIFACT_DIR ?= $(CURDIR)/.cartulary/release-artifacts
@@ -105,7 +104,7 @@ else
 EFFECTIVE_OUTPUT_MODE := $(CARTULARY_OUTPUT_MODE)
 endif
 
-ifeq ($(EFFECTIVE_OUTPUT_MODE),quiet)
+ifneq ($(filter $(EFFECTIVE_OUTPUT_MODE),quiet summary ci machine),)
 PNPM_INSTALL_FLAGS := --reporter=append-only --loglevel=warn
 BIOME_CHECK_FLAGS := --reporter=summary --diagnostic-level=warn
 TSC_FLAGS := --pretty false
@@ -113,6 +112,9 @@ VITE_BUILD_FLAGS := --logLevel warn
 VITEST_FLAGS := --silent=passed-only
 VITEST_MANIFEST_FLAGS := --silent=passed-only
 PLAYWRIGHT_TEST_FLAGS := --quiet
+export NO_COLOR := 1
+export CLICOLOR := 0
+export FORCE_COLOR := 0
 endif
 
 SQLC_TOOL := github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
@@ -213,7 +215,7 @@ include tools/task_surface.generated.mk
 
 $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT): $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) scripts/generate-sbom-license-evidence.mjs scripts/validate-cyclonedx.mjs go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
 	$(Q)mkdir -p $(RELEASE_ARTIFACT_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "generate SBOM/license evidence" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CYCLONEDX_GOMOD_BIN="$(CYCLONEDX_GOMOD_BIN)" SYFT_BIN="$(SYFT_BIN)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" $(NODE_BIN) ./scripts/generate-sbom-license-evidence.mjs
+	$(Q)CARTULARY_TEST_TARGET=release-evidence CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "generate SBOM/license evidence" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CYCLONEDX_GOMOD_BIN="$(CYCLONEDX_GOMOD_BIN)" SYFT_BIN="$(SYFT_BIN)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" $(NODE_BIN) ./scripts/generate-sbom-license-evidence.mjs
 
 $(NODE_BIN): scripts/bootstrap-node-runtime.sh Makefile
 	$(Q)NODE_VERSION="$(NODE_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" ./scripts/bootstrap-node-runtime.sh
@@ -236,7 +238,7 @@ $(FRONTEND_TOOLCHAIN_STAMP): $(NODE_BIN) Makefile
 
 $(FRONTEND_INSTALL_STAMP): $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN_STAMP)
 	$(Q)mkdir -p $(dir $(FRONTEND_INSTALL_STAMP))
-	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "frontend install" -- $(PNPM_ENV) $(PNPM) install $(PNPM_INSTALL_FLAGS)
+	$(Q)CARTULARY_TEST_TARGET=frontend-install CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "frontend install" -- $(PNPM_ENV) $(PNPM) install $(PNPM_INSTALL_FLAGS)
 	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(FRONTEND_INSTALL_STAMP)
 
 $(SQLC_BIN):
@@ -286,7 +288,7 @@ $(SHELLCHECK_BIN): scripts/bootstrap-shellcheck.sh Makefile
 
 $(TEST_SERVICES_BIN): $$(TEST_SERVICES_BUILD_INPUTS)
 	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "build testservices" -- $(GO_ENV) $(GO) build -o $(TEST_SERVICES_BIN) ./tools/testservices
+	$(Q)CARTULARY_TEST_TARGET=testservices-build CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "build testservices" -- $(GO_ENV) $(GO) build -o $(TEST_SERVICES_BIN) ./tools/testservices
 
 $(PLAYWRIGHT_INSTALL_STAMP): $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAMP)
 	$(Q)mkdir -p $(dir $(PLAYWRIGHT_INSTALL_STAMP))
@@ -308,4 +310,4 @@ $(MIGRATE_BIN): $$(MIGRATE_BUILD_INPUTS)
 	$(RUN_PHASE) "build migrate" -- $(GO_ENV) $(GO) build -o $(MIGRATE_BIN) ./cmd/migrate
 
 $(CURDIR)/apps/web/dist/index.html: $$(WEB_BUILD_INPUTS) $(FRONTEND_INSTALL_STAMP) | $(NODE_BIN)
-	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "build web" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vite build $(VITE_BUILD_FLAGS)
+	$(Q)CARTULARY_TEST_TARGET=build-web CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "build web" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vite build $(VITE_BUILD_FLAGS)

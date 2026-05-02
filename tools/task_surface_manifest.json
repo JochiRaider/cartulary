@@ -908,8 +908,7 @@
       "command": [
         "./scripts/ci/check-deployable-shape.sh"
       ],
-      "test_target": "self",
-      "allow_success_log": true
+      "test_target": "self"
     },
     "phase-map-check": {
       "prerequisites": [
@@ -1299,7 +1298,6 @@
         "typecheck"
       ],
       "test_target": "self",
-      "allow_success_log": true,
       "success_summary": true
     },
     "frontend-unit": {
@@ -1364,7 +1362,6 @@
         "$(BIOME_CHECK_FLAGS)"
       ],
       "test_target": "self",
-      "allow_success_log": true,
       "failure_note": "inspect Biome diagnostics; run make format only for formatting/style diagnostics"
     },
     "lint-scripts": {
@@ -1380,8 +1377,7 @@
         "./scripts/run-scripts-biome.sh",
         "$(BIOME_SCRIPT_CHECK_FLAGS)"
       ],
-      "test_target": "self",
-      "allow_success_log": true
+      "test_target": "self"
     },
     "lint-shell": {
       "prerequisites": [
@@ -1397,8 +1393,7 @@
       "command": [
         "./scripts/run-shellcheck.sh"
       ],
-      "test_target": "self",
-      "allow_success_log": true
+      "test_target": "self"
     },
     "format": {
       "prerequisites": [
@@ -1432,8 +1427,7 @@
         "./scripts/run-frontend-biome.sh",
         "format"
       ],
-      "test_target": "self",
-      "allow_success_log": true
+      "test_target": "self"
     },
     "browser-e2e": {
       "type": "browser_batch",
@@ -1742,8 +1736,7 @@
         "bash",
         "./scripts/run-go-gosec-audit.sh"
       ],
-      "test_target": "self",
-      "allow_success_log": true
+      "test_target": "self"
     },
     "check": {
       "type": "check_schedule",
@@ -1919,14 +1912,50 @@
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "help-all",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 140,
+          "stdout_bytes": 10000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "doctor",
@@ -1936,21 +1965,75 @@
       ],
       "backing_scripts": [
         "scripts/check-doctor.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "bootstrap",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "bootstrap-node-runtime",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "frontend-toolchain",
@@ -1960,14 +2043,50 @@
       ],
       "backing_scripts": [
         "scripts/print-frontend-toolchain.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "frontend-install",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "frontend-install-ci",
@@ -1984,7 +2103,25 @@
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "db-up",
@@ -1994,7 +2131,25 @@
       ],
       "backing_scripts": [
         "scripts/dev-services.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "db-reset",
@@ -2004,7 +2159,25 @@
       ],
       "backing_scripts": [
         "scripts/dev-services.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "services-up",
@@ -2014,7 +2187,25 @@
       ],
       "backing_scripts": [
         "scripts/dev-services.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "services-wait",
@@ -2051,7 +2242,25 @@
       ],
       "backing_scripts": [
         "scripts/dev-services.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "dev",
@@ -2061,7 +2270,25 @@
       ],
       "backing_scripts": [
         "scripts/dev-stack.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "interactive_raw",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 0,
+          "stdout_bytes": 0,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "interactive",
+        "summary_schema": null
+      }
     },
     {
       "name": "codegen-toolchain",
@@ -2096,7 +2323,25 @@
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "generate-artifacts",
@@ -2116,7 +2361,25 @@
       ],
       "backing_scripts": [
         "scripts/check-generate-drift.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "generated-artifact-policy-check",
@@ -2127,7 +2390,25 @@
       "backing_scripts": [
         "scripts/check-generated-artifact-policy.mjs",
         "tools/generated_artifact_policy.json"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "json-shape-check",
@@ -2147,7 +2428,25 @@
         "tools/frontend_import_boundaries.json",
         "tools/scheduler_resource_registry.json",
         "configs/dev/bootstrap-admin.json"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "toolchain-drift",
@@ -2157,7 +2456,25 @@
       ],
       "backing_scripts": [
         "scripts/check-toolchain-pins.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "migration-drift",
@@ -2170,7 +2487,25 @@
       ],
       "backing_scripts": [
         "scripts/check-migrations.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "deployable-shape",
@@ -2200,7 +2535,25 @@
       ],
       "backing_scripts": [
         "scripts/render-phase-ledgers.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "phase-ledger-drift",
@@ -2210,7 +2563,25 @@
       ],
       "backing_scripts": [
         "scripts/check-phase-ledger-drift.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "phase-schedules",
@@ -2220,7 +2591,25 @@
       ],
       "backing_scripts": [
         "scripts/render-execution-topology-artifacts.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "phase-schedule-drift",
@@ -2230,7 +2619,25 @@
       ],
       "backing_scripts": [
         "scripts/render-execution-topology-artifacts.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "benchmark-claim-check",
@@ -2240,7 +2647,25 @@
       ],
       "backing_scripts": [
         "scripts/check-benchmark-claim.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "task-surface-report",
@@ -2251,7 +2676,25 @@
       "backing_scripts": [
         "scripts/print-task-surface-report.mjs",
         "scripts/render-task-surface-make.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "task-guide",
@@ -2262,7 +2705,25 @@
       "backing_scripts": [
         "scripts/print-task-guide.mjs",
         "scripts/lib/task-guidance.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "phase-slice",
@@ -2274,7 +2735,25 @@
         "scripts/run-phase-slice.mjs",
         "scripts/lib/phase-slice-plan.mjs",
         "scripts/lib/task-guidance.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "scheduler_summary_with_artifacts",
+        "artifact_policy": "scheduler_and_tool_run_summaries",
+        "success_budget": {
+          "stdout_lines": 8,
+          "stdout_bytes": 2000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "service-backed-slice",
@@ -2286,7 +2765,25 @@
         "scripts/run-phase-slice.mjs",
         "scripts/lib/phase-slice-plan.mjs",
         "scripts/lib/task-guidance.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "scheduler_summary_with_artifacts",
+        "artifact_policy": "scheduler_and_tool_run_summaries",
+        "success_budget": {
+          "stdout_lines": 8,
+          "stdout_bytes": 2000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "task-surface-check",
@@ -2310,7 +2807,25 @@
       "backing_scripts": [
         "scripts/cartulary-runner.mjs",
         "scripts/run-go-target.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "backend-store",
@@ -2323,7 +2838,25 @@
       "backing_scripts": [
         "scripts/cartulary-runner.mjs",
         "scripts/run-go-target.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "backend-integration",
@@ -2336,7 +2869,25 @@
       "backing_scripts": [
         "scripts/cartulary-runner.mjs",
         "scripts/run-go-target.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "backend-integration-support",
@@ -2362,7 +2913,25 @@
       "backing_scripts": [
         "scripts/cartulary-runner.mjs",
         "scripts/run-go-target.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "target-plan",
@@ -2372,7 +2941,25 @@
       ],
       "backing_scripts": [
         "scripts/print-target-plan.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "target-plan-json",
@@ -2382,7 +2969,25 @@
       ],
       "backing_scripts": [
         "scripts/print-target-plan.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "machine_stdout",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 10000,
+          "stdout_bytes": 500000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "machine_json_stdout",
+        "summary_schema": null
+      }
     },
     {
       "name": "fixture-report",
@@ -2393,7 +2998,25 @@
       "backing_scripts": [
         "scripts/print-fixture-report.mjs",
         "scripts/lib/fixture-reporting.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "explain-run",
@@ -2403,7 +3026,25 @@
       ],
       "backing_scripts": [
         "scripts/print-explain-run.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "explain-phase",
@@ -2414,7 +3055,25 @@
       "backing_scripts": [
         "scripts/print-explain-phase.mjs",
         "scripts/lib/task-guidance.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "explain-target",
@@ -2426,7 +3085,25 @@
         "scripts/print-explain-target.mjs",
         "scripts/lib/task-guidance.mjs",
         "scripts/print-target-plan.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 120,
+          "stdout_bytes": 8000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      }
     },
     {
       "name": "go-test-duration-baselines",
@@ -2436,7 +3113,25 @@
       ],
       "backing_scripts": [
         "scripts/update-go-test-durations.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "go-test-duration-baseline-coverage",
@@ -2446,7 +3141,25 @@
       ],
       "backing_scripts": [
         "scripts/check-go-test-duration-baseline-coverage.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "go-test-duration-baseline-drift",
@@ -2456,7 +3169,25 @@
       ],
       "backing_scripts": [
         "scripts/check-go-test-duration-baseline-drift.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "browser-e2e-duration-baselines",
@@ -2466,7 +3197,25 @@
       ],
       "backing_scripts": [
         "scripts/lib/browser-shard-plan.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "browser-e2e-duration-baseline-drift",
@@ -2476,7 +3225,25 @@
       ],
       "backing_scripts": [
         "scripts/lib/browser-shard-plan.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "service-backed-make-target-duration-baselines",
@@ -2486,7 +3253,25 @@
       ],
       "backing_scripts": [
         "scripts/service-backed-make-target-durations.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "service-backed-make-target-duration-baseline-drift",
@@ -2496,7 +3281,25 @@
       ],
       "backing_scripts": [
         "scripts/service-backed-make-target-durations.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "harness-smoke-duration-baselines",
@@ -2506,7 +3309,25 @@
       ],
       "backing_scripts": [
         "scripts/harness-smoke-durations.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "harness-smoke-duration-baseline-drift",
@@ -2516,7 +3337,25 @@
       ],
       "backing_scripts": [
         "scripts/harness-smoke-durations.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "scheduler-event-order-drift",
@@ -2527,7 +3366,25 @@
       "backing_scripts": [
         "scripts/check-scheduler-event-order-drift.mjs",
         "scripts/lib/scheduler/event-order.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "backend-task-surface-check",
@@ -2604,7 +3461,25 @@
         "test",
         "check",
         "ci"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "frontend-unit",
@@ -2616,7 +3491,25 @@
       ],
       "backing_scripts": [
         "scripts/run-frontend-unit.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "frontend-task-surface-check",
@@ -2637,7 +3530,25 @@
       ],
       "backing_scripts": [
         "scripts/check-frontend-import-boundaries.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "lint-biome",
@@ -2647,7 +3558,25 @@
       ],
       "backing_scripts": [
         "scripts/run-frontend-biome.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "lint-scripts",
@@ -2657,7 +3586,25 @@
       ],
       "backing_scripts": [
         "scripts/run-scripts-biome.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "lint-shell",
@@ -2667,14 +3614,50 @@
       ],
       "backing_scripts": [
         "scripts/run-shellcheck.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "format",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "format-go",
@@ -2709,7 +3692,25 @@
         "scripts/run-browser-e2e-batch.sh",
         "scripts/lib/browser-batch-manifest.mjs",
         "scripts/start-web-e2e.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "browser-e2e-webserver-backed",
@@ -2727,7 +3728,25 @@
         "scripts/lib/run-playwright-webserver-batch.sh",
         "scripts/lib/browser-shard-plan.mjs",
         "scripts/start-web-e2e.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "browser-e2e-functional",
@@ -2772,7 +3791,25 @@
         "scripts/lib/browser-batch-manifest.mjs",
         "scripts/run-browser-e2e-stateful.sh",
         "scripts/start-web-e2e.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "browser-e2e-resettable",
@@ -2802,7 +3839,25 @@
         "scripts/lib/browser-batch-manifest.mjs",
         "scripts/run-browser-e2e-measurement.sh",
         "scripts/start-web-e2e.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "browser-e2e-visual",
@@ -2818,7 +3873,25 @@
         "scripts/lib/browser-batch-manifest.mjs",
         "scripts/run-browser-e2e-visual.sh",
         "scripts/start-web-e2e.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "browser-e2e-task-surface-check",
@@ -2858,7 +3931,25 @@
         "test",
         "check",
         "ci"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "aggregate_summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 5,
+          "stdout_bytes": 1500,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "test-fast-service-backed",
@@ -2880,14 +3971,50 @@
         "test",
         "check",
         "ci"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "aggregate_summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 5,
+          "stdout_bytes": 1500,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "lint",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "lint-go",
@@ -2939,7 +4066,25 @@
       ],
       "backing_scripts": [
         "scripts/run-go-govulncheck.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "go-gosec-targeted",
@@ -2949,7 +4094,25 @@
       ],
       "backing_scripts": [
         "scripts/run-go-gosec-targeted.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "go-gosec-audit",
@@ -2959,7 +4122,25 @@
       ],
       "backing_scripts": [
         "scripts/run-go-gosec-audit.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "check",
@@ -2969,7 +4150,25 @@
       ],
       "backing_scripts": [
         "scripts/run-check-schedule.mjs"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "scheduler_summary_with_artifacts",
+        "artifact_policy": "scheduler_and_tool_run_summaries",
+        "success_budget": {
+          "stdout_lines": 8,
+          "stdout_bytes": 2000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "check-setup-blockers",
@@ -3054,7 +4253,25 @@
       ],
       "backing_scripts": [
         "scripts/run-make-sequence.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "aggregate_summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 5,
+          "stdout_bytes": 1500,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "release-check",
@@ -3064,7 +4281,25 @@
       ],
       "backing_scripts": [
         "scripts/run-make-sequence.sh"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "aggregate_summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 5,
+          "stdout_bytes": 1500,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "license-report",
@@ -3095,42 +4330,150 @@
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "build-server",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "build-migrate",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "build-web",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
     },
     {
       "name": "clean",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "destructive_human",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 200,
+          "stdout_bytes": 20000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "human_visible_actions",
+        "summary_schema": null
+      }
     },
     {
       "name": "distclean",
       "classification": "public",
       "included_in": [
         "helper_only"
-      ]
+      ],
+      "output_policy": {
+        "output_class": "destructive_human",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 200,
+          "stdout_bytes": 20000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "human_visible_actions",
+        "summary_schema": null
+      }
     }
   ],
   "harness_tiers": {
@@ -3233,6 +4576,7 @@
         "harness-smoke-service-backed-scheduler",
         "harness-smoke-cartulary-runner-service-backed-target",
         "harness-smoke-check-scheduler",
+        "harness-smoke-tool-output-real-targets",
         "harness-smoke-run-playwright-phase",
         "harness-smoke-run-playwright-manifest-phase",
         "harness-smoke-run-playwright-webserver-batch",
@@ -3535,6 +4879,12 @@
       "backing_scripts": [
         "scripts/test-check-scheduler.sh",
         "scripts/run-check-schedule.mjs"
+      ]
+    },
+    {
+      "name": "harness-smoke-tool-output-real-targets",
+      "backing_scripts": [
+        "scripts/test-tool-output-real-targets.sh"
       ]
     },
     {

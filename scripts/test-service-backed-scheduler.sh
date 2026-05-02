@@ -7,7 +7,7 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 
-unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
 
 cleanup() {
   local path
@@ -51,6 +51,22 @@ assert_not_contains() {
   if [[ "$haystack" == *"$needle"* ]]; then
     fail "$label: expected output not to contain [$needle]"
   fi
+}
+
+assert_occurrences() {
+  local haystack="$1"
+  local needle="$2"
+  local expected="$3"
+  local label="$4"
+  local remaining="$haystack"
+  local actual=0
+
+  while [[ "$remaining" == *"$needle"* ]]; do
+    remaining="${remaining#*"$needle"}"
+    actual=$((actual + 1))
+  done
+
+  assert_equals "$actual" "$expected" "$label"
 }
 
 assert_file_present() {
@@ -135,7 +151,7 @@ if (!fs.statSync(resolveArtifact(summary.artifacts.progress_summary_log)).isFile
 if (!progressLog.includes(`[SCHEDULER] ${summary.target} start `)) {
   throw new Error("progress summary log must retain scheduler start");
 }
-if (!progressLog.includes(`[SCHEDULER] ${summary.target} summary `)) {
+if (!progressLog.includes(`[SUMMARY] target=${summary.target} `)) {
   throw new Error("progress summary log must retain scheduler summary");
 }
 if (!Array.isArray(summary.progress_snapshots) || summary.progress_snapshots.length > 8) {
@@ -204,7 +220,7 @@ if (progressEvents.length > 0) {
   if (summary.progress_snapshots.length === 0) {
     throw new Error("summary must retain progress snapshots when progress events were emitted");
   }
-  if (!progressLog.includes(`[PROGRESS] ${summary.target} `)) {
+  if (!progressLog.includes(`[PROGRESS] target=${summary.target} `)) {
     throw new Error("progress summary log must retain human progress lines");
   }
   if (progressEvents.some((event) => event.slowest_running) && summary.slowest_running_observations.length === 0) {
@@ -224,6 +240,58 @@ if (progress) {
   }
   if (!Number.isInteger(progress.total_work_units) || !Number.isInteger(progress.blocked)) {
     throw new Error("progress events must include total_work_units and blocked counts");
+  }
+}
+EOF
+}
+
+assert_single_machine_json() {
+  local stdout_file="$1"
+  local stderr_file="$2"
+  local expected_target="$3"
+  local label="$4"
+  shift 4
+
+  "$NODE_BIN" - "$stdout_file" "$stderr_file" "$expected_target" "$label" "$@" <<'EOF'
+const fs = require("node:fs");
+const [stdoutFile, stderrFile, expectedTarget, label, ...roleArgs] = process.argv.slice(2);
+const logSeparator = roleArgs.indexOf("--log");
+const expectedSummaryRoles = logSeparator === -1 ? roleArgs : roleArgs.slice(0, logSeparator);
+const expectedLogRoles = logSeparator === -1 ? [] : roleArgs.slice(logSeparator + 1);
+const stdout = fs.readFileSync(stdoutFile, "utf8");
+const stderr = fs.readFileSync(stderrFile, "utf8");
+if (stderr !== "") {
+  throw new Error(`${label}: expected empty stderr in machine mode, got ${JSON.stringify(stderr)}`);
+}
+if (stdout.includes("[RESULT]") || stdout.includes("[ARTIFACTS]") || stdout.includes("[PROGRESS]")) {
+  throw new Error(`${label}: machine mode must not include human summary or progress lines`);
+}
+const lines = stdout.split(/\r?\n/).filter((line) => line.trim() !== "");
+if (lines.length !== 1) {
+  throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
+}
+const summary = JSON.parse(lines[0]);
+if (summary.schema_id !== "cartulary.tool_run_summary.v1") {
+  throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
+}
+if (summary.target !== expectedTarget) {
+  throw new Error(`${label}: expected target ${expectedTarget}, got ${summary.target}`);
+}
+for (const field of ["started_at", "completed_at"]) {
+  if (typeof summary[field] !== "string" || summary[field].trim() === "" || Number.isNaN(Date.parse(summary[field]))) {
+    throw new Error(`${label}: ${field} must be a non-empty timestamp`);
+  }
+}
+const summaryRoles = new Set((summary.summary_artifacts ?? []).map((artifact) => artifact.role));
+for (const role of expectedSummaryRoles) {
+  if (!summaryRoles.has(role)) {
+    throw new Error(`${label}: missing summary artifact role ${role}`);
+  }
+}
+const logRoles = new Set((summary.log_artifacts ?? []).map((artifact) => artifact.role));
+for (const role of expectedLogRoles) {
+  if (!logRoles.has(role)) {
+    throw new Error(`${label}: missing log artifact role ${role}`);
   }
 }
 EOF
@@ -654,14 +722,8 @@ write_manifest "$weighted_manifest" test-fast-service-backed \
 weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted 2>&1)"
 assert_not_contains "$weighted_output" "[STEP] test-fast-service-backed" "default service scheduler output hides per-unit steps"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "quiet scheduler shows aggregate start"
-assert_contains "$weighted_output" "classes={backend:3}" "quiet scheduler start shows work classes"
-assert_contains "$weighted_output" "types={make_target:3}" "quiet scheduler start shows work types"
-assert_contains "$weighted_output" "top_weighted=backend-process:10,backend-integration-support:5,backend-store:1" "quiet scheduler start shows top weighted work"
-assert_contains "$weighted_output" "artifacts=tmp/service-backed-scheduler-weighted." "quiet scheduler start shows artifact field"
-assert_contains "$weighted_output" "/results/weighted/test-fast-service-backed" "quiet scheduler start shows artifact path"
 assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed progress completed_work_units=0/3" "quiet scheduler hides immediate unblocked progress"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed_work_units=3/3 failed=none slowest=" "quiet scheduler shows pass summary"
-assert_contains "$weighted_output" "/results/weighted/test-fast-service-backed" "quiet scheduler summary shows artifact path"
+assert_contains "$weighted_output" "[SUMMARY] target=test-fast-service-backed status=pass work_units=3/3 failed=none slowest=" "quiet scheduler shows pass summary"
 assert_not_contains "$weighted_output" "fake pass for backend-store" "quiet scheduler hides successful child logs"
 assert_not_contains "$weighted_output" "active_resource_claims=" "default scheduler output hides raw active resources"
 assert_not_contains "$weighted_output" "claims={" "default scheduler output hides raw claims"
@@ -755,9 +817,9 @@ write_manifest "$resource_block_manifest" test-fast-service-backed \
   'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 4, "go_io": 1' \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 3, "go_io": 1' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 2, "go_io": 1, "process": 1'
-resource_block_output="$(run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block 2>&1)"
-assert_contains "$resource_block_output" "[PROGRESS] test-fast-service-backed 0/3: test-fast-service-backed 0/3, running backend-integration" "scheduler go_cpu-blocked human progress"
-assert_contains "$resource_block_output" "blocked by go_cpu, unblocks after backend-integration" "scheduler go_cpu-blocked human progress explains blocker"
+resource_block_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block 2>&1)"
+assert_contains "$resource_block_output" "[PROGRESS] target=test-fast-service-backed completed=0/3" "scheduler go_cpu-blocked human progress"
+assert_contains "$resource_block_output" "blocker=go_cpu" "scheduler go_cpu-blocked human progress explains blocker"
 assert_not_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed progress completed_work_units=" "quiet scheduler hides key/value progress"
 assert_not_contains "$resource_block_output" "blocked_by=go_cpu" "quiet scheduler hides key/value blocked progress"
 assert_not_contains "$resource_block_output" "unblocks_after=backend-integration" "quiet scheduler hides key/value unblock progress"
@@ -765,10 +827,25 @@ assert_not_contains "$resource_block_output" "blocked_resources=go_cpu" "default
 assert_not_contains "$resource_block_output" "active_resource_claims=" "default blocked output hides raw active resources"
 assert_scheduler_artifacts "$resource_block_dir" resource-block test-fast-service-backed pass go_cpu blocked
 
-resource_block_machine_output="$(CARTULARY_OUTPUT_MODE=machine run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block-machine 2>&1)"
-assert_contains "$resource_block_machine_output" "[SCHEDULER] test-fast-service-backed progress completed_work_units=0/3" "machine scheduler prints key/value progress"
-assert_contains "$resource_block_machine_output" "blocked_by=go_cpu unblocks_after=backend-integration" "machine scheduler prints key/value blocked progress"
-assert_not_contains "$resource_block_machine_output" "[PROGRESS] test-fast-service-backed" "machine scheduler does not print human progress"
+resource_block_machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-machine.XXXXXX")"
+cleanup_paths+=("$resource_block_machine_dir")
+write_fake_make "$resource_block_machine_dir"
+CARTULARY_OUTPUT_MODE=machine \
+  run_scheduler "$resource_block_machine_dir" "$resource_block_manifest" test-fast-service-backed resource-block-machine \
+  >"${resource_block_machine_dir}/stdout.log" \
+  2>"${resource_block_machine_dir}/stderr.log"
+assert_single_machine_json \
+  "${resource_block_machine_dir}/stdout.log" \
+  "${resource_block_machine_dir}/stderr.log" \
+  test-fast-service-backed \
+  "machine service-backed scheduler summary" \
+  tool_run_summary \
+  target_summary \
+  scheduler_summary \
+  scheduler_events \
+  --log \
+  scheduler_progress \
+  scheduler_logs
 
 backend_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-backend-capacity.XXXXXX")"
 cleanup_paths+=("$backend_capacity_dir")
@@ -780,7 +857,7 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
   'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
 backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
-assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "quiet go resource model shows success scheduler summary"
+assert_contains "$backend_capacity_output" "[SUMMARY] target=test-fast-service-backed status=pass" "quiet go resource model shows success scheduler summary"
 
 io_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-host_io-block.XXXXXX")"
 cleanup_paths+=("$io_block_dir")
@@ -790,9 +867,9 @@ write_manifest "$io_block_manifest" test-fast-service-backed \
   'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 4' \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 3' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 2, "process": 1'
-io_block_output="$(run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed host_io-block 2>&1)"
-assert_contains "$io_block_output" "[PROGRESS] test-fast-service-backed 0/3: test-fast-service-backed 0/3, running backend-integration" "scheduler go_io-blocked human progress"
-assert_contains "$io_block_output" "blocked by go_io, unblocks after backend-integration" "scheduler go_io-blocked human progress explains blocker"
+io_block_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed host_io-block 2>&1)"
+assert_contains "$io_block_output" "[PROGRESS] target=test-fast-service-backed completed=0/3" "scheduler go_io-blocked human progress"
+assert_contains "$io_block_output" "blocker=go_io" "scheduler go_io-blocked human progress explains blocker"
 
 browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser.XXXXXX")"
 cleanup_paths+=("$browser_dir")
@@ -803,11 +880,9 @@ write_manifest "$browser_manifest" test-service-backed \
   'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_not_contains "$browser_output" "[STEP] test-service-backed" "browser schedule hides default scheduler steps"
-assert_contains "$browser_output" "[PASS] test-service-backed kind=aggregate children=2/2 child_tests=2 child_failed=0" "browser schedule aggregate child tests"
+assert_contains "$browser_output" "[RESULT] target=test-service-backed status=pass" "browser schedule aggregate child tests"
 assert_contains "$browser_output" "[SCHEDULER] test-service-backed start work_units=2 finalizers=0" "browser quiet scheduler shows aggregate start"
-assert_contains "$browser_output" "classes={backend:1,browser:1}" "browser quiet scheduler start shows classes"
-assert_contains "$browser_output" "top_weighted=backend-process:10,browser-e2e-webserver-backed:9" "browser quiet scheduler start shows top weighted work"
-assert_contains "$browser_output" "[SCHEDULER] test-service-backed summary status=pass" "browser quiet scheduler shows success summary"
+assert_contains "$browser_output" "[SUMMARY] target=test-service-backed status=pass" "browser quiet scheduler shows success summary"
 assert_not_contains "$browser_output" "claims={browser_stack:1" "browser default output hides resource claims"
 assert_scheduler_artifacts "$browser_dir" browser test-service-backed pass - start
 
@@ -907,7 +982,7 @@ check_browser_output="$(
   run_scheduler "$check_browser_dir" "$check_browser_manifest" check-service-backed check-browser 2>&1
 )"
 assert_not_contains "$check_browser_output" "[STEP] check-service-backed" "check browser schedule hides default scheduler steps"
-assert_contains "$check_browser_output" "[PASS] check-service-backed kind=aggregate children=2/2 child_tests=2 child_failed=0" "check browser aggregate child tests"
+assert_contains "$check_browser_output" "[RESULT] target=check-service-backed status=pass" "check browser aggregate child tests"
 check_browser_events="$(cat "${check_browser_dir}/make.log")"
 assert_contains "$check_browser_events" "start browser-e2e-webserver-backed" "check browser webserver start"
 assert_contains "$check_browser_events" "end browser-e2e-webserver-backed" "check browser webserver end"
@@ -926,7 +1001,7 @@ dual_browser_output="$(
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.2 \
     run_scheduler "$dual_browser_dir" "$dual_browser_manifest" check-service-backed dual-browser 2>&1
 )"
-assert_contains "$dual_browser_output" "[PASS] check-service-backed kind=aggregate children=2/2 child_tests=2 child_failed=0" "dual browser aggregate child tests"
+assert_contains "$dual_browser_output" "[RESULT] target=check-service-backed status=pass" "dual browser aggregate child tests"
 assert_scheduler_artifacts "$dual_browser_dir" dual-browser check-service-backed pass - start
 "$NODE_BIN" - "${dual_browser_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
@@ -958,12 +1033,14 @@ write_manifest "$dependency_order_manifest" check-service-backed \
   'make_target|browser-e2e|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated|backend-process,browser-e2e-webserver-backed'
 dependency_order_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
+  CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.15 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.01 \
     run_scheduler "$dependency_order_dir" "$dependency_order_manifest" check-service-backed dependency-order 2>&1
 )"
-assert_contains "$dependency_order_output" "blocked by dependencies, waiting on backend-process,browser-e2e-webserver-backed, unblocks after backend-process" "dependency-blocked browser human progress"
+assert_contains "$dependency_order_output" "[PROGRESS] target=check-service-backed completed=0/3" "dependency-blocked browser human progress"
+assert_contains "$dependency_order_output" "blocker=dependencies" "dependency-blocked browser human progress explains blocker"
 assert_scheduler_artifacts "$dependency_order_dir" dependency-order check-service-backed pass - blocked
 "$NODE_BIN" - "${dependency_order_dir}/results/dependency-order/check-service-backed/scheduler-events.jsonl" "${dependency_order_dir}/results/dependency-order/check-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
@@ -1018,7 +1095,7 @@ makeflags_sanitize_output="$(
   MFLAGS='--jobserver-fds=3,4 -j' \
     run_scheduler "$makeflags_sanitize_dir" "$makeflags_sanitize_manifest" test-fast-service-backed makeflags-sanitize 2>&1
 )"
-assert_contains "$makeflags_sanitize_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "makeflags sanitize quiet scheduler shows success summary"
+assert_contains "$makeflags_sanitize_output" "[SUMMARY] target=test-fast-service-backed status=pass" "makeflags sanitize quiet scheduler shows success summary"
 assert_not_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "jobserver" "child make env strips inherited jobserver tokens"
 assert_not_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "MFLAGS=-j" "child make env strips inherited mflags jobs"
 assert_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "MAKEFLAGS=--trace" "child make env preserves non-jobserver make flags"
@@ -1032,12 +1109,13 @@ write_manifest "$go_dependency_order_manifest" check-service-backed \
   'go_shards|backend-store|0|"postgres": 1, "minio": 1|backend||' \
   'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-store'
 go_dependency_order_output="$(
+  CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
   FAKE_GO_SLEEP_CAPTURE=0.005 \
   FAKE_GO_SLEEP_FINALIZE=0.15 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.01 \
     run_scheduler "$go_dependency_order_dir" "$go_dependency_order_manifest" check-service-backed go-dependency-order 2>&1
 )"
-assert_contains "$go_dependency_order_output" "blocked by dependencies, waiting on backend-store, unblocks after backend-store" "go dependency waits for finalizer"
+assert_contains "$go_dependency_order_output" "blocker=dependencies" "go dependency waits for finalizer"
 "$NODE_BIN" - "${go_dependency_order_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
@@ -1074,7 +1152,8 @@ dependency_failure_skip_status=$?
 set -e
 assert_equals "$dependency_failure_skip_status" "9" "dependency failure status"
 assert_contains "$dependency_failure_skip_output" "skipped=1" "dependency failure summary skipped dependent work"
-assert_contains "$dependency_failure_skip_output" "[FAIL] check-service-backed" "dependency failure parent summary"
+assert_contains "$dependency_failure_skip_output" "[FAIL] target=check-service-backed" "dependency failure parent summary"
+assert_occurrences "$dependency_failure_skip_output" "[FAIL] target=check-service-backed" "1" "dependency failure single parent failure block"
 assert_scheduler_artifacts "$dependency_failure_skip_dir" dependency-failure check-service-backed fail - skip
 "$NODE_BIN" - "${dependency_failure_skip_dir}/results/dependency-failure/check-service-backed/scheduler-events.jsonl" "${dependency_failure_skip_dir}/results/dependency-failure/check-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
@@ -1098,11 +1177,12 @@ write_manifest "$browser_stack_lane_manifest" check-service-backed \
   'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated'
 browser_stack_lane_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=1 \
+  CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05 \
     run_scheduler "$browser_stack_lane_dir" "$browser_stack_lane_manifest" check-service-backed browser-stack-lane 2>&1
 )"
-assert_contains "$browser_stack_lane_output" "blocked by browser_stack, unblocks after browser-e2e-webserver-backed" "shared browser stack blocks overlapping browser stages"
+assert_contains "$browser_stack_lane_output" "blocker=browser_stack" "shared browser stack blocks overlapping browser stages"
 
 same_browser_lane_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-same-browser-lane.XXXXXX")"
 cleanup_paths+=("$same_browser_lane_dir")
@@ -1113,11 +1193,12 @@ write_manifest "$same_browser_lane_manifest" test-fast-service-backed \
   'make_target|backend-store|20|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "browser_stage_isolated": 1|backend'
 same_browser_lane_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
+  CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.05 \
   FAKE_SCHEDULER_SLEEP_BACKEND_STORE=0.05 \
     run_scheduler "$same_browser_lane_dir" "$same_browser_lane_manifest" test-fast-service-backed same-browser-lane 2>&1
 )"
-assert_contains "$same_browser_lane_output" "blocked by browser_stage_isolated, unblocks after backend-process" "same browser stage lane blocks overlapping work"
+assert_contains "$same_browser_lane_output" "blocker=browser_stage_isolated" "same browser stage lane blocks overlapping work"
 "$NODE_BIN" - "${same_browser_lane_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
@@ -1159,8 +1240,19 @@ failure_status=$?
 set -e
 assert_equals "$failure_status" "7" "child failure status"
 assert_contains "$failure_output" "fake failure for backend-store" "child failure output"
-assert_contains "$failure_output" "[SCHEDULER] test-fast-service-backed summary status=fail failure_class=helper completed_work_units=2/2 failed=backend-store" "failure scheduler summary"
-assert_contains "$failure_output" "[FAIL] test-fast-service-backed" "failure target summary"
+assert_contains "$failure_output" "[SUMMARY] target=test-fast-service-backed status=fail failure_class=helper work_units=2/2 failed=backend-store" "failure scheduler summary"
+assert_contains "$failure_output" "[FAIL] target=test-fast-service-backed" "failure target summary"
+assert_occurrences "$failure_output" "[FAIL] target=test-fast-service-backed" "1" "failure single target failure block"
+assert_contains "$failure_output" "[FAIL] target=test-fast-service-backed exit_code=1 failure_class=" "failure target class"
+assert_contains "$failure_output" "failure_origin=" "failure target origin"
+assert_contains "$failure_output" "work_unit=backend-store" "failure target work unit"
+assert_contains "$failure_output" "child_target=backend-store" "failure target child"
+assert_contains "$failure_output" "duration_ms=" "failure target duration"
+assert_contains "$failure_output" "summary_json=tool-run-summary.json" "failure summary json"
+assert_contains "$failure_output" "log_artifact=progress-summary.log" "failure log artifact"
+assert_contains "$failure_output" "scheduler_json=scheduler-summary.json" "failure scheduler json"
+assert_contains "$failure_output" "[RERUN] command=\"make test-fast-service-backed\"" "failure rerun command"
+assert_contains "$failure_output" "[INVESTIGATE] command=\"make explain-target TARGET=test-fast-service-backed DETAIL=artifacts\"" "failure investigate command"
 assert_scheduler_artifacts "$failure_dir" failure test-fast-service-backed fail - finish
 
 failed_shard_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failed-shard.XXXXXX")"
@@ -1180,9 +1272,10 @@ failed_shard_status=$?
 set -e
 assert_equals "$failed_shard_status" "9" "failed shard finalizer status"
 assert_contains "$failed_shard_output" "fake shard failure for backend-store-shard-01" "failed shard output"
-assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed summary status=fail failure_class=helper completed_work_units=1/1 failed=finalize/backend-store" "failed shard scheduler summary"
+assert_contains "$failed_shard_output" "[SUMMARY] target=test-fast-service-backed status=fail failure_class=helper work_units=1/1 failed=finalize/backend-store" "failed shard scheduler summary"
 assert_contains "$failed_shard_output" "finalizer_failures=1" "failed shard scheduler finalizer failure count"
-assert_contains "$failed_shard_output" "[FAIL] test-fast-service-backed" "failed shard parent summary"
+assert_contains "$failed_shard_output" "[FAIL] target=test-fast-service-backed" "failed shard parent summary"
+assert_occurrences "$failed_shard_output" "[FAIL] target=test-fast-service-backed" "1" "failed shard single parent failure block"
 assert_scheduler_artifacts "$failed_shard_dir" failed-shard test-fast-service-backed fail - finalize-finish
 "$NODE_BIN" - "${failed_shard_dir}/results/failed-shard/test-fast-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");

@@ -85,7 +85,7 @@
 - `make release-check` is the release verification gate. It runs the developer gate plus license report verification, SBOM verification, and build verification; until generators are chosen, the license and SBOM targets fail if their configured artifacts are missing or empty.
 - `make clean` removes reproducible repo-local build and report artifacts while preserving checked-in files and external Go caches.
 - `make distclean` additionally removes repo-local tool/runtime caches after printing the removal list.
-- `make check` and `make ci` quiet output is the default. Use `VERBOSE=1` when you need the full streaming logs for investigation.
+- `make check` and `make ci` summary output is the default. Successful default runs print bounded `[RESULT]` and `[ARTIFACTS]` summaries, keep successful child logs in artifacts, and keep stderr empty. Use `VERBOSE=1` or `CARTULARY_OUTPUT_MODE=verbose` when you need full streaming logs for investigation. `CARTULARY_OUTPUT_MODE=machine` emits canonical JSON instead of human progress.
 - If a check-scheduler work unit fails under parallel execution, GNU Make may still print `Waiting for unfinished jobs....` while sibling jobs drain; that line is expected orchestration output, not a second root cause.
 - Shell-backed verification wrappers such as frontend lint or migration drift report as non-test failures rather than unmapped test inventory when they exit non-zero.
 - From PowerShell, prefer repo commands through `wsl.exe -d Ubuntu-24.04 --cd /home/askahn/code/cartulary ...`; for Node/pnpm, prepend `/home/askahn/code/cartulary/tmp/node-runtime/bin` to `PATH` and use `corepack pnpm`.

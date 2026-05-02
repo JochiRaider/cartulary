@@ -7,7 +7,7 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 HELPER="$ROOT_DIR/scripts/lib/run-playwright-webserver-batch.sh"
 cleanup_paths=()
 
-unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
 
 cleanup() {
   local path
@@ -260,6 +260,7 @@ chmod +x "$fake_pnpm"
 success_invocations="$tmp_dir/batch-success-invocations.log"
 success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="batch-success" \
   NODE_BIN="${NODE:-node}" \
@@ -335,6 +336,7 @@ assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.d
 phase_filter_invocations="$tmp_dir/batch-phase-filter-invocations.log"
 phase_filter_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   CARTULARY_PHASE_SLICE_PHASE=phase4 \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="batch-phase-filter" \
@@ -442,7 +444,7 @@ summary_ownership_output="$(
   CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
   NODE_BIN="${NODE:-node}" \
   PNPM="$fake_pnpm" \
-    "$batch_runner" webserver-backed --defer-summary
+    "$batch_runner" webserver-backed --defer-summary 2>/dev/null
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="summary-ownership" \
   CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
@@ -457,9 +459,9 @@ summary_ownership_output="$(
   NODE_BIN="${NODE:-node}" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass
 )"
-summary_pass_count="$(printf '%s\n' "$summary_ownership_output" | grep -c '^\[PASS\] browser-e2e-webserver-backed ')"
+summary_pass_count="$(printf '%s\n' "$summary_ownership_output" | grep -c '^\[RESULT\] target=browser-e2e-webserver-backed status=pass')"
 assert_equals "$summary_pass_count" "1" "webserver-backed authoritative summary line count"
-assert_contains "$summary_ownership_output" "teardown=1.00s" "webserver-backed authoritative summary includes teardown"
+assert_contains "$summary_ownership_output" "slowest=teardown:1000" "webserver-backed authoritative summary includes teardown"
 
 browser_aggregate_results="$tmp_dir/results/browser-aggregate"
 for target in browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; do
@@ -495,12 +497,13 @@ for target in browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; d
 JSON
 done
 browser_aggregate_output="$(
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="browser-aggregate" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e pass --projection browser-e2e \
     2>&1
 )"
-assert_contains "$browser_aggregate_output" "[PASS] browser-e2e kind=aggregate children=3/3 child_tests=3 child_failed=0" "browser aggregate child tests"
+assert_contains "$browser_aggregate_output" "[RESULT] target=browser-e2e status=pass" "browser aggregate child tests"
 browser_aggregate_summary="$browser_aggregate_results/browser-e2e/target-summary.json"
 assert_equals "$(json_field "$browser_aggregate_summary" "children.counts.tests")" "3" "browser aggregate JSON child tests"
 assert_equals "$(json_field "$browser_aggregate_summary" "totals.counts.tests")" "3" "browser aggregate JSON total tests"

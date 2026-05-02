@@ -102,6 +102,7 @@ fake_shellcheck="$(make_fake_shellcheck "$inventory_repo")"
 args_log="$inventory_repo/shellcheck-args.log"
 inventory_output="$(
   CARTULARY_SHELLCHECK_ROOT="$inventory_repo" \
+  CARTULARY_PHASE_ARTIFACT_DIR="" \
   SHELLCHECK_BIN="$fake_shellcheck" \
   FAKE_SHELLCHECK_ARGS_LOG="$args_log" \
     "$SCRIPT" 2>&1
@@ -111,12 +112,25 @@ assert_equals "$inventory_output" "$expected_inventory_output" "deterministic li
 expected_args=$'bin/shebang-runner\ngenerated/skip.sh\nscripts/a.sh\nscripts/z.sh'
 assert_equals "$(cat "$args_log")" "$expected_args" "deterministic shellcheck argv"
 
+artifact_dir="$(mktemp -d "$ROOT_DIR/tmp/lint-shell-artifacts.XXXXXX")"
+cleanup_paths+=("$artifact_dir")
+artifact_output="$(
+  CARTULARY_SHELLCHECK_ROOT="$inventory_repo" \
+  CARTULARY_PHASE_ARTIFACT_DIR="$artifact_dir" \
+  SHELLCHECK_BIN="$fake_shellcheck" \
+  FAKE_SHELLCHECK_ARGS_LOG="$args_log" \
+    "$SCRIPT" 2>&1
+)"
+assert_equals "$artifact_output" "4 files checked" "artifact-mode lint-shell output"
+assert_equals "$(cat "$artifact_dir/shellcheck-inventory.txt")" "$expected_args" "artifact-mode lint-shell inventory"
+
 empty_repo="$(make_fixture_repo)"
 mkdir -p "$empty_repo/scripts"
 printf '%s\n' '#!/usr/bin/env python3' 'print("not shell")' >"$empty_repo/scripts/not-shell"
 track_all "$empty_repo"
 empty_output="$(
   CARTULARY_SHELLCHECK_ROOT="$empty_repo" \
+  CARTULARY_PHASE_ARTIFACT_DIR="" \
   SHELLCHECK_BIN="$empty_repo/missing-shellcheck" \
     "$SCRIPT" 2>&1
 )"

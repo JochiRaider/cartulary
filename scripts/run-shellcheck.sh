@@ -86,13 +86,25 @@ discover_shell_files() {
 shellcheck_bin="$(resolve_shellcheck_bin "$SHELLCHECK_BIN")"
 shell_files=()
 mapfile -d '' -t shell_files < <(discover_shell_files)
+inventory_artifact=""
+if [[ -n "${CARTULARY_PHASE_ARTIFACT_DIR:-}" ]]; then
+  mkdir -p "$CARTULARY_PHASE_ARTIFACT_DIR"
+  inventory_artifact="${CARTULARY_PHASE_ARTIFACT_DIR}/shellcheck-inventory.txt"
+fi
 
 if [[ "${#shell_files[@]}" -eq 0 ]]; then
+  if [[ -n "$inventory_artifact" ]]; then
+    : >"$inventory_artifact"
+  fi
   printf '0 files checked\n'
   exit 0
 fi
 
-printf '%s\n' "${shell_files[@]}"
+if [[ -n "$inventory_artifact" ]]; then
+  printf '%s\n' "${shell_files[@]}" >"$inventory_artifact"
+else
+  printf '%s\n' "${shell_files[@]}"
+fi
 
 if [[ ! -x "$shellcheck_bin" ]]; then
   echo "lint-shell requires an executable SHELLCHECK_BIN at $shellcheck_bin" >&2

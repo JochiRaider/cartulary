@@ -202,7 +202,7 @@ run_summary() {
 
   emit_test_output run-summary \
     "${label}" "${status}" "${completed}" "${total}" "${aborted_after}" \
-    "${summary_args[@]}" "${summary_targets[@]}"
+    --suppress-machine-output "${summary_args[@]}" "${summary_targets[@]}"
 }
 
 target_summary() {
@@ -212,8 +212,15 @@ target_summary() {
     return 0
   fi
 
+  local summary_args=()
+  if [[ "${status}" == "pass" ]]; then
+    summary_args+=(--quiet-success)
+  else
+    summary_args+=(--quiet-failure)
+  fi
+
   emit_test_output target-summary \
-    "${label}" "${status}" --children "${summary_targets_csv}"
+    "${label}" "${status}" --children "${summary_targets_csv}" "${summary_args[@]}"
 }
 
 run_step() {
@@ -226,7 +233,7 @@ run_step() {
   case "${kind}" in
     step)
       target="${rest}"
-      env -u CARTULARY_TEST_TARGET "${MAKE_BIN}" --no-print-directory "${target}"
+      env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${MAKE_BIN}" --no-print-directory "${target}"
       ;;
     parallel)
       target="${rest%%:*}"
@@ -235,7 +242,7 @@ run_step() {
         echo "invalid parallel step ${rest}; expected <target>:<jobs>" >&2
         return 2
       fi
-      env -u CARTULARY_TEST_TARGET "${MAKE_BIN}" --no-print-directory --output-sync=target "-j${jobs}" "${target}"
+      env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${MAKE_BIN}" --no-print-directory --output-sync=target "-j${jobs}" "${target}"
       ;;
     *)
       echo "unknown step kind ${kind}" >&2

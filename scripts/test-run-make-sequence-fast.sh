@@ -5,7 +5,14 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-make-sequence.sh"
+task_surface_makefile="$ROOT_DIR/Makefile"
+task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
 cleanup_paths=()
+
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
+
+# shellcheck source=scripts/lib/task-surface-check-common.sh
+source "$ROOT_DIR/scripts/lib/task-surface-check-common.sh"
 
 cleanup() {
   local path
@@ -84,22 +91,84 @@ process.stdout.write(String(value));
 ' "${file}" "${path}"
 }
 
-make_target_block() {
-  local target="$1"
+assert_output_budget() {
+  local manifest="$1"
+  local target="$2"
+  local stdout_file="$3"
+  local stderr_file="$4"
+  local label="$5"
 
-  cat "${ROOT_DIR}/tools/task_surface.generated.mk" "${ROOT_DIR}/Makefile" | awk -v target="${target}" '
-    $0 ~ "^" target ":" {
-      in_target = 1
-      print
-      next
-    }
-    in_target && /^[^[:space:]#][^:]*:/ {
-      exit
-    }
-    in_target {
-      print
-    }
-  '
+  "${NODE_BIN:-node}" - "${manifest}" "${target}" "${stdout_file}" "${stderr_file}" "${label}" <<'EOF'
+const fs = require("node:fs");
+const [manifestPath, targetName, stdoutFile, stderrFile, label] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const target = manifest.targets.find((entry) => entry.name === targetName);
+if (!target?.output_policy?.success_budget) {
+  throw new Error(`${label}: missing success budget for ${targetName}`);
+}
+const budget = target.output_policy.success_budget;
+const readText = (file) => fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+const lineCount = (text) => {
+  if (text.length === 0) return 0;
+  const trimmed = text.endsWith("\n") ? text.slice(0, -1) : text;
+  return trimmed.length === 0 ? 0 : trimmed.split(/\r?\n/).length;
+};
+const checks = [
+  ["stdout_lines", lineCount(readText(stdoutFile))],
+  ["stdout_bytes", Buffer.byteLength(readText(stdoutFile))],
+  ["stderr_lines", lineCount(readText(stderrFile))],
+  ["stderr_bytes", Buffer.byteLength(readText(stderrFile))],
+];
+for (const [key, actual] of checks) {
+  const limit = budget[key];
+  if (Number.isInteger(limit) && actual > limit) {
+    throw new Error(`${label}: ${key} ${actual} exceeds budget ${limit}`);
+  }
+}
+EOF
+}
+
+assert_single_machine_json() {
+  local stdout_file="$1"
+  local stderr_file="$2"
+  local expected_target="$3"
+  local label="$4"
+  shift 4
+
+  "${NODE_BIN:-node}" - "${stdout_file}" "${stderr_file}" "${expected_target}" "${label}" "$@" <<'EOF'
+const fs = require("node:fs");
+const [stdoutFile, stderrFile, expectedTarget, label, ...expectedRoles] = process.argv.slice(2);
+const stdout = fs.readFileSync(stdoutFile, "utf8");
+const stderr = fs.readFileSync(stderrFile, "utf8");
+if (stderr !== "") {
+  throw new Error(`${label}: expected empty stderr in machine mode, got ${JSON.stringify(stderr)}`);
+}
+if (stdout.includes("[RESULT]") || stdout.includes("[ARTIFACTS]")) {
+  throw new Error(`${label}: machine mode must not include human summary lines`);
+}
+const lines = stdout.split(/\r?\n/).filter((line) => line.trim() !== "");
+if (lines.length !== 1) {
+  throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
+}
+const summary = JSON.parse(lines[0]);
+if (summary.schema_id !== "cartulary.tool_run_summary.v1") {
+  throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
+}
+if (summary.target !== expectedTarget) {
+  throw new Error(`${label}: expected target ${expectedTarget}, got ${summary.target}`);
+}
+for (const field of ["started_at", "completed_at"]) {
+  if (typeof summary[field] !== "string" || summary[field].trim() === "" || Number.isNaN(Date.parse(summary[field]))) {
+    throw new Error(`${label}: ${field} must be a non-empty timestamp`);
+  }
+}
+const roles = new Set((summary.summary_artifacts ?? []).map((artifact) => artifact.role));
+for (const role of expectedRoles) {
+  if (!roles.has(role)) {
+    throw new Error(`${label}: missing summary artifact role ${role}`);
+  }
+}
+EOF
 }
 
 write_fake_make() {
@@ -182,8 +251,20 @@ const fs = require("node:fs");
 const [source, destination] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
 for (const name of ["alpha", "beta", "smoke", "dry-run"]) {
-  if (!manifest.targets.some((target) => target.name === name)) {
-    manifest.targets.push({ name, classification: "helper_only", included_in: ["helper_only"] });
+  let target = manifest.targets.find((entry) => entry.name === name);
+  if (!target) {
+    target = { name, classification: "helper_only", included_in: ["helper_only"] };
+    manifest.targets.push(target);
+  }
+  if (["alpha", "smoke"].includes(name)) {
+    target.output_policy = {
+      output_class: name === "smoke" ? "aggregate_summary_with_artifacts" : "summary_with_artifacts",
+      artifact_policy: name === "smoke" ? "run_and_target_summaries" : "tool_run_summary",
+      success_budget: { stdout_lines: 2, stdout_bytes: 1500, stderr_lines: 0, stderr_bytes: 0 },
+      failure_budget: { stderr_lines: 35, stderr_bytes: 6000, excerpt_lines: 25, excerpt_bytes: 4096 },
+      raw_stream_policy: "never_default",
+      summary_schema: "cartulary.tool_run_summary.v1",
+    };
   }
   manifest.make_recipes[name] = { type: "alias", prerequisites: [] };
 }
@@ -212,6 +293,7 @@ write_fake_make "${success_dir}"
 success_output="$(
   VERBOSE="" \
   CI_VERBOSE="" \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_OUTPUT_MODE="" \
   MAKE="${success_dir}/fake-make" \
   FAKE_MAKE_LOG="${success_dir}/make.log" \
@@ -221,13 +303,84 @@ success_output="$(
     "${SCRIPT}" --sequence smoke \
     2>&1
 )"
-assert_contains "${success_output}" "[RUN] smoke work_units=2 summary_targets=2 helper_units=0 jobs=3 run_id=success" "success run start output"
-assert_contains "${success_output}" "[STEP] smoke 1/2 alpha mode=serial jobs=1" "success serial step output"
-assert_contains "${success_output}" "[STEP] smoke 2/2 beta mode=parallel jobs=3" "success parallel step output"
-assert_contains "${success_output}" "[PASS] smoke" "success run summary output"
+assert_not_contains "${success_output}" "[RUN]" "success run start output"
+assert_not_contains "${success_output}" "[STEP]" "success step output"
+assert_contains "${success_output}" "[RESULT] target=smoke status=pass" "success run summary output"
+assert_contains "${success_output}" "[ARTIFACTS] target=smoke" "success artifact output"
 assert_file_present "${success_dir}/results/success/smoke/target-summary.json" "success target summary"
 assert_equals "$(json_field "${success_dir}/results/success/smoke/target-summary.json" "target")" "smoke" "success target summary identity"
 assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 beta" "parallel make invocation"
+
+leaf_budget_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-leaf-budget.XXXXXX")"
+cleanup_paths+=("${leaf_budget_dir}")
+CARTULARY_OUTPUT_MODE="" \
+CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
+CARTULARY_TEST_RESULTS_DIR="${leaf_budget_dir}/results" \
+CARTULARY_TEST_RUN_ID="leaf-budget" \
+TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+  "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary alpha pass \
+  >"${leaf_budget_dir}/stdout.log" \
+  2>"${leaf_budget_dir}/stderr.log"
+assert_output_budget "${sequence_manifest}" alpha "${leaf_budget_dir}/stdout.log" "${leaf_budget_dir}/stderr.log" "leaf success budget"
+assert_contains "$(cat "${leaf_budget_dir}/stdout.log")" "[RESULT] target=alpha status=pass" "leaf success budget result"
+
+suppressed_machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-suppressed-machine.XXXXXX")"
+cleanup_paths+=("${suppressed_machine_dir}")
+CARTULARY_OUTPUT_MODE=machine \
+CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+CARTULARY_TEST_RESULTS_DIR="${suppressed_machine_dir}/results" \
+CARTULARY_TEST_RUN_ID="suppressed-machine" \
+TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+  "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary alpha pass \
+  >"${suppressed_machine_dir}/stdout.log" \
+  2>"${suppressed_machine_dir}/stderr.log"
+assert_equals "$(cat "${suppressed_machine_dir}/stdout.log")" "" "suppressed child machine stdout"
+assert_equals "$(cat "${suppressed_machine_dir}/stderr.log")" "" "suppressed child machine stderr"
+assert_file_present "${suppressed_machine_dir}/results/suppressed-machine/alpha/tool-run-summary.json" "suppressed child machine artifact"
+
+sequence_budget_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-sequence-budget.XXXXXX")"
+cleanup_paths+=("${sequence_budget_dir}")
+write_fake_make "${sequence_budget_dir}"
+VERBOSE="" \
+CI_VERBOSE="" \
+CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
+CARTULARY_OUTPUT_MODE="" \
+MAKE="${sequence_budget_dir}/fake-make" \
+FAKE_MAKE_LOG="${sequence_budget_dir}/make.log" \
+CARTULARY_TEST_RESULTS_DIR="${sequence_budget_dir}/results" \
+CARTULARY_TEST_RUN_ID="sequence-budget" \
+TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+  "${SCRIPT}" --sequence smoke \
+  >"${sequence_budget_dir}/stdout.log" \
+  2>"${sequence_budget_dir}/stderr.log"
+assert_output_budget "${sequence_manifest}" smoke "${sequence_budget_dir}/stdout.log" "${sequence_budget_dir}/stderr.log" "sequence success budget"
+
+machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-machine.XXXXXX")"
+cleanup_paths+=("${machine_dir}")
+write_fake_make "${machine_dir}"
+VERBOSE="" \
+CI_VERBOSE="" \
+CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
+CARTULARY_OUTPUT_MODE=machine \
+MAKE="${machine_dir}/fake-make" \
+FAKE_MAKE_LOG="${machine_dir}/make.log" \
+CARTULARY_TEST_RESULTS_DIR="${machine_dir}/results" \
+CARTULARY_TEST_RUN_ID="machine" \
+TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+  "${SCRIPT}" --sequence smoke \
+  >"${machine_dir}/stdout.log" \
+  2>"${machine_dir}/stderr.log"
+assert_single_machine_json \
+  "${machine_dir}/stdout.log" \
+  "${machine_dir}/stderr.log" \
+  smoke \
+  "machine sequence summary" \
+  tool_run_summary \
+  target_summary \
+  run_summary \
+  run_tool_run_summary
+assert_file_present "${machine_dir}/results/machine/run-summary.json" "machine sequence run summary artifact"
+assert_file_present "${machine_dir}/results/machine/smoke/tool-run-summary.json" "machine sequence target tool summary artifact"
 
 for aggregate_sequence in test-fast ci release-check; do
   aggregate_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-${aggregate_sequence}.XXXXXX")"
@@ -236,6 +389,7 @@ for aggregate_sequence in test-fast ci release-check; do
   aggregate_output="$(
     VERBOSE="" \
     CI_VERBOSE="" \
+    CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
     CARTULARY_OUTPUT_MODE="" \
     MAKE="${aggregate_dir}/fake-make" \
     FAKE_MAKE_LOG="${aggregate_dir}/make.log" \
@@ -245,7 +399,8 @@ for aggregate_sequence in test-fast ci release-check; do
       "${SCRIPT}" --sequence "${aggregate_sequence}" \
       2>&1
   )"
-  assert_contains "${aggregate_output}" "[PASS] ${aggregate_sequence}" "${aggregate_sequence} run summary output"
+  assert_contains "${aggregate_output}" "[RESULT] target=${aggregate_sequence} status=pass" "${aggregate_sequence} run summary output"
+  assert_contains "${aggregate_output}" "[ARTIFACTS] target=${aggregate_sequence}" "${aggregate_sequence} artifact output"
   assert_file_present "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/target-summary.json" "${aggregate_sequence} target summary"
   assert_equals "$(json_field "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/target-summary.json" "target")" "${aggregate_sequence}" "${aggregate_sequence} target summary identity"
   assert_equals "$(json_field "${aggregate_dir}/results/${aggregate_sequence}/run-summary.json" "label")" "${aggregate_sequence}" "${aggregate_sequence} run summary identity"
@@ -285,23 +440,37 @@ cat >"${harness_quiet_dir}/scripts/check-b.sh" <<'EOF'
 set -euo pipefail
 exit 0
 EOF
-chmod +x "${harness_quiet_dir}/scripts/check-a.sh" "${harness_quiet_dir}/scripts/check-b.sh"
+cat >"${harness_quiet_dir}/scripts/check-env.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${CARTULARY_SUPPRESS_CHILD_SUCCESS+x}" == "x" ]]; then
+  echo "CARTULARY_SUPPRESS_CHILD_SUCCESS leaked into harness smoke check" >&2
+  exit 9
+fi
+exit 0
+EOF
+chmod +x \
+  "${harness_quiet_dir}/scripts/check-a.sh" \
+  "${harness_quiet_dir}/scripts/check-b.sh" \
+  "${harness_quiet_dir}/scripts/check-env.sh"
 harness_manifest="${harness_quiet_dir}/manifest.json"
 "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${harness_manifest}" "${harness_quiet_dir#"${ROOT_DIR}"/}/scripts" <<'EOF'
 const fs = require("node:fs");
 const [source, destination, scriptDir] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
-const checks = ["harness-quiet-a", "harness-quiet-b"];
+const checks = ["harness-quiet-a", "harness-quiet-b", "harness-quiet-env"];
 manifest.harness_tiers.fast = { checks };
 manifest.harness_checks.push(
   { name: "harness-quiet-a", backing_scripts: [`${scriptDir}/check-a.sh`] },
   { name: "harness-quiet-b", backing_scripts: [`${scriptDir}/check-b.sh`] },
+  { name: "harness-quiet-env", backing_scripts: [`${scriptDir}/check-env.sh`] },
 );
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 harness_quiet_output="$(
   VERBOSE="" \
   CI_VERBOSE="" \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="${harness_quiet_dir}/results" \
   CARTULARY_TEST_RUN_ID="quiet" \
@@ -313,14 +482,15 @@ assert_equals "${harness_quiet_output}" "" "quiet harness internal success outpu
 check_harness_quiet_output="$(
   VERBOSE="" \
   CI_VERBOSE="" \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="${harness_quiet_dir}/results" \
   CARTULARY_TEST_RUN_ID="quiet" \
-    "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary check-harness-smoke pass --children harness-quiet-a,harness-quiet-b \
+    "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary check-harness-smoke pass --children harness-quiet-a,harness-quiet-b,harness-quiet-env \
     2>&1
 )"
-assert_contains "${check_harness_quiet_output}" "[PASS] check-harness-smoke kind=aggregate children=2/2" "quiet check harness aggregate summary"
-assert_contains "${check_harness_quiet_output}" "failed_children=none" "quiet check harness failure hint"
+assert_contains "${check_harness_quiet_output}" "[RESULT] target=check-harness-smoke status=pass" "quiet check harness aggregate summary"
+assert_contains "${check_harness_quiet_output}" "[ARTIFACTS] target=check-harness-smoke" "quiet check harness artifact summary"
 assert_not_contains "${check_harness_quiet_output}" "[CHILD]" "quiet check harness hides child detail"
 
 harness_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/harness-smoke-failure.XXXXXX")"
@@ -355,6 +525,7 @@ harness_failure_output="$(
   VERBOSE="" \
   CI_VERBOSE="" \
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_TEST_RESULTS_DIR="${harness_failure_dir}/results" \
   CARTULARY_TEST_RUN_ID="failure" \
   TASK_SURFACE_MANIFEST="${harness_failure_manifest}" \
@@ -364,7 +535,8 @@ harness_failure_output="$(
 harness_failure_status=$?
 set -e
 assert_equals "${harness_failure_status}" "7" "failing harness preserves child status"
-assert_contains "${harness_failure_output}" "[CHILD-SKIPPED] run-harness-smoke-fast harness-skipped-b reason=schedule_stopped_after_failure failed_dependency=harness-fail-a" "failing harness reports skipped child"
+assert_contains "${harness_failure_output}" "[FAIL] target=run-harness-smoke-fast" "failing harness reports concise failure"
+assert_contains "${harness_failure_output}" "[ARTIFACTS] target=run-harness-smoke-fast root=" "failing harness reports artifacts"
 assert_not_contains "${harness_failure_output}" "[CHILD-MISSING] run-harness-smoke-fast harness-skipped-b" "failing harness does not report skipped child missing"
 assert_not_contains "${harness_failure_output}" "missing child target summary: harness-skipped-b" "failing harness does not create missing child artifact failure"
 harness_failure_summary="${harness_failure_dir}/results/failure/run-harness-smoke-fast/target-summary.json"
@@ -375,6 +547,7 @@ assert_equals "$(json_field "${harness_failure_summary}" "children.skipped.0.fai
 assert_equals "$(json_field "${harness_failure_summary}" "children.failed_targets.0")" "harness-fail-a" "failing harness failed child"
 check_harness_failure_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_TEST_RESULTS_DIR="${harness_failure_dir}/results" \
   CARTULARY_TEST_RUN_ID="failure" \
   TASK_SURFACE_MANIFEST="${harness_failure_manifest}" \
@@ -383,7 +556,8 @@ check_harness_failure_output="$(
       --skipped-from-child run-harness-smoke-fast \
     2>&1
 )"
-assert_contains "${check_harness_failure_output}" "[CHILD-SKIPPED] check-harness-smoke harness-skipped-b reason=schedule_stopped_after_failure failed_dependency=harness-fail-a" "projected check harness imports skipped child"
+assert_contains "${check_harness_failure_output}" "[FAIL] target=check-harness-smoke" "projected check harness reports concise failure"
+assert_contains "${check_harness_failure_output}" "[ARTIFACTS] target=check-harness-smoke root=" "projected check harness reports artifacts"
 assert_not_contains "${check_harness_failure_output}" "[CHILD-MISSING] check-harness-smoke harness-skipped-b" "projected check harness does not report skipped child missing"
 assert_not_contains "${check_harness_failure_output}" "missing child target summary: harness-skipped-b" "projected check harness avoids skipped child artifact failure"
 check_harness_failure_summary="${harness_failure_dir}/results/failure/check-harness-smoke/target-summary.json"
@@ -408,6 +582,18 @@ fi
 assert_contains "${invalid_output}" "usage: run-make-sequence.sh --sequence <name>" "invalid usage output"
 assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 
+set +e
+invalid_suppress_output="$(
+  "${ROOT_DIR}/scripts/lib/test-output.sh" run-summary smoke pass 0 0 - --suppress-machine-output=1 \
+    2>&1
+)"
+invalid_suppress_status=$?
+set -e
+if [[ "${invalid_suppress_status}" != "1" ]]; then
+  fail "invalid suppress-machine-output status: expected [1], got [${invalid_suppress_status}]"
+fi
+assert_contains "${invalid_suppress_output}" "unknown run-summary option --suppress-machine-output=1" "invalid suppress-machine-output output"
+
 env NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" <<'EOF'
 const fs = require("node:fs");
 
@@ -420,9 +606,16 @@ function fail(message) {
   process.exit(1);
 }
 
-const expectedFull = [...fast.checks, ...extended.checks, ...lifecycle.checks];
-if (JSON.stringify(full.checks) !== JSON.stringify(expectedFull)) {
-  fail("full harness tier must equal fast + extended + lifecycle tiers");
+const fullOnlyChecks = new Set(["harness-smoke-tool-output-real-targets"]);
+const expectedFullBase = [...fast.checks, ...extended.checks, ...lifecycle.checks];
+const filteredFull = full.checks.filter((check) => !fullOnlyChecks.has(check));
+if (JSON.stringify(filteredFull) !== JSON.stringify(expectedFullBase)) {
+  fail("full harness tier must contain fast + extended + lifecycle tiers in order");
+}
+for (const check of fullOnlyChecks) {
+  if (!full.checks.includes(check)) {
+    fail(`full harness tier missing ${check}`);
+  }
 }
 
 const tierMembership = new Map();
@@ -447,13 +640,13 @@ for (const target of ["harness-smoke-run-make-sequence-fast", "harness-smoke-run
 }
 EOF
 
-run_fast_block="$(make_target_block run-harness-smoke-fast)"
-run_extended_block="$(make_target_block run-harness-smoke-extended)"
-run_full_block="$(make_target_block run-harness-smoke-full)"
-check_harness_smoke_block="$(make_target_block check-harness-smoke)"
-release_check_block="$(make_target_block release-check)"
+run_fast_block="$(extract_target_definition run-harness-smoke-fast)"
+run_extended_block="$(extract_target_definition run-harness-smoke-extended)"
+run_full_block="$(extract_target_definition run-harness-smoke-full)"
+check_harness_smoke_block="$(extract_target_definition check-harness-smoke)"
+release_check_block="$(extract_target_definition release-check)"
 ci_script="$(cat "${ROOT_DIR}/scripts/ci/verify.sh")"
-test_fast_block="$(make_target_block test-fast)"
+test_fast_block="$(extract_target_definition test-fast)"
 
 assert_contains "${test_fast_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test-fast' "test-fast sequence runner"
 assert_contains "${run_fast_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"' "fast harness manifest runner"
@@ -462,6 +655,8 @@ assert_contains "${run_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --j
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check harness fast tier"
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check harness summary projection"
 assert_contains "${ci_script}" "exec make --no-print-directory ci" "CI script delegates to canonical target"
+assert_contains "${ci_script}" '[[ -z "${CARTULARY_OUTPUT_MODE+x}" ]]' "CI script only defaults unset output mode"
+assert_contains "${ci_script}" "export CARTULARY_OUTPUT_MODE=ci" "CI script defaults to ci output mode"
 assert_contains "${release_check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
 assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-run-make-sequence-fast.sh" "fast make-sequence smoke backing script"
 assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-run-go-target-fast.sh" "fast run-go-target smoke backing script"

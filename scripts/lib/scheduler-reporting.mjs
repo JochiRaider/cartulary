@@ -4,15 +4,22 @@ import {
   resourceLimitSummary as schedulerResourceLimitSummary,
   resourceMapToObject as schedulerResourceMapToObject,
 } from "./scheduler-resources.mjs";
+import {
+  machineOutput,
+  normalizeOutputMode,
+  verboseOutput,
+} from "./tool-output.mjs";
 
 function configuredProgressIntervalMs() {
   const raw = process.env.CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS;
   if (raw === undefined || raw === "") {
-    return 10_000;
+    return 60_000;
   }
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1) {
-    throw new Error("CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS must be a positive integer");
+    throw new Error(
+      "CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS must be a positive integer",
+    );
   }
   return value;
 }
@@ -20,21 +27,15 @@ function configuredProgressIntervalMs() {
 export const schedulerProgressIntervalMs = configuredProgressIntervalMs();
 
 export function schedulerOutputMode() {
-  if (process.env.CARTULARY_OUTPUT_MODE === "machine") {
-    return "machine";
-  }
-  if (process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1") {
-    return "normal";
-  }
-  return process.env.CARTULARY_OUTPUT_MODE || "quiet";
+  return normalizeOutputMode();
 }
 
 export function verboseSchedulerOutput() {
-  return process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1";
+  return verboseOutput();
 }
 
 export function machineSchedulerOutput() {
-  return schedulerOutputMode() === "machine";
+  return machineOutput();
 }
 
 export function normalizePath(value) {
@@ -87,15 +88,21 @@ export function formatResourceList(values) {
 }
 
 export function sortedUnique(values) {
-  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) =>
+    left.localeCompare(right),
+  );
 }
 
 export function schedulerWaitingOnForUnit(unit, completed) {
-  return sortedUnique((unit.needs ?? []).filter((need) => !completed.has(need)));
+  return sortedUnique(
+    (unit.needs ?? []).filter((need) => !completed.has(need)),
+  );
 }
 
 export function schedulerWaitingOnForUnits(units, completed) {
-  return sortedUnique(units.flatMap((unit) => schedulerWaitingOnForUnit(unit, completed)));
+  return sortedUnique(
+    units.flatMap((unit) => schedulerWaitingOnForUnit(unit, completed)),
+  );
 }
 
 export function schedulerBlockedUnitRecords({
@@ -106,7 +113,8 @@ export function schedulerBlockedUnitRecords({
 }) {
   const recordsByWorkUnit = new Map();
   const ensureRecord = (unit) => {
-    const workUnit = unit.label ?? unit.target ?? unit.id ?? unit.aggregateTarget;
+    const workUnit =
+      unit.label ?? unit.target ?? unit.id ?? unit.aggregateTarget;
     if (!recordsByWorkUnit.has(workUnit)) {
       recordsByWorkUnit.set(workUnit, {
         work_unit: workUnit,
@@ -121,7 +129,9 @@ export function schedulerBlockedUnitRecords({
     ensureRecord(unit).waiting_on = schedulerWaitingOnForUnit(unit, completed);
   }
   for (const unit of resourceBlocked) {
-    ensureRecord(unit).blocked_resources = sortedUnique(blockedResourcesForUnit(unit));
+    ensureRecord(unit).blocked_resources = sortedUnique(
+      blockedResourcesForUnit(unit),
+    );
   }
 
   return Array.from(recordsByWorkUnit.values()).sort((left, right) =>
@@ -149,7 +159,9 @@ export function formatSlowestWork(work) {
   if (work.length === 0) {
     return "none";
   }
-  return work.map((entry) => `${entry.label}:${formatDurationMs(entry.duration_ms)}`).join(",");
+  return work
+    .map((entry) => `${entry.label}:${formatDurationMs(entry.duration_ms)}`)
+    .join(",");
 }
 
 function countMapEntries(values) {
@@ -163,7 +175,9 @@ function countMapEntries(values) {
 }
 
 export function formatCountMap(values) {
-  const entries = countMapEntries(values).sort((left, right) => left[0].localeCompare(right[0]));
+  const entries = countMapEntries(values).sort((left, right) =>
+    left[0].localeCompare(right[0]),
+  );
   if (entries.length === 0) {
     return "none";
   }
@@ -171,7 +185,14 @@ export function formatCountMap(values) {
 }
 
 export function schedulerUnitGroup(unit) {
-  return unit.group ?? unit.aggregateTarget ?? unit.class ?? unit.target ?? unit.label ?? "work";
+  return (
+    unit.group ??
+    unit.aggregateTarget ??
+    unit.class ??
+    unit.target ??
+    unit.label ??
+    "work"
+  );
 }
 
 export function schedulerActiveGroups(units) {
@@ -183,7 +204,10 @@ export function schedulerActiveGroups(units) {
   return groups;
 }
 
-export function schedulerBlockedBy({ reason = null, blockedResources = [] } = {}) {
+export function schedulerBlockedBy({
+  reason = null,
+  blockedResources = [],
+} = {}) {
   const values = new Set();
   if (reason) {
     for (const entry of String(reason).split(",")) {
@@ -201,7 +225,11 @@ export function schedulerBlockedBy({ reason = null, blockedResources = [] } = {}
   return Array.from(values).sort((left, right) => left.localeCompare(right));
 }
 
-export function schedulerSlowestRunningRecord(runningUnits, startedAt, now = 0) {
+export function schedulerSlowestRunningRecord(
+  runningUnits,
+  startedAt,
+  now = 0,
+) {
   let slowest = null;
   for (const unit of runningUnits) {
     const started = startedAt.get(unit.id ?? unit.target ?? unit.label);
@@ -209,7 +237,12 @@ export function schedulerSlowestRunningRecord(runningUnits, startedAt, now = 0) 
       continue;
     }
     const durationMs = Math.max(0, now - started);
-    if (!slowest || durationMs > slowest.duration_ms || (durationMs === slowest.duration_ms && unit.label.localeCompare(slowest.label) < 0)) {
+    if (
+      !slowest ||
+      durationMs > slowest.duration_ms ||
+      (durationMs === slowest.duration_ms &&
+        unit.label.localeCompare(slowest.label) < 0)
+    ) {
       slowest = { label: unit.label, duration_ms: durationMs };
     }
   }
@@ -244,7 +277,8 @@ export function schedulerProgressSnapshot({
     activeGroups,
     blockedBy: schedulerBlockedBy({ reason, blockedResources }),
     waitingOn,
-    unblocksAfter: unblocksAfter && unblocksAfter !== "none" ? unblocksAfter : null,
+    unblocksAfter:
+      unblocksAfter && unblocksAfter !== "none" ? unblocksAfter : null,
     slowestRunning: schedulerSlowestRunningRecord(runningUnits, startedAt, now),
   };
 }
@@ -275,14 +309,19 @@ export function countBy(values, field) {
 
 export function topWeightedUnits(workUnits, limit = 5) {
   return [...workUnits]
-    .sort((left, right) => right.weight - left.weight || left.label.localeCompare(right.label))
+    .sort(
+      (left, right) =>
+        right.weight - left.weight || left.label.localeCompare(right.label),
+    )
     .slice(0, limit)
     .map((unit) => `${unit.label}:${unit.weight}`)
     .join(",");
 }
 
 function bracketedFields(fields) {
-  return fields.filter((field) => field !== null && field !== undefined && field !== "").join(" ");
+  return fields
+    .filter((field) => field !== null && field !== undefined && field !== "")
+    .join(" ");
 }
 
 export function schedulerTelemetryLine(prefix, target, event, fields) {
@@ -301,8 +340,6 @@ export function schedulerStartLine({
   resourceLimits,
   preferredResources = [],
   finalizerCount = null,
-  workUnits = [],
-  artifacts = "",
   extraFields = [],
 }) {
   const fields = [
@@ -310,18 +347,6 @@ export function schedulerStartLine({
     finalizerCount === null ? null : `finalizers=${finalizerCount}`,
     `capacity={${resourceLimitSummary(resourceLimits, preferredResources)}}`,
   ];
-  if (workUnits.length > 0 && workUnits.some((unit) => unit.class !== undefined)) {
-    fields.push(`classes={${countBy(workUnits, "class")}}`);
-  }
-  if (workUnits.length > 0 && workUnits.some((unit) => unit.type !== undefined)) {
-    fields.push(`types={${countBy(workUnits, "type")}}`);
-  }
-  if (workUnits.length > 0) {
-    fields.push(`top_weighted=${topWeightedUnits(workUnits)}`);
-  }
-  if (artifacts) {
-    fields.push(`artifacts=${artifacts}`);
-  }
   fields.push(...extraFields);
   return schedulerTelemetryLine(prefix, target, "start", fields);
 }
@@ -357,36 +382,6 @@ export function schedulerProgressLine({
   ]);
 }
 
-function humanProgressLabels({ activeGroups, runningLabels = [], waitingOn, blockedBy, unblocksAfter, slowestRunning }) {
-  const fields = [];
-  const running = runningLabels.length > 0
-    ? sortedUnique(runningLabels)
-    : countMapEntries(activeGroups)
-      .filter(([, count]) => Number(count) > 0)
-      .map(([label]) => label)
-      .sort((left, right) => left.localeCompare(right));
-  if (running.length > 0) {
-    fields.push(`running ${formatLabelList(running)}`);
-  }
-  if (blockedBy.length > 0) {
-    fields.push(`blocked by ${formatLabelList(blockedBy)}`);
-  }
-  if (waitingOn.length > 0) {
-    fields.push(`waiting on ${formatLabelList(waitingOn)}`);
-  }
-  if (unblocksAfter) {
-    fields.push(`unblocks after ${unblocksAfter}`);
-  }
-  if (slowestRunning) {
-    fields.push(`slowest ${formatHumanSlowestRunning(slowestRunning)}`);
-  }
-  return fields;
-}
-
-function progressCountSegment(label, completed, total) {
-  return `${label} ${completed ?? 0}/${total ?? 0}`;
-}
-
 function nestedProgressLabel(progress) {
   return progress.work_unit ?? progress.nested_target ?? "nested";
 }
@@ -396,7 +391,10 @@ function nestedProgressTotal(progress) {
 }
 
 function nestedProgressHasBlocker(progress) {
-  return (progress.blocked_by?.length ?? 0) > 0 || (progress.waiting_on?.length ?? 0) > 0;
+  return (
+    (progress.blocked_by?.length ?? 0) > 0 ||
+    (progress.waiting_on?.length ?? 0) > 0
+  );
 }
 
 function nestedSlowestDuration(progress) {
@@ -417,9 +415,10 @@ export function schedulerHumanNestedProgressFocus(nestedProgress = []) {
   }
   const slowest = ordered
     .filter((progress) => nestedSlowestDuration(progress) !== null)
-    .sort((left, right) =>
-      nestedSlowestDuration(right) - nestedSlowestDuration(left) ||
-      nestedProgressLabel(left).localeCompare(nestedProgressLabel(right)),
+    .sort(
+      (left, right) =>
+        nestedSlowestDuration(right) - nestedSlowestDuration(left) ||
+        nestedProgressLabel(left).localeCompare(nestedProgressLabel(right)),
     )[0];
   return slowest ?? ordered[0];
 }
@@ -444,58 +443,46 @@ export function schedulerHumanNestedProgressKey(nestedProgress = []) {
   });
 }
 
-function schedulerHumanProgressSegment(label, completed, total, fields = []) {
-  const suffix = fields.length > 0 ? `, ${fields.join(", ")}` : "";
-  return `${progressCountSegment(label, completed, total)}${suffix}`;
-}
-
-function schedulerHumanNestedProgressSegment(progress) {
-  const fields = humanProgressLabels({
-    activeGroups: progress.active_groups ?? {},
-    runningLabels: [],
-    blockedBy: progress.blocked_by ?? [],
-    waitingOn: progress.waiting_on ?? [],
-    unblocksAfter: progress.unblocks_after ?? null,
-    slowestRunning: progress.slowest_running ?? null,
-  });
-  return `bottleneck ${schedulerHumanProgressSegment(
-    nestedProgressLabel(progress),
-    progress.completed ?? 0,
-    nestedProgressTotal(progress),
-    fields,
-  )}`;
-}
-
 export function schedulerHumanProgressLine({
   target,
   completed,
   total,
+  blocked = 0,
   activeGroups = new Map(),
   runningLabels = [],
   blockedBy = [],
   waitingOn = [],
-  unblocksAfter = null,
   slowestRunning = null,
   nestedProgress = [],
-  artifacts = "",
 }) {
-  const outerFields = humanProgressLabels({
-    activeGroups,
-    runningLabels,
-    blockedBy,
-    waitingOn,
-    unblocksAfter,
-    slowestRunning,
-  });
-  if (artifacts) {
-    outerFields.push(`logs ${artifacts}`);
-  }
-  const segments = [schedulerHumanProgressSegment(target, completed, total, outerFields)];
+  const running =
+    runningLabels.length > 0
+      ? formatLabelList(sortedUnique(runningLabels))
+      : formatLabelList(
+          countMapEntries(activeGroups)
+            .filter(([, count]) => Number(count) > 0)
+            .map(([label]) => label)
+            .sort((left, right) => left.localeCompare(right)),
+        );
+  const blocker =
+    blockedBy.length > 0
+      ? formatLabelList(blockedBy)
+      : waitingOn.length > 0
+        ? formatLabelList(waitingOn)
+        : "none";
+  const slowest = slowestRunning
+    ? `${slowestRunning.label}:${Math.round(slowestRunning.duration_ms ?? 0)}`
+    : "none";
+  const segments = [
+    `target=${target} completed=${completed}/${total} running=${running} blocked=${blocked} slowest=${slowest} blocker=${blocker}`,
+  ];
   const focus = schedulerHumanNestedProgressFocus(nestedProgress);
   if (focus) {
-    segments.push(schedulerHumanNestedProgressSegment(focus));
+    segments.push(
+      `bottleneck=${nestedProgressLabel(focus)}:${focus.completed ?? 0}/${nestedProgressTotal(focus)}`,
+    );
   }
-  return `[PROGRESS] ${target} ${completed}/${total}: ${segments.join("; ")}\n`;
+  return `[PROGRESS] ${segments.join(" ")}\n`;
 }
 
 export function schedulerNestedProgressLine({
@@ -534,7 +521,6 @@ export function schedulerNestedProgressLine({
 }
 
 export function schedulerSummaryLine({
-  prefix,
   target,
   status,
   completed,
@@ -544,18 +530,18 @@ export function schedulerSummaryLine({
   skipped = 0,
   finalizerFailures = 0,
   slowest = [],
-  artifacts = "",
 }) {
-  return schedulerTelemetryLine(prefix, target, "summary", [
+  const fields = [
+    `target=${target}`,
     `status=${status}`,
     status === "pass" ? null : `failure_class=${failureClass ?? "helper"}`,
-    `completed_work_units=${completed}/${total}`,
+    `work_units=${completed}/${total}`,
     `failed=${failed ?? "none"}`,
     skipped > 0 ? `skipped=${skipped}` : null,
     finalizerFailures > 0 ? `finalizer_failures=${finalizerFailures}` : null,
     `slowest=${formatSlowestWork(slowest)}`,
-    artifacts ? `artifacts=${artifacts}` : null,
-  ]);
+  ];
+  return `[SUMMARY] ${bracketedFields(fields)}\n`;
 }
 
 export function schedulerDryRunLine({

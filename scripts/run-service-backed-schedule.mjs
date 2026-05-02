@@ -574,6 +574,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
         env: {
           ...makeChildEnv(process.env),
           CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         },
       });
       continue;
@@ -586,6 +587,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
         env: {
           ...process.env,
           CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         },
       });
       continue;
@@ -598,6 +600,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
         ...process.env,
         CARTULARY_TEST_TARGET: unit.aggregateTarget,
         TEST_OUTPUT_SCRIPT: testOutputScript,
+        CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
       },
     });
   }
@@ -675,7 +678,13 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
       await runLifecycle(
         repoRoot,
         testOutputScript,
-        ["target-summary", schedule.target, requestedStatus, "--children", schedule.children.join(",")],
+        [
+          "target-summary",
+          schedule.target,
+          requestedStatus,
+          "--children",
+          schedule.children.join(","),
+        ],
         requestedStatus === "pass" ? process.stdout : process.stderr,
       );
     },

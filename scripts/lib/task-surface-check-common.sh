@@ -80,19 +80,41 @@ text_has_token() {
 }
 
 task_surface_check_files() {
+  local configured_generated_make="${task_surface_generated_make_file:-${generated_make:-}}"
+  local configured_makefile="${task_surface_makefile:-${makefile:-}}"
   local files=()
 
-  if [[ -n "${generated_make:-}" ]]; then
-    files+=("$generated_make")
+  if [[ -n "$configured_generated_make" ]]; then
+    files+=("$configured_generated_make")
   fi
-  if [[ -n "${makefile:-}" ]]; then
-    files+=("$makefile")
+  if [[ -n "$configured_makefile" ]]; then
+    files+=("$configured_makefile")
   fi
   if [[ "${#files[@]}" -eq 0 ]]; then
     fail "task-surface check must configure generated_make and makefile"
   fi
 
   printf '%s\n' "${files[@]}"
+}
+
+extract_target_definition() {
+  local target="$1"
+  local files=()
+  mapfile -t files < <(task_surface_check_files)
+
+  awk -v target="$target" '
+    $0 ~ "^" target ":" {
+      in_target = 1
+      print
+      next
+    }
+    in_target && /^[^[:space:]#][^:]*:/ {
+      exit
+    }
+    in_target {
+      print
+    }
+  ' "${files[@]}"
 }
 
 extract_target_block() {
@@ -198,10 +220,18 @@ assert_target_prereq() {
   local prereq="$2"
   local message="$3"
   local prereqs
+  local block
 
   prereqs="$(extract_target_prereqs "$target")"
-  if [[ -z "$prereqs" ]]; then
-    fail "Makefile must define non-empty $target prerequisites"
+  if [[ -n "$prereqs" ]] && text_has_token "$prereqs" "$prereq"; then
+    return
   fi
-  assert_text_has_token "$target prerequisites" "$prereqs" "$prereq" "$message"
+
+  block="$(extract_target_block "$target")"
+  if text_contains "$block" "\$(MAKE) --silent --no-print-directory" &&
+    text_has_token "$block" "$prereq"; then
+    return
+  fi
+
+  fail "${message} (${target} missing prerequisite token ${prereq})"
 }

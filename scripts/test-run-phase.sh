@@ -261,6 +261,7 @@ JSON
 
 quiet_success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
     "$HELPER" "quiet success" -- bash -lc 'echo hidden-success-output'
 )"
 assert_empty "$quiet_success_output" "quiet success"
@@ -269,12 +270,24 @@ mkdir -p "$ROOT_DIR/tmp"
 
 success_log_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 \
     "$HELPER" "success log replay" -- bash -lc 'echo keep-this-warning >&2' \
     2>&1
 )"
-assert_contains "$success_log_output" "keep-this-warning" "success log replay output"
+assert_not_contains "$success_log_output" "keep-this-warning" "success log replay output"
+assert_contains "$success_log_output" "[RESULT] target=adhoc status=pass" "success summary output"
 assert_not_contains "$success_log_output" "== success log replay ==" "success log replay banner"
+
+legacy_success_log_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
+  CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 \
+  CARTULARY_ENABLE_LEGACY_SUCCESS_LOG=1 \
+    "$HELPER" "legacy success log replay" -- bash -lc 'echo keep-this-warning >&2' \
+    2>&1
+)"
+assert_contains "$legacy_success_log_output" "keep-this-warning" "legacy success log replay output"
 
 short_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-results.XXXXXX")"
 cleanup_paths+=("$short_failure_results")
@@ -416,7 +429,7 @@ missing_target_output="$(
 missing_target_status=$?
 set -e
 assert_equals "$missing_target_status" "1" "missing target run summary status"
-assert_contains "$missing_target_output" "non_test_failed=1" "missing target run summary output"
+assert_contains "$missing_target_output" "[FAIL] target=missing target" "missing target run summary output"
 assert_contains "$missing_target_output" "failure_class=artifact" "missing target run summary failure class"
 assert_contains "$missing_target_output" "artifact failure: missing target summary: test-fast-service-backed" "missing target run summary headline"
 missing_target_summary="$missing_target_results/missing-target/run-summary.json"
@@ -493,6 +506,7 @@ cat >"$infra_service_dir/001.json" <<'JSON'
 }
 JSON
 infra_timing_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$infra_timing_results" \
   CARTULARY_TEST_RUN_ID="infra-timing" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary infra-target pass \
@@ -532,12 +546,13 @@ cat >"$retry_service_dir/001.json" <<'JSON'
 }
 JSON
 retry_timing_output="$(
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_TEST_RESULTS_DIR="$retry_timing_results" \
   CARTULARY_TEST_RUN_ID="retry-timing" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary retry-target pass \
     2>&1
 )"
-assert_contains "$retry_timing_output" "[PASS] retry-target" "retry-scheduled startup target status"
+assert_contains "$retry_timing_output" "[RESULT] target=retry-target status=pass" "retry-scheduled startup target status"
 retry_timing_summary="$retry_timing_results/retry-timing/retry-target/target-summary.json"
 assert_equals "$(json_field "$retry_timing_summary" "status")" "pass" "retry-scheduled startup JSON status"
 assert_equals "$(json_field "$retry_timing_summary" "failures.length")" "0" "retry-scheduled startup failure count"
@@ -551,6 +566,7 @@ CARTULARY_TEST_RUN_ID="skipped-after-failure" \
   "$ROOT_DIR/scripts/lib/test-output.sh" target-summary failed-check fail >/dev/null 2>&1
 set +e
 skipped_after_failure_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_after_failure_results" \
   CARTULARY_TEST_RUN_ID="skipped-after-failure" \
     "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "skipped after failure" fail 0 1 failed-check \
@@ -562,13 +578,14 @@ skipped_after_failure_output="$(
 skipped_after_failure_status=$?
 set -e
 assert_equals "$skipped_after_failure_status" "1" "skipped after failure run summary status"
-assert_contains "$skipped_after_failure_output" "aborted_after=failed-check" "skipped after failure root cause output"
+assert_contains "$skipped_after_failure_output" "work_unit=failed-check" "skipped after failure root cause output"
 assert_contains "$skipped_after_failure_output" "skipped_after_failure=skipped-check" "skipped after failure group output"
 assert_not_contains "$skipped_after_failure_output" "missing_summary_targets=skipped-check" "skipped after failure missing output"
 skipped_after_failure_summary="$skipped_after_failure_results/skipped-after-failure/run-summary.json"
 assert_equals "$(json_field "$skipped_after_failure_summary" "counts.failed")" "1" "skipped after failure failed count"
 assert_equals "$(json_field "$skipped_after_failure_summary" "counts.non_test_failed")" "1" "skipped after failure non-test failed count"
 assert_equals "$(json_field "$skipped_after_failure_summary" "failure_class")" "helper" "skipped after failure class"
+assert_equals "$(json_field "$skipped_after_failure_summary" "work_units.aborted_after")" "failed-check" "skipped after failure aborted target"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_targets.missing.length")" "0" "skipped after failure missing target count"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_targets.skipped_after_failure.0")" "skipped-check" "skipped after failure summary list"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_groups.0.skipped_after_failure.0")" "skipped-check" "skipped after failure group list"
@@ -584,13 +601,14 @@ CARTULARY_TEST_RUN_ID="child-summary" \
 CARTULARY_TEST_TARGET="parent-target" \
   "$HELPER" "parent target" -- bash -lc 'true' >/dev/null
 child_target_output="$(
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-target pass --children child-a,child-b \
     2>&1
 )"
-assert_contains "$child_target_output" "[PASS] parent-target kind=aggregate children=2/2 child_tests=18 child_failed=0 failed_children=none slowest_child=child-b(2.00s) own_phases=1 own_tests=0 own_failed=0 total_tests=18 total_failed=0" "child target parent output"
-assert_contains "$child_target_output" "failed_children=none slowest_child=child-b(2.00s)" "child target compact child hints"
+assert_contains "$child_target_output" "[RESULT] target=parent-target status=pass" "child target parent output"
+assert_contains "$child_target_output" "[ARTIFACTS] target=parent-target" "child target artifact output"
 assert_not_contains "$child_target_output" "[CHILD] parent-target child-a" "quiet child target hides child-a detail"
 assert_not_contains "$child_target_output" "[CHILD] parent-target child-b" "quiet child target hides child-b detail"
 assert_not_contains "$child_target_output" " duration=" "child target ambiguous duration output"
@@ -681,6 +699,7 @@ write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "01" "postg
 write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "02" "postgres-db-reset" "fixture-target" 15000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowA"
 write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "03" "postgres-db-created" "fixture-target" 1000 "template_clone" "per-test" "internal/modules/entities" "TestClone"
 below_fixture_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   FIXTURE_THRESHOLD_MS=40000 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
   CARTULARY_TEST_RUN_ID="fixture-run" \
@@ -689,6 +708,7 @@ below_fixture_output="$(
 )"
 assert_not_contains "$below_fixture_output" "[FIXTURE]" "fixture output below threshold"
 fixture_target_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   FIXTURE_THRESHOLD_MS=30000 \
   FIXTURE_TOP=2 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
@@ -703,6 +723,7 @@ write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "01" "p
 write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "02" "postgres-db-reset" "fixture-tie" 10000 "package_reset" "package-reused" "internal/modules/auth" "TestResetB"
 write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "03" "postgres-transaction" "fixture-tie" 20000 "transaction" "transaction" "internal/modules/auth" "TestTxn"
 fixture_tie_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   FIXTURE_THRESHOLD_MS=1 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
   CARTULARY_TEST_RUN_ID="fixture-tie-run" \
@@ -717,6 +738,7 @@ write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite"
 write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "03" "postgres-db-reset" "fixture-hotspot-cap" 2000 "package_reset" "package-reused" "internal/modules/three" "TestThree"
 write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "04" "postgres-db-reset" "fixture-hotspot-cap" 1000 "package_reset" "package-reused" "internal/modules/four" "TestFour"
 fixture_hotspot_cap_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   FIXTURE_THRESHOLD_MS=1 \
   FIXTURE_TOP=9 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
@@ -728,6 +750,7 @@ assert_contains "$fixture_hotspot_cap_output" "hotspots=internal/modules/one/pos
 assert_not_contains "$fixture_hotspot_cap_output" "internal/modules/four/postgres" "fixture hotspots omit fourth entry"
 
 fixture_run_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   FIXTURE_THRESHOLD_MS=30000 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
   CARTULARY_TEST_RUN_ID="fixture-run" \
@@ -865,6 +888,7 @@ assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.spans.lengt
 assert_equals "$(json_field "$teardown_accounting_timing" "slowest_lifecycle_bucket.name")" "teardown" "teardown accounting slowest bucket"
 
 child_run_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
     "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run" pass 1 1 - \
@@ -877,8 +901,7 @@ assert_contains "$child_run_output" "critical=" "child run critical path duratio
 assert_contains "$child_run_output" "exec=" "child run executed duration output"
 assert_contains "$child_run_output" "logical=" "child run logical duration output"
 assert_contains "$child_run_output" "teardown=" "child run teardown duration output"
-assert_contains "$child_run_output" "slowest_target=parent-target(" "child run slowest target output"
-assert_contains "$child_run_output" "slowest_lifecycle_bucket=parent-target:" "child run slowest lifecycle bucket output"
+assert_contains "$child_run_output" "slowest=parent-target:" "child run slowest target output"
 assert_contains "$child_run_output" "[GROUP] child run backend-service-backed summary_targets=child-a,child-b status=pass wall=1.00s critical=1.00s exec=3.00s logical=3.00s teardown=0ms actual=5 reused=0 derived=0" "child run backend service group output"
 assert_contains "$child_run_output" "[GROUP] child run browser summary_targets=child-b status=pass wall=1.00s critical=1.00s exec=2.00s logical=2.00s teardown=0ms actual=3 reused=0 derived=0" "child run browser group output"
 assert_not_contains "$child_run_output" " duration=" "child run ambiguous duration output"
@@ -890,6 +913,7 @@ assert_not_negative "$(json_field "$child_run_summary" "logical_duration_ms")" "
 assert_json_field_absent "$child_run_summary" "duration_ms" "child run legacy duration"
 assert_equals "$(json_field "$child_run_summary" "accounting_modes.actual")" "6" "child run actual accounting count"
 assert_equals "$(json_field "$child_run_summary" "evidence_targets.summaries.0.target")" "parent-target" "run summary target object"
+assert_equals "$(json_field "$child_run_summary" "slowest_lifecycle_bucket.target")" "parent-target" "child run slowest lifecycle bucket target"
 assert_equals "$(json_field "$child_run_summary" "evidence_targets.summaries.0.children.present.1.target")" "child-b" "run summary preserved child target"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.0.name")" "backend-service-backed" "run summary backend group name"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.0.wall_duration_ms")" "1000" "run summary backend group wall duration"
@@ -916,12 +940,13 @@ CARTULARY_TEST_RUN_ID="shared-execution" \
     0 \
     "$shared_execution_dir/shared-execution.json"
 shared_execution_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$shared_execution_results" \
   CARTULARY_TEST_RUN_ID="shared-execution" \
     "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "shared execution run" pass 2 2 - target-fast target-slow \
     2>&1
 )"
-assert_contains "$shared_execution_output" "slowest_target=target-slow(2.00s)" "shared execution run slowest target ignores shared group"
+assert_contains "$shared_execution_output" "slowest=target-slow:" "shared execution run slowest target ignores shared group"
 assert_contains "$shared_execution_output" "[SHARED] shared execution run backend-integration-shards status=pass wall=7.00s exec=7.00s reports=1" "shared execution run group output"
 shared_execution_summary="$shared_execution_results/shared-execution/run-summary.json"
 assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.schema_id")" "cartulary.test_shared_execution_group.v1" "shared execution group schema"
@@ -933,6 +958,7 @@ assert_equals "$(json_field "$shared_execution_summary" "slowest_target.target")
 
 set +e
 missing_group_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
     "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run missing group" pass 1 1 - \
@@ -951,6 +977,7 @@ assert_equals "$(json_field "$missing_group_summary" "summary_groups.0.missing_s
 missing_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-missing-child.XXXXXX")"
 cleanup_paths+=("$missing_child_results")
 missing_child_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$missing_child_results" \
   CARTULARY_TEST_RUN_ID="missing-child" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-missing pass --children missing-child \
@@ -1011,6 +1038,7 @@ cat >"$skipped_child_run/parent-with-skipped/scheduler-summary.json" <<'JSON'
 }
 JSON
 skipped_child_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
   CARTULARY_TEST_RUN_ID="skipped-child" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-skipped fail --children failed-backend,skipped-browser \
@@ -1030,6 +1058,7 @@ assert_equals "$(json_field "$skipped_child_summary" "children.missing.length")"
 assert_equals "$(json_field "$skipped_child_summary" "own.counts.non_test_failed")" "0" "skipped child does not create artifact failure"
 
 explicit_skipped_child_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
   CARTULARY_TEST_RUN_ID="skipped-child" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-explicit-skipped fail \
@@ -1070,6 +1099,7 @@ cat >"$skipped_child_run/projected-child-source/target-summary.json" <<'JSON'
 }
 JSON
 imported_skipped_child_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
   CARTULARY_TEST_RUN_ID="skipped-child" \
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-imported-skipped fail \
@@ -1114,13 +1144,14 @@ go_smoke_rel="./${go_smoke_dir#"$ROOT_DIR"/}"
 go_bin="${GO:-go}"
 go_success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
     "$GO_HELPER" "run-go-phase smoke" '^(TestPhase0_.*_E_0_[0-9]+)$' -- "$go_bin" test "$go_smoke_rel"
 )"
 assert_empty "$go_success_output" "run-go-phase success"
 
 set +e
 go_zero_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
     "$GO_HELPER" "run-go-phase zero-match" '^(TestPhase0_.*_E_0_)$' -- "$go_bin" test "$go_smoke_rel" \
     2>&1
 )"
@@ -1147,7 +1178,7 @@ EOF
 go_skip_rel="./${go_skip_dir#"$ROOT_DIR"/}"
 set +e
 go_skip_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
     "$GO_HELPER" "run-go-phase skip" '^(TestPhase0_RunGoPhaseSkip_E_0_01)$' -- "$go_bin" test "$go_skip_rel" \
     2>&1
 )"
@@ -1175,7 +1206,7 @@ EOF
 go_pause_rel="./${go_pause_dir#"$ROOT_DIR"/}"
 set +e
 go_pause_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
     "$GO_HELPER" "run-go-phase pause-filter smoke" '^(TestPhase1_.*_ProcessSmoke)$' -- "$go_bin" test "$go_pause_rel" -parallel 2 \
     2>&1
 )"
@@ -1211,7 +1242,7 @@ EOF
 go_pkg_setup_rel="./${go_pkg_setup_dir#"$ROOT_DIR"/}"
 set +e
 go_pkg_setup_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
     "$GO_HELPER" "run-go-phase phase1 package setup smoke" '^(TestPhase1_.*_ProcessSmoke)$' -- "$go_bin" test "$go_pkg_setup_rel" \
     2>&1
 )"
@@ -1344,6 +1375,7 @@ EOF
 node_bin="${NODE_BIN:-node}"
 go_manifest_success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   NODE_BIN="$node_bin" \
     "$GO_MANIFEST_HELPER" "run-go-manifest-phase smoke" phase9 unit authoritative backend_unit -- "$go_bin" test "$go_manifest_rel"
@@ -1352,7 +1384,7 @@ assert_empty "$go_manifest_success_output" "run-go-manifest-phase success"
 
 set +e
 go_manifest_empty_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   NODE_BIN="$node_bin" \
     "$GO_MANIFEST_HELPER" "run-go-manifest-phase empty" phase9 unit authoritative backend_unit -- "$go_bin" test ./internal/platform/... \
@@ -1367,7 +1399,7 @@ assert_contains "$go_manifest_empty_output" "no authoritative go tests found for
 
 set +e
 go_manifest_raw_allow_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION="phase9:unit:authoritative:backend_unit:./internal/platform/..." \
   NODE_BIN="$node_bin" \
@@ -1405,6 +1437,7 @@ cat >"$go_manifest_valid_exception" <<'JSON'
 JSON
 go_manifest_exception_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_valid_exception" \
   NODE_BIN="$node_bin" \
@@ -1435,7 +1468,7 @@ cat >"$go_manifest_missing_owner_exception" <<'JSON'
 JSON
 set +e
 go_manifest_missing_owner_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_missing_owner_exception" \
   NODE_BIN="$node_bin" \
@@ -1472,7 +1505,7 @@ cat >"$go_manifest_missing_reason_exception" <<'JSON'
 JSON
 set +e
 go_manifest_missing_reason_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_missing_reason_exception" \
   NODE_BIN="$node_bin" \
@@ -1509,7 +1542,7 @@ cat >"$go_manifest_missing_expiration_exception" <<'JSON'
 JSON
 set +e
 go_manifest_missing_expiration_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_missing_expiration_exception" \
   NODE_BIN="$node_bin" \
@@ -1547,7 +1580,7 @@ cat >"$go_manifest_expired_exception" <<'JSON'
 JSON
 set +e
 go_manifest_expired_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_expired_exception" \
   CARTULARY_PHASE_POLICY_TODAY="2026-01-01" \
@@ -1564,7 +1597,7 @@ assert_contains "$go_manifest_expired_output" "expired on 2000-01-01" "run-go-ma
 
 set +e
 go_manifest_skip_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   NODE_BIN="$node_bin" \
     "$GO_MANIFEST_HELPER" "run-go-manifest-phase skip" phase10 unit authoritative backend_unit -- "$go_bin" test "$go_manifest_rel" \
@@ -1672,7 +1705,7 @@ JSON
 
 set +e
 go_manifest_pkg_setup_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   NODE_BIN="$node_bin" \
     "$GO_MANIFEST_HELPER" "run-go-manifest-phase package setup" phase11 unit authoritative backend_unit -- "$go_bin" test "$go_manifest_pkg_setup_rel" \

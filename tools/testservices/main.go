@@ -307,7 +307,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 
 	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
 	templateStart := time.Now().UTC()
-	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
+	err = withSuiteGooseLog(ownedEnv, func() error {
+		return deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
+	})
 	recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
 	cancelTemplate()
 	if err != nil {
@@ -922,6 +924,32 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 		return fmt.Errorf("mark template database as template: %w", err)
 	}
 	return nil
+}
+
+func withSuiteGooseLog(env map[string]string, run func() error) error {
+	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return run()
+	}
+	if err := os.MkdirAll(suiteDir, 0o700); err != nil {
+		return fmt.Errorf("create suite artifact dir: %w", err)
+	}
+	logPath := filepath.Join(suiteDir, "goose.log")
+	previous, hadPrevious := os.LookupEnv(postgres.GooseLogFileEnv)
+	if err := os.Setenv(postgres.GooseLogFileEnv, logPath); err != nil {
+		return fmt.Errorf("set goose log file env: %w", err)
+	}
+	defer func() {
+		if hadPrevious {
+			_ = os.Setenv(postgres.GooseLogFileEnv, previous)
+			return
+		}
+		_ = os.Unsetenv(postgres.GooseLogFileEnv)
+	}()
+	return run()
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string) error {
@@ -2036,12 +2064,40 @@ func envSlice(values map[string]string) []string {
 }
 
 type execChild struct {
-	cmd *exec.Cmd
+	cmd     *exec.Cmd
+	logFile *os.File
+	logPath string
 }
 
 func startChildProcess(argv []string, env map[string]string) (childProcess, error) {
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Env = envSlice(env)
+	captureChild := suiteservices.LookupEnvValue(env, "CARTULARY_SUPPRESS_CHILD_SUCCESS") == "1"
+	if captureChild {
+		suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			if err := os.MkdirAll(suiteDir, 0o700); err != nil {
+				return nil, err
+			}
+			logPath := filepath.Join(suiteDir, "child-process.log")
+			logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- suite artifact path is resolved from the configured results root.
+			if err != nil {
+				return nil, err
+			}
+			cmd.Stdout = logFile
+			cmd.Stderr = logFile
+			cmd.Stdin = os.Stdin
+			cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+			if err := cmd.Start(); err != nil {
+				_ = logFile.Close()
+				return nil, err
+			}
+			return &execChild{cmd: cmd, logFile: logFile, logPath: logPath}, nil
+		}
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -2077,7 +2133,11 @@ func startDetachedSuiteReaper(leasePath string, env map[string]string) error {
 }
 
 func (c *execChild) Wait() error {
-	return c.cmd.Wait()
+	err := c.cmd.Wait()
+	if c.logFile != nil {
+		_ = c.logFile.Close()
+	}
+	return err
 }
 
 func (c *execChild) Signal(sig os.Signal) error {

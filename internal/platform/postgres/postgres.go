@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -16,11 +18,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
 
-const PostgresDSNEnv = "CARTULARY_POSTGRES_DSN"
+const (
+	PostgresDSNEnv  = "CARTULARY_POSTGRES_DSN"
+	GooseLogFileEnv = "CARTULARY_GOOSE_LOG_FILE"
+)
 
 var (
 	errNilMigrateContext = errors.New("postgres migrate: nil context")
 	gooseBaseFSSem       = make(chan struct{}, 1)
+	gooseLoggerMu        sync.Mutex
 	gooseRunContext      = goose.RunContext
 	gooseSetBaseFS       = goose.SetBaseFS
 )
@@ -211,6 +217,13 @@ func runGoose(ctx context.Context, command string, db *sql.DB, source MigrationS
 		return err
 	}
 
+	run := func() error {
+		return runGooseWithConfiguredSource(ctx, command, db, source, args...)
+	}
+	return runGooseWithConfiguredLogger(os.Getenv(GooseLogFileEnv), run)
+}
+
+func runGooseWithConfiguredSource(ctx context.Context, command string, db *sql.DB, source MigrationSource, args ...string) error {
 	if source.BaseFS == nil {
 		return gooseRunContext(ctx, command, db, source.Path, args...)
 	}
@@ -231,6 +244,29 @@ func runGoose(ctx context.Context, command string, db *sql.DB, source MigrationS
 	}
 
 	return gooseRunContext(ctx, command, db, source.Path, args...)
+}
+
+func runGooseWithConfiguredLogger(logPath string, run func() error) error {
+	gooseLoggerMu.Lock()
+	defer gooseLoggerMu.Unlock()
+
+	if logPath == "" {
+		goose.SetLogger(log.New(os.Stderr, "", log.LstdFlags))
+		return run()
+	}
+
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o700); err != nil {
+		return fmt.Errorf("create goose log directory: %w", err)
+	}
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- logPath is an artifact path provided by the repo-local runner.
+	if err != nil {
+		return fmt.Errorf("open goose log file: %w", err)
+	}
+	defer file.Close()
+
+	goose.SetLogger(log.New(file, "", log.LstdFlags))
+	defer goose.SetLogger(log.New(os.Stderr, "", log.LstdFlags))
+	return run()
 }
 
 func acquireGooseBaseFS(ctx context.Context) (func(), error) {

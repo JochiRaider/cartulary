@@ -124,6 +124,7 @@ chmod +x "$fake_vitest"
 
 success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   NODE_BIN="${NODE:-node}" \
     "$HELPER" "vitest manifest smoke" phase3 authoritative frontend_unit -- "$fake_vitest"
 )"

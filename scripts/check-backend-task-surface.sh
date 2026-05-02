@@ -65,16 +65,12 @@ require_service_backed_schedule_target() {
   if text_contains "$block" '--jobs'; then
     fail "$target must not pass a fixed scheduler job cap"
   fi
+  assert_target_prereq "$target" test-service-images "$target must depend on test-service-images for direct runs"
+  assert_target_prereq "$target" build-server "$target must prebuild server before service-backed scheduling"
+  if [[ "$require_migrate" == "1" ]]; then
+    assert_target_prereq "$target" build-migrate "$target must prebuild migrate before service-backed scheduling"
+  fi
   prereqs="$(extract_target_prereqs "$target")"
-  if ! text_matches "$prereqs" '(^|[[:space:]])test-service-images($|[[:space:]])'; then
-    fail "$target must depend on test-service-images for direct runs"
-  fi
-  if ! text_matches "$prereqs" '(^|[[:space:]])build-server($|[[:space:]])'; then
-    fail "$target must prebuild server before service-backed scheduling"
-  fi
-  if [[ "$require_migrate" == "1" ]] && ! text_matches "$prereqs" '(^|[[:space:]])build-migrate($|[[:space:]])'; then
-    fail "$target must prebuild migrate before service-backed scheduling"
-  fi
   if [[ "$require_migrate" == "0" ]] && text_matches "$prereqs" '(^|[[:space:]])build-migrate($|[[:space:]])'; then
     fail "$target must not require build-migrate"
   fi
@@ -368,16 +364,9 @@ fi
 if text_contains "$check_block" '--step browser-e2e'; then
   fail "check must not run browser-e2e as a final serial step"
 fi
-lint_go_prereqs="$(extract_target_prereqs lint-go)"
-if ! text_matches "$lint_go_prereqs" '(^|[[:space:]])lint-go-format($|[[:space:]])'; then
-  fail "lint-go must delegate to lint-go-format"
-fi
-if ! text_matches "$lint_go_prereqs" '(^|[[:space:]])lint-go-vet($|[[:space:]])'; then
-  fail "lint-go must delegate to lint-go-vet"
-fi
-if ! text_matches "$lint_go_prereqs" '(^|[[:space:]])lint-go-staticcheck($|[[:space:]])'; then
-  fail "lint-go must delegate to lint-go-staticcheck"
-fi
+assert_target_prereq lint-go lint-go-format "lint-go must delegate to lint-go-format"
+assert_target_prereq lint-go lint-go-vet "lint-go must delegate to lint-go-vet"
+assert_target_prereq lint-go lint-go-staticcheck "lint-go must delegate to lint-go-staticcheck"
 lint_go_format_block="$(extract_target_block lint-go-format)"
 if ! text_contains "$lint_go_format_block" 'scripts/run-go-format.sh --check'; then
   fail "lint-go-format must run the curated Go formatter wrapper in check mode"
@@ -389,10 +378,7 @@ lint_go_vet_block="$(extract_target_block lint-go-vet)"
 if ! text_contains "$lint_go_vet_block" 'scripts/run-go-vet.sh'; then
   fail "lint-go-vet must run the curated Go vet wrapper"
 fi
-lint_go_staticcheck_prereqs="$(extract_target_prereqs lint-go-staticcheck)"
-if ! text_matches "$lint_go_staticcheck_prereqs" '(^|[[:space:]])go-lint-toolchain($|[[:space:]])'; then
-  fail "lint-go-staticcheck must prepare the pinned Go lint toolchain"
-fi
+assert_target_prereq lint-go-staticcheck go-lint-toolchain "lint-go-staticcheck must prepare the pinned Go lint toolchain"
 lint_go_staticcheck_block="$(extract_target_block lint-go-staticcheck)"
 if ! text_contains "$lint_go_staticcheck_block" 'scripts/run-go-staticcheck.sh'; then
   fail "lint-go-staticcheck must run the curated Staticcheck wrapper"
@@ -407,10 +393,7 @@ fi
 if ! text_matches "$go_security_prereqs" '(^|[[:space:]])\$\((GOSEC_BIN)\)($|[[:space:]])'; then
   fail "go-security-toolchain must prepare the pinned Gosec binary"
 fi
-go_gosec_prereqs="$(extract_target_prereqs go-gosec-targeted)"
-if ! text_matches "$go_gosec_prereqs" '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
-  fail "go-gosec-targeted must prepare the pinned Go security toolchain"
-fi
+assert_target_prereq go-gosec-targeted go-security-toolchain "go-gosec-targeted must prepare the pinned Go security toolchain"
 go_gosec_block="$(extract_target_block go-gosec-targeted)"
 if ! text_contains "$go_gosec_block" 'scripts/run-go-gosec-targeted.sh'; then
   fail "go-gosec-targeted must run the curated targeted Gosec wrapper"
@@ -430,10 +413,7 @@ fi
 if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_PATTERNS="$(GOSEC_TARGETED_RUNTIME_PATTERNS)"'; then
   fail "go-gosec-targeted must pass the configured runtime Gosec package patterns"
 fi
-go_gosec_audit_prereqs="$(extract_target_prereqs go-gosec-audit)"
-if ! text_matches "$go_gosec_audit_prereqs" '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
-  fail "go-gosec-audit must prepare the pinned Go security toolchain"
-fi
+assert_target_prereq go-gosec-audit go-security-toolchain "go-gosec-audit must prepare the pinned Go security toolchain"
 go_gosec_audit_block="$(extract_target_block go-gosec-audit)"
 if ! text_contains "$go_gosec_audit_block" 'scripts/run-go-gosec-audit.sh'; then
   fail "go-gosec-audit must run the curated warning-only Gosec audit wrapper"
@@ -444,10 +424,7 @@ fi
 if ! text_contains "$go_gosec_audit_block" 'GOSEC_AUDIT_SUPPORT_PATTERNS="$(GOSEC_AUDIT_SUPPORT_PATTERNS)"'; then
   fail "go-gosec-audit must pass the configured support Gosec audit package patterns"
 fi
-shell_lint_prereqs="$(extract_target_prereqs lint-shell)"
-if ! text_matches "$shell_lint_prereqs" '(^|[[:space:]])shell-lint-toolchain($|[[:space:]])'; then
-  fail "lint-shell must prepare the pinned ShellCheck toolchain"
-fi
+assert_target_prereq lint-shell shell-lint-toolchain "lint-shell must prepare the pinned ShellCheck toolchain"
 lint_shell_block="$(extract_target_block lint-shell)"
 if ! text_contains "$lint_shell_block" 'scripts/run-shellcheck.sh'; then
   fail "lint-shell must run the curated warning-only ShellCheck wrapper"
@@ -856,10 +833,7 @@ for expected in TestPhase0_ TestPhase1_ TestPhase2_; do
 done
 
 target="backend-process"
-prereqs="$(extract_target_prereqs "$target")"
-if [[ -z "$prereqs" || "$prereqs" != *build-server* ]]; then
-  fail "$target must depend on build-server"
-fi
+assert_target_prereq "$target" build-server "$target must depend on build-server"
 
 test_service_images_block="$(extract_target_block test-service-images)"
 if [[ -z "$test_service_images_block" ]]; then
