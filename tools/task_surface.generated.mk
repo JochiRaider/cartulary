@@ -486,7 +486,7 @@ go-vulncheck: go-security-toolchain
 
 go-gosec-targeted: export CARTULARY_TEST_TARGET ?= go-gosec-targeted
 go-gosec-targeted: go-security-toolchain
-	$(Q)$(RUN_PHASE_SCRIPT) "go gosec targeted" -- env GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GOSEC_BIN="$(GOSEC_BIN)" GOSEC_RULES="$(GOSEC_RULES)" GOSEC_FLAGS="$(GOSEC_FLAGS)" GOSEC_PATTERNS="$(GOSEC_PATTERNS)" bash ./scripts/run-go-gosec-targeted.sh
+	$(Q)$(RUN_PHASE_SCRIPT) "go gosec targeted" -- env GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GOSEC_BIN="$(GOSEC_BIN)" GOSEC_RULES="$(GOSEC_RULES)" GOSEC_FLAGS="$(GOSEC_FLAGS)" GOSEC_PATTERNS="$(GOSEC_PATTERNS)" GOSEC_TARGETED_RUNTIME_RULES="$(GOSEC_TARGETED_RUNTIME_RULES)" GOSEC_TARGETED_RUNTIME_FLAGS="$(GOSEC_TARGETED_RUNTIME_FLAGS)" GOSEC_TARGETED_RUNTIME_PATTERNS="$(GOSEC_TARGETED_RUNTIME_PATTERNS)" bash ./scripts/run-go-gosec-targeted.sh
 
 go-gosec-audit: export CARTULARY_TEST_TARGET ?= go-gosec-audit
 go-gosec-audit: go-security-toolchain

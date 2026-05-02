@@ -80,10 +80,10 @@ output="$(
     GO_CACHE_DIR="$scratch/go-cache" \
     GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
     GOSEC_BIN="$fake_gosec" \
-    GOSEC_AUDIT_RUNTIME_RULES="G118,G304,G122,G301,G302,G306,G307" \
+    GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" \
     GOSEC_AUDIT_RUNTIME_FLAGS="-exclude-generated -no-fail -exclude-dir=internal/testutil -quiet" \
     GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." \
-    GOSEC_AUDIT_SUPPORT_RULES="G304,G122,G301,G302,G306,G307" \
+    GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" \
     GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -terse" \
     GOSEC_AUDIT_SUPPORT_PATTERNS="./internal/testutil/... ./tools/..." \
     FAKE_GOSEC_ARGS_LOG="$args_log" \
@@ -94,17 +94,17 @@ if [[ "$status" -ne 0 ]]; then
   fail "audit findings must remain warning-only, got status $status: $output"
 fi
 
-assert_contains "$output" "go-gosec-audit runtime profile rules=G118,G304,G122,G301,G302,G306,G307 patterns=./cmd/... ./internal/..." "runtime profile label"
-assert_contains "$output" "go-gosec-audit support profile rules=G304,G122,G301,G302,G306,G307 patterns=./internal/testutil/... ./tools/..." "support profile label"
+assert_contains "$output" "go-gosec-audit runtime profile rules=G118,G122,G301,G302,G303,G304,G305,G306,G307 patterns=./cmd/... ./internal/..." "runtime profile label"
+assert_contains "$output" "go-gosec-audit support profile rules=G122,G301,G302,G303,G304,G305,G306,G307 patterns=./internal/testutil/... ./tools/..." "support profile label"
 assert_contains "$output" "simulated gosec finding" "warning-only finding output"
 
 args="$(cat "$args_log")"
 assert_equals "$(grep -c '^--call--$' "$args_log")" "2" "gosec invocation count"
-assert_contains "$args" "-include=G118,G304,G122,G301,G302,G306,G307" "runtime audit include rules"
+assert_contains "$args" "-include=G118,G122,G301,G302,G303,G304,G305,G306,G307" "runtime audit include rules"
 assert_contains "$args" "-exclude-dir=internal/testutil" "runtime audit excludes internal test helpers"
 assert_contains "$args" "./cmd/..." "runtime audit cmd package pattern"
 assert_contains "$args" "./internal/..." "runtime audit internal package pattern"
-assert_contains "$args" "-include=G304,G122,G301,G302,G306,G307" "support audit include rules"
+assert_contains "$args" "-include=G122,G301,G302,G303,G304,G305,G306,G307" "support audit include rules"
 assert_contains "$args" "-terse" "support audit passthrough flags"
 assert_contains "$args" "./internal/testutil/..." "support audit internal testutil package pattern"
 assert_contains "$args" "./tools/..." "support audit tools package pattern"

@@ -9,6 +9,9 @@ GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/tmp/toolbin/gosec-v2.26.1}"
 GOSEC_RULES="${GOSEC_RULES:-G602,G124,G112,G114}"
 GOSEC_FLAGS="${GOSEC_FLAGS:--exclude-generated}"
 GOSEC_PATTERNS="${GOSEC_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
+GOSEC_TARGETED_RUNTIME_RULES="${GOSEC_TARGETED_RUNTIME_RULES:-G122,G301,G302,G303,G304,G305,G306,G307}"
+GOSEC_TARGETED_RUNTIME_FLAGS="${GOSEC_TARGETED_RUNTIME_FLAGS:--exclude-generated -quiet -exclude-dir=internal/testutil}"
+GOSEC_TARGETED_RUNTIME_PATTERNS="${GOSEC_TARGETED_RUNTIME_PATTERNS:-./cmd/... ./internal/...}"
 
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then
   GO_BIN="$(command -v "$GO_BIN")"
@@ -33,25 +36,39 @@ if [[ ! -x "$GOSEC_BIN" ]]; then
   exit 1
 fi
 
-if [[ -z "$GOSEC_RULES" ]]; then
-  echo "go-gosec-targeted requires at least one GOSEC_RULES entry" >&2
-  exit 1
-fi
-if [[ -z "$GOSEC_PATTERNS" ]]; then
-  echo "go-gosec-targeted requires at least one GOSEC_PATTERNS entry" >&2
-  exit 1
-fi
+run_profile() {
+  local label="$1"
+  local rules="$2"
+  local flags="$3"
+  local patterns_value="$4"
+
+  if [[ -z "$rules" ]]; then
+    echo "go-gosec-targeted requires at least one ${label} rule entry" >&2
+    exit 1
+  fi
+  if [[ -z "$patterns_value" ]]; then
+    echo "go-gosec-targeted requires at least one ${label} package pattern" >&2
+    exit 1
+  fi
+
+  local args=("-include=$rules")
+  if [[ -n "$flags" ]]; then
+    local flag_args=()
+    read -r -a flag_args <<<"$flags"
+    args+=("${flag_args[@]}")
+  fi
+
+  local patterns=()
+  read -r -a patterns <<<"$patterns_value"
+
+  printf 'go-gosec-targeted %s profile rules=%s patterns=%s\n' "$label" "$rules" "$patterns_value"
+  env GOCACHE="$GO_CACHE_DIR" \
+    GOMODCACHE="$GO_MOD_CACHE_DIR" \
+    PATH="$(dirname "$GO_BIN"):$PATH" \
+    "$GOSEC_BIN" "${args[@]}" "${patterns[@]}"
+}
 
 cd "$ROOT_DIR"
 
-args=("-include=$GOSEC_RULES")
-if [[ -n "$GOSEC_FLAGS" ]]; then
-  read -r -a flag_args <<<"$GOSEC_FLAGS"
-  args+=("${flag_args[@]}")
-fi
-read -r -a patterns <<<"$GOSEC_PATTERNS"
-
-env GOCACHE="$GO_CACHE_DIR" \
-  GOMODCACHE="$GO_MOD_CACHE_DIR" \
-  PATH="$(dirname "$GO_BIN"):$PATH" \
-  "$GOSEC_BIN" "${args[@]}" "${patterns[@]}"
+run_profile "general" "$GOSEC_RULES" "$GOSEC_FLAGS" "$GOSEC_PATTERNS"
+run_profile "runtime" "$GOSEC_TARGETED_RUNTIME_RULES" "$GOSEC_TARGETED_RUNTIME_FLAGS" "$GOSEC_TARGETED_RUNTIME_PATTERNS"

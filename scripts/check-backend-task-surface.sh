@@ -421,6 +421,15 @@ fi
 if ! text_contains "$go_gosec_block" 'GOSEC_PATTERNS="$(GOSEC_PATTERNS)"'; then
   fail "go-gosec-targeted must pass the configured Gosec package patterns"
 fi
+if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_RULES="$(GOSEC_TARGETED_RUNTIME_RULES)"'; then
+  fail "go-gosec-targeted must pass the configured runtime Gosec rule set"
+fi
+if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_FLAGS="$(GOSEC_TARGETED_RUNTIME_FLAGS)"'; then
+  fail "go-gosec-targeted must pass the configured runtime Gosec flags"
+fi
+if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_PATTERNS="$(GOSEC_TARGETED_RUNTIME_PATTERNS)"'; then
+  fail "go-gosec-targeted must pass the configured runtime Gosec package patterns"
+fi
 go_gosec_audit_prereqs="$(extract_target_prereqs go-gosec-audit)"
 if ! text_matches "$go_gosec_audit_prereqs" '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
   fail "go-gosec-audit must prepare the pinned Go security toolchain"

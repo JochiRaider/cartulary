@@ -59,7 +59,7 @@
 - `make doctor` verifies required local tools and pinned toolchain versions without installing them.
 - `make bootstrap` installs the pinned Go CLI tools, pinned ShellCheck, and workspace dependencies.
 - `make go-vulncheck` runs pinned Govulncheck against Go source and tests using the default `./...` package pattern.
-- `make go-gosec-targeted` runs pinned Gosec with the focused `G602,G124,G112,G114` rule set against authored Go source.
+- `make go-gosec-targeted` runs pinned Gosec with the focused `G602,G124,G112,G114` rule set plus scoped blocking runtime file/path rules against authored Go source.
 - `make go-gosec-audit` runs pinned Gosec warning-only audit profiles for `G118` and scoped file/path rules across runtime and support code.
 - `make lint-shell` runs pinned ShellCheck warning-only over the deterministic tracked shell-script inventory; set `LINT_SHELL_STRICT=1` to fail on findings.
 - `make phase-ledgers` regenerates the committed phase coverage ledgers from `tools/phase*_test_map.json`.

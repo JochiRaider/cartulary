@@ -41,10 +41,13 @@ GOVULNCHECK_DB ?=
 GOSEC_RULES ?= G602,G124,G112,G114
 GOSEC_FLAGS ?= -exclude-generated
 GOSEC_PATTERNS ?= ./cmd/... ./internal/... ./db/... ./tools/...
-GOSEC_AUDIT_RUNTIME_RULES ?= G118,G304,G122,G301,G302,G306,G307
+GOSEC_TARGETED_RUNTIME_RULES ?= G122,G301,G302,G303,G304,G305,G306,G307
+GOSEC_TARGETED_RUNTIME_FLAGS ?= -exclude-generated -quiet -exclude-dir=internal/testutil
+GOSEC_TARGETED_RUNTIME_PATTERNS ?= ./cmd/... ./internal/...
+GOSEC_AUDIT_RUNTIME_RULES ?= G118,G122,G301,G302,G303,G304,G305,G306,G307
 GOSEC_AUDIT_RUNTIME_FLAGS ?= -exclude-generated -no-fail -quiet -exclude-dir=internal/testutil
 GOSEC_AUDIT_RUNTIME_PATTERNS ?= ./cmd/... ./internal/...
-GOSEC_AUDIT_SUPPORT_RULES ?= G304,G122,G301,G302,G306,G307
+GOSEC_AUDIT_SUPPORT_RULES ?= G122,G301,G302,G303,G304,G305,G306,G307
 GOSEC_AUDIT_SUPPORT_FLAGS ?= -exclude-generated -no-fail -quiet
 GOSEC_AUDIT_SUPPORT_PATTERNS ?= ./internal/testutil/... ./tools/...
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
