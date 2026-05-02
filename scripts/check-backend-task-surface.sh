@@ -386,14 +386,12 @@ fi
 if ! text_contains "$lint_go_staticcheck_block" 'STATICCHECK_CHECKS="$(STATICCHECK_CHECKS)"'; then
   fail "lint-go-staticcheck must pass the configured Staticcheck check set"
 fi
-go_security_prereqs="$(extract_target_prereqs go-security-toolchain)"
-if ! text_matches "$go_security_prereqs" '(^|[[:space:]])\$\((GOVULNCHECK_BIN)\)($|[[:space:]])'; then
-  fail "go-security-toolchain must prepare the pinned Govulncheck binary"
-fi
-if ! text_matches "$go_security_prereqs" '(^|[[:space:]])\$\((GOSEC_BIN)\)($|[[:space:]])'; then
-  fail "go-security-toolchain must prepare the pinned Gosec binary"
-fi
-assert_target_prereq go-gosec-targeted go-security-toolchain "go-gosec-targeted must prepare the pinned Go security toolchain"
+assert_target_prereq govulncheck-toolchain '$(GOVULNCHECK_BIN)' "govulncheck-toolchain must own pinned Govulncheck readiness"
+assert_target_prereq gosec-toolchain '$(GOSEC_BIN)' "gosec-toolchain must own pinned Gosec readiness"
+assert_target_prereq go-security-toolchain govulncheck-toolchain "go-security-toolchain must aggregate Govulncheck readiness for direct use"
+assert_target_prereq go-security-toolchain gosec-toolchain "go-security-toolchain must aggregate Gosec readiness for direct use"
+assert_target_prereq go-vulncheck govulncheck-toolchain "go-vulncheck must prepare only the pinned Govulncheck toolchain"
+assert_target_prereq go-gosec-targeted gosec-toolchain "go-gosec-targeted must prepare only the pinned Gosec toolchain"
 go_gosec_block="$(extract_target_block go-gosec-targeted)"
 if ! text_contains "$go_gosec_block" 'scripts/run-go-gosec-targeted.sh'; then
   fail "go-gosec-targeted must run the curated targeted Gosec wrapper"
@@ -413,7 +411,7 @@ fi
 if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_PATTERNS="$(GOSEC_TARGETED_RUNTIME_PATTERNS)"'; then
   fail "go-gosec-targeted must pass the configured runtime Gosec package patterns"
 fi
-assert_target_prereq go-gosec-audit go-security-toolchain "go-gosec-audit must prepare the pinned Go security toolchain"
+assert_target_prereq go-gosec-audit gosec-toolchain "go-gosec-audit must prepare only the pinned Gosec toolchain"
 go_gosec_audit_block="$(extract_target_block go-gosec-audit)"
 if ! text_contains "$go_gosec_audit_block" 'scripts/run-go-gosec-audit.sh'; then
   fail "go-gosec-audit must run the curated warning-only Gosec audit wrapper"
@@ -433,7 +431,13 @@ if ! text_contains "$lint_shell_block" 'LINT_SHELL_STRICT="$(LINT_SHELL_STRICT)"
   fail "lint-shell must expose LINT_SHELL_STRICT strict-mode passthrough"
 fi
 for scheduled_target in \
-  check-setup-blockers \
+  toolchain-drift \
+  codegen-toolchain \
+  go-lint-toolchain \
+  govulncheck-toolchain \
+  gosec-toolchain \
+  shell-lint-toolchain \
+  check-frontend-install \
   check-build-prereqs \
   check-service-backed \
   check-go-test-duration-baseline-drift \
@@ -458,9 +462,7 @@ for scheduled_target in \
   browser-e2e-task-surface-check \
   frontend-task-surface-check \
   backend-task-surface-check \
-  phase-map-check \
   go-test-duration-baseline-coverage \
-  phase-ledger-drift \
   phase-schedule-drift \
   service-backed-unit-check \
   generated-artifact-policy-check \
@@ -487,9 +489,14 @@ if (Array.isArray(topology.check_schedules)) {
   throw new Error("execution topology must own check schedule profiles, not flat schedules");
 }
 const profiles = topology.check_schedules?.defaults?.resource_profiles ?? {};
-for (const requiredProfile of ["setup_blocker", "build_readiness_gate", "nested_service_backed_scheduler", "post_build_service_stack", "after_setup_cpu", "after_setup_cpu_io"]) {
+for (const requiredProfile of ["setup_cpu", "setup_cpu_io", "build_readiness_gate", "nested_service_backed_scheduler", "post_build_service_stack", "after_setup_cpu", "after_setup_cpu_io"]) {
   if (!profiles[requiredProfile]) {
     throw new Error(`execution topology must declare ${requiredProfile} check schedule profile`);
+  }
+}
+for (const [profileName, profile] of Object.entries(profiles)) {
+  if (profile.needs !== undefined) {
+    throw new Error(`check schedule profile ${profileName} must not declare dependency needs`);
   }
 }
 const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
@@ -499,7 +506,13 @@ const assertCheckMetadata = (target, profile) => {
     throw new Error(`execution topology must schedule ${target} through ${profile} profile metadata`);
   }
 };
-assertCheckMetadata("check-setup-blockers", "setup_blocker");
+assertCheckMetadata("toolchain-drift", "setup_cpu");
+assertCheckMetadata("codegen-toolchain", "setup_cpu_io");
+assertCheckMetadata("go-lint-toolchain", "setup_cpu_io");
+assertCheckMetadata("govulncheck-toolchain", "setup_cpu_io");
+assertCheckMetadata("gosec-toolchain", "setup_cpu_io");
+assertCheckMetadata("shell-lint-toolchain", "setup_cpu_io");
+assertCheckMetadata("check-frontend-install", "setup_cpu_io");
 assertCheckMetadata("check-build-prereqs", "build_readiness_gate");
 assertCheckMetadata("check-service-backed", "nested_service_backed_scheduler");
 assertCheckMetadata("migration-drift", "post_build_service_stack");
@@ -588,53 +601,53 @@ if (nested.forwarding !== "check_host_to_service_backed_go") {
   throw new Error("check-service-backed nested scheduler must use the host-to-service-backed forwarding profile");
 }
 EOF
-if [[ "$(check_schedule_field check-build-prereqs needs)" != "check-setup-blockers" ]]; then
-  fail "check-build-prereqs must depend on check-setup-blockers in the check schedule"
-fi
-for scheduled_target in check-service-backed migration-drift deployable-shape; do
-  if [[ "$(check_schedule_field "$scheduled_target" needs)" != "check-build-prereqs" ]]; then
-    fail "$scheduled_target must depend on check-build-prereqs in the check schedule"
+
+assert_check_needs() {
+  local scheduled_target="$1"
+  local expected_needs="$2"
+  local actual_needs
+  actual_needs="$(check_schedule_field "$scheduled_target" needs)"
+  if [[ "$actual_needs" != "$expected_needs" ]]; then
+    fail "$scheduled_target must depend on ${expected_needs:-no other work units} in the check schedule"
   fi
+}
+
+assert_check_needs toolchain-drift ""
+for scheduled_target in codegen-toolchain go-lint-toolchain govulncheck-toolchain gosec-toolchain shell-lint-toolchain check-frontend-install; do
+  assert_check_needs "$scheduled_target" "toolchain-drift"
+done
+assert_check_needs check-build-prereqs "check-frontend-install"
+for scheduled_target in check-service-backed migration-drift deployable-shape; do
+  assert_check_needs "$scheduled_target" "check-build-prereqs"
 done
 for scheduled_target in \
   backend-unit \
-  frontend-typecheck \
-  lint-go \
-  go-vulncheck \
-  go-gosec-targeted \
-  go-gosec-audit \
-  frontend-unit \
   check-harness-smoke \
-  lint-biome \
-  frontend-import-boundary-check \
-  lint-scripts \
-  lint-shell \
   phase-test-name-check \
   task-surface-check \
   browser-e2e-task-surface-check \
   frontend-task-surface-check \
   backend-task-surface-check \
-  phase-map-check \
   go-test-duration-baseline-coverage \
-  phase-ledger-drift \
   phase-schedule-drift \
   service-backed-unit-check \
-  generated-artifact-policy-check \
-  generate-drift
+  generated-artifact-policy-check
 do
-  if [[ "$(check_schedule_field "$scheduled_target" needs)" != "check-setup-blockers" ]]; then
-    fail "$scheduled_target must depend on check-setup-blockers in the check schedule"
-  fi
+  assert_check_needs "$scheduled_target" "toolchain-drift"
 done
-if [[ "$(check_schedule_field check-go-test-duration-baseline-drift needs)" != "check-service-backed" ]]; then
-  fail "check-go-test-duration-baseline-drift must depend on check-service-backed in the check schedule"
-fi
-if [[ "$(check_schedule_field check-browser-e2e-duration-baseline-drift needs)" != "check-service-backed" ]]; then
-  fail "check-browser-e2e-duration-baseline-drift must depend on check-service-backed in the check schedule"
-fi
-if [[ "$(check_schedule_field check-service-backed-make-target-duration-baseline-drift needs)" != "check-service-backed" ]]; then
-  fail "check-service-backed-make-target-duration-baseline-drift must depend on check-service-backed in the check schedule"
-fi
+assert_check_needs generate-drift "codegen-toolchain"
+assert_check_needs lint-go "go-lint-toolchain"
+assert_check_needs go-vulncheck "govulncheck-toolchain"
+assert_check_needs go-gosec-targeted "gosec-toolchain"
+assert_check_needs go-gosec-audit "gosec-toolchain"
+assert_check_needs lint-shell "shell-lint-toolchain"
+for scheduled_target in frontend-typecheck frontend-unit frontend-import-boundary-check lint-biome lint-scripts phase-map-check phase-ledger-drift; do
+  assert_check_needs "$scheduled_target" "check-frontend-install"
+done
+assert_check_needs check-go-test-duration-baseline-drift "check-service-backed"
+assert_check_needs check-browser-e2e-duration-baseline-drift "check-service-backed"
+assert_check_needs check-service-backed-make-target-duration-baseline-drift "check-service-backed"
+assert_check_needs check-harness-smoke-duration-baseline-drift "check-harness-smoke"
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,service_stack" ]]; then
   fail "check-service-backed must claim host_cpu, host_io, and service_stack resources in the check schedule"
 fi

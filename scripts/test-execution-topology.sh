@@ -117,7 +117,7 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 34, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 40, "check schedule must render the current check work-unit set");
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -126,7 +126,13 @@ assert.deepEqual(
 assert.deepEqual(
   checkSchedule.work_units.map((unit) => [unit.target, unit.weight]),
   [
-    ["check-setup-blockers", 50000],
+    ["toolchain-drift", 50000],
+    ["codegen-toolchain", 49900],
+    ["go-lint-toolchain", 49800],
+    ["govulncheck-toolchain", 49700],
+    ["gosec-toolchain", 49600],
+    ["shell-lint-toolchain", 49500],
+    ["check-frontend-install", 49400],
     ["check-build-prereqs", 40000],
     ["check-service-backed", 30000],
     ["check-go-test-duration-baseline-drift", 29000],
@@ -161,7 +167,7 @@ assert.deepEqual(
     ["generated-artifact-policy-check", 11050],
     ["generate-drift", 11000],
   ],
-  "profile-expanded check schedule must preserve the existing DAG priority order",
+  "profile-expanded check schedule must preserve setup fanout and DAG priority order",
 );
 
 const rows = targetPlanModule.collectTargetPlanRows(root);
@@ -228,6 +234,30 @@ assert.throws(
     }),
   /generate-drift\.check_schedule\.profile references unknown profile missing_profile/,
   "topology validation must reject unknown check schedule profiles",
+);
+
+const profileNeedsTopology = topologyFixture();
+profileNeedsTopology.check_schedules.defaults.resource_profiles.after_setup_cpu.needs = ["toolchain-drift"];
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("profile-needs-topology.json", profileNeedsTopology),
+    }),
+  /check_schedules\.defaults\.resource_profiles\.after_setup_cpu has unknown key needs/,
+  "topology validation must keep check schedule dependency edges on targets instead of profiles",
+);
+
+const unknownNeedTopology = topologyFixture();
+unknownNeedTopology.task_surface.targets.find((target) => target.name === "backend-unit").check_schedule.needs = [
+  "missing-setup",
+];
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("unknown-check-need-topology.json", unknownNeedTopology),
+    }),
+  /check schedule check work unit backend-unit depends on unknown missing-setup/,
+  "topology validation must reject check schedule needs that reference unknown work units",
 );
 
 const duplicateOrderTopology = topologyFixture();

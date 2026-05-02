@@ -481,7 +481,13 @@ if ! [[ -f "$check_schedule_manifest" ]]; then
 fi
 check_schedule_text="$(check_schedule_targets)"
 for scheduled_target in \
-  check-setup-blockers \
+  toolchain-drift \
+  codegen-toolchain \
+  go-lint-toolchain \
+  govulncheck-toolchain \
+  gosec-toolchain \
+  shell-lint-toolchain \
+  check-frontend-install \
   check-build-prereqs \
   check-service-backed \
   check-go-test-duration-baseline-drift \
@@ -540,6 +546,7 @@ if (Array.isArray(topology.check_schedules)) {
 }
 const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
 for (const [target, profile] of [
+  ["check-frontend-install", "setup_cpu_io"],
   ["check-service-backed", "nested_service_backed_scheduler"],
   ["check-browser-e2e-duration-baseline-drift", "post_service_duration_check"],
   ["browser-e2e-task-surface-check", "after_setup_cpu"],

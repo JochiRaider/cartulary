@@ -790,10 +790,24 @@
       "type": "alias",
       "test_target": "self"
     },
+    "govulncheck-toolchain": {
+      "prerequisites": [
+        "$(GOVULNCHECK_BIN)"
+      ],
+      "type": "alias",
+      "test_target": "self"
+    },
+    "gosec-toolchain": {
+      "prerequisites": [
+        "$(GOSEC_BIN)"
+      ],
+      "type": "alias",
+      "test_target": "self"
+    },
     "go-security-toolchain": {
       "prerequisites": [
-        "$(GOVULNCHECK_BIN)",
-        "$(GOSEC_BIN)"
+        "govulncheck-toolchain",
+        "gosec-toolchain"
       ],
       "type": "alias",
       "test_target": "self"
@@ -1677,7 +1691,7 @@
     },
     "go-vulncheck": {
       "prerequisites": [
-        "go-security-toolchain"
+        "govulncheck-toolchain"
       ],
       "type": "phase_command",
       "mode": "run_phase",
@@ -1699,7 +1713,7 @@
     },
     "go-gosec-targeted": {
       "prerequisites": [
-        "go-security-toolchain"
+        "gosec-toolchain"
       ],
       "type": "phase_command",
       "mode": "run_phase",
@@ -1724,7 +1738,7 @@
     },
     "go-gosec-audit": {
       "prerequisites": [
-        "go-security-toolchain"
+        "gosec-toolchain"
       ],
       "type": "phase_command",
       "mode": "run_phase",
@@ -1756,20 +1770,11 @@
       "schedule_manifest": "tools/check_schedule_manifest.json",
       "manifest_variable": "CHECK_SCHEDULE_MANIFEST"
     },
-    "check-setup-blockers": {
+    "check-frontend-install": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(CHECK_FRONTEND_INSTALL_TARGET)"
       ],
-      "type": "phase_command",
-      "mode": "command",
-      "env": {
-        "MAKE_BIN": "$(MAKE)",
-        "CI": "$(CI)"
-      },
-      "command": [
-        "bash",
-        "./scripts/check-setup-blockers.sh"
-      ]
+      "type": "alias"
     },
     "check-harness-smoke": {
       "prerequisites": [],
@@ -2303,14 +2308,28 @@
       "name": "codegen-toolchain",
       "classification": "helper_only",
       "included_in": [
-        "helper_only"
+        "check"
       ]
     },
     {
       "name": "go-lint-toolchain",
       "classification": "helper_only",
       "included_in": [
-        "helper_only"
+        "check"
+      ]
+    },
+    {
+      "name": "govulncheck-toolchain",
+      "classification": "helper_only",
+      "included_in": [
+        "check"
+      ]
+    },
+    {
+      "name": "gosec-toolchain",
+      "classification": "helper_only",
+      "included_in": [
+        "check"
       ]
     },
     {
@@ -2324,7 +2343,7 @@
       "name": "shell-lint-toolchain",
       "classification": "helper_only",
       "included_in": [
-        "helper_only"
+        "check"
       ]
     },
     {
@@ -2461,7 +2480,7 @@
       "name": "toolchain-drift",
       "classification": "public",
       "included_in": [
-        "helper_only"
+        "check"
       ],
       "backing_scripts": [
         "scripts/check-toolchain-pins.mjs"
@@ -4209,13 +4228,10 @@
       }
     },
     {
-      "name": "check-setup-blockers",
+      "name": "check-frontend-install",
       "classification": "check_internal",
       "included_in": [
         "check"
-      ],
-      "backing_scripts": [
-        "scripts/check-setup-blockers.sh"
       ]
     },
     {

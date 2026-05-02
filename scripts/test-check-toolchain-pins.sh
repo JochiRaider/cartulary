@@ -75,14 +75,17 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/AGENTS.md" "${dest}/AGENTS.md"
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
+  cp "${ROOT_DIR}/tools/check_schedule_manifest.json" "${dest}/tools/check_schedule_manifest.json"
+  cp "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" "${dest}/tools/browser_e2e_batch_manifest.json"
+  cp "${ROOT_DIR}/tools/service_backed_schedule_manifest.json" "${dest}/tools/service_backed_schedule_manifest.json"
   cp "${ROOT_DIR}/tools/execution_topology_manifest.json" "${dest}/tools/execution_topology_manifest.json"
   cp "${ROOT_DIR}/tools/scheduler_resource_registry.json" "${dest}/tools/scheduler_resource_registry.json"
   cp "${ROOT_DIR}"/tools/*duration_baselines.json "${dest}/tools/"
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-shellcheck.sh" "${dest}/scripts/bootstrap-shellcheck.sh"
-  cp "${ROOT_DIR}/scripts/check-setup-blockers.sh" "${dest}/scripts/check-setup-blockers.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
+  cp "${ROOT_DIR}/scripts/run-check-schedule.mjs" "${dest}/scripts/run-check-schedule.mjs"
   mkdir -p "${dest}/scripts/lib"
   cp -R "${ROOT_DIR}/scripts/lib/." "${dest}/scripts/lib/"
   mkdir -p \
@@ -316,17 +319,17 @@ preflight_output="$(
     NODE_BIN="${NODE_BIN}" \
     PNPM="${preflight_dir}/fake-pnpm" \
     NODE_RUNTIME_DIR="${preflight_dir}/node-runtime" \
-    check-setup-blockers \
+    check \
     2>&1
 )"
 preflight_status=$?
 set -e
 
 if [[ "${preflight_status}" -eq 0 ]]; then
-  fail "check-setup-blockers mismatch: expected failure"
+  fail "check toolchain drift mismatch: expected failure"
 fi
-assert_contains "${preflight_output}" "toolchain-drift] Error" "check-setup-blockers toolchain failure propagation"
-assert_contains "${preflight_output}" "check-setup-blockers] Error" "check-setup-blockers failure propagation"
+assert_contains "${preflight_output}" "toolchain-drift] Error" "check scheduler toolchain failure propagation"
+assert_contains "${preflight_output}" "check] Error" "check scheduler failure propagation"
 "${NODE_BIN}" "${ROOT_DIR}/scripts/lib/harness-artifact-assert.mjs" \
   --repo-root "${preflight_dir}" \
   --results-root "${preflight_results_root}" \
@@ -334,5 +337,6 @@ assert_contains "${preflight_output}" "check-setup-blockers] Error" "check-setup
   --target "toolchain-drift" \
   --phase-label "toolchain-drift" \
   --needle "package.json: engines.node mismatch: expected 24.15.0, got 24.16.0" \
-  --label "check-setup-blockers diagnostic"
-assert_not_contains "${preflight_output}" "frontend install" "check-setup-blockers early failure"
+  --label "check scheduler toolchain diagnostic"
+assert_not_contains "${preflight_output}" "bootstrap sqlc tool" "toolchain-drift must block codegen readiness after failure"
+assert_not_contains "${preflight_output}" "frontend install" "toolchain-drift must block frontend readiness after failure"

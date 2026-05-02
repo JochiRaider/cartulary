@@ -37,7 +37,7 @@ const validBrowserDependencyPolicies = new Set([
   "after_backend_and_prior_browser",
 ]);
 const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "minio", "browser_stack"]);
-const checkScheduleProfileKeys = new Set(["needs", "resource_claims", "make_jobs"]);
+const checkScheduleProfileKeys = new Set(["resource_claims", "make_jobs"]);
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const checkScheduleOwnedEnvNames = new Set([
   "CARTULARY_TEST_TARGET",
@@ -49,6 +49,7 @@ const checkScheduleOwnedEnvNames = new Set([
 const checkScheduleTargetKeys = new Set([
   "schedules",
   "profile",
+  "needs",
   "priority_band",
   "order",
   "produces_summary_targets",
@@ -419,7 +420,6 @@ function normalizeCheckScheduleRoot(topology, taskTargets) {
     validateAllowedKeys(profile, checkScheduleProfileKeys, label);
     resourceProfiles.set(profileName, {
       name: profileName,
-      needs: requireStringArray(profile.needs ?? [], `${label}.needs`),
       resourceClaims: clone(requireObject(profile.resource_claims, `${label}.resource_claims`)),
       makeJobs: profile.make_jobs,
     });
@@ -507,6 +507,7 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
   return {
     schedules,
     profile: requireString(raw.profile, `${label}.check_schedule.profile`),
+    needs: requireStringArray(raw.needs ?? [], `${label}.check_schedule.needs`),
     priorityBand: requireString(raw.priority_band, `${label}.check_schedule.priority_band`),
     order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
     producesSummaryTargets,
@@ -645,7 +646,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
       const unit = {
         target,
         weight,
-        needs: clone(profile.needs),
+        needs: clone(metadata.needs),
         ...(metadata.producesSummaryTargets.length > 0
           ? { produces_summary_targets: clone(metadata.producesSummaryTargets) }
           : {}),

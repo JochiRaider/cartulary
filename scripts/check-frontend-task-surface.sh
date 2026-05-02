@@ -65,6 +65,8 @@ fi
 assert_target_exists toolchain-drift "Makefile must define toolchain-drift"
 assert_target_prereq codegen-toolchain '$(SQLC_BIN)' "codegen-toolchain must own pinned SQLC_BIN readiness"
 assert_target_prereq go-lint-toolchain '$(STATICCHECK_BIN)' "go-lint-toolchain must own pinned Staticcheck readiness"
+assert_target_prereq govulncheck-toolchain '$(GOVULNCHECK_BIN)' "govulncheck-toolchain must own pinned Govulncheck readiness"
+assert_target_prereq gosec-toolchain '$(GOSEC_BIN)' "gosec-toolchain must own pinned Gosec readiness"
 assert_target_prereq shell-lint-toolchain '$(SHELLCHECK_BIN)' "shell-lint-toolchain must own pinned ShellCheck readiness"
 assert_target_prereq generate codegen-toolchain "generate must prepare the codegen toolchain before generating artifacts"
 assert_target_recipe_invokes generate generate-artifacts "generate must delegate to generate-artifacts"
@@ -79,37 +81,13 @@ if ! grep -Fq '"generate sqlc"' "$repo_root/scripts/generate-artifacts.sh"; then
   fail "scripts/generate-artifacts.sh must run sqlc generation"
 fi
 assert_target_prereq generate-drift codegen-toolchain "generate-drift must prepare the codegen toolchain outside the drift body"
-assert_target_absent check-preflight "check-preflight must not remain as a legacy alias; use check-setup-blockers"
-check_setup_block="$(extract_target_block check-setup-blockers)"
-if [[ -z "$check_setup_block" ]]; then
-  fail "Makefile must define a non-empty check-setup-blockers block"
+assert_target_absent check-preflight "check-preflight must not remain as a legacy alias; use scheduler-visible readiness targets"
+assert_target_absent check-setup-blockers "check-setup-blockers must not remain after setup readiness fanout"
+if [[ -e "$repo_root/scripts/check-setup-blockers.sh" ]]; then
+  fail "scripts/check-setup-blockers.sh must not remain as a serial setup wrapper"
 fi
-if ! text_contains "$check_setup_block" './scripts/check-setup-blockers.sh'; then
-  fail "check-setup-blockers must delegate to scripts/check-setup-blockers.sh"
-fi
-check_setup_body="$(cat "$repo_root/scripts/check-setup-blockers.sh")"
-if ! text_matches "$check_setup_body" 'toolchain-drift'; then
-  fail "check-setup-blockers must invoke toolchain-drift"
-fi
-if ! text_matches "$check_setup_body" 'codegen-toolchain'; then
-  fail "check-setup-blockers must prepare the codegen toolchain after toolchain drift"
-fi
-if ! text_matches "$check_setup_body" 'go-lint-toolchain'; then
-  fail "check-setup-blockers must prepare the Go lint toolchain after codegen readiness"
-fi
-if ! text_matches "$check_setup_body" 'shell-lint-toolchain'; then
-  fail "check-setup-blockers must prepare ShellCheck after Go lint tooling"
-fi
-if ! text_matches "$check_setup_body" 'frontend-install'; then
-  fail "check-setup-blockers must invoke frontend install after toolchain drift"
-fi
-assert_text_order "check-setup-blockers script" "$check_setup_body" "toolchain-drift" "codegen-toolchain" "check-setup-blockers must prepare codegen after toolchain drift"
-assert_text_order "check-setup-blockers script" "$check_setup_body" "codegen-toolchain" "go-lint-toolchain" "check-setup-blockers must prepare Go lint tooling after codegen readiness"
-assert_text_order "check-setup-blockers script" "$check_setup_body" "go-lint-toolchain" "shell-lint-toolchain" "check-setup-blockers must prepare ShellCheck after Go lint tooling"
-assert_text_order "check-setup-blockers script" "$check_setup_body" "go-lint-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after Go lint tooling readiness"
-if text_matches "$check_setup_body" 'frontend-task-surface-check|frontend-import-boundary-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome|lint-scripts'; then
-  fail "check-setup-blockers must not include static validation or harness smoke work"
-fi
+assert_target_exists check-frontend-install "Makefile must define check-frontend-install"
+assert_target_prereq check-frontend-install '$(CHECK_FRONTEND_INSTALL_TARGET)' "check-frontend-install must choose the local or CI frontend install target through Make"
 check_prereqs="$(extract_target_prereqs check)"
 if text_matches "$check_prereqs" 'FRONTEND_INSTALL_STAMP'; then
   fail "check must not depend directly on FRONTEND_INSTALL_STAMP"
@@ -137,15 +115,30 @@ if (!schedule) {
   throw new Error("missing check schedule");
 }
 const targets = new Set((schedule.work_units ?? []).map((entry) => entry.target));
+const unitByTarget = new Map((schedule.work_units ?? []).map((entry) => [entry.target, entry]));
+for (const removed of ["check-setup-blockers"]) {
+  if (targets.has(removed)) {
+    throw new Error(`${removed} must not remain scheduled after setup readiness fanout`);
+  }
+}
 for (const removed of ["check-static-validation", "check-local-product", "check-meta-validation"]) {
   if (targets.has(removed)) {
     throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
   }
 }
-for (const required of ["frontend-typecheck", "frontend-unit", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
+for (const required of ["toolchain-drift", "check-frontend-install", "frontend-typecheck", "frontend-unit", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
   if (!targets.has(required)) {
     throw new Error(`check schedule must include ${required}`);
   }
+}
+for (const target of ["frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "lint-scripts"]) {
+  const needs = unitByTarget.get(target)?.needs ?? [];
+  if (needs.join(",") !== "check-frontend-install") {
+    throw new Error(`${target} must depend on check-frontend-install`);
+  }
+}
+if ((unitByTarget.get("check-frontend-install")?.needs ?? []).join(",") !== "toolchain-drift") {
+  throw new Error("check-frontend-install must depend on toolchain-drift");
 }
 EOF
 assert_target_exists phase-ledgers "Makefile must define phase-ledgers"

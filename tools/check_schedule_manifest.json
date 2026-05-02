@@ -44,7 +44,7 @@
       ],
       "work_units": [
         {
-          "target": "check-setup-blockers",
+          "target": "toolchain-drift",
           "weight": 50000,
           "needs": [],
           "resource_claims": {
@@ -53,10 +53,82 @@
           "make_jobs": "host_cpu"
         },
         {
+          "target": "codegen-toolchain",
+          "weight": 49900,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "go-lint-toolchain",
+          "weight": 49800,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "govulncheck-toolchain",
+          "weight": 49700,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "gosec-toolchain",
+          "weight": 49600,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "shell-lint-toolchain",
+          "weight": 49500,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-frontend-install",
+          "weight": 49400,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
           "target": "check-build-prereqs",
           "weight": 40000,
           "needs": [
-            "check-setup-blockers"
+            "check-frontend-install"
           ],
           "resource_claims": {
             "host_cpu": {
@@ -171,7 +243,7 @@
           "target": "backend-unit",
           "weight": 25000,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "produces_summary_targets": [
             "backend-unit"
@@ -185,7 +257,7 @@
           "target": "frontend-typecheck",
           "weight": 24000,
           "needs": [
-            "check-setup-blockers"
+            "check-frontend-install"
           ],
           "produces_summary_targets": [
             "frontend-typecheck"
@@ -199,7 +271,7 @@
           "target": "lint-go",
           "weight": 23000,
           "needs": [
-            "check-setup-blockers"
+            "go-lint-toolchain"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -210,7 +282,7 @@
           "target": "go-vulncheck",
           "weight": 22000,
           "needs": [
-            "check-setup-blockers"
+            "govulncheck-toolchain"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -222,7 +294,7 @@
           "target": "go-gosec-targeted",
           "weight": 21900,
           "needs": [
-            "check-setup-blockers"
+            "gosec-toolchain"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -234,7 +306,7 @@
           "target": "go-gosec-audit",
           "weight": 21800,
           "needs": [
-            "check-setup-blockers"
+            "gosec-toolchain"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -246,7 +318,7 @@
           "target": "frontend-unit",
           "weight": 15000,
           "needs": [
-            "check-setup-blockers"
+            "check-frontend-install"
           ],
           "produces_summary_targets": [
             "frontend-unit"
@@ -260,7 +332,7 @@
           "target": "check-harness-smoke",
           "weight": 14000,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "produces_summary_targets": [
             "check-harness-smoke"
@@ -288,7 +360,7 @@
           "target": "lint-biome",
           "weight": 13000,
           "needs": [
-            "check-setup-blockers"
+            "check-frontend-install"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -300,7 +372,7 @@
           "target": "frontend-import-boundary-check",
           "weight": 12950,
           "needs": [
-            "check-setup-blockers"
+            "check-frontend-install"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -312,7 +384,7 @@
           "target": "json-shape-check",
           "weight": 12925,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -324,7 +396,7 @@
           "target": "lint-scripts",
           "weight": 12900,
           "needs": [
-            "check-setup-blockers"
+            "check-frontend-install"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -336,7 +408,7 @@
           "target": "lint-shell",
           "weight": 12850,
           "needs": [
-            "check-setup-blockers"
+            "shell-lint-toolchain"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -351,7 +423,7 @@
           "target": "phase-test-name-check",
           "weight": 12000,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -362,7 +434,7 @@
           "target": "task-surface-check",
           "weight": 11900,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -373,7 +445,7 @@
           "target": "browser-e2e-task-surface-check",
           "weight": 11800,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -384,7 +456,7 @@
           "target": "frontend-task-surface-check",
           "weight": 11700,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -395,7 +467,7 @@
           "target": "backend-task-surface-check",
           "weight": 11600,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -406,7 +478,7 @@
           "target": "phase-map-check",
           "weight": 11500,
           "needs": [
-            "check-setup-blockers"
+            "check-frontend-install"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -417,7 +489,7 @@
           "target": "go-test-duration-baseline-coverage",
           "weight": 11400,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -428,7 +500,7 @@
           "target": "phase-ledger-drift",
           "weight": 11300,
           "needs": [
-            "check-setup-blockers"
+            "check-frontend-install"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -440,7 +512,7 @@
           "target": "phase-schedule-drift",
           "weight": 11200,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -452,7 +524,7 @@
           "target": "service-backed-unit-check",
           "weight": 11100,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -463,7 +535,7 @@
           "target": "generated-artifact-policy-check",
           "weight": 11050,
           "needs": [
-            "check-setup-blockers"
+            "toolchain-drift"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -475,7 +547,7 @@
           "target": "generate-drift",
           "weight": 11000,
           "needs": [
-            "check-setup-blockers"
+            "codegen-toolchain"
           ],
           "resource_claims": {
             "host_cpu": 1,
