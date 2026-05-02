@@ -42,6 +42,36 @@ function parseArgs(argv) {
   return options;
 }
 
+function renderSchedulerPathLines(guidance) {
+  const units = guidance.execution_map?.work_unit_summary ?? [];
+  if (units.length === 0) {
+    return ["scheduler paths: none"];
+  }
+  const lines = ["scheduler paths:"];
+  for (const unit of units) {
+    const stage = unit.stage ? ` stage=${unit.stage}` : "";
+    const detail = unit.detail ? ` detail=${unit.detail}` : "";
+    lines.push(`  - ${unit.label}${stage}${detail}`);
+  }
+  return lines;
+}
+
+function renderExpectedArtifactLines(guidance, limit = 4) {
+  const expected = guidance.execution_map?.artifacts?.expected ?? guidance.artifact.expected ?? [];
+  const lines = ["expected_artifacts:"];
+  if (expected.length === 0) {
+    lines.push("  none");
+    return lines;
+  }
+  for (const artifact of expected.slice(0, limit)) {
+    lines.push(`  ${artifact}`);
+  }
+  if (expected.length > limit) {
+    lines.push(`  ... ${expected.length - limit} more`);
+  }
+  return lines;
+}
+
 function renderSummary(guidance) {
   return [
     `Cartulary target guidance: ${guidance.target}`,
@@ -49,8 +79,10 @@ function renderSummary(guidance) {
     `help_tier: ${guidance.help_tier ?? "none"}`,
     `included_in: ${guidance.included_in.join(",") || "none"}`,
     `services: ${formatRequirements(guidance.service_requirements)}`,
-    `scheduler: ${guidance.scheduler_owner.join(";")}`,
+    `execution: ${guidance.execution_summary || "none"}`,
+    ...renderSchedulerPathLines(guidance),
     `latest_artifact: ${guidance.artifact.latest?.path ?? "none"}`,
+    ...renderExpectedArtifactLines(guidance),
     `phase_coverage: ${formatPhaseCoverage(guidance.phase_coverage)}`,
   ];
 }

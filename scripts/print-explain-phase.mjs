@@ -32,6 +32,45 @@ function parseArgs(argv) {
   return options;
 }
 
+function commandForNode(node) {
+  return node.classification === "public" ? `make ${node.id}` : `internal target ${node.id}`;
+}
+
+function renderWorkUnits(lines, units, indent) {
+  if (!units?.length) {
+    lines.push(`${indent}work units: none`);
+    return;
+  }
+  lines.push(`${indent}work units:`);
+  for (const unit of units) {
+    const detail = unit.detail ? ` detail=${unit.detail}` : "";
+    const stage = unit.stage ? ` stage=${unit.stage}` : "";
+    lines.push(`${indent}  - ${unit.label}${stage}${detail}`);
+  }
+}
+
+function renderExecutionMap(lines, executionMap) {
+  lines.push("execution map:");
+  if (!executionMap?.children?.length) {
+    lines.push("  none");
+    return;
+  }
+  for (const section of executionMap.children) {
+    lines.push(`  ${section.label}:`);
+    for (const child of section.children ?? []) {
+      const classification =
+        child.classification && child.classification !== "public"
+          ? ` classification=${child.classification}`
+          : "";
+      lines.push(
+        `    ${commandForNode(child)}${classification} services=${formatRequirements(child.services ?? [])} coverage=${formatPhaseCoverage(child.coverage)}`,
+      );
+      renderWorkUnits(lines, child.work_unit_summary, "      ");
+      lines.push(`      artifacts: latest=${child.artifacts?.latest ?? "none"}`);
+    }
+  }
+}
+
 function renderHuman(phase) {
   const lines = [
     `Cartulary phase guidance: ${phase.phase}`,
@@ -47,20 +86,7 @@ function renderHuman(phase) {
     lines.push(`  ${dependency}`);
   }
   lines.push("");
-  lines.push("targets:");
-  for (const target of phase.targets) {
-    const command =
-      target.classification === "public"
-        ? `make ${target.target}`
-        : `internal target ${target.target}`;
-    const classification =
-      target.classification && target.classification !== "public"
-        ? ` classification=${target.classification}`
-        : "";
-    lines.push(
-      `  ${command}${classification} services=${formatRequirements(target.service_requirements)} scheduler=${target.scheduler_owner.join(";")} coverage=${formatPhaseCoverage({ ...target.counts, phases: [phase.phase], execution_dependencies: target.execution_dependencies })}`,
-    );
-  }
+  renderExecutionMap(lines, phase.execution_map);
   return lines.join("\n");
 }
 

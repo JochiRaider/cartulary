@@ -54,7 +54,7 @@ function phaseRows(phase, mode, root = repoRoot) {
   if (!activePhaseRegistryEntry(root, phase)) {
     throw new Error(`phase ${phase} is ${registryEntry.status} and is not executable`);
   }
-  const info = phaseGuidance(phase, { root });
+  const info = phaseGuidance(phase, { root, includeExecutionMap: false });
   if (!info) {
     throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
   }
@@ -66,7 +66,10 @@ function phaseRows(phase, mode, root = repoRoot) {
 
 function childTargetsForRows(rows, phase, mode, root = repoRoot) {
   const rowTargets = new Set(rows.map((row) => row.target));
-  return (guidancePhaseSlice(phase, { root, serviceBackedOnly: mode === "service_backed" })?.child_targets ?? [])
+  return (guidancePhaseSlice(
+    phase,
+    { root, serviceBackedOnly: mode === "service_backed", includeExecutionMap: false },
+  )?.child_targets ?? [])
     .filter((target) => rowTargets.has(target.target));
 }
 

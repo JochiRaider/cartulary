@@ -1026,6 +1026,10 @@ export function helpLines(manifest) {
 
 export function helpAllLines(manifest) {
   const lines = ["Cartulary public task surface", ""];
+  lines.push("How to read task evidence:");
+  lines.push("  phase -> target -> scheduler work unit -> artifact");
+  lines.push("  public evidence is runnable from this surface; support/internal evidence is shown by task-guide and explain-*.");
+  lines.push("");
   for (const tier of helpTiers(manifest)) {
     appendHelpTierLines(lines, tier);
     lines.push("");

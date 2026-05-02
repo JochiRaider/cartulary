@@ -26,6 +26,10 @@ TASK_SURFACE_HELP_LINES := \
 TASK_SURFACE_HELP_ALL_LINES := \
 	'Cartulary public task surface' \
 	'' \
+	'How to read task evidence:' \
+	'  phase -> target -> scheduler work unit -> artifact' \
+	'  public evidence is runnable from this surface; support/internal evidence is shown by task-guide and explain-*.' \
+	'' \
 	'local dev:' \
 	'  make help                           print the compact workflow task surface' \
 	'  make help-all                       print the exhaustive public workflow task surface' \

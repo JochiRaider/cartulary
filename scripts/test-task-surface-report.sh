@@ -152,6 +152,11 @@ assert.equal(
   "frontend-typecheck must keep its explicit pass summary",
 );
 const renderedMake = renderTaskSurfaceMake(manifest);
+assert.match(
+  helpAllLines(manifest).join("\n"),
+  /phase -> target -> scheduler work unit -> artifact/,
+  "help-all must explain the task evidence concept hierarchy",
+);
 assert.match(renderedMake, /^help:\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m, "help recipe must be generated");
 assert.match(
   renderedMake,

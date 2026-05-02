@@ -277,7 +277,10 @@ function scenarioTaskGuideRoles(fixture) {
   const phaseRoleOutput = nodeScript(taskGuide, ["--role", "phase-author", "--phase", "phase1"], resultsEnv);
   assertContains(phaseRoleOutput, "phase focus: phase1", "task-guide phase focus");
   assertContains(phaseRoleOutput, "make explain-phase PHASE=phase1", "task-guide phase command");
-  parseJSON(nodeScript(taskGuide, ["--role", "feature-dev", "--json"]), "task-guide JSON");
+  const guideJSON = parseJSON(nodeScript(taskGuide, ["--role", "feature-dev", "--json"]), "task-guide JSON");
+  if (guideJSON.schema_id !== "cartulary.task_guide.v1") {
+    fail("task-guide JSON must expose schema_id cartulary.task_guide.v1");
+  }
 }
 
 function scenarioTaskGuidePhaseSlices(fixture) {
@@ -288,7 +291,10 @@ function scenarioTaskGuidePhaseSlices(fixture) {
   assertContains(phase4FeatureOutput, "general hygiene: useful non-phase checks", "phase4 feature-dev hygiene tier");
   assertContains(phase4FeatureOutput, "make phase-slice PHASE=phase4 | selected phase manifest-row slice | phase_relevance=phase_slice", "phase4 public phase slice");
   assertContains(phase4FeatureOutput, "make service-backed-slice PHASE=phase4 | selected phase service-backed manifest-row slice | phase_relevance=service_backed_slice", "phase4 public service-backed slice");
-  assertContains(phase4FeatureOutput, "scheduler=Make node_tool;phase scheduler", "phase4 public phase scheduler owner");
+  assertContains(phase4FeatureOutput, "execution=public evidence: 4 targets, support/internal evidence: 1 target", "phase4 public phase execution summary");
+  assertContains(phase4FeatureOutput, "public evidence:", "phase4 public evidence group");
+  assertContains(phase4FeatureOutput, "support/internal evidence:", "phase4 support/internal evidence group");
+  assertNotContains(phase4FeatureOutput, "scheduler=", "task-guide must not print flat scheduler owner fields");
   assertNotContains(phase4FeatureOutput, "make backend-unit | selected phase execution dependency | phase_relevance=phase_slice", "phase4 backend-unit not direct phase slice");
   assertNotContains(phase4FeatureOutput, "make backend-store | selected phase execution dependency | phase_relevance=phase_slice", "phase4 backend-store not direct phase slice");
   assertNotContains(phase4FeatureOutput, "make backend-integration | selected phase execution dependency | phase_relevance=phase_slice", "phase4 backend-integration not direct phase slice");
@@ -304,6 +310,15 @@ function scenarioTaskGuidePhaseSlices(fixture) {
     "phase4 task-guide JSON",
   );
   const manifest = parseJSON(readFileSync(taskSurfaceManifest, "utf8"), "task surface manifest");
+  if (phase4Guide.schema_id !== "cartulary.task_guide.v1") {
+    fail("phase4 task-guide JSON must expose task guide schema_id");
+  }
+  if (phase4Guide.execution_map?.schema_id !== "cartulary.task_execution_map.v1") {
+    fail("phase4 task-guide JSON must expose execution_map schema_id");
+  }
+  if (JSON.stringify(phase4Guide).includes("scheduler_owner")) {
+    fail("task-guide JSON must not expose legacy scheduler_owner");
+  }
   const role = phase4Guide.roles.find((entry) => entry.role === "feature-dev");
   if (!role || !Array.isArray(role.recommendation_tiers)) {
     fail("feature-dev must expose recommendation_tiers");
@@ -323,6 +338,9 @@ function scenarioTaskGuidePhaseSlices(fixture) {
       const commandTarget = item.target.split(/\s+/)[0];
       if (classificationByTarget.get(commandTarget) !== "public") {
         fail(`task-guide recommendation ${item.target} must reference a public target`);
+      }
+      if (!("execution_summary" in item)) {
+        fail(`task-guide recommendation ${item.target} must expose execution_summary`);
       }
     }
   }
@@ -410,19 +428,36 @@ function scenarioTaskGuidePhaseSlices(fixture) {
 function scenarioExplainPhase() {
   const phaseOutput = nodeScript(explainPhase, ["--phase", "phase1"]);
   assertContains(phaseOutput, "Cartulary phase guidance: phase1", "explain-phase header");
-  assertContains(phaseOutput, "targets:", "explain-phase targets");
+  assertContains(phaseOutput, "execution map:", "explain-phase execution map");
+  assertContains(phaseOutput, "public evidence:", "explain-phase public evidence group");
+  assertContains(phaseOutput, "support/internal evidence:", "explain-phase support evidence group");
   assertContains(phaseOutput, "make backend-store", "explain-phase backend-store target");
   assertNotContains(phaseOutput, "make backend-integration-support", "explain-phase does not recommend internal support target");
   assertContains(phaseOutput, "internal target backend-integration-support classification=check_internal", "explain-phase shows internal support coverage");
   assertContains(phaseOutput, "ledger: docs/testing/phase1_coverage_ledger.md", "explain-phase ledger");
+  assertNotContains(phaseOutput, "scheduler=", "explain-phase must not print flat scheduler owner fields");
 
   const phaseJSON = parseJSON(nodeScript(explainPhase, ["--phase", "phase1", "--json"]), "explain-phase JSON");
   if (phaseJSON.phase !== "phase1" || !Array.isArray(phaseJSON.targets) || phaseJSON.targets.length === 0) {
     fail("explain-phase JSON must expose phase1 targets");
   }
+  if (phaseJSON.schema_id !== "cartulary.phase_guidance.v1") {
+    fail("explain-phase JSON must expose phase guidance schema_id");
+  }
+  if (phaseJSON.execution_map?.schema_id !== "cartulary.task_execution_map.v1") {
+    fail("explain-phase JSON must expose execution_map schema_id");
+  }
+  if (JSON.stringify(phaseJSON).includes("scheduler_owner")) {
+    fail("explain-phase JSON must not expose legacy scheduler_owner");
+  }
 
   const plannedJSON = parseJSON(nodeScript(explainPhase, ["--phase", "phase5", "--json"]), "planned explain-phase JSON");
-  if (plannedJSON.phase !== "phase5" || plannedJSON.status !== "planned" || plannedJSON.targets.length !== 0) {
+  if (
+    plannedJSON.phase !== "phase5" ||
+    plannedJSON.status !== "planned" ||
+    plannedJSON.targets.length !== 0 ||
+    plannedJSON.execution_map.children.length !== 0
+  ) {
     fail("planned explain-phase JSON must expose registered metadata without executable targets");
   }
 
@@ -435,7 +470,9 @@ function scenarioExplainTargetArtifacts(fixture) {
   const backendSummary = nodeScript(explainTarget, ["--target", "backend-store"], resultsEnv);
   assertContains(backendSummary, "Cartulary target guidance: backend-store", "backend-store explain-target header");
   assertContains(backendSummary, "services: Postgres,MinIO", "backend-store service requirements");
+  assertContains(backendSummary, "scheduler paths:", "backend-store scheduler paths");
   assertContains(backendSummary, "latest_artifact: tmp/task-guidance", "backend-store latest artifact");
+  assertNotContains(backendSummary, "scheduler=", "explain-target must not print flat scheduler owner fields");
 
   const backendRows = nodeScript(explainTarget, ["--target", "backend-store", "--detail", "rows"]);
   assertContains(backendRows, "rows:", "backend-store rows");
@@ -469,7 +506,9 @@ function scenarioExplainTargetArtifacts(fixture) {
 
   const browserOutput = nodeScript(explainTarget, ["--target", "browser-e2e-webserver-backed"]);
   assertContains(browserOutput, "browser stack", "browser explain-target service requirements");
-  assertContains(browserOutput, "webserver-backed browser batch", "browser explain-target scheduler");
+  assertContains(browserOutput, "webserver-backed browser batch", "browser explain-target scheduler path");
+  assertContains(browserOutput, "stage=webserver-backed", "browser explain-target scheduler stage");
+  assertContains(browserOutput, "expected_artifacts:", "browser explain-target expected artifacts");
 
   const checkOutput = nodeScript(explainTarget, ["--target", "check"]);
   assertContains(checkOutput, "check scheduler", "check explain-target scheduler");
@@ -483,10 +522,19 @@ function scenarioExplainTargetArtifacts(fixture) {
   assertContains(helperArtifacts, "phase_summary: tmp/task-guidance", "target artifact discovered phase summary");
   assertContains(helperArtifacts, "<phase-label>/phase-summary.json", "target artifact expected phase summary");
 
-  parseJSON(
+  const browserJSON = parseJSON(
     nodeScript(explainTarget, ["--target", "browser-e2e-webserver-backed", "--json"]),
     "explain-target JSON",
   );
+  if (browserJSON.schema_id !== "cartulary.target_guidance.v1") {
+    fail("explain-target JSON must expose target guidance schema_id");
+  }
+  if (browserJSON.execution_map?.schema_id !== "cartulary.task_execution_map.v1") {
+    fail("explain-target JSON must expose execution_map schema_id");
+  }
+  if (JSON.stringify(browserJSON).includes("scheduler_owner")) {
+    fail("explain-target JSON must not expose legacy scheduler_owner");
+  }
 
   const unknownTargetOutput = nodeScriptFails(explainTarget, ["--target", "no-such-target"]);
   assertContains(unknownTargetOutput, "unknown target no-such-target", "unknown target error");
@@ -564,9 +612,15 @@ const scenarios = new Map([
 
 function main(argv) {
   const scenario = argv[0] ?? "";
-  if (!scenario || !scenarios.has(scenario) || argv.length !== 1) {
+  if (argv.length === 0) {
+    for (const [name, fn] of scenarios.entries()) {
+      withFixture(name, fn);
+    }
+    return;
+  }
+  if (!scenarios.has(scenario) || argv.length !== 1) {
     const names = Array.from(scenarios.keys()).join("|");
-    fail(`usage: test-task-guidance.mjs <${names}>`);
+    fail(`usage: test-task-guidance.mjs [${names}]`);
   }
   withFixture(scenario, scenarios.get(scenario));
 }

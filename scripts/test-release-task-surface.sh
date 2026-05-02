@@ -173,6 +173,7 @@ assert_contains "$release_check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence r
 assert_contains "$license_report_block" './scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"' "license-report validation command"
 assert_contains "$sbom_block" './scripts/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
 assert_not_contains "$help_output" "make release-check" "compact help omits release-check documentation"
+assert_contains "$help_all_output" "phase -> target -> scheduler work unit -> artifact" "help-all concept hierarchy"
 assert_contains "$help_all_output" "make release-check" "help-all release-check documentation"
 assert_contains "$help_all_output" "extended harness" "help-all release-check extended harness documentation"
 
