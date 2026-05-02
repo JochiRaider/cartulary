@@ -1,5 +1,7 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
+
+import { assertObjectKeys, readJsonObject } from "./json-shape.mjs";
 
 export const phaseRegistrySchemaID = "cartulary.phase_registry.v1";
 export const activePhaseStatus = "active";
@@ -14,6 +16,22 @@ const validPhaseStatuses = new Set([
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
 const phaseManifestFilenamePattern = /^(phase(?:0|[1-9]\d*))_test_map\.json$/;
 const phaseLedgerFilenamePattern = /^(phase(?:0|[1-9]\d*))_coverage_ledger\.md$/;
+const phaseRegistryKeys = new Set(["schema_id", "phases"]);
+const activePhaseEntryKeys = new Set([
+  "phase",
+  "order",
+  "status",
+  "label",
+  "manifest_path",
+  "ledger_path",
+  "scope",
+  "normative_owners",
+]);
+const retiredPhaseEntryKeys = new Set([
+  ...activePhaseEntryKeys,
+  "retired_reason",
+  "retained_artifacts",
+]);
 
 export function phaseManifestRoot(root) {
   return process.env.CARTULARY_PHASE_MANIFEST_ROOT
@@ -92,12 +110,18 @@ function phaseFromLedgerPath(ledgerPath, label) {
 function normalizeEntry(rawEntry, index) {
   const label = `phase registry entry ${index}`;
   const entry = requireObject(rawEntry, label);
+  assertObjectKeys(entry, retiredPhaseEntryKeys, label);
   const phase = requirePhase(entry.phase, `${label}.phase`);
   const order = requireOrder(entry.order, `${label}.order`);
   const status = requireNonEmptyString(entry.status, `${label}.status`);
   if (!validPhaseStatuses.has(status)) {
     throw new Error(`${label}.status must be active|planned|retired`);
   }
+  assertObjectKeys(
+    entry,
+    status === retiredPhaseStatus ? retiredPhaseEntryKeys : activePhaseEntryKeys,
+    label,
+  );
   const manifestPath = requireRepoRelativePath(entry.manifest_path, `${label}.manifest_path`);
   const ledgerPath = requireRepoRelativePath(entry.ledger_path, `${label}.ledger_path`);
   const manifestPhase = phaseFromManifestPath(manifestPath, `${label}.manifest_path`);
@@ -149,7 +173,8 @@ export function loadPhaseRegistry(root = process.cwd()) {
   if (!existsSync(file)) {
     throw new Error(`${file} must exist and declare schema_id ${phaseRegistrySchemaID}`);
   }
-  const registry = requireObject(JSON.parse(readFileSync(file, "utf8")), file);
+  const registry = readJsonObject(file, file);
+  assertObjectKeys(registry, phaseRegistryKeys, file);
   if (registry.schema_id !== phaseRegistrySchemaID) {
     throw new Error(`${file} must declare schema_id ${phaseRegistrySchemaID}`);
   }

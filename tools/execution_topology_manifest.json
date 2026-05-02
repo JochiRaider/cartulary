@@ -478,6 +478,10 @@
             "description": "fail on generated artifact marker and lint-scope policy drift"
           },
           {
+            "target": "json-shape-check",
+            "description": "fail on contract, manifest, and JSON bootstrap shape drift"
+          },
+          {
             "target": "toolchain-drift",
             "description": "fail on repo-control toolchain pin drift"
           },
@@ -1031,6 +1035,19 @@
         "command": [
           "$(NODE_BIN)",
           "./scripts/check-generated-artifact-policy.mjs"
+        ],
+        "test_target": "self"
+      },
+      "json-shape-check": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "json-shape-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-json-shapes.mjs"
         ],
         "test_target": "self"
       },
@@ -2303,6 +2320,34 @@
           "profile": "after_setup_cpu_io",
           "priority_band": "drift_validation",
           "order": 250
+        }
+      },
+      {
+        "name": "json-shape-check",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-json-shapes.mjs",
+          "scripts/lib/json-shape.mjs",
+          "scripts/lib/phase-manifest.mjs",
+          "scripts/lib/phase-registry.mjs",
+          "tools/execution_topology_manifest.json",
+          "tools/phase_registry.json",
+          "tools/phase_policy_exceptions.json",
+          "tools/generated_artifact_policy.json",
+          "tools/frontend_import_boundaries.json",
+          "tools/scheduler_resource_registry.json",
+          "configs/dev/bootstrap-admin.json"
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "static_validation",
+          "order": 75
         }
       },
       {
@@ -3580,6 +3625,7 @@
           "harness-smoke-check-migrations",
           "harness-smoke-generate-drift",
           "harness-smoke-generated-artifact-policy",
+          "harness-smoke-json-shapes",
           "harness-smoke-run-go-staticcheck",
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-go-gosec-audit",
@@ -3638,6 +3684,7 @@
           "harness-smoke-check-migrations",
           "harness-smoke-generate-drift",
           "harness-smoke-generated-artifact-policy",
+          "harness-smoke-json-shapes",
           "harness-smoke-run-go-staticcheck",
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-go-gosec-audit",
@@ -3731,6 +3778,14 @@
           "scripts/test-generated-artifact-policy.sh",
           "scripts/check-generated-artifact-policy.mjs",
           "tools/generated_artifact_policy.json"
+        ]
+      },
+      {
+        "name": "harness-smoke-json-shapes",
+        "backing_scripts": [
+          "scripts/test-json-shapes.sh",
+          "scripts/check-json-shapes.mjs",
+          "scripts/lib/json-shape.mjs"
         ]
       },
       {

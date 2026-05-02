@@ -82,7 +82,18 @@ JSON
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase5",
+  "note": "Synthetic phase test names fixture.",
+  "ledger": {
+    "title": "Phase 5 Coverage Ledger",
+    "notes": "Synthetic phase test names fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase5",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-5-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-5-01",
@@ -96,6 +107,7 @@ JSON
       "out_of_scope": "none"
     }
   ],
+  "integration": [],
   "e2e": [
     {
       "id": "E-5-SMOKE-01",

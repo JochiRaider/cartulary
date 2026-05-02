@@ -224,7 +224,18 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase99",
+  "note": "Synthetic task-surface report fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic task-surface report fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-99-01",
@@ -240,7 +251,9 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
       "claim": "task surface report discovers future phase dependencies",
       "out_of_scope": "task surface report discovers future phase dependencies"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 JSON
 synthetic_report="$(

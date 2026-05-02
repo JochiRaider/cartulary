@@ -760,6 +760,16 @@ cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase20",
+  "note": "Synthetic run-go-target support manifest fixture.",
+  "ledger": {
+    "title": "Phase 20 Coverage Ledger",
+    "notes": "Synthetic run-go-target support manifest fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase20",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-20-01"],
   "support_go_targets": [
     {
@@ -788,7 +798,9 @@ cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
       "claim": "synthetic support manifest smoke",
       "out_of_scope": "synthetic support manifest smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 EOF
 CARTULARY_PHASE_MANIFEST_ROOT="$manifest_smoke_root" NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase20 >/dev/null
@@ -797,6 +809,16 @@ cat >"$manifest_smoke_tools/phase21_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase21",
+  "note": "Synthetic run-go-target support manifest fixture.",
+  "ledger": {
+    "title": "Phase 21 Coverage Ledger",
+    "notes": "Synthetic run-go-target support manifest fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase21",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-21-01"],
   "support_go_targets": [
     {
@@ -825,7 +847,9 @@ cat >"$manifest_smoke_tools/phase21_test_map.json" <<EOF
       "claim": "synthetic missing support symbol smoke",
       "out_of_scope": "synthetic missing support symbol smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 EOF
 set +e
@@ -844,6 +868,16 @@ cat >"$manifest_smoke_tools/phase22_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase22",
+  "note": "Synthetic run-go-target support manifest fixture.",
+  "ledger": {
+    "title": "Phase 22 Coverage Ledger",
+    "notes": "Synthetic run-go-target support manifest fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase22",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-22-01"],
   "support_go_targets": [
     {
@@ -872,7 +906,9 @@ cat >"$manifest_smoke_tools/phase22_test_map.json" <<EOF
       "claim": "synthetic invalid support target smoke",
       "out_of_scope": "synthetic invalid support target smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 EOF
 set +e
@@ -891,6 +927,16 @@ cat >"$manifest_smoke_tools/phase23_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase23",
+  "note": "Synthetic run-go-target support manifest fixture.",
+  "ledger": {
+    "title": "Phase 23 Coverage Ledger",
+    "notes": "Synthetic run-go-target support manifest fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase23",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-23-01"],
   "support_go_targets": [
     {
@@ -919,7 +965,9 @@ cat >"$manifest_smoke_tools/phase23_test_map.json" <<EOF
       "claim": "synthetic support selection mismatch smoke",
       "out_of_scope": "synthetic support selection mismatch smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 EOF
 set +e
@@ -938,6 +986,16 @@ cat >"$manifest_smoke_tools/phase24_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase24",
+  "note": "Synthetic run-go-target support manifest fixture.",
+  "ledger": {
+    "title": "Phase 24 Coverage Ledger",
+    "notes": "Synthetic run-go-target support manifest fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase24",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-24-01"],
   "support_go_targets": [
     {
@@ -966,7 +1024,9 @@ cat >"$manifest_smoke_tools/phase24_test_map.json" <<EOF
       "claim": "synthetic support package mismatch smoke",
       "out_of_scope": "synthetic support package mismatch smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 EOF
 set +e

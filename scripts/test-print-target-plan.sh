@@ -242,6 +242,16 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase99",
+  "note": "Synthetic target-plan support discovery fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic target-plan support discovery fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
   "unit": [],
   "integration": [],
@@ -272,7 +282,18 @@ cat >"$phase_map_discovery_root/tools/phase5_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase5",
+  "note": "Synthetic phase-map discovery fixture.",
+  "ledger": {
+    "title": "Phase 5 Coverage Ledger",
+    "notes": "Synthetic phase-map discovery fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase5",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-5-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-5-01",
@@ -288,7 +309,9 @@ cat >"$phase_map_discovery_root/tools/phase5_test_map.json" <<'JSON'
       "claim": "phase-map discovery validates future phase manifests",
       "out_of_scope": "phase-map discovery validates future phase manifests"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 JSON
 phase5_check_maps_output="$(
@@ -409,16 +432,42 @@ cat >"$registry_orphan_root/tools/phase1_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase1",
+  "note": "Synthetic registry orphan fixture.",
+  "ledger": {
+    "title": "Phase 1 Coverage Ledger",
+    "notes": "Synthetic registry orphan fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase1",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-1-01"],
-  "unit": []
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": []
 }
 JSON
 cat >"$registry_orphan_root/tools/phase2_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase2",
+  "note": "Synthetic registry orphan fixture.",
+  "ledger": {
+    "title": "Phase 2 Coverage Ledger",
+    "notes": "Synthetic registry orphan fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase2",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-2-01"],
-  "unit": []
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": []
 }
 JSON
 set +e
@@ -497,8 +546,21 @@ write_phase_registry "$missing_schema_identity_root" phase99
 cat >"$missing_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
   "phase": "phase99",
+  "note": "Synthetic identity fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic identity fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
-  "unit": []
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": []
 }
 JSON
 assert_phase_identity_rejected "$missing_schema_identity_root" "phase99" "must declare schema_id cartulary.phase_test_map.v1" "missing phase-map schema_id"
@@ -510,8 +572,21 @@ cat >"$wrong_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v0",
   "phase": "phase99",
+  "note": "Synthetic identity fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic identity fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
-  "unit": []
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": []
 }
 JSON
 assert_phase_identity_rejected "$wrong_schema_identity_root" "phase99" "must declare schema_id cartulary.phase_test_map.v1" "wrong phase-map schema_id"
@@ -522,8 +597,21 @@ write_phase_registry "$missing_phase_identity_root" phase99
 cat >"$missing_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
+  "note": "Synthetic identity fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic identity fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
-  "unit": []
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": []
 }
 JSON
 assert_phase_identity_rejected "$missing_phase_identity_root" "phase99" "must declare phase" "missing phase-map phase"
@@ -535,8 +623,21 @@ cat >"$mismatched_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase98",
+  "note": "Synthetic identity fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic identity fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
-  "unit": []
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": []
 }
 JSON
 assert_phase_identity_rejected "$mismatched_phase_identity_root" "phase99" "declares phase phase98 but filename declares phase99" "mismatched phase-map phase"
@@ -564,8 +665,21 @@ cat >"$leading_zero_identity_root/tools/phase01_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase01",
+  "note": "Synthetic identity fixture.",
+  "ledger": {
+    "title": "Phase 01 Coverage Ledger",
+    "notes": "Synthetic identity fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase01",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-1-01"],
-  "unit": []
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": []
 }
 JSON
 assert_phase_identity_rejected "$leading_zero_identity_root" "phase01" "invalid phase name phase01" "leading-zero phase-map phase"
@@ -590,7 +704,18 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase99",
+  "note": "Synthetic fixture policy validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic fixture policy validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-99-01",
@@ -607,7 +732,9 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
       "claim": "invalid fixture policy smoke",
       "out_of_scope": "invalid fixture policy smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 JSON
 
@@ -622,7 +749,18 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase99",
+  "note": "Synthetic fixture policy validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic fixture policy validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-99-01",
@@ -638,7 +776,9 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
       "claim": "missing fixture policy smoke",
       "out_of_scope": "missing fixture policy smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 JSON
 
@@ -653,7 +793,18 @@ cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase99",
+  "note": "Synthetic fixture policy validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic fixture policy validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-99-01",
@@ -668,7 +819,9 @@ cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
       "evidence_layer": "store_domain",
       "out_of_scope": "missing claim smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 JSON
 
@@ -690,7 +843,19 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase99",
+  "note": "Synthetic fixture budget validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic fixture budget validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["I-99-01"],
+  "support_go_targets": [],
+  "unit": [],
   "integration": [
     {
       "id": "I-99-01",
@@ -707,7 +872,8 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
       "claim": "missing fixture budget smoke",
       "out_of_scope": "missing fixture budget smoke"
     }
-  ]
+  ],
+  "e2e": []
 }
 JSON
 
@@ -722,7 +888,19 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase99",
+  "note": "Synthetic fixture budget validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic fixture budget validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["I-99-01"],
+  "support_go_targets": [],
+  "unit": [],
   "integration": [
     {
       "id": "I-99-01",
@@ -746,7 +924,8 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
       "claim": "invalid fixture budget smoke",
       "out_of_scope": "invalid fixture budget smoke"
     }
-  ]
+  ],
+  "e2e": []
 }
 JSON
 
@@ -761,6 +940,16 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase99",
+  "note": "Synthetic migration scratch validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic migration scratch validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-99-01"],
   "support_go_targets": [
     {
@@ -795,7 +984,9 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "claim": "synthetic migration scratch validation smoke",
       "out_of_scope": "synthetic migration scratch validation smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 JSON
 
@@ -818,8 +1009,6 @@ cat >"$ledger_root/tools/phase99_test_map.json" <<'JSON'
   "note": "Synthetic ledger phase.",
   "ledger": {
     "title": "Phase 99 Coverage Ledger",
-    "scope": "synthetic future phase ledger smoke.",
-    "normative_owners": "Synthetic owner.",
     "notes": ["Synthetic note."],
     "authoritative_execution": [
       "`backend-unit` selects authoritative `U-99-*` rows through manifest discovery."
@@ -838,6 +1027,7 @@ cat >"$ledger_root/tools/phase99_test_map.json" <<'JSON'
     ]
   },
   "expected_ids": ["U-99-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-99-01",
@@ -853,7 +1043,9 @@ cat >"$ledger_root/tools/phase99_test_map.json" <<'JSON'
       "claim": "synthetic future phases render ledger metadata without renderer code changes",
       "out_of_scope": "synthetic future phases render ledger metadata without renderer code changes"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 JSON
 

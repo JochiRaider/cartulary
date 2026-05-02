@@ -14,6 +14,11 @@ const registryTopLevelKeys = new Set([
   "capacity_profiles",
   "forwarding_profiles",
 ]);
+const resourceKeys = new Set(["name", "display_name", "schedulers", "display_order", "capacity"]);
+const templateKeys = new Set(["name", "prefix", "display_name", "schedulers", "display_order"]);
+const capacityProfileKeys = new Set(["name", "scheduler", "resources"]);
+const forwardingProfileKeys = new Set(["name", "mappings"]);
+const forwardingMappingKeys = new Set(["source_resource", "target_resource", "env_variable"]);
 
 let cachedRegistry = null;
 
@@ -117,6 +122,7 @@ function buildRegistry(file = defaultRegistryPath) {
   const resources = new Map();
   for (const [index, resource] of (raw.resources ?? []).entries()) {
     const label = `resources[${index + 1}]`;
+    assertKnownObjectKeys(requirePlainObject(resource, label), label, resourceKeys);
     const name = requireString(resource?.name, `${label}.name`);
     if (resources.has(name)) {
       throw new Error(`scheduler resource registry declares duplicate resource ${name}`);
@@ -132,6 +138,7 @@ function buildRegistry(file = defaultRegistryPath) {
   const templates = new Map();
   for (const [index, template] of (raw.templates ?? []).entries()) {
     const label = `templates[${index + 1}]`;
+    assertKnownObjectKeys(requirePlainObject(template, label), label, templateKeys);
     const name = requireString(template?.name, `${label}.name`);
     templates.set(name, {
       name,
@@ -144,6 +151,7 @@ function buildRegistry(file = defaultRegistryPath) {
   const capacityProfiles = new Map();
   for (const [index, profile] of (raw.capacity_profiles ?? []).entries()) {
     const label = `capacity_profiles[${index + 1}]`;
+    assertKnownObjectKeys(requirePlainObject(profile, label), label, capacityProfileKeys);
     const name = requireString(profile?.name, `${label}.name`);
     if (capacityProfiles.has(name)) {
       throw new Error(`scheduler resource registry declares duplicate capacity profile ${name}`);
@@ -167,12 +175,17 @@ function buildRegistry(file = defaultRegistryPath) {
   const forwardingProfiles = new Map();
   for (const [index, profile] of (raw.forwarding_profiles ?? []).entries()) {
     const label = `forwarding_profiles[${index + 1}]`;
+    assertKnownObjectKeys(requirePlainObject(profile, label), label, forwardingProfileKeys);
     const name = requireString(profile?.name, `${label}.name`);
-    const mappings = (profile.mappings ?? []).map((mapping, mappingIndex) => ({
-      sourceResource: requireString(mapping.source_resource, `${label}.mappings[${mappingIndex + 1}].source_resource`),
-      targetResource: requireString(mapping.target_resource, `${label}.mappings[${mappingIndex + 1}].target_resource`),
-      envVariable: requireString(mapping.env_variable, `${label}.mappings[${mappingIndex + 1}].env_variable`),
-    }));
+    const mappings = (profile.mappings ?? []).map((mapping, mappingIndex) => {
+      const mappingLabel = `${label}.mappings[${mappingIndex + 1}]`;
+      assertKnownObjectKeys(requirePlainObject(mapping, mappingLabel), mappingLabel, forwardingMappingKeys);
+      return {
+        sourceResource: requireString(mapping.source_resource, `${mappingLabel}.source_resource`),
+        targetResource: requireString(mapping.target_resource, `${mappingLabel}.target_resource`),
+        envVariable: requireString(mapping.env_variable, `${mappingLabel}.env_variable`),
+      };
+    });
     forwardingProfiles.set(name, { name, mappings });
   }
   return { resources, templates, capacityProfiles, forwardingProfiles };

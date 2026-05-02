@@ -100,7 +100,20 @@ cat >"$tmp_dir/manifests/tools/phase1_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase1",
+  "note": "Synthetic browser shard plan fixture.",
+  "ledger": {
+    "title": "Phase 1 Coverage Ledger",
+    "notes": "Synthetic browser shard plan fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase1",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["E-1-01", "E-1-02", "E-1-03"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
   "e2e": [
     {
       "id": "E-1-01",
@@ -143,7 +156,20 @@ cat >"$tmp_dir/manifests/tools/phase2_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase2",
+  "note": "Synthetic browser shard plan fixture.",
+  "ledger": {
+    "title": "Phase 2 Coverage Ledger",
+    "notes": "Synthetic browser shard plan fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase2",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["E-2-01", "E-2-02"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
   "e2e": [
     {
       "id": "E-2-01",
@@ -175,7 +201,20 @@ cat >"$tmp_dir/manifests/tools/phase12_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase12",
+  "note": "Synthetic browser shard plan fixture.",
+  "ledger": {
+    "title": "Phase 12 Coverage Ledger",
+    "notes": "Synthetic browser shard plan fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase12",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["E-12-01"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
   "e2e": [
     {
       "id": "E-12-01",

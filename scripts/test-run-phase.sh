@@ -1217,7 +1217,18 @@ cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase9",
+  "note": "Synthetic run-go manifest phase fixture.",
+  "ledger": {
+    "title": "Phase 9 Coverage Ledger",
+    "notes": "Synthetic run-go manifest phase fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase9",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-9-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-9-01",
@@ -1231,14 +1242,27 @@ cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
       "claim": "synthetic run-go manifest smoke",
       "out_of_scope": "synthetic run-go manifest smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 EOF
 cat >"$go_manifest_tools/phase10_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase10",
+  "note": "Synthetic run-go manifest phase fixture.",
+  "ledger": {
+    "title": "Phase 10 Coverage Ledger",
+    "notes": "Synthetic run-go manifest phase fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase10",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-10-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-10-01",
@@ -1252,7 +1276,9 @@ cat >"$go_manifest_tools/phase10_test_map.json" <<EOF
       "claim": "synthetic run-go manifest skip smoke",
       "out_of_scope": "synthetic run-go manifest skip smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 EOF
 
@@ -1517,7 +1543,18 @@ cat >"$go_manifest_tools/phase11_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase11",
+  "note": "Synthetic run-go manifest package setup fixture.",
+  "ledger": {
+    "title": "Phase 11 Coverage Ledger",
+    "notes": "Synthetic run-go manifest package setup fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase11",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
   "expected_ids": ["U-11-01"],
+  "support_go_targets": [],
   "unit": [
     {
       "id": "U-11-01",
@@ -1531,7 +1568,9 @@ cat >"$go_manifest_tools/phase11_test_map.json" <<EOF
       "claim": "synthetic run-go manifest package setup smoke",
       "out_of_scope": "synthetic run-go manifest package setup smoke"
     }
-  ]
+  ],
+  "integration": [],
+  "e2e": []
 }
 EOF
 cat >"$go_manifest_tools/phase_registry.json" <<'JSON'

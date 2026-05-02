@@ -148,7 +148,18 @@ try {
       {
         schema_id: "cartulary.phase_test_map.v1",
         phase: "phase100",
+        note: "Synthetic phase-slice fixture.",
+        ledger: {
+          title: "Phase 100 Coverage Ledger",
+          notes: "Synthetic phase-slice fixture.",
+          authoritative_execution: "make phase-slice PHASE=phase100",
+          support_execution_extras: [],
+          sections: [],
+          shared_harness: [],
+          support_only: [],
+        },
         expected_ids: ["U-100-01"],
+        support_go_targets: [],
         unit: [
           {
             id: "U-100-01",
@@ -162,6 +173,8 @@ try {
             execution_label: "backend-unit phase100 authoritative",
           },
         ],
+        integration: [],
+        e2e: [],
       },
       null,
       2,

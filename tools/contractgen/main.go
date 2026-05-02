@@ -119,7 +119,14 @@ func collectArtifacts(root, familyDir string) ([]artifact, error) {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 
-		canonicalJSON, err := canonicalize(data)
+		decoded, err := decodeContract(data)
+		if err != nil {
+			return fmt.Errorf("decode %s: %w", path, err)
+		}
+		if err := validateContractInput(familyDir, filepath.ToSlash(relativeInputPath), decoded); err != nil {
+			return fmt.Errorf("validate %s: %w", path, err)
+		}
+		canonicalJSON, err := canonicalizeDecoded(decoded)
 		if err != nil {
 			return fmt.Errorf("canonicalize %s: %w", path, err)
 		}
@@ -137,6 +144,10 @@ func collectArtifacts(root, familyDir string) ([]artifact, error) {
 		})
 		return nil
 	}); err != nil {
+		return nil, err
+	}
+
+	if err := validateContractFamily(root, familyDir); err != nil {
 		return nil, err
 	}
 
@@ -166,19 +177,22 @@ func pathWithinRoot(root string, target string) bool {
 	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
-func canonicalize(data []byte) (string, error) {
+func decodeContract(data []byte) (any, error) {
 	var decoded any
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	if err := decoder.Decode(&decoded); err != nil {
-		return "", fmt.Errorf("decode contract input as JSON or JSON-compatible YAML: %w", err)
+		return nil, fmt.Errorf("decode contract input as JSON or JSON-compatible YAML: %w", err)
 	}
 	var extra any
 	if err := decoder.Decode(&extra); err == nil {
-		return "", fmt.Errorf("contract input must contain exactly one JSON document")
+		return nil, fmt.Errorf("contract input must contain exactly one JSON document")
 	}
 
-	normalized := normalize(decoded)
+	return normalize(decoded), nil
+}
+
+func canonicalizeDecoded(normalized any) (string, error) {
 	canonicalJSON, err := json.Marshal(normalized)
 	if err != nil {
 		return "", err

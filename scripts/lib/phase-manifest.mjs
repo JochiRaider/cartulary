@@ -13,6 +13,7 @@ import {
   phaseManifestRoot,
   phaseRegistryEntries,
 } from "./phase-registry.mjs";
+import { assertObjectKeys, assertRequiredKeys, readJsonObject } from "./json-shape.mjs";
 
 const sectionDefinitions = [
   ["unit", "U-"],
@@ -30,6 +31,86 @@ const validGoSections = new Set(["unit", "integration", "e2e"]);
 const phaseTestMapSchemaID = "cartulary.phase_test_map.v1";
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const validPhasePolicyExceptionTypes = new Set(["allowed_empty_go_manifest_selection"]);
+const phaseManifestTopLevelKeys = new Set([
+  "schema_id",
+  "phase",
+  "note",
+  "ledger",
+  "expected_ids",
+  "forbidden_id_files",
+  "support_go_targets",
+  "unit",
+  "integration",
+  "e2e",
+]);
+const phaseManifestRequiredKeys = new Set([
+  "note",
+  "ledger",
+  "expected_ids",
+  "support_go_targets",
+  "unit",
+  "integration",
+  "e2e",
+]);
+const phaseLedgerKeys = new Set([
+  "title",
+  "notes",
+  "authoritative_execution",
+  "support_execution_extras",
+  "sections",
+  "shared_harness",
+  "support_only",
+]);
+const phaseManifestEntryKeys = new Set([
+  "id",
+  "coverage",
+  "runner",
+  "package",
+  "file",
+  "symbol",
+  "symbols",
+  "title",
+  "execution_dependency",
+  "evidence_layer",
+  "claim",
+  "out_of_scope",
+  "execution_family",
+  "execution_label",
+  "fixture_policy",
+  "fixture_budget",
+  "template_clone_reason",
+  "migration_scratch_reason",
+]);
+const supportGoEntryKeys = new Set([
+  "target",
+  "section",
+  "package",
+  "file",
+  "symbol",
+  "symbols",
+  "selection_pattern",
+  "execution_family",
+  "execution_label",
+  "fixture_policy",
+  "fixture_budget",
+  "migration_scratch_reason",
+]);
+const phasePolicyExceptionKeys = new Set([
+  "id",
+  "type",
+  "owner",
+  "reason",
+  "expires_before_phase",
+  "expires_on",
+  "selection",
+]);
+const emptyGoSelectionExceptionKeys = new Set([
+  "phase",
+  "section",
+  "coverage",
+  "execution_dependency",
+  "package_patterns",
+]);
 const postgresFixturePolicyTemplateClone = "template_clone";
 const postgresFixturePolicyPackageReset = "package_reset";
 const postgresFixturePolicyMigrationScratch = "migration_scratch";
@@ -584,6 +665,8 @@ function validateManifestIdentity(manifestPath, manifest, requestedPhase = "") {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
     throw new Error(`manifest ${manifestPath} must be a JSON object`);
   }
+  assertObjectKeys(manifest, phaseManifestTopLevelKeys, `manifest ${manifestPath}`);
+  assertRequiredKeys(manifest, phaseManifestRequiredKeys, `manifest ${manifestPath}`);
   if (manifest.schema_id !== phaseTestMapSchemaID) {
     throw new Error(`manifest ${manifestPath} must declare schema_id ${phaseTestMapSchemaID}`);
   }
@@ -618,7 +701,7 @@ export function loadManifest(root, phase) {
     );
   }
   const manifestPath = path.join(manifestRoot, registryEntry.manifest_path);
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const manifest = readJsonObject(manifestPath, manifestPath);
   validateManifestIdentity(manifestPath, manifest, phase);
   return { manifestPath, manifest, registryEntry };
 }
@@ -693,6 +776,7 @@ function validateEmptyGoSelectionException(entry, label) {
     throw new Error(`${label}.selection must be an object`);
   }
   const selection = entry.selection;
+  assertObjectKeys(selection, emptyGoSelectionExceptionKeys, `${label}.selection`);
   phaseNumberFromPhase(requireNonEmptyString(selection.phase, `${label}.selection.phase`));
   const section = requireNonEmptyString(selection.section, `${label}.selection.section`);
   if (!validGoSections.has(section)) {
@@ -726,6 +810,7 @@ function validatePhasePolicyException(root, entry, index) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     throw new Error(`${label} must be an object`);
   }
+  assertObjectKeys(entry, phasePolicyExceptionKeys, label);
   const id = requireNonEmptyString(entry.id, `${label}.id`);
   if (!/^[a-z][a-z0-9_.-]*$/.test(id)) {
     throw new Error(`${label}.id must be a lowercase identifier`);
@@ -755,7 +840,8 @@ export function loadPhasePolicyExceptions(root) {
     };
   }
 
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const manifest = readJsonObject(manifestPath, manifestPath);
+  assertObjectKeys(manifest, new Set(["schema_id", "exceptions"]), manifestPath);
   if (manifest.schema_id !== phasePolicyExceptionsSchemaID) {
     throw new Error(`${manifestPath} must declare schema_id ${phasePolicyExceptionsSchemaID}`);
   }
@@ -836,8 +922,15 @@ export function validateManifest(root, phase) {
 
   const entries = [];
   const supportEntries = [];
+  if (manifest.ledger !== undefined) {
+    if (!manifest.ledger || typeof manifest.ledger !== "object" || Array.isArray(manifest.ledger)) {
+      throw new Error(`manifest ${manifestPath} ledger must be an object`);
+    }
+    assertObjectKeys(manifest.ledger, phaseLedgerKeys, `manifest ${manifestPath}.ledger`);
+  }
   for (const [section, prefix] of sectionDefinitions) {
     for (const entry of manifest[section] ?? []) {
+      assertObjectKeys(entry, phaseManifestEntryKeys, `manifest entry ${entry.id ?? "(missing id)"}`);
       if (typeof entry.id !== "string" || !entry.id.startsWith(prefix)) {
         throw new Error(`manifest entry in ${section} has invalid id: ${JSON.stringify(entry)}`);
       }
@@ -929,6 +1022,7 @@ export function validateManifest(root, phase) {
   }
 
   for (const entry of collectSupportGoEntries(manifest)) {
+    assertObjectKeys(entry, supportGoEntryKeys, supportGoEntryLabel(entry));
     if (typeof entry.target !== "string" || !validSupportTargets.has(entry.target)) {
       throw new Error(
         `${supportGoEntryLabel(entry)} must declare target=backend_unit|backend_integration_support`,
