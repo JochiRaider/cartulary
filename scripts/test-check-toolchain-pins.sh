@@ -301,13 +301,18 @@ expect_drift "agents-shellcheck" \
   mutate_agents_shellcheck
 
 preflight_dir="$(cartulary_harness_mktemp_dir "toolchain-pins-preflight.XXXXXX")"
+preflight_results_root="$(cartulary_harness_mktemp_dir "toolchain-pins-preflight-results.XXXXXX")"
+preflight_run_id="toolchain-pins-preflight"
 cleanup_paths+=("${preflight_dir}")
+cleanup_paths+=("${preflight_results_root}")
 copy_minimal_repo "${preflight_dir}"
 replace_text "${preflight_dir}/package.json" '"node": "24.15.0"' '"node": "24.16.0"'
 
 set +e
 preflight_output="$(
   make --no-print-directory -C "${preflight_dir}" \
+    CARTULARY_TEST_RESULTS_DIR="${preflight_results_root}" \
+    CARTULARY_TEST_RUN_ID="${preflight_run_id}" \
     NODE_BIN="${NODE_BIN}" \
     PNPM="${preflight_dir}/fake-pnpm" \
     NODE_RUNTIME_DIR="${preflight_dir}/node-runtime" \
@@ -320,5 +325,14 @@ set -e
 if [[ "${preflight_status}" -eq 0 ]]; then
   fail "check-setup-blockers mismatch: expected failure"
 fi
-assert_contains "${preflight_output}" "package.json: engines.node mismatch: expected 24.15.0, got 24.16.0" "check-setup-blockers diagnostic"
+assert_contains "${preflight_output}" "toolchain-drift] Error" "check-setup-blockers toolchain failure propagation"
+assert_contains "${preflight_output}" "check-setup-blockers] Error" "check-setup-blockers failure propagation"
+"${NODE_BIN}" "${ROOT_DIR}/scripts/lib/harness-artifact-assert.mjs" \
+  --repo-root "${preflight_dir}" \
+  --results-root "${preflight_results_root}" \
+  --run-id "${preflight_run_id}" \
+  --target "toolchain-drift" \
+  --phase-label "toolchain-drift" \
+  --needle "package.json: engines.node mismatch: expected 24.15.0, got 24.16.0" \
+  --label "check-setup-blockers diagnostic"
 assert_not_contains "${preflight_output}" "frontend install" "check-setup-blockers early failure"
