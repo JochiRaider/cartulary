@@ -477,6 +477,7 @@ for scheduled_target in \
   phase-ledger-drift \
   phase-schedule-drift \
   service-backed-unit-check \
+  generated-artifact-policy-check \
   generate-drift
 do
   check_schedule_field "$scheduled_target" target >/dev/null
@@ -632,6 +633,7 @@ for scheduled_target in \
   phase-ledger-drift \
   phase-schedule-drift \
   service-backed-unit-check \
+  generated-artifact-policy-check \
   generate-drift
 do
   if [[ "$(check_schedule_field "$scheduled_target" needs)" != "check-setup-blockers" ]]; then

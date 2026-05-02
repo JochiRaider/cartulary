@@ -474,6 +474,10 @@
             "description": "fail on generated artifact drift"
           },
           {
+            "target": "generated-artifact-policy-check",
+            "description": "fail on generated artifact marker and lint-scope policy drift"
+          },
+          {
             "target": "toolchain-drift",
             "description": "fail on repo-control toolchain pin drift"
           },
@@ -1014,6 +1018,19 @@
         "phase_label": "generate-drift",
         "command": [
           "./scripts/check-generate-drift.sh"
+        ],
+        "test_target": "self"
+      },
+      "generated-artifact-policy-check": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "generated-artifact-policy-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-generated-artifact-policy.mjs"
         ],
         "test_target": "self"
       },
@@ -2267,6 +2284,25 @@
           "profile": "after_setup_cpu_io",
           "priority_band": "drift_validation",
           "order": 300
+        }
+      },
+      {
+        "name": "generated-artifact-policy-check",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-generated-artifact-policy.mjs",
+          "tools/generated_artifact_policy.json"
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "drift_validation",
+          "order": 250
         }
       },
       {
@@ -3543,6 +3579,7 @@
           "harness-smoke-build-input-discovery",
           "harness-smoke-check-migrations",
           "harness-smoke-generate-drift",
+          "harness-smoke-generated-artifact-policy",
           "harness-smoke-run-go-staticcheck",
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-go-gosec-audit",
@@ -3600,6 +3637,7 @@
           "harness-smoke-build-input-discovery",
           "harness-smoke-check-migrations",
           "harness-smoke-generate-drift",
+          "harness-smoke-generated-artifact-policy",
           "harness-smoke-run-go-staticcheck",
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-go-gosec-audit",
@@ -3685,6 +3723,14 @@
         "backing_scripts": [
           "scripts/test-generate-drift.sh",
           "scripts/check-generate-drift.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-generated-artifact-policy",
+        "backing_scripts": [
+          "scripts/test-generated-artifact-policy.sh",
+          "scripts/check-generated-artifact-policy.mjs",
+          "tools/generated_artifact_policy.json"
         ]
       },
       {

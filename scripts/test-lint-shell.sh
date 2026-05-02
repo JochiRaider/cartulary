@@ -106,9 +106,9 @@ inventory_output="$(
   FAKE_SHELLCHECK_ARGS_LOG="$args_log" \
     "$SCRIPT" 2>&1
 )"
-expected_inventory_output=$'bin/shebang-runner\nscripts/a.sh\nscripts/z.sh\n3 files checked'
+expected_inventory_output=$'bin/shebang-runner\ngenerated/skip.sh\nscripts/a.sh\nscripts/z.sh\n4 files checked'
 assert_equals "$inventory_output" "$expected_inventory_output" "deterministic lint-shell output"
-expected_args=$'bin/shebang-runner\nscripts/a.sh\nscripts/z.sh'
+expected_args=$'bin/shebang-runner\ngenerated/skip.sh\nscripts/a.sh\nscripts/z.sh'
 assert_equals "$(cat "$args_log")" "$expected_args" "deterministic shellcheck argv"
 
 empty_repo="$(make_fixture_repo)"

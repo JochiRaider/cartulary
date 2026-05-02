@@ -117,7 +117,7 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 32, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 33, "check schedule must render the current check work-unit set");
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -157,6 +157,7 @@ assert.deepEqual(
     ["phase-ledger-drift", 11300],
     ["phase-schedule-drift", 11200],
     ["service-backed-unit-check", 11100],
+    ["generated-artifact-policy-check", 11050],
     ["generate-drift", 11000],
   ],
   "profile-expanded check schedule must preserve the existing DAG priority order",

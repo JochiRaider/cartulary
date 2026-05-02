@@ -6,12 +6,17 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 
+# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
+
 cd "$ROOT_DIR"
 
 mapfile -t packages < <(
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
-    "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/...
+    "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/... |
+    cartulary_filter_authored_go_packages
 )
 
 if [[ "${#packages[@]}" -eq 0 ]]; then

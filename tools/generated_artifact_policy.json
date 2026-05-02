@@ -1,0 +1,70 @@
+{
+  "schema_id": "cartulary.generated_artifact_policy.v1",
+  "ignored_sentinel_filenames": [".gitkeep"],
+  "generated_roots": [
+    {
+      "path": "internal/gen",
+      "allowed_extensions": [".go"],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "packages/protocol-ts/src/generated",
+      "allowed_extensions": [".ts"],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    }
+  ],
+  "generated_files": [
+    {
+      "path": "tools/task_surface.generated.mk",
+      "allowed_extensions": [".mk"],
+      "required_marker": "^# Code generated .* DO NOT EDIT\\.$"
+    }
+  ],
+  "lint_scope_checks": {
+    "shell_sources": [
+      {
+        "path": "scripts/run-go-format.sh",
+        "must_contain": [
+          "scripts/lib/generated-artifacts.sh",
+          "cartulary_is_authored_go_file"
+        ]
+      },
+      {
+        "path": "scripts/run-go-vet.sh",
+        "must_contain": [
+          "scripts/lib/generated-artifacts.sh",
+          "cartulary_filter_authored_go_packages"
+        ]
+      },
+      {
+        "path": "scripts/run-go-staticcheck.sh",
+        "must_contain": [
+          "scripts/lib/generated-artifacts.sh",
+          "cartulary_filter_authored_go_packages"
+        ]
+      },
+      {
+        "path": "scripts/run-shellcheck.sh",
+        "must_contain": [
+          "scripts/lib/generated-artifacts.sh",
+          "cartulary_is_generated_artifact_path"
+        ],
+        "must_not_contain": [
+          "*/generated/*",
+          "generated/*"
+        ]
+      }
+    ],
+    "biome": {
+      "path": "biome.json",
+      "required_files_includes": ["!packages/protocol-ts/src/generated/**"],
+      "forbidden_files_includes": ["!packages/protocol-ts/src/generated"],
+      "required_override_includes": ["!packages/protocol-ts/src/generated/**"]
+    },
+    "frontend_import_boundaries": {
+      "path": "tools/frontend_import_boundaries.json",
+      "required_scan_excludes": ["packages/protocol-ts/src/generated/**"],
+      "required_restricted_paths": ["packages/protocol-ts/src/generated"]
+    }
+  }
+}

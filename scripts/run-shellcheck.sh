@@ -6,6 +6,10 @@ ROOT_DIR="${CARTULARY_SHELLCHECK_ROOT:-$DEFAULT_ROOT_DIR}"
 SHELLCHECK_BIN="${SHELLCHECK_BIN:-${ROOT_DIR}/tmp/toolbin/shellcheck-v0.11.0}"
 LINT_SHELL_STRICT="${LINT_SHELL_STRICT:-0}"
 
+# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck disable=SC1091
+source "$DEFAULT_ROOT_DIR/scripts/lib/generated-artifacts.sh"
+
 resolve_shellcheck_bin() {
   local candidate="$1"
 
@@ -23,10 +27,11 @@ resolve_shellcheck_bin() {
 is_excluded_path() {
   local path="$1"
 
+  if cartulary_is_generated_artifact_path "$path"; then
+    return 0
+  fi
+
   case "$path" in
-    internal/gen/* | \
-    packages/protocol-ts/src/generated/* | \
-    generated/* | */generated/* | \
     vendor/* | */vendor/* | \
     node_modules/* | */node_modules/* | \
     tmp/* | */tmp/* | \

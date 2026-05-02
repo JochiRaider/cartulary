@@ -19,6 +19,10 @@ esac
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 GOFMT_BIN="${GOFMT:-gofmt}"
 
+# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
+
 cd "$ROOT_DIR"
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -31,33 +35,6 @@ if ! command -v "$GOFMT_BIN" >/dev/null 2>&1; then
   exit 1
 fi
 
-is_generated_go_path() {
-  local path="$1"
-  case "$path" in
-    internal/gen/*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-has_generated_go_marker() {
-  local path="$1"
-  sed -n '1,20p' -- "$path" | grep -Eq '^// Code generated .* DO NOT EDIT\.$'
-}
-
-is_authored_go_file() {
-  local path="$1"
-  if [[ ! -f "$path" ]]; then
-    return 1
-  fi
-  if is_generated_go_path "$path"; then
-    return 1
-  fi
-  if has_generated_go_marker "$path"; then
-    return 1
-  fi
-  return 0
-}
-
 declare -A seen=()
 go_files=()
 
@@ -68,7 +45,7 @@ append_go_files() {
       continue
     fi
     seen[$path]=1
-    if is_authored_go_file "$path"; then
+    if cartulary_is_authored_go_file "$path"; then
       go_files+=("$path")
     fi
   done

@@ -8,6 +8,10 @@ GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/tmp/toolbin/staticcheck-v0.7.0}"
 STATICCHECK_CHECKS="${STATICCHECK_CHECKS:-}"
 
+# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
+
 if [[ "$STATICCHECK_BIN" != */* ]] && command -v "$STATICCHECK_BIN" >/dev/null 2>&1; then
   STATICCHECK_BIN="$(command -v "$STATICCHECK_BIN")"
 elif [[ "$STATICCHECK_BIN" != /* ]]; then
@@ -26,12 +30,7 @@ mapfile -t packages < <(
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
     "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/... |
-    while IFS= read -r package; do
-      case "$package" in
-        */internal/gen | */internal/gen/*) continue ;;
-      esac
-      printf '%s\n' "$package"
-    done
+    cartulary_filter_authored_go_packages
 )
 
 if [[ "${#packages[@]}" -eq 0 ]]; then

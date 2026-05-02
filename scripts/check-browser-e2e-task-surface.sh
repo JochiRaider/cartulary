@@ -511,6 +511,7 @@ for scheduled_target in \
   phase-ledger-drift \
   phase-schedule-drift \
   service-backed-unit-check \
+  generated-artifact-policy-check \
   generate-drift
 do
   if ! text_has_token "$check_schedule_text" "$scheduled_target"; then

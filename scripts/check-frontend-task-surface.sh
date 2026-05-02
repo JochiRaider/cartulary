@@ -367,7 +367,7 @@ for (const required of requiredIncludes) {
     throw new Error(`biome.json curated scope is missing ${required}`);
   }
 }
-if (!includes.includes("!packages/protocol-ts/src/generated")) {
+if (!includes.includes("!packages/protocol-ts/src/generated/**")) {
   throw new Error("biome.json must exclude generated protocol TypeScript from the curated scope");
 }
 const requiredExcludes = [
