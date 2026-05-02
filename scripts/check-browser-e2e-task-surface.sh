@@ -237,8 +237,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v6") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
+if (manifest.schema_id !== "cartulary.check_schedule.v7") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -258,8 +258,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v6") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
+if (manifest.schema_id !== "cartulary.check_schedule.v7") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {

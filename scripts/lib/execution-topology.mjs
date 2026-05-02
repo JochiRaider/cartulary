@@ -6,6 +6,7 @@ import {
   assertKnownResource,
   normalizeResourceClaims,
   normalizeResourceLimits,
+  resourceOverrideEnvVariablesForScheduler,
   resourceLimitsForCapacityProfile,
   resolveForwardingProfile,
 } from "./scheduler-resources.mjs";
@@ -19,7 +20,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "execution_topology_manifest.json",
 );
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
-export const checkScheduleSchemaID = "cartulary.check_schedule.v6";
+export const checkScheduleSchemaID = "cartulary.check_schedule.v7";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";
 export const makeTargetBaselineSchemaID =
@@ -37,6 +38,14 @@ const validBrowserDependencyPolicies = new Set([
 ]);
 const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "minio", "browser_stack"]);
 const checkScheduleProfileKeys = new Set(["needs", "resource_claims", "make_jobs"]);
+const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
+const checkScheduleOwnedEnvNames = new Set([
+  "CARTULARY_TEST_TARGET",
+  "MAKEFLAGS",
+  "MFLAGS",
+  ...resourceOverrideEnvVariablesForScheduler("check"),
+  ...resourceOverrideEnvVariablesForScheduler("service_backed"),
+]);
 const checkScheduleTargetKeys = new Set([
   "schedules",
   "profile",
@@ -44,6 +53,7 @@ const checkScheduleTargetKeys = new Set([
   "order",
   "produces_summary_targets",
   "nested_scheduler",
+  "env",
 ]);
 
 function clone(value) {
@@ -501,7 +511,33 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
     order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
     producesSummaryTargets,
     nestedScheduler: raw.nested_scheduler === undefined ? null : clone(raw.nested_scheduler),
+    env: normalizeCheckScheduleEnv(raw.env, `${label}.check_schedule.env`),
   };
+}
+
+function normalizeCheckScheduleEnv(value, label) {
+  if (value === undefined) {
+    return {};
+  }
+  const env = requireObject(value, label);
+  const entries = [];
+  for (const [name, rawValue] of Object.entries(env)) {
+    const envName = requireString(name, `${label} key`);
+    if (!checkScheduleEnvNamePattern.test(envName)) {
+      throw new Error(`${label}.${envName} must be a safe environment variable name`);
+    }
+    if (checkScheduleOwnedEnvNames.has(envName)) {
+      throw new Error(`${label}.${envName} is scheduler-owned and cannot be overridden`);
+    }
+    if (typeof rawValue !== "string") {
+      throw new Error(`${label}.${envName} must be a string`);
+    }
+    if (rawValue.includes("\0") || rawValue.includes("\n") || rawValue.includes("\r")) {
+      throw new Error(`${label}.${envName} must be a single-line string`);
+    }
+    entries.push([envName, rawValue]);
+  }
+  return objectFromEntries(entries);
 }
 
 function normalizeCheckMakeJobs(value, label, claims) {
@@ -615,6 +651,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
           : {}),
         resource_claims: clone(profile.resourceClaims),
         make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${target}.check_schedule profile ${profile.name}`, claims),
+        ...(Object.keys(metadata.env).length > 0 ? { env: clone(metadata.env) } : {}),
         ...(nestedScheduler ? { nested_scheduler: nestedScheduler } : {}),
       };
       units.push({ ...unit, order: metadata.order });

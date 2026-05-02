@@ -32,9 +32,20 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v6";
+const supportedSchemaID = "cartulary.check_schedule.v7";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v6";
+const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
+const schedulerOwnedEnvNames = new Set([
+  "CARTULARY_TEST_TARGET",
+  "MAKEFLAGS",
+  "MFLAGS",
+  "CHECK_HOST_CPU_JOBS",
+  "CHECK_HOST_IO_JOBS",
+  "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT",
+  "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT",
+  "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT",
+]);
 
 function usage() {
   process.stderr.write(
@@ -144,6 +155,33 @@ function normalizeMakeJobs(value, label, resourceClaims) {
     throw new Error(`${label} make_jobs must be a positive integer or check scheduler resource name`);
   }
   return value;
+}
+
+function normalizeUnitEnv(value, label) {
+  if (value === undefined) {
+    return {};
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} env must be an object`);
+  }
+  const entries = [];
+  for (const [name, rawValue] of Object.entries(value)) {
+    const envName = String(name).trim();
+    if (!checkScheduleEnvNamePattern.test(envName)) {
+      throw new Error(`${label} env.${name} must be a safe environment variable name`);
+    }
+    if (schedulerOwnedEnvNames.has(envName)) {
+      throw new Error(`${label} env.${envName} is scheduler-owned and cannot be overridden`);
+    }
+    if (typeof rawValue !== "string") {
+      throw new Error(`${label} env.${envName} must be a string`);
+    }
+    if (rawValue.includes("\0") || rawValue.includes("\n") || rawValue.includes("\r")) {
+      throw new Error(`${label} env.${envName} must be a single-line string`);
+    }
+    entries.push([envName, rawValue]);
+  }
+  return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)));
 }
 
 function normalizeNestedScheduler(value, label, unitTarget, resourceClaims) {
@@ -295,6 +333,7 @@ function findSchedule(manifest, target, overrides) {
       ),
       resourceClaims: claims,
       makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unitTarget}`, claims),
+      env: normalizeUnitEnv(unit.env, `${label} ${unitTarget}`),
       nestedScheduler,
       startDetail: nestedScheduler ? { nested_scheduler: null } : {},
       order: index,
@@ -571,6 +610,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
       args: ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target],
       env: makeChildEnv({
         ...nestedSchedulerEnv(unit),
+        ...unit.env,
         CARTULARY_TEST_TARGET: unit.target,
       }),
     });

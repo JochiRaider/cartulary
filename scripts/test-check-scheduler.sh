@@ -7,7 +7,7 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 
-unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE LINT_SHELL_STRICT
 
 cleanup() {
   local path
@@ -362,6 +362,7 @@ if [[ -n "${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-}" || -n "${CARTULARY_SERVICE
 fi
 printf 'envflags %s MAKEFLAGS=%s MFLAGS=%s\n' "$target" "${MAKEFLAGS-}" "${MFLAGS-}" >>"$event_log"
 printf 'test-target %s %s\n' "$target" "${CARTULARY_TEST_TARGET:-}" >>"$event_log"
+printf 'strict-env %s %s\n' "$target" "${LINT_SHELL_STRICT:-unset}" >>"$event_log"
 
 change_active() {
   local delta="$1"
@@ -718,7 +719,7 @@ write_fake_make "$success_dir"
 success_manifest="${success_dir}/manifest.json"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v6",
+  "schema_id": "cartulary.check_schedule.v7",
   "schedules": [
     {
       "target": "check",
@@ -730,7 +731,7 @@ cat >"$success_manifest" <<'JSON'
       "work_units": [
         { "target": "setup", "weight": 50, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
         { "target": "build", "weight": 40, "needs": ["setup"], "resource_claims": { "host_cpu": "limit" }, "make_jobs": "host_cpu" },
-        { "target": "local", "weight": 30, "needs": ["build"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "local", "weight": 30, "needs": ["build"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "env": { "LINT_SHELL_STRICT": "1" } },
         {
           "target": "service",
           "weight": 20,
@@ -807,6 +808,8 @@ assert_contains "$success_output" "[PASS] check" "success summary"
 assert_contains "$(cat "${success_dir}/make-args.log")" "--output-sync=target -j2 build" "build uses claimed host_cpu jobs"
 success_events="$(cat "${success_dir}/events.log")"
 assert_contains "$success_events" "end local" "success local completed"
+assert_contains "$success_events" "strict-env local 1" "success child make receives target-scoped env"
+assert_contains "$success_events" "strict-env service unset" "success sibling child make does not inherit target-scoped env"
 assert_fake_make_overlap "${success_dir}/events.log" local service "success service overlapped with cheap local work"
 assert_contains "$success_events" "env service go_cpu=1 go_io=1" "success service forwarded bounded nested scheduler limits"
 assert_contains "$success_events" "end service" "success service completed"
@@ -956,7 +959,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v6",
+  "schema_id": "cartulary.check_schedule.v7",
   "schedules": [
     {
       "target": "check",
@@ -991,7 +994,7 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v6",
+  "schema_id": "cartulary.check_schedule.v7",
   "schedules": [
     {
       "target": "check",
@@ -1020,7 +1023,7 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v6",
+  "schema_id": "cartulary.check_schedule.v7",
   "schedules": [
     {
       "target": "check",
@@ -1118,7 +1121,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v6",
+  "schema_id": "cartulary.check_schedule.v7",
   "schedules": [
     {
       "target": "check",
@@ -1137,10 +1140,32 @@ set -e
 assert_equals "$invalid_status" "1" "invalid dependency status"
 assert_contains "$invalid_output" "depends on unknown target missing" "invalid dependency output"
 
+invalid_env_manifest="${invalid_dir}/invalid-env-manifest.json"
+cat >"$invalid_env_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v7",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 1 },
+      "work_units": [
+        { "target": "alpha", "weight": 1, "env": { "CARTULARY_TEST_TARGET": "beta" }, "resource_claims": { "host_cpu": 1 } }
+      ]
+    }
+  ]
+}
+JSON
+set +e
+invalid_env_output="$(run_scheduler "$invalid_dir" "$invalid_env_manifest" invalid-env 2>&1)"
+invalid_env_status=$?
+set -e
+assert_equals "$invalid_env_status" "1" "invalid env status"
+assert_contains "$invalid_env_output" "env.CARTULARY_TEST_TARGET is scheduler-owned" "invalid env output"
+
 invalid_nested_manifest="${invalid_dir}/invalid-nested-manifest.json"
 cat >"$invalid_nested_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v6",
+  "schema_id": "cartulary.check_schedule.v7",
   "schedules": [
     {
       "target": "check",
@@ -1173,7 +1198,7 @@ assert_contains "$invalid_nested_output" "source host_io must be claimed by work
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v6",
+  "schema_id": "cartulary.check_schedule.v7",
   "schedules": [
     {
       "target": "check",

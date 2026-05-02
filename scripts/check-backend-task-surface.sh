@@ -226,8 +226,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v6") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
+if (manifest.schema_id !== "cartulary.check_schedule.v7") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -255,8 +255,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v6") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
+if (manifest.schema_id !== "cartulary.check_schedule.v7") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -518,8 +518,8 @@ assertCheckMetadata("check-service-backed", "nested_service_backed_scheduler");
 assertCheckMetadata("migration-drift", "post_build_service_stack");
 assertCheckMetadata("backend-unit", "after_setup_cpu");
 assertCheckMetadata("go-vulncheck", "after_setup_cpu_io");
-if (manifest.schema_id !== "cartulary.check_schedule.v6") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
+if (manifest.schema_id !== "cartulary.check_schedule.v7") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -540,6 +540,15 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
 const limits = schedule.resource_limits ?? {};
 if (limits.host_cpu !== 12 || limits.host_io !== 12 || limits.service_stack !== 1) {
   throw new Error("check schedule must declare host_cpu, host_io, and service_stack limits");
+}
+const lintShell = (schedule.work_units ?? []).find((entry) => entry.target === "lint-shell");
+if (lintShell?.env?.LINT_SHELL_STRICT !== "1") {
+  throw new Error("scheduled lint-shell must set LINT_SHELL_STRICT=1");
+}
+for (const unit of schedule.work_units ?? []) {
+  if (unit.target !== "lint-shell" && unit.env?.LINT_SHELL_STRICT !== undefined) {
+    throw new Error(`LINT_SHELL_STRICT must not leak into scheduled ${unit.target}`);
+  }
 }
 const build = (schedule.work_units ?? []).find((entry) => entry.target === "check-build-prereqs");
 if (!build) {

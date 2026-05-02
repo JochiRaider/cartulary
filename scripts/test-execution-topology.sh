@@ -119,6 +119,11 @@ const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedul
 assert.ok(checkSchedule, "rendered check schedule must include check");
 assert.equal(checkSchedule.work_units.length, 32, "check schedule must render the current check work-unit set");
 assert.deepEqual(
+  checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
+  { LINT_SHELL_STRICT: "1" },
+  "scheduled lint-shell must run ShellCheck in strict mode",
+);
+assert.deepEqual(
   checkSchedule.work_units.map((unit) => [unit.target, unit.weight]),
   [
     ["check-setup-blockers", 50000],
@@ -258,6 +263,19 @@ assert.throws(
     }),
   /migration-drift\.check_schedule target declares service_requirements and must claim service_stack/,
   "topology validation must require service_stack for service-backed check schedule profiles",
+);
+
+const schedulerOwnedEnvTopology = topologyFixture();
+schedulerOwnedEnvTopology.task_surface.targets.find((target) => target.name === "lint-shell").check_schedule.env = {
+  CARTULARY_TEST_TARGET: "lint-shell",
+};
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("scheduler-owned-env-topology.json", schedulerOwnedEnvTopology),
+    }),
+  /lint-shell\.check_schedule\.env\.CARTULARY_TEST_TARGET is scheduler-owned and cannot be overridden/,
+  "topology validation must reject scheduler-owned check work-unit env",
 );
 
 const futureCheckTargetTopology = topologyFixture();

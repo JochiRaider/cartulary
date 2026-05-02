@@ -2939,7 +2939,10 @@
           ],
           "profile": "after_setup_cpu_io",
           "priority_band": "static_validation",
-          "order": 150
+          "order": 150,
+          "env": {
+            "LINT_SHELL_STRICT": "1"
+          }
         }
       },
       {

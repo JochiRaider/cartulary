@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.check_schedule.v6",
+  "schema_id": "cartulary.check_schedule.v7",
   "schedules": [
     {
       "target": "check",
@@ -330,7 +330,10 @@
             "host_cpu": 1,
             "host_io": 1
           },
-          "make_jobs": "host_cpu"
+          "make_jobs": "host_cpu",
+          "env": {
+            "LINT_SHELL_STRICT": "1"
+          }
         },
         {
           "target": "phase-test-name-check",
