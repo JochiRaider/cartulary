@@ -117,7 +117,7 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
     throw new Error(`${label} must be repo-relative, got ${artifactPath}`);
   }
 };
-if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v6") {
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v7") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.scheduler_kind !== "service-backed") {
@@ -134,6 +134,21 @@ if (expectedStatus === "pass" && summary.failure_class !== null) {
 }
 if (!Array.isArray(summary.slowest_work_units) || summary.slowest_work_units.length === 0) {
   throw new Error("summary must record slowest work");
+}
+if (!Number.isInteger(summary.scheduler_started_monotonic_ms) || summary.scheduler_started_monotonic_ms !== 0) {
+  throw new Error(`scheduler_started_monotonic_ms got ${summary.scheduler_started_monotonic_ms} want 0`);
+}
+if (!Number.isInteger(summary.scheduler_completed_monotonic_ms) || summary.scheduler_completed_monotonic_ms < 0) {
+  throw new Error(`scheduler_completed_monotonic_ms got ${summary.scheduler_completed_monotonic_ms}`);
+}
+if (!Number.isInteger(summary.scheduler_total_duration_ms) || summary.scheduler_total_duration_ms < summary.scheduler_completed_monotonic_ms - summary.scheduler_started_monotonic_ms) {
+  throw new Error(`scheduler_total_duration_ms got ${summary.scheduler_total_duration_ms}`);
+}
+if (typeof summary.scheduler_started_at !== "string" || Number.isNaN(Date.parse(summary.scheduler_started_at))) {
+  throw new Error("summary must record scheduler_started_at");
+}
+if (typeof summary.scheduler_completed_at !== "string" || Number.isNaN(Date.parse(summary.scheduler_completed_at))) {
+  throw new Error("summary must record scheduler_completed_at");
 }
 if (!summary.resource_limits || Object.keys(summary.resource_limits).length === 0) {
   throw new Error("summary must record resource limits");
@@ -191,6 +206,12 @@ if (expectedBlocked !== "-") {
 }
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
+}
+if (events[0]?.event !== "scheduler-start") {
+  throw new Error(`first scheduler event got ${events[0]?.event} want scheduler-start`);
+}
+if (events[events.length - 1]?.event !== "scheduler-finish") {
+  throw new Error(`final scheduler event got ${events[events.length - 1]?.event} want scheduler-finish`);
 }
 if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v5")) {
   throw new Error("unexpected scheduler event schema");

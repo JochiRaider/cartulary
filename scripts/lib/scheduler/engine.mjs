@@ -32,6 +32,7 @@ import {
   failureFieldsForJSON,
 } from "../failure-taxonomy.mjs";
 import { SchedulerClock } from "./clock.mjs";
+import { validateSchedulerSummaryTiming } from "./summary-timing-drift.mjs";
 import { replayLog, runCommand, sanitizeLogName } from "./process-executor.mjs";
 import { SchedulerProgressRecorder } from "./progress-recorder.mjs";
 import {
@@ -106,6 +107,11 @@ class SchedulerReporter {
     this.progressRecorder = new SchedulerProgressRecorder(this.progressSummaryPath);
     this.clock = new SchedulerClock();
     this.machine = machineSchedulerOutput();
+    this.schedulerStartedMonotonicMs = 0;
+    this.schedulerStartedAt = this.clock.wallTimestamp(0);
+    this.schedulerCompletedMonotonicMs = null;
+    this.schedulerCompletedAt = null;
+    this.schedulerTotalDurationMs = null;
     this.startedAt = new Map();
     this.completedWork = [];
     this.completedLogFilesByTarget = new Map();
@@ -128,6 +134,13 @@ class SchedulerReporter {
     this.maxActiveResourceClaims = new Map();
   }
 
+  startLifecycle(state) {
+    this.writeEvent("scheduler-start", state, {
+      scheduler_started_monotonic_ms: this.schedulerStartedMonotonicMs,
+      scheduler_started_at: this.schedulerStartedAt,
+    });
+  }
+
   start() {
     const line = schedulerStartLine({
       prefix: this.schedule.prefix,
@@ -143,6 +156,38 @@ class SchedulerReporter {
       process.stdout.write(line);
     }
     this.progressRecorder.recordStart(line);
+  }
+
+  finishLifecycle(state) {
+    this.writeEvent("scheduler-finish", state, {
+      scheduler_started_monotonic_ms: this.schedulerStartedMonotonicMs,
+      scheduler_started_at: this.schedulerStartedAt,
+    });
+    this.schedulerCompletedMonotonicMs = this.lastEventMonotonicMs;
+    this.schedulerCompletedAt = this.clock.wallTimestamp(
+      this.schedulerCompletedMonotonicMs,
+    );
+    this.schedulerTotalDurationMs = Math.max(
+      0,
+      this.schedulerCompletedMonotonicMs - this.schedulerStartedMonotonicMs,
+    );
+  }
+
+  timingEnvelope() {
+    const completedMonotonicMs =
+      this.schedulerCompletedMonotonicMs ?? this.lastEventMonotonicMs;
+    const completedAt = this.schedulerCompletedAt
+      ?? this.clock.wallTimestamp(completedMonotonicMs);
+    return {
+      scheduler_started_monotonic_ms: this.schedulerStartedMonotonicMs,
+      scheduler_completed_monotonic_ms: completedMonotonicMs,
+      scheduler_total_duration_ms: Math.max(
+        0,
+        completedMonotonicMs - this.schedulerStartedMonotonicMs,
+      ),
+      scheduler_started_at: this.schedulerStartedAt,
+      scheduler_completed_at: completedAt,
+    };
   }
 
   runningDisplayUnits(state) {
@@ -529,6 +574,7 @@ class SchedulerReporter {
       scheduler_kind: this.schedule.kind,
       total_work_units: this.schedule.totalWorkUnits,
       completed_work_units: this.completedCount,
+      ...this.timingEnvelope(),
       skipped_work_units: this.skippedWork,
       failed_work_unit: failed,
       resource_limits: resourceMapToObject(this.schedule.resourceLimits),
@@ -584,7 +630,7 @@ class SchedulerReporter {
         clock_skew: skew,
       });
     }
-    this.writeEventRecord(event, state, detail);
+    return this.writeEventRecord(event, state, detail);
   }
 
   writeEventRecord(event, state, detail) {
@@ -628,7 +674,9 @@ class SchedulerReporter {
       base.pending_finalizers = pendingFinalizerCount(state.pending);
       base.running_finalizers = runningFinalizerCount(state.running);
     }
-    this.events.write(`${JSON.stringify({ ...base, ...detail })}\n`);
+    const record = { ...base, ...detail };
+    this.events.write(`${JSON.stringify(record)}\n`);
+    return record;
   }
 
   close() {
@@ -693,6 +741,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
   let firstFailureLabel = null;
   let firstFailureKey = null;
   let stopScheduling = false;
+  let reporterClosed = false;
 
   const stateSnapshot = (blockedCount = 0) => ({
     pending,
@@ -730,6 +779,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
   };
 
   try {
+    reporter.startLifecycle(stateSnapshot());
     if (schedule.beforeRun) {
       await schedule.beforeRun({ reporter, testOutputScript });
     }
@@ -877,6 +927,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
     }
 
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";
+    reporter.finishLifecycle(stateSnapshot());
     await reporter.summary(requestedStatus, { started, failedWorkUnit: firstFailureLabel });
     if (schedule.afterSummary) {
       await schedule.afterSummary({
@@ -888,6 +939,18 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
         testOutputScript,
       });
     }
+    await reporter.close();
+    reporterClosed = true;
+    if (schedule.validateSummaryTiming !== false) {
+      const timingDrift = validateSchedulerSummaryTiming(reporter.eventsPath);
+      if (timingDrift.errors.length > 0) {
+        throw new Error(
+          `scheduler summary timing drift detected for ${schedule.target}:\n${timingDrift.errors
+            .map((error) => `  ${error}`)
+            .join("\n")}`,
+        );
+      }
+    }
     return {
       status: firstFailure,
       requestedStatus,
@@ -896,7 +959,9 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       failedKeys,
     };
   } finally {
-    await reporter.close();
+    if (!reporterClosed) {
+      await reporter.close();
+    }
   }
 }
 

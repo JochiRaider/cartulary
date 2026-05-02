@@ -151,6 +151,12 @@ const expectedMakeEnvVars = {
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
+  "scheduler-summary-timing-drift": [
+    "TARGET",
+    "RESULTS_DIR",
+    "CARTULARY_TEST_RESULTS_DIR",
+    "CARTULARY_TEST_RUN_ID",
+  ],
   "service-backed-make-target-duration-baseline-drift": [
     "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
     "EXECUTION_TOPOLOGY_MANIFEST",
@@ -421,6 +427,7 @@ assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines R
 assertUsage("browser-e2e-duration-baselines", {}, "make browser-e2e-duration-baselines RESULTS_DIR=<successful browser results dir>");
 assertUsage("harness-smoke-duration-baselines", {}, "make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>");
 assertUsage("scheduler-event-order-drift", { CARTULARY_TEST_RESULTS_DIR: "/tmp/results" }, "make scheduler-event-order-drift");
+assertUsage("scheduler-summary-timing-drift", { CARTULARY_TEST_RESULTS_DIR: "/tmp/results" }, "make scheduler-summary-timing-drift");
 
 try {
   buildMakeNodeToolInvocation("task-surface-report", { TASK_SURFACE_REPORT_ARGS: "'--check'" });

@@ -121,7 +121,7 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
     throw new Error(`${label} must not point at obsolete temp scheduler logs, got ${artifactPath}`);
   }
 };
-if (summary.schema_id !== "cartulary.check_scheduler_summary.v6") {
+if (summary.schema_id !== "cartulary.check_scheduler_summary.v7") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.scheduler_kind !== "check") {
@@ -138,6 +138,21 @@ if (expectedStatus === "pass" && summary.failure_class !== null) {
 }
 if (summary.total_work_units !== Number(expectedTotal)) {
   throw new Error(`total work units got ${summary.total_work_units} want ${expectedTotal}`);
+}
+if (!Number.isInteger(summary.scheduler_started_monotonic_ms) || summary.scheduler_started_monotonic_ms !== 0) {
+  throw new Error(`scheduler_started_monotonic_ms got ${summary.scheduler_started_monotonic_ms} want 0`);
+}
+if (!Number.isInteger(summary.scheduler_completed_monotonic_ms) || summary.scheduler_completed_monotonic_ms < 0) {
+  throw new Error(`scheduler_completed_monotonic_ms got ${summary.scheduler_completed_monotonic_ms}`);
+}
+if (!Number.isInteger(summary.scheduler_total_duration_ms) || summary.scheduler_total_duration_ms < summary.scheduler_completed_monotonic_ms - summary.scheduler_started_monotonic_ms) {
+  throw new Error(`scheduler_total_duration_ms got ${summary.scheduler_total_duration_ms}`);
+}
+if (typeof summary.scheduler_started_at !== "string" || Number.isNaN(Date.parse(summary.scheduler_started_at))) {
+  throw new Error("summary must record scheduler_started_at");
+}
+if (typeof summary.scheduler_completed_at !== "string" || Number.isNaN(Date.parse(summary.scheduler_completed_at))) {
+  throw new Error("summary must record scheduler_completed_at");
 }
 const failed = summary.failed_work_unit ?? null;
 if (expectedFailed === "-") {
@@ -210,6 +225,12 @@ if (!Array.isArray(summary.slowest_running_observations) || summary.slowest_runn
 }
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
+}
+if (events[0]?.event !== "scheduler-start") {
+  throw new Error(`first scheduler event got ${events[0]?.event} want scheduler-start`);
+}
+if (events[events.length - 1]?.event !== "scheduler-finish") {
+  throw new Error(`final scheduler event got ${events[events.length - 1]?.event} want scheduler-finish`);
 }
 if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v5")) {
   throw new Error("unexpected scheduler event schema");
@@ -801,6 +822,103 @@ assert_equals "$wall_status" "1" "wall drift fixture status"
 assert_contains "$wall_output" "wall_timestamp regressed without preceding clock-skew marker" "wall drift fixture output"
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.mjs" "${event_order_dir}/skew" 2>&1)" "scheduler event order verified" "clock skew marker drift fixture"
 
+summary_timing_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-summary-timing.XXXXXX")"
+cleanup_paths+=("$summary_timing_dir")
+mkdir -p "${summary_timing_dir}/valid/check" "${summary_timing_dir}/stale/check"
+cat >"${summary_timing_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-finish","event_sequence":2,"monotonic_ms":120000,"wall_timestamp":"2026-01-01T00:02:00.000Z"}
+JSONL
+cat >"${summary_timing_dir}/valid/check/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.check_scheduler_summary.v7",
+  "target": "check",
+  "status": "pass",
+  "scheduler_kind": "check",
+  "scheduler_started_monotonic_ms": 0,
+  "scheduler_completed_monotonic_ms": 120000,
+  "scheduler_total_duration_ms": 120000,
+  "scheduler_started_at": "2026-01-01T00:00:00.000Z",
+  "scheduler_completed_at": "2026-01-01T00:02:00.000Z"
+}
+JSON
+cat >"${summary_timing_dir}/valid/check/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.target_summary.v5",
+  "target": "check",
+  "status": "pass",
+  "start_time": "2026-01-01T00:00:00.000Z",
+  "end_time": "2026-01-01T00:02:00.000Z",
+  "wall_duration_ms": 120000,
+  "critical_path_wall_duration_ms": 120000
+}
+JSON
+cat >"${summary_timing_dir}/valid/check/tool-run-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.tool_run_summary.v1",
+  "target": "check",
+  "status": "pass",
+  "completed_at": "2026-01-01T00:02:00.000Z",
+  "duration_ms": 120000,
+  "extensions": {
+    "scheduler_timing": {
+      "scheduler_total_duration_ms": 120000
+    }
+  }
+}
+JSON
+cat >"${summary_timing_dir}/valid/run-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_run_summary.v6",
+  "label": "check",
+  "status": "pass",
+  "end_time": "2026-01-01T00:02:00.000Z",
+  "wall_duration_ms": 120000,
+  "critical_path_wall_duration_ms": 120000
+}
+JSON
+cat >"${summary_timing_dir}/valid/tool-run-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.tool_run_summary.v1",
+  "target": "check",
+  "status": "pass",
+  "completed_at": "2026-01-01T00:02:00.000Z",
+  "duration_ms": 120000,
+  "extensions": {
+    "scheduler_timing": {
+      "scheduler_total_duration_ms": 120000
+    }
+  }
+}
+JSON
+cp "${summary_timing_dir}/valid/check/scheduler-events.jsonl" "${summary_timing_dir}/stale/check/scheduler-events.jsonl"
+cp "${summary_timing_dir}/valid/check/scheduler-summary.json" "${summary_timing_dir}/stale/check/scheduler-summary.json"
+cp "${summary_timing_dir}/valid/check/target-summary.json" "${summary_timing_dir}/stale/check/target-summary.json"
+cp "${summary_timing_dir}/valid/run-summary.json" "${summary_timing_dir}/stale/run-summary.json"
+cat >"${summary_timing_dir}/stale/check/tool-run-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.tool_run_summary.v1",
+  "target": "check",
+  "status": "pass",
+  "completed_at": "2026-01-01T00:01:10.000Z",
+  "duration_ms": 70000,
+  "extensions": {
+    "scheduler_timing": {
+      "scheduler_total_duration_ms": 120000
+    }
+  }
+}
+JSON
+cp "${summary_timing_dir}/valid/tool-run-summary.json" "${summary_timing_dir}/stale/tool-run-summary.json"
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" "${summary_timing_dir}/valid" 2>&1)" "scheduler summary timing verified" "valid scheduler summary timing fixture"
+set +e
+summary_timing_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" "${summary_timing_dir}/stale" 2>&1)"
+summary_timing_status=$?
+set -e
+assert_equals "$summary_timing_status" "1" "scheduler summary timing drift fixture status"
+assert_contains "$summary_timing_output" "summary completed before final scheduler event" "scheduler summary timing completed-before-final output"
+assert_contains "$summary_timing_output" "duration 70000ms is below scheduler total 120000ms" "scheduler summary timing duration output"
+
 success_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-success.XXXXXX")"
 cleanup_paths+=("$success_dir")
 write_fake_make "$success_dir"
@@ -903,11 +1021,17 @@ assert_file_present "${success_dir}/results/success/setup/setup/phase-summary.js
 assert_file_absent "${success_dir}/results/success/adhoc/setup/phase-summary.json" "success setup helper is not adhoc-owned"
 success_summary="${success_dir}/results/success/run-summary.json"
 success_target_summary="${success_dir}/results/success/check/target-summary.json"
+success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
+success_scheduler_events="${success_dir}/results/success/check/scheduler-events.jsonl"
 assert_equals "$(json_field "$success_summary" "status")" "pass" "success summary status"
 assert_equals "$(json_field "$success_summary" "schema_id")" "cartulary.test_run_summary.v6" "success run summary schema"
 assert_file_present "$success_target_summary" "success check target summary"
 assert_equals "$(json_field "$success_target_summary" "target")" "check" "success check target summary identity"
 assert_equals "$(json_field "$success_target_summary" "status")" "pass" "success check target summary status"
+assert_equals "$(json_field "$success_summary" "wall_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success run summary wall uses scheduler total"
+assert_equals "$(json_field "$success_target_summary" "wall_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success target summary wall uses scheduler total"
+assert_equals "$(json_field "${success_dir}/results/success/tool-run-summary.json" "extensions.scheduler_timing.scheduler_total_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success run tool summary scheduler timing extension"
+assert_equals "$(json_field "${success_dir}/results/success/check/tool-run-summary.json" "extensions.scheduler_timing.scheduler_total_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success target tool summary scheduler timing extension"
 assert_equals "$(json_field "$success_summary" "work_units.completed")" "5" "success completed work units"
 assert_equals "$(json_field "$success_summary" "work_units.total")" "5" "success total work units"
 assert_equals "$(json_field "$success_summary" "summary_targets.expected.length")" "3" "success summary target count"
@@ -915,8 +1039,6 @@ assert_equals "$(json_field "$success_summary" "evidence_targets.present.length"
 assert_equals "$(json_field "$success_summary" "helper_units.total")" "2" "success helper unit count"
 assert_equals "$(json_field "$success_summary" "helper_units.artifacts.0.target")" "setup" "success helper artifact target"
 assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.artifact")" "/setup/setup/phase-summary.json" "success helper artifact phase summary path"
-success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
-success_scheduler_events="${success_dir}/results/success/check/scheduler-events.jsonl"
 assert_check_scheduler_artifacts "$success_dir" success check pass - 5 finish
 assert_equals "$(json_field "$success_scheduler_summary" "completed_work_units")" "5" "success scheduler completed count"
 "$NODE_BIN" - "$success_scheduler_summary" "$success_scheduler_events" <<'EOF'

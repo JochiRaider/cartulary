@@ -357,6 +357,17 @@ export const makeNodeTools = {
       return args;
     },
   },
+  "scheduler-summary-timing-drift": {
+    inputs: ["TARGET"],
+    script: "./scripts/check-scheduler-summary-timing-drift.mjs",
+    resultDir: { mode: "currentRunDefault", positional: true },
+    usage: "usage: make scheduler-summary-timing-drift [RESULTS_DIR=<dir>] [TARGET=<target>]",
+    buildArgs(env) {
+      const args = [];
+      optionalFlag(args, env, "TARGET", "--target");
+      return args;
+    },
+  },
 };
 
 function uniqueNames(names) {

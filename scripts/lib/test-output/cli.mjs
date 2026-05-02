@@ -2219,6 +2219,57 @@ function loadSchedulerSummary(target) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+function schedulerTimingFromSummary(summary) {
+  if (!summary || !Number.isFinite(summary.scheduler_total_duration_ms)) {
+    return null;
+  }
+  const startedAt =
+    typeof summary.scheduler_started_at === "string"
+      ? summary.scheduler_started_at
+      : "";
+  const completedAt =
+    typeof summary.scheduler_completed_at === "string"
+      ? summary.scheduler_completed_at
+      : "";
+  if (
+    startedAt === "" ||
+    completedAt === "" ||
+    Number.isNaN(Date.parse(startedAt)) ||
+    Number.isNaN(Date.parse(completedAt))
+  ) {
+    return null;
+  }
+  return {
+    scheduler_kind: summary.scheduler_kind ?? "",
+    scheduler_started_monotonic_ms: clampDurationMs(
+      summary.scheduler_started_monotonic_ms ?? 0,
+    ),
+    scheduler_completed_monotonic_ms: clampDurationMs(
+      summary.scheduler_completed_monotonic_ms ??
+        summary.scheduler_total_duration_ms,
+    ),
+    scheduler_total_duration_ms: clampDurationMs(
+      summary.scheduler_total_duration_ms,
+    ),
+    scheduler_started_at: startedAt,
+    scheduler_completed_at: completedAt,
+  };
+}
+
+function schedulerTimingForTarget(target) {
+  return schedulerTimingFromSummary(loadSchedulerSummary(target));
+}
+
+function durationOverridesFromSchedulerTiming(timing) {
+  if (!timing) {
+    return {};
+  }
+  return {
+    wall_duration_ms: timing.scheduler_total_duration_ms,
+    critical_path_wall_duration_ms: timing.scheduler_total_duration_ms,
+  };
+}
+
 function readJsonIfExists(file) {
   if (!existsSync(file)) {
     return null;
@@ -2571,6 +2622,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
   const schedulerSummary = existsSync(schedulerSummaryFile)
     ? loadSchedulerSummary(targetSummary.target)
     : null;
+  const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
   const schedulerArtifacts = schedulerSummary?.artifacts ?? {};
   const serviceMetadata = serviceSharedMetadata(runArtifactRoot);
   const workUnits =
@@ -2590,9 +2642,13 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     command: ["make", targetSummary.target],
     status: targetSummary.status,
     exitCode: targetSummary.status === "pass" ? 0 : 1,
-    startedAt: targetSummary.start_time,
-    completedAt: targetSummary.end_time,
-    durationMs: totals.wall_duration_ms ?? targetSummary.wall_duration_ms,
+    startedAt: schedulerTiming?.scheduler_started_at ?? targetSummary.start_time,
+    completedAt:
+      schedulerTiming?.scheduler_completed_at ?? targetSummary.end_time,
+    durationMs:
+      schedulerTiming?.scheduler_total_duration_ms ??
+      totals.wall_duration_ms ??
+      targetSummary.wall_duration_ms,
     outputMode: resolveOutputMode(),
     artifactRoot,
     summaryArtifacts: [
@@ -2650,6 +2706,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     slowest: slowest ? [slowest] : [],
     rerunCommands: [`make ${targetSummary.target}`],
     extensions: {
+      ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
       ...(serviceMetadata ? { service_backed: serviceMetadata } : {}),
     },
   });
@@ -3092,15 +3149,28 @@ function handleTargetSummary(args) {
           status: status.toLowerCase(),
           fixture: totalFixture,
         };
+  const schedulerTiming = schedulerTimingForTarget(target);
+  const schedulerDurationOverrides =
+    durationOverridesFromSchedulerTiming(schedulerTiming);
+  const topLevelTiming = {
+    start_time:
+      schedulerTiming?.scheduler_started_at ??
+      totalsSection.start_time ??
+      summary.startTime ??
+      reportCollationStartTime,
+    end_time:
+      schedulerTiming?.scheduler_completed_at ??
+      totalsSection.end_time ??
+      summary.endTime ??
+      reportCollationEndTime,
+    ...durationFieldsForJSON(totalsSection, schedulerDurationOverrides),
+  };
   const targetSummary = {
     schema_id: targetSummarySchemaID,
     target,
     kind: childTargetNames.length > 0 ? "aggregate" : "leaf",
     status: status.toLowerCase(),
-    start_time:
-      totalsSection.start_time || summary.startTime || reportCollationStartTime,
-    end_time: totalsSection.end_time || summary.endTime || reportCollationEndTime,
-    ...durationFieldsForJSON(totalsSection),
+    ...topLevelTiming,
     accounting_modes: totalsSection.accounting_modes,
     failure_class: totalsSection.failure_class,
     failure_classes: totalsSection.failure_classes,
@@ -3109,7 +3179,13 @@ function handleTargetSummary(args) {
     artifacts: ownSection.artifacts,
     own: ownSection,
     children: childrenSection,
-    totals: totalsSection,
+    totals: {
+      ...totalsSection,
+      start_time: topLevelTiming.start_time,
+      end_time: topLevelTiming.end_time,
+      ...durationFieldsForJSON(totalsSection, schedulerDurationOverrides),
+    },
+    scheduler_timing: schedulerTiming,
   };
   writeJson(path.join(summary.targetDir, "target-summary.json"), targetSummary);
   const targetToolSummaryFile = toolSummaryPath(summary.targetDir);
@@ -3510,14 +3586,18 @@ function writeSharedExecutionGroupLines(stream, label, sharedExecutionGroups) {
 
 function runToolSummary(runSummary, summaryJsonPath) {
   const slowest = slowestTargetRef(runSummary);
+  const schedulerTiming = runSummary.scheduler_timing ?? null;
   return buildToolRunSummary({
     target: runSummary.label,
     command: ["make", runSummary.label],
     status: runSummary.status,
     exitCode: runSummary.status === "pass" ? 0 : 1,
-    startedAt: runSummary.start_time,
-    completedAt: runSummary.end_time,
-    durationMs: runSummary.wall_duration_ms,
+    startedAt: schedulerTiming?.scheduler_started_at ?? runSummary.start_time,
+    completedAt:
+      schedulerTiming?.scheduler_completed_at ?? runSummary.end_time,
+    durationMs:
+      schedulerTiming?.scheduler_total_duration_ms ??
+      runSummary.wall_duration_ms,
     outputMode: resolveOutputMode(),
     artifactRoot: runSummary.artifacts?.dir ?? "",
     summaryArtifacts: [
@@ -3550,6 +3630,9 @@ function runToolSummary(runSummary, summaryJsonPath) {
     failureClass: runSummary.failure_class,
     failures: runSummary.failures ?? [],
     slowest: slowest ? [slowest] : [],
+    extensions: {
+      ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
+    },
     rerunCommands: [`make ${runSummary.label}`],
   });
 }
@@ -3669,8 +3752,12 @@ function handleRunSummary(args) {
   );
   const aggregate = summarized.aggregate;
   const accountingModes = summarized.accountingModes;
-  const wallDurationMs = summarized.wallDurationMs;
-  const criticalPathWallDurationMs = summarized.criticalPathWallDurationMs;
+  const schedulerTiming = schedulerTimingForTarget(label);
+  const wallDurationMs =
+    schedulerTiming?.scheduler_total_duration_ms ?? summarized.wallDurationMs;
+  const criticalPathWallDurationMs =
+    schedulerTiming?.scheduler_total_duration_ms ??
+    summarized.criticalPathWallDurationMs;
   const renderedSummaryGroups = buildSummaryGroups(
     summaryGroups,
     skippedAfterFailureSet,
@@ -3726,8 +3813,14 @@ function handleRunSummary(args) {
     label,
     status: failed ? "fail" : "pass",
     work_units: workUnits,
-    start_time: summarized.startTime || runSummaryCollationTime,
-    end_time: summarized.endTime || runSummaryCollationTime,
+    start_time:
+      schedulerTiming?.scheduler_started_at ||
+      summarized.startTime ||
+      runSummaryCollationTime,
+    end_time:
+      schedulerTiming?.scheduler_completed_at ||
+      summarized.endTime ||
+      runSummaryCollationTime,
     ...durationFieldsForJSON(aggregate, {
       wall_duration_ms: wallDurationMs,
       critical_path_wall_duration_ms: criticalPathWallDurationMs,
@@ -3752,6 +3845,7 @@ function handleRunSummary(args) {
     helper_units: helperUnitFields,
     summary_groups: renderedSummaryGroups,
     shared_execution_groups: sharedExecutionGroups,
+    ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
   };
   writeJson(path.join(resultsRoot, runId, "run-summary.json"), runSummary);
   const runToolSummaryFile = toolSummaryPath(path.join(resultsRoot, runId));

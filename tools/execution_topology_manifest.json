@@ -557,6 +557,11 @@
             "target": "scheduler-event-order-drift",
             "usage": "RESULTS_DIR=<dir>",
             "description": "verify scheduler event stream ordering"
+          },
+          {
+            "target": "scheduler-summary-timing-drift",
+            "usage": "RESULTS_DIR=<dir>",
+            "description": "verify scheduler summary timing accounting"
           }
         ]
       },
@@ -1359,6 +1364,10 @@
         "prerequisites": []
       },
       "scheduler-event-order-drift": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "scheduler-summary-timing-drift": {
         "type": "node_tool",
         "prerequisites": []
       },
@@ -3651,6 +3660,35 @@
         "backing_scripts": [
           "scripts/check-scheduler-event-order-drift.mjs",
           "scripts/lib/scheduler/event-order.mjs"
+        ],
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v1"
+        }
+      },
+      {
+        "name": "scheduler-summary-timing-drift",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/check-scheduler-summary-timing-drift.mjs",
+          "scripts/lib/scheduler/summary-timing-drift.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
