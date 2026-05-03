@@ -408,6 +408,114 @@ describe("grid-adapter", () => {
     ).toBe("Alpha edited");
   });
 
+  it("keeps grouped editable draft cells stable across repeated local edits", async () => {
+    type EditableHarnessRow = HarnessRow & {
+      readonly recordId: string;
+    };
+
+    function DraftInputCell({ row }: { readonly row: EditableHarnessRow }) {
+      const [draftValue, setDraftValue] = useState(row.label);
+      return (
+        <input
+          data-testid={`grouped-editable-label-${row.recordId}`}
+          type="text"
+          value={draftValue}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => {
+            setDraftValue(event.target.value);
+          }}
+        />
+      );
+    }
+
+    function GroupedEditableGridHarness() {
+      const [renderMarker, setRenderMarker] = useState(0);
+      const rows = useMemo<readonly EditableHarnessRow[]>(
+        () => [
+          { recordId: "record-1", label: "Alpha", state: "open" },
+          { recordId: "record-2", label: "Beta", state: "reviewed" },
+          { recordId: "record-3", label: "Gamma", state: "open" },
+        ],
+        [],
+      );
+      const editableColumns = useMemo<
+        readonly GridColumn<EditableHarnessRow>[]
+      >(
+        () => [
+          {
+            fieldKey: "label",
+            label: "Label",
+            renderCell: (row) => <DraftInputCell row={row} />,
+          },
+          {
+            fieldKey: "state",
+            label: "State",
+            renderCell: (row) => row.state,
+          },
+        ],
+        [],
+      );
+      const gridRows = useMemo<readonly GridRow<EditableHarnessRow>[]>(
+        () =>
+          rows.map((row) => ({
+            key: row.recordId,
+            recordId: row.recordId,
+            data: row,
+            testId: `grouped-editable-row-${row.recordId}`,
+          })),
+        [rows],
+      );
+
+      return (
+        <GridViewport testId="grouped-editable-grid-shell">
+          <button
+            data-testid="rerender-grouped-editable-grid"
+            type="button"
+            onClick={() => {
+              setRenderMarker((current) => current + 1);
+            }}
+          >
+            Render {renderMarker}
+          </button>
+          <GridTable
+            columns={editableColumns}
+            getGroupLabel={(row, fieldKey) =>
+              fieldKey === "state" ? row.state : null
+            }
+            getGroupRowTestId={(fieldKey, value) =>
+              `grouped-editable-group-${fieldKey}-${value}`
+            }
+            groupBy="state"
+            rows={gridRows}
+          />
+        </GridViewport>
+      );
+    }
+
+    render(<GroupedEditableGridHarness />);
+
+    const input = await screen.findByTestId("grouped-editable-label-record-3");
+    for (const value of ["Gamma draft 1", "Gamma draft 2", "Gamma final"]) {
+      fireEvent.change(input, { target: { value } });
+      expect((input as HTMLInputElement).value).toBe(value);
+    }
+    fireEvent.click(screen.getByTestId("rerender-grouped-editable-grid"));
+
+    expect(
+      (
+        screen.getByTestId(
+          "grouped-editable-label-record-3",
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("Gamma final");
+    const shell = screen.getByTestId("grouped-editable-grid-shell");
+    expect(
+      shell.querySelectorAll(
+        '[data-testid="grouped-editable-group-state-open"]',
+      ),
+    ).toHaveLength(2);
+    expect(screen.getByTestId("grouped-editable-row-record-3")).toBeTruthy();
+  });
+
   it("survives jsdom layout measurement when row pending state rerenders the RDG grid", async () => {
     function PendingGridHarness() {
       const [pending, setPending] = useState(false);

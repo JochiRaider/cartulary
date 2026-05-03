@@ -94,13 +94,13 @@ describe("grid presentation rows", () => {
     });
 
     expect(summarizeRows(presentationRows)).toEqual([
-      "group:open:group:state:open:group-state-open",
+      "group:open:group:state:open:0:group-state-open",
       "data:record-1",
       "data:record-2",
-      "group:reviewed:group:state:reviewed:group-state-reviewed",
+      "group:reviewed:group:state:reviewed:0:group-state-reviewed",
       "data:record-3",
       "data:record-4",
-      "group:open:group:state:open:group-state-open",
+      "group:open:group:state:open:1:group-state-open",
       "data:record-5",
     ]);
   });
@@ -126,7 +126,7 @@ describe("grid presentation rows", () => {
       "data:record-2",
       "data:record-3",
       "data:record-4",
-      "group:closed:group:state:closed:group-state-closed",
+      "group:closed:group:state:closed:0:group-state-closed",
       "data:record-5",
     ]);
   });
@@ -146,9 +146,9 @@ describe("grid presentation rows", () => {
     });
 
     expect(summarizeRows(presentationRows)).toEqual([
-      "group:open:group:state:open:group-state-open",
+      "group:open:group:state:open:0:group-state-open",
       "data:record-1",
-      "group:null:group:state:empty:no-test-id",
+      "group:null:group:state:empty:0:no-test-id",
       "data:record-2",
       "data:record-3",
     ]);
@@ -169,10 +169,10 @@ describe("grid presentation rows", () => {
     });
 
     expect(summarizeRows(presentationRows)).toEqual([
-      "group:open:group:state:open:group-state-open",
+      "group:open:group:state:open:0:group-state-open",
       "data:record-1",
       "data:record-2",
-      "group:reviewed:group:state:reviewed:group-state-reviewed",
+      "group:reviewed:group:state:reviewed:0:group-state-reviewed",
       "data:record-3",
     ]);
   });

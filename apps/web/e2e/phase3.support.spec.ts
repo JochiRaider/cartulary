@@ -196,12 +196,24 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
     client_txn_id: uniqueTxn("s303-row"),
     "timeline.summary": "RDG edit row",
   });
+  await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("s303-peer"),
+    "timeline.summary": "Alpha RDG peer",
+  });
   const recordId = row.record_id as string;
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
     "RDG edit row",
   );
+  await sortByHeader(page, "timeline", "timeline.summary");
+  await applyFilterChip(page, "timeline", "timeline.has_evidence", "false");
+  await changeGrouping(page, "timeline", "timeline.capture_state");
+  await expect(
+    page.getByTestId(
+      gridGroupRowTestId("timeline", "timeline.capture_state", "rough"),
+    ),
+  ).toBeVisible();
 
   await expectNoPageCrashDuring(page, async () => {
     for (const value of [

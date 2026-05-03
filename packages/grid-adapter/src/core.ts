@@ -169,6 +169,7 @@ export function buildGridPresentationRows<Row>({
 
   const presentationRows: GridPresentationRow<Row>[] = [];
   let activeGroupLabel: string | null = null;
+  const groupSegmentCounts = new Map<string, number>();
 
   for (const row of rows) {
     const nextGroupLabel = normalizeGroupLabel(
@@ -176,10 +177,13 @@ export function buildGridPresentationRows<Row>({
     );
     if (nextGroupLabel !== activeGroupLabel) {
       activeGroupLabel = nextGroupLabel;
+      const groupKeyValue = nextGroupLabel ?? "empty";
+      const groupSegment = groupSegmentCounts.get(groupKeyValue) ?? 0;
+      groupSegmentCounts.set(groupKeyValue, groupSegment + 1);
       presentationRows.push({
         groupBy,
         groupLabel: nextGroupLabel,
-        key: `group:${groupBy}:${nextGroupLabel ?? "empty"}`,
+        key: `group:${groupBy}:${groupKeyValue}:${groupSegment}`,
         kind: "group",
         testId:
           nextGroupLabel === null || getGroupRowTestId === undefined

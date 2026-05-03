@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,13 @@ import {
   writeSchedulerDryRun,
 } from "./lib/scheduler-runner.mjs";
 import { createRunnerContext } from "./lib/runner-context.mjs";
+import {
+  loadScheduleManifest,
+  normalizeNeeds,
+  parseResourceLimitOverride,
+  selectSingleSchedule,
+  validateTargetDependencyGraph,
+} from "./lib/scheduler-manifest.mjs";
 import { findTargetDescriptor } from "./lib/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -72,14 +79,7 @@ function parseArgs(argv) {
     }
     if (arg === "--resource-limit") {
       const value = argv[index + 1] ?? "";
-      const [resource, amountText, extra] = value.split("=");
-      if (!resource || !amountText || extra !== undefined) {
-        throw new Error(`--resource-limit expects <name=value>, got ${value}`);
-      }
-      const amount = Number.parseInt(amountText, 10);
-      if (!Number.isInteger(amount) || amount < 1) {
-        throw new Error(`--resource-limit ${resource} must be a positive integer`);
-      }
+      const [resource, amount] = parseResourceLimitOverride(value);
       options.resourceLimitOverrides.set(resource.trim(), amount);
       index += 1;
       continue;
@@ -90,18 +90,6 @@ function parseArgs(argv) {
     usage();
   }
   return options;
-}
-
-async function loadManifest(file) {
-  const manifestPath = path.isAbsolute(file) ? file : path.join(repoRoot, file);
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  if (manifest.schema_id !== supportedSchemaID) {
-    throw new Error(`${manifestPath} must declare schema_id ${supportedSchemaID}`);
-  }
-  if (!Array.isArray(manifest.schedules)) {
-    throw new Error(`${manifestPath} must declare schedules[]`);
-  }
-  return { manifest, manifestPath };
 }
 
 async function loadBrowserBatchStages() {
@@ -122,21 +110,6 @@ function normalizeResourceClaims(value, label, resourceLimits) {
   return normalizeSchedulerResourceClaims(value, label, resourceLimits, {
     scheduler: "service_backed",
     allowBounded: false,
-  });
-}
-
-function normalizeNeeds(value, label) {
-  if (value === undefined) {
-    return [];
-  }
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} needs must be an array`);
-  }
-  return value.map((entry) => {
-    if (typeof entry !== "string" || entry.trim() === "") {
-      throw new Error(`${label} needs entries must be non-empty strings`);
-    }
-    return entry.trim();
   });
 }
 
@@ -235,35 +208,8 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
   };
 }
 
-function assertAcyclic(target, sources) {
-  const byTarget = new Map(sources.map((source) => [source.target, source]));
-  const visiting = new Set();
-  const visited = new Set();
-  const visit = (source) => {
-    if (visited.has(source.target)) {
-      return;
-    }
-    if (visiting.has(source.target)) {
-      throw new Error(`schedule ${target} has a dependency cycle at ${source.target}`);
-    }
-    visiting.add(source.target);
-    for (const need of source.needs) {
-      visit(byTarget.get(need));
-    }
-    visiting.delete(source.target);
-    visited.add(source.target);
-  };
-  for (const source of sources) {
-    visit(source);
-  }
-}
-
 function findSchedule(manifest, target, browserStages, overrides) {
-  const matches = manifest.schedules.filter((schedule) => schedule?.target === target);
-  if (matches.length !== 1) {
-    throw new Error(`expected exactly one schedule for ${target}, found ${matches.length}`);
-  }
-  const [schedule] = matches;
+  const schedule = selectSingleSchedule(manifest, target, { label: "schedule" });
   if (!Array.isArray(schedule.work_unit_sources) || schedule.work_unit_sources.length === 0) {
     throw new Error(`schedule ${target} must declare at least one work_unit_sources entry`);
   }
@@ -280,26 +226,12 @@ function findSchedule(manifest, target, browserStages, overrides) {
   const sources = schedule.work_unit_sources.map((source, index) =>
     validateSource(target, source, index, resourceLimits, browserStages),
   );
-  const duplicateTargets = sources
-    .map((source) => source.target)
-    .filter((targetName, index, targets) => targets.indexOf(targetName) !== index);
-  if (duplicateTargets.length > 0) {
-    throw new Error(
+  validateTargetDependencyGraph(sources, {
+    scheduleLabel: `schedule ${target}`,
+    nodeKind: "source",
+    duplicateTargetsMessage: (duplicateTargets) =>
       `schedule ${target} contains duplicate work-unit source targets: ${duplicateTargets.join(", ")}`,
-    );
-  }
-  const sourceTargets = new Set(sources.map((source) => source.target));
-  for (const source of sources) {
-    for (const need of source.needs) {
-      if (!sourceTargets.has(need)) {
-        throw new Error(`schedule ${target} source ${source.target} depends on unknown target ${need}`);
-      }
-      if (need === source.target) {
-        throw new Error(`schedule ${target} source ${source.target} cannot depend on itself`);
-      }
-    }
-  }
-  assertAcyclic(target, sources);
+  });
   return {
     target,
     resourceLimits,
@@ -697,7 +629,10 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
 async function main() {
   const context = createRunnerContext({ repoRoot });
   const options = parseArgs(process.argv.slice(2));
-  const { manifest, manifestPath } = await loadManifest(options.manifest);
+  const { manifest, manifestPath } = await loadScheduleManifest(options.manifest, {
+    repoRoot,
+    schemaID: supportedSchemaID,
+  });
   const browserStages = await loadBrowserBatchStages();
   const schedule = expandSchedule(
     findSchedule(manifest, options.target, browserStages, options.resourceLimitOverrides),

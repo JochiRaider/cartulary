@@ -25,7 +25,7 @@ import {
   visibleFields,
 } from "@cartulary/view-contracts";
 import {
-  type ChangeEvent,
+  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   startTransition,
@@ -425,6 +425,10 @@ type TimelineFieldBinding =
   | TimelineCollectionBinding
   | TimelineReadonlyBinding;
 type TimelineScalarEditorSurface = "grid" | "inspector";
+const timelineScalarEditorSurfaces: readonly TimelineScalarEditorSurface[] = [
+  "grid",
+  "inspector",
+];
 
 const timelineScalarBindingIndex: Record<EditableField, TimelineScalarBinding> =
   {
@@ -1360,6 +1364,145 @@ function DraftRowCreateButton({
   );
 }
 
+function TimelineScalarEditor({
+  accessibleLabel,
+  committedValue,
+  controlId,
+  dataTestId,
+  draftValue,
+  field,
+  multiline,
+  onBlurCommit,
+  onDraftChange,
+  onFocusRecord,
+  onKeyCommit,
+  onPasteCommit,
+  registerInput,
+  rowKey,
+  rowRecordId,
+  surface,
+}: {
+  readonly accessibleLabel?: string | undefined;
+  readonly committedValue: string;
+  readonly controlId: string;
+  readonly dataTestId: string;
+  readonly draftValue?: string | undefined;
+  readonly field: keyof RowValues;
+  readonly multiline?: boolean | undefined;
+  readonly onBlurCommit: (
+    rowKey: string,
+    field: keyof RowValues,
+    surface: TimelineScalarEditorSurface,
+    value: string,
+  ) => void;
+  readonly onDraftChange: (
+    rowKey: string,
+    field: keyof RowValues,
+    surface: TimelineScalarEditorSurface,
+    value: string,
+  ) => void;
+  readonly onFocusRecord: (recordId: string) => void;
+  readonly onKeyCommit: (
+    event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+    rowKey: string,
+    field: keyof RowValues,
+    surface: TimelineScalarEditorSurface,
+  ) => void;
+  readonly onPasteCommit: (
+    rowKey: string,
+    field: keyof RowValues,
+    surface: TimelineScalarEditorSurface,
+  ) => void;
+  readonly registerInput: (
+    rowKey: string,
+    field: FocusFieldKey,
+    surface: TimelineScalarEditorSurface,
+    element: HTMLInputElement | HTMLTextAreaElement | null,
+  ) => void;
+  readonly rowKey: string;
+  readonly rowRecordId: string | null;
+  readonly surface: TimelineScalarEditorSurface;
+}) {
+  const displayValue = draftValue ?? committedValue;
+  const [editorValue, setEditorValue] = useState(displayValue);
+  const hasActiveEditRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasActiveEditRef.current) {
+      setEditorValue(displayValue);
+    }
+  }, [displayValue]);
+
+  const handleFocus = () => {
+    hasActiveEditRef.current = true;
+    if (rowRecordId) {
+      onFocusRecord(rowRecordId);
+    }
+  };
+  const handleChange = (value: string) => {
+    setEditorValue(value);
+    onDraftChange(rowKey, field, surface, value);
+  };
+  const handleBlur = (
+    event: ReactFocusEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    hasActiveEditRef.current = false;
+    onDraftChange(rowKey, field, surface, event.currentTarget.value);
+    onBlurCommit(rowKey, field, surface, event.currentTarget.value);
+  };
+  const handleKeyDown = (
+    event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    onKeyCommit(event, rowKey, field, surface);
+  };
+  const handlePaste = () => {
+    onPasteCommit(rowKey, field, surface);
+  };
+  const inputRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
+    registerInput(rowKey, field, surface, element);
+  };
+
+  if (multiline) {
+    return (
+      <textarea
+        aria-label={accessibleLabel}
+        data-testid={dataTestId}
+        id={controlId}
+        ref={inputRef}
+        rows={3}
+        style={textareaStyle}
+        value={editorValue}
+        onBlur={handleBlur}
+        onChange={(event) => {
+          handleChange(event.target.value);
+        }}
+        onFocus={handleFocus}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+      />
+    );
+  }
+
+  return (
+    <input
+      aria-label={accessibleLabel}
+      data-testid={dataTestId}
+      id={controlId}
+      ref={inputRef}
+      style={inputStyle}
+      type="text"
+      value={editorValue}
+      onBlur={handleBlur}
+      onChange={(event) => {
+        handleChange(event.target.value);
+      }}
+      onFocus={handleFocus}
+      onKeyDown={handleKeyDown}
+      onPaste={handlePaste}
+    />
+  );
+}
+
 export function TimelineWorkbook({
   incidentId,
   apiBase,
@@ -2171,33 +2314,7 @@ export function TimelineWorkbook({
     setSaveState(nextState);
   }, []);
 
-  const setRowValue = useCallback(
-    (rowKey: string, field: keyof RowValues, value: string) => {
-      setRows((current) => {
-        let changed = false;
-        const nextRows = current.map((row) =>
-          row.key === rowKey && row.values[field] !== value
-            ? {
-                ...row,
-                values: {
-                  ...row.values,
-                  [field]: value,
-                },
-              }
-            : row,
-        );
-        changed = nextRows.some((row, index) => row !== current[index]);
-        if (!changed) {
-          return current;
-        }
-        rowsRef.current = nextRows;
-        return nextRows;
-      });
-    },
-    [],
-  );
-
-  const setScalarEditorValue = useCallback(
+  const setScalarEditorDraftValue = useCallback(
     (
       rowKey: string,
       field: keyof RowValues,
@@ -2208,9 +2325,59 @@ export function TimelineWorkbook({
         inputFocusKey(rowKey, field, surface),
         value,
       );
-      setRowValue(rowKey, field, value);
     },
-    [setRowValue],
+    [],
+  );
+
+  const rowWithScalarEditorDrafts = useCallback(
+    (
+      row: WorkbookRow,
+      preferred?: {
+        readonly field: keyof RowValues;
+        readonly value: string | undefined;
+      },
+    ): WorkbookRow => {
+      let nextValues: RowValues | null = null;
+      for (const binding of Object.values(timelineScalarBindingIndex)) {
+        let draftValue =
+          preferred?.field === binding.key ? preferred.value : undefined;
+        if (draftValue === undefined) {
+          for (const surface of timelineScalarEditorSurfaces) {
+            const focusKey = inputFocusKey(row.key, binding.key, surface);
+            if (scalarDraftValuesRef.current.has(focusKey)) {
+              draftValue = scalarDraftValuesRef.current.get(focusKey);
+            }
+          }
+        }
+        if (
+          draftValue === undefined ||
+          draftValue === row.values[binding.key]
+        ) {
+          continue;
+        }
+        nextValues ??= { ...row.values };
+        nextValues[binding.key] = draftValue;
+      }
+      return nextValues === null ? row : { ...row, values: nextValues };
+    },
+    [],
+  );
+
+  const clearSubmittedScalarEditorDraftValuesForRow = useCallback(
+    (rowKey: string, submittedValues: RowValues) => {
+      for (const binding of Object.values(timelineScalarBindingIndex)) {
+        for (const surface of timelineScalarEditorSurfaces) {
+          const focusKey = inputFocusKey(rowKey, binding.key, surface);
+          if (
+            scalarDraftValuesRef.current.get(focusKey) ===
+            submittedValues[binding.key]
+          ) {
+            scalarDraftValuesRef.current.delete(focusKey);
+          }
+        }
+      }
+    },
+    [],
   );
 
   const registerInput = useCallback(
@@ -2246,18 +2413,13 @@ export function TimelineWorkbook({
       const rowSnapshot = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
       );
-      const effectiveCurrentValue =
-        scalarDraftValuesRef.current.get(focusKey) ?? currentValue;
       const snapshot =
-        effectiveCurrentValue === undefined || rowSnapshot === undefined
-          ? rowSnapshot
-          : {
-              ...rowSnapshot,
-              values: {
-                ...rowSnapshot.values,
-                [focusField]: effectiveCurrentValue,
-              },
-            };
+        rowSnapshot === undefined
+          ? undefined
+          : rowWithScalarEditorDrafts(rowSnapshot, {
+              field: focusField,
+              value: scalarDraftValuesRef.current.get(focusKey) ?? currentValue,
+            });
       if (!snapshot) {
         return;
       }
@@ -2276,7 +2438,6 @@ export function TimelineWorkbook({
 
       const mutationSignature = buildStableMutationSignature(payload);
       if (pendingSignaturesRef.current.get(rowKey) === mutationSignature) {
-        scalarDraftValuesRef.current.delete(focusKey);
         return;
       }
       const viewportContinuityToken = beginViewportContinuity(
@@ -2289,7 +2450,6 @@ export function TimelineWorkbook({
               kind: "scroll-only",
             },
       );
-      scalarDraftValuesRef.current.delete(focusKey);
       pendingSignaturesRef.current.set(rowKey, mutationSignature);
       beginSave();
 
@@ -2341,6 +2501,7 @@ export function TimelineWorkbook({
           const envelope = readEnvelope<TimelineMutationEnvelope>(
             result.payload,
           );
+          clearSubmittedScalarEditorDraftValuesForRow(rowKey, snapshot.values);
           applyRowMutation(rowKey, envelope, {
             continueOnFreshDraft:
               options.continueOnFreshDraft && snapshot.recordId === null,
@@ -2360,7 +2521,9 @@ export function TimelineWorkbook({
       incidentId,
       nextClientTxnId,
       resolvePendingSocketTxn,
+      clearSubmittedScalarEditorDraftValuesForRow,
       trackPendingSocketTxn,
+      rowWithScalarEditorDrafts,
     ],
   );
 
@@ -2379,7 +2542,7 @@ export function TimelineWorkbook({
       }
       const draftValue =
         draftValueOverride ?? snapshot.collectionDrafts[focusField];
-      const effectiveSnapshot =
+      const collectionSnapshot =
         draftValueOverride === undefined
           ? snapshot
           : {
@@ -2389,6 +2552,7 @@ export function TimelineWorkbook({
                 [focusField]: draftValue,
               },
             };
+      const effectiveSnapshot = rowWithScalarEditorDrafts(collectionSnapshot);
       const clientTxnId = nextClientTxnId();
       const payload =
         snapshot.recordId === null
@@ -2458,6 +2622,7 @@ export function TimelineWorkbook({
       incidentId,
       nextClientTxnId,
       resolvePendingSocketTxn,
+      rowWithScalarEditorDrafts,
       trackPendingSocketTxn,
     ],
   );
@@ -2727,6 +2892,9 @@ export function TimelineWorkbook({
         const editor = rowInputRefs.current.get(
           inputFocusKey(rowKey, focusField, surface),
         );
+        if (editor) {
+          setScalarEditorDraftValue(rowKey, focusField, surface, editor.value);
+        }
         queueScalarSave(
           rowKey,
           focusField,
@@ -2739,7 +2907,7 @@ export function TimelineWorkbook({
         );
       }, 0);
     },
-    [queueScalarSave],
+    [queueScalarSave, setScalarEditorDraftValue],
   );
 
   const handleSelectRow = useCallback((recordId: string) => {
@@ -2807,86 +2975,27 @@ export function TimelineWorkbook({
           : rowCellTestId(row.recordId, binding.key);
       const dataTestId =
         surface === "grid" ? gridDataTestId : `${gridDataTestId}-inspector`;
-      if (binding.multiline) {
-        return (
-          <textarea
-            aria-label={gridAccessibleLabel}
-            data-testid={dataTestId}
-            id={controlId}
-            ref={(element) => {
-              registerInput(row.key, binding.key, surface, element);
-            }}
-            rows={3}
-            style={textareaStyle}
-            value={row.values[binding.key]}
-            onBlur={(event) => {
-              handleBlur(
-                row.key,
-                binding.key,
-                surface,
-                event.currentTarget.value,
-              );
-            }}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-              setScalarEditorValue(
-                row.key,
-                binding.key,
-                surface,
-                event.target.value,
-              );
-            }}
-            onFocus={() => {
-              if (row.recordId) {
-                handleSelectRow(row.recordId);
-              }
-            }}
-            onKeyDown={(event) => {
-              handleKeyDown(event, row.key, binding.key, surface);
-            }}
-            onPaste={() => {
-              handlePaste(row.key, binding.key, surface);
-            }}
-          />
-        );
-      }
       return (
-        <input
-          aria-label={gridAccessibleLabel}
-          data-testid={dataTestId}
-          id={controlId}
-          ref={(element) => {
-            registerInput(row.key, binding.key, surface, element);
-          }}
-          style={inputStyle}
-          type="text"
-          value={row.values[binding.key]}
-          onBlur={(event) => {
-            handleBlur(
-              row.key,
-              binding.key,
-              surface,
-              event.currentTarget.value,
-            );
-          }}
-          onChange={(event: ChangeEvent<HTMLInputElement>) => {
-            setScalarEditorValue(
-              row.key,
-              binding.key,
-              surface,
-              event.target.value,
-            );
-          }}
-          onFocus={() => {
-            if (row.recordId) {
-              handleSelectRow(row.recordId);
-            }
-          }}
-          onKeyDown={(event) => {
-            handleKeyDown(event, row.key, binding.key, surface);
-          }}
-          onPaste={() => {
-            handlePaste(row.key, binding.key, surface);
-          }}
+        <TimelineScalarEditor
+          key={inputFocusKey(row.key, binding.key, surface)}
+          accessibleLabel={gridAccessibleLabel}
+          committedValue={row.values[binding.key]}
+          controlId={controlId}
+          dataTestId={dataTestId}
+          draftValue={scalarDraftValuesRef.current.get(
+            inputFocusKey(row.key, binding.key, surface),
+          )}
+          field={binding.key}
+          multiline={binding.multiline}
+          registerInput={registerInput}
+          rowKey={row.key}
+          rowRecordId={row.recordId}
+          surface={surface}
+          onBlurCommit={handleBlur}
+          onDraftChange={setScalarEditorDraftValue}
+          onFocusRecord={handleSelectRow}
+          onKeyCommit={handleKeyDown}
+          onPasteCommit={handlePaste}
         />
       );
     },
@@ -2896,7 +3005,7 @@ export function TimelineWorkbook({
       handlePaste,
       handleSelectRow,
       registerInput,
-      setScalarEditorValue,
+      setScalarEditorDraftValue,
       timelineBindingLabel,
     ],
   );

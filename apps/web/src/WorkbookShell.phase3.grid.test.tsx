@@ -3,6 +3,8 @@ import {
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
+  gridGroupingSelectTestId,
+  gridGroupRowTestId,
   gridSortHeaderTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
@@ -25,7 +27,6 @@ import {
   gridScalarInput,
   installTimelineWorkbookTestGlobals,
   requiredGridRow,
-  setInputValueWithoutEvent,
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
@@ -380,6 +381,28 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "rough",
+            hasEvidence: false,
+          }),
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 7,
+            summary: "Zulu",
+            captureState: "rough",
+            hasEvidence: false,
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-grid-3",
         row: timelineRow({
@@ -433,21 +456,49 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
 
+    fireEvent.change(screen.getByTestId(gridGroupingSelectTestId("timeline")), {
+      target: { value: "timeline.capture_state" },
+    });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+    expect(extractTimelineJSONBody(fetchMock, 3)).toEqual({
+      filters: [
+        {
+          arg: { value: false },
+          field_key: "timeline.has_evidence",
+          op: "eq",
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [
+        { direction: "asc", field_key: "timeline.capture_state" },
+        { direction: "asc", field_key: "timeline.summary" },
+      ],
+    });
+    expect(
+      screen.getByTestId(
+        gridGroupRowTestId("timeline", "timeline.capture_state", "rough"),
+      ),
+    ).toBeTruthy();
+    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
+
     const summaryInput = gridScalarInput(
       container,
       "record-1",
       "summary",
     ) as HTMLInputElement;
-    setInputValueWithoutEvent(summaryInput, "Filtered anchor");
+    await changeInputValue(summaryInput, "Filtered anchor");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     fireEvent.blur(summaryInput);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(fetchMock).toHaveBeenCalledTimes(5);
     });
     expect(
-      String(requireFetchCall(fetchMock, 3, "timeline patch request #3")[0]),
+      String(requireFetchCall(fetchMock, 4, "timeline patch request #4")[0]),
     ).toContain("/api/v1/records/record-1");
-    expect(extractTimelinePatchBody(fetchMock, 3)).toMatchObject({
+    expect(extractTimelinePatchBody(fetchMock, 4)).toMatchObject({
       base_row_version: 7,
       changes: [
         {

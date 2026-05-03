@@ -286,8 +286,7 @@ export async function changeInputValue(
   input: HTMLInputElement | HTMLTextAreaElement,
   value: string,
 ) {
-  setInputValueWithoutEvent(input, value);
-  fireEvent.input(input, { bubbles: true });
+  fireEvent.change(input, { target: { value } });
   await waitFor(() => {
     if (input.value !== value) {
       throw new Error(`Expected input value ${value}, got ${input.value}.`);

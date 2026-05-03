@@ -213,10 +213,28 @@ export async function holdBrowserApiRequest(
     },
     dispose: async () => {
       releaseHold?.();
-      await page.unroute(routePattern, routeHandler);
+      if (page.isClosed()) {
+        return;
+      }
+      try {
+        await page.unroute(routePattern, routeHandler);
+      } catch (error: unknown) {
+        if (!isClosedPageRouteCleanupError(error)) {
+          throw error;
+        }
+      }
     },
     hitCount: () => matchingHitCount,
   };
+}
+
+function isClosedPageRouteCleanupError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("Target page, context or browser has been closed") ||
+    message.includes("Page closed") ||
+    message.includes("BrowserContext closed")
+  );
 }
 
 export async function applyStorageState(
