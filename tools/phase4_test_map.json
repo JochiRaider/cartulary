@@ -11,7 +11,7 @@
       "`backend-unit` selects authoritative `U-4-*` decoder rows through `cartulary-runner.mjs go-target backend-unit`, with target-plan selection constrained by the Phase 4 manifest and `backend_unit` execution dependency.",
       "`backend-store` selects authoritative store-backed `U-4-*` rows through `cartulary-runner.mjs go-target backend-store`, with target-plan selection constrained by the Phase 4 manifest and `backend_store` execution dependency.",
       "`backend-integration` selects authoritative `I-4-*` rows through `cartulary-runner.mjs go-target backend-integration`, with target-plan selection constrained by the Phase 4 manifest and `backend_integration` execution dependency.",
-      "`tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 4: `browser-e2e-webserver-backed` carries authoritative `E-4-*` rows through duration-balanced Playwright spec shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. Service-backed scheduling runs isolated browser evidence as leaf targets while direct `browser-e2e` remains the local aggregate for stateful, measurement, and visual browser batches."
+      "`tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 4: `browser-e2e-webserver-backed` carries authoritative `E-4-*` rows through duration-balanced Playwright manifest-entry shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. Service-backed scheduling runs isolated browser evidence as leaf targets while direct `browser-e2e` remains the local aggregate for stateful, measurement, and visual browser batches."
     ],
     "support_execution_extras": [
       "`apps/web/src/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers."
@@ -431,7 +431,7 @@
       "id": "E-4-01",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.mentions.spec.ts",
+      "file": "apps/web/e2e/phase4.mentions.resolve.spec.ts",
       "title": "E-4-01 resolves and creates entities from Timeline mentions in the inspector",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
@@ -442,7 +442,7 @@
       "id": "E-4-02",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.mentions.spec.ts",
+      "file": "apps/web/e2e/phase4.mentions.lifecycle.spec.ts",
       "title": "E-4-02 dismisses and ordinarily restores a mention without relinking",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
@@ -475,7 +475,7 @@
       "id": "E-4-05",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.workbook.spec.ts",
+      "file": "apps/web/e2e/phase4.workbook.assessments.spec.ts",
       "title": "E-4-05 creates append-only assessment history through the workbook UI",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
@@ -486,7 +486,7 @@
       "id": "E-4-06",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase4.workbook.spec.ts",
+      "file": "apps/web/e2e/phase4.workbook.generic.spec.ts",
       "title": "E-4-06 creates and edits required workbook mutation surfaces through typed generic controls",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",

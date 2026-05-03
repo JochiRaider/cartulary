@@ -83,6 +83,9 @@ require_browser_batch_target() {
   if ! text_contains "$block" "PLAYWRIGHT_WORKERS=$workers"; then
     fail "$target must set PLAYWRIGHT_WORKERS=$workers"
   fi
+  if ! text_contains "$block" 'BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)"'; then
+    fail "$target must forward BROWSER_E2E_FUNCTIONAL_SHARDS"
+  fi
   if [[ "$service_wrapper" == "test-services" ]] && ! text_contains "$block" '$(TEST_SERVICES_BIN) run --'; then
     fail "$target must wrap the browser target through test services"
   fi
@@ -102,6 +105,9 @@ require_browser_batch_target() {
   fi
   if [[ "$dry_run_output" != *"PLAYWRIGHT_WORKERS=$dry_workers"* ]]; then
     fail "$target dry-run must set PLAYWRIGHT_WORKERS=$dry_workers"
+  fi
+  if [[ "$dry_run_output" != *"BROWSER_E2E_FUNCTIONAL_SHARDS="* ]]; then
+    fail "$target dry-run must forward BROWSER_E2E_FUNCTIONAL_SHARDS"
   fi
   if [[ "$dry_run_output" != *"./scripts/run-browser-e2e-target.sh $stage"* ]]; then
     fail "$target dry-run must run browser target wrapper stage $stage"
@@ -751,7 +757,7 @@ fi
 if ! grep -Fq '"execution_dependency": "browser_support"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare browser_support manifest selection for support groups"
 fi
-if ! grep -Fq 'cartulary.browser_e2e_duration_baselines.v1' "$browser_duration_baselines"; then
+if ! grep -Fq 'cartulary.browser_e2e_duration_baselines.v2' "$browser_duration_baselines"; then
   fail "browser E2E duration baselines must declare their schema"
 fi
 if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
@@ -759,6 +765,9 @@ if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
 fi
 if ! grep -Fq 'shard_target_ms' "$browser_duration_baselines"; then
   fail "browser E2E duration baselines must declare shard_target_ms"
+fi
+if ! grep -Fq 'default_entry_weight_ms' "$browser_duration_baselines"; then
+  fail "browser E2E duration baselines must declare default_entry_weight_ms"
 fi
 if ! grep -Fq '"name": "isolated"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must define the isolated stage"
@@ -827,8 +836,8 @@ fi
 if ! grep -Fq 'merge-reports' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must merge functional shard reports before phase summaries"
 fi
-if ! grep -Fq 'playwright_parallelism' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must cap browser spec shard parallelism by PLAYWRIGHT_WORKERS"
+if ! grep -Fq 'functional_shard_limit' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must cap browser entry shard parallelism by BROWSER_E2E_FUNCTIONAL_SHARDS"
 fi
 if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
   fail "scripts/lib/browser-shard-plan.mjs must select authoritative browser_functional manifest rows"

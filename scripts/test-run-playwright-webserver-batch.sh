@@ -263,6 +263,7 @@ success_output="$(
   CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="batch-success" \
+  BROWSER_E2E_FUNCTIONAL_SHARDS=2 \
   NODE_BIN="${NODE:-node}" \
   FAKE_PLAYWRIGHT_INVOCATIONS="$success_invocations" \
     "$HELPER" webserver-backed -- "$fake_playwright"
@@ -288,19 +289,21 @@ for (const line of functional) {
     throw new Error(`expected functional shard worker_count=2, got ${line}`);
   }
 }
-if (!functional.some((line) => line.includes("phase4.workbook.spec.ts"))) {
-  throw new Error("expected a functional shard containing phase4.workbook.spec.ts");
+if (!functional.some((line) => line.includes("phase4.workbook.generic.spec.ts"))) {
+  throw new Error("expected a functional shard containing phase4.workbook.generic.spec.ts");
 }
-if (!functional.some((line) => line.includes("phase4.mentions.spec.ts"))) {
-  throw new Error("expected a functional shard containing phase4.mentions.spec.ts");
+if (!functional.some((line) => line.includes("phase4.mentions.resolve.spec.ts"))) {
+  throw new Error("expected a functional shard containing phase4.mentions.resolve.spec.ts");
 }
 if (functional.some((line) =>
   line.includes("phase4.autoresolve.spec.ts") &&
-  line.includes("phase4.mentions.spec.ts") &&
+  line.includes("phase4.mentions.lifecycle.spec.ts") &&
+  line.includes("phase4.mentions.resolve.spec.ts") &&
   line.includes("phase4.merge.spec.ts") &&
-  line.includes("phase4.workbook.spec.ts")
+  line.includes("phase4.workbook.assessments.spec.ts") &&
+  line.includes("phase4.workbook.generic.spec.ts")
 )) {
-  throw new Error("phase4 specs were not split across duration-balanced shards");
+  throw new Error("phase4 entries were not split across duration-balanced shards");
 }
 NODE
 success_root="$tmp_dir/results/batch-success/adhoc"
@@ -323,9 +326,13 @@ phase4_timing="$success_root/browser-e2e-functional-phase4-authoritative/playwri
 assert_equals "$(json_field "$phase1_timing" "source")" "playwright_result_timestamps" "phase1 timing source"
 assert_equals "$(json_field "$phase1_timing" "phase")" "phase1" "phase1 timing phase"
 assert_equals "$(json_field "$phase4_timing" "files.0.file")" "apps/web/e2e/phase4.autoresolve.spec.ts" "phase4 timing first file"
-assert_equals "$(json_field "$phase4_timing" "files.1.file")" "apps/web/e2e/phase4.mentions.spec.ts" "phase4 timing second file"
-assert_equals "$(json_field "$phase4_timing" "files.2.file")" "apps/web/e2e/phase4.merge.spec.ts" "phase4 timing third file"
-assert_equals "$(json_field "$phase4_timing" "files.3.file")" "apps/web/e2e/phase4.workbook.spec.ts" "phase4 timing fourth file"
+assert_equals "$(json_field "$phase4_timing" "files.1.file")" "apps/web/e2e/phase4.mentions.lifecycle.spec.ts" "phase4 timing second file"
+assert_equals "$(json_field "$phase4_timing" "files.2.file")" "apps/web/e2e/phase4.mentions.resolve.spec.ts" "phase4 timing third file"
+assert_equals "$(json_field "$phase4_timing" "files.3.file")" "apps/web/e2e/phase4.merge.spec.ts" "phase4 timing fourth file"
+assert_equals "$(json_field "$phase4_timing" "files.4.file")" "apps/web/e2e/phase4.workbook.assessments.spec.ts" "phase4 timing fifth file"
+assert_equals "$(json_field "$phase4_timing" "files.5.file")" "apps/web/e2e/phase4.workbook.generic.spec.ts" "phase4 timing sixth file"
+assert_equals "$(json_field "$phase4_timing" "entries.0.id")" "E-4-01" "phase4 timing first entry"
+assert_equals "$(json_field "$phase4_timing" "entries.5.id")" "E-4-06" "phase4 timing sixth entry"
 NODE_BIN="${NODE:-node}" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" CARTULARY_TEST_RUN_ID="batch-success" \
   "$ROOT_DIR/scripts/lib/test-output.sh" target-summary adhoc pass >/dev/null
 success_target_summary="$success_root/target-summary.json"
@@ -340,12 +347,13 @@ phase_filter_output="$(
   CARTULARY_PHASE_SLICE_PHASE=phase4 \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="batch-phase-filter" \
+  BROWSER_E2E_FUNCTIONAL_SHARDS=2 \
   NODE_BIN="${NODE:-node}" \
   FAKE_PLAYWRIGHT_INVOCATIONS="$phase_filter_invocations" \
     "$HELPER" webserver-backed -- "$fake_playwright"
 )"
 assert_empty "$phase_filter_output" "playwright webserver batch phase-filter success"
-assert_contains "$(cat "$phase_filter_invocations")" "phase4.workbook.spec.ts" "phase-filter functional shard includes phase4 file"
+assert_contains "$(cat "$phase_filter_invocations")" "phase4.workbook.generic.spec.ts" "phase-filter functional shard includes phase4 file"
 assert_not_contains "$(cat "$phase_filter_invocations")" "phase2.spec.ts" "phase-filter functional shard excludes phase2 file"
 phase_filter_root="$tmp_dir/results/batch-phase-filter/adhoc"
 phase_filter_phase4_summary="$phase_filter_root/browser-e2e-functional-phase4-authoritative/phase-summary.json"
@@ -362,6 +370,7 @@ support_failure_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="batch-support-failure" \
+  BROWSER_E2E_FUNCTIONAL_SHARDS=2 \
   NODE_BIN="${NODE:-node}" \
   FAKE_PLAYWRIGHT_MODE=support-failure \
     "$HELPER" webserver-backed -- "$fake_playwright" \
@@ -383,6 +392,7 @@ mismatch_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="batch-mismatch" \
+  BROWSER_E2E_FUNCTIONAL_SHARDS=2 \
   NODE_BIN="${NODE:-node}" \
   FAKE_PLAYWRIGHT_MODE=mismatch \
     "$HELPER" webserver-backed -- "$fake_playwright" \
@@ -442,6 +452,7 @@ summary_ownership_output="$(
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="summary-ownership" \
   CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+  BROWSER_E2E_FUNCTIONAL_SHARDS=2 \
   NODE_BIN="${NODE:-node}" \
   PNPM="$fake_pnpm" \
     "$batch_runner" webserver-backed --defer-summary 2>/dev/null

@@ -250,12 +250,25 @@ JSON
 
 cat >"$tmp_dir/baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_duration_baselines.v1",
-  "default_spec_weight_ms": 7000,
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v2",
+  "default_entry_weight_ms": 7000,
   "shard_target_ms": 8000,
-  "specs": {
-    "apps/web/e2e/alpha.spec.ts": 30000,
-    "apps/web/e2e/beta.spec.ts": 5000
+  "entries": {
+    "E-1-01": {
+      "file": "apps/web/e2e/alpha.spec.ts",
+      "title": "E-1-01 alpha one",
+      "weight_ms": 30000
+    },
+    "E-1-02": {
+      "file": "apps/web/e2e/alpha.spec.ts",
+      "title": "E-1-02 alpha two",
+      "weight_ms": 20000
+    },
+    "E-1-03": {
+      "file": "apps/web/e2e/beta.spec.ts",
+      "title": "E-1-03 beta",
+      "weight_ms": 5000
+    }
   }
 }
 JSON
@@ -265,20 +278,19 @@ node_cmd="${NODE:-node}"
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/plan.json"
 
-assert_equals "$(json_field "$tmp_dir/plan.json" "spec_count")" "4" "spec count collapses duplicate manifest rows"
+assert_equals "$(json_field "$tmp_dir/plan.json" "entry_count")" "5" "entry count keeps duplicate-file manifest rows"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shard_count")" "3" "shard count respects max and target weight"
-assert_equals "$(json_field "$tmp_dir/plan.json" "specs.0.file")" "apps/web/e2e/alpha.spec.ts" "deterministic spec ordering"
-assert_equals "$(json_field "$tmp_dir/plan.json" "specs.2.weight_ms")" "7000" "missing baseline uses default weight"
-assert_equals "$(json_field "$tmp_dir/plan.json" "specs.3.file")" "apps/web/e2e/gamma.spec.ts" "numeric future phase discovery keeps deterministic files"
-assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.files")" "apps/web/e2e/alpha.spec.ts" "long spec gets first stable shard"
-assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.0.id")" "E-1-01" "duplicate spec keeps first row"
-assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.1.id")" "E-1-02" "duplicate spec keeps second row"
+assert_equals "$(json_field "$tmp_dir/plan.json" "entries.0.file")" "apps/web/e2e/alpha.spec.ts" "deterministic entry ordering"
+assert_equals "$(json_field "$tmp_dir/plan.json" "entries.3.weight_ms")" "7000" "missing baseline uses default weight"
+assert_equals "$(json_field "$tmp_dir/plan.json" "entries.4.file")" "apps/web/e2e/future.spec.ts" "numeric future phase discovery keeps deterministic files"
+assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.0.id")" "E-1-01" "largest same-file entry gets first stable shard"
+assert_equals "$(json_field "$tmp_dir/plan.json" "shards.1.entries.0.id")" "E-1-02" "same-file entries can split across shards"
 
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --phase phase2 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/phase2-plan.json"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "phase")" "phase2" "phase-filtered plan records selected phase"
-assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "spec_count")" "1" "phase-filtered plan keeps only selected functional specs"
-assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "specs.0.file")" "apps/web/e2e/gamma.spec.ts" "phase-filtered plan selects phase2 functional file"
+assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "entry_count")" "1" "phase-filtered plan keeps only selected functional entries"
+assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "entries.0.file")" "apps/web/e2e/gamma.spec.ts" "phase-filtered plan selects phase2 functional file"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "shards.0.entries.0.id")" "E-2-01" "phase-filtered plan selects phase2 row"
 
 "$node_cmd" -e '
@@ -324,22 +336,41 @@ cat >"$timing_dir/phase-summary.json" <<'JSON'
 JSON
 cat >"$timing_dir/playwright-timing.json" <<'JSON'
 {
-  "files": [
+  "entries": [
     {
+      "id": "E-1-01",
+      "phase": "phase1",
       "file": "apps/web/e2e/alpha.spec.ts",
+      "title": "E-1-01 alpha one",
       "wall_duration_ms": 32000
     },
     {
+      "id": "E-1-02",
+      "phase": "phase1",
+      "file": "apps/web/e2e/alpha.spec.ts",
+      "title": "E-1-02 alpha two",
+      "wall_duration_ms": 21000
+    },
+    {
+      "id": "E-1-03",
+      "phase": "phase1",
       "file": "e2e/beta.spec.ts",
+      "title": "E-1-03 beta",
       "wall_duration_ms": 9000
     },
     {
-      "file": "apps/web/e2e/future.spec.ts",
-      "wall_duration_ms": 11000
+      "id": "E-2-01",
+      "phase": "phase2",
+      "file": "apps/web/e2e/gamma.spec.ts",
+      "title": "E-2-01 gamma",
+      "wall_duration_ms": 7000
     },
     {
-      "file": "apps/web/e2e/gamma.spec.ts",
-      "wall_duration_ms": 7000
+      "id": "E-12-01",
+      "phase": "phase12",
+      "file": "apps/web/e2e/future.spec.ts",
+      "title": "E-12-01 future phase functional browser row",
+      "wall_duration_ms": 11000
     }
   ]
 }
@@ -353,9 +384,12 @@ cat >"$failed_timing_dir/phase-summary.json" <<'JSON'
 JSON
 cat >"$failed_timing_dir/playwright-timing.json" <<'JSON'
 {
-  "files": [
+  "entries": [
     {
+      "id": "E-1-01",
+      "phase": "phase1",
       "file": "apps/web/e2e/alpha.spec.ts",
+      "title": "E-1-01 alpha one",
       "wall_duration_ms": 99999
     }
   ]
@@ -364,41 +398,43 @@ JSON
 
 cat >"$tmp_dir/browser-refresh-baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_duration_baselines.v1",
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v2",
   "note": "old note",
-  "default_spec_weight_ms": 7000,
+  "default_entry_weight_ms": 7000,
   "shard_target_ms": 8000,
   "retained_metadata": {
     "owner": "browser"
   },
-  "specs": {
-    "apps/web/e2e/retired.spec.ts": 1234
-  }
+  "entries": {}
 }
 JSON
 refresh_output="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
     "$node_cmd" "$PLANNER" update-baselines --baseline-file "$tmp_dir/browser-refresh-baseline.json" "$browser_results"
 )"
-assert_contains "$refresh_output" "updated 4 browser E2E duration baselines" "browser baseline refresh output"
+assert_contains "$refresh_output" "updated 5 browser E2E entry duration baselines" "browser baseline refresh output"
 "$node_cmd" - "$tmp_dir/browser-refresh-baseline.json" <<'EOF'
 const fs = require("node:fs");
 const [baselineFile] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
-const specKeys = Object.keys(baseline.specs);
+const entryKeys = Object.keys(baseline.entries);
 const expected = [
-  "apps/web/e2e/alpha.spec.ts",
-  "apps/web/e2e/beta.spec.ts",
-  "apps/web/e2e/future.spec.ts",
-  "apps/web/e2e/gamma.spec.ts",
+  "E-1-01",
+  "E-1-02",
+  "E-1-03",
+  "E-12-01",
+  "E-2-01",
 ];
-if (JSON.stringify(specKeys) !== JSON.stringify(expected)) {
-  throw new Error(`expected sorted refreshed specs ${JSON.stringify(expected)}, got ${JSON.stringify(specKeys)}`);
+if (JSON.stringify(entryKeys) !== JSON.stringify(expected)) {
+  throw new Error(`expected sorted refreshed entries ${JSON.stringify(expected)}, got ${JSON.stringify(entryKeys)}`);
 }
-if (baseline.specs["apps/web/e2e/alpha.spec.ts"] !== 32000) {
-  throw new Error(`failed timing artifact leaked into refresh, got alpha=${baseline.specs["apps/web/e2e/alpha.spec.ts"]}`);
+if (baseline.entries["E-1-01"].weight_ms !== 32000) {
+  throw new Error(`failed timing artifact leaked into refresh, got E-1-01=${baseline.entries["E-1-01"].weight_ms}`);
 }
-if (baseline.default_spec_weight_ms !== 7000 || baseline.shard_target_ms !== 8000) {
+if (baseline.entries["E-1-01"].file !== "apps/web/e2e/alpha.spec.ts" || baseline.entries["E-1-01"].title !== "E-1-01 alpha one") {
+  throw new Error("baseline refresh must retain manifest file/title metadata");
+}
+if (baseline.default_entry_weight_ms !== 7000 || baseline.shard_target_ms !== 8000) {
   throw new Error("baseline refresh must preserve durable weighting metadata");
 }
 if (baseline.retained_metadata?.owner !== "browser") {
@@ -411,10 +447,10 @@ EOF
 
 cat >"$tmp_dir/browser-make-baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_duration_baselines.v1",
-  "default_spec_weight_ms": 7000,
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v2",
+  "default_entry_weight_ms": 7000,
   "shard_target_ms": 8000,
-  "specs": {}
+  "entries": {}
 }
 JSON
 make_refresh_output="$(
@@ -424,7 +460,7 @@ make_refresh_output="$(
     "${MAKE:-make}" --no-print-directory -C "$ROOT_DIR" browser-e2e-duration-baselines 2>&1
 )"
 assert_contains "$make_refresh_output" "[RESULT] target=browser-e2e-duration-baselines status=pass" "make browser baseline refresh summary"
-assert_contains "$(tool_logs_from_result "$make_refresh_output")" "updated 4 browser E2E duration baselines" "make browser baseline refresh output"
+assert_contains "$(tool_logs_from_result "$make_refresh_output")" "updated 5 browser E2E entry duration baselines" "make browser baseline refresh output"
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" check-baseline-drift --baseline-file "$tmp_dir/browser-make-baseline.json" "$browser_results" >/dev/null
 
@@ -434,7 +470,7 @@ cp "$tmp_dir/browser-make-baseline.json" "$tolerated_baseline"
 const fs = require("node:fs");
 const [baselineFile] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
-baseline.specs["apps/web/e2e/alpha.spec.ts"] = 13000;
+baseline.entries["E-1-01"].weight_ms = 13000;
 fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
@@ -446,7 +482,7 @@ cp "$tmp_dir/browser-make-baseline.json" "$underplanned_baseline"
 const fs = require("node:fs");
 const [baselineFile] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
-baseline.specs["apps/web/e2e/alpha.spec.ts"] = 1000;
+baseline.entries["E-1-01"].weight_ms = 1000;
 fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 set +e
@@ -459,7 +495,7 @@ set -e
 if [[ "$underplanned_status" -eq 0 ]]; then
   fail "browser underplanned drift should fail"
 fi
-assert_contains "$underplanned_output" "underplanned file=apps/web/e2e/alpha.spec.ts" "browser underplanned drift"
+assert_contains "$underplanned_output" "underplanned id=E-1-01 file=apps/web/e2e/alpha.spec.ts" "browser underplanned drift"
 assert_contains "$underplanned_output" "make browser-e2e-duration-baselines RESULTS_DIR=" "browser drift refresh guidance"
 
 overplanned_baseline="$tmp_dir/browser-overplanned.json"
@@ -468,7 +504,7 @@ cp "$tmp_dir/browser-make-baseline.json" "$overplanned_baseline"
 const fs = require("node:fs");
 const [baselineFile] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
-baseline.specs["apps/web/e2e/gamma.spec.ts"] = 50000;
+baseline.entries["E-2-01"].weight_ms = 50000;
 fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 set +e
@@ -481,7 +517,7 @@ set -e
 if [[ "$overplanned_status" -eq 0 ]]; then
   fail "browser overplanned drift should fail"
 fi
-assert_contains "$overplanned_output" "overplanned file=apps/web/e2e/gamma.spec.ts" "browser overplanned drift"
+assert_contains "$overplanned_output" "overplanned id=E-2-01 file=apps/web/e2e/gamma.spec.ts" "browser overplanned drift"
 
 missing_results="$tmp_dir/browser-missing-results"
 missing_timing_dir="$missing_results/browser-e2e-webserver-backed/browser-e2e-functional-authoritative"
@@ -489,9 +525,12 @@ mkdir -p "$missing_timing_dir"
 cp "$timing_dir/phase-summary.json" "$missing_timing_dir/phase-summary.json"
 cat >"$missing_timing_dir/playwright-timing.json" <<'JSON'
 {
-  "files": [
+  "entries": [
     {
+      "id": "E-1-01",
+      "phase": "phase1",
       "file": "apps/web/e2e/alpha.spec.ts",
+      "title": "E-1-01 alpha one",
       "wall_duration_ms": 32000
     }
   ]
@@ -507,4 +546,4 @@ set -e
 if [[ "$missing_refresh_status" -eq 0 ]]; then
   fail "browser baseline refresh should require all authoritative functional specs"
 fi
-assert_contains "$missing_refresh_output" "missing observed browser spec timings:" "browser missing observed refresh output"
+assert_contains "$missing_refresh_output" "missing observed browser entry timings:" "browser missing observed refresh output"

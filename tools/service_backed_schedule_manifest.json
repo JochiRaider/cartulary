@@ -55,7 +55,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 14504,
+          "weight": 6739,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -69,7 +69,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 45961,
+          "weight": 33121,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -89,7 +89,7 @@
             "backend-integration-support",
             "backend-process"
           ],
-          "weight": 10000,
+          "weight": 10167,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -109,7 +109,7 @@
             "backend-integration-support",
             "backend-process"
           ],
-          "weight": 10000,
+          "weight": 11098,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -129,7 +129,7 @@
             "backend-integration-support",
             "backend-process"
           ],
-          "weight": 10000,
+          "weight": 11143,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -183,7 +183,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 14504,
+          "weight": 6739,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -242,7 +242,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 14504,
+          "weight": 6739,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -256,7 +256,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 45961,
+          "weight": 33121,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -276,7 +276,7 @@
             "backend-integration-support",
             "backend-process"
           ],
-          "weight": 10000,
+          "weight": 10167,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -296,7 +296,7 @@
             "backend-integration-support",
             "backend-process"
           ],
-          "weight": 10000,
+          "weight": 11098,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -316,7 +316,7 @@
             "backend-integration-support",
             "backend-process"
           ],
-          "weight": 10000,
+          "weight": 11143,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,

@@ -51,13 +51,27 @@ output_dir="${batch_dir}/playwright-output"
 shard_plan="${batch_dir}/functional-shards.json"
 phase_filter="${CARTULARY_PHASE_SLICE_PHASE:-}"
 
-playwright_parallelism="${PLAYWRIGHT_WORKERS:-2}"
-if [[ ! "$playwright_parallelism" =~ ^[0-9]+$ ]] || (( playwright_parallelism < 1 )); then
-  playwright_parallelism=1
-fi
+resolve_functional_shard_limit() {
+  local configured="${BROWSER_E2E_FUNCTIONAL_SHARDS:-auto}"
+  if [[ -z "$configured" || "$configured" == "auto" ]]; then
+    PLAYWRIGHT_WORKERS="${PLAYWRIGHT_WORKERS:-2}" "$node_bin" <<'EOF'
+const workers = Number.parseInt(process.env.PLAYWRIGHT_WORKERS ?? "2", 10);
+process.stdout.write(String(Number.isInteger(workers) && workers > 0 ? workers : 2));
+EOF
+    return 0
+  fi
+  if [[ "$configured" =~ ^[0-9]+$ ]] && (( configured >= 1 )); then
+    printf '%s\n' "$configured"
+    return 0
+  fi
+  echo "BROWSER_E2E_FUNCTIONAL_SHARDS must be auto or a positive integer" >&2
+  return 2
+}
+
+functional_shard_limit="$(resolve_functional_shard_limit)"
 
 if [[ "$mode" != "support" ]]; then
-  shard_plan_command=("$node_bin" "$shard_plan_script" plan --max-shards "$playwright_parallelism")
+  shard_plan_command=("$node_bin" "$shard_plan_script" plan --max-shards "$functional_shard_limit")
   if [[ -n "$phase_filter" ]]; then
     shard_plan_command+=(--phase "$phase_filter")
   fi
@@ -65,9 +79,12 @@ if [[ "$mode" != "support" ]]; then
 else
   cat >"$shard_plan" <<JSON
 {
-  "schema_id": "cartulary.browser_e2e_shard_plan.v1",
+  "schema_id": "cartulary.browser_e2e_shard_plan.v2",
   "phase": "${phase_filter}",
-  "specs": [],
+  "entry_count": 0,
+  "file_count": 0,
+  "files": [],
+  "entries": [],
   "shards": []
 }
 JSON
@@ -148,8 +165,11 @@ EOF
 const fs = require("node:fs");
 const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const files = new Set();
-for (const spec of plan.specs ?? []) {
-  files.add(spec.file);
+for (const file of plan.files ?? []) {
+  files.add(file);
+}
+for (const entry of plan.entries ?? []) {
+  files.add(entry.file);
 }
 process.stdout.write(`${[...files].sort().join("\n")}\n`);
 EOF
@@ -265,7 +285,7 @@ if [[ "$mode" != "support" ]]; then
   for shard_index in "${!shard_names[@]}"; do
     run_functional_shard "${shard_names[$shard_index]}" "$shard_index" &
     active_shards=$((active_shards + 1))
-    if (( active_shards >= playwright_parallelism )); then
+    if (( active_shards >= functional_shard_limit )); then
       if ! wait -n; then
         functional_status=1
       fi

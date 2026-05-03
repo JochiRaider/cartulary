@@ -5342,8 +5342,9 @@ function timingWindowDurationMs(window) {
   return window.endMs - window.startMs;
 }
 
-function summarizePlaywrightTiming(specs, phase) {
+function summarizePlaywrightTiming(specs, phase, phaseLabel) {
   const files = new Map();
+  const entryTimings = [];
   const totalWindow = { startMs: null, endMs: null };
   let tests = 0;
   let executedDurationMs = 0;
@@ -5352,6 +5353,11 @@ function summarizePlaywrightTiming(specs, phase) {
 
   for (const spec of specs) {
     const file = normalizePlaywrightFile(spec.file ?? "");
+    const classification = classifyPlaywrightCase(
+      spec.file ?? "",
+      spec.title ?? "",
+      phaseLabel,
+    );
     if (!files.has(file)) {
       files.set(file, {
         file,
@@ -5363,6 +5369,9 @@ function summarizePlaywrightTiming(specs, phase) {
       });
     }
     const fileTiming = files.get(file);
+    const entryWindow = { startMs: null, endMs: null };
+    let entryExecutedDurationMs = 0;
+    let entryHasTimestamp = false;
     let executed = false;
 
     for (const test of spec.tests ?? []) {
@@ -5377,13 +5386,16 @@ function summarizePlaywrightTiming(specs, phase) {
         }
         executedDurationMs += durationMs;
         fileTiming.executed_duration_ms += durationMs;
+        entryExecutedDurationMs += durationMs;
 
         const startMs = parsePlaywrightStartTime(result.startTime);
         if (startMs !== null) {
           hasTimestamp = true;
           fileTiming.hasTimestamp = true;
+          entryHasTimestamp = true;
           updateTimingWindow(totalWindow, startMs, durationMs);
           updateTimingWindow(fileTiming.window, startMs, durationMs);
+          updateTimingWindow(entryWindow, startMs, durationMs);
         }
       }
     }
@@ -5391,6 +5403,18 @@ function summarizePlaywrightTiming(specs, phase) {
     if (executed) {
       tests += 1;
       fileTiming.tests += 1;
+      if (classification.id) {
+        entryTimings.push({
+          id: classification.id,
+          phase: classification.phase,
+          file,
+          title: spec.title ?? "(missing title)",
+          executed_duration_ms: entryExecutedDurationMs,
+          wall_duration_ms: entryHasTimestamp
+            ? timingWindowDurationMs(entryWindow)
+            : entryExecutedDurationMs,
+        });
+      }
     }
   }
 
@@ -5408,6 +5432,9 @@ function summarizePlaywrightTiming(specs, phase) {
   return {
     phase,
     files: fileSummaries,
+    entries: entryTimings.sort((left, right) =>
+      left.id.localeCompare(right.id, undefined, { numeric: true }),
+    ),
     tests,
     executed_duration_ms: executedDurationMs,
     wall_duration_ms: hasTimestamp
@@ -5662,6 +5689,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     playwrightTiming: summarizePlaywrightTiming(
       specs,
       inferPhaseFromText(phaseLabel),
+      phaseLabel,
     ),
   };
 }

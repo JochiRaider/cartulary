@@ -1352,7 +1352,7 @@ function renderMakeRecipe(recipe, manifest) {
       ...prefix,
       header,
       ...prerequisitePrelude,
-      `\t$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} ${wrapper}./scripts/run-browser-e2e-target.sh ${recipe.stage}`,
+      `\t$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ${wrapper}./scripts/run-browser-e2e-target.sh ${recipe.stage}`,
     ];
   }
   if (recipe.type === "phase_command") {
