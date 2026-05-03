@@ -39,6 +39,7 @@ import {
   loadPhasePolicyExceptions,
   validateManifest as validatePhaseManifestSemantics,
 } from "./lib/phase-manifest.mjs";
+import { validatePhaseManifestShapeFile } from "./lib/phase-manifest-shape.mjs";
 import {
   activePhaseRegistryEntries,
   phaseRegistrySchemaID,
@@ -58,7 +59,6 @@ import { renderServiceBackedScheduleManifest } from "./render-service-backed-sch
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const phaseTestMapSchemaID = "cartulary.phase_test_map.v1";
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
@@ -73,72 +73,6 @@ const phaseStatusValues = new Set(["active", "planned", "retired"]);
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const snakeIDPattern = /^[a-z][a-z0-9_]*$/;
-const phaseManifestTopLevelKeys = new Set([
-  "schema_id",
-  "phase",
-  "note",
-  "ledger",
-  "expected_ids",
-  "forbidden_id_files",
-  "support_go_targets",
-  "unit",
-  "integration",
-  "e2e",
-  "visual",
-]);
-const phaseManifestRequiredKeys = new Set([
-  "note",
-  "ledger",
-  "expected_ids",
-  "support_go_targets",
-  "unit",
-  "integration",
-  "e2e",
-]);
-const phaseLedgerKeys = new Set([
-  "title",
-  "notes",
-  "authoritative_execution",
-  "support_execution_extras",
-  "sections",
-  "shared_harness",
-  "support_only",
-]);
-const phaseMapEntryKeys = new Set([
-  "id",
-  "coverage",
-  "runner",
-  "package",
-  "file",
-  "symbol",
-  "symbols",
-  "title",
-  "execution_dependency",
-  "evidence_layer",
-  "claim",
-  "out_of_scope",
-  "execution_family",
-  "execution_label",
-  "fixture_policy",
-  "fixture_budget",
-  "fixture_refs",
-  "template_clone_reason",
-  "migration_scratch_reason",
-]);
-const phaseSupportEntryKeys = new Set([
-  "target",
-  "section",
-  "package",
-  "file",
-  "symbol",
-  "symbols",
-  "selection_pattern",
-  "execution_family",
-  "execution_label",
-  "fixture_policy",
-  "fixture_budget",
-  "migration_scratch_reason",
-]);
 const topologyTopLevelKeys = new Set([
   "schema_id",
   "generated_outputs",
@@ -429,69 +363,7 @@ function validatePhaseRegistryShape(file) {
 }
 
 function validatePhaseMapShape(file) {
-  const manifest = readShapeFile(file, file);
-  assertObjectKeys(manifest, phaseManifestTopLevelKeys, file);
-  assertRequiredKeys(manifest, phaseManifestRequiredKeys, file);
-  requireSchemaID(manifest, phaseTestMapSchemaID, file);
-  requireString(manifest.phase, `${file}.phase`, { pattern: phaseNamePattern });
-  requireString(manifest.note, `${file}.note`);
-  const ledger = requireObject(manifest.ledger, `${file}.ledger`);
-  assertObjectKeys(ledger, phaseLedgerKeys, `${file}.ledger`);
-  requireStringArray(manifest.expected_ids, `${file}.expected_ids`, {
-    nonEmpty: true,
-  });
-  if (manifest.forbidden_id_files !== undefined) {
-    requireStringArray(
-      manifest.forbidden_id_files,
-      `${file}.forbidden_id_files`,
-    );
-  }
-  for (const section of ["unit", "integration", "e2e", "visual"]) {
-    const entries = requireObjectArray(
-      manifest[section] ?? [],
-      `${file}.${section}`,
-    );
-    const ids = [];
-    for (const [index, entry] of entries.entries()) {
-      const label = `${file}.${section}[${index + 1}]`;
-      assertObjectKeys(entry, phaseMapEntryKeys, label);
-      ids.push(requireString(entry.id, `${label}.id`));
-      requireEnum(
-        entry.coverage,
-        `${label}.coverage`,
-        new Set(["authoritative", "supplemental"]),
-      );
-      requireEnum(
-        entry.runner,
-        `${label}.runner`,
-        new Set(["go_test", "playwright", "vitest"]),
-      );
-      requireString(entry.file, `${label}.file`);
-      if (entry.fixture_refs !== undefined) {
-        requireStringArray(entry.fixture_refs, `${label}.fixture_refs`, {
-          nonEmpty: true,
-        });
-      }
-      requireString(entry.evidence_layer, `${label}.evidence_layer`);
-      if (entry.symbol !== undefined && entry.symbols !== undefined) {
-        throw new Error(`${label} must declare symbol or symbols[], not both`);
-      }
-    }
-    assertUnique(ids, `${file}.${section}.id`);
-  }
-  const supportEntries = requireObjectArray(
-    manifest.support_go_targets ?? [],
-    `${file}.support_go_targets`,
-  );
-  for (const [index, entry] of supportEntries.entries()) {
-    const label = `${file}.support_go_targets[${index + 1}]`;
-    assertObjectKeys(entry, phaseSupportEntryKeys, label);
-    requireString(entry.target, `${label}.target`);
-    requireString(entry.section, `${label}.section`);
-    requireString(entry.package, `${label}.package`);
-    requireString(entry.file, `${label}.file`);
-    requireString(entry.selection_pattern, `${label}.selection_pattern`);
-  }
+  validatePhaseManifestShapeFile(file);
 }
 
 function validatePhasePolicyExceptionsShape(file) {

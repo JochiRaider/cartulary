@@ -17,7 +17,13 @@ import {
   flattenPlaywrightSuites,
   summarizePlaywrightErrors,
 } from "./playwright-report.mjs";
-import { assertObjectKeys, assertRequiredKeys, readJsonObject } from "./json-shape.mjs";
+import { assertObjectKeys, readJsonObject } from "./json-shape.mjs";
+import {
+  phaseLedgerKeys,
+  phaseManifestEntryKeys,
+  supportGoEntryKeys,
+  validatePhaseManifestShape,
+} from "./phase-manifest-shape.mjs";
 
 const sectionDefinitions = [
   ["unit", "U-"],
@@ -33,75 +39,8 @@ const implementationTestingGuidePath = path.join(
 
 const validCoverage = new Set(["authoritative", "supplemental"]);
 const validGoSections = new Set(["unit", "integration", "e2e"]);
-const phaseTestMapSchemaID = "cartulary.phase_test_map.v1";
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const validPhasePolicyExceptionTypes = new Set(["allowed_empty_go_manifest_selection"]);
-const phaseManifestTopLevelKeys = new Set([
-  "schema_id",
-  "phase",
-  "note",
-  "ledger",
-  "expected_ids",
-  "forbidden_id_files",
-  "support_go_targets",
-  "unit",
-  "integration",
-  "e2e",
-  "visual",
-]);
-const phaseManifestRequiredKeys = new Set([
-  "note",
-  "ledger",
-  "expected_ids",
-  "support_go_targets",
-  "unit",
-  "integration",
-  "e2e",
-]);
-const phaseLedgerKeys = new Set([
-  "title",
-  "notes",
-  "authoritative_execution",
-  "support_execution_extras",
-  "sections",
-  "shared_harness",
-  "support_only",
-]);
-const phaseManifestEntryKeys = new Set([
-  "id",
-  "coverage",
-  "runner",
-  "package",
-  "file",
-  "symbol",
-  "symbols",
-  "title",
-  "execution_dependency",
-  "evidence_layer",
-  "claim",
-  "out_of_scope",
-  "execution_family",
-  "execution_label",
-  "fixture_policy",
-  "fixture_budget",
-  "fixture_refs",
-  "template_clone_reason",
-  "migration_scratch_reason",
-]);
-const supportGoEntryKeys = new Set([
-  "target",
-  "section",
-  "package",
-  "file",
-  "symbol",
-  "symbols",
-  "selection_pattern",
-  "execution_family",
-  "execution_label",
-  "fixture_policy",
-  "fixture_budget",
-  "migration_scratch_reason",
-]);
 const phasePolicyExceptionKeys = new Set([
   "id",
   "type",
@@ -672,14 +611,7 @@ function validateManifestIdentity(manifestPath, manifest, requestedPhase = "") {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
     throw new Error(`manifest ${manifestPath} must be a JSON object`);
   }
-  assertObjectKeys(manifest, phaseManifestTopLevelKeys, `manifest ${manifestPath}`);
-  assertRequiredKeys(manifest, phaseManifestRequiredKeys, `manifest ${manifestPath}`);
-  if (manifest.schema_id !== phaseTestMapSchemaID) {
-    throw new Error(`manifest ${manifestPath} must declare schema_id ${phaseTestMapSchemaID}`);
-  }
-  if (typeof manifest.phase !== "string" || manifest.phase.trim() === "") {
-    throw new Error(`manifest ${manifestPath} must declare phase`);
-  }
+  validatePhaseManifestShape(manifest, `manifest ${manifestPath}`);
   phaseNumberFromPhase(manifest.phase);
   const filenamePhase = phaseFromManifestFilename(manifestPath);
   if (manifest.phase !== filenamePhase) {

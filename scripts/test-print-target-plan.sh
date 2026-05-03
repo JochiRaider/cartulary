@@ -614,7 +614,34 @@ cat >"$missing_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
   "e2e": []
 }
 JSON
-assert_phase_identity_rejected "$missing_phase_identity_root" "phase99" "must declare phase" "missing phase-map phase"
+assert_phase_identity_rejected "$missing_phase_identity_root" "phase99" ".phase must be a non-empty string" "missing phase-map phase"
+
+unknown_key_identity_root="$tmp_dir/identity-unknown-key-root"
+mkdir -p "$unknown_key_identity_root/tools"
+write_phase_registry "$unknown_key_identity_root" phase99
+cat >"$unknown_key_identity_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
+  "note": "Synthetic shape validation fixture.",
+  "legacy_manifest_key": true,
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic shape validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
+  "expected_ids": ["U-99-01"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": []
+}
+JSON
+assert_phase_identity_rejected "$unknown_key_identity_root" "phase99" "unknown key legacy_manifest_key" "semantic phase-map path rejects unknown shape key"
 
 mismatched_phase_identity_root="$tmp_dir/identity-mismatched-phase-root"
 mkdir -p "$mismatched_phase_identity_root/tools"
