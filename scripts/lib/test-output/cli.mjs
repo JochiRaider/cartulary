@@ -1843,7 +1843,12 @@ function accountableTargetWallSpan(span) {
 }
 
 function summarizeAccountableTargetWindow(spans) {
-  const accountableSpans = spans.filter(accountableTargetWallSpan);
+  let accountableSpans = spans.filter(accountableTargetWallSpan);
+  if (accountableSpans.some((span) => span.source === "scheduler")) {
+    accountableSpans = accountableSpans.filter(
+      (span) => span.source !== "phase",
+    );
+  }
   const summedDurationMs = accountableSpans.reduce(
     (total, span) => total + clampDurationMs(span.duration_ms ?? 0),
     0,
@@ -2266,13 +2271,18 @@ function schedulerTimingForTarget(target) {
   return schedulerTimingFromSummary(loadSchedulerSummary(target));
 }
 
-function durationOverridesFromSchedulerTiming(timing) {
+function schedulerTimingSpan(timing) {
   if (!timing) {
-    return {};
+    return null;
   }
   return {
-    wall_duration_ms: timing.scheduler_total_duration_ms,
-    critical_path_wall_duration_ms: timing.scheduler_total_duration_ms,
+    source: "scheduler",
+    bucket: "test_command",
+    label: `${timing.scheduler_kind || "scheduler"} scheduler`,
+    status: "pass",
+    start_time: timing.scheduler_started_at,
+    end_time: timing.scheduler_completed_at,
+    duration_ms: timing.scheduler_total_duration_ms,
   };
 }
 
@@ -2648,13 +2658,12 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     command: ["make", targetSummary.target],
     status: targetSummary.status,
     exitCode: targetSummary.status === "pass" ? 0 : 1,
-    startedAt: schedulerTiming?.scheduler_started_at ?? targetSummary.start_time,
-    completedAt:
-      schedulerTiming?.scheduler_completed_at ?? targetSummary.end_time,
+    startedAt: targetSummary.start_time ?? schedulerTiming?.scheduler_started_at,
+    completedAt: targetSummary.end_time ?? schedulerTiming?.scheduler_completed_at,
     durationMs:
-      schedulerTiming?.scheduler_total_duration_ms ??
       totals.wall_duration_ms ??
-      targetSummary.wall_duration_ms,
+      targetSummary.wall_duration_ms ??
+      schedulerTiming?.scheduler_total_duration_ms,
     outputMode: resolveOutputMode(),
     artifactRoot,
     summaryArtifacts: [
@@ -3048,6 +3057,11 @@ function handleTargetSummary(args) {
       : "PASS";
   const reportCollationEndMs = Date.now();
   const reportCollationEndTime = new Date(reportCollationEndMs).toISOString();
+  const schedulerTiming = schedulerTimingForTarget(target);
+  const accountableTimingSpans = [
+    ...lifecycleSpans,
+    schedulerTimingSpan(schedulerTiming),
+  ].filter(Boolean);
   const { timing, timingPath, accountableWindow } = summarizeTargetTiming(
     target,
     summary.targetDir,
@@ -3064,7 +3078,7 @@ function handleTargetSummary(args) {
       ),
       status: status.toLowerCase(),
     },
-    lifecycleSpans,
+    accountableTimingSpans,
   );
   summary.wallDurationMs = accountableWindow.wallDurationMs;
   summary.criticalPathWallDurationMs = accountableWindow.wallDurationMs;
@@ -3160,21 +3174,25 @@ function handleTargetSummary(args) {
           status: status.toLowerCase(),
           fixture: totalFixture,
         };
-  const schedulerTiming = schedulerTimingForTarget(target);
-  const schedulerDurationOverrides =
-    durationOverridesFromSchedulerTiming(schedulerTiming);
+  if (schedulerTiming) {
+    totalsSection.start_time = ownSection.start_time;
+    totalsSection.end_time = ownSection.end_time;
+    totalsSection.wall_duration_ms = ownSection.wall_duration_ms;
+    totalsSection.critical_path_wall_duration_ms =
+      ownSection.critical_path_wall_duration_ms;
+  }
   const topLevelTiming = {
     start_time:
-      schedulerTiming?.scheduler_started_at ??
       totalsSection.start_time ??
       summary.startTime ??
+      schedulerTiming?.scheduler_started_at ??
       reportCollationStartTime,
     end_time:
-      schedulerTiming?.scheduler_completed_at ??
       totalsSection.end_time ??
       summary.endTime ??
+      schedulerTiming?.scheduler_completed_at ??
       reportCollationEndTime,
-    ...durationFieldsForJSON(totalsSection, schedulerDurationOverrides),
+    ...durationFieldsForJSON(totalsSection),
   };
   const targetSummary = {
     schema_id: targetSummarySchemaID,
@@ -3194,7 +3212,7 @@ function handleTargetSummary(args) {
       ...totalsSection,
       start_time: topLevelTiming.start_time,
       end_time: topLevelTiming.end_time,
-      ...durationFieldsForJSON(totalsSection, schedulerDurationOverrides),
+      ...durationFieldsForJSON(totalsSection),
     },
     scheduler_timing: schedulerTiming,
   };

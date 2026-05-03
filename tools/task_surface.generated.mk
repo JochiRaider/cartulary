@@ -116,9 +116,9 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make browser-e2e-duration-baseline-drift' \
 	'                                      RESULTS_DIR=<dir> verify browser spec baseline freshness' \
 	'  make service-backed-make-target-duration-baselines' \
-	'                                      RESULTS_DIR=<dir> refresh service-backed make-target baselines' \
+	'                                      RESULTS_DIR=<dir> refresh scheduler work-unit duration baselines' \
 	'  make service-backed-make-target-duration-baseline-drift' \
-	'                                      RESULTS_DIR=<dir> verify service-backed make-target baseline freshness' \
+	'                                      RESULTS_DIR=<dir> verify scheduler work-unit duration baseline freshness' \
 	'  make harness-smoke-duration-baselines' \
 	'                                      RESULTS_DIR=<dir> refresh harness smoke duration baselines' \
 	'  make harness-smoke-duration-baseline-drift' \

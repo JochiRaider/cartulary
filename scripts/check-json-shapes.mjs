@@ -66,7 +66,7 @@ const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
-  "cartulary.service_backed_make_target_duration_baselines.v1";
+  "cartulary.scheduler_work_unit_duration_baselines.v1";
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v1";
 
 const phaseStatusValues = new Set(["active", "planned", "retired"]);
@@ -669,10 +669,26 @@ function validateDurationBaselineShape(file) {
   const baseline = readShapeFile(file, file);
   requireSchemaID(baseline, serviceBackedMakeTargetBaselineSchemaID, file);
   requirePositiveInteger(
-    baseline.default_make_target_weight_ms,
-    `${file}.default_make_target_weight_ms`,
+    baseline.default_work_unit_weight_ms,
+    `${file}.default_work_unit_weight_ms`,
   );
-  requireObject(baseline.targets, `${file}.targets`);
+  const workUnits = requireObject(baseline.work_units, `${file}.work_units`);
+  for (const [key, entry] of Object.entries(workUnits)) {
+    requireObject(entry, `${file}.work_units.${key}`);
+    const expectedKey = [
+      requireString(entry.scheduler_kind, `${file}.work_units.${key}.scheduler_kind`),
+      requireString(entry.schedule_target, `${file}.work_units.${key}.schedule_target`),
+      requireString(entry.work_unit_id, `${file}.work_units.${key}.work_unit_id`),
+      requireString(entry.aggregate_target, `${file}.work_units.${key}.aggregate_target`),
+    ].join("|");
+    if (key !== expectedKey) {
+      throw new Error(`${file}.work_units.${key} must match scheduler context key ${expectedKey}`);
+    }
+    requirePositiveInteger(
+      entry.duration_ms,
+      `${file}.work_units.${key}.duration_ms`,
+    );
+  }
 }
 
 function requireSorted(values, label, keyFn, orderLabel = "stable key") {

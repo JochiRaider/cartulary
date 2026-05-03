@@ -253,6 +253,69 @@ function checkSchedulerDirectory(eventsFile) {
   };
 }
 
+function checkParentWorkUnitSummaries(eventsFile) {
+  const errors = [];
+  const targetDir = path.dirname(eventsFile);
+  const runDir = path.dirname(targetDir);
+  const events = readEvents(eventsFile);
+  const starts = new Map();
+  for (const event of events) {
+    if (event.event === "start" && typeof event.work_unit_id === "string") {
+      starts.set(event.work_unit_id, event);
+    }
+  }
+  for (const event of events) {
+    if (event.event !== "finish" || typeof event.work_unit_id !== "string") {
+      continue;
+    }
+    const start = starts.get(event.work_unit_id);
+    if (start?.work_unit_type !== "make_target") {
+      continue;
+    }
+    if (start?.nested_scheduler?.type !== "service_backed") {
+      continue;
+    }
+    const target = start.aggregate_target || start.work_unit || event.work_unit;
+    if (typeof target !== "string" || target === "") {
+      continue;
+    }
+    const nestedSchedulerSummaryFile = path.join(
+      runDir,
+      target,
+      "scheduler-summary.json",
+    );
+    if (!existsSync(nestedSchedulerSummaryFile)) {
+      continue;
+    }
+    const nestedSchedulerSummary = readJSON(nestedSchedulerSummaryFile);
+    if (nestedSchedulerSummary?.scheduler_kind !== "service-backed") {
+      continue;
+    }
+    const durationMs = integerField(event, "duration_ms");
+    if (durationMs === null) {
+      continue;
+    }
+    const targetSummaryFile = path.join(runDir, target, "target-summary.json");
+    if (!existsSync(targetSummaryFile)) {
+      continue;
+    }
+    const summary = readJSON(targetSummaryFile);
+    const elapsedMs = summaryDurationMs(summary);
+    if (elapsedMs !== null && elapsedMs < durationMs) {
+      errors.push(
+        `${targetSummaryFile}: duration ${elapsedMs}ms is below parent scheduler work-unit ${event.work_unit_id} duration ${durationMs}ms`,
+      );
+    }
+    const criticalPathMs = integerField(summary, "critical_path_wall_duration_ms");
+    if (criticalPathMs !== null && criticalPathMs < durationMs) {
+      errors.push(
+        `${targetSummaryFile}: critical path duration ${criticalPathMs}ms is below parent scheduler work-unit ${event.work_unit_id} duration ${durationMs}ms`,
+      );
+    }
+  }
+  return errors;
+}
+
 export function validateSchedulerSummaryTiming(root, options = {}) {
   const eventFiles = schedulerEventFiles(root, options);
   const checkedFiles = new Set();
@@ -263,6 +326,7 @@ export function validateSchedulerSummaryTiming(root, options = {}) {
       checkedFiles.add(file);
     }
     errors.push(...result.errors);
+    errors.push(...checkParentWorkUnitSummaries(eventsFile));
   }
   return {
     files: Array.from(checkedFiles).sort((left, right) =>

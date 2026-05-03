@@ -29,7 +29,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
-const makeTargetBaselineSchemaID = "cartulary.service_backed_make_target_duration_baselines.v1";
+const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v1";
 
 function usage() {
   throw new Error(
@@ -146,23 +146,37 @@ function loadMakeTargetDurationBaselines(profile, topologyPath) {
       `${path.relative(repoRoot, resolved)} must declare schema_id ${makeTargetBaselineSchemaID}`,
     );
   }
-  if (!Number.isInteger(baseline.default_make_target_weight_ms) || baseline.default_make_target_weight_ms <= 0) {
+  if (!Number.isInteger(baseline.default_work_unit_weight_ms) || baseline.default_work_unit_weight_ms <= 0) {
     throw new Error(
-      `${path.relative(repoRoot, resolved)} must declare positive integer default_make_target_weight_ms`,
+      `${path.relative(repoRoot, resolved)} must declare positive integer default_work_unit_weight_ms`,
     );
   }
-  if (!baseline.targets || typeof baseline.targets !== "object" || Array.isArray(baseline.targets)) {
-    throw new Error(`${path.relative(repoRoot, resolved)} targets must be an object`);
+  if (!baseline.work_units || typeof baseline.work_units !== "object" || Array.isArray(baseline.work_units)) {
+    throw new Error(`${path.relative(repoRoot, resolved)} work_units must be an object`);
   }
-  for (const [target, weight] of Object.entries(baseline.targets)) {
-    if (!Number.isInteger(weight) || weight <= 0) {
-      throw new Error(`${path.relative(repoRoot, resolved)} targets.${target} must be positive integer weight ms`);
+  const workUnits = new Map();
+  for (const [key, entry] of Object.entries(baseline.work_units)) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`${path.relative(repoRoot, resolved)} work_units.${key} must be an object`);
     }
+    const expectedKey = [
+      entry.scheduler_kind,
+      entry.schedule_target,
+      entry.work_unit_id,
+      entry.aggregate_target,
+    ].join("|");
+    if (key !== expectedKey) {
+      throw new Error(`${path.relative(repoRoot, resolved)} work_units.${key} must match scheduler context key ${expectedKey}`);
+    }
+    if (!Number.isInteger(entry.duration_ms) || entry.duration_ms <= 0) {
+      throw new Error(`${path.relative(repoRoot, resolved)} work_units.${key}.duration_ms must be positive integer weight ms`);
+    }
+    workUnits.set(key, entry.duration_ms);
   }
   return {
     path: resolved,
-    defaultWeightMs: baseline.default_make_target_weight_ms,
-    targets: new Map(Object.entries(baseline.targets)),
+    defaultWeightMs: baseline.default_work_unit_weight_ms,
+    workUnits,
   };
 }
 
@@ -194,11 +208,17 @@ function loadMakeTargetWeightOverrides(profile) {
   return overrides;
 }
 
-function makeTargetWeight(timing, target) {
+function workUnitBaselineKey(scheduleTarget, target) {
+  return ["service-backed", scheduleTarget, target, target].join("|");
+}
+
+function makeTargetWeight(timing, scheduleTarget, target) {
   if (timing.overrides.has(target)) {
     return timing.overrides.get(target);
   }
-  const baselineWeight = timing.baseline.targets.get(target);
+  const baselineWeight = timing.baseline.workUnits.get(
+    workUnitBaselineKey(scheduleTarget, target),
+  );
   if (Number.isInteger(baselineWeight) && baselineWeight > 0) {
     return baselineWeight;
   }
@@ -290,7 +310,7 @@ function orderedServiceBackedBackendTargets(scheduleProfile) {
     .sort(compareBackendTargets);
 }
 
-function backendSource(profile, timing, target) {
+function backendSource(profile, timing, scheduleTarget, target) {
   const descriptor = findTargetDescriptor(target, repoRoot);
   if (!descriptor) {
     throw new Error(`unknown backend target ${target}`);
@@ -317,7 +337,7 @@ function backendSource(profile, timing, target) {
     type: "make_target",
     class: "backend",
     target,
-    weight: makeTargetWeight(timing, target),
+    weight: makeTargetWeight(timing, scheduleTarget, target),
     resource_claims: cloneObject(claims[target]),
   };
 }
@@ -326,7 +346,7 @@ function includeBackendDependencies(policy) {
   return policy === "after_backend";
 }
 
-function browserSource(profile, timing, stage, backendTargets) {
+function browserSource(profile, timing, scheduleTarget, stage, backendTargets) {
   const stageName = stage.name;
   const laneResource = browserStageResource(stageName);
   const claims = {
@@ -343,7 +363,7 @@ function browserSource(profile, timing, stage, backendTargets) {
     target: stage.target,
     browser_stage: stageName,
     ...(needs.length > 0 ? { needs } : {}),
-    weight: makeTargetWeight(timing, stage.target),
+    weight: makeTargetWeight(timing, scheduleTarget, stage.target),
     resource_claims: claims,
   };
 }
@@ -439,7 +459,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const resourceLimits = Object.fromEntries(profileLimits.limits.entries());
   const sources = [];
   for (const backendTarget of orderedServiceBackedBackendTargets(scheduleProfile)) {
-    sources.push(backendSource(profile, timing, backendTarget));
+    sources.push(backendSource(profile, timing, target, backendTarget));
   }
   const backendTargets = sources
     .filter((source) => source.class === "backend")
@@ -449,6 +469,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
     const source = browserSource(
       profile,
       timing,
+      target,
       stage,
       backendTargets,
     );

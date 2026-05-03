@@ -967,6 +967,148 @@ assert_equals "$summary_timing_status" "1" "scheduler summary timing drift fixtu
 assert_contains "$summary_timing_output" "summary completed before final scheduler event" "scheduler summary timing completed-before-final output"
 assert_contains "$summary_timing_output" "duration 70000ms is below scheduler total 120000ms" "scheduler summary timing duration output"
 
+parent_work_unit_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-parent-work-unit.XXXXXX")"
+cleanup_paths+=("$parent_work_unit_dir")
+mkdir -p "${parent_work_unit_dir}/stale/check" "${parent_work_unit_dir}/stale/check-service-backed"
+cat >"${parent_work_unit_dir}/stale/check/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":2,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","work_unit_type":"make_target","aggregate_target":"check-service-backed","nested_scheduler":{"type":"service_backed","target":"check-service-backed"}}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":3,"monotonic_ms":121233,"wall_timestamp":"2026-01-01T00:02:01.233Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","status":0,"duration_ms":121233}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-finish","event_sequence":4,"monotonic_ms":121233,"wall_timestamp":"2026-01-01T00:02:01.233Z"}
+JSONL
+cat >"${parent_work_unit_dir}/stale/check/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.check_scheduler_summary.v8",
+  "target": "check",
+  "status": "pass",
+  "scheduler_kind": "check",
+  "scheduler_started_monotonic_ms": 0,
+  "scheduler_completed_monotonic_ms": 121233,
+  "scheduler_total_duration_ms": 121233,
+  "scheduler_started_at": "2026-01-01T00:00:00.000Z",
+  "scheduler_completed_at": "2026-01-01T00:02:01.233Z"
+}
+JSON
+cat >"${parent_work_unit_dir}/stale/check/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "check",
+  "status": "pass",
+  "start_time": "2026-01-01T00:00:00.000Z",
+  "end_time": "2026-01-01T00:02:01.233Z",
+  "wall_duration_ms": 121233,
+  "critical_path_wall_duration_ms": 121233
+}
+JSON
+cat >"${parent_work_unit_dir}/stale/check/tool-run-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.tool_run_summary.v1",
+  "target": "check",
+  "status": "pass",
+  "completed_at": "2026-01-01T00:02:01.233Z",
+  "duration_ms": 121233,
+  "extensions": {
+    "scheduler_timing": {
+      "scheduler_total_duration_ms": 121233
+    }
+  }
+}
+JSON
+cat >"${parent_work_unit_dir}/stale/check-service-backed/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "check-service-backed",
+  "status": "pass",
+  "start_time": "2026-01-01T00:01:04.292Z",
+  "end_time": "2026-01-01T00:02:01.233Z",
+  "wall_duration_ms": 56941,
+  "critical_path_wall_duration_ms": 56941
+}
+JSON
+cat >"${parent_work_unit_dir}/stale/check-service-backed/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_scheduler_summary.v8",
+  "target": "check-service-backed",
+  "status": "pass",
+  "scheduler_kind": "service-backed",
+  "scheduler_started_monotonic_ms": 64292,
+  "scheduler_completed_monotonic_ms": 121233,
+  "scheduler_total_duration_ms": 56941,
+  "scheduler_started_at": "2026-01-01T00:01:04.292Z",
+  "scheduler_completed_at": "2026-01-01T00:02:01.233Z"
+}
+JSON
+set +e
+parent_work_unit_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" "${parent_work_unit_dir}/stale" 2>&1)"
+parent_work_unit_status=$?
+set -e
+assert_equals "$parent_work_unit_status" "1" "parent scheduler work-unit drift status"
+assert_contains "$parent_work_unit_output" "duration 56941ms is below parent scheduler work-unit check-service-backed duration 121233ms" "parent scheduler work-unit duration output"
+assert_contains "$parent_work_unit_output" "critical path duration 56941ms is below parent scheduler work-unit check-service-backed duration 121233ms" "parent scheduler work-unit critical output"
+
+full_envelope_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-full-envelope.XXXXXX")"
+cleanup_paths+=("$full_envelope_dir")
+mkdir -p \
+  "${full_envelope_dir}/results/envelope/check-service-backed" \
+  "${full_envelope_dir}/results/envelope/browser-e2e-webserver-backed" \
+  "${full_envelope_dir}/results/envelope/_shared/test-services/suite/events"
+cat >"${full_envelope_dir}/results/envelope/check-service-backed/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_scheduler_summary.v8",
+  "target": "check-service-backed",
+  "status": "pass",
+  "scheduler_kind": "service-backed",
+  "scheduler_started_monotonic_ms": 0,
+  "scheduler_completed_monotonic_ms": 56941,
+  "scheduler_total_duration_ms": 56941,
+  "scheduler_started_at": "2026-01-01T00:01:04.292Z",
+  "scheduler_completed_at": "2026-01-01T00:02:01.233Z"
+}
+JSON
+cat >"${full_envelope_dir}/results/envelope/browser-e2e-webserver-backed/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "browser-e2e-webserver-backed",
+  "status": "pass",
+  "start_time": "2026-01-01T00:01:04.292Z",
+  "end_time": "2026-01-01T00:02:01.233Z",
+  "wall_duration_ms": 56941,
+  "critical_path_wall_duration_ms": 56941,
+  "executed_duration_ms": 56941,
+  "logical_duration_ms": 56941,
+  "counts": {
+    "phases": 1,
+    "tests": 1,
+    "failed": 0
+  }
+}
+JSON
+cat >"${full_envelope_dir}/results/envelope/_shared/test-services/suite/events/service-wait.json" <<'JSON'
+{
+  "type": "timing-span",
+  "status": "pass",
+  "details": {
+    "target": "check-service-backed",
+    "bucket": "service_wait",
+    "label": "test-services start postgres",
+    "start_time": "2026-01-01T00:00:00.000Z",
+    "end_time": "2026-01-01T00:00:57.074Z",
+    "duration_ms": 57074,
+    "status": "pass"
+  }
+}
+JSON
+CARTULARY_TEST_RESULTS_DIR="${full_envelope_dir}/results" \
+CARTULARY_TEST_RUN_ID="envelope" \
+  "$TEST_OUTPUT_SCRIPT" target-summary check-service-backed pass --children browser-e2e-webserver-backed --quiet-success
+full_envelope_summary="${full_envelope_dir}/results/envelope/check-service-backed/target-summary.json"
+full_envelope_timing="${full_envelope_dir}/results/envelope/check-service-backed/target-timing.json"
+assert_equals "$(json_field "$full_envelope_summary" "wall_duration_ms")" "121233" "service-backed full envelope wall duration"
+assert_equals "$(json_field "$full_envelope_summary" "critical_path_wall_duration_ms")" "121233" "service-backed full envelope critical duration"
+assert_equals "$(json_field "$full_envelope_summary" "scheduler_timing.scheduler_total_duration_ms")" "56941" "service-backed nested scheduler provenance"
+assert_equals "$(json_field "$full_envelope_summary" "totals.slowest_lifecycle_bucket.name")" "service_wait" "service-backed full envelope slowest bucket"
+assert_equals "$(json_field "$full_envelope_timing" "slowest_lifecycle_bucket.name")" "service_wait" "service-backed target timing slowest bucket"
+
 success_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-success.XXXXXX")"
 cleanup_paths+=("$success_dir")
 write_fake_make "$success_dir"

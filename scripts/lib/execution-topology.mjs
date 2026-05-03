@@ -24,7 +24,7 @@ export const checkScheduleSchemaID = "cartulary.check_schedule.v7";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";
 export const makeTargetBaselineSchemaID =
-  "cartulary.service_backed_make_target_duration_baselines.v1";
+  "cartulary.scheduler_work_unit_duration_baselines.v1";
 
 const validDependencyCategories = new Set(["backend", "frontend", "browser"]);
 const validShardModes = new Set(["none", "go_shards"]);
@@ -718,7 +718,7 @@ function validateServiceBackedSchedules(manifestPath, topology, taskTargets) {
     ? baselinePath
     : path.join(path.dirname(manifestPath), baselinePath);
   if (!existsSync(resolvedBaseline)) {
-    throw new Error(`service-backed make-target duration baseline is missing: ${baselinePath}`);
+    throw new Error(`scheduler work-unit duration baseline is missing: ${baselinePath}`);
   }
   requireSchema(readJSON(resolvedBaseline), makeTargetBaselineSchemaID, baselinePath);
 

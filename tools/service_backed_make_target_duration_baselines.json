@@ -1,13 +1,92 @@
 {
-  "schema_id": "cartulary.service_backed_make_target_duration_baselines.v1",
-  "note": "Service-backed scheduler make-target duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.",
+  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
+  "note": "Scheduler work-unit duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.",
   "updated_at": "2026-05-03T01:13:30.514Z",
-  "default_make_target_weight_ms": 10000,
-  "targets": {
-    "backend-process": 6739,
-    "browser-e2e-measurement": 11098,
-    "browser-e2e-stateful": 10167,
-    "browser-e2e-visual": 11143,
-    "browser-e2e-webserver-backed": 33121
+  "default_work_unit_weight_ms": 10000,
+  "work_units": {
+    "check|check|check-service-backed|check-service-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed",
+      "aggregate_target": "check-service-backed",
+      "duration_ms": 121233
+    },
+    "service-backed|check-service-backed|backend-process|backend-process": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "check-service-backed",
+      "work_unit_id": "backend-process",
+      "aggregate_target": "backend-process",
+      "duration_ms": 6739
+    },
+    "service-backed|check-service-backed|browser-e2e-measurement|browser-e2e-measurement": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "check-service-backed",
+      "work_unit_id": "browser-e2e-measurement",
+      "aggregate_target": "browser-e2e-measurement",
+      "duration_ms": 11098
+    },
+    "service-backed|check-service-backed|browser-e2e-stateful|browser-e2e-stateful": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "check-service-backed",
+      "work_unit_id": "browser-e2e-stateful",
+      "aggregate_target": "browser-e2e-stateful",
+      "duration_ms": 10167
+    },
+    "service-backed|check-service-backed|browser-e2e-visual|browser-e2e-visual": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "check-service-backed",
+      "work_unit_id": "browser-e2e-visual",
+      "aggregate_target": "browser-e2e-visual",
+      "duration_ms": 11143
+    },
+    "service-backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "check-service-backed",
+      "work_unit_id": "browser-e2e-webserver-backed",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "duration_ms": 33121
+    },
+    "service-backed|test-fast-service-backed|backend-process|backend-process": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "test-fast-service-backed",
+      "work_unit_id": "backend-process",
+      "aggregate_target": "backend-process",
+      "duration_ms": 6739
+    },
+    "service-backed|test-service-backed|backend-process|backend-process": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "test-service-backed",
+      "work_unit_id": "backend-process",
+      "aggregate_target": "backend-process",
+      "duration_ms": 6739
+    },
+    "service-backed|test-service-backed|browser-e2e-measurement|browser-e2e-measurement": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "test-service-backed",
+      "work_unit_id": "browser-e2e-measurement",
+      "aggregate_target": "browser-e2e-measurement",
+      "duration_ms": 11098
+    },
+    "service-backed|test-service-backed|browser-e2e-stateful|browser-e2e-stateful": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "test-service-backed",
+      "work_unit_id": "browser-e2e-stateful",
+      "aggregate_target": "browser-e2e-stateful",
+      "duration_ms": 10167
+    },
+    "service-backed|test-service-backed|browser-e2e-visual|browser-e2e-visual": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "test-service-backed",
+      "work_unit_id": "browser-e2e-visual",
+      "aggregate_target": "browser-e2e-visual",
+      "duration_ms": 11143
+    },
+    "service-backed|test-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
+      "scheduler_kind": "service-backed",
+      "schedule_target": "test-service-backed",
+      "work_unit_id": "browser-e2e-webserver-backed",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "duration_ms": 33121
+    }
   }
 }

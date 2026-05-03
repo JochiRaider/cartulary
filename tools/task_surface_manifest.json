@@ -342,12 +342,12 @@
         {
           "target": "service-backed-make-target-duration-baselines",
           "usage": "RESULTS_DIR=<dir>",
-          "description": "refresh service-backed make-target baselines"
+          "description": "refresh scheduler work-unit duration baselines"
         },
         {
           "target": "service-backed-make-target-duration-baseline-drift",
           "usage": "RESULTS_DIR=<dir>",
-          "description": "verify service-backed make-target baseline freshness"
+          "description": "verify scheduler work-unit duration baseline freshness"
         },
         {
           "target": "harness-smoke-duration-baselines",

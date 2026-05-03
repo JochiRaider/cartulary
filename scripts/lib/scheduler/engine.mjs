@@ -955,7 +955,12 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
 
       reporter.finishUnit(finishedUnit, result, stateSnapshot());
       if (schedule.afterUnitFinish) {
-        await schedule.afterUnitFinish({ unit: finishedUnit, result, reporter });
+        await schedule.afterUnitFinish({
+          unit: finishedUnit,
+          result,
+          reporter,
+          testOutputScript,
+        });
       }
 
       if (result.status === 0 || finishedUnit.completeOnFailure === true) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { open } from "node:fs/promises";
+import { mkdir, open, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -200,6 +200,60 @@ function nestedSchedulerEnv(unit) {
     ...process.env,
     ...forwarded,
   };
+}
+
+async function readJSONFile(file) {
+  return JSON.parse(await readFile(file, "utf8"));
+}
+
+async function refreshNestedSchedulerTargetSummary({ unit, result, reporter, testOutputScript }) {
+  if (!unit.nestedScheduler) {
+    return;
+  }
+  const targetDir = schedulerTargetDir(repoRoot, unit.target);
+  const summaryFile = path.join(targetDir, "target-summary.json");
+  let summary;
+  try {
+    summary = await readJSONFile(summaryFile);
+  } catch {
+    return;
+  }
+  const completed = reporter.completedWork.findLast((record) => record.id === unit.id);
+  if (!completed || !Number.isInteger(completed.duration_ms)) {
+    return;
+  }
+  const finishMonotonicMs = reporter.lastEventMonotonicMs;
+  const startMonotonicMs = Math.max(0, finishMonotonicMs - completed.duration_ms);
+  const spansDir = path.join(targetDir, "timing-spans");
+  await mkdir(spansDir, { recursive: true });
+  await writeFile(
+    path.join(spansDir, "check-scheduler-work-unit.json"),
+    `${JSON.stringify(
+      {
+        source: "scheduler",
+        bucket: "test_command",
+        label: "check scheduler work unit",
+        start_time: reporter.clock.wallTimestamp(startMonotonicMs),
+        end_time: reporter.clock.wallTimestamp(finishMonotonicMs),
+        duration_ms: completed.duration_ms,
+        status: result.status === 0 ? "pass" : "fail",
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  const args = [
+    "target-summary",
+    unit.target,
+    result.status === 0 ? "pass" : "fail",
+  ];
+  const expectedChildren = summary?.children?.expected;
+  if (Array.isArray(expectedChildren) && expectedChildren.length > 0) {
+    args.push("--children", expectedChildren.join(","));
+  }
+  args.push("--suppress-machine-output");
+  args.push(result.status === 0 ? "--quiet-success" : "--quiet-failure");
+  await runLifecycle(repoRoot, testOutputScript, args);
 }
 
 function nestedSchedulerDetail(unit) {
@@ -545,6 +599,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
     progressExtras: nestedProgress.progressExtras,
     countCompletedUnit: (_unit, result) => result.status === 0,
     shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,
+    afterUnitFinish: refreshNestedSchedulerTargetSummary,
     beforeRun: async () => {
       const capacityDisplay = schedule.resourceLimits.get("host_cpu") ?? Math.max(...schedule.resourceLimits.values());
       await runLifecycle(repoRoot, testOutputScript, [

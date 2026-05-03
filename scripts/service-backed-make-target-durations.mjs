@@ -21,12 +21,11 @@ import {
 import { findFilesNamed } from "./lib/result-artifacts.mjs";
 import {
   readJSON,
-  readPositiveTargetBaseline,
   sortedObjectByKey,
 } from "./lib/target-duration-baselines.mjs";
 
 const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
-const baselineSchemaID = "cartulary.service_backed_make_target_duration_baselines.v1";
+const baselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v1";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 const defaultBaselineFile = path.join(
   repoRoot,
@@ -36,8 +35,8 @@ const defaultBaselineFile = path.join(
 const defaultTopologyFile = defaultExecutionTopologyManifestPath;
 const defaultScheduleManifestFile = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const baselineNote =
-  "Service-backed scheduler make-target duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.";
-const defaultMakeTargetWeightMs = 10000;
+  "Scheduler work-unit duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.";
+const defaultWorkUnitWeightMs = 10000;
 
 function usage() {
   process.stderr.write(
@@ -91,12 +90,51 @@ function readSchedulerEvents(eventsFile) {
     .map((line) => JSON.parse(line));
 }
 
-function collectObservedMakeTargetDurations(resultsDir) {
+function baselineKey({ schedulerKind, scheduleTarget, workUnitID, aggregateTarget }) {
+  return [schedulerKind, scheduleTarget, workUnitID, aggregateTarget].join("|");
+}
+
+function normalizeSchedulerKind(value) {
+  return String(value ?? "").trim();
+}
+
+function normalizeWorkUnitType(value) {
+  return String(value ?? "").trim();
+}
+
+function observedEntryFromEvents(summary, start, finish) {
+  const schedulerKind = normalizeSchedulerKind(summary.scheduler_kind);
+  const scheduleTarget = String(summary.target ?? "").trim();
+  const workUnitID = String(finish.work_unit_id ?? start.work_unit_id ?? "").trim();
+  const aggregateTarget = String(
+    start.aggregate_target ?? finish.aggregate_target ?? start.work_unit ?? finish.work_unit ?? "",
+  ).trim();
+  const durationMs = Math.max(1, Math.round(Number(finish.duration_ms ?? 0)));
+  if (
+    schedulerKind === "" ||
+    scheduleTarget === "" ||
+    workUnitID === "" ||
+    aggregateTarget === "" ||
+    durationMs <= 0
+  ) {
+    return null;
+  }
+  return {
+    scheduler_kind: schedulerKind,
+    schedule_target: scheduleTarget,
+    work_unit_id: workUnitID,
+    aggregate_target: aggregateTarget,
+    duration_ms: durationMs,
+  };
+}
+
+function collectObservedWorkUnitDurations(resultsDir) {
   const observed = new Map();
   let passedSchedulerCount = 0;
   for (const summaryFile of schedulerSummaryFiles(resultsDir)) {
     const summary = readJSON(repoRoot, summaryFile);
-    if (summary.scheduler_kind !== "service-backed" || summary.status !== "pass") {
+    const schedulerKind = normalizeSchedulerKind(summary.scheduler_kind);
+    if (!["service-backed", "check"].includes(schedulerKind) || summary.status !== "pass") {
       continue;
     }
     const events = readSchedulerEvents(path.join(path.dirname(summaryFile), "scheduler-events.jsonl"));
@@ -115,32 +153,73 @@ function collectObservedMakeTargetDurations(resultsDir) {
         continue;
       }
       const start = starts.get(event.work_unit_id);
-      if (start?.work_unit_type !== "make_target") {
+      if (normalizeWorkUnitType(start?.work_unit_type) !== "make_target") {
         continue;
       }
-      const target = start.aggregate_target || start.work_unit || event.work_unit;
-      const durationMs = Math.max(1, Math.round(Number(event.duration_ms ?? 0)));
-      if (typeof target === "string" && target !== "" && durationMs > 0) {
-        observed.set(target, Math.max(observed.get(target) ?? 0, durationMs));
+      const entry = observedEntryFromEvents(summary, start, event);
+      if (!entry) {
+        continue;
+      }
+      const key = baselineKey({
+        schedulerKind: entry.scheduler_kind,
+        scheduleTarget: entry.schedule_target,
+        workUnitID: entry.work_unit_id,
+        aggregateTarget: entry.aggregate_target,
+      });
+      const previous = observed.get(key);
+      if (!previous || entry.duration_ms > previous.duration_ms) {
+        observed.set(key, entry);
       }
     }
   }
   return { observed, passedSchedulerCount };
 }
 
+function validateBaselineDocument(baseline, label) {
+  if (!Number.isInteger(baseline.default_work_unit_weight_ms) || baseline.default_work_unit_weight_ms <= 0) {
+    throw new Error(`${label} default_work_unit_weight_ms must be a positive integer`);
+  }
+  if (!baseline.work_units || typeof baseline.work_units !== "object" || Array.isArray(baseline.work_units)) {
+    throw new Error(`${label} work_units must be an object`);
+  }
+  for (const [key, entry] of Object.entries(baseline.work_units)) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`${label} work_units.${key} must be an object`);
+    }
+    const expectedKey = baselineKey({
+      schedulerKind: entry.scheduler_kind,
+      scheduleTarget: entry.schedule_target,
+      workUnitID: entry.work_unit_id,
+      aggregateTarget: entry.aggregate_target,
+    });
+    if (key !== expectedKey) {
+      throw new Error(`${label} work_units.${key} must match scheduler context key ${expectedKey}`);
+    }
+    if (!Number.isInteger(entry.duration_ms) || entry.duration_ms <= 0) {
+      throw new Error(`${label} work_units.${key}.duration_ms must be positive integer weight ms`);
+    }
+  }
+}
+
 function readBaseline(file, { allowMissing = false } = {}) {
-  return readPositiveTargetBaseline({
-    repoRoot,
-    file,
-    schemaID: baselineSchemaID,
-    missingDocument: {
-      schema_id: baselineSchemaID,
-      note: baselineNote,
-      default_make_target_weight_ms: defaultMakeTargetWeightMs,
-      targets: {},
-    },
-    allowMissing,
-  });
+  const baselineFile = resolvePath(file);
+  if (!existsSync(baselineFile)) {
+    if (allowMissing) {
+      return {
+        schema_id: baselineSchemaID,
+        note: baselineNote,
+        default_work_unit_weight_ms: defaultWorkUnitWeightMs,
+        work_units: {},
+      };
+    }
+    throw new Error(`${rel(baselineFile)} is missing`);
+  }
+  const baseline = readJSON(repoRoot, baselineFile);
+  if (baseline.schema_id !== baselineSchemaID) {
+    throw new Error(`${rel(baselineFile)} must declare schema_id ${baselineSchemaID}`);
+  }
+  validateBaselineDocument(baseline, rel(baselineFile));
+  return baseline;
 }
 
 function readTopologyProfile(file) {
@@ -151,21 +230,47 @@ function readTopologyProfile(file) {
   return profile;
 }
 
-function readScheduleMakeTargets(file) {
-  const scheduleFile = resolvePath(file);
+function readScheduledWorkUnits(topologyFile, scheduleManifestFile) {
+  const scheduled = new Map();
+  const add = (entry) => {
+    scheduled.set(baselineKey({
+      schedulerKind: entry.scheduler_kind,
+      scheduleTarget: entry.schedule_target,
+      workUnitID: entry.work_unit_id,
+      aggregateTarget: entry.aggregate_target,
+    }), entry);
+  };
+  const scheduleFile = resolvePath(scheduleManifestFile);
   const manifest = readJSON(repoRoot, scheduleFile);
   if (manifest.schema_id !== scheduleSchemaID) {
     throw new Error(`${rel(scheduleFile)} must declare schema_id ${scheduleSchemaID}`);
   }
-  const targets = new Set();
   for (const schedule of manifest.schedules ?? []) {
     for (const source of schedule.work_unit_sources ?? []) {
       if (source?.type === "make_target" && typeof source.target === "string") {
-        targets.add(source.target);
+        add({
+          scheduler_kind: "service-backed",
+          schedule_target: schedule.target,
+          work_unit_id: source.target,
+          aggregate_target: source.target,
+        });
       }
     }
   }
-  return targets;
+  const topology = loadExecutionTopology({ manifestPath: resolvePath(topologyFile) });
+  for (const schedule of topology.checkSchedules ?? []) {
+    for (const unit of schedule.work_units ?? []) {
+      if (unit?.nested_scheduler?.type === "service_backed" && typeof unit.target === "string") {
+        add({
+          scheduler_kind: "check",
+          schedule_target: schedule.target,
+          work_unit_id: unit.target,
+          aggregate_target: unit.target,
+        });
+      }
+    }
+  }
+  return scheduled;
 }
 
 function validatedOverrides(profile, scheduledTargets) {
@@ -203,15 +308,30 @@ function validatedOverrides(profile, scheduledTargets) {
   return { overrides, errors };
 }
 
-function plannedWeight(target, baseline, overrides) {
-  if (overrides.has(target)) {
-    return overrides.get(target);
+function baselineEntryForKey(baseline, key) {
+  const entry = baseline.work_units[key];
+  return entry && typeof entry === "object" ? entry : null;
+}
+
+function plannedWeight(entry, baseline, overrides) {
+  if (overrides.has(entry.aggregate_target)) {
+    return overrides.get(entry.aggregate_target);
   }
-  const weight = baseline.targets[target];
-  if (Number.isInteger(weight) && weight > 0) {
-    return weight;
+  const key = baselineKey({
+    schedulerKind: entry.scheduler_kind,
+    scheduleTarget: entry.schedule_target,
+    workUnitID: entry.work_unit_id,
+    aggregateTarget: entry.aggregate_target,
+  });
+  const baselineEntry = baselineEntryForKey(baseline, key);
+  if (baselineEntry && Number.isInteger(baselineEntry.duration_ms) && baselineEntry.duration_ms > 0) {
+    return baselineEntry.duration_ms;
   }
   return null;
+}
+
+function formatSubject(entry) {
+  return `scheduler=${entry.scheduler_kind} schedule=${entry.schedule_target} work_unit=${entry.work_unit_id} aggregate=${entry.aggregate_target}`;
 }
 
 function update(argv) {
@@ -225,22 +345,24 @@ function update(argv) {
     process.exit(1);
   }
   const baseline = readBaseline(options.baselineFile, { allowMissing: true });
-  const { observed, passedSchedulerCount } = collectObservedMakeTargetDurations(options.resultsDir);
+  const { observed, passedSchedulerCount } = collectObservedWorkUnitDurations(options.resultsDir);
   baseline.schema_id = baselineSchemaID;
   baseline.note = baselineNote;
-  baseline.default_make_target_weight_ms = positiveInteger(
-    baseline.default_make_target_weight_ms,
-    defaultMakeTargetWeightMs,
+  baseline.default_work_unit_weight_ms = positiveInteger(
+    baseline.default_work_unit_weight_ms,
+    defaultWorkUnitWeightMs,
   );
-  baseline.targets ??= {};
-  for (const [target, durationMs] of observed.entries()) {
-    baseline.targets[target] = durationMs;
+  baseline.work_units ??= {};
+  delete baseline.default_make_target_weight_ms;
+  delete baseline.targets;
+  for (const [key, entry] of observed.entries()) {
+    baseline.work_units[key] = entry;
   }
   baseline.updated_at = new Date().toISOString();
-  baseline.targets = sortedObjectByKey(Object.entries(baseline.targets));
+  baseline.work_units = sortedObjectByKey(Object.entries(baseline.work_units));
   writeFileSync(options.baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
   process.stdout.write(
-    `updated ${observed.size} service-backed make-target duration baselines from ${passedSchedulerCount} successful scheduler artifact(s)\n`,
+    `updated ${observed.size} scheduler work-unit duration baselines from ${passedSchedulerCount} successful scheduler artifact(s)\n`,
   );
 }
 
@@ -248,18 +370,25 @@ function checkDrift(argv) {
   const options = parseCommonArgs(argv, { includeTopology: true });
   const baseline = readBaseline(options.baselineFile);
   const profile = readTopologyProfile(options.topologyFile);
-  const scheduledTargets = readScheduleMakeTargets(options.scheduleManifestFile);
+  const scheduledWorkUnits = readScheduledWorkUnits(options.topologyFile, options.scheduleManifestFile);
+  const scheduledTargets = new Set(
+    Array.from(scheduledWorkUnits.values()).map((entry) => entry.aggregate_target),
+  );
   const { overrides, errors } = validatedOverrides(profile, scheduledTargets);
   const missingBaselines = [];
   const driftErrors = [];
   const warnings = [];
   const serviceContamination = collectServiceTimingContamination(repoRoot, options.resultsDir);
-  const { observed, passedSchedulerCount } = collectObservedMakeTargetDurations(options.resultsDir);
+  const { observed, passedSchedulerCount } = collectObservedWorkUnitDurations(options.resultsDir);
 
-  for (const [target, actual] of observed.entries()) {
-    const planned = plannedWeight(target, baseline, overrides);
+  for (const [key, entry] of observed.entries()) {
+    if (!scheduledWorkUnits.has(key)) {
+      continue;
+    }
+    const actual = entry.duration_ms;
+    const planned = plannedWeight(entry, baseline, overrides);
     if (!planned) {
-      missingBaselines.push(`missing make-target baseline target=${target} actual_ms=${actual}`);
+      missingBaselines.push(`missing scheduler work-unit baseline ${formatSubject(entry)} actual_ms=${actual}`);
       continue;
     }
     const kind = durationDriftKind(actual, planned);
@@ -267,7 +396,7 @@ function checkDrift(argv) {
       continue;
     }
     const description = durationDriftDescription(kind, {
-      subject: `target=${target}`,
+      subject: formatSubject(entry),
       plannedMs: planned,
       actualMs: actual,
     });
@@ -281,7 +410,7 @@ function checkDrift(argv) {
   }
 
   if (warnings.length > 0) {
-    process.stderr.write("Service-backed make-target duration baseline drift ignored contaminated timing evidence:\n");
+    process.stderr.write("Scheduler work-unit duration baseline drift ignored contaminated timing evidence:\n");
     for (const warning of warnings) {
       process.stderr.write(`- ${warning}\n`);
     }
@@ -291,7 +420,7 @@ function checkDrift(argv) {
   }
 
   if (errors.length > 0 || missingBaselines.length > 0 || driftErrors.length > 0) {
-    process.stderr.write("Service-backed make-target duration baseline drift detected:\n");
+    process.stderr.write("Scheduler work-unit duration baseline drift detected:\n");
     if (errors.length > 0) {
       process.stderr.write("Configuration errors:\n");
       for (const error of errors) {
@@ -313,12 +442,12 @@ function checkDrift(argv) {
     process.stderr.write(`Inspect fixture costs with: make fixture-report RESULTS_DIR=${options.resultsDir}\n`);
     process.stderr.write("Rerun check-shaped evidence with: make check\n");
     process.stderr.write(
-      `Refresh from a successful service-backed run with: make service-backed-make-target-duration-baselines RESULTS_DIR=${options.resultsDir}\n`,
+      `Refresh from a successful scheduler run with: make service-backed-make-target-duration-baselines RESULTS_DIR=${options.resultsDir}\n`,
     );
     process.exit(1);
   }
   process.stdout.write(
-    `Service-backed make-target duration baselines match ${observed.size} observed make target(s) from ${passedSchedulerCount} successful scheduler artifact(s)\n`,
+    `Scheduler work-unit duration baselines match ${Array.from(observed.keys()).filter((key) => scheduledWorkUnits.has(key)).length} observed scheduled work unit(s) from ${passedSchedulerCount} successful scheduler artifact(s)\n`,
   );
 }
 

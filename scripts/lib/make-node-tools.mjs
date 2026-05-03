@@ -287,7 +287,7 @@ export const makeNodeTools = {
     script: "./scripts/service-backed-make-target-durations.mjs",
     resultDir: { mode: "required", positional: true },
     usage:
-      "usage: make service-backed-make-target-duration-baselines RESULTS_DIR=<successful test results dir>",
+      "usage: make service-backed-make-target-duration-baselines RESULTS_DIR=<successful scheduler results dir>",
     buildArgs(env) {
       const args = ["update"];
       optionalFlag(
