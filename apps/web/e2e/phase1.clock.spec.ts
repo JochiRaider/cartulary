@@ -5,8 +5,6 @@ import { expect, test } from "./fixtures";
 import { uniqueEmail } from "./helpers";
 import { Phase1Page } from "./phase1Page";
 
-const idleExpiryOffsetSeconds = 1801;
-
 // This isolated spec owns browser evidence that mutates process-global backend state.
 test.beforeEach(async ({ page }) => {
   await new Phase1Page(page).resetClockOffset();
@@ -44,10 +42,25 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
     userId: user.user_id,
   });
 
-  await phase1.withClockOffset(idleExpiryOffsetSeconds, async () => {
-    await phase1.refreshAccount();
+  const currentSession = await phase1.currentSession();
+  try {
+    await phase1.setClockAfter(currentSession.session_expires_at);
+    const [sessionResponse] = await Promise.all([
+      page.waitForResponse((candidate) => {
+        const method = candidate.request().method().toUpperCase();
+        return (
+          method === "GET" &&
+          new URL(candidate.url()).pathname === "/api/v1/auth/session" &&
+          candidate.status() === 401
+        );
+      }),
+      phase1.refreshAccount(),
+    ]);
+    expect(sessionResponse.status()).toBe(401);
     await expect(page.getByTestId("auth-login-username")).toBeVisible();
-  });
+  } finally {
+    await phase1.resetClockOffset();
+  }
 
   await phase1.login(email, password);
   await expect(page.getByTestId("account-session-provider-type")).toHaveText(

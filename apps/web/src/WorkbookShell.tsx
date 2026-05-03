@@ -1370,8 +1370,9 @@ export function TimelineWorkbook({
   onRefreshEntities,
 }: TimelineWorkbookProps) {
   const [rows, setRows] = useState<WorkbookRow[]>(() => [createDraftRow(1)]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("Saved");
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
@@ -1401,7 +1402,9 @@ export function TimelineWorkbook({
   const pendingSocketTxnTimeoutsRef = useRef(new Map<string, number>());
   const saveQueueRef = useRef(Promise.resolve());
   const rowsRef = useRef(rows);
+  const hasLoadedRowsRef = useRef(false);
   const loadSequenceRef = useRef(0);
+  const scalarDraftValuesRef = useRef(new Map<string, string>());
   const loadRowsRef = useRef<(options: LoadRowsOptions) => Promise<void>>(
     async () => undefined,
   );
@@ -1854,10 +1857,14 @@ export function TimelineWorkbook({
       const requestSequence = loadSequenceRef.current + 1;
       loadSequenceRef.current = requestSequence;
 
-      if (options.showLoading) {
-        setIsLoading(true);
+      if (options.showLoading && !hasLoadedRowsRef.current) {
+        setIsInitialLoading(true);
       }
-      setLoadError(null);
+      if (hasLoadedRowsRef.current) {
+        setRefreshError(null);
+      } else {
+        setLoadError(null);
+      }
 
       const result = await fetchJSON<WorkbookQueryEnvelope>(queryPath, {
         method: "POST",
@@ -1872,8 +1879,13 @@ export function TimelineWorkbook({
         if (options.viewportContinuityToken !== undefined) {
           clearViewportContinuity(options.viewportContinuityToken);
         }
-        setLoadError("Timeline projection load failed.");
-        setIsLoading(false);
+        const message = "Timeline projection load failed.";
+        if (hasLoadedRowsRef.current) {
+          setRefreshError(message);
+        } else {
+          setLoadError(message);
+          setIsInitialLoading(false);
+        }
         return;
       }
 
@@ -1904,7 +1916,10 @@ export function TimelineWorkbook({
         return next;
       });
       setSaveState("Saved");
-      setIsLoading(false);
+      hasLoadedRowsRef.current = true;
+      setLoadError(null);
+      setRefreshError(null);
+      setIsInitialLoading(false);
     },
     [
       advanceViewportContinuity,
@@ -2182,6 +2197,22 @@ export function TimelineWorkbook({
     [],
   );
 
+  const setScalarEditorValue = useCallback(
+    (
+      rowKey: string,
+      field: keyof RowValues,
+      surface: TimelineScalarEditorSurface,
+      value: string,
+    ) => {
+      scalarDraftValuesRef.current.set(
+        inputFocusKey(rowKey, field, surface),
+        value,
+      );
+      setRowValue(rowKey, field, value);
+    },
+    [setRowValue],
+  );
+
   const registerInput = useCallback(
     (
       rowKey: string,
@@ -2208,12 +2239,25 @@ export function TimelineWorkbook({
         continueOnFreshDraft: boolean;
         preserveInputFocus: boolean;
         surface: TimelineScalarEditorSurface;
-        snapshotOverride?: WorkbookRow;
       },
+      currentValue?: string,
     ) => {
+      const focusKey = inputFocusKey(rowKey, focusField, options.surface);
+      const rowSnapshot = rowsRef.current.find(
+        (candidate) => candidate.key === rowKey,
+      );
+      const effectiveCurrentValue =
+        scalarDraftValuesRef.current.get(focusKey) ?? currentValue;
       const snapshot =
-        options.snapshotOverride ??
-        rowsRef.current.find((candidate) => candidate.key === rowKey);
+        effectiveCurrentValue === undefined || rowSnapshot === undefined
+          ? rowSnapshot
+          : {
+              ...rowSnapshot,
+              values: {
+                ...rowSnapshot.values,
+                [focusField]: effectiveCurrentValue,
+              },
+            };
       if (!snapshot) {
         return;
       }
@@ -2226,11 +2270,13 @@ export function TimelineWorkbook({
             })
           : buildScalarPatchPayload(snapshot, clientTxnId);
       if (payload === null) {
+        scalarDraftValuesRef.current.delete(focusKey);
         return;
       }
 
       const mutationSignature = buildStableMutationSignature(payload);
       if (pendingSignaturesRef.current.get(rowKey) === mutationSignature) {
+        scalarDraftValuesRef.current.delete(focusKey);
         return;
       }
       const viewportContinuityToken = beginViewportContinuity(
@@ -2243,6 +2289,7 @@ export function TimelineWorkbook({
               kind: "scroll-only",
             },
       );
+      scalarDraftValuesRef.current.delete(focusKey);
       pendingSignaturesRef.current.set(rowKey, mutationSignature);
       beginSave();
 
@@ -2610,27 +2657,18 @@ export function TimelineWorkbook({
       rowKey: string,
       focusField: keyof RowValues,
       surface: TimelineScalarEditorSurface,
-      currentValue?: string,
+      currentValue: string,
     ) => {
-      const snapshot =
-        currentValue === undefined
-          ? undefined
-          : rowsRef.current.find((candidate) => candidate.key === rowKey);
-      const saveOptions: Parameters<typeof queueScalarSave>[2] = {
-        continueOnFreshDraft: false,
-        preserveInputFocus: false,
-        surface,
-      };
-      if (snapshot !== undefined) {
-        saveOptions.snapshotOverride = {
-          ...snapshot,
-          values: {
-            ...snapshot.values,
-            [focusField]: currentValue,
-          },
-        };
-      }
-      queueScalarSave(rowKey, focusField, saveOptions);
+      queueScalarSave(
+        rowKey,
+        focusField,
+        {
+          continueOnFreshDraft: false,
+          preserveInputFocus: false,
+          surface,
+        },
+        currentValue,
+      );
     },
     [queueScalarSave],
   );
@@ -2644,11 +2682,16 @@ export function TimelineWorkbook({
     ) => {
       if (event.key === "Enter" || event.key === "Tab") {
         event.preventDefault();
-        queueScalarSave(rowKey, focusField, {
-          continueOnFreshDraft: true,
-          preserveInputFocus: true,
-          surface,
-        });
+        queueScalarSave(
+          rowKey,
+          focusField,
+          {
+            continueOnFreshDraft: true,
+            preserveInputFocus: true,
+            surface,
+          },
+          event.currentTarget.value,
+        );
       }
     },
     [queueScalarSave],
@@ -2681,11 +2724,19 @@ export function TimelineWorkbook({
       surface: TimelineScalarEditorSurface,
     ) => {
       window.setTimeout(() => {
-        queueScalarSave(rowKey, focusField, {
-          continueOnFreshDraft: false,
-          preserveInputFocus: true,
-          surface,
-        });
+        const editor = rowInputRefs.current.get(
+          inputFocusKey(rowKey, focusField, surface),
+        );
+        queueScalarSave(
+          rowKey,
+          focusField,
+          {
+            continueOnFreshDraft: false,
+            preserveInputFocus: true,
+            surface,
+          },
+          editor?.value,
+        );
       }, 0);
     },
     [queueScalarSave],
@@ -2716,7 +2767,6 @@ export function TimelineWorkbook({
         continueOnFreshDraft: true,
         preserveInputFocus: false,
         surface: "grid",
-        snapshotOverride: activeRow,
       });
     },
     [queueScalarSave],
@@ -2778,7 +2828,12 @@ export function TimelineWorkbook({
               );
             }}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-              setRowValue(row.key, binding.key, event.target.value);
+              setScalarEditorValue(
+                row.key,
+                binding.key,
+                surface,
+                event.target.value,
+              );
             }}
             onFocus={() => {
               if (row.recordId) {
@@ -2814,7 +2869,12 @@ export function TimelineWorkbook({
             );
           }}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
-            setRowValue(row.key, binding.key, event.target.value);
+            setScalarEditorValue(
+              row.key,
+              binding.key,
+              surface,
+              event.target.value,
+            );
           }}
           onFocus={() => {
             if (row.recordId) {
@@ -2836,7 +2896,7 @@ export function TimelineWorkbook({
       handlePaste,
       handleSelectRow,
       registerInput,
-      setRowValue,
+      setScalarEditorValue,
       timelineBindingLabel,
     ],
   );
@@ -3152,7 +3212,7 @@ export function TimelineWorkbook({
     );
   }
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <section style={panelStyle}>
         <p style={eyebrowStyle}>Timeline</p>
@@ -3272,6 +3332,15 @@ export function TimelineWorkbook({
 
       <div style={splitShellStyle}>
         <div>
+          {refreshError !== null ? (
+            <aside
+              data-testid="timeline-refresh-error"
+              role="status"
+              style={noticeCardStyle}
+            >
+              <p style={bodyStyle}>{refreshError}</p>
+            </aside>
+          ) : null}
           <WorkbookGridControls
             contract={timelineContract}
             filterDraft={filterDraft}

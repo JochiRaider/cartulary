@@ -13,11 +13,12 @@ import {
   formatResourceMap,
 } from "./lib/scheduler-reporting.mjs";
 import {
+  countVisibleCompletedUnit,
+  finalizerRunningDisplayUnits,
   isDryRunFromMakeFlags,
   makeChildEnv,
   runLifecycle,
   runNormalizedSchedule,
-  sanitizeLogName,
   writeSchedulerDryRun,
 } from "./lib/scheduler-runner.mjs";
 import { resourceMapToObject } from "./lib/scheduler-resources.mjs";
@@ -165,14 +166,6 @@ function resourceLimitSources(plan) {
   return new Map(Object.keys(plan.resource_limits).map((resource) => [resource, "phase_slice_plan"]));
 }
 
-function workUnitLogFile(logDir, unit, started) {
-  return path.join(logDir, `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.id)}.log`);
-}
-
-function finalizerLogFile(logDir, unit) {
-  return path.join(logDir, `finalize-${sanitizeLogName(unit.aggregateTarget)}.log`);
-}
-
 function browserStageForUnit(unit) {
   return unit.browserStage ?? "";
 }
@@ -196,7 +189,6 @@ function attachRuntime(plan, context, metadataDir) {
     unit.resourceClaims = new Map(Object.entries(unit.resource_claims ?? Object.fromEntries(unit.resourceClaims ?? [])));
     if (unit.kind === "finalizer") {
       unit.resourceClaims = new Map();
-      unit.logFile = ({ logDir }) => finalizerLogFile(logDir, unit);
       unit.command = () => ({
         command: context.nodeBin,
         args: [context.runnerScript, "finalize-shards", unit.aggregateTarget, metadataDir],
@@ -208,7 +200,6 @@ function attachRuntime(plan, context, metadataDir) {
       });
       continue;
     }
-    unit.logFile = ({ logDir, started }) => workUnitLogFile(logDir, unit, started);
     if (unit.kind === "go_shard") {
       unit.command = () => ({
         command: context.nodeBin,
@@ -271,14 +262,8 @@ function attachRuntime(plan, context, metadataDir) {
     totalWorkUnits: plan.total_work_units,
     finalizerCount: plan.finalizer_count,
     childTargets: plan.child_target_names,
-    countCompletedUnit: (unit) => unit.countInTotal !== false,
-    runningDisplayUnits(state) {
-      return Array.from(state.running.values()).map((unit) =>
-        unit.kind === "finalizer"
-          ? { id: unit.id, label: `finalize:${unit.aggregateTarget}`, group: unit.aggregateTarget }
-          : unit,
-      );
-    },
+    countCompletedUnit: countVisibleCompletedUnit,
+    runningDisplayUnits: finalizerRunningDisplayUnits,
     beforeRun: async () => {
       await runLifecycle(repoRoot, context.testOutputScript, [
         "target-start",

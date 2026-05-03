@@ -176,6 +176,7 @@ export function helperArtifactReferences(helperTargets, { root = repoRoot, runId
             label: summary.label ?? "",
             status: summary.status ?? "",
             artifact: relToRepo(file, root),
+            runner_json: summary.artifacts?.runner_json ?? "",
             stdout_log: summary.artifacts?.stdout_log ?? "",
             stderr_log: summary.artifacts?.stderr_log ?? "",
           };

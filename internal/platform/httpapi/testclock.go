@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -86,16 +87,44 @@ func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 			}
 
 			var request struct {
-				OffsetSeconds int64 `json:"offset_seconds"`
+				OffsetSeconds *int64  `json:"offset_seconds"`
+				FixedNow      *string `json:"fixed_now"`
 			}
-			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-				_ = WriteError(w, r, http.StatusBadRequest, "invalid_mutation_payload", "invalid clock set payload", map[string]any{
-					"field": "offset_seconds",
-				})
+			decoder := json.NewDecoder(r.Body)
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&request); err != nil {
+				writeInvalidClockSetPayload(w, r, "clock")
+				return
+			}
+			if err := decoder.Decode(&struct{}{}); err != io.EOF {
+				writeInvalidClockSetPayload(w, r, "clock")
 				return
 			}
 
-			next := clock.SetOffset(time.Duration(request.OffsetSeconds) * time.Second)
+			commandCount := 0
+			if request.OffsetSeconds != nil {
+				commandCount++
+			}
+			if request.FixedNow != nil {
+				commandCount++
+			}
+			if commandCount != 1 {
+				writeInvalidClockSetPayload(w, r, "clock")
+				return
+			}
+
+			var next time.Time
+			if request.OffsetSeconds != nil {
+				next = clock.SetOffset(time.Duration(*request.OffsetSeconds) * time.Second)
+			} else {
+				fixedNow, err := time.Parse(time.RFC3339Nano, *request.FixedNow)
+				if err != nil {
+					writeInvalidClockSetPayload(w, r, "fixed_now")
+					return
+				}
+				next = clock.SetFixed(fixedNow)
+			}
+
 			_ = WriteSuccess(w, r, http.StatusOK, map[string]any{
 				"offset_seconds": clock.OffsetSeconds(),
 				"now":            next.Format(time.RFC3339Nano),
@@ -103,4 +132,10 @@ func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 		})
 		return nil
 	}
+}
+
+func writeInvalidClockSetPayload(w http.ResponseWriter, r *http.Request, field string) {
+	_ = WriteError(w, r, http.StatusBadRequest, "invalid_mutation_payload", "invalid clock set payload", map[string]any{
+		"field": field,
+	})
 }

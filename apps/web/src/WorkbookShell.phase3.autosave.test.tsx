@@ -13,6 +13,7 @@ import {
   errorEnvelope,
   extractTimelinePatchBody,
   installTimelineWorkbookTestGlobals,
+  setInputValueWithoutEvent,
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
@@ -301,6 +302,116 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
       expect(conflictInput.value).toBe("Conflict value");
+    });
+  });
+
+  it.each([
+    "Enter",
+    "Tab",
+  ] as const)("Phase 3 U-3-05 commits %s from the current editor value when row state is stale", async (key) => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: `change-set-stale-${key.toLowerCase()}`,
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: `Stale-proof ${key}`,
+          captureState: "enriched",
+        }),
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+
+    await screen.findByTestId("save-state");
+    const summaryInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+
+    setInputValueWithoutEvent(summaryInput, `Stale-proof ${key}`);
+    fireEvent.keyDown(summaryInput, { key });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+      "/api/v1/records/record-1",
+    );
+    expect(extractTimelinePatchBody(fetchMock, 1)).toMatchObject({
+      base_row_version: 1,
+      changes: [
+        {
+          field_key: "timeline.summary",
+          value: `Stale-proof ${key}`,
+        },
+      ],
+    });
+  });
+
+  it("Phase 3 U-3-05 commits paste completion from the current editor value when row state is stale", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-stale-paste",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Pasted stale-proof summary",
+          captureState: "enriched",
+        }),
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+
+    await screen.findByTestId("save-state");
+    const summaryInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+
+    setInputValueWithoutEvent(summaryInput, "Pasted stale-proof summary");
+    fireEvent.paste(summaryInput);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(extractTimelinePatchBody(fetchMock, 1)).toMatchObject({
+      base_row_version: 1,
+      changes: [
+        {
+          field_key: "timeline.summary",
+          value: "Pasted stale-proof summary",
+        },
+      ],
     });
   });
 

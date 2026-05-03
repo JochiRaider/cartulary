@@ -1,7 +1,10 @@
 export {
+  countVisibleCompletedUnit,
+  finalizerRunningDisplayUnits,
   isDryRunFromMakeFlags,
   makeChildEnv,
   replayLog,
+  replayFailedAggregateLogsBeforeFinalizer,
   runCommand,
   runLifecycle,
   runNormalizedSchedule,

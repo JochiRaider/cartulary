@@ -31,6 +31,35 @@ assert_equals() {
   fi
 }
 
+assert_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if [[ "$haystack" != *"$needle"* ]]; then
+    fail "$label: expected output to contain [$needle]"
+  fi
+}
+
+artifact_abs_path() {
+  local value="$1"
+  if [[ "$value" = /* ]]; then
+    printf '%s\n' "$value"
+    return
+  fi
+  printf '%s\n' "$ROOT_DIR/$value"
+}
+
+assert_artifact_present() {
+  local value="$1"
+  local label="$2"
+  local file
+  file="$(artifact_abs_path "$value")"
+  if [[ ! -f "$file" ]]; then
+    fail "$label: missing artifact [$value]"
+  fi
+}
+
 json_field() {
   local file="$1"
   local path="$2"
@@ -165,6 +194,8 @@ fs.writeFileSync(outputFile, `${JSON.stringify({
 NODE
 
 if [[ "${FAKE_FRONTEND_UNIT_MODE:-success}" == *failure ]]; then
+  echo "frontend unit smoke stdout"
+  echo "frontend unit smoke stderr" >&2
   exit 1
 fi
 EOF
@@ -226,3 +257,13 @@ authoritative_summary="$(run_case authoritative authoritative-failure fail)"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.failed")" "1" "authoritative failure count"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.authoritative_failed")" "1" "authoritative authoritative failure count"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.unmapped_failed")" "0" "authoritative unmapped failure count"
+authoritative_phase_summary="${authoritative_summary%/target-summary.json}/frontend-unit/phase-summary.json"
+runner_json="$(json_field "$authoritative_phase_summary" "artifacts.runner_json")"
+stdout_log="$(json_field "$authoritative_phase_summary" "artifacts.stdout_log")"
+stderr_log="$(json_field "$authoritative_phase_summary" "artifacts.stderr_log")"
+assert_contains "$runner_json" "/raw/frontend-unit/runner.json" "authoritative failure runner artifact path"
+assert_contains "$stdout_log" "/raw/frontend-unit/stdout.log" "authoritative failure stdout artifact path"
+assert_contains "$stderr_log" "/raw/frontend-unit/stderr.log" "authoritative failure stderr artifact path"
+assert_artifact_present "$runner_json" "authoritative failure runner artifact"
+assert_artifact_present "$stdout_log" "authoritative failure stdout artifact"
+assert_artifact_present "$stderr_log" "authoritative failure stderr artifact"

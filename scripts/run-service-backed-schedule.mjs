@@ -14,12 +14,13 @@ import {
   resolveAutoResourceLimits,
 } from "./lib/scheduler-resources.mjs";
 import {
+  countVisibleCompletedUnit,
+  finalizerRunningDisplayUnits,
   isDryRunFromMakeFlags,
   makeChildEnv,
-  replayLog,
+  replayFailedAggregateLogsBeforeFinalizer,
   runLifecycle,
   runNormalizedSchedule,
-  sanitizeLogName,
   writeSchedulerDryRun,
 } from "./lib/scheduler-runner.mjs";
 import { createRunnerContext } from "./lib/runner-context.mjs";
@@ -555,19 +556,10 @@ function displayCapacity(schedule) {
   return schedule.resourceLimits.get(goCPUResource) ?? Math.max(...schedule.resourceLimits.values());
 }
 
-function workUnitLogFile(logDir, unit, started) {
-  return path.join(logDir, `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.id)}.log`);
-}
-
-function finalizerLogFile(logDir, unit) {
-  return path.join(logDir, `finalize-${sanitizeLogName(unit.aggregateTarget)}.log`);
-}
-
 function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTargetRunner, metadataDir }) {
   const capacityDisplay = displayCapacity(schedule);
   for (const unit of schedule.workUnits) {
     if (unit.kind === "make_target") {
-      unit.logFile = ({ logDir, started }) => workUnitLogFile(logDir, unit, started);
       unit.command = () => ({
         command: makeBin,
         args: ["--no-print-directory", "--output-sync=target", "-j1", unit.target],
@@ -580,7 +572,6 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
       continue;
     }
     if (unit.kind === "go_shard") {
-      unit.logFile = ({ logDir, started }) => workUnitLogFile(logDir, unit, started);
       unit.command = () => ({
         command: goTargetRunner,
         args: ["capture-shard", unit.target, unit.shard, metadataDir],
@@ -592,7 +583,6 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
       });
       continue;
     }
-    unit.logFile = ({ logDir }) => finalizerLogFile(logDir, unit);
     unit.command = () => ({
       command: goTargetRunner,
       args: ["finalize-shards", unit.aggregateTarget, metadataDir],
@@ -616,14 +606,8 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
     deferInitialProgress: true,
     validateSummaryTiming: !deferSummary,
     stopOnFirstFailure: false,
-    runningDisplayUnits(state) {
-      return Array.from(state.running.values()).map((unit) =>
-        unit.kind === "finalizer"
-          ? { id: unit.id, label: `finalize:${unit.aggregateTarget}`, group: unit.aggregateTarget }
-          : unit,
-      );
-    },
-    countCompletedUnit: (unit) => unit.countInTotal !== false,
+    runningDisplayUnits: finalizerRunningDisplayUnits,
+    countCompletedUnit: countVisibleCompletedUnit,
     beforeRun: async ({ reporter }) => {
       if (!reporter.verbose) {
         return;
@@ -653,14 +637,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
         String(capacityDisplay),
       ]);
     },
-    beforeReplayLog: async ({ unit, result, reporter }) => {
-      if (unit.kind !== "finalizer" || result.status === 0 || reporter.verbose) {
-        return;
-      }
-      for (const logFile of reporter.completedLogFilesForTarget(unit.aggregateTarget)) {
-        await replayLog(logFile, process.stderr);
-      }
-    },
+    beforeReplayLog: replayFailedAggregateLogsBeforeFinalizer,
     shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,
     afterWorkComplete: async ({ firstFailure }) => {
       if (firstFailure !== 0 || schedule.backendChildren.length === 0) {

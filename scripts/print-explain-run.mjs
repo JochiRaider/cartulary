@@ -279,7 +279,7 @@ function writeHelperLines(runSummary, target = "") {
     );
     for (const phase of phaseSummaries) {
       process.stdout.write(
-        `[HELPER-PHASE] ${helper.target} label=${phase.label || "unknown"} status=${phase.status || "unknown"} artifact=${phase.artifact}\n`,
+        `[HELPER-PHASE] ${helper.target} label=${phase.label || "unknown"} status=${phase.status || "unknown"} artifact=${phase.artifact} runner_json=${phase.runner_json || "none"} stdout_log=${phase.stdout_log || "none"} stderr_log=${phase.stderr_log || "none"}\n`,
       );
     }
   }

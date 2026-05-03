@@ -80,6 +80,27 @@ function defaultLogFile(logDir, unit, started) {
   return path.join(logDir, `${prefix}${sanitizeLogName(unit.id)}.log`);
 }
 
+export function finalizerRunningDisplayUnits(state) {
+  return Array.from(state.running.values()).map((unit) =>
+    finalizer(unit)
+      ? { id: unit.id, label: `finalize:${unit.aggregateTarget}`, group: unit.aggregateTarget }
+      : unit,
+  );
+}
+
+export function countVisibleCompletedUnit(unit) {
+  return counted(unit);
+}
+
+export async function replayFailedAggregateLogsBeforeFinalizer({ unit, result, reporter }) {
+  if (!finalizer(unit) || result.status === 0 || reporter.verbose) {
+    return;
+  }
+  for (const logFile of reporter.completedLogFilesForTarget(unit.aggregateTarget)) {
+    await replayLog(logFile, process.stderr);
+  }
+}
+
 function slowestWork(completedWork) {
   return [...completedWork]
     .sort((left, right) => right.duration_ms - left.duration_ms || left.label.localeCompare(right.label))

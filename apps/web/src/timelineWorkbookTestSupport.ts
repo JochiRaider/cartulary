@@ -1,6 +1,18 @@
-import { gridSavedRowsSelector, rowCellTestId } from "@cartulary/ui-contracts";
-import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
-import { vi } from "vitest";
+import {
+  gridFilterFieldTestId,
+  gridSavedRowsSelector,
+  gridShellTestId,
+  rowCellTestId,
+  type WorkbookSurface,
+} from "@cartulary/ui-contracts";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { expect, vi } from "vitest";
 
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
 import type { RecordChangedPayload } from "./workbookShellPhase4";
@@ -195,6 +207,12 @@ export function visibleGridRows(container: HTMLElement): HTMLDivElement[] {
   );
 }
 
+export function visibleGridRowRecordIds(container: HTMLElement): string[] {
+  return visibleGridRows(container).map(
+    (row) => row.getAttribute("data-grid-record-id") ?? "",
+  );
+}
+
 export function requiredGridRow(
   container: HTMLElement,
   index: number,
@@ -207,6 +225,45 @@ export function requiredGridRow(
     );
   }
   return row;
+}
+
+export async function waitForVisibleGridRowRecordIds(
+  container: HTMLElement,
+  expectedRecordIds: string[],
+) {
+  await waitFor(() => {
+    expect(visibleGridRowRecordIds(container)).toEqual(expectedRecordIds);
+  });
+}
+
+// Initial workbook readiness only covers mounted controls and row count.
+// Use row-identity waits for refreshes that preserve the same row count.
+export async function waitForWorkbookReady({
+  container,
+  expectedVisibleRows,
+  surface,
+}: {
+  container: HTMLElement;
+  expectedVisibleRows: number;
+  surface: WorkbookSurface;
+}) {
+  const grid = await screen.findByTestId(gridShellTestId(surface));
+  await screen.findByTestId(gridFilterFieldTestId(surface));
+  await waitFor(() => {
+    expect(visibleGridRows(container)).toHaveLength(expectedVisibleRows);
+  });
+  return grid;
+}
+
+export async function waitForTimelineWorkbookReady(
+  container: HTMLElement,
+  expectedVisibleRows: number,
+) {
+  return waitForWorkbookReady({
+    container,
+    expectedVisibleRows,
+    surface: "timeline",
+  });
 }
 
 export function gridScalarInput(

@@ -9,11 +9,13 @@ import assert from "node:assert/strict";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const [root] = process.argv.slice(2);
 const nodeBin = process.env.NODE_BIN || process.execPath;
 const script = path.join(root, "scripts/run-phase-slice.mjs");
+const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "scripts/lib/scheduler-runner.mjs")).href);
 
 function run(args, env = {}, options = {}) {
   const result = spawnSync(nodeBin, [script, ...args], {
@@ -221,6 +223,76 @@ try {
   assert.equal(targetSummary.status, "fail", "failed phase slice must write failing target summary");
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
+}
+
+const finalizerLogDir = mkdtempSync(path.join(os.tmpdir(), "cartulary-finalizer-log-test-"));
+const previousResultsDir = process.env.CARTULARY_TEST_RESULTS_DIR;
+const previousRunID = process.env.CARTULARY_TEST_RUN_ID;
+const previousOutputMode = process.env.CARTULARY_OUTPUT_MODE;
+try {
+  process.env.CARTULARY_TEST_RESULTS_DIR = path.join(finalizerLogDir, "results");
+  process.env.CARTULARY_TEST_RUN_ID = "finalizer-log";
+  process.env.CARTULARY_OUTPUT_MODE = "machine";
+  const target = "scheduler-finalizer-log-contract";
+  const result = await runNormalizedSchedule({
+    repoRoot: root,
+    testOutputScript: path.join(root, "scripts/lib/test-output.sh"),
+    schedule: {
+      target,
+      kind: "phase-slice",
+      prefix: "PHASE-SCHEDULER",
+      eventSchemaID: "cartulary.phase_slice_scheduler_event.v1",
+      summarySchemaID: "cartulary.phase_slice_scheduler_summary.v3",
+      resourceLimits: new Map(),
+      resourceLimitSources: new Map(),
+      workUnits: [
+        {
+          id: "finalize:backend-store",
+          label: "finalize/backend-store",
+          kind: "finalizer",
+          target: "backend-store",
+          aggregateTarget: "backend-store",
+          countInTotal: false,
+          countsStarted: false,
+          resourceClaims: new Map(),
+          needs: [],
+          command: {
+            command: nodeBin,
+            args: ["-e", "console.log('fake finalized backend-store')"],
+          },
+        },
+      ],
+      totalWorkUnits: 0,
+      finalizerCount: 1,
+      showFinalizing: true,
+      validateSummaryTiming: false,
+      shouldReplayLog: () => false,
+    },
+  });
+  assert.equal(result.status, 0, "finalizer-only scheduler fixture must pass");
+  const finalizerLog = path.join(
+    finalizerLogDir,
+    "results/finalizer-log/scheduler-finalizer-log-contract/scheduler-logs/finalize-backend-store.log",
+  );
+  assert.ok(existsSync(finalizerLog), "default scheduler log naming must preserve finalize-<target>.log");
+  assert.match(readFileSync(finalizerLog, "utf8"), /fake finalized backend-store/);
+} finally {
+  if (previousResultsDir === undefined) {
+    delete process.env.CARTULARY_TEST_RESULTS_DIR;
+  } else {
+    process.env.CARTULARY_TEST_RESULTS_DIR = previousResultsDir;
+  }
+  if (previousRunID === undefined) {
+    delete process.env.CARTULARY_TEST_RUN_ID;
+  } else {
+    process.env.CARTULARY_TEST_RUN_ID = previousRunID;
+  }
+  if (previousOutputMode === undefined) {
+    delete process.env.CARTULARY_OUTPUT_MODE;
+  } else {
+    process.env.CARTULARY_OUTPUT_MODE = previousOutputMode;
+  }
+  rmSync(finalizerLogDir, { recursive: true, force: true });
 }
 
 const unknown = run(["--phase", "phase404", "--mode", "phase"], {}, { allowFailure: true });

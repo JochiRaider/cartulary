@@ -1,7 +1,13 @@
 import type { Locator, Page } from "@playwright/test";
 
 import { expect } from "./fixtures";
-import { apiBase } from "./helpers";
+import { apiBase, authHeadersForStorageState } from "./helpers";
+
+type CurrentSessionResponse = {
+  data: {
+    session_expires_at: string;
+  };
+};
 
 export class Phase1Page {
   constructor(private readonly page: Page) {}
@@ -136,6 +142,41 @@ export class Phase1Page {
       },
     );
     expect(response.ok()).toBeTruthy();
+  }
+
+  async setClockFixed(fixedNow: string | Date) {
+    const response = await this.page.request.post(
+      `${apiBase}/api/v1/test/clock/set`,
+      {
+        data: {
+          fixed_now:
+            fixedNow instanceof Date ? fixedNow.toISOString() : fixedNow,
+        },
+      },
+    );
+    expect(response.ok()).toBeTruthy();
+  }
+
+  async setClockAfter(timestamp: string, deltaMs = 2000) {
+    const baseline = new Date(timestamp);
+    if (Number.isNaN(baseline.getTime())) {
+      throw new Error(
+        `cannot set test clock after invalid timestamp ${timestamp}`,
+      );
+    }
+    await this.setClockFixed(new Date(baseline.getTime() + deltaMs));
+  }
+
+  async currentSession() {
+    const storageState = await this.page.context().storageState();
+    const response = await this.page.request.get(
+      `${apiBase}/api/v1/auth/session`,
+      {
+        headers: authHeadersForStorageState(storageState),
+      },
+    );
+    expect(response.ok()).toBeTruthy();
+    return ((await response.json()) as CurrentSessionResponse).data;
   }
 
   async resetClockOffset() {

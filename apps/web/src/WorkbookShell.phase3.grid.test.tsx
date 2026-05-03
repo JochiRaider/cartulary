@@ -3,7 +3,6 @@ import {
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
-  gridShellTestId,
   gridSortHeaderTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
@@ -19,6 +18,8 @@ import { requireFetchCall } from "./fetchMockTestSupport";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
+  deferred,
+  errorEnvelope,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
   gridScalarInput,
@@ -30,6 +31,8 @@ import {
   timelineRow,
   timelineViewSchemaId,
   visibleGridRows,
+  waitForTimelineWorkbookReady,
+  waitForVisibleGridRowRecordIds,
 } from "./timelineWorkbookTestSupport";
 import { TimelineWorkbook } from "./WorkbookShell";
 
@@ -81,8 +84,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
     await screen.findByTestId("save-state");
-
-    const grid = await screen.findByTestId(gridShellTestId("timeline"));
+    const grid = await waitForTimelineWorkbookReady(container, 1);
     const headerFields = Array.from(
       grid.querySelectorAll('[role="columnheader"] [data-grid-field-key]'),
     ).map((node) => node.getAttribute("data-grid-field-key"));
@@ -104,9 +106,6 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     expect(within(grid).queryByText("Details")).toBeNull();
     expect(within(grid).queryByText("Source Text")).toBeNull();
 
-    await waitFor(() => {
-      expect(visibleGridRows(container)).toHaveLength(1);
-    });
     const summaryInput = gridScalarInput(
       container,
       "record-1",
@@ -172,10 +171,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
     await screen.findByTestId("save-state");
-
-    await waitFor(() => {
-      expect(visibleGridRows(container)).toHaveLength(2);
-    });
+    await waitForTimelineWorkbookReady(container, 2);
     const firstVisibleRow = requiredGridRow(container, 0);
     const secondVisibleRow = requiredGridRow(container, 1);
     expect(firstVisibleRow.getAttribute("data-grid-record-id")).toBe(
@@ -204,6 +200,113 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       String(requireFetchCall(fetchMock, 1, "timeline patch request #1")[0]),
     ).toContain("/api/v1/records/record-1");
     expect(extractTimelinePatchBody(fetchMock, 1).base_row_version).toBe(7);
+  });
+
+  it("keeps Timeline controls mounted while a sorted query refresh is pending", async () => {
+    const pendingSortedRows = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 7,
+            summary: "Zulu",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(pendingSortedRows.promise);
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+
+    await screen.findByTestId("save-state");
+    await waitForTimelineWorkbookReady(container, 2);
+
+    fireEvent.click(
+      await screen.findByTestId(
+        gridSortHeaderTestId("timeline", "timeline.summary"),
+      ),
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(screen.getByTestId(gridFilterFieldTestId("timeline"))).toBeTruthy();
+    expect(screen.getByTestId(gridFilterValueTestId("timeline"))).toBeTruthy();
+    expect(visibleGridRows(container)).toHaveLength(2);
+
+    pendingSortedRows.resolve(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 7,
+            summary: "Zulu",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
+  });
+
+  it("surfaces a sorted query refresh failure without unmounting Timeline controls", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 7,
+            summary: "Zulu",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(errorEnvelope("projection_failed", 500));
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+
+    await screen.findByTestId("save-state");
+    await waitForTimelineWorkbookReady(container, 2);
+
+    fireEvent.click(
+      await screen.findByTestId(
+        gridSortHeaderTestId("timeline", "timeline.summary"),
+      ),
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(await screen.findByTestId("timeline-refresh-error")).toBeTruthy();
+    expect(screen.getByTestId(gridFilterFieldTestId("timeline"))).toBeTruthy();
+    expect(visibleGridRows(container)).toHaveLength(2);
   });
 
   it("Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key", async () => {
@@ -292,6 +395,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
     await screen.findByTestId("save-state");
+    await waitForTimelineWorkbookReady(container, 2);
 
     fireEvent.click(
       await screen.findByTestId(
@@ -304,6 +408,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     expect(extractTimelineJSONBody(fetchMock, 1)).toEqual({
       sort: [{ direction: "asc", field_key: "timeline.summary" }],
     });
+    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
 
     fireEvent.change(screen.getByTestId(gridFilterFieldTestId("timeline")), {
       target: { value: "timeline.has_evidence" },
@@ -326,17 +431,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       sort: [{ direction: "asc", field_key: "timeline.summary" }],
     });
 
-    await waitFor(() => {
-      expect(visibleGridRows(container)).toHaveLength(2);
-    });
-    const firstVisibleRow = requiredGridRow(container, 0);
-    const secondVisibleRow = requiredGridRow(container, 1);
-    expect(firstVisibleRow.getAttribute("data-grid-record-id")).toBe(
-      "record-2",
-    );
-    expect(secondVisibleRow.getAttribute("data-grid-record-id")).toBe(
-      "record-1",
-    );
+    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
 
     const summaryInput = gridScalarInput(
       container,

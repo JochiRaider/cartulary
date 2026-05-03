@@ -556,6 +556,7 @@ write_phase_summary() {
   local artifact_target="${CARTULARY_TEST_TARGET:-adhoc}"
   local phase_dir="${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${artifact_target}/${target}"
   mkdir -p "$phase_dir"
+  printf '{"ok":true}\n' >"${phase_dir}/runner.json"
   printf 'phase stdout for %s\n' "$target" >"${phase_dir}/stdout.log"
   printf 'phase stderr for %s\n' "$target" >"${phase_dir}/stderr.log"
   cat >"${phase_dir}/phase-summary.json" <<JSON
@@ -584,6 +585,7 @@ write_phase_summary() {
     "packages": 0
   },
   "artifacts": {
+    "runner_json": "${phase_dir}/runner.json",
     "stdout_log": "${phase_dir}/stdout.log",
     "stderr_log": "${phase_dir}/stderr.log"
   }
@@ -1064,6 +1066,9 @@ assert_equals "$(json_field "$success_summary" "evidence_targets.present.length"
 assert_equals "$(json_field "$success_summary" "helper_units.total")" "2" "success helper unit count"
 assert_equals "$(json_field "$success_summary" "helper_units.artifacts.0.target")" "setup" "success helper artifact target"
 assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.artifact")" "/setup/setup/phase-summary.json" "success helper artifact phase summary path"
+assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.runner_json")" "/setup/setup/runner.json" "success helper artifact runner path"
+assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.stdout_log")" "/setup/setup/stdout.log" "success helper artifact stdout path"
+assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.stderr_log")" "/setup/setup/stderr.log" "success helper artifact stderr path"
 assert_check_scheduler_artifacts "$success_dir" success check pass - 5 finish
 assert_equals "$(json_field "$success_scheduler_summary" "completed_work_units")" "5" "success scheduler completed count"
 "$NODE_BIN" - "$success_scheduler_summary" "$success_scheduler_events" <<'EOF'
