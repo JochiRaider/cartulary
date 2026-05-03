@@ -5,9 +5,10 @@ import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 
 import {
   assertGridRows,
-  type GridRow,
+  buildGridPresentationRows,
   type GridTableProps,
   type GridViewportProps,
+  gridUnassignedGroupLabel,
 } from "./core";
 
 export {
@@ -23,22 +24,6 @@ export {
 } from "./core";
 
 export const gridAdapterVendor = "semantic-test-grid";
-
-type RenderedGroupRow = {
-  readonly groupBy: string;
-  readonly groupLabel: string | null;
-  readonly key: string;
-  readonly kind: "group";
-  readonly testId?: string | undefined;
-};
-
-type RenderedDataRow<Row> = {
-  readonly gridRow: GridRow<Row>;
-  readonly key: string;
-  readonly kind: "data";
-};
-
-type RenderedRow<Row> = RenderedGroupRow | RenderedDataRow<Row>;
 
 export function GridViewport({
   children,
@@ -66,7 +51,7 @@ export function GridTable<Row>({
 }: GridTableProps<Row>) {
   assertGridRows(rows);
 
-  const renderedRows = buildRenderedRows({
+  const renderedRows = buildGridPresentationRows({
     getGroupLabel,
     getGroupRowTestId,
     groupBy,
@@ -139,7 +124,7 @@ export function GridTable<Row>({
               <tr key={row.key} role="row">
                 <td colSpan={totalColumnCount} role="gridcell">
                   <strong data-testid={row.testId}>
-                    {row.groupLabel ?? "Unassigned"}
+                    {row.groupLabel ?? gridUnassignedGroupLabel}
                   </strong>
                 </td>
               </tr>
@@ -182,63 +167,4 @@ export function GridTable<Row>({
       </tbody>
     </table>
   );
-}
-
-function buildRenderedRows<Row>({
-  getGroupLabel,
-  getGroupRowTestId,
-  groupBy,
-  rows,
-}: {
-  readonly getGroupLabel?:
-    | ((row: Row, fieldKey: string) => string | null | undefined)
-    | undefined;
-  readonly getGroupRowTestId?:
-    | ((fieldKey: string, value: string) => string | undefined)
-    | undefined;
-  readonly groupBy: string | null;
-  readonly rows: readonly GridRow<Row>[];
-}): readonly RenderedRow<Row>[] {
-  if (groupBy === null || getGroupLabel === undefined) {
-    return rows.map((row) => ({
-      gridRow: row,
-      key: row.key,
-      kind: "data",
-    }));
-  }
-
-  const renderedRows: RenderedRow<Row>[] = [];
-  let activeGroupLabel: string | null = null;
-  for (const row of rows) {
-    const nextGroupLabel = normalizeGroupLabel(
-      getGroupLabel(row.data, groupBy),
-    );
-    if (nextGroupLabel !== activeGroupLabel) {
-      activeGroupLabel = nextGroupLabel;
-      renderedRows.push({
-        groupBy,
-        groupLabel: nextGroupLabel,
-        key: `group:${groupBy}:${nextGroupLabel ?? "empty"}`,
-        kind: "group",
-        testId:
-          nextGroupLabel === null || getGroupRowTestId === undefined
-            ? undefined
-            : getGroupRowTestId(groupBy, nextGroupLabel),
-      });
-    }
-    renderedRows.push({
-      gridRow: row,
-      key: row.key,
-      kind: "data",
-    });
-  }
-  return renderedRows;
-}
-
-function normalizeGroupLabel(value: string | null | undefined): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  const normalized = value.trim();
-  return normalized === "" ? null : normalized;
 }

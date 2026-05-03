@@ -20,12 +20,15 @@ import "react-data-grid/lib/styles.css";
 
 import {
   assertGridRows,
+  buildGridPresentationRows,
   type GridActionsColumn,
   type GridColumn,
+  type GridPresentationRow,
   type GridRow,
   type GridSortEntry,
   type GridTableProps,
   type GridViewportProps,
+  gridUnassignedGroupLabel,
 } from "./core";
 
 export {
@@ -42,21 +45,7 @@ export {
 
 export const gridAdapterVendor = "react-data-grid";
 
-type AdapterGridGroupRow = {
-  readonly groupBy: string;
-  readonly groupLabel: string | null;
-  readonly key: string;
-  readonly kind: "group";
-  readonly testId?: string | undefined;
-};
-
-type AdapterGridDataRow<Row> = {
-  readonly gridRow: GridRow<Row>;
-  readonly key: string;
-  readonly kind: "data";
-};
-
-type AdapterGridRow<Row> = AdapterGridGroupRow | AdapterGridDataRow<Row>;
+type AdapterGridRow<Row> = GridPresentationRow<Row>;
 
 const actionsColumnKey = "__cartulary_actions__";
 const defaultDataColumnMinWidth = 144;
@@ -103,7 +92,7 @@ export function GridTable<Row>({
 
   const renderedRows = useMemo(
     () =>
-      buildRenderedRows({
+      buildGridPresentationRows({
         getGroupLabel,
         getGroupRowTestId,
         groupBy,
@@ -227,17 +216,6 @@ export function GridTable<Row>({
   );
 }
 
-type BuildRenderedRowsProps<Row> = {
-  readonly getGroupLabel?:
-    | ((row: Row, fieldKey: string) => string | null | undefined)
-    | undefined;
-  readonly getGroupRowTestId?:
-    | ((fieldKey: string, value: string) => string | undefined)
-    | undefined;
-  readonly groupBy: string | null;
-  readonly rows: readonly GridRow<Row>[];
-};
-
 type BuildDataColumnProps<Row> = {
   readonly column: GridColumn<Row>;
   readonly firstColumnKey: string;
@@ -299,50 +277,6 @@ function AdapterRow<Row>({
   );
 }
 
-function buildRenderedRows<Row>({
-  getGroupLabel,
-  getGroupRowTestId,
-  groupBy,
-  rows,
-}: BuildRenderedRowsProps<Row>): readonly AdapterGridRow<Row>[] {
-  if (groupBy === null || getGroupLabel === undefined) {
-    return rows.map((row) => ({
-      gridRow: row,
-      key: row.key,
-      kind: "data",
-    }));
-  }
-
-  const renderedRows: AdapterGridRow<Row>[] = [];
-  let activeGroupLabel: string | null = null;
-
-  for (const row of rows) {
-    const nextGroupLabel = normalizeGroupLabel(
-      getGroupLabel(row.data, groupBy),
-    );
-    if (nextGroupLabel !== activeGroupLabel) {
-      activeGroupLabel = nextGroupLabel;
-      renderedRows.push({
-        groupBy,
-        groupLabel: nextGroupLabel,
-        key: `group:${groupBy}:${nextGroupLabel ?? "empty"}`,
-        kind: "group",
-        testId:
-          nextGroupLabel === null || getGroupRowTestId === undefined
-            ? undefined
-            : getGroupRowTestId(groupBy, nextGroupLabel),
-      });
-    }
-    renderedRows.push({
-      gridRow: row,
-      key: row.key,
-      kind: "data",
-    });
-  }
-
-  return renderedRows;
-}
-
 function buildDataColumn<Row>({
   column,
   firstColumnKey,
@@ -367,7 +301,7 @@ function buildDataColumn<Row>({
         }
         return (
           <strong data-testid={row.testId}>
-            {row.groupLabel ?? "Unassigned"}
+            {row.groupLabel ?? gridUnassignedGroupLabel}
           </strong>
         );
       }
@@ -425,7 +359,7 @@ function buildActionsColumn<Row>({
         }
         return (
           <strong data-testid={row.testId}>
-            {row.groupLabel ?? "Unassigned"}
+            {row.groupLabel ?? gridUnassignedGroupLabel}
           </strong>
         );
       }
@@ -482,14 +416,6 @@ function sortStateForField(
   fieldKey: string,
 ): GridSortEntry | undefined {
   return sort.find((entry) => entry.fieldKey === fieldKey);
-}
-
-function normalizeGroupLabel(value: string | null | undefined): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  const normalized = value.trim();
-  return normalized === "" ? null : normalized;
 }
 
 function alignmentStyle(

@@ -66,9 +66,40 @@ export type GridTableProps<Row> = {
   readonly sort?: readonly GridSortEntry[] | undefined;
 };
 
+export type GridPresentationGroupRow = {
+  readonly groupBy: string;
+  readonly groupLabel: string | null;
+  readonly key: string;
+  readonly kind: "group";
+  readonly testId?: string | undefined;
+};
+
+export type GridPresentationDataRow<Row> = {
+  readonly gridRow: GridRow<Row>;
+  readonly key: string;
+  readonly kind: "data";
+};
+
+export type GridPresentationRow<Row> =
+  | GridPresentationGroupRow
+  | GridPresentationDataRow<Row>;
+
+type BuildGridPresentationRowsProps<Row> = {
+  readonly getGroupLabel?:
+    | ((row: Row, fieldKey: string) => string | null | undefined)
+    | undefined;
+  readonly getGroupRowTestId?:
+    | ((fieldKey: string, value: string) => string | undefined)
+    | undefined;
+  readonly groupBy?: string | null | undefined;
+  readonly rows: readonly GridRow<Row>[];
+};
+
 export type RecordIdentity = {
   readonly recordId: string | null;
 };
+
+export const gridUnassignedGroupLabel = "Unassigned";
 
 export function assertGridRows<Row extends RecordIdentity>(
   rows: readonly Row[],
@@ -118,6 +149,54 @@ export function reconcileRecordRows<Row extends RecordIdentity>(
   });
 }
 
+export function buildGridPresentationRows<Row>({
+  getGroupLabel,
+  getGroupRowTestId,
+  groupBy,
+  rows,
+}: BuildGridPresentationRowsProps<Row>): readonly GridPresentationRow<Row>[] {
+  if (
+    groupBy === null ||
+    groupBy === undefined ||
+    getGroupLabel === undefined
+  ) {
+    return rows.map((row) => ({
+      gridRow: row,
+      key: row.key,
+      kind: "data",
+    }));
+  }
+
+  const presentationRows: GridPresentationRow<Row>[] = [];
+  let activeGroupLabel: string | null = null;
+
+  for (const row of rows) {
+    const nextGroupLabel = normalizeGroupLabel(
+      getGroupLabel(row.data, groupBy),
+    );
+    if (nextGroupLabel !== activeGroupLabel) {
+      activeGroupLabel = nextGroupLabel;
+      presentationRows.push({
+        groupBy,
+        groupLabel: nextGroupLabel,
+        key: `group:${groupBy}:${nextGroupLabel ?? "empty"}`,
+        kind: "group",
+        testId:
+          nextGroupLabel === null || getGroupRowTestId === undefined
+            ? undefined
+            : getGroupRowTestId(groupBy, nextGroupLabel),
+      });
+    }
+    presentationRows.push({
+      gridRow: row,
+      key: row.key,
+      kind: "data",
+    });
+  }
+
+  return presentationRows;
+}
+
 function shallowEqualRecord<Row extends object>(left: Row, right: Row) {
   const leftRecord = left as Record<string, unknown>;
   const rightRecord = right as Record<string, unknown>;
@@ -127,4 +206,12 @@ function shallowEqualRecord<Row extends object>(left: Row, right: Row) {
     return false;
   }
   return leftKeys.every((key) => Object.is(leftRecord[key], rightRecord[key]));
+}
+
+function normalizeGroupLabel(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized === "" ? null : normalized;
 }
