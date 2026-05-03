@@ -411,7 +411,7 @@ This phase introduces progressive normalization, exact-match entity behavior, an
 
 ### 6.4.3 Unit tests
 
-Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4-07` are service-backed store-domain tests that execute through `make backend-store`; `U-4-08..U-4-09` remain pure decoder tests that execute through `make backend-unit`.
+Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4-07` are service-backed store-domain tests that execute through `make backend-store`; `U-4-08..U-4-09` remain pure decoder tests that execute through `make backend-unit`; `U-4-WB-*` are app-level workbook component tests that execute through `make frontend-unit`. Shared package tests remain support/tooling evidence unless an app-level row consumes them through `apps/web`.
 
 | ID     | Test                                                                                                                                                                                                                                                 | Exact REQs                                                                                                                                                 | Exact ACs                      |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
@@ -424,6 +424,11 @@ Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4
 | U-4-07 | Indicator observations remain source-bound rows. Canonical indicators use incident-scoped dedupe identity and lifecycle state that is separate from observations.                                                                                    | REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082                                                                                                 | AC-017, AC-077..AC-079         |
 | U-4-08 | Timeline request decoding preserves authoritative raw mention text, applies mention-token normalization for exact-match eligibility, and accepts suppressed or forbidden rewrite tokens as valid submitted values without implicitly rewriting them. | REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 | AC-205, AC-388..AC-392         |
 | U-4-09 | Timeline create and patch request decoding accepts manual relationship actions only when provenance or confidence metadata is omitted and fails closed on client-supplied `confidence`, `provenance`, or routing overrides.                          | REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280                                                                                                 | AC-394, AC-396, AC-397         |
+| U-4-WB-01 | The assessment workbook payload builder maps band-first UI state to confidence score create fields, deduplicates support references, and does not submit derived confidence-band fields. | REQ-03-250..REQ-03-254 | AC-018, AC-080..AC-084 |
+| U-4-WB-02 | The app-level assessment workbook UI submits Phase 4 create payloads through ordinary controls and renders the returned assessment row. | REQ-03-250..REQ-03-254 | AC-018, AC-080..AC-084 |
+| U-4-WB-03 | The Evidence workbook surface issues preview and download handle requests with the required empty-object body and consumes opaque returned hrefs instead of deriving storage access. | REQ-01-032, REQ-01-234, REQ-01-247, REQ-01-459, REQ-01-465 | AC-251 |
+| U-4-WB-04 | The generic workbook mutation builder emits required Phase 4 create payloads with trimmed direct values, timestamp fields, and explicit null clears. | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260 | AC-085, AC-086, AC-137..AC-145 |
+| U-4-WB-05 | The generic workbook mutation builder maps direct clears plus token, party, record, and risk collection edits to typed Phase 4 collection action payloads. | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260 | AC-085, AC-086, AC-137..AC-145 |
 
 ### 6.4.4 Integration tests
 
@@ -452,6 +457,14 @@ Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4
 | E-4-04 | An eligible exact-match Timeline token auto-resolves on commit, while hedge, punctuation, parenthetical, or approximate forms remain unresolved and require explicit analyst action.                  | REQ-01-315..REQ-01-316, REQ-01-568, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 | AC-205, AC-388..AC-391         |
 | E-4-05 | An analyst creates append-only assessment history through the Assessments workbook surface with band-first confidence, rationale, support references, default ordering, and state or band filtering.  | REQ-03-250..REQ-03-254                                                              | AC-018, AC-080..AC-084         |
 | E-4-06 | An analyst creates and edits Notes, Task Requests, and Decisions through their real generic workbook surfaces, including defaults, collections, and visible validation failure.                       | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260                                     | AC-085, AC-086, AC-137..AC-145 |
+
+### 6.4.6 Visual regression tests
+
+| ID          | Test                                                                                                                                     | Exact REQs                                                             | Exact ACs              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------- |
+| V-4-GRID-01 | Timeline visual evidence captures unresolved mention chips and resolved entity chips through the live workbook grid.                    | REQ-02-030..REQ-02-034, REQ-03-129..REQ-03-134                         | AC-006, AC-019, AC-020 |
+| V-4-GRID-02 | Evidence visual evidence captures required access affordances and blocked-access messaging through the ordinary Evidence workbook grid. | REQ-01-032, REQ-01-234, REQ-01-247, REQ-01-459, REQ-01-465             | AC-251                 |
+| V-4-GRID-03 | Coordination visual evidence captures a required system view, such as Task Requests or Decisions, through the generic workbook grid.     | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260                         | AC-085, AC-086         |
 
 ---
 

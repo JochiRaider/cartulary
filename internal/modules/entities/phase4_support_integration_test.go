@@ -1,8 +1,12 @@
 package entities_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -234,24 +238,36 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 }
 
 type phase4SupportScenario struct {
-	harness             *phase4test.ServerHarness
-	bootstrapUserID     uuid.UUID
-	actorLogin          phase4test.LoginResult
-	actorUserID         uuid.UUID
-	IncidentID          uuid.UUID
-	routeCtx            phase4test.RouteInventoryContext
-	label               string
-	routeKey            phase4test.RouteKey
-	timelineID          uuid.UUID
-	mentionID           uuid.UUID
-	canonicalHostID     uuid.UUID
-	duplicateHostID     uuid.UUID
-	canonicalIdentityID uuid.UUID
-	duplicateIdentityID uuid.UUID
-	duplicateLinkID     uuid.UUID
-	tagIDSurvivor       uuid.UUID
-	tagIDLoser          uuid.UUID
-	assessmentHostID    uuid.UUID
+	harness               *phase4test.ServerHarness
+	bootstrapUserID       uuid.UUID
+	actorLogin            phase4test.LoginResult
+	actorUserID           uuid.UUID
+	IncidentID            uuid.UUID
+	routeCtx              phase4test.RouteInventoryContext
+	label                 string
+	routeKey              phase4test.RouteKey
+	timelineID            uuid.UUID
+	mentionID             uuid.UUID
+	canonicalHostID       uuid.UUID
+	duplicateHostID       uuid.UUID
+	canonicalIdentityID   uuid.UUID
+	duplicateIdentityID   uuid.UUID
+	duplicateLinkID       uuid.UUID
+	tagIDSurvivor         uuid.UUID
+	tagIDLoser            uuid.UUID
+	assessmentHostID      uuid.UUID
+	partyID               uuid.UUID
+	assessmentID          uuid.UUID
+	evidenceID            uuid.UUID
+	objectBlobID          uuid.UUID
+	alternateObjectBlobID uuid.UUID
+	noteID                uuid.UUID
+	taskRequestID         uuid.UUID
+	decisionID            uuid.UUID
+	commLogID             uuid.UUID
+	handoffID             uuid.UUID
+	statusReviewID        uuid.UUID
+	lessonID              uuid.UUID
 }
 
 type phase4SupportSuite struct {
@@ -306,31 +322,56 @@ func (s *phase4SupportSuite) newScenario(t *testing.T, route phase4test.RouteInv
 	duplicateIdentityID := supportUUID(s.label, route.Key, "duplicate-identity")
 
 	scenario := &phase4SupportScenario{
-		harness:             s.harness,
-		bootstrapUserID:     s.bootstrapUserID,
-		actorLogin:          actorLogin,
-		actorUserID:         actorRecord.ID,
-		IncidentID:          incidentID,
-		label:               s.label,
-		routeKey:            route.Key,
-		timelineID:          timelineID,
-		mentionID:           mentionID,
-		canonicalHostID:     canonicalHostID,
-		duplicateHostID:     duplicateHostID,
-		canonicalIdentityID: canonicalIdentityID,
-		duplicateIdentityID: duplicateIdentityID,
-		duplicateLinkID:     supportUUID(s.label, route.Key, "duplicate-link"),
-		tagIDSurvivor:       supportUUID(s.label, route.Key, "tag-survivor"),
-		tagIDLoser:          supportUUID(s.label, route.Key, "tag-loser"),
-		assessmentHostID:    supportUUID(s.label, route.Key, "assessment-host"),
+		harness:               s.harness,
+		bootstrapUserID:       s.bootstrapUserID,
+		actorLogin:            actorLogin,
+		actorUserID:           actorRecord.ID,
+		IncidentID:            incidentID,
+		label:                 s.label,
+		routeKey:              route.Key,
+		timelineID:            timelineID,
+		mentionID:             mentionID,
+		canonicalHostID:       canonicalHostID,
+		duplicateHostID:       duplicateHostID,
+		canonicalIdentityID:   canonicalIdentityID,
+		duplicateIdentityID:   duplicateIdentityID,
+		duplicateLinkID:       supportUUID(s.label, route.Key, "duplicate-link"),
+		tagIDSurvivor:         supportUUID(s.label, route.Key, "tag-survivor"),
+		tagIDLoser:            supportUUID(s.label, route.Key, "tag-loser"),
+		assessmentHostID:      supportUUID(s.label, route.Key, "assessment-host"),
+		partyID:               supportUUID(s.label, route.Key, "party"),
+		assessmentID:          supportUUID(s.label, route.Key, "assessment"),
+		evidenceID:            supportUUID(s.label, route.Key, "evidence"),
+		objectBlobID:          supportUUID(s.label, route.Key, "object-blob"),
+		alternateObjectBlobID: supportUUID(s.label, route.Key, "alternate-object-blob"),
+		noteID:                supportUUID(s.label, route.Key, "note"),
+		taskRequestID:         supportUUID(s.label, route.Key, "task-request"),
+		decisionID:            supportUUID(s.label, route.Key, "decision"),
+		commLogID:             supportUUID(s.label, route.Key, "comm-log"),
+		handoffID:             supportUUID(s.label, route.Key, "handoff"),
+		statusReviewID:        supportUUID(s.label, route.Key, "status-review"),
+		lessonID:              supportUUID(s.label, route.Key, "lesson"),
 		routeCtx: phase4test.RouteInventoryContext{
 			IncidentID:            incidentID.String(),
+			ActorUserID:           actorRecord.ID.String(),
 			TimelineRecordID:      timelineID.String(),
 			MentionID:             mentionID.String(),
 			MergeSurvivorRecordID: canonicalHostID.String(),
 			MergeLoserRecordID:    duplicateHostID.String(),
 			HostRecordID:          canonicalHostID.String(),
 			IdentityRecordID:      canonicalIdentityID.String(),
+			PartyRecordID:         supportUUID(s.label, route.Key, "party").String(),
+			AssessmentRecordID:    supportUUID(s.label, route.Key, "assessment").String(),
+			EvidenceRecordID:      supportUUID(s.label, route.Key, "evidence").String(),
+			ObjectBlobID:          supportUUID(s.label, route.Key, "object-blob").String(),
+			AlternateObjectBlobID: supportUUID(s.label, route.Key, "alternate-object-blob").String(),
+			NoteRecordID:          supportUUID(s.label, route.Key, "note").String(),
+			TaskRequestRecordID:   supportUUID(s.label, route.Key, "task-request").String(),
+			DecisionRecordID:      supportUUID(s.label, route.Key, "decision").String(),
+			CommLogRecordID:       supportUUID(s.label, route.Key, "comm-log").String(),
+			HandoffRecordID:       supportUUID(s.label, route.Key, "handoff").String(),
+			StatusReviewRecordID:  supportUUID(s.label, route.Key, "status-review").String(),
+			LessonRecordID:        supportUUID(s.label, route.Key, "lesson").String(),
 		},
 	}
 
@@ -346,6 +387,7 @@ func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.Rout
 	phase4test.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateHostID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
 	phase4test.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
 	phase4test.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
+	s.seedWorkbookRouteFamilyData(t, route)
 
 	switch route.Key {
 	case phase4test.RouteMentionResolve:
@@ -404,6 +446,153 @@ func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.Rout
 	}
 }
 
+func (s *phase4SupportScenario) seedWorkbookRouteFamilyData(t *testing.T, route phase4test.RouteInventoryEntry) {
+	t.Helper()
+
+	s.routeCtx.PartyRecordID = s.seedWorkbookCreate(t, phase4test.Phase4PartiesViewSchemaID, map[string]any{
+		"client_txn_id":      supportTxn(s.label+"-seed-party", s.routeKey),
+		"party.display_name": "Seed Support Party",
+		"party.party_kind":   "organization",
+	})
+	s.routeCtx.EvidenceRecordID = s.seedWorkbookCreate(t, phase4test.Phase4EvidenceViewSchemaID, map[string]any{
+		"client_txn_id":  supportTxn(s.label+"-seed-evidence", s.routeKey),
+		"evidence.title": "Seed Support Evidence",
+	})
+	s.routeCtx.NoteRecordID = s.seedWorkbookCreate(t, phase4test.Phase4NotesViewSchemaID, map[string]any{
+		"client_txn_id": supportTxn(s.label+"-seed-note", s.routeKey),
+		"note.title":    "Seed Support Note",
+	})
+	s.routeCtx.DecisionRecordID = s.seedWorkbookCreate(t, phase4test.Phase4DecisionsViewSchemaID, map[string]any{
+		"client_txn_id":          supportTxn(s.label+"-seed-decision", s.routeKey),
+		"decision.summary":       "Seed Support Decision",
+		"decision.decision_type": "containment",
+		"decision.rationale":     "Seed support rationale",
+	})
+	s.routeCtx.TaskRequestRecordID = s.seedWorkbookCreate(t, phase4test.Phase4TaskRequestsViewSchemaID, map[string]any{
+		"client_txn_id":  supportTxn(s.label+"-seed-task", s.routeKey),
+		"task.title":     "Seed Support Task",
+		"task.task_kind": "collection",
+	})
+	s.routeCtx.AssessmentRecordID = s.seedWorkbookCreate(t, phase4test.Phase4AssessmentsViewSchemaID, map[string]any{
+		"client_txn_id":               supportTxn(s.label+"-seed-assessment", s.routeKey),
+		"assessment.subject_ref":      s.routeCtx.HostRecordID,
+		"assessment.subject_type":     "host",
+		"assessment.assessment_state": "confirmed",
+		"assessment.confidence_score": 55,
+		"assessment.rationale":        "Seed support assessment",
+	})
+	s.routeCtx.CommLogRecordID = s.seedWorkbookCreate(t, phase4test.Phase4CommLogViewSchemaID, map[string]any{
+		"client_txn_id":               supportTxn(s.label+"-seed-comm-log", s.routeKey),
+		"comm_log.comm_type":          "briefing",
+		"comm_log.audience":           "leadership",
+		"comm_log.channel_or_meeting": "Bridge",
+		"comm_log.summary":            "Seed support communication",
+	})
+	s.routeCtx.HandoffRecordID = s.seedWorkbookCreate(t, phase4test.Phase4HandoffViewSchemaID, map[string]any{
+		"client_txn_id":                  supportTxn(s.label+"-seed-handoff", s.routeKey),
+		"handoff.incoming_owner_user_id": s.actorUserID.String(),
+		"handoff.current_state_summary":  "Seed support handoff",
+	})
+	s.routeCtx.StatusReviewRecordID = s.seedWorkbookCreate(t, phase4test.Phase4StatusReviewViewSchemaID, map[string]any{
+		"client_txn_id":                       supportTxn(s.label+"-seed-status-review", s.routeKey),
+		"status_review.current_state_summary": "Seed support status",
+	})
+	s.routeCtx.LessonRecordID = s.seedWorkbookCreate(t, phase4test.Phase4LessonViewSchemaID, map[string]any{
+		"client_txn_id":  supportTxn(s.label+"-seed-lesson", s.routeKey),
+		"lesson.summary": "Seed support lesson",
+	})
+
+	if route.Key == phase4test.RouteEvidenceAttachBlob {
+		s.routeCtx.ObjectBlobID = s.seedUploadedObjectBlob(t, "attach-primary")
+		s.routeCtx.AlternateObjectBlobID = s.seedUploadedObjectBlob(t, "attach-alternate")
+	}
+	if route.Key == phase4test.RouteEvidencePreviewHandle || route.Key == phase4test.RouteEvidenceDownloadHandle {
+		objectBlobID := s.seedUploadedObjectBlob(t, "handle")
+		s.attachSeededBlob(t, objectBlobID)
+		s.routeCtx.ObjectBlobID = objectBlobID
+	}
+}
+
+func (s *phase4SupportScenario) seedWorkbookCreate(t *testing.T, viewSchemaID string, body map[string]any) string {
+	t.Helper()
+
+	resp := phase4test.DoJSON(
+		t,
+		http.MethodPost,
+		s.harness.Server.HTTP.URL+"/api/v1/incidents/"+s.IncidentID.String()+"/views/"+viewSchemaID+"/rows",
+		body,
+		phase4test.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		phase4test.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+	)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed workbook create %s failed: status=%d body=%#v request=%#v", viewSchemaID, resp.StatusCode, httptestx.ReadJSONBody(t, resp), body)
+	}
+	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+	return requireRowRecordID(t, data)
+}
+
+func (s *phase4SupportScenario) seedUploadedObjectBlob(t *testing.T, label string) string {
+	t.Helper()
+
+	payload := []byte("phase4 support object " + label)
+	sum := sha256.Sum256(payload)
+	resp := phase4test.DoJSON(
+		t,
+		http.MethodPost,
+		s.harness.Server.HTTP.URL+"/api/v1/object-blobs",
+		map[string]any{
+			"incident_id":       s.IncidentID.String(),
+			"client_txn_id":     supportTxn(s.label+"-seed-blob-"+label, s.routeKey),
+			"byte_size":         len(payload),
+			"filename_hint":     label + ".txt",
+			"content_type_hint": "text/plain",
+			"sha256_hex":        fmt.Sprintf("%x", sum[:]),
+		},
+		phase4test.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		phase4test.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+	)
+	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+	putResp, err := http.DefaultClient.Do(mustPutRequest(t, data["upload_target"].(map[string]any)["href"].(string), payload))
+	if err != nil {
+		t.Fatalf("upload support object %s: %v", label, err)
+	}
+	defer putResp.Body.Close()
+	if putResp.StatusCode < 200 || putResp.StatusCode >= 300 {
+		body, _ := io.ReadAll(putResp.Body)
+		t.Fatalf("upload support object %s status %d: %s", label, putResp.StatusCode, string(body))
+	}
+	return data["object_blob_id"].(string)
+}
+
+func (s *phase4SupportScenario) attachSeededBlob(t *testing.T, objectBlobID string) {
+	t.Helper()
+
+	resp := phase4test.DoJSON(
+		t,
+		http.MethodPost,
+		s.harness.Server.HTTP.URL+"/api/v1/evidence-records/"+s.routeCtx.EvidenceRecordID+"/attach-blob",
+		map[string]any{
+			"object_blob_id":   objectBlobID,
+			"base_row_version": 1,
+			"client_txn_id":    supportTxn(s.label+"-seed-attach", s.routeKey),
+		},
+		phase4test.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		phase4test.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+}
+
+func mustPutRequest(t testing.TB, url string, payload []byte) *http.Request {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("create object upload request: %v", err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	return req
+}
+
 func (s *phase4SupportScenario) rebuildBaseProjections(t *testing.T) {
 	t.Helper()
 
@@ -429,6 +618,9 @@ func (s *phase4SupportScenario) requireRouteSuccess(t *testing.T, route phase4te
 func (s *phase4SupportScenario) requireRouteSuccessStatus(t *testing.T, route phase4test.RouteInventoryEntry, resp *http.Response, wantStatus int) map[string]any {
 	t.Helper()
 
+	if resp.StatusCode != wantStatus {
+		t.Fatalf("route %s unexpected status: got %d want %d body=%#v", route.Key, resp.StatusCode, wantStatus, httptestx.ReadJSONBody(t, resp))
+	}
 	data := phase4test.RequireSuccessData(t, resp, wantStatus)
 	assertRouteSuccessShape(t, route, s, data)
 	return data
@@ -575,6 +767,34 @@ func assertRouteSuccessShape(t testing.TB, route phase4test.RouteInventoryEntry,
 		if len(rows) == 0 {
 			t.Fatalf("expected non-empty query rows for %s, got %#v", route.Key, data)
 		}
+	case phase4test.RouteSuccessShapeObjectBlob:
+		requireNonEmptyString(t, data, "object_blob_id")
+		if data["incident_id"] != scenario.IncidentID.String() {
+			t.Fatalf("unexpected blob incident_id for %s: %#v", route.Key, data)
+		}
+		if data["upload_state"] != "pending" {
+			t.Fatalf("expected pending object blob for %s, got %#v", route.Key, data)
+		}
+		if _, ok := data["upload_target"].(map[string]any); !ok {
+			t.Fatalf("expected upload_target for %s, got %#v", route.Key, data)
+		}
+		if _, ok := data["accepted_contract"].(map[string]any); !ok {
+			t.Fatalf("expected accepted_contract for %s, got %#v", route.Key, data)
+		}
+	case phase4test.RouteSuccessShapeEvidenceAttach:
+		requireNonEmptyString(t, data, "change_set_id")
+		requireNonEmptyString(t, data, "object_blob_id")
+		if requireRowRecordID(t, data) != scenario.routeCtx.EvidenceRecordID {
+			t.Fatalf("expected attach row for %s to match evidence record, got %#v", route.Key, data)
+		}
+	case phase4test.RouteSuccessShapeEvidenceHandle:
+		requireNonEmptyString(t, data, "href")
+		if data["record_id"] != scenario.routeCtx.EvidenceRecordID {
+			t.Fatalf("expected handle record_id for %s, got %#v", route.Key, data)
+		}
+		if data["handle_kind"] == "" {
+			t.Fatalf("expected handle_kind for %s, got %#v", route.Key, data)
+		}
 	default:
 		t.Fatalf("unsupported success shape %s", route.SuccessShape)
 	}
@@ -591,6 +811,11 @@ func requireStableReplayPayload(t testing.TB, route phase4test.RouteInventoryEnt
 	if route.SuccessShape == phase4test.RouteSuccessShapeMutationRow {
 		if requireRowRecordID(t, firstData) != requireRowRecordID(t, replayData) {
 			t.Fatalf("expected replay to preserve row record_id for %s: first=%#v replay=%#v", route.Key, firstData, replayData)
+		}
+	}
+	if route.SuccessShape == phase4test.RouteSuccessShapeObjectBlob {
+		if firstData["object_blob_id"] != replayData["object_blob_id"] {
+			t.Fatalf("expected replay to preserve object_blob_id for %s: first=%#v replay=%#v", route.Key, firstData, replayData)
 		}
 	}
 }

@@ -82,7 +82,7 @@ const path = require("node:path");
 
 const [outputFile, mode] = process.argv.slice(2);
 const root = process.cwd();
-const phaseFiles = ["phase1", "phase2", "phase3"];
+const phaseFiles = ["phase1", "phase2", "phase3", "phase4"];
 const authoritative = [];
 
 for (const phase of phaseFiles) {
@@ -203,13 +203,13 @@ run_case() {
 }
 
 success_summary="$(run_case success success pass)"
-assert_equals "$(json_field "$success_summary" "own.counts.tests")" "15" "success total tests"
-assert_equals "$(json_field "$success_summary" "own.counts.authoritative")" "13" "success authoritative count"
+assert_equals "$(json_field "$success_summary" "own.counts.tests")" "20" "success total tests"
+assert_equals "$(json_field "$success_summary" "own.counts.authoritative")" "18" "success authoritative count"
 assert_equals "$(json_field "$success_summary" "own.counts.support")" "1" "success support count"
 assert_equals "$(json_field "$success_summary" "own.counts.unowned_regression")" "1" "success unowned regression count"
 assert_equals "$(json_field "$success_summary" "own.counts.unmapped")" "0" "success unmapped count"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.actual")" "1" "success raw actual phase"
-assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "4" "success derived slices"
+assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "5" "success derived slices"
 
 residual_summary="$(run_case residual residual-failure fail)"
 assert_equals "$(json_field "$residual_summary" "own.counts.failed")" "1" "residual failure count"

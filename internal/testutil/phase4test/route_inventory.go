@@ -40,17 +40,42 @@ const (
 type RouteKey string
 
 const (
-	RouteMentionResolve   RouteKey = "mention_resolve"
-	RouteExplicitMerge    RouteKey = "explicit_merge"
-	RouteHostsCreate      RouteKey = "hosts_create"
-	RouteHostsQuery       RouteKey = "hosts_query"
-	RouteIdentitiesCreate RouteKey = "identities_create"
-	RouteIdentitiesQuery  RouteKey = "identities_query"
-	RouteIndicatorsCreate RouteKey = "indicators_create"
-	RouteIndicatorsQuery  RouteKey = "indicators_query"
-	RouteTimelineCreate   RouteKey = "timeline_create"
-	RouteTimelineQuery    RouteKey = "timeline_query"
-	RouteTimelinePatch    RouteKey = "timeline_patch"
+	RouteMentionResolve         RouteKey = "mention_resolve"
+	RouteExplicitMerge          RouteKey = "explicit_merge"
+	RouteHostsCreate            RouteKey = "hosts_create"
+	RouteHostsQuery             RouteKey = "hosts_query"
+	RouteIdentitiesCreate       RouteKey = "identities_create"
+	RouteIdentitiesQuery        RouteKey = "identities_query"
+	RouteIndicatorsCreate       RouteKey = "indicators_create"
+	RouteIndicatorsQuery        RouteKey = "indicators_query"
+	RouteTimelineCreate         RouteKey = "timeline_create"
+	RouteTimelineQuery          RouteKey = "timeline_query"
+	RouteTimelinePatch          RouteKey = "timeline_patch"
+	RouteObjectBlobCreate       RouteKey = "object_blob_create"
+	RouteEvidenceAttachBlob     RouteKey = "evidence_attach_blob"
+	RouteEvidencePreviewHandle  RouteKey = "evidence_preview_handle"
+	RouteEvidenceDownloadHandle RouteKey = "evidence_download_handle"
+	RoutePartiesCreate          RouteKey = "parties_create"
+	RoutePartiesQuery           RouteKey = "parties_query"
+	RoutePartiesPatch           RouteKey = "parties_patch"
+	RouteAssessmentsCreate      RouteKey = "assessments_create"
+	RouteAssessmentsQuery       RouteKey = "assessments_query"
+	RouteEvidenceCreate         RouteKey = "evidence_create"
+	RouteEvidenceQuery          RouteKey = "evidence_query"
+	RouteNotesCreate            RouteKey = "notes_create"
+	RouteNotesQuery             RouteKey = "notes_query"
+	RouteTaskRequestsCreate     RouteKey = "task_requests_create"
+	RouteTaskRequestsQuery      RouteKey = "task_requests_query"
+	RouteDecisionsCreate        RouteKey = "decisions_create"
+	RouteDecisionsQuery         RouteKey = "decisions_query"
+	RouteCommLogCreate          RouteKey = "comm_log_create"
+	RouteCommLogQuery           RouteKey = "comm_log_query"
+	RouteHandoffCreate          RouteKey = "handoff_create"
+	RouteHandoffQuery           RouteKey = "handoff_query"
+	RouteStatusReviewCreate     RouteKey = "status_review_create"
+	RouteStatusReviewQuery      RouteKey = "status_review_query"
+	RouteLessonCreate           RouteKey = "lesson_create"
+	RouteLessonQuery            RouteKey = "lesson_query"
 )
 
 type RouteSuccessShape string
@@ -60,6 +85,9 @@ const (
 	RouteSuccessShapeMerge             RouteSuccessShape = "merge_summary"
 	RouteSuccessShapeMutationRow       RouteSuccessShape = "mutation_row"
 	RouteSuccessShapeQueryRows         RouteSuccessShape = "query_rows"
+	RouteSuccessShapeObjectBlob        RouteSuccessShape = "object_blob"
+	RouteSuccessShapeEvidenceAttach    RouteSuccessShape = "evidence_attach"
+	RouteSuccessShapeEvidenceHandle    RouteSuccessShape = "evidence_handle"
 )
 
 type RouteReplayCapability string
@@ -87,6 +115,19 @@ const (
 	RouteProjectionTimeline      RouteProjectionTarget = "timeline"
 )
 
+const (
+	Phase4AssessmentsViewSchemaID  = "cartulary.view.assessments.v1"
+	Phase4CommLogViewSchemaID      = "cartulary.view.comm_log.v1"
+	Phase4DecisionsViewSchemaID    = "cartulary.view.decisions.v1"
+	Phase4EvidenceViewSchemaID     = "cartulary.view.evidence.v1"
+	Phase4HandoffViewSchemaID      = "cartulary.view.handoff.v1"
+	Phase4LessonViewSchemaID       = "cartulary.view.lesson.v1"
+	Phase4NotesViewSchemaID        = "cartulary.view.notes.v1"
+	Phase4PartiesViewSchemaID      = "cartulary.view.parties.v1"
+	Phase4StatusReviewViewSchemaID = "cartulary.view.status_review.v1"
+	Phase4TaskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
+)
+
 type RouteWebSocketExpectation string
 
 const (
@@ -96,6 +137,7 @@ const (
 
 type RouteInventoryContext struct {
 	IncidentID            string
+	ActorUserID           string
 	TimelineRecordID      string
 	MentionID             string
 	MergeSurvivorRecordID string
@@ -103,6 +145,18 @@ type RouteInventoryContext struct {
 	HostRecordID          string
 	IdentityRecordID      string
 	IndicatorRecordID     string
+	PartyRecordID         string
+	AssessmentRecordID    string
+	EvidenceRecordID      string
+	ObjectBlobID          string
+	AlternateObjectBlobID string
+	NoteRecordID          string
+	TaskRequestRecordID   string
+	DecisionRecordID      string
+	CommLogRecordID       string
+	HandoffRecordID       string
+	StatusReviewRecordID  string
+	LessonRecordID        string
 }
 
 type RouteInventoryEntry struct {
@@ -159,9 +213,6 @@ func ValidateRouteInventory(t testing.TB, routes []RouteInventoryEntry) {
 		if route.SuccessShape == "" {
 			t.Fatalf("phase4 route %s missing success shape", route.Key)
 		}
-		if route.AffectedRecordID == nil {
-			t.Fatalf("phase4 route %s missing affected record selector", route.Key)
-		}
 		if route.HarnessRequirements == nil {
 			t.Fatalf("phase4 route %s missing harness requirements", route.Key)
 		}
@@ -210,11 +261,18 @@ func ValidateRouteInventory(t testing.TB, routes []RouteInventoryEntry) {
 		default:
 			t.Fatalf("phase4 route %s has invalid authorization change %q", route.Key, route.AuthorizationChange)
 		}
-		if route.ExpectedViewSchemaID == "" {
-			t.Fatalf("phase4 route %s missing expected view schema", route.Key)
+		requiresViewRow := route.HarnessRequirements[RouteHarnessQueryFieldMatrix] == RouteHarnessRequired ||
+			route.HarnessRequirements[RouteHarnessEffects] == RouteHarnessRequired
+		if requiresViewRow {
+			if route.ExpectedViewSchemaID == "" {
+				t.Fatalf("phase4 route %s missing expected view schema", route.Key)
+			}
+			if route.AffectedRecordID == nil {
+				t.Fatalf("phase4 route %s missing affected record selector", route.Key)
+			}
 		}
-		if route.HarnessRequirements[RouteHarnessQueryFieldMatrix] != RouteHarnessRequired {
-			t.Fatalf("phase4 route %s must require query field matrix coverage", route.Key)
+		if route.HarnessRequirements[RouteHarnessQueryFieldMatrix] == RouteHarnessRequired && route.AffectedRecordID == nil {
+			t.Fatalf("phase4 route %s requires query field coverage but has no affected record selector", route.Key)
 		}
 		if route.ProjectionTarget == RouteProjectionNotApplicable && route.WebSocketExpectation == RouteWebSocketNotApplicable {
 			if route.HarnessRequirements[RouteHarnessEffects] != RouteHarnessNotApplicable {
@@ -611,6 +669,190 @@ func Phase4RouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 				RouteHarnessEffects,
 			),
 		},
+		{
+			Key:    RouteObjectBlobCreate,
+			Name:   "object blob create route",
+			Method: http.MethodPost,
+			BuildPath: func(RouteInventoryContext) string {
+				return "/api/v1/object-blobs"
+			},
+			BuildBody: func(fixture RouteInventoryContext, clientTxnID string) any {
+				return map[string]any{
+					"incident_id":       fixture.IncidentID,
+					"client_txn_id":     clientTxnID,
+					"byte_size":         14,
+					"filename_hint":     " support-object.txt ",
+					"content_type_hint": "text/plain",
+					"sha256_hex":        "9af4c73b2a919f220f4b008e466b52808a1987122d95ff0f2dde00968e36e844",
+				}
+			},
+			BuildDivergentBody: func(fixture RouteInventoryContext, clientTxnID string) any {
+				return map[string]any{
+					"incident_id":   fixture.IncidentID,
+					"client_txn_id": clientTxnID,
+					"byte_size":     1,
+				}
+			},
+			SuccessStatus:        http.StatusCreated,
+			SuccessShape:         RouteSuccessShapeObjectBlob,
+			RequiresCSRF:         true,
+			ReplayCapability:     RouteReplayStoredPayloadReuse,
+			ReplayStatus:         http.StatusOK,
+			DivergentStatus:      http.StatusConflict,
+			DivergentCode:        "client_txn_conflict",
+			AuthorizationChange:  RouteAuthorizationDemoteViewer,
+			AuthorizationStatus:  http.StatusForbidden,
+			AuthorizationCode:    "authorization_denied",
+			ProjectionTarget:     RouteProjectionNotApplicable,
+			WebSocketExpectation: RouteWebSocketNotApplicable,
+			HarnessRequirements: requiredPhase4Harnesses(
+				RouteHarnessSurfaceEnvelope,
+				RouteHarnessCSRF,
+				RouteHarnessReplayDivergent,
+				RouteHarnessAuthorization,
+			),
+		},
+		{
+			Key:    RouteEvidenceAttachBlob,
+			Name:   "evidence attach blob route",
+			Method: http.MethodPost,
+			BuildPath: func(fixture RouteInventoryContext) string {
+				return "/api/v1/evidence-records/" + fixture.EvidenceRecordID + "/attach-blob"
+			},
+			BuildBody: func(fixture RouteInventoryContext, clientTxnID string) any {
+				return map[string]any{
+					"object_blob_id":   fixture.ObjectBlobID,
+					"base_row_version": 1,
+					"client_txn_id":    clientTxnID,
+				}
+			},
+			BuildDivergentBody: func(fixture RouteInventoryContext, clientTxnID string) any {
+				return map[string]any{
+					"object_blob_id":   fixture.AlternateObjectBlobID,
+					"base_row_version": 1,
+					"client_txn_id":    clientTxnID,
+				}
+			},
+			AffectedRecordID:      func(fixture RouteInventoryContext, _ map[string]any) string { return fixture.EvidenceRecordID },
+			SuccessStatus:         http.StatusOK,
+			SuccessShape:          RouteSuccessShapeEvidenceAttach,
+			RequiresCSRF:          true,
+			ExpectedViewSchemaID:  Phase4EvidenceViewSchemaID,
+			ReplayCapability:      RouteReplayStoredPayloadReuse,
+			ReplayStatus:          http.StatusOK,
+			DivergentStatus:       http.StatusConflict,
+			DivergentCode:         "client_txn_conflict",
+			AuthorizationChange:   RouteAuthorizationNotApplicable,
+			ProjectionTarget:      RouteProjectionNotApplicable,
+			WebSocketExpectation:  RouteWebSocketRecordChanged,
+			WebSocketViewSchemaID: Phase4EvidenceViewSchemaID,
+			BuildWebSocketRecordID: func(fixture RouteInventoryContext) string {
+				return fixture.EvidenceRecordID
+			},
+			WebSocketRowVersion: 2,
+			HarnessRequirements: requiredPhase4Harnesses(
+				RouteHarnessSurfaceEnvelope,
+				RouteHarnessCSRF,
+				RouteHarnessReplayDivergent,
+				RouteHarnessQueryFieldMatrix,
+				RouteHarnessEffects,
+			),
+		},
+		evidenceHandleRoute(RouteEvidencePreviewHandle, "evidence preview handle route", "preview-handle", "preview"),
+		evidenceHandleRoute(RouteEvidenceDownloadHandle, "evidence download handle route", "download-handle", "download"),
+		workbookCreateRoute(RoutePartiesCreate, "parties create route", Phase4PartiesViewSchemaID, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "party.display_name": "Support Party", "party.party_kind": "organization"}
+		}, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "party.display_name": "Support Party Divergent", "party.party_kind": "person"}
+		}),
+		workbookQueryRoute(RoutePartiesQuery, "parties query route", Phase4PartiesViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.PartyRecordID }),
+		{
+			Key:       RoutePartiesPatch,
+			Name:      "parties patch route",
+			Method:    http.MethodPatch,
+			BuildPath: func(fixture RouteInventoryContext) string { return "/api/v1/records/" + fixture.PartyRecordID },
+			BuildBody: func(_ RouteInventoryContext, clientTxnID string) any {
+				return workbookPatchPayload(Phase4PartiesViewSchemaID, 1, clientTxnID, "party.primary_email", "support@example.test")
+			},
+			BuildDivergentBody: func(_ RouteInventoryContext, clientTxnID string) any {
+				return workbookPatchPayload(Phase4PartiesViewSchemaID, 1, clientTxnID, "party.primary_email", "support-divergent@example.test")
+			},
+			AffectedRecordID:     func(fixture RouteInventoryContext, _ map[string]any) string { return fixture.PartyRecordID },
+			SuccessStatus:        http.StatusOK,
+			SuccessShape:         RouteSuccessShapeMutationRow,
+			RequiresCSRF:         true,
+			ExpectedViewSchemaID: Phase4PartiesViewSchemaID,
+			ReplayCapability:     RouteReplayStoredPayloadReuse,
+			ReplayStatus:         http.StatusOK,
+			DivergentStatus:      http.StatusConflict,
+			DivergentCode:        "client_txn_conflict",
+			AuthorizationChange:  RouteAuthorizationDemoteViewer,
+			AuthorizationStatus:  http.StatusForbidden,
+			AuthorizationCode:    "authorization_denied",
+			ProjectionTarget:     RouteProjectionNotApplicable,
+			WebSocketExpectation: RouteWebSocketNotApplicable,
+			HarnessRequirements: requiredPhase4Harnesses(
+				RouteHarnessSurfaceEnvelope,
+				RouteHarnessCSRF,
+				RouteHarnessReplayDivergent,
+				RouteHarnessAuthorization,
+				RouteHarnessQueryFieldMatrix,
+			),
+		},
+		workbookCreateRoute(RouteAssessmentsCreate, "assessments create route", Phase4AssessmentsViewSchemaID, func(fixture RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "assessment.subject_ref": fixture.HostRecordID, "assessment.subject_type": "host", "assessment.assessment_state": "confirmed", "assessment.confidence_score": 55, "assessment.rationale": "Support assessment"}
+		}, func(fixture RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "assessment.subject_ref": fixture.HostRecordID, "assessment.subject_type": "host", "assessment.assessment_state": "suspected", "assessment.confidence_score": 25, "assessment.rationale": "Support assessment divergent"}
+		}),
+		workbookQueryRoute(RouteAssessmentsQuery, "assessments query route", Phase4AssessmentsViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.AssessmentRecordID }),
+		workbookCreateRoute(RouteEvidenceCreate, "evidence create route", Phase4EvidenceViewSchemaID, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "evidence.title": "Support evidence"}
+		}, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "evidence.title": "Support evidence divergent"}
+		}),
+		workbookQueryRoute(RouteEvidenceQuery, "evidence query route", Phase4EvidenceViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.EvidenceRecordID }),
+		workbookCreateRoute(RouteNotesCreate, "notes create route", Phase4NotesViewSchemaID, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "note.title": "Support note"}
+		}, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "note.title": "Support note divergent"}
+		}),
+		workbookQueryRoute(RouteNotesQuery, "notes query route", Phase4NotesViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.NoteRecordID }),
+		workbookCreateRoute(RouteTaskRequestsCreate, "task requests create route", Phase4TaskRequestsViewSchemaID, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "task.title": "Support task", "task.task_kind": "collection"}
+		}, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "task.title": "Support task divergent", "task.task_kind": "analysis"}
+		}),
+		workbookQueryRoute(RouteTaskRequestsQuery, "task requests query route", Phase4TaskRequestsViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.TaskRequestRecordID }),
+		workbookCreateRoute(RouteDecisionsCreate, "decisions create route", Phase4DecisionsViewSchemaID, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "decision.summary": "Support decision", "decision.decision_type": "containment", "decision.rationale": "Support rationale"}
+		}, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "decision.summary": "Support decision divergent", "decision.decision_type": "scope", "decision.rationale": "Support divergent rationale"}
+		}),
+		workbookQueryRoute(RouteDecisionsQuery, "decisions query route", Phase4DecisionsViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.DecisionRecordID }),
+		workbookCreateRoute(RouteCommLogCreate, "communications log create route", Phase4CommLogViewSchemaID, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "comm_log.comm_type": "briefing", "comm_log.audience": "leadership", "comm_log.channel_or_meeting": "Bridge", "comm_log.summary": "Support communication"}
+		}, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "comm_log.comm_type": "briefing", "comm_log.audience": "team", "comm_log.channel_or_meeting": "Chat", "comm_log.summary": "Support communication divergent"}
+		}),
+		workbookQueryRoute(RouteCommLogQuery, "communications log query route", Phase4CommLogViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.CommLogRecordID }),
+		workbookCreateRoute(RouteHandoffCreate, "handoff create route", Phase4HandoffViewSchemaID, func(fixture RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "handoff.incoming_owner_user_id": fixture.ActorUserID, "handoff.current_state_summary": "Support handoff"}
+		}, func(fixture RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "handoff.incoming_owner_user_id": fixture.ActorUserID, "handoff.current_state_summary": "Support handoff divergent"}
+		}),
+		workbookQueryRoute(RouteHandoffQuery, "handoff query route", Phase4HandoffViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.HandoffRecordID }),
+		workbookCreateRoute(RouteStatusReviewCreate, "status review create route", Phase4StatusReviewViewSchemaID, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "status_review.current_state_summary": "Support status"}
+		}, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "status_review.current_state_summary": "Support status divergent"}
+		}),
+		workbookQueryRoute(RouteStatusReviewQuery, "status review query route", Phase4StatusReviewViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.StatusReviewRecordID }),
+		workbookCreateRoute(RouteLessonCreate, "lesson create route", Phase4LessonViewSchemaID, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "lesson.summary": "Support lesson"}
+		}, func(_ RouteInventoryContext, clientTxnID string) any {
+			return map[string]any{"client_txn_id": clientTxnID, "lesson.summary": "Support lesson divergent"}
+		}),
+		workbookQueryRoute(RouteLessonQuery, "lesson query route", Phase4LessonViewSchemaID, func(fixture RouteInventoryContext) string { return fixture.LessonRecordID }),
 	}
 }
 
@@ -632,6 +874,111 @@ func explicitMergePayload(fixture RouteInventoryContext, clientTxnID string, rea
 		"loser_base_row_version":    1,
 		"client_txn_id":             clientTxnID,
 		"reason":                    reason,
+	}
+}
+
+func workbookCreateRoute(
+	key RouteKey,
+	name string,
+	viewSchemaID string,
+	body func(RouteInventoryContext, string) any,
+	divergent func(RouteInventoryContext, string) any,
+) RouteInventoryEntry {
+	return RouteInventoryEntry{
+		Key:    key,
+		Name:   name,
+		Method: http.MethodPost,
+		BuildPath: func(fixture RouteInventoryContext) string {
+			return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewSchemaID + "/rows"
+		},
+		BuildBody:            body,
+		BuildDivergentBody:   divergent,
+		AffectedRecordID:     func(_ RouteInventoryContext, data map[string]any) string { return rowRecordID(data) },
+		SuccessStatus:        http.StatusCreated,
+		SuccessShape:         RouteSuccessShapeMutationRow,
+		RequiresCSRF:         true,
+		ExpectedViewSchemaID: viewSchemaID,
+		ReplayCapability:     RouteReplayStoredPayloadReuse,
+		ReplayStatus:         http.StatusOK,
+		DivergentStatus:      http.StatusConflict,
+		DivergentCode:        "client_txn_conflict",
+		AuthorizationChange:  RouteAuthorizationDemoteViewer,
+		AuthorizationStatus:  http.StatusForbidden,
+		AuthorizationCode:    "authorization_denied",
+		ProjectionTarget:     RouteProjectionNotApplicable,
+		WebSocketExpectation: RouteWebSocketNotApplicable,
+		HarnessRequirements: requiredPhase4Harnesses(
+			RouteHarnessSurfaceEnvelope,
+			RouteHarnessCSRF,
+			RouteHarnessReplayDivergent,
+			RouteHarnessAuthorization,
+			RouteHarnessQueryFieldMatrix,
+		),
+	}
+}
+
+func workbookQueryRoute(key RouteKey, name string, viewSchemaID string, affected func(RouteInventoryContext) string) RouteInventoryEntry {
+	return RouteInventoryEntry{
+		Key:    key,
+		Name:   name,
+		Method: http.MethodPost,
+		BuildPath: func(fixture RouteInventoryContext) string {
+			return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewSchemaID + "/query"
+		},
+		BuildBody:            func(RouteInventoryContext, string) any { return map[string]any{} },
+		AffectedRecordID:     func(fixture RouteInventoryContext, _ map[string]any) string { return affected(fixture) },
+		SuccessStatus:        http.StatusOK,
+		SuccessShape:         RouteSuccessShapeQueryRows,
+		RequiresCSRF:         false,
+		ExpectedViewSchemaID: viewSchemaID,
+		ReplayCapability:     RouteReplayNotApplicable,
+		AuthorizationChange:  RouteAuthorizationRemoveMember,
+		AuthorizationStatus:  http.StatusNotFound,
+		AuthorizationCode:    "incident_not_found",
+		ProjectionTarget:     RouteProjectionNotApplicable,
+		WebSocketExpectation: RouteWebSocketNotApplicable,
+		HarnessRequirements: requiredPhase4Harnesses(
+			RouteHarnessSurfaceEnvelope,
+			RouteHarnessAuthorization,
+			RouteHarnessQueryFieldMatrix,
+		),
+	}
+}
+
+func evidenceHandleRoute(key RouteKey, name string, pathSuffix string, _ string) RouteInventoryEntry {
+	return RouteInventoryEntry{
+		Key:    key,
+		Name:   name,
+		Method: http.MethodPost,
+		BuildPath: func(fixture RouteInventoryContext) string {
+			return "/api/v1/evidence-records/" + fixture.EvidenceRecordID + "/" + pathSuffix
+		},
+		BuildBody:            func(RouteInventoryContext, string) any { return map[string]any{} },
+		SuccessStatus:        http.StatusOK,
+		SuccessShape:         RouteSuccessShapeEvidenceHandle,
+		RequiresCSRF:         true,
+		ReplayCapability:     RouteReplayNotApplicable,
+		AuthorizationChange:  RouteAuthorizationRemoveMember,
+		AuthorizationStatus:  http.StatusNotFound,
+		AuthorizationCode:    "evidence_record_not_found",
+		ProjectionTarget:     RouteProjectionNotApplicable,
+		WebSocketExpectation: RouteWebSocketNotApplicable,
+		HarnessRequirements: requiredPhase4Harnesses(
+			RouteHarnessSurfaceEnvelope,
+			RouteHarnessCSRF,
+			RouteHarnessAuthorization,
+		),
+	}
+}
+
+func workbookPatchPayload(viewSchemaID string, baseRowVersion int64, clientTxnID string, fieldKey string, value any) map[string]any {
+	return map[string]any{
+		"view_schema_id":   viewSchemaID,
+		"base_row_version": baseRowVersion,
+		"client_txn_id":    clientTxnID,
+		"changes": []map[string]any{
+			{"field_key": fieldKey, "value": value},
+		},
 	}
 }
 

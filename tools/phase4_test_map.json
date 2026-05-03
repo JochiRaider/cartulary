@@ -10,8 +10,9 @@
     "authoritative_execution": [
       "`backend-unit` selects authoritative `U-4-*` decoder rows through `cartulary-runner.mjs go-target backend-unit`, with target-plan selection constrained by the Phase 4 manifest and `backend_unit` execution dependency.",
       "`backend-store` selects authoritative store-backed `U-4-*` rows through `cartulary-runner.mjs go-target backend-store`, with target-plan selection constrained by the Phase 4 manifest and `backend_store` execution dependency.",
+      "`frontend-unit` selects authoritative Phase 4 workbook component rows through the Phase 4 manifest for `frontend_unit`, while shared package tests remain support or regression coverage.",
       "`backend-integration` selects authoritative `I-4-*` rows through `cartulary-runner.mjs go-target backend-integration`, with target-plan selection constrained by the Phase 4 manifest and `backend_integration` execution dependency.",
-      "`tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 4: `browser-e2e-webserver-backed` carries authoritative `E-4-*` rows through duration-balanced Playwright manifest-entry shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. Service-backed scheduling runs isolated browser evidence as leaf targets while direct `browser-e2e` remains the local aggregate for stateful, measurement, and visual browser batches."
+      "`tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 4: `browser-e2e-webserver-backed` carries authoritative `E-4-*` rows through duration-balanced Playwright manifest-entry shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. `browser-e2e-visual` carries authoritative `V-4-*` visual rows through `browser_visual`."
     ],
     "support_execution_extras": [
       "`apps/web/src/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers."
@@ -19,7 +20,8 @@
     "sections": {
       "unit": "Unit",
       "integration": "Integration",
-      "e2e": "Browser E2E"
+      "e2e": "Browser E2E",
+      "visual": "Visual Regression"
     },
     "shared_harness": [
       "| Harness | Phase 4 evidence |",
@@ -30,7 +32,7 @@
       "| Browser helper fixtures | `apps/web/src/timelineWorkbookTestSupport.tsx` and `apps/web/src/workbookShellPhase4.ts` provide the mocked workbook row, websocket, and mention helper scaffolding used by the support-only Phase 4 workbook tests. |"
     ],
     "support_only": [
-      "`internal/modules/entities/phase4_support_integration_test.go` consumes the centralized Phase 4 route inventory through `TestSupportPhase4Integration_SurfaceEnvelope`, `..._CSRFProtection`, `..._ReplayAndDivergentConflict`, `..._AuthorizationReDerivation`, `..._DefaultQueryMetaAndFieldKeyConformance`, and `..._ProjectionAndWebsocketConsequences`. Together they keep the resolve, merge, entity-origin, indicator, and Timeline routes on one enforced support-only matrix without replacing any authoritative `I-4-*` row.",
+      "`internal/modules/entities/phase4_support_integration_test.go` consumes the centralized Phase 4 route-family inventory through `TestSupportPhase4Integration_SurfaceEnvelope`, `..._CSRFProtection`, `..._ReplayAndDivergentConflict`, `..._AuthorizationReDerivation`, `..._DefaultQueryMetaAndFieldKeyConformance`, and `..._ProjectionAndWebsocketConsequences`. Together they keep mention, merge, entity-origin, indicator, Timeline, object-blob, evidence-handle, Parties, assessment, coordination, and generic workbook routes on one enforced support-only matrix without replacing any authoritative `I-4-*` row.",
       "`apps/web/src/WorkbookShell.phase4.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4."
     ]
   },
@@ -44,6 +46,11 @@
     "U-4-07",
     "U-4-08",
     "U-4-09",
+    "U-4-WB-01",
+    "U-4-WB-02",
+    "U-4-WB-03",
+    "U-4-WB-04",
+    "U-4-WB-05",
     "I-4-01",
     "I-4-02",
     "I-4-03",
@@ -61,7 +68,10 @@
     "E-4-03",
     "E-4-04",
     "E-4-05",
-    "E-4-06"
+    "E-4-06",
+    "V-4-GRID-01",
+    "V-4-GRID-02",
+    "V-4-GRID-03"
   ],
   "forbidden_id_files": [
     "internal/modules/entities/phase4_support_integration_test.go",
@@ -251,6 +261,61 @@
       "out_of_scope": "Committed relationship mutations, replay, and current-state route readback remain integration evidence.",
       "execution_family": "backend-unit-core",
       "execution_label": "backend-unit phase4 authoritative"
+    },
+    {
+      "id": "U-4-WB-01",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.assessments.test.tsx",
+      "title": "Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "The workbook assessment payload builder maps band-first UI state to the owned create contract, deduplicates support refs, and does not submit derived confidence-band fields.",
+      "out_of_scope": "Durable assessment history and real browser ordering remain integration and browser evidence."
+    },
+    {
+      "id": "U-4-WB-02",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.assessments.test.tsx",
+      "title": "Phase 4 U-4-WB-02 submits assessment creates through the workbook UI",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "The ordinary workbook assessment panel submits the Phase 4 create route payload through app-level UI controls and renders the returned assessment grid row.",
+      "out_of_scope": "Service-backed append-only assessment history remains backend and browser evidence."
+    },
+    {
+      "id": "U-4-WB-03",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.surfaces.test.tsx",
+      "title": "Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "The ordinary Evidence workbook surface issues preview and download handle requests with the required empty-object body and consumes opaque returned hrefs rather than deriving object storage access.",
+      "out_of_scope": "Handle issuance validation, redeem behavior, and object-store access remain backend integration evidence."
+    },
+    {
+      "id": "U-4-WB-04",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.surfaces.test.tsx",
+      "title": "Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "The generic workbook mutation builder emits create payloads for required Phase 4 surfaces with trimmed direct values, timestamp fields, and explicit null clears.",
+      "out_of_scope": "Route-level validation and persistence for each surface remain backend integration evidence."
+    },
+    {
+      "id": "U-4-WB-05",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.surfaces.test.tsx",
+      "title": "Phase 4 U-4-WB-05 builds direct clears and typed collection actions",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "The generic workbook mutation builder maps direct clears plus token, party, record, and risk collection edits to typed Phase 4 collection action payloads.",
+      "out_of_scope": "Typed collection conflict payloads and foreign-target rejection remain backend integration evidence."
     }
   ],
   "integration": [
@@ -494,5 +559,48 @@
       "out_of_scope": "Detailed lifecycle transition and idempotency assertions remain backend integration evidence."
     }
   ],
-  "visual": []
+  "visual": [
+    {
+      "id": "V-4-GRID-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/workbook.visual.spec.ts",
+      "title": "V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid",
+      "execution_dependency": "browser_visual",
+      "evidence_layer": "browser_visual",
+      "fixture_refs": [
+        "VFIX-GRID-02"
+      ],
+      "claim": "The visual harness captures unresolved mention and resolved entity chip presentations on the live Timeline workbook grid.",
+      "out_of_scope": "Inspector resolution choreography remains functional browser evidence."
+    },
+    {
+      "id": "V-4-GRID-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/workbook.visual.spec.ts",
+      "title": "V-4-GRID-02 captures Evidence access affordances on the required Evidence surface",
+      "execution_dependency": "browser_visual",
+      "evidence_layer": "browser_visual",
+      "fixture_refs": [
+        "VFIX-GRID-05"
+      ],
+      "claim": "The visual harness captures Evidence surface access controls and blocked-access messaging through the ordinary workbook grid.",
+      "out_of_scope": "Opaque handle issuance and object access are owned by backend and frontend-unit evidence."
+    },
+    {
+      "id": "V-4-GRID-03",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/workbook.visual.spec.ts",
+      "title": "V-4-GRID-03 captures Task Requests system view fields through the generic workbook grid",
+      "execution_dependency": "browser_visual",
+      "evidence_layer": "browser_visual",
+      "fixture_refs": [
+        "VFIX-GRID-07"
+      ],
+      "claim": "The visual harness captures a required coordination system view rendered through the same generic workbook grid surface.",
+      "out_of_scope": "Detailed generic mutation behavior remains functional browser and component evidence."
+    }
+  ]
 }

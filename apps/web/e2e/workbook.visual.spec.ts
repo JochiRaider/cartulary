@@ -1,5 +1,9 @@
 import { changeGrouping } from "@cartulary/test-utils";
-import { gridGroupRowTestId, gridShellTestId } from "@cartulary/ui-contracts";
+import {
+  gridGroupRowTestId,
+  gridShellTestId,
+  rowCellTestId,
+} from "@cartulary/ui-contracts";
 import type { Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
@@ -9,6 +13,15 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
+import {
+  addRelationshipTokenViaUI,
+  collectionActionsPayload,
+  evidenceViewSchemaId,
+  hostRefsFieldKey,
+  hostsViewSchemaId,
+  timelineViewSchemaId as phase4TimelineViewSchemaId,
+  taskRequestsViewSchemaId,
+} from "./phase4Helpers";
 
 const timelineViewSchemaId = "timeline";
 const timelineApiViewSchemaId = "cartulary.view.timeline.v1";
@@ -219,6 +232,154 @@ test.describe("Phase 3 workbook visual evidence", () => {
       testInfo,
       "v-3-grid-03-grouped-grid",
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    );
+  });
+});
+
+test.describe("Phase 4 workbook visual evidence", () => {
+  test("V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V4GRID01"),
+      "Phase 4 visual mention chips",
+    );
+    await createViewRow(page, incidentId, hostsViewSchemaId, {
+      client_txn_id: uniqueTxn("V4GRID01-HOST"),
+      "host.display_name": "WS-023",
+      "host.hostname": "ws-023.visual.example.test",
+    });
+    const unresolvedRow = (await createViewRow(
+      page,
+      incidentId,
+      phase4TimelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V4GRID01-UNRESOLVED"),
+        "timeline.summary": "Unresolved mention visual row",
+        [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
+      },
+    )) as ViewRow;
+    const resolvedRow = (await createViewRow(
+      page,
+      incidentId,
+      phase4TimelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V4GRID01-RESOLVED"),
+        "timeline.summary": "Resolved mention visual row",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+    await expect(
+      page
+        .getByTestId(`row-${unresolvedRow.record_id}-hostRefs-items`)
+        .getByLabel("Unresolved WS-023?"),
+    ).toBeVisible();
+    await addRelationshipTokenViaUI(
+      page,
+      resolvedRow.record_id,
+      "hostRefs",
+      "WS-023",
+    );
+    await expect(
+      page
+        .getByTestId(`row-${resolvedRow.record_id}-hostRefs-items`)
+        .getByLabel("Resolved WS-023"),
+    ).toBeVisible();
+
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-4-grid-01-mention-chips",
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    );
+  });
+
+  test("V-4-GRID-02 captures Evidence access affordances on the required Evidence surface", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V4GRID02"),
+      "Phase 4 visual evidence access",
+    );
+    const evidenceRow = (await createViewRow(
+      page,
+      incidentId,
+      evidenceViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V4GRID02-EVIDENCE"),
+        "evidence.title": "Visual evidence package",
+        "evidence.storage_ref": "slot/visual",
+      },
+    )) as ViewRow;
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        evidenceViewSchemaId,
+      )}`,
+    );
+    await maskIncidentIdentity(page, incidentId);
+    await expect(
+      page.getByTestId(rowCellTestId(evidenceRow.record_id, "evidence.title")),
+    ).toHaveText("Visual evidence package");
+    await expect(
+      page.getByTestId(`evidence-preview-${evidenceRow.record_id}`),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(`evidence-access-message-${evidenceRow.record_id}`),
+    ).toContainText("Blocked");
+
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-4-grid-02-evidence-access",
+      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+    );
+  });
+
+  test("V-4-GRID-03 captures Task Requests system view fields through the generic workbook grid", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V4GRID03"),
+      "Phase 4 visual task requests",
+    );
+    const taskRow = (await createViewRow(
+      page,
+      incidentId,
+      taskRequestsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V4GRID03-TASK"),
+        "task.title": "Visual task request",
+        "task.task_kind": "collection",
+      },
+    )) as ViewRow;
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        taskRequestsViewSchemaId,
+      )}`,
+    );
+    await maskIncidentIdentity(page, incidentId);
+    await expect(
+      page.getByTestId(rowCellTestId(taskRow.record_id, "task.title")),
+    ).toHaveText("Visual task request");
+    await expect(
+      page.getByTestId(rowCellTestId(taskRow.record_id, "task.status")),
+    ).toHaveText("open");
+
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-4-grid-03-task-requests",
+      page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
     );
   });
 });

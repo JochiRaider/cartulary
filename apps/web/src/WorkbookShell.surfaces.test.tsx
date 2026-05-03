@@ -168,7 +168,7 @@ describe("WorkbookShell surface selection", () => {
     );
   });
 
-  it("issues opaque evidence preview and download handles from the evidence surface", async () => {
+  it("Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface", async () => {
     evidenceRows = [
       {
         record_id: "evidence-1",
@@ -225,7 +225,7 @@ describe("WorkbookShell surface selection", () => {
 });
 
 describe("generic workbook mutation payloads", () => {
-  it("builds required creates with direct values, timestamps, and explicit clears", () => {
+  it("Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears", () => {
     const evidence = requireViewContract(evidenceViewSchemaId);
 
     expect(
@@ -249,7 +249,7 @@ describe("generic workbook mutation payloads", () => {
     });
   });
 
-  it("builds direct clears and typed collection actions", () => {
+  it("Phase 4 U-4-WB-05 builds direct clears and typed collection actions", () => {
     const evidence = requireViewContract(evidenceViewSchemaId);
     const notes = requireViewContract("cartulary.view.notes.v1");
     const commLog = requireViewContract("cartulary.view.comm_log.v1");
