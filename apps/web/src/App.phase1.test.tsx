@@ -17,11 +17,19 @@ vi.mock("./WorkbookShell", () => ({
 
 import { AppRoot } from "./AppRoot";
 import {
+  credentialStateResource,
+  installLandingShellFetch,
+  sessionResource,
+} from "./appShellTestSupport";
+import {
+  deferred,
+  errorResponse,
+  expectStableFetchCount,
   findFetchCalls,
+  jsonResponse,
   readHeader,
   requireJSONRequest,
 } from "./fetchMockTestSupport";
-import type { CredentialState, SessionData } from "./phase1Client";
 
 describe("Phase 1 ordinary app shell", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -39,49 +47,29 @@ describe("Phase 1 ordinary app shell", () => {
 
   it("Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions", async () => {
     let authenticated = false;
-    fetchMock.mockImplementation((input, init) => {
-      const url = String(input);
-      const method = (init?.method ?? "GET").toUpperCase();
-
-      if (url === "/api/v1/auth/session") {
+    installLandingShellFetch(fetchMock, {
+      session: () => {
         if (!authenticated) {
-          return Promise.resolve(errorResponse("session_required", 401));
+          return errorResponse("session_required", 401);
         }
-        return Promise.resolve(
-          jsonResponse({
-            data: sessionResource({
-              display_name: "Phase 1 Operator",
-            }),
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/login" && method === "POST") {
-        authenticated = true;
-        return Promise.resolve(
-          jsonResponse({
-            data: sessionResource({
-              display_name: "Phase 1 Operator",
-            }),
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/credential-state") {
-        return Promise.resolve(
-          jsonResponse({
-            data: credentialStateResource(),
-          }),
-        );
-      }
-      if (url === "/api/v1/incidents") {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              incidents: [],
-            },
-          }),
-        );
-      }
-      throw new Error(`unexpected fetch: ${method} ${url}`);
+        return sessionResource({
+          display_name: "Phase 1 Operator",
+        });
+      },
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/login",
+          handler: () => {
+            authenticated = true;
+            return jsonResponse({
+              data: sessionResource({
+                display_name: "Phase 1 Operator",
+              }),
+            });
+          },
+        },
+      ],
     });
 
     renderApp();
@@ -122,38 +110,38 @@ describe("Phase 1 ordinary app shell", () => {
   });
 
   it("Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
-    fetchMock.mockImplementation((input, init) => {
-      const url = String(input);
-      const method = (init?.method ?? "GET").toUpperCase();
-
-      if (url === "/api/v1/auth/session") {
-        return Promise.resolve(errorResponse("session_required", 401));
-      }
-      if (url === "/api/v1/auth/login" && method === "POST") {
-        return Promise.resolve(
-          errorResponse("mfa_setup_required", 401, {
-            required_setup_kinds: ["totp"],
-            bootstrap_token: "bootstrap-token-123",
-            bootstrap_expires_at: "2026-04-17T12:10:00Z",
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/mfa/totp/begin" && method === "POST") {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              enrollment_id: "enrollment-1",
-              totp_setup: {
-                secret_base32: "JBSWY3DPEHPK3PXP",
+    installLandingShellFetch(fetchMock, {
+      session: errorResponse("session_required", 401),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/login",
+          handler: () =>
+            errorResponse("mfa_setup_required", 401, {
+              required_setup_kinds: ["totp"],
+              bootstrap_token: "bootstrap-token-123",
+              bootstrap_expires_at: "2026-04-17T12:10:00Z",
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/auth/mfa/totp/begin",
+          handler: () =>
+            jsonResponse({
+              data: {
+                enrollment_id: "enrollment-1",
+                totp_setup: {
+                  secret_base32: "JBSWY3DPEHPK3PXP",
+                },
               },
-            },
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/mfa/totp/complete" && method === "POST") {
-        return Promise.resolve(jsonResponse({ data: {} }));
-      }
-      throw new Error(`unexpected fetch: ${method} ${url}`);
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/auth/mfa/totp/complete",
+          handler: () => jsonResponse({ data: {} }),
+        },
+      ],
     });
 
     renderApp();
@@ -228,66 +216,51 @@ describe("Phase 1 ordinary app shell", () => {
     let sessionActive = true;
     let totpBeginAttempts = 0;
 
-    fetchMock.mockImplementation((input, init) => {
-      const url = String(input);
-      const method = (init?.method ?? "GET").toUpperCase();
-
-      if (url === "/api/v1/auth/session") {
+    installLandingShellFetch(fetchMock, {
+      session: () => {
         if (!sessionActive) {
-          return Promise.resolve(errorResponse("session_required", 401));
+          return errorResponse("session_required", 401);
         }
-        return Promise.resolve(
-          jsonResponse({
-            data: sessionResource({
-              display_name: "Phase 1 Operator",
-              mfa_state: "satisfied",
-            }),
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/credential-state") {
-        return Promise.resolve(
-          jsonResponse({
-            data: credentialStateResource({
-              totp: {
-                state: "active",
-                enrolled_at: "2026-04-20T11:00:00Z",
-                pending_expires_at: null,
+        return sessionResource({
+          display_name: "Phase 1 Operator",
+          mfa_state: "satisfied",
+        });
+      },
+      credentialState: credentialStateResource({
+        totp: {
+          state: "active",
+          enrolled_at: "2026-04-20T11:00:00Z",
+          pending_expires_at: null,
+        },
+      }),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/mfa/totp/begin",
+          handler: () => {
+            totpBeginAttempts += 1;
+            if (totpBeginAttempts === 1) {
+              return errorResponse("invalid_second_factor", 401);
+            }
+            return jsonResponse({
+              data: {
+                enrollment_id: "replacement-enrollment-1",
+                totp_setup: {
+                  secret_base32: "JBSWY3DPEHPK3PXP",
+                },
               },
-            }),
-          }),
-        );
-      }
-      if (url === "/api/v1/incidents") {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              incidents: [],
-            },
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/mfa/totp/begin" && method === "POST") {
-        totpBeginAttempts += 1;
-        if (totpBeginAttempts === 1) {
-          return Promise.resolve(errorResponse("invalid_second_factor", 401));
-        }
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              enrollment_id: "replacement-enrollment-1",
-              totp_setup: {
-                secret_base32: "JBSWY3DPEHPK3PXP",
-              },
-            },
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/password/change" && method === "POST") {
-        sessionActive = false;
-        return Promise.resolve(jsonResponse({ data: {} }));
-      }
-      throw new Error(`unexpected fetch: ${method} ${url}`);
+            });
+          },
+        },
+        {
+          method: "POST",
+          url: "/api/v1/auth/password/change",
+          handler: () => {
+            sessionActive = false;
+            return jsonResponse({ data: {} });
+          },
+        },
+      ],
     });
 
     renderApp();
@@ -413,64 +386,47 @@ describe("Phase 1 ordinary app shell", () => {
       is_deployment_admin: true,
     });
 
-    fetchMock.mockImplementation((input, init) => {
-      const url = String(input);
-      const method = (init?.method ?? "GET").toUpperCase();
-
-      if (url === "/api/v1/auth/session") {
-        return Promise.resolve(
-          jsonResponse({
-            data: sessionResource({
-              display_name: "Deployment Admin",
-              is_deployment_admin: true,
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/users",
+          handler: () =>
+            jsonResponse({
+              data: createdUser,
             }),
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/credential-state") {
-        return Promise.resolve(
-          jsonResponse({
-            data: credentialStateResource(),
-          }),
-        );
-      }
-      if (url === "/api/v1/incidents") {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              incidents: [],
-            },
-          }),
-        );
-      }
-      if (url === "/api/v1/users" && method === "POST") {
-        return Promise.resolve(
-          jsonResponse({
-            data: createdUser,
-          }),
-        );
-      }
-      if (url === "/api/v1/users/user-2" && method === "GET") {
-        return Promise.resolve(
-          jsonResponse({
-            data: createdUser,
-          }),
-        );
-      }
-      if (url === "/api/v1/users/user-2" && method === "PATCH") {
-        return Promise.resolve(errorResponse("user_version_conflict", 409));
-      }
-      if (url === "/api/v1/users/user-1" && method === "GET") {
-        return Promise.resolve(
-          jsonResponse({
-            data: adminTarget,
-          }),
-        );
-      }
-      if (url === "/api/v1/users/user-1" && method === "PATCH") {
-        return Promise.resolve(errorResponse("last_deployment_admin", 409));
-      }
-      throw new Error(`unexpected fetch: ${method} ${url}`);
+        },
+        {
+          method: "GET",
+          url: "/api/v1/users/user-2",
+          handler: () =>
+            jsonResponse({
+              data: createdUser,
+            }),
+        },
+        {
+          method: "PATCH",
+          url: "/api/v1/users/user-2",
+          handler: () => errorResponse("user_version_conflict", 409),
+        },
+        {
+          method: "GET",
+          url: "/api/v1/users/user-1",
+          handler: () =>
+            jsonResponse({
+              data: adminTarget,
+            }),
+        },
+        {
+          method: "PATCH",
+          url: "/api/v1/users/user-1",
+          handler: () => errorResponse("last_deployment_admin", 409),
+        },
+      ],
     });
 
     renderApp();
@@ -581,43 +537,23 @@ describe("Phase 1 ordinary app shell", () => {
     });
     const pendingLoad = deferred<Response>();
 
-    fetchMock.mockImplementation((input, init) => {
-      const url = String(input);
-      const method = (init?.method ?? "GET").toUpperCase();
-
-      if (url === "/api/v1/auth/session") {
-        return Promise.resolve(
-          jsonResponse({
-            data: sessionResource({
-              display_name: "Deployment Admin",
-              is_deployment_admin: true,
-            }),
-          }),
-        );
-      }
-      if (url === "/api/v1/auth/credential-state") {
-        return Promise.resolve(
-          jsonResponse({
-            data: credentialStateResource(),
-          }),
-        );
-      }
-      if (url === "/api/v1/incidents") {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              incidents: [],
-            },
-          }),
-        );
-      }
-      if (url === "/api/v1/users/user-2" && method === "GET") {
-        return pendingLoad.promise;
-      }
-      if (url === "/api/v1/users/user-2" && method === "PATCH") {
-        return Promise.resolve(errorResponse("user_version_conflict", 409));
-      }
-      throw new Error(`unexpected fetch: ${method} ${url}`);
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users/user-2",
+          handler: () => pendingLoad.promise,
+        },
+        {
+          method: "PATCH",
+          url: "/api/v1/users/user-2",
+          handler: () => errorResponse("user_version_conflict", 409),
+        },
+      ],
     });
 
     renderApp();
@@ -703,43 +639,6 @@ function renderApp() {
   return render(<AppRoot />);
 }
 
-function sessionResource(overrides?: Partial<SessionData>): SessionData {
-  return {
-    user_id: "user-1",
-    display_name: "Operator",
-    provider_type: "local",
-    mfa_state: "not_required",
-    is_deployment_admin: false,
-    authenticated_at: "2026-04-20T12:00:00Z",
-    idle_expires_at: "2026-04-20T12:30:00Z",
-    absolute_expires_at: "2026-04-20T20:00:00Z",
-    session_expires_at: "2026-04-20T12:30:00Z",
-    memberships: [],
-    ...overrides,
-  };
-}
-
-function credentialStateResource(
-  overrides?: Partial<CredentialState>,
-): CredentialState {
-  const baseTotp = {
-    state: "not_enrolled" as const,
-    enrolled_at: null,
-    pending_expires_at: null,
-  };
-  return {
-    user_id: "user-1",
-    auth_kind: "local",
-    recovery_model: "admin_assisted",
-    password_changed_at: "2026-04-20T12:00:00Z",
-    ...overrides,
-    totp: {
-      ...baseTotp,
-      ...(overrides?.totp ?? {}),
-    },
-  };
-}
-
 function userResource(
   overrides?: Partial<{
     display_name: string;
@@ -761,56 +660,4 @@ function userResource(
     is_deployment_admin: false,
     ...overrides,
   };
-}
-
-function jsonResponse(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-async function expectStableFetchCount(
-  fetchMock: ReturnType<typeof vi.fn>,
-  expectedCount: number,
-) {
-  await waitFor(() => {
-    expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
-  });
-  await flushMicrotasks();
-  expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
-}
-
-async function flushMicrotasks() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
-function deferred<T>() {
-  let resolve: (value: T) => void = () => {};
-  let reject: (reason?: unknown) => void = () => {};
-  const promise = new Promise<T>((nextResolve, nextReject) => {
-    resolve = nextResolve;
-    reject = nextReject;
-  });
-  return { promise, reject, resolve };
-}
-
-function errorResponse(
-  code: string,
-  status: number,
-  details?: Record<string, unknown>,
-) {
-  return jsonResponse(
-    {
-      error: {
-        code,
-        status,
-        ...(details ? { details } : {}),
-      },
-    },
-    status,
-  );
 }

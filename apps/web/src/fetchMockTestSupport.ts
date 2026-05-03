@@ -1,3 +1,6 @@
+import { waitFor } from "@testing-library/react";
+import { expect } from "vitest";
+
 type FetchMock = {
   mock: {
     calls: ReadonlyArray<ReadonlyArray<unknown>>;
@@ -122,4 +125,75 @@ export function readHeader(init: RequestInit | undefined, name: string) {
     }
   }
   return "";
+}
+
+export function jsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+export function errorResponse(
+  code: string,
+  status: number,
+  details?: Record<string, unknown>,
+) {
+  return jsonResponse(
+    {
+      error: {
+        code,
+        status,
+        ...(details ? { details } : {}),
+      },
+    },
+    status,
+  );
+}
+
+export function deferred<T>() {
+  let resolve: (value: T) => void = () => {};
+  let reject: (reason?: unknown) => void = () => {};
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, reject, resolve };
+}
+
+export function abortablePendingResponse(
+  signal: AbortSignal | undefined,
+  onAbort?: (signal: AbortSignal) => void,
+) {
+  return new Promise<Response>((_, reject) => {
+    const abort = () => {
+      if (signal) {
+        onAbort?.(signal);
+      }
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+export async function expectStableFetchCount(
+  fetchMock: FetchMock,
+  expectedCount: number,
+) {
+  await waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
+  });
+  await flushMicrotasks();
+  expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
