@@ -13,6 +13,10 @@ import {
   phaseManifestRoot,
   phaseRegistryEntries,
 } from "./phase-registry.mjs";
+import {
+  flattenPlaywrightSuites,
+  summarizePlaywrightErrors,
+} from "./playwright-report.mjs";
 import { assertObjectKeys, assertRequiredKeys, readJsonObject } from "./json-shape.mjs";
 
 const sectionDefinitions = [
@@ -1228,6 +1232,28 @@ function entryMatchesExecutionDependency(entry, executionDependency) {
   return executionDependency === "" || entry.execution_dependency === executionDependency;
 }
 
+export function selectManifestEntries(root, {
+  phase,
+  runner = "",
+  section = "",
+  coverage = "",
+  executionDependency = "",
+  executionFamily = "",
+  packagePatterns = [],
+}) {
+  const { manifest } = loadManifest(root, phase);
+  return collectEntries(manifest).filter(
+    (entry) =>
+      (runner === "" || entry.runner === runner) &&
+      (section === "" || entry.section === section) &&
+      (coverage === "" || entry.coverage === coverage) &&
+      entryMatchesExecutionDependency(entry, executionDependency) &&
+      (executionFamily === "" || entry.execution_family === executionFamily) &&
+      (packagePatterns.length === 0 ||
+        packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern))),
+  );
+}
+
 function validateFixtureRefs(entry, label) {
   if (entry.fixture_refs === undefined) {
     return;
@@ -1281,16 +1307,15 @@ function selectGoEntries(
   if (packagePatterns.length === 0) {
     throw new Error("go manifest selection requires at least one package pattern");
   }
-  const { manifest } = loadManifest(root, phase);
-  return collectEntries(manifest).filter(
-    (entry) =>
-      entry.section === section &&
-      entry.runner === "go_test" &&
-      entry.coverage === coverage &&
-      entryMatchesExecutionDependency(entry, executionDependency) &&
-      (executionFamily === "" || entry.execution_family === executionFamily) &&
-      packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern)),
-  );
+  return selectManifestEntries(root, {
+    phase,
+    runner: "go_test",
+    section,
+    coverage,
+    executionDependency,
+    executionFamily,
+    packagePatterns,
+  });
 }
 
 function selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns) {
@@ -1384,24 +1409,13 @@ function readGoLogTopLevelStatuses(logFile) {
   return seen;
 }
 
-function flattenPlaywrightSuites(suites, specs = []) {
-  for (const suite of suites ?? []) {
-    flattenPlaywrightSuites(suite.suites, specs);
-    for (const spec of suite.specs ?? []) {
-      specs.push(spec);
-    }
-  }
-  return specs;
-}
-
 function selectPlaywrightEntries(root, phase, coverage, executionDependency) {
-  const { manifest } = loadManifest(root, phase);
-  return collectEntries(manifest).filter(
-    (entry) =>
-      entry.runner === "playwright" &&
-      entry.coverage === coverage &&
-      entryMatchesExecutionDependency(entry, executionDependency),
-  );
+  return selectManifestEntries(root, {
+    phase,
+    runner: "playwright",
+    coverage,
+    executionDependency,
+  });
 }
 
 function selectPlaywrightEntriesAll(root, coverage, executionDependency) {
@@ -1414,15 +1428,15 @@ function selectPlaywrightEntriesAll(root, coverage, executionDependency) {
 }
 
 function selectPlaywrightPhases(root, coverage, executionDependency) {
-  return phaseManifestNames(root).filter((phase) => {
-    const { manifest } = loadManifest(root, phase);
-    return collectEntries(manifest).some(
-      (entry) =>
-        entry.runner === "playwright" &&
-        entry.coverage === coverage &&
-        entryMatchesExecutionDependency(entry, executionDependency),
-    );
-  });
+  return phaseManifestNames(root).filter(
+    (phase) =>
+      selectManifestEntries(root, {
+        phase,
+        runner: "playwright",
+        coverage,
+        executionDependency,
+      }).length > 0,
+  );
 }
 
 function parsePlaywrightSelectionSpec(spec) {
@@ -1457,27 +1471,26 @@ function normalizePlaywrightFile(file) {
 }
 
 function selectVitestEntries(root, phase, coverage, executionDependency) {
-  const { manifest } = loadManifest(root, phase);
-  return collectEntries(manifest).filter(
-    (entry) =>
-      entry.section === "unit" &&
-      entry.runner === "vitest" &&
-      entry.coverage === coverage &&
-      entryMatchesExecutionDependency(entry, executionDependency),
-  );
+  return selectManifestEntries(root, {
+    phase,
+    runner: "vitest",
+    section: "unit",
+    coverage,
+    executionDependency,
+  });
 }
 
 function selectVitestPhases(root, coverage, executionDependency) {
-  return phaseManifestNames(root).filter((phase) => {
-    const { manifest } = loadManifest(root, phase);
-    return collectEntries(manifest).some(
-      (entry) =>
-        entry.section === "unit" &&
-        entry.runner === "vitest" &&
-        entry.coverage === coverage &&
-        entryMatchesExecutionDependency(entry, executionDependency),
-    );
-  });
+  return phaseManifestNames(root).filter(
+    (phase) =>
+      selectManifestEntries(root, {
+        phase,
+        runner: "vitest",
+        section: "unit",
+        coverage,
+        executionDependency,
+      }).length > 0,
+  );
 }
 
 function normalizeVitestFile(file) {
@@ -1536,13 +1549,6 @@ function verifyVitestRun(reportFile, expectedTitles) {
 
 function readPlaywrightReport(reportFile) {
   return JSON.parse(readFileSync(reportFile, "utf8"));
-}
-
-function summarizePlaywrightErrors(report) {
-  const messages = (report.errors ?? [])
-    .map((error) => error?.message)
-    .filter((message) => typeof message === "string" && message.trim() !== "");
-  return messages.join("; ");
 }
 
 function detectPlaywrightSetupFailure(report) {

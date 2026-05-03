@@ -30,8 +30,14 @@ import {
 import {
   collectEntries,
   loadManifest,
+  packageMatchesPattern,
   phaseManifestNames,
+  selectManifestEntries,
 } from "../phase-manifest.mjs";
+import {
+  flattenPlaywrightSuites,
+  summarizePlaywrightErrors,
+} from "../playwright-report.mjs";
 import {
   defaultTaskSurfaceManifestPath,
   loadSummaryTopologyContext,
@@ -4423,36 +4429,15 @@ function selectGoManifestEntries(
   executionFamily,
   packagePatterns,
 ) {
-  const { manifest } = loadManifest(repoRoot, phase);
-  return collectEntries(manifest).filter((entry) => {
-    if (
-      entry.runner !== "go_test" ||
-      entry.section !== section ||
-      entry.coverage !== coverage
-    ) {
-      return false;
-    }
-    if (
-      executionDependency &&
-      entry.execution_dependency !== executionDependency
-    ) {
-      return false;
-    }
-    if (executionFamily && entry.execution_family !== executionFamily) {
-      return false;
-    }
-    return packagePatterns.some((pattern) =>
-      packageMatchesPattern(entry.package, pattern),
-    );
+  return selectManifestEntries(repoRoot, {
+    phase,
+    runner: "go_test",
+    section,
+    coverage,
+    executionDependency,
+    executionFamily,
+    packagePatterns,
   });
-}
-
-function packageMatchesPattern(pkg, pattern) {
-  if (pattern.endsWith("/...")) {
-    const prefix = pattern.slice(0, -4);
-    return pkg === prefix || pkg.startsWith(`${prefix}/`);
-  }
-  return pkg === pattern;
 }
 
 function evaluateGoManifest(summary) {
@@ -4707,31 +4692,6 @@ function manifestCoverageToInventoryCoverage(coverage) {
   return coverage === "authoritative" ? "authoritative" : "support";
 }
 
-function selectFlatTitleManifestEntries({
-  runner,
-  section = "",
-  phase,
-  coverage,
-  executionDependency,
-}) {
-  const { manifest } = loadManifest(repoRoot, phase);
-  return collectEntries(manifest).filter((entry) => {
-    if (entry.runner !== runner || entry.coverage !== coverage) {
-      return false;
-    }
-    if (section !== "" && entry.section !== section) {
-      return false;
-    }
-    if (
-      executionDependency &&
-      entry.execution_dependency !== executionDependency
-    ) {
-      return false;
-    }
-    return true;
-  });
-}
-
 function evaluateFlatTitleManifest(summary, {
   phase,
   entries,
@@ -4787,7 +4747,7 @@ function finalizeManifestAwareRunnerPhase(context, {
     const scope = readManifestScopeEnv();
     const verification = evaluateFlatTitleManifest(summary, {
       phase: scope.phase,
-      entries: selectFlatTitleManifestEntries({
+      entries: selectManifestEntries(repoRoot, {
         runner,
         section,
         ...scope,
@@ -5178,7 +5138,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
 }
 
 function selectVitestManifestEntries(phase, coverage, executionDependency) {
-  return selectFlatTitleManifestEntries({
+  return selectManifestEntries(repoRoot, {
     runner: "vitest",
     section: "unit",
     phase,
@@ -5366,16 +5326,6 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
   );
 }
 
-function flattenPlaywrightSuites(suites, specs = []) {
-  for (const suite of suites ?? []) {
-    flattenPlaywrightSuites(suite.suites, specs);
-    for (const spec of suite.specs ?? []) {
-      specs.push(spec);
-    }
-  }
-  return specs;
-}
-
 function parsePlaywrightStartTime(value) {
   const parsed = Date.parse(value ?? "");
   return Number.isFinite(parsed) ? parsed : null;
@@ -5517,13 +5467,6 @@ function summarizePlaywrightTiming(specs, phase, phaseLabel) {
         ? "playwright_result_durations"
         : "phase_window_fallback",
   };
-}
-
-function summarizePlaywrightErrors(report) {
-  const messages = (report.errors ?? [])
-    .map((error) => error?.message)
-    .filter((message) => typeof message === "string" && message.trim() !== "");
-  return messages.join("; ");
 }
 
 function createPlaywrightSelection({ manifestAware }) {
@@ -5754,7 +5697,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
 }
 
 function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
-  return selectFlatTitleManifestEntries({
+  return selectManifestEntries(repoRoot, {
     runner: "playwright",
     phase,
     coverage,
