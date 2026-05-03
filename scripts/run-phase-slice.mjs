@@ -27,7 +27,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const validModes = new Set(["phase", "service-backed"]);
 const schedulerEventSchemaID = "cartulary.phase_slice_scheduler_event.v1";
-const schedulerSummarySchemaID = "cartulary.phase_slice_scheduler_summary.v2";
+const schedulerSummarySchemaID = "cartulary.phase_slice_scheduler_summary.v3";
 
 function usage() {
   process.stderr.write(

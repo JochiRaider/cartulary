@@ -126,7 +126,7 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
     throw new Error(`${label} must be repo-relative, got ${artifactPath}`);
   }
 };
-if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v7") {
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v8") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.scheduler_kind !== "service-backed") {
@@ -193,6 +193,23 @@ if (!summary.max_active_resource_claims || Object.keys(summary.max_active_resour
 if (!Array.isArray(summary.blocked_reasons_seen)) {
   throw new Error("summary must record blocked reasons");
 }
+if (!Array.isArray(summary.top_blockers) || summary.top_blockers.length > 5) {
+  throw new Error("summary must record capped top blockers");
+}
+for (const [index, blocker] of summary.top_blockers.entries()) {
+  if (!["dependency", "resource"].includes(blocker.kind)) {
+    throw new Error(`top_blockers[${index}].kind got ${blocker.kind}`);
+  }
+  if (typeof blocker.name !== "string" || blocker.name.trim() === "") {
+    throw new Error(`top_blockers[${index}] must record a blocker name`);
+  }
+  if (blocker.blocker !== `${blocker.kind}:${blocker.name}`) {
+    throw new Error(`top_blockers[${index}] blocker key is not canonical`);
+  }
+  if (!Number.isInteger(blocker.count) || blocker.count < 1) {
+    throw new Error(`top_blockers[${index}] must record a positive count`);
+  }
+}
 if (!Array.isArray(summary.nested_scheduler_limits) || summary.nested_scheduler_limits.length !== 0) {
   throw new Error("service-backed summary must record empty nested scheduler limits");
 }
@@ -211,6 +228,9 @@ if (expectedBlocked !== "-") {
   }
   if (!summary.blocked_explanations_seen.includes(expectedBlocked)) {
     throw new Error(`summary missing blocked explanation ${expectedBlocked}`);
+  }
+  if (!summary.top_blockers.some((entry) => entry.kind === "resource" && entry.name === expectedBlocked && entry.count > 0)) {
+    throw new Error(`summary missing top resource blocker ${expectedBlocked}`);
   }
 }
 if (events.length === 0) {

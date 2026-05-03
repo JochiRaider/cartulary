@@ -34,7 +34,7 @@ const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
 const supportedSchemaID = "cartulary.check_schedule.v7";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
-const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v7";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v8";
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const schedulerOwnedEnvNames = new Set([
   "CARTULARY_TEST_TARGET",

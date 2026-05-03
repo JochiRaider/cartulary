@@ -214,6 +214,7 @@ try {
   const schedulerSummaryPath = path.join(failureResults, "failure/phase-slice/scheduler-summary.json");
   assert.ok(existsSync(schedulerSummaryPath), "failed phase slice must write scheduler summary");
   const schedulerSummary = readJSON(schedulerSummaryPath);
+  assert.equal(schedulerSummary.schema_id, "cartulary.phase_slice_scheduler_summary.v3");
   assert.equal(schedulerSummary.status, "fail");
   assert.equal(schedulerSummary.failed_work_unit, "backend-unit");
   const targetSummary = readJSON(path.join(failureResults, "failure/phase-slice/target-summary.json"));

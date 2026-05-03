@@ -9,6 +9,10 @@ import {
   normalizeOutputMode,
   verboseOutput,
 } from "./tool-output.mjs";
+import {
+  formatTopBlockers,
+  schedulerBlockedDiagnostics,
+} from "./scheduler/blockers.mjs";
 
 function configuredProgressIntervalMs() {
   const raw = process.env.CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS;
@@ -208,21 +212,7 @@ export function schedulerBlockedBy({
   reason = null,
   blockedResources = [],
 } = {}) {
-  const values = new Set();
-  if (reason) {
-    for (const entry of String(reason).split(",")) {
-      const normalized = entry.trim();
-      if (normalized && normalized !== "none" && normalized !== "resources") {
-        values.add(normalized);
-      }
-    }
-  }
-  for (const resource of blockedResources) {
-    if (resource) {
-      values.add(resource);
-    }
-  }
-  return Array.from(values).sort((left, right) => left.localeCompare(right));
+  return schedulerBlockedDiagnostics({ reason, blockedResources }).explanations;
 }
 
 export function schedulerSlowestRunningRecord(
@@ -530,6 +520,7 @@ export function schedulerSummaryLine({
   skipped = 0,
   finalizerFailures = 0,
   slowest = [],
+  topBlockers = [],
 }) {
   const fields = [
     `target=${target}`,
@@ -540,6 +531,7 @@ export function schedulerSummaryLine({
     skipped > 0 ? `skipped=${skipped}` : null,
     finalizerFailures > 0 ? `finalizer_failures=${finalizerFailures}` : null,
     `slowest=${formatSlowestWork(slowest)}`,
+    `blockers=${formatTopBlockers(topBlockers)}`,
   ];
   return `[SUMMARY] ${bracketedFields(fields)}\n`;
 }

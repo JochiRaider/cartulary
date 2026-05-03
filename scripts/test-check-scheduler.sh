@@ -121,7 +121,7 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
     throw new Error(`${label} must not point at obsolete temp scheduler logs, got ${artifactPath}`);
   }
 };
-if (summary.schema_id !== "cartulary.check_scheduler_summary.v7") {
+if (summary.schema_id !== "cartulary.check_scheduler_summary.v8") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.scheduler_kind !== "check") {
@@ -179,6 +179,23 @@ if (!summary.max_active_resource_claims || Object.keys(summary.max_active_resour
 }
 if (!Array.isArray(summary.blocked_reasons_seen)) {
   throw new Error("summary must record blocked reasons");
+}
+if (!Array.isArray(summary.top_blockers) || summary.top_blockers.length > 5) {
+  throw new Error("summary must record capped top blockers");
+}
+for (const [index, blocker] of summary.top_blockers.entries()) {
+  if (!["dependency", "resource"].includes(blocker.kind)) {
+    throw new Error(`top_blockers[${index}].kind got ${blocker.kind}`);
+  }
+  if (typeof blocker.name !== "string" || blocker.name.trim() === "") {
+    throw new Error(`top_blockers[${index}] must record a blocker name`);
+  }
+  if (blocker.blocker !== `${blocker.kind}:${blocker.name}`) {
+    throw new Error(`top_blockers[${index}] blocker key is not canonical`);
+  }
+  if (!Number.isInteger(blocker.count) || blocker.count < 1) {
+    throw new Error(`top_blockers[${index}] must record a positive count`);
+  }
 }
 if (!Array.isArray(summary.nested_scheduler_limits)) {
   throw new Error("summary must record nested scheduler limits as an array");
@@ -838,7 +855,7 @@ cat >"${summary_timing_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
 JSONL
 cat >"${summary_timing_dir}/valid/check/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.check_scheduler_summary.v7",
+  "schema_id": "cartulary.check_scheduler_summary.v8",
   "target": "check",
   "status": "pass",
   "scheduler_kind": "check",
@@ -1006,6 +1023,7 @@ assert_not_contains "$success_output" "[CHECK-SCHEDULER] check progress complete
 assert_not_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress" "quiet check scheduler hides key/value nested progress"
 assert_contains "$success_output" "[SUMMARY] target=check status=pass work_units=5/5 failed=none slowest=" "success concise scheduler summary"
 assert_contains "$success_output" "slowest=" "success concise scheduler summary includes slowest work"
+assert_contains "$success_output" "blockers=" "success concise scheduler summary includes blockers"
 assert_not_contains "$success_output" "active_resource_claims=" "default scheduler output hides raw active resources"
 assert_not_contains "$success_output" "resource_limits=" "default scheduler output hides raw resource limits"
 assert_not_contains "$success_output" "claims={" "default scheduler output hides raw claims"
@@ -1078,6 +1096,9 @@ if (summary.max_running_groups < 1) {
 }
 if (!summary.blocked_explanations_seen.includes("dependencies")) {
   throw new Error("summary must record dependency blocked explanation");
+}
+if (!summary.top_blockers?.some((entry) => entry.kind === "dependency" && entry.name === "setup" && entry.count > 0)) {
+  throw new Error("summary must record top dependency blocker");
 }
 if (!summary.waiting_on_seen?.includes("setup")) {
   throw new Error("summary must record dependency waiting_on target");
@@ -1160,6 +1181,58 @@ for (const [index, event] of events.entries()) {
       throw new Error(`event ${index} active claim ${resource}=${amount} exceeds limit ${limit}`);
     }
   }
+}
+EOF
+
+blocker_clarity_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-blocker-clarity.XXXXXX")"
+cleanup_paths+=("$blocker_clarity_dir")
+write_fake_make "$blocker_clarity_dir"
+blocker_clarity_manifest="${blocker_clarity_dir}/manifest.json"
+cat >"$blocker_clarity_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v7",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 1 },
+      "summary_groups": [
+        { "name": "blocker-clarity", "summary_targets": ["alpha", "beta", "meta"] }
+      ],
+      "work_units": [
+        { "target": "alpha", "weight": 3, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "beta", "weight": 2, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "meta", "weight": 1, "needs": ["alpha"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+FAKE_SLEEP_ALPHA=0.15 \
+  run_scheduler "$blocker_clarity_dir" "$blocker_clarity_manifest" blocker-clarity --resource-limit host_cpu=1 \
+  >"${blocker_clarity_dir}/stdout.log" \
+  2>"${blocker_clarity_dir}/stderr.log"
+blocker_clarity_output="$(cat "${blocker_clarity_dir}/stdout.log")"
+assert_contains "$blocker_clarity_output" "[PROGRESS] target=check completed=0/3" "quiet scheduler emits progress when blocker state first changes"
+assert_contains "$blocker_clarity_output" "blocker=dependencies,host_cpu" "quiet scheduler explains dependency and resource blockers"
+assert_occurrences "$blocker_clarity_output" "[PROGRESS] target=check" "2" "quiet blocker-change progress is capped"
+assert_output_budget "${ROOT_DIR}/tools/task_surface_manifest.json" check "${blocker_clarity_dir}/stdout.log" "${blocker_clarity_dir}/stderr.log" "scheduler blocker clarity budget"
+"$NODE_BIN" - "${blocker_clarity_dir}/results/blocker-clarity/check/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (!summary.blocked_explanations_seen?.includes("dependencies")) {
+  throw new Error("summary must record dependency blocker explanations from blocked events");
+}
+if (!summary.blocked_explanations_seen?.includes("host_cpu")) {
+  throw new Error("summary must record resource blocker explanations from blocked events");
+}
+const hostCPU = summary.top_blockers?.find((entry) => entry.kind === "resource" && entry.name === "host_cpu");
+if (!hostCPU || hostCPU.count < 1) {
+  throw new Error("summary must rank host_cpu as a top resource blocker");
+}
+const alpha = summary.top_blockers?.find((entry) => entry.kind === "dependency" && entry.name === "alpha");
+if (!alpha || alpha.count < 1) {
+  throw new Error("summary must rank alpha as a top dependency blocker");
 }
 EOF
 

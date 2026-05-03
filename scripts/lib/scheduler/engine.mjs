@@ -32,6 +32,11 @@ import {
   failureFieldsForJSON,
 } from "../failure-taxonomy.mjs";
 import { SchedulerClock } from "./clock.mjs";
+import {
+  addTopBlockerObservations,
+  schedulerBlockedDiagnostics,
+  topBlockerRecords,
+} from "./blockers.mjs";
 import { validateSchedulerSummaryTiming } from "./summary-timing-drift.mjs";
 import { replayLog, runCommand, sanitizeLogName } from "./process-executor.mjs";
 import { SchedulerProgressRecorder } from "./progress-recorder.mjs";
@@ -122,12 +127,14 @@ class SchedulerReporter {
     this.blockedReasonsSeen = new Set();
     this.blockedResourcesSeen = new Set();
     this.blockedExplanationsSeen = new Set();
+    this.topBlockerCounts = new Map();
     this.waitingOnSeen = new Set();
     this.lastProgressAt = schedule.deferInitialProgress ? this.clock.monotonicMs() : 0;
     this.eventSequence = 0;
     this.lastEventSequence = 0;
     this.lastEventMonotonicMs = -1;
     this.lastBlockedKey = null;
+    this.blockerChangeProgressCount = 0;
     this.lastHumanNestedProgressKey = null;
     this.maxRunningWorkUnits = 0;
     this.maxRunningGroups = 0;
@@ -333,10 +340,23 @@ class SchedulerReporter {
   }
 
   async blocked(state, reason, blockedResources, { waitingOn = [], blockedUnits = [] } = {}) {
+    const blockerDiagnostics = schedulerBlockedDiagnostics({
+      reason,
+      blockedResources,
+      waitingOn,
+      blockedUnits,
+    });
     this.blockedReasonsSeen.add(reason);
     for (const resource of blockedResources) {
       this.blockedResourcesSeen.add(resource);
     }
+    for (const explanation of blockerDiagnostics.explanations) {
+      this.blockedExplanationsSeen.add(explanation);
+    }
+    addTopBlockerObservations(
+      this.topBlockerCounts,
+      blockerDiagnostics.observations,
+    );
     for (const dependency of waitingOn) {
       this.waitingOnSeen.add(dependency);
     }
@@ -355,9 +375,20 @@ class SchedulerReporter {
         blocked_units: blockedUnits,
       },
     );
-    const blockedKey = `${reason}:${blockedResources.join(",")}:${waitingOn.join(",")}:${JSON.stringify(blockedUnits)}`;
+    const blockedKey = blockerDiagnostics.materialKey;
+    const blockerChanged = blockedKey !== this.lastBlockedKey;
+    const quietBlockerProgress =
+      !this.verbose &&
+      !this.machine &&
+      blockerChanged &&
+      this.blockerChangeProgressCount < 2;
+    if (quietBlockerProgress) {
+      this.blockerChangeProgressCount += 1;
+    }
     await this.maybeProgress(state, reason, blockedResources, {
-      force: (this.verbose || this.machine) && blockedKey !== this.lastBlockedKey,
+      force:
+        blockerChanged &&
+        (this.verbose || this.machine || quietBlockerProgress),
       waitingOn,
       blockedUnits,
     });
@@ -528,6 +559,7 @@ class SchedulerReporter {
   async summary(status, { started, failedWorkUnit = null } = {}) {
     const failed = failedWorkUnit || this.failedWorkUnit || null;
     const slowest = slowestWork(this.completedWork);
+    const topBlockers = topBlockerRecords(this.topBlockerCounts);
     const skipped = this.skippedWork.length;
     const failureClass =
       status === "pass"
@@ -560,6 +592,7 @@ class SchedulerReporter {
       skipped,
       finalizerFailures: this.finalizerFailures,
       slowest,
+      topBlockers,
       artifacts: relToRepo(this.repoRoot, this.targetDir),
     });
     if (!this.machine) {
@@ -591,7 +624,10 @@ class SchedulerReporter {
       blocked_explanations_seen: Array.from(this.blockedExplanationsSeen).sort((left, right) =>
         left.localeCompare(right),
       ),
-      waiting_on_seen: Array.from(this.waitingOnSeen).sort((left, right) => left.localeCompare(right)),
+      waiting_on_seen: Array.from(this.waitingOnSeen).sort((left, right) =>
+        left.localeCompare(right),
+      ),
+      top_blockers: topBlockers,
       slowest_work_units: slowest,
       nested_scheduler_limits: this.schedule.nestedSchedulerLimits
         ? this.schedule.nestedSchedulerLimits({ reporter: this })
