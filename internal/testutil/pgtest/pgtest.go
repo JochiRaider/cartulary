@@ -79,8 +79,9 @@ type TestDatabase struct {
 }
 
 type StartOptions struct {
-	Labels   map[string]string
-	Observer testcontainersx.StartObserver
+	Labels         map[string]string
+	Observer       testcontainersx.StartObserver
+	AttemptTimeout time.Duration
 }
 
 type RollbackDB struct {
@@ -202,14 +203,15 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 	}
 
 	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
-		Service:      "postgres testcontainer",
-		Image:        postgresImage,
-		MaxAttempts:  3,
-		RetryBackoff: 500 * time.Millisecond,
-		Preflight:    startPreflightFn,
-		Retryable:    isRetryablePostgresStartupFailure,
-		Sleep:        startSleepFn,
-		Observer:     options.Observer,
+		Service:        "postgres testcontainer",
+		Image:          postgresImage,
+		MaxAttempts:    3,
+		AttemptTimeout: options.AttemptTimeout,
+		RetryBackoff:   500 * time.Millisecond,
+		Preflight:      startPreflightFn,
+		Retryable:      isRetryablePostgresStartupFailure,
+		Sleep:          startSleepFn,
+		Observer:       options.Observer,
 	}, func(ctx context.Context) (*Harness, error) {
 		return startHarnessAttempt(ctx, req)
 	})

@@ -32,6 +32,7 @@ type StartConfig struct {
 	Service          string
 	Image            string
 	PreflightTimeout time.Duration
+	AttemptTimeout   time.Duration
 	RetryBackoff     time.Duration
 	MaxAttempts      int
 	Preflight        func(context.Context) (string, error)
@@ -228,7 +229,13 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 			MaxAttempts:    maxAttempts,
 			StartTime:      attemptStart,
 		})
-		value, startErr := startup(ctx)
+		attemptCtx := ctx
+		cancelAttempt := func() {}
+		if config.AttemptTimeout > 0 {
+			attemptCtx, cancelAttempt = context.WithTimeout(ctx, config.AttemptTimeout)
+		}
+		value, startErr := startup(attemptCtx)
+		cancelAttempt()
 		attemptEnd := time.Now().UTC()
 		if startErr == nil {
 			observeStart(config.Observer, StartEvent{

@@ -35,6 +35,7 @@ const (
 	EventS3BucketCleaned        = "s3-bucket-cleaned"
 	EventS3PrefixCleaned        = "s3-prefix-cleaned"
 	EventTimingSpan             = "timing-span"
+	EventSuitePreflight         = "suite-preflight"
 	EventWebE2EFixtureRetired   = "web-e2e-fixture-retired"
 	EventWebE2EFixtureCleaned   = "web-e2e-fixture-cleaned"
 	EventWebE2EFixtureReclaimed = "web-e2e-fixture-reclaimed"
@@ -86,6 +87,7 @@ type ServiceScope struct {
 	RunID        string               `json:"run_id"`
 	ArtifactDir  string               `json:"artifact_dir"`
 	Wrapper      WrapperSummary       `json:"wrapper"`
+	Preflight    PreflightSummary     `json:"preflight"`
 	Failure      *FailureSummary      `json:"failure,omitempty"`
 	Cleanup      CleanupSummary       `json:"cleanup"`
 	Postgres     PostgresSummary      `json:"postgres"`
@@ -98,6 +100,17 @@ type ServiceScope struct {
 type WrapperSummary struct {
 	OwnedCount       int `json:"owned_count"`
 	PassThroughCount int `json:"pass_through_count"`
+}
+
+type PreflightSummary struct {
+	Status                      string `json:"status,omitempty"`
+	DockerOK                    bool   `json:"docker_ok"`
+	DockerEndpoint              string `json:"docker_endpoint,omitempty"`
+	ReaperReady                 bool   `json:"reaper_ready"`
+	StaleContainersScanned      int    `json:"stale_containers_scanned"`
+	StaleContainersRemoved      int    `json:"stale_containers_removed"`
+	RyukDisabledForSuiteStartup bool   `json:"ryuk_disabled_for_suite_startup"`
+	Message                     string `json:"message,omitempty"`
 }
 
 type FailureSummary struct {
@@ -335,6 +348,17 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			scope.Wrapper.OwnedCount++
 		case EventWrapperPassThrough:
 			scope.Wrapper.PassThroughCount++
+		case EventSuitePreflight:
+			scope.Preflight = PreflightSummary{
+				Status:                      event.Status,
+				DockerOK:                    boolDetail(event.Details, "docker_ok"),
+				DockerEndpoint:              stringDetail(event.Details, "docker_endpoint"),
+				ReaperReady:                 boolDetail(event.Details, "reaper_ready"),
+				StaleContainersScanned:      intValue(event.Details, "stale_containers_scanned"),
+				StaleContainersRemoved:      intValue(event.Details, "stale_containers_removed"),
+				RyukDisabledForSuiteStartup: boolDetail(event.Details, "ryuk_disabled_for_suite_startup"),
+				Message:                     stringDetail(event.Details, "message"),
+			}
 		case EventFailureRecorded:
 			if scope.Failure == nil {
 				scope.Failure = &FailureSummary{

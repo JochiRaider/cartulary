@@ -21,6 +21,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	dockerclient "github.com/moby/moby/client"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
@@ -33,6 +34,9 @@ import (
 
 const (
 	postgresStartupTimeout     = 2 * time.Minute
+	suitePreflightTimeout      = 3 * time.Second
+	suiteContainerAttemptLimit = 5 * time.Second
+	staleSuiteContainerAge     = 10 * time.Minute
 	templateStartupTimeout     = 2 * time.Minute
 	minioStartupTimeout        = 5 * time.Minute
 	cleanupTimeout             = 2 * time.Minute
@@ -54,6 +58,7 @@ const (
 	testServiceManagedValue = "true"
 
 	stagePostgresStart    = "postgres-start"
+	stageStartupPreflight = "startup-preflight"
 	stagePostgresTemplate = "postgres-template"
 	stageMinIOStart       = "minio-start"
 	stageChildStart       = "child-start"
@@ -120,6 +125,15 @@ type serviceCleanupResult struct {
 	err     error
 }
 
+type suitePreflightResult struct {
+	DockerEndpoint              string
+	DockerOK                    bool
+	ReaperReady                 bool
+	StaleContainersScanned      int
+	StaleContainersRemoved      int
+	RyukDisabledForSuiteStartup bool
+}
+
 type serviceLease struct {
 	SchemaID  string               `json:"schema_id"`
 	SuiteID   string               `json:"suite_id"`
@@ -165,6 +179,7 @@ type dependencies struct {
 	startMinIO          func(context.Context, map[string]string) (minioService, error)
 	startChild          func(argv []string, env map[string]string) (childProcess, error)
 	startReaper         func(leasePath string, env map[string]string) error
+	preflightSuite      func(context.Context, map[string]string) (suitePreflightResult, error)
 	createTemplate      func(context.Context, string, string) error
 	prepareWebE2E       func(context.Context, map[string]string) (webE2EFixture, error)
 	cleanupWebE2EDB     func(context.Context, webE2EMetadata, map[string]string) error
@@ -264,6 +279,23 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
 	deps.refreshSummary(ownedEnv)
 	recordTimingSpan(deps, ownedEnv, bucketSetup, "test-services wrapper setup", wrapperStart, time.Now().UTC(), "pass")
+
+	restoreRyuk := disableTestcontainersRyukForSuiteStartup()
+	defer restoreRyuk()
+
+	preflightStart := time.Now().UTC()
+	preflightCtx, cancelPreflight := context.WithTimeout(context.Background(), suitePreflightTimeout)
+	preflightResult, err := runConfiguredSuitePreflight(preflightCtx, deps, ownedEnv)
+	cancelPreflight()
+	preflightResult.RyukDisabledForSuiteStartup = true
+	recordSuitePreflight(deps, ownedEnv, preflightResult, err)
+	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services suite startup preflight", preflightStart, err)
+	deps.refreshSummary(ownedEnv)
+	if err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageStartupPreflight, "suite startup preflight", err))
+		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", 1)
+		return 1
+	}
 
 	var postgresSvc postgresService
 	var minioSvc minioService
@@ -597,6 +629,7 @@ func defaultDependencies() dependencies {
 		startMinIO:          startMinIOService,
 		startChild:          startChildProcess,
 		startReaper:         startDetachedSuiteReaper,
+		preflightSuite:      runSuiteStartupPreflight,
 		createTemplate:      createTemplateDatabase,
 		prepareWebE2E:       prepareWebE2EFixture,
 		cleanupWebE2EDB:     cleanupWebE2EDatabase,
@@ -620,6 +653,76 @@ func serviceImages() []string {
 		pgtest.ContainerImage(),
 		s3test.ContainerImage(),
 	}
+}
+
+func disableTestcontainersRyukForSuiteStartup() func() {
+	const key = "TESTCONTAINERS_RYUK_DISABLED"
+	previous, hadPrevious := os.LookupEnv(key)
+	_ = os.Setenv(key, "true")
+	return func() {
+		if hadPrevious {
+			_ = os.Setenv(key, previous)
+			return
+		}
+		_ = os.Unsetenv(key)
+	}
+}
+
+func runConfiguredSuitePreflight(ctx context.Context, deps dependencies, env map[string]string) (suitePreflightResult, error) {
+	if deps.preflightSuite == nil {
+		return suitePreflightResult{}, nil
+	}
+	return deps.preflightSuite(ctx, env)
+}
+
+func runSuiteStartupPreflight(ctx context.Context, env map[string]string) (suitePreflightResult, error) {
+	result := suitePreflightResult{}
+	cli, err := dockerclient.New(dockerclient.FromEnv)
+	if err != nil {
+		return result, fmt.Errorf("create docker client: %w", err)
+	}
+	defer cli.Close()
+
+	result.DockerEndpoint = cli.DaemonHost()
+	if _, err := cli.Ping(ctx, dockerclient.PingOptions{NegotiateAPIVersion: true}); err != nil {
+		return result, fmt.Errorf("ping docker endpoint %s: %w", result.DockerEndpoint, err)
+	}
+	result.DockerOK = true
+
+	if err := verifySuiteReaperArtifactPath(env); err != nil {
+		return result, err
+	}
+	result.ReaperReady = true
+
+	scanned, removed, err := cleanupPreviousSuiteServiceContainers(ctx, cli, env, time.Now().UTC())
+	result.StaleContainersScanned = scanned
+	result.StaleContainersRemoved = removed
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+func verifySuiteReaperArtifactPath(env map[string]string) error {
+	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("suite reaper preflight requires an active suite artifact directory")
+	}
+	if err := os.MkdirAll(suiteDir, 0o700); err != nil {
+		return fmt.Errorf("create suite service artifact dir: %w", err)
+	}
+	logPath := filepath.Join(suiteDir, "service-reaper.log")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- the reaper log is colocated with the resolved suite artifact path.
+	if err != nil {
+		return fmt.Errorf("open service reaper log: %w", err)
+	}
+	if err := logFile.Close(); err != nil {
+		return fmt.Errorf("close service reaper log: %w", err)
+	}
+	return nil
 }
 
 func suiteServiceLabels(env map[string]string, service string) map[string]string {
@@ -763,8 +866,9 @@ func (ioDiscard) Write(p []byte) (int, error) {
 func startPostgresService(ctx context.Context, env map[string]string) (postgresService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServicePostgres)
 	harness, err := pgtest.StartOwnedWithOptions(ctx, pgtest.StartOptions{
-		Labels:   labels,
-		Observer: suiteServiceStartObserver(env, suiteservices.ServicePostgres),
+		Labels:         labels,
+		Observer:       suiteServiceStartObserver(env, suiteservices.ServicePostgres),
+		AttemptTimeout: suiteContainerAttemptLimit,
 	})
 	if err != nil {
 		return postgresService{}, err
@@ -792,8 +896,9 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 func startMinIOService(ctx context.Context, env map[string]string) (minioService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServiceMinIO)
 	harness, err := s3test.StartOwnedWithOptions(ctx, s3test.StartOptions{
-		Labels:   labels,
-		Observer: suiteServiceStartObserver(env, suiteservices.ServiceMinIO),
+		Labels:         labels,
+		Observer:       suiteServiceStartObserver(env, suiteservices.ServiceMinIO),
+		AttemptTimeout: suiteContainerAttemptLimit,
 	})
 	if err != nil {
 		return minioService{}, err
@@ -1227,6 +1332,28 @@ func recordServiceReaperScheduled(deps dependencies, env map[string]string, leas
 			"target":     suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
 			"lease_path": leasePath,
 		},
+	})
+}
+
+func recordSuitePreflight(deps dependencies, env map[string]string, result suitePreflightResult, err error) {
+	details := map[string]any{
+		"target":                          suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+		"docker_endpoint":                 result.DockerEndpoint,
+		"docker_ok":                       result.DockerOK,
+		"reaper_ready":                    result.ReaperReady,
+		"stale_containers_scanned":        result.StaleContainersScanned,
+		"stale_containers_removed":        result.StaleContainersRemoved,
+		"ryuk_disabled_for_suite_startup": result.RyukDisabledForSuiteStartup,
+	}
+	status := "pass"
+	if err != nil {
+		status = "fail"
+		details["message"] = suiteservices.SanitizeDiagnosticText(err.Error())
+	}
+	deps.recordEvent(env, suiteservices.Event{
+		Type:    suiteservices.EventSuitePreflight,
+		Status:  status,
+		Details: details,
 	})
 }
 
@@ -1829,6 +1956,87 @@ func leasedServiceContainers(ctx context.Context, cli *dockerclient.Client, leas
 	return ids, nil
 }
 
+func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli *dockerclient.Client, env map[string]string, now time.Time) (int, int, error) {
+	filters := dockerclient.Filters{}.
+		Add("label", fmt.Sprintf("%s=%s", testServiceLabelManaged, testServiceManagedValue))
+	result, err := cli.ContainerList(ctx, dockerclient.ContainerListOptions{
+		All:     true,
+		Filters: filters,
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("list managed suite service containers: %w", err)
+	}
+
+	removed := 0
+	for _, item := range result.Items {
+		if !previousSuiteContainerCleanupEligible(env, item, now) {
+			continue
+		}
+		_, err := cli.ContainerRemove(ctx, item.ID, dockerclient.ContainerRemoveOptions{
+			RemoveVolumes: true,
+			Force:         true,
+		})
+		if err != nil && !isDockerNotFound(err) {
+			return len(result.Items), removed, fmt.Errorf("remove stale suite service container %s: %w", shortContainerID(item.ID), err)
+		}
+		removed++
+	}
+	return len(result.Items), removed, nil
+}
+
+func previousSuiteContainerCleanupEligible(env map[string]string, item dockercontainer.Summary, now time.Time) bool {
+	labels := item.Labels
+	if labels[testServiceLabelManaged] != testServiceManagedValue {
+		return false
+	}
+	suiteID := strings.TrimSpace(labels[testServiceLabelSuiteID])
+	runID := strings.TrimSpace(labels[testServiceLabelRunID])
+	if suiteID == "" || runID == "" {
+		return false
+	}
+	if suiteID == suiteservices.SuiteID(env) && runID == suiteservices.ResolveRunID(env) {
+		return false
+	}
+	if suiteServiceCleanupRecorded(env, runID, suiteID) {
+		return true
+	}
+	if item.Created <= 0 {
+		return false
+	}
+	return !now.Before(time.Unix(item.Created, 0).UTC().Add(staleSuiteContainerAge))
+}
+
+func suiteServiceCleanupRecorded(env map[string]string, runID string, suiteID string) bool {
+	if !safeArtifactComponent(runID) || !safeArtifactComponent(suiteID) {
+		return false
+	}
+	resultsRoot, err := suiteservices.ResolveResultsRoot(env)
+	if err != nil {
+		return false
+	}
+	summaryPath := filepath.Join(resultsRoot, runID, "_shared", "test-services", suiteID, "service-scope.json")
+	raw, err := os.ReadFile(summaryPath) // #nosec G304 -- run and suite identifiers come from Cartulary-owned Docker labels and stay below the configured results root.
+	if err != nil {
+		return false
+	}
+	var scope suiteservices.ServiceScope
+	if err := json.Unmarshal(raw, &scope); err != nil {
+		return false
+	}
+	return strings.TrimSpace(scope.Cleanup.CompletedAt) != ""
+}
+
+func safeArtifactComponent(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	return trimmed != "" &&
+		trimmed != "." &&
+		trimmed != ".." &&
+		!filepath.IsAbs(trimmed) &&
+		!strings.Contains(trimmed, "/") &&
+		!strings.Contains(trimmed, "\\") &&
+		!strings.Contains(trimmed, string(filepath.Separator))
+}
+
 func requiredLeaseLabels(lease serviceLease, service serviceLeaseRecord) map[string]string {
 	labels := map[string]string{
 		testServiceLabelManaged: testServiceManagedValue,
@@ -1919,7 +2127,7 @@ func failureSummary(service string, stage string, operation string, err error) s
 
 func classifyFailureStage(service string, stage string) string {
 	switch stage {
-	case stagePostgresStart, stagePostgresTemplate, stageMinIOStart:
+	case stageStartupPreflight, stagePostgresStart, stagePostgresTemplate, stageMinIOStart:
 		return suiteservices.FailureClassInfra
 	case stageChildStart:
 		return suiteservices.FailureClassHelper

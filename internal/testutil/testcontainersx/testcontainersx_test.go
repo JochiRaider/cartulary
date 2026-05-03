@@ -3,6 +3,7 @@ package testcontainersx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -302,6 +303,50 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 		if !strings.Contains(message, want) {
 			t.Fatalf("expected error message to contain %q, got %q", want, message)
 		}
+	}
+}
+
+func TestStartWithRetryBoundsRetryableStartupAttempt(t *testing.T) {
+	t.Parallel()
+
+	startCalls := 0
+	sleepCalls := 0
+
+	_, err := StartWithRetry(context.Background(), StartConfig{
+		Service:        "postgres testcontainer",
+		Image:          "postgres:16-alpine",
+		AttemptTimeout: 20 * time.Millisecond,
+		Preflight: func(context.Context) (string, error) {
+			return "unix:///var/run/docker.sock", nil
+		},
+		Sleep: func(context.Context, time.Duration) error {
+			sleepCalls++
+			return nil
+		},
+	}, func(ctx context.Context) (int, error) {
+		startCalls++
+		<-ctx.Done()
+		return 0, fmt.Errorf(`wait until ready: get state: Get "http://%s/containers/id/json": %w`, "%2Fvar%2Frun%2Fdocker.sock", ctx.Err())
+	})
+	if err == nil {
+		t.Fatal("expected bounded startup failure")
+	}
+	if startCalls != DefaultMaxAttempts {
+		t.Fatalf("expected bounded retries for each attempt, got %d", startCalls)
+	}
+	if sleepCalls != DefaultMaxAttempts-1 {
+		t.Fatalf("expected one retry backoff between attempts, got %d", sleepCalls)
+	}
+
+	var startFailure *StartFailure
+	if !errors.As(err, &startFailure) {
+		t.Fatalf("expected StartFailure, got %T", err)
+	}
+	if !startFailure.Retryable {
+		t.Fatal("bounded docker-context startup failure should be retryable")
+	}
+	if startFailure.AttemptsStarted != DefaultMaxAttempts {
+		t.Fatalf("unexpected attempts: got %d", startFailure.AttemptsStarted)
 	}
 }
 

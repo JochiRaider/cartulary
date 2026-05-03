@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	dockercontainer "github.com/moby/moby/api/types/container"
+
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -267,6 +269,111 @@ func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start postgres")
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start minio")
 	requireTimingEvent(t, events, bucketMigration, "test-services prepare postgres template database")
+}
+
+func TestRunDisablesRyukOnlyForSuiteStartup(t *testing.T) {
+	previous, hadPrevious := os.LookupEnv("TESTCONTAINERS_RYUK_DISABLED")
+	_ = os.Unsetenv("TESTCONTAINERS_RYUK_DISABLED")
+	defer func() {
+		if hadPrevious {
+			_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", previous)
+			return
+		}
+		_ = os.Unsetenv("TESTCONTAINERS_RYUK_DISABLED")
+	}()
+
+	deps := defaultTestDependencies(t)
+	postgresSawRyukDisabled := false
+	minioSawRyukDisabled := false
+	childSawRyukSetting := false
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
+		postgresSawRyukDisabled = os.Getenv("TESTCONTAINERS_RYUK_DISABLED") == "true"
+		return postgresService{
+			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+			containerID: "postgres-container",
+			image:       "postgres:test",
+			close:       func(context.Context) error { return nil },
+		}, nil
+	}
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
+		minioSawRyukDisabled = os.Getenv("TESTCONTAINERS_RYUK_DISABLED") == "true"
+		return minioService{
+			endpoint:    "127.0.0.1:9000",
+			accessKey:   "minio-access",
+			secretKey:   "minio-secret",
+			containerID: "minio-container",
+			image:       "minio:test",
+			close:       func(context.Context) error { return nil },
+		}, nil
+	}
+	deps.startChild = func(_ []string, env map[string]string) (childProcess, error) {
+		_, childSawRyukSetting = env["TESTCONTAINERS_RYUK_DISABLED"]
+		return fakeChild{}, nil
+	}
+
+	status := run([]string{"run", "--", "ignored"}, deps.env, deps.dependencies)
+	if status != 0 {
+		t.Fatalf("unexpected exit status: got %d want 0", status)
+	}
+	if !postgresSawRyukDisabled || !minioSawRyukDisabled {
+		t.Fatalf("suite service startup must disable Ryuk, postgres=%t minio=%t", postgresSawRyukDisabled, minioSawRyukDisabled)
+	}
+	if childSawRyukSetting {
+		t.Fatal("child scheduler env must not receive a synthetic Ryuk override")
+	}
+	if _, ok := os.LookupEnv("TESTCONTAINERS_RYUK_DISABLED"); ok {
+		t.Fatal("suite-owned Ryuk override must be restored after run")
+	}
+
+	scope := loadScope(t, deps)
+	if !scope.Preflight.RyukDisabledForSuiteStartup || scope.Preflight.Status != "pass" {
+		t.Fatalf("unexpected preflight summary: %#v", scope.Preflight)
+	}
+}
+
+func TestRunFailsFastWhenSuitePreflightFails(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	startedPostgres := false
+	startedMinIO := false
+	startedChild := false
+	deps.preflightSuite = func(context.Context, map[string]string) (suitePreflightResult, error) {
+		return suitePreflightResult{
+			DockerEndpoint: "unix:///var/run/docker.sock",
+			DockerOK:       false,
+		}, errors.New("ping docker endpoint unix:///var/run/docker.sock: connection refused")
+	}
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
+		startedPostgres = true
+		return postgresService{}, nil
+	}
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
+		startedMinIO = true
+		return minioService{}, nil
+	}
+	deps.startChild = func([]string, map[string]string) (childProcess, error) {
+		startedChild = true
+		return fakeChild{}, nil
+	}
+
+	status := run([]string{"run", "--", "ignored"}, deps.env, deps.dependencies)
+	if status != 1 {
+		t.Fatalf("unexpected exit status: got %d want 1", status)
+	}
+	if startedPostgres || startedMinIO || startedChild {
+		t.Fatalf("preflight failure must stop before services or child, postgres=%t minio=%t child=%t", startedPostgres, startedMinIO, startedChild)
+	}
+	scope := loadScope(t, deps)
+	if scope.Preflight.Status != "fail" || scope.Preflight.DockerEndpoint != "unix:///var/run/docker.sock" {
+		t.Fatalf("unexpected preflight summary: %#v", scope.Preflight)
+	}
+	if scope.Failure == nil || scope.Failure.Stage != stageStartupPreflight || scope.Failure.FailureClass != suiteservices.FailureClassInfra {
+		t.Fatalf("unexpected preflight failure summary: %#v", scope.Failure)
+	}
+	if scope.Cleanup.Status != "startup_failed" {
+		t.Fatalf("unexpected cleanup status: %#v", scope.Cleanup)
+	}
+	requireTimingEventStatus(t, loadTestEvents(t, deps), bucketSetup, "test-services suite startup preflight", "fail")
 }
 
 func TestRunCleansUpMinIOWhenPostgresStartupFails(t *testing.T) {
@@ -1022,6 +1129,69 @@ func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 	requireTimingEventStatus(t, events, bucketTeardown, "test-services cleanup browser e2e fixture bucket", "pass")
 }
 
+func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+
+	completedEnv := cloneEnv(deps.env)
+	completedEnv[suiteservices.ActiveEnv] = "1"
+	completedEnv[suiteservices.SuiteIDEnv] = "completed-suite"
+	completedEnv["CARTULARY_TEST_RUN_ID"] = "completed-run"
+	recordCleanupAndRefresh(deps.dependencies, completedEnv, "succeeded", 0)
+
+	completedContainer := dockercontainer.Summary{
+		ID:      "completed-container",
+		Created: now.Add(-time.Minute).Unix(),
+		Labels: map[string]string{
+			testServiceLabelManaged: testServiceManagedValue,
+			testServiceLabelSuiteID: "completed-suite",
+			testServiceLabelRunID:   "completed-run",
+			testServiceLabelService: suiteservices.ServicePostgres,
+		},
+	}
+	if !previousSuiteContainerCleanupEligible(activeEnv, completedContainer, now) {
+		t.Fatal("container with completed suite cleanup should be eligible")
+	}
+
+	activeContainer := dockercontainer.Summary{
+		ID:      "active-container",
+		Created: now.Add(-time.Hour).Unix(),
+		Labels: map[string]string{
+			testServiceLabelManaged: testServiceManagedValue,
+			testServiceLabelSuiteID: "active-suite",
+			testServiceLabelRunID:   "wrapper-tests",
+			testServiceLabelService: suiteservices.ServicePostgres,
+		},
+	}
+	if previousSuiteContainerCleanupEligible(activeEnv, activeContainer, now) {
+		t.Fatal("current active suite container must not be eligible")
+	}
+
+	staleContainer := dockercontainer.Summary{
+		ID:      "stale-container",
+		Created: now.Add(-staleSuiteContainerAge - time.Second).Unix(),
+		Labels: map[string]string{
+			testServiceLabelManaged: testServiceManagedValue,
+			testServiceLabelSuiteID: "stale-suite",
+			testServiceLabelRunID:   "stale-run",
+			testServiceLabelService: suiteservices.ServiceMinIO,
+		},
+	}
+	if !previousSuiteContainerCleanupEligible(activeEnv, staleContainer, now) {
+		t.Fatal("aged previous suite container should be eligible")
+	}
+
+	freshContainer := staleContainer
+	freshContainer.ID = "fresh-container"
+	freshContainer.Created = now.Add(-time.Minute).Unix()
+	if previousSuiteContainerCleanupEligible(activeEnv, freshContainer, now) {
+		t.Fatal("fresh previous suite without completed cleanup must not be eligible")
+	}
+}
+
 func TestCleanupOwnedServicesFailsFastOnBrowserFixtureLeak(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
@@ -1127,7 +1297,10 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			startChild: func(argv []string, env map[string]string) (childProcess, error) {
 				return fakeChild{}, nil
 			},
-			startReaper:         func(string, map[string]string) error { return nil },
+			startReaper: func(string, map[string]string) error { return nil },
+			preflightSuite: func(context.Context, map[string]string) (suitePreflightResult, error) {
+				return suitePreflightResult{DockerEndpoint: "unix:///var/run/docker.sock", DockerOK: true, ReaperReady: true}, nil
+			},
 			createTemplate:      func(context.Context, string, string) error { return nil },
 			prepareWebE2E:       func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
 			cleanupWebE2EDB:     func(context.Context, webE2EMetadata, map[string]string) error { return nil },

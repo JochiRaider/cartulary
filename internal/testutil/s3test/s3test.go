@@ -57,8 +57,9 @@ type Harness struct {
 }
 
 type StartOptions struct {
-	Labels   map[string]string
-	Observer testcontainersx.StartObserver
+	Labels         map[string]string
+	Observer       testcontainersx.StartObserver
+	AttemptTimeout time.Duration
 }
 
 type packageBucket struct {
@@ -165,12 +166,13 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 	}
 
 	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
-		Service:   "minio testcontainer",
-		Image:     minioImage,
-		Preflight: startPreflightFn,
-		Retryable: isRetryableMinIOStartupFailure,
-		Sleep:     startSleepFn,
-		Observer:  options.Observer,
+		Service:        "minio testcontainer",
+		Image:          minioImage,
+		AttemptTimeout: options.AttemptTimeout,
+		Preflight:      startPreflightFn,
+		Retryable:      isRetryableMinIOStartupFailure,
+		Sleep:          startSleepFn,
+		Observer:       options.Observer,
 	}, func(ctx context.Context) (*Harness, error) {
 		return startHarnessAttempt(ctx, req)
 	})
