@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 HELPER="$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh"
+JSON_HELPER="$ROOT_DIR/scripts/lib/json-test-helper.mjs"
 cleanup_paths=()
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
@@ -25,15 +26,15 @@ json_field() {
   local file="$1"
   local path="$2"
 
-  "${NODE:-node}" -e '
-const fs = require("node:fs");
-const [file, path] = process.argv.slice(1);
-const value = path.split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(file, "utf8")));
-if (value === undefined || value === null) {
-  process.exit(1);
+  "${NODE:-node}" "$JSON_HELPER" get "$file" "$path"
 }
-process.stdout.write(String(value));
-' "$file" "$path"
+
+assert_json_null() {
+  local file="$1"
+  local path="$2"
+  local label="$3"
+
+  "${NODE:-node}" "$JSON_HELPER" assert-null "$file" "$path" "$label"
 }
 
 assert_contains() {
@@ -92,6 +93,11 @@ case "${FAKE_PLAYWRIGHT_MODE:-success}" in
 {"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
 JSON
     ;;
+  support_success)
+    cat >"$output_file" <<'JSON'
+{"suites":[{"specs":[{"title":"support Phase 3 grid controls submit sort, filter, and group query members through the shared route","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
+JSON
+    ;;
   failure)
     cat >"$output_file" <<'JSON'
 {"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"phase2.spec.ts","tests":[{"results":[{"status":"failed","retry":0,"attachments":[],"error":{"message":"playwright assertion failed"}}]}]}],"suites":[]}],"errors":[]}
@@ -125,6 +131,20 @@ selected_tests_json="$(json_field "$success_summary" "artifacts.selected_tests_j
 assert_contains "$selected_tests_json" "manifest-selected-tests.json" "playwright success selection artifact"
 assert_contains "$(json_field "$selected_tests_json" "schema_id")" "cartulary.playwright_manifest_selection.v1" "playwright success selection schema"
 assert_contains "$(json_field "$success_summary" "artifacts.runner_json")" "runner.json" "playwright success runner artifact"
+
+support_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="playwright-manifest-support-success" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_PLAYWRIGHT_MODE=support_success \
+    "$HELPER" "playwright manifest support success" phase3 supplemental browser_support -- "$fake_playwright"
+)"
+assert_empty "$support_output" "playwright manifest support success"
+support_summary="$tmp_dir/results/playwright-manifest-support-success/adhoc/playwright-manifest-support-success/phase-summary.json"
+assert_contains "$(json_field "$support_summary" "counts.support")" "3" "playwright support success count"
+assert_json_null "$support_summary" "manifest_mismatch" "playwright support success mismatch"
 
 set +e
 mismatch_output="$(

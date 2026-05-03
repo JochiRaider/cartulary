@@ -1057,6 +1057,44 @@ assert_equals "$(json_field "$skipped_child_summary" "children.skipped.0.failed_
 assert_equals "$(json_field "$skipped_child_summary" "children.missing.length")" "0" "skipped child not missing"
 assert_equals "$(json_field "$skipped_child_summary" "own.counts.non_test_failed")" "0" "skipped child does not create artifact failure"
 
+mkdir -p "$skipped_child_run/scheduler-skipped-only"
+cat >"$skipped_child_run/scheduler-skipped-only/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_summary.v1",
+  "target": "scheduler-skipped-only",
+  "status": "fail",
+  "failed_work_unit": "lint-shell",
+  "failed_work_unit_detail": {
+    "label": "lint-shell",
+    "id": "lint-shell",
+    "aggregate_target": "lint-shell",
+    "kind": "work_unit",
+    "status": 1,
+    "duration_ms": 12,
+    "log_file": ".cartulary/test-results/skipped-child/scheduler-skipped-only/scheduler-logs/01-lint-shell.log"
+  },
+  "skipped_work_units": [
+    {
+      "label": "check-go-test-duration-baseline-drift",
+      "id": "check-go-test-duration-baseline-drift",
+      "aggregate_target": "check-go-test-duration-baseline-drift",
+      "reason": "schedule_stopped_after_failure",
+      "failed_dependency": "lint-shell"
+    }
+  ]
+}
+JSON
+scheduler_skipped_only_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
+  CARTULARY_TEST_RUN_ID="skipped-child" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary scheduler-skipped-only fail \
+    2>&1
+)"
+assert_contains "$scheduler_skipped_only_output" "work_unit=lint-shell" "scheduler skipped-only work unit"
+assert_contains "$scheduler_skipped_only_output" "child_target=lint-shell" "scheduler skipped-only failed aggregate target"
+assert_not_contains "$scheduler_skipped_only_output" "child_target=check-go-test-duration-baseline-drift" "scheduler skipped-only skipped child is not failure target"
+
 explicit_skipped_child_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \

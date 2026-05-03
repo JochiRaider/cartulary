@@ -39,6 +39,21 @@ export function sanitizeLogName(value) {
 
 export function runLifecycle(repoRoot, testOutputScript, args, stream = process.stdout, env = process.env) {
   return new Promise((resolve, reject) => {
+    let closeStatus = null;
+    let stdoutEnded = false;
+    let stderrEnded = false;
+    let settled = false;
+    const maybeSettle = () => {
+      if (settled || closeStatus === null || !stdoutEnded || !stderrEnded) {
+        return;
+      }
+      settled = true;
+      if (closeStatus === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`${testOutputScript} ${args.join(" ")} exited ${closeStatus}`));
+    };
     const command = testOutputScript.endsWith(".mjs")
       ? env.NODE_BIN || process.env.NODE_BIN || process.execPath
       : testOutputScript;
@@ -50,13 +65,24 @@ export function runLifecycle(repoRoot, testOutputScript, args, stream = process.
     });
     child.stdout.pipe(stream, { end: false });
     child.stderr.pipe(process.stderr, { end: false });
-    child.on("error", reject);
-    child.on("close", (status) => {
-      if (status === 0) {
-        resolve();
+    child.stdout.on("end", () => {
+      stdoutEnded = true;
+      maybeSettle();
+    });
+    child.stderr.on("end", () => {
+      stderrEnded = true;
+      maybeSettle();
+    });
+    child.on("error", (error) => {
+      if (settled) {
         return;
       }
-      reject(new Error(`${testOutputScript} ${args.join(" ")} exited ${status}`));
+      settled = true;
+      reject(error);
+    });
+    child.on("close", (status) => {
+      closeStatus = status ?? 1;
+      maybeSettle();
     });
   });
 }

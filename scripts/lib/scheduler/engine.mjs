@@ -123,6 +123,7 @@ class SchedulerReporter {
     this.skippedWork = [];
     this.completedCount = 0;
     this.failedWorkUnit = null;
+    this.failedWorkUnitDetail = null;
     this.finalizerFailures = 0;
     this.blockedReasonsSeen = new Set();
     this.blockedResourcesSeen = new Set();
@@ -277,6 +278,7 @@ class SchedulerReporter {
     const record = {
       label: result.label,
       id: result.id,
+      aggregate_target: unit.aggregateTarget ?? null,
       kind: finalizer(unit) ? "finalizer" : "work_unit",
       status: result.status,
       duration_ms: durationMs,
@@ -291,6 +293,7 @@ class SchedulerReporter {
     }
     if (result.status !== 0 && !this.failedWorkUnit) {
       this.failedWorkUnit = result.label;
+      this.failedWorkUnitDetail = record;
     }
     if (finalizer(unit) && result.status !== 0) {
       this.finalizerFailures += 1;
@@ -558,6 +561,12 @@ class SchedulerReporter {
 
   async summary(status, { started, failedWorkUnit = null } = {}) {
     const failed = failedWorkUnit || this.failedWorkUnit || null;
+    const failedDetail =
+      failed === null
+        ? null
+        : this.failedWorkUnitDetail ??
+          this.completedWork.find((record) => record.label === failed || record.id === failed) ??
+          null;
     const slowest = slowestWork(this.completedWork);
     const topBlockers = topBlockerRecords(this.topBlockerCounts);
     const skipped = this.skippedWork.length;
@@ -610,6 +619,7 @@ class SchedulerReporter {
       ...this.timingEnvelope(),
       skipped_work_units: this.skippedWork,
       failed_work_unit: failed,
+      failed_work_unit_detail: failedDetail,
       resource_limits: resourceMapToObject(this.schedule.resourceLimits),
       resource_limit_sources: resourceLimitSourcesToObject(this.schedule.resourceLimitSources),
       max_running_work_units: this.maxRunningWorkUnits,

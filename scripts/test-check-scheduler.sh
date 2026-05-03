@@ -1491,6 +1491,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const [summaryFile, eventsFile, repoRoot] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.failed_work_unit_detail?.aggregate_target !== "beta") {
+  throw new Error(`failed work aggregate target got ${summary.failed_work_unit_detail?.aggregate_target}`);
+}
+if (summary.failed_work_unit_detail?.label !== "beta") {
+  throw new Error(`failed work label got ${summary.failed_work_unit_detail?.label}`);
+}
 const skipped = new Map(summary.skipped_work_units.map((unit) => [unit.id, unit]));
 if (skipped.get("delta")?.reason !== "dependency_failure") {
   throw new Error("delta must be marked skipped by dependency failure");

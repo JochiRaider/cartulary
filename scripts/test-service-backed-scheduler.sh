@@ -1338,6 +1338,8 @@ assert_contains "$failed_shard_output" "fake shard failure for backend-store-sha
 assert_contains "$failed_shard_output" "[SUMMARY] target=test-fast-service-backed status=fail failure_class=helper work_units=1/1 failed=finalize/backend-store" "failed shard scheduler summary"
 assert_contains "$failed_shard_output" "finalizer_failures=1" "failed shard scheduler finalizer failure count"
 assert_contains "$failed_shard_output" "[FAIL] target=test-fast-service-backed" "failed shard parent summary"
+assert_contains "$failed_shard_output" "work_unit=finalize/backend-store" "failed shard finalizer work unit"
+assert_contains "$failed_shard_output" "child_target=backend-store" "failed shard finalizer child target"
 assert_occurrences "$failed_shard_output" "[FAIL] target=test-fast-service-backed" "1" "failed shard single parent failure block"
 assert_scheduler_artifacts "$failed_shard_dir" failed-shard test-fast-service-backed fail - finalize-finish
 "$NODE_BIN" - "${failed_shard_dir}/results/failed-shard/test-fast-service-backed/scheduler-summary.json" <<'EOF'
@@ -1349,6 +1351,12 @@ if (summary.finalizer_failures !== 1) {
 }
 if (summary.finalizer_count !== 1) {
   throw new Error(`expected one finalizer, got ${summary.finalizer_count}`);
+}
+if (summary.failed_work_unit_detail?.aggregate_target !== "backend-store") {
+  throw new Error(`finalizer failure aggregate target got ${summary.failed_work_unit_detail?.aggregate_target}`);
+}
+if (summary.failed_work_unit_detail?.label !== "finalize/backend-store") {
+  throw new Error(`finalizer failure label got ${summary.failed_work_unit_detail?.label}`);
 }
 const timing = summary.finalizer_timings?.find((entry) => entry.id === "finalize:backend-store");
 if (!timing) {

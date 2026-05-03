@@ -2838,6 +2838,11 @@ function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
   const headline = targetSummary.failure_headline ?? "target failed";
   const failedChildTarget = targetSummary.children?.failed_targets?.[0] ?? "";
   const schedulerSummary = loadSchedulerSummary(summary.target);
+  const failedWorkUnitDetail = schedulerSummary?.failed_work_unit_detail ?? null;
+  const failedWorkUnitAggregateTarget =
+    typeof failedWorkUnitDetail?.aggregate_target === "string"
+      ? failedWorkUnitDetail.aggregate_target
+      : "";
   const failedWorkUnit =
     schedulerSummary?.failed_work_unit ??
     targetSummary.children?.skipped?.[0]?.failed_dependency ??
@@ -2846,9 +2851,9 @@ function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
   const failureTarget = targetSummary.failures?.[0]?.target ?? "";
   const childTarget =
     failedChildTarget ||
-    targetSummary.children?.missing?.[0] ||
+    failedWorkUnitAggregateTarget ||
     (failureTarget && failureTarget !== summary.target ? failureTarget : "") ||
-    targetSummary.children?.skipped?.[0]?.target ||
+    targetSummary.children?.missing?.[0] ||
     "";
   const logArtifact = firstArtifactPath(
     targetSummary.failures?.find((failure) => failure.artifact)?.artifact ??
@@ -4688,15 +4693,165 @@ function renderVitestReproduceCommand(ownerPath, title = "") {
   return `pnpm --dir apps/web exec vitest run ${reproducePath} -t '${escapeSingleQuotes(title)}$'`;
 }
 
+function readManifestScopeEnv() {
+  return {
+    phase: requiredEnv("CARTULARY_MANIFEST_PHASE"),
+    coverage: requiredEnv("CARTULARY_MANIFEST_COVERAGE"),
+    executionDependency: optionalEnv(
+      "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
+    ),
+  };
+}
+
+function manifestCoverageToInventoryCoverage(coverage) {
+  return coverage === "authoritative" ? "authoritative" : "support";
+}
+
+function selectFlatTitleManifestEntries({
+  runner,
+  section = "",
+  phase,
+  coverage,
+  executionDependency,
+}) {
+  const { manifest } = loadManifest(repoRoot, phase);
+  return collectEntries(manifest).filter((entry) => {
+    if (entry.runner !== runner || entry.coverage !== coverage) {
+      return false;
+    }
+    if (section !== "" && entry.section !== section) {
+      return false;
+    }
+    if (
+      executionDependency &&
+      entry.execution_dependency !== executionDependency
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function evaluateFlatTitleManifest(summary, {
+  phase,
+  entries,
+  inventoryCoverage,
+}) {
+  const executedKeys = new Set(
+    summary.inventory
+      .filter((item) => item.coverage === inventoryCoverage)
+      .map((item) => `${item.package_or_file}::${item.symbol_or_title}`),
+  );
+  const missingIDs = entries
+    .filter((entry) => !executedKeys.has(`${entry.file}::${entry.title}`))
+    .map((entry) => entry.id)
+    .sort();
+  const expectedIDs = new Set(entries.map((entry) => entry.id));
+  const unexpectedIDs = summary.inventory
+    .filter(
+      (item) =>
+        item.coverage === inventoryCoverage &&
+        item.id &&
+        !expectedIDs.has(item.id),
+    )
+    .map((item) => item.id)
+    .sort();
+
+  return {
+    phase,
+    missingIDs,
+    unexpectedIDs,
+    forbiddenIDFiles: Array.from(
+      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
+    ).sort(),
+  };
+}
+
+function finalizeManifestAwareRunnerPhase(context, {
+  manifestAware,
+  runner,
+  section = "",
+  summary,
+  selectedSlicePassed,
+  artifacts,
+  manifestMismatchArtifacts = () => ({}),
+  manifestMismatchDetailFields = () => ({}),
+  failureDetailFields = (dossier) => dossier,
+  extraWritePhaseDetails = {},
+}) {
+  let status = selectedSlicePassed ? "pass" : "fail";
+  let manifestSummary = null;
+  let manifestMismatch = null;
+
+  if (manifestAware && selectedSlicePassed) {
+    const scope = readManifestScopeEnv();
+    const verification = evaluateFlatTitleManifest(summary, {
+      phase: scope.phase,
+      entries: selectFlatTitleManifestEntries({
+        runner,
+        section,
+        ...scope,
+      }),
+      inventoryCoverage: manifestCoverageToInventoryCoverage(scope.coverage),
+    });
+    manifestSummary = {
+      missing_ids: verification.missingIDs,
+      unexpected_ids: verification.unexpectedIDs,
+    };
+    if (
+      verification.missingIDs.length > 0 ||
+      verification.unexpectedIDs.length > 0
+    ) {
+      status = "mismatch";
+      manifestMismatch = {
+        missing_ids: verification.missingIDs,
+        unexpected_ids: verification.unexpectedIDs,
+        forbidden_id_files: verification.forbiddenIDFiles,
+        ...manifestMismatchArtifacts(verification, scope),
+      };
+    }
+  }
+
+  writePhaseArtifacts(context, {
+    status,
+    phase: inferPhaseFromText(context.label),
+    counts: summary.counts,
+    owners: summary.owners,
+    inventory: summary.inventory,
+    dossiers: summary.dossiers,
+    ...extraWritePhaseDetails,
+    manifestSummary,
+    manifestMismatch,
+    artifacts,
+  });
+
+  if (status === "pass") {
+    return 0;
+  }
+  if (status === "mismatch") {
+    if (showPhaseDetailOutput(context)) {
+      printBlock(`manifest mismatch: ${context.label}`, {
+        missing_ids: renderList(manifestMismatch.missing_ids),
+        unexpected_ids: renderList(manifestMismatch.unexpected_ids),
+        forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
+        ...manifestMismatchDetailFields(manifestMismatch),
+      });
+    }
+    return 1;
+  }
+  if (showPhaseDetailOutput(context)) {
+    for (const dossier of summary.dossiers) {
+      printBlock(`failure: ${context.label}`, failureDetailFields(dossier));
+    }
+  }
+  return 1;
+}
+
 function createVitestSelection({ manifestAware }) {
   const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
 
   if (manifestAware && reportSlice) {
-    const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
-    const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-    const executionDependency = optionalEnv(
-      "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
-    );
+    const { phase, coverage, executionDependency } = readManifestScopeEnv();
     const entries = selectVitestManifestEntries(
       phase,
       coverage,
@@ -5023,22 +5178,12 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
 }
 
 function selectVitestManifestEntries(phase, coverage, executionDependency) {
-  const { manifest } = loadManifest(repoRoot, phase);
-  return collectEntries(manifest).filter((entry) => {
-    if (
-      entry.runner !== "vitest" ||
-      entry.section !== "unit" ||
-      entry.coverage !== coverage
-    ) {
-      return false;
-    }
-    if (
-      executionDependency &&
-      entry.execution_dependency !== executionDependency
-    ) {
-      return false;
-    }
-    return true;
+  return selectFlatTitleManifestEntries({
+    runner: "vitest",
+    section: "unit",
+    phase,
+    coverage,
+    executionDependency,
   });
 }
 
@@ -5046,48 +5191,6 @@ function collectVitestManifestEntries(coverage, executionDependency) {
   return phaseManifestNames(repoRoot).flatMap((phase) =>
     selectVitestManifestEntries(phase, coverage, executionDependency),
   );
-}
-
-function evaluateVitestManifest(summary) {
-  const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
-  const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-  const executionDependency = optionalEnv(
-    "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
-  );
-  const entries = selectVitestManifestEntries(
-    phase,
-    coverage,
-    executionDependency,
-  );
-  const executedKeys = new Set(
-    summary.inventory
-      .filter((item) => item.coverage === "authoritative")
-      .map((item) => `${item.package_or_file}::${item.symbol_or_title}`),
-  );
-
-  const missingIDs = entries
-    .filter((entry) => !executedKeys.has(`${entry.file}::${entry.title}`))
-    .map((entry) => entry.id)
-    .sort();
-  const expectedIDs = new Set(entries.map((entry) => entry.id));
-  const unexpectedIDs = summary.inventory
-    .filter(
-      (item) =>
-        item.coverage === "authoritative" &&
-        item.id &&
-        !expectedIDs.has(item.id),
-    )
-    .map((item) => item.id)
-    .sort();
-
-  return {
-    phase,
-    missingIDs,
-    unexpectedIDs,
-    forbiddenIDFiles: Array.from(
-      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
-    ).sort(),
-  };
 }
 
 function handleVitestPhase({ manifestAware }) {
@@ -5165,70 +5268,30 @@ function handleVitestPhase({ manifestAware }) {
   const selectedSlicePassed =
     summary.dossiers.length === 0 &&
     (context.exitStatus === 0 || optionalEnv("CARTULARY_REPORT_SLICE") === "1");
-  let status = selectedSlicePassed ? "pass" : "fail";
-  let manifestSummary = null;
-  let manifestMismatch = null;
 
-  if (manifestAware && selectedSlicePassed) {
-    const verification = evaluateVitestManifest(summary);
-    manifestSummary = {
-      missing_ids: verification.missingIDs,
-      unexpected_ids: verification.unexpectedIDs,
-    };
-    if (
-      verification.missingIDs.length > 0 ||
-      verification.unexpectedIDs.length > 0
-    ) {
-      status = "mismatch";
-      manifestMismatch = {
-        missing_ids: verification.missingIDs,
-        unexpected_ids: verification.unexpectedIDs,
-        forbidden_id_files: verification.forbiddenIDFiles,
-        raw: relToRepo(reportFile),
-      };
-    }
-  }
-
-  writePhaseArtifacts(context, {
-    status,
-    phase: inferPhaseFromText(context.label),
-    counts: summary.counts,
-    owners: summary.owners,
-    inventory: summary.inventory,
-    dossiers: summary.dossiers,
-    manifestSummary,
-    manifestMismatch,
+  return finalizeManifestAwareRunnerPhase(context, {
+    manifestAware,
+    runner: "vitest",
+    section: "unit",
+    summary,
+    selectedSlicePassed,
     artifacts: {
       runner_json: reportFile,
       stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
       stderr_log: existsSync(stderrLog) ? stderrLog : "",
       watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
     },
+    manifestMismatchArtifacts: () => ({
+      raw: relToRepo(reportFile),
+    }),
+    manifestMismatchDetailFields: (manifestMismatch) => ({
+      raw: manifestMismatch.raw,
+    }),
+    failureDetailFields: (dossier) => ({
+      ...dossier,
+      raw: renderRawList([reportFile, stdoutLog, stderrLog]),
+    }),
   });
-
-  if (status === "pass") {
-    return 0;
-  }
-  if (status === "mismatch") {
-    if (showPhaseDetailOutput(context)) {
-      printBlock(`manifest mismatch: ${context.label}`, {
-        missing_ids: renderList(manifestMismatch.missing_ids),
-        unexpected_ids: renderList(manifestMismatch.unexpected_ids),
-        forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
-        raw: manifestMismatch.raw,
-      });
-    }
-    return 1;
-  }
-  if (showPhaseDetailOutput(context)) {
-    for (const dossier of summary.dossiers) {
-      printBlock(`failure: ${context.label}`, {
-        ...dossier,
-        raw: renderRawList([reportFile, stdoutLog, stderrLog]),
-      });
-    }
-  }
-  return 1;
 }
 
 function normalizePlaywrightFile(file) {
@@ -5467,11 +5530,7 @@ function createPlaywrightSelection({ manifestAware }) {
   const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
 
   if (manifestAware && reportSlice) {
-    const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
-    const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-    const executionDependency = optionalEnv(
-      "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
-    );
+    const { phase, coverage, executionDependency } = readManifestScopeEnv();
     const selected = new Set(
       selectPlaywrightManifestEntries(phase, coverage, executionDependency).map(
         (entry) => `${entry.file}::${entry.title}`,
@@ -5695,64 +5754,12 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
 }
 
 function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
-  const { manifest } = loadManifest(repoRoot, phase);
-  return collectEntries(manifest).filter((entry) => {
-    if (
-      entry.runner !== "playwright" ||
-      entry.coverage !== coverage
-    ) {
-      return false;
-    }
-    if (
-      executionDependency &&
-      entry.execution_dependency !== executionDependency
-    ) {
-      return false;
-    }
-    return true;
-  });
-}
-
-function evaluatePlaywrightManifest(summary) {
-  const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
-  const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
-  const executionDependency = optionalEnv(
-    "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
-  );
-  const entries = selectPlaywrightManifestEntries(
+  return selectFlatTitleManifestEntries({
+    runner: "playwright",
     phase,
     coverage,
     executionDependency,
-  );
-  const expectedCoverage =
-    coverage === "authoritative" ? "authoritative" : "support";
-  const executedKeys = new Set(
-    summary.inventory
-      .filter((item) => item.coverage === expectedCoverage)
-      .map((item) => `${item.package_or_file}::${item.symbol_or_title}`),
-  );
-  const missingIDs = entries
-    .filter((entry) => !executedKeys.has(`${entry.file}::${entry.title}`))
-    .map((entry) => entry.id)
-    .sort();
-  const expectedIDs = new Set(entries.map((entry) => entry.id));
-  const unexpectedIDs = summary.inventory
-    .filter(
-      (item) =>
-        item.coverage === expectedCoverage &&
-        item.id &&
-        !expectedIDs.has(item.id),
-    )
-    .map((item) => item.id)
-    .sort();
-  return {
-    phase,
-    missingIDs,
-    unexpectedIDs,
-    forbiddenIDFiles: Array.from(
-      loadManifestIndex().forbiddenFilesByPhase.get(phase) ?? [],
-    ).sort(),
-  };
+  });
 }
 
 function handlePlaywrightPhase({ manifestAware }) {
@@ -5797,44 +5804,12 @@ function handlePlaywrightPhase({ manifestAware }) {
   }
   const selectedSlicePassed =
     summary.dossiers.length === 0 && (context.exitStatus === 0 || reportSlice);
-  let status = selectedSlicePassed ? "pass" : "fail";
-  let manifestSummary = null;
-  let manifestMismatch = null;
 
-  if (manifestAware && selectedSlicePassed) {
-    const verification = evaluatePlaywrightManifest(summary);
-    manifestSummary = {
-      missing_ids: verification.missingIDs,
-      unexpected_ids: verification.unexpectedIDs,
-    };
-    if (
-      verification.missingIDs.length > 0 ||
-      verification.unexpectedIDs.length > 0
-    ) {
-      status = "mismatch";
-      manifestMismatch = {
-        missing_ids: verification.missingIDs,
-        unexpected_ids: verification.unexpectedIDs,
-        forbidden_id_files: verification.forbiddenIDFiles,
-        selection:
-          selectionReport && existsSync(selectionReport)
-            ? relToRepo(selectionReport)
-            : "",
-        runner: relToRepo(reportFile),
-      };
-    }
-  }
-
-  writePhaseArtifacts(context, {
-    status,
-    phase: inferPhaseFromText(context.label),
-    counts: summary.counts,
-    owners: summary.owners,
-    inventory: summary.inventory,
-    dossiers: summary.dossiers,
-    playwrightTiming: summary.playwrightTiming,
-    manifestSummary,
-    manifestMismatch,
+  return finalizeManifestAwareRunnerPhase(context, {
+    manifestAware,
+    runner: "playwright",
+    summary,
+    selectedSlicePassed,
     artifacts: {
       selected_tests_json: selectionReport,
       runner_json: reportFile,
@@ -5844,27 +5819,23 @@ function handlePlaywrightPhase({ manifestAware }) {
       server_log: serverLog,
       web_log: webLog,
     },
-  });
-
-  if (status === "pass") {
-    return 0;
-  }
-  if (status === "mismatch") {
-    if (showPhaseDetailOutput(context)) {
-      printBlock(`manifest mismatch: ${context.label}`, {
-        missing_ids: renderList(manifestMismatch.missing_ids),
-        unexpected_ids: renderList(manifestMismatch.unexpected_ids),
-        forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
-        selection: manifestMismatch.selection,
-        runner: manifestMismatch.runner,
-      });
-    }
-    return 1;
-  }
-  if (showPhaseDetailOutput(context)) {
-    for (const dossier of summary.dossiers) {
+    extraWritePhaseDetails: {
+      playwrightTiming: summary.playwrightTiming,
+    },
+    manifestMismatchArtifacts: () => ({
+      selection:
+        selectionReport && existsSync(selectionReport)
+          ? relToRepo(selectionReport)
+          : "",
+      runner: relToRepo(reportFile),
+    }),
+    manifestMismatchDetailFields: (manifestMismatch) => ({
+      selection: manifestMismatch.selection,
+      runner: manifestMismatch.runner,
+    }),
+    failureDetailFields: (dossier) => {
       const { runner, raw, ...rest } = dossier;
-      printBlock(`failure: ${context.label}`, {
+      return {
         ...rest,
         test_runner: runner,
         selection:
@@ -5876,10 +5847,9 @@ function handlePlaywrightPhase({ manifestAware }) {
           raw,
           renderRawList([reportFile, outputDir, serverLog, webLog]),
         ),
-      });
-    }
-  }
-  return 1;
+      };
+    },
+  });
 }
 
 function renderRawList(paths) {
