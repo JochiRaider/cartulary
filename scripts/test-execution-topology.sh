@@ -285,16 +285,16 @@ assert.throws(
   "topology validation must reject check work units that omit their own summary target",
 );
 
-const missingServiceStackTopology = topologyFixture();
-delete missingServiceStackTopology.check_schedules.defaults.resource_profiles.post_build_service_stack.resource_claims
-  .service_stack;
+const missingServiceBoundaryTopology = topologyFixture();
+delete missingServiceBoundaryTopology.check_schedules.defaults.resource_profiles.post_build_migration_scratch_postgres
+  .resource_claims.migration_scratch_postgres;
 assert.throws(
   () =>
     loadExecutionTopology({
-      manifestPath: writeTopologyFixture("missing-service-stack-topology.json", missingServiceStackTopology),
+      manifestPath: writeTopologyFixture("missing-service-boundary-topology.json", missingServiceBoundaryTopology),
     }),
-  /migration-drift\.check_schedule target declares service_requirements and must claim service_stack/,
-  "topology validation must require service_stack for service-backed check schedule profiles",
+  /migration-drift\.check_schedule target declares service_requirements and must claim a check service boundary resource/,
+  "topology validation must require a boundary resource for service-backed check schedule profiles",
 );
 
 const schedulerOwnedEnvTopology = topologyFixture();

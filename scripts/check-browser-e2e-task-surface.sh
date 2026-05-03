@@ -573,8 +573,13 @@ if (schedule.capacity_profile !== "check_default") {
   throw new Error("check schedule must resolve capacity through check_default");
 }
 const limits = schedule.resource_limits ?? {};
-if (limits.host_cpu !== 12 || limits.host_io !== 12 || limits.service_stack !== 1) {
-  throw new Error("check schedule must declare host_cpu, host_io, and service_stack limits");
+if (
+  limits.host_cpu !== 12 ||
+  limits.host_io !== 12 ||
+  limits.suite_service_stack !== 1 ||
+  limits.migration_scratch_postgres !== 1
+) {
+  throw new Error("check schedule must declare host_cpu, host_io, suite_service_stack, and migration_scratch_postgres limits");
 }
 const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");
 if (!service) {
@@ -607,8 +612,8 @@ const assertBoundedClaim = (claim, resource, expected) => {
 };
 assertBoundedClaim(claims.host_cpu, "host_cpu", { mode: "bounded_limit", reserve: 3, min: 1, max: 8 });
 assertBoundedClaim(claims.host_io, "host_io", { mode: "bounded_limit", reserve: 4, min: 1, max: 10 });
-if (claims.service_stack !== 1) {
-  throw new Error("check-service-backed must claim exclusive service_stack");
+if (claims.suite_service_stack !== 1) {
+  throw new Error("check-service-backed must claim exclusive suite_service_stack");
 }
 const nested = service.nested_scheduler ?? {};
 if (nested.type !== "service_backed" || nested.target !== "check-service-backed") {

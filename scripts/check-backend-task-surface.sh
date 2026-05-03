@@ -489,7 +489,7 @@ if (Array.isArray(topology.check_schedules)) {
   throw new Error("execution topology must own check schedule profiles, not flat schedules");
 }
 const profiles = topology.check_schedules?.defaults?.resource_profiles ?? {};
-for (const requiredProfile of ["setup_cpu", "setup_cpu_io", "build_readiness_gate", "nested_service_backed_scheduler", "post_build_service_stack", "after_setup_cpu", "after_setup_cpu_io"]) {
+for (const requiredProfile of ["setup_cpu", "setup_cpu_io", "build_readiness_gate", "nested_service_backed_scheduler", "post_build_migration_scratch_postgres", "after_setup_cpu", "after_setup_cpu_io"]) {
   if (!profiles[requiredProfile]) {
     throw new Error(`execution topology must declare ${requiredProfile} check schedule profile`);
   }
@@ -515,7 +515,7 @@ assertCheckMetadata("shell-lint-toolchain", "setup_cpu_io");
 assertCheckMetadata("check-frontend-install", "setup_cpu_io");
 assertCheckMetadata("check-build-prereqs", "build_readiness_gate");
 assertCheckMetadata("check-service-backed", "nested_service_backed_scheduler");
-assertCheckMetadata("migration-drift", "post_build_service_stack");
+assertCheckMetadata("migration-drift", "post_build_migration_scratch_postgres");
 assertCheckMetadata("backend-unit", "after_setup_cpu");
 assertCheckMetadata("go-vulncheck", "after_setup_cpu_io");
 if (manifest.schema_id !== "cartulary.check_schedule.v7") {
@@ -538,8 +538,13 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
   }
 }
 const limits = schedule.resource_limits ?? {};
-if (limits.host_cpu !== 12 || limits.host_io !== 12 || limits.service_stack !== 1) {
-  throw new Error("check schedule must declare host_cpu, host_io, and service_stack limits");
+if (
+  limits.host_cpu !== 12 ||
+  limits.host_io !== 12 ||
+  limits.suite_service_stack !== 1 ||
+  limits.migration_scratch_postgres !== 1
+) {
+  throw new Error("check schedule must declare host_cpu, host_io, suite_service_stack, and migration_scratch_postgres limits");
 }
 const lintShell = (schedule.work_units ?? []).find((entry) => entry.target === "lint-shell");
 if (lintShell?.env?.LINT_SHELL_STRICT !== "1") {
@@ -587,8 +592,8 @@ const assertBoundedClaim = (claim, resource, expected) => {
 };
 assertBoundedClaim(claims.host_cpu, "host_cpu", { mode: "bounded_limit", reserve: 3, min: 1, max: 8 });
 assertBoundedClaim(claims.host_io, "host_io", { mode: "bounded_limit", reserve: 4, min: 1, max: 10 });
-if (claims.service_stack !== 1) {
-  throw new Error("check-service-backed must claim exclusive service_stack");
+if (claims.suite_service_stack !== 1) {
+  throw new Error("check-service-backed must claim exclusive suite_service_stack");
 }
 const nested = service.nested_scheduler ?? {};
 if (nested.type !== "service_backed" || nested.target !== "check-service-backed") {
@@ -648,11 +653,11 @@ assert_check_needs check-go-test-duration-baseline-drift "check-service-backed"
 assert_check_needs check-browser-e2e-duration-baseline-drift "check-service-backed"
 assert_check_needs check-service-backed-make-target-duration-baseline-drift "check-service-backed"
 assert_check_needs check-harness-smoke-duration-baseline-drift "check-harness-smoke"
-if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,service_stack" ]]; then
-  fail "check-service-backed must claim host_cpu, host_io, and service_stack resources in the check schedule"
+if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,suite_service_stack" ]]; then
+  fail "check-service-backed must claim host_cpu, host_io, and suite_service_stack resources in the check schedule"
 fi
-if [[ "$(check_schedule_field migration-drift resource_claims)" != "host_cpu,host_io,service_stack" ]]; then
-  fail "migration-drift must claim host_cpu, host_io, and service_stack resources in the check schedule"
+if [[ "$(check_schedule_field migration-drift resource_claims)" != "host_cpu,host_io,migration_scratch_postgres" ]]; then
+  fail "migration-drift must claim host_cpu, host_io, and migration_scratch_postgres resources in the check schedule"
 fi
 
 if grep -Fq 'rg --files' "$makefile"; then

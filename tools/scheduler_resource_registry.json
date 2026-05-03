@@ -22,10 +22,19 @@
       }
     },
     {
-      "name": "service_stack",
-      "display_name": "service stack",
+      "name": "suite_service_stack",
+      "display_name": "suite service stack",
       "schedulers": ["check"],
       "display_order": 30,
+      "capacity": {
+        "default_limit": 1
+      }
+    },
+    {
+      "name": "migration_scratch_postgres",
+      "display_name": "migration scratch Postgres",
+      "schedulers": ["check"],
+      "display_order": 40,
       "capacity": {
         "default_limit": 1
       }
@@ -110,7 +119,7 @@
     {
       "name": "check_default",
       "scheduler": "check",
-      "resources": ["host_cpu", "host_io", "service_stack"]
+      "resources": ["host_cpu", "host_io", "suite_service_stack", "migration_scratch_postgres"]
     },
     {
       "name": "service_backed_full",

@@ -567,11 +567,15 @@ function normalizeCheckNestedScheduler(value, label, unitTarget, claims) {
   if (nested.forwarding === undefined) {
     throw new Error(`${label}.nested_scheduler.forwarding must be declared`);
   }
-  if (!claims.has("service_stack")) {
-    throw new Error(`${label}.nested_scheduler forwarding must claim service_stack`);
+  if (!claims.has("suite_service_stack")) {
+    throw new Error(`${label}.nested_scheduler forwarding must claim suite_service_stack`);
   }
   resolveForwardingProfile(nested.forwarding, claims, `${label}.nested_scheduler`);
   return clone(nested);
+}
+
+function claimsCheckServiceBoundaryResource(claims) {
+  return claims.has("suite_service_stack") || claims.has("migration_scratch_postgres");
 }
 
 function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntries) {
@@ -634,11 +638,11 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
       );
       if (
         requiresCheckServiceStack(entry) &&
-        !claims.has("service_stack") &&
+        !claimsCheckServiceBoundaryResource(claims) &&
         nestedScheduler?.type !== "service_backed"
       ) {
         throw new Error(
-          `${target}.check_schedule target declares service_requirements and must claim service_stack or use a nested service-backed scheduler`,
+          `${target}.check_schedule target declares service_requirements and must claim a check service boundary resource or use a nested service-backed scheduler`,
         );
       }
       const unit = {

@@ -2811,7 +2811,7 @@
           "schedules": [
             "check"
           ],
-          "profile": "post_build_service_stack",
+          "profile": "post_build_migration_scratch_postgres",
           "priority_band": "post_build",
           "order": 0,
           "needs": [
@@ -5660,7 +5660,7 @@
               "min": 1,
               "max": 10
             },
-            "service_stack": 1
+            "suite_service_stack": 1
           },
           "make_jobs": "host_cpu"
         },
@@ -5676,11 +5676,11 @@
           },
           "make_jobs": "host_cpu"
         },
-        "post_build_service_stack": {
+        "post_build_migration_scratch_postgres": {
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "service_stack": 1
+            "migration_scratch_postgres": 1
           },
           "make_jobs": "host_cpu"
         },

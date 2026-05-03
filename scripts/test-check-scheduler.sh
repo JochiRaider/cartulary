@@ -633,6 +633,8 @@ run_scheduler() {
   FAKE_SLEEP_LOCAL="${FAKE_SLEEP_LOCAL:-}" \
   FAKE_SLEEP_META="${FAKE_SLEEP_META:-}" \
   FAKE_SLEEP_SERVICE="${FAKE_SLEEP_SERVICE:-}" \
+  FAKE_SLEEP_CHECK_SERVICE_BACKED="${FAKE_SLEEP_CHECK_SERVICE_BACKED:-}" \
+  FAKE_SLEEP_MIGRATION_DRIFT="${FAKE_SLEEP_MIGRATION_DRIFT:-}" \
   FAKE_SLEEP_PARTIAL_SERVICE="${FAKE_SLEEP_PARTIAL_SERVICE:-}" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
   MAKE="${dir}/fake-make" \
@@ -670,7 +672,7 @@ const fail = (message) => {
 if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed") {
   fail("browser stage lane derivation changed");
 }
-if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,service_stack") {
+if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres") {
   fail("check resource display order changed");
 }
 if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS") {
@@ -683,7 +685,12 @@ if (isAutoLimitResource("host_cpu")) {
   fail("host_cpu must not be an auto-limit resource");
 }
 const checkProfile = resourceLimitsForCapacityProfile("check_default", "registry test", { scheduler: "check" });
-if (checkProfile.limits.get("host_cpu") !== 12 || checkProfile.limits.get("host_io") !== 12 || checkProfile.limits.get("service_stack") !== 1) {
+if (
+  checkProfile.limits.get("host_cpu") !== 12 ||
+  checkProfile.limits.get("host_io") !== 12 ||
+  checkProfile.limits.get("suite_service_stack") !== 1 ||
+  checkProfile.limits.get("migration_scratch_postgres") !== 1
+) {
   fail("check_default capacity profile changed");
 }
 if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
@@ -697,7 +704,7 @@ if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get(
   fail("service_backed_full auto limits changed");
 }
 const envResolved = normalizeResourceLimits(
-  { host_cpu: 12, host_io: 12, service_stack: 1 },
+  { host_cpu: 12, host_io: 12, suite_service_stack: 1, migration_scratch_postgres: 1 },
   "registry env test",
   {
     scheduler: "check",
@@ -709,7 +716,7 @@ if (envResolved.limits.get("host_cpu") !== 5 || envResolved.sources.get("host_cp
   fail("check host_cpu env override did not resolve from the registry");
 }
 const cliResolved = normalizeResourceLimits(
-  { host_cpu: 12, host_io: 12, service_stack: 1 },
+  { host_cpu: 12, host_io: 12, suite_service_stack: 1, migration_scratch_postgres: 1 },
   "registry cli test",
   {
     scheduler: "check",
@@ -762,12 +769,12 @@ try {
   }
 }
 const { limits } = normalizeResourceLimits(
-  { host_cpu: 4, host_io: 3, service_stack: 1 },
+  { host_cpu: 4, host_io: 3, suite_service_stack: 1, migration_scratch_postgres: 1 },
   "registry test",
   { scheduler: "check" },
 );
 const claims = normalizeResourceClaims(
-  { host_cpu: { mode: "bounded_limit", reserve: 1, min: 1, max: 3 }, host_io: 1, service_stack: 1 },
+  { host_cpu: { mode: "bounded_limit", reserve: 1, min: 1, max: 3 }, host_io: 1, suite_service_stack: 1 },
   "registry test",
   limits,
   { scheduler: "check", allowBounded: true },
@@ -930,7 +937,7 @@ cat >"$success_manifest" <<'JSON'
     {
       "target": "check",
       "capacity_profile": "check_default",
-      "resource_limits": { "host_cpu": 12, "host_io": 12, "service_stack": 1 },
+      "resource_limits": { "host_cpu": 12, "host_io": 12, "suite_service_stack": 1, "migration_scratch_postgres": 1 },
       "summary_groups": [
         { "name": "check-work", "summary_targets": ["local", "service", "meta"] }
       ],
@@ -946,7 +953,7 @@ cat >"$success_manifest" <<'JSON'
           "resource_claims": {
             "host_cpu": { "mode": "bounded_limit", "reserve": 3, "min": 1, "max": 8 },
             "host_io": { "mode": "bounded_limit", "reserve": 4, "min": 1, "max": 10 },
-            "service_stack": 1
+            "suite_service_stack": 1
           },
           "make_jobs": "host_cpu",
           "nested_scheduler": {
@@ -963,7 +970,7 @@ cat >"$success_manifest" <<'JSON'
 }
 JSON
 default_capacity_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 FAKE_SLEEP_SERVICE=0.01 run_scheduler "$success_dir" "$success_manifest" default-capacity 2>&1)"
-assert_contains "$default_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:12,host_io:12,service_stack:1}" "default capacity comes from registry"
+assert_contains "$default_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:12,host_io:12,suite_service_stack:1,migration_scratch_postgres:1}" "default capacity comes from registry"
 "$NODE_BIN" - "${success_dir}/results/default-capacity/check/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
@@ -976,7 +983,7 @@ if (summary.resource_limit_sources?.host_io !== "registry:check_default") {
 }
 EOF
 env_capacity_output="$(CHECK_HOST_CPU_JOBS=5 CHECK_HOST_IO_JOBS=4 CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 FAKE_SLEEP_SERVICE=0.01 run_scheduler "$success_dir" "$success_manifest" env-capacity 2>&1)"
-assert_contains "$env_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:5,host_io:4,service_stack:1}" "env capacity overrides registry default"
+assert_contains "$env_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:5,host_io:4,suite_service_stack:1,migration_scratch_postgres:1}" "env capacity overrides registry default"
 "$NODE_BIN" - "${success_dir}/results/env-capacity/check/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
@@ -990,7 +997,7 @@ if (summary.resource_limit_sources?.host_io !== "env:CHECK_HOST_IO_JOBS") {
 EOF
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_not_contains "$success_output" "[RUN] check" "success hides legacy run start"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,service_stack:1}" "success concise scheduler start"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1}" "success concise scheduler start"
 assert_contains "$success_output" "[PROGRESS] target=check completed=0/5" "success human scheduler progress"
 assert_contains "$success_output" "blocker=dependencies" "success human scheduler progress explains blocker"
 assert_contains "$success_output" "bottleneck=service:3/6" "success human scheduler progress includes nested service bottleneck"
@@ -1049,7 +1056,15 @@ const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line)
 if (!events.some((event) => event.active_resource_claims && Object.keys(event.active_resource_claims).length > 0)) {
   throw new Error("scheduler events must preserve active resource claims");
 }
-if (!events.some((event) => event.resource_limits?.host_cpu === 2 && event.resource_limits?.host_io === 3 && event.resource_limits?.service_stack === 1)) {
+if (
+  !events.some(
+    (event) =>
+      event.resource_limits?.host_cpu === 2 &&
+      event.resource_limits?.host_io === 3 &&
+      event.resource_limits?.suite_service_stack === 1 &&
+      event.resource_limits?.migration_scratch_postgres === 1,
+  )
+) {
   throw new Error("scheduler events must preserve resource limits");
 }
 if (summary.resource_limit_sources?.host_cpu !== "cli" || summary.resource_limit_sources?.host_io !== "cli") {
@@ -1175,7 +1190,77 @@ assert_output_budget "${ROOT_DIR}/tools/task_surface_manifest.json" check "${suc
 verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" verbose --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup claims={host_cpu:1} active=1 pending=4" "verbose scheduler start telemetry"
 assert_contains "$verbose_output" "active_resource_claims={host_cpu:1}" "verbose scheduler active resource telemetry"
-assert_contains "$verbose_output" "resource_limits={host_cpu:2,host_io:3,service_stack:1}" "verbose scheduler resource limit telemetry"
+assert_contains "$verbose_output" "resource_limits={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1}" "verbose scheduler resource limit telemetry"
+
+split_lane_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-split-lanes.XXXXXX")"
+cleanup_paths+=("$split_lane_dir")
+write_fake_make "$split_lane_dir"
+split_lane_manifest="${split_lane_dir}/manifest.json"
+cat >"$split_lane_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v7",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": {
+        "host_cpu": 2,
+        "host_io": 2,
+        "suite_service_stack": 1,
+        "migration_scratch_postgres": 1
+      },
+      "summary_groups": [
+        { "name": "split-lane-work", "summary_targets": ["check-service-backed", "migration-drift"] }
+      ],
+      "work_units": [
+        {
+          "target": "check-build-prereqs",
+          "weight": 30,
+          "needs": [],
+          "resource_claims": { "host_cpu": 1 },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-service-backed",
+          "weight": 20,
+          "needs": ["check-build-prereqs"],
+          "produces_summary_targets": ["check-service-backed"],
+          "resource_claims": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
+          "make_jobs": "host_cpu",
+          "nested_scheduler": {
+            "type": "service_backed",
+            "target": "check-service-backed",
+            "manifest": "tools/service_backed_schedule_manifest.json",
+            "forwarding": "check_host_to_service_backed_go"
+          }
+        },
+        {
+          "target": "migration-drift",
+          "weight": 10,
+          "needs": ["check-build-prereqs"],
+          "produces_summary_targets": ["migration-drift"],
+          "resource_claims": { "host_cpu": 1, "host_io": 1, "migration_scratch_postgres": 1 },
+          "make_jobs": "host_cpu"
+        }
+      ]
+    }
+  ]
+}
+JSON
+set +e
+FAKE_SLEEP_CHECK_SERVICE_BACKED=0.2 \
+FAKE_SLEEP_MIGRATION_DRIFT=0.2 \
+  run_scheduler "$split_lane_dir" "$split_lane_manifest" split-lanes \
+  >"${split_lane_dir}/stdout.log" \
+  2>"${split_lane_dir}/stderr.log"
+split_lane_status=$?
+set -e
+if [[ "$split_lane_status" != "0" ]]; then
+  cat "${split_lane_dir}/stdout.log"
+  cat "${split_lane_dir}/stderr.log" >&2
+  fail "split service lanes scheduler fixture failed"
+fi
+assert_equals "$(cat "${split_lane_dir}/max")" "2" "split service lanes allow service-backed and migration drift concurrency"
+assert_contains "$(cat "${split_lane_dir}/events.log")" "start migration-drift active=2" "migration drift starts beside service-backed work"
 
 machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-machine.XXXXXX")"
 cleanup_paths+=("$machine_dir")
@@ -1275,7 +1360,7 @@ cat >"$failure_manifest" <<'JSON'
   "schedules": [
     {
       "target": "check",
-      "resource_limits": { "host_cpu": 2, "service_stack": 1 },
+      "resource_limits": { "host_cpu": 2, "suite_service_stack": 1 },
       "work_units": [
         { "target": "alpha", "weight": 30, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
         { "target": "beta", "weight": 20, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
@@ -1481,7 +1566,7 @@ dry_run_output="$(
     run_scheduler "$dry_run_dir" "$success_manifest" dry-run --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] check manifest=" "dry-run output"
-assert_contains "$dry_run_output" "resource_limits={host_cpu:2,host_io:3,service_stack:1} work_units=5 dependencies=4 top_weighted=setup:50,build:40,local:30,service:20,meta:10" "dry-run compact summary"
+assert_contains "$dry_run_output" "resource_limits={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1} work_units=5 dependencies=4 top_weighted=setup:50,build:40,local:30,service:20,meta:10" "dry-run compact summary"
 assert_not_contains "$dry_run_output" "[DRY-RUN] check unit" "dry-run default hides unit expansion"
 assert_not_contains "$dry_run_output" "claims={" "dry-run default hides raw claims"
 assert_file_absent "${dry_run_dir}/make-args.log" "dry-run child make"
