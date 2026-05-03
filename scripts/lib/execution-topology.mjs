@@ -33,8 +33,6 @@ const validBrowserCoverage = new Set(["authoritative", "supplemental", "raw"]);
 const validBrowserDependencyPolicies = new Set([
   "parallel",
   "after_backend",
-  "after_prior_browser",
-  "after_backend_and_prior_browser",
 ]);
 const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "minio", "browser_stack"]);
 const checkScheduleProfileKeys = new Set(["resource_claims", "make_jobs"]);

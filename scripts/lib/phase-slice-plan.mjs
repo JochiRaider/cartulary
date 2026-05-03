@@ -2,11 +2,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadBrowserBatchStages } from "./browser-batch-manifest.mjs";
+import { normalizeBrowserBatchStages } from "./browser-batch-manifest.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
 } from "./execution-dependencies.mjs";
+import {
+  loadExecutionTopology,
+  renderBrowserBatchManifest,
+} from "./execution-topology.mjs";
 import { phaseManifestNames } from "./phase-manifest.mjs";
 import { activePhaseRegistryEntry, phaseRegistryEntry } from "./phase-registry.mjs";
 import { collectGoShardsForTarget } from "./go-shard-plan.mjs";
@@ -36,9 +40,12 @@ function validPhaseName(value) {
 }
 
 function resolveBrowserStageByTarget(root = repoRoot) {
-  const manifestPath = path.join(root, "tools", "browser_e2e_batch_manifest.json");
+  const topology = loadExecutionTopology({
+    manifestPath: path.join(root, "tools", "execution_topology_manifest.json"),
+  });
+  const stages = normalizeBrowserBatchStages(renderBrowserBatchManifest(topology));
   const byTarget = new Map();
-  for (const stage of loadBrowserBatchStages(manifestPath).values()) {
+  for (const stage of stages.values()) {
     if (!byTarget.has(stage.target)) {
       byTarget.set(stage.target, stage);
     }
@@ -339,17 +346,13 @@ function addBrowserUnit(plan, target, rows, stageByTarget) {
     resourceClaims: claims,
     order: plan.nextOrder++,
   });
-  plan.priorBrowserTargets.push(target);
 }
 
 function browserNeeds(plan, stage) {
   const needs = [];
   const policy = stage.schedulerDependencyPolicy;
-  if (policy === "after_backend" || policy === "after_backend_and_prior_browser") {
+  if (policy === "after_backend") {
     needs.push(...plan.backendTargets);
-  }
-  if (policy === "after_prior_browser" || policy === "after_backend_and_prior_browser") {
-    needs.push(...plan.priorBrowserTargets);
   }
   return needs;
 }
@@ -418,7 +421,6 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot } =
     service_requirements: serviceRequirementsForRows(rows),
     resourceLimits,
     browserStages: new Set(),
-    priorBrowserTargets: [],
     backendTargets: [],
     workUnits: [],
     nextOrder: 0,

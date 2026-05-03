@@ -323,14 +323,10 @@ function backendSource(profile, timing, target) {
 }
 
 function includeBackendDependencies(policy) {
-  return policy === "after_backend" || policy === "after_backend_and_prior_browser";
+  return policy === "after_backend";
 }
 
-function includePriorBrowserDependencies(policy) {
-  return policy === "after_prior_browser" || policy === "after_backend_and_prior_browser";
-}
-
-function browserSource(profile, timing, stage, backendTargets, priorBrowserTargets) {
+function browserSource(profile, timing, stage, backendTargets) {
   const stageName = stage.name;
   const laneResource = browserStageResource(stageName);
   const claims = {
@@ -340,9 +336,6 @@ function browserSource(profile, timing, stage, backendTargets, priorBrowserTarge
   const needs = [];
   if (includeBackendDependencies(stage.schedulerDependencyPolicy)) {
     needs.push(...backendTargets);
-  }
-  if (includePriorBrowserDependencies(stage.schedulerDependencyPolicy)) {
-    needs.push(...priorBrowserTargets);
   }
   return {
     type: "make_target",
@@ -373,7 +366,10 @@ function stageNonRawExecutionDependencies(stage) {
 
 function validateStageHasServiceBackedEvidence(stage, scheduleTarget) {
   const dependencies = stageNonRawExecutionDependencies(stage);
-  if (dependencies.length === 0) {
+  const rawOnlyVisual =
+    stage.target === "browser-e2e-visual" &&
+    stage.groups.every((group) => group.coverage === "raw" && group.kind === "visual");
+  if (dependencies.length === 0 && !rawOnlyVisual) {
     throw new Error(`${scheduleTarget} browser stage ${stage.name} has no non-raw execution dependencies`);
   }
   for (const group of stage.groups.filter((candidate) => candidate.coverage !== "raw")) {
@@ -449,7 +445,6 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const backendTargets = sources
     .filter((source) => source.class === "backend")
     .map((source) => source.target);
-  const priorBrowserTargets = [];
   for (const stage of selectedBrowserStages(scheduleProfile, browserStages)) {
     resourceLimits[browserStageResource(stage.name)] = 1;
     const source = browserSource(
@@ -457,10 +452,8 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
       timing,
       stage,
       backendTargets,
-      priorBrowserTargets,
     );
     sources.push(source);
-    priorBrowserTargets.push(source.target);
   }
   return {
     target,

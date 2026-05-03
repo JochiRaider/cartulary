@@ -108,7 +108,10 @@ function stageNonRawExecutionDependencies(stage) {
 
 function validateStageHasServiceBackedEvidence(stage, scheduleTarget) {
   const dependencies = stageNonRawExecutionDependencies(stage);
-  if (dependencies.length === 0) {
+  const rawOnlyVisual =
+    stage.target === "browser-e2e-visual" &&
+    stage.groups.every((group) => group.coverage === "raw" && group.kind === "visual");
+  if (dependencies.length === 0 && !rawOnlyVisual) {
     throw new Error(`${scheduleTarget} browser stage ${stage.name} has no non-raw execution dependencies`);
   }
   for (const dependency of dependencies) {
@@ -142,13 +145,10 @@ function selectedBrowserStages(scheduleProfile, scheduleTarget, browserStages) {
   return stages;
 }
 
-function expectedNeedsForPolicy(policy, backendTargets, priorBrowserTargets) {
+function expectedNeedsForPolicy(policy, backendTargets) {
   const needs = [];
-  if (policy === "after_backend" || policy === "after_backend_and_prior_browser") {
+  if (policy === "after_backend") {
     needs.push(...backendTargets);
-  }
-  if (policy === "after_prior_browser" || policy === "after_backend_and_prior_browser") {
-    needs.push(...priorBrowserTargets);
   }
   return needs;
 }
@@ -242,7 +242,6 @@ export function validateServiceBackedScheduleTopology({
       .filter((source) => source.class === "backend")
       .map((source) => source.target);
     const browserSources = schedule.work_unit_sources.filter((source) => source.class === "browser");
-    const priorBrowserTargets = [];
     const expectedBrowserTargets = [];
 
     for (const stage of selectedBrowserStages(scheduleProfile, scheduleTarget, browserStages)) {
@@ -255,10 +254,8 @@ export function validateServiceBackedScheduleTopology({
       const expectedNeeds = expectedNeedsForPolicy(
         stage.schedulerDependencyPolicy,
         backendTargets,
-        priorBrowserTargets,
       );
       assertSameList(source.needs ?? [], expectedNeeds, `${scheduleTarget} ${source.target} needs`);
-      priorBrowserTargets.push(stage.target);
     }
 
     assertSameList(

@@ -3,6 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadBrowserBatchStages, normalizeBrowserBatchStages } from "./browser-batch-manifest.mjs";
+import {
+  defaultExecutionTopologyManifestPath,
+  loadExecutionTopology,
+  renderBrowserBatchManifest,
+} from "./execution-topology.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -65,14 +70,19 @@ export function loadSummaryTopologyContext(options = {}) {
     loadServiceBackedScheduleManifest(
       configuredPath(options.serviceBackedScheduleManifestPath, defaultServiceBackedScheduleManifestPath),
     );
-  const browserBatchManifestPath = resolveRepoPath(
-    configuredPath(options.browserBatchManifestPath, defaultBrowserBatchManifestPath),
-  );
   const browserStages =
     options.browserStages ??
     (options.browserBatchManifest
       ? normalizeBrowserBatchStages(options.browserBatchManifest)
-      : loadBrowserBatchStages(browserBatchManifestPath));
+      : options.browserBatchManifestPath
+        ? loadBrowserBatchStages(resolveRepoPath(options.browserBatchManifestPath))
+        : normalizeBrowserBatchStages(
+            renderBrowserBatchManifest(
+              loadExecutionTopology({
+                manifestPath: defaultExecutionTopologyManifestPath,
+              }),
+            ),
+          ));
   return {
     taskSurfaceManifest,
     serviceBackedScheduleManifest,

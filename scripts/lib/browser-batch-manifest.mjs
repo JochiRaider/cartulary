@@ -17,8 +17,6 @@ const allowedCoverage = new Set(["authoritative", "supplemental", "raw"]);
 const allowedSchedulerDependencyPolicies = new Set([
   "parallel",
   "after_backend",
-  "after_prior_browser",
-  "after_backend_and_prior_browser",
 ]);
 
 export function loadBrowserBatchManifest(manifestPath) {

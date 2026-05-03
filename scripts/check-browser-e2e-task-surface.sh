@@ -425,10 +425,13 @@ for (const [label, groups] of [["test", testGroups], ["check", checkGroups]]) {
 }
 for (const target of ["test-service-backed", "check-service-backed"]) {
   const children = serviceBackedScheduleChildren(context, target);
-  for (const child of [webserverBackedStage.target, isolatedStage.target]) {
+  for (const child of expectedBrowser) {
     if (!children.includes(child)) {
       throw new Error(`${target} service-backed schedule must include ${child}`);
     }
+  }
+  if (children.includes(isolatedStage.target)) {
+    throw new Error(`${target} service-backed schedule must not include aggregate ${isolatedStage.target}`);
   }
 }
 EOF
@@ -717,9 +720,28 @@ if (!(manifest.stages ?? []).some((stage) => (stage.schedule_tags ?? []).include
   throw new Error("missing service_backed_full schedule tag");
 }
 EOF
-if ! grep -Fq '"scheduler_dependency_policy": "after_backend_and_prior_browser"' "$browser_batch_manifest"; then
-  fail "browser E2E batch manifest must declare scheduler dependency policy for isolated work"
-fi
+"$node_bin" - "$browser_batch_manifest" <<'EOF' || fail "browser E2E batch manifest must schedule isolated browser leaves after backend readiness"
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const byName = new Map((manifest.stages ?? []).map((stage) => [stage.name, stage]));
+for (const name of ["stateful", "measurement", "visual"]) {
+  const stage = byName.get(name);
+  if (!stage) {
+    throw new Error(`missing ${name} stage`);
+  }
+  if (!(stage.schedule_tags ?? []).includes("service_backed_full")) {
+    throw new Error(`${name} must be tagged service_backed_full`);
+  }
+  if (stage.scheduler_dependency_policy !== "after_backend") {
+    throw new Error(`${name} must use after_backend scheduler policy`);
+  }
+}
+const isolated = byName.get("isolated");
+if (!isolated || (isolated.schedule_tags ?? []).length > 0 || isolated.scheduler_dependency_policy !== undefined) {
+  throw new Error("isolated aggregate must remain unscheduled direct-run aggregation");
+}
+EOF
 if ! grep -Fq '"kind": "duration_balanced_specs"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must route functional browser work through duration-balanced specs"
 fi

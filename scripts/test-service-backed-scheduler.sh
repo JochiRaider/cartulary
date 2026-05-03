@@ -590,7 +590,7 @@ write_manifest() {
     printf '{\n'
     printf '  "schema_id": "cartulary.service_backed_schedule.v8",\n'
     printf '  "schedules": [\n'
-    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_isolated": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
+    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
     local source
     for source in "$@"; do
@@ -706,7 +706,9 @@ run_scheduler() {
   FAKE_SCHEDULER_SLEEP="${FAKE_SCHEDULER_SLEEP:-0.2}" \
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS="${FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS:-}" \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED:-}" \
-  FAKE_SCHEDULER_SLEEP_BROWSER_E2E="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E:-}" \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_STATEFUL="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_STATEFUL:-}" \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_MEASUREMENT="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_MEASUREMENT:-}" \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_VISUAL="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_VISUAL:-}" \
   FAKE_GO_SLEEP_CAPTURE="${FAKE_GO_SLEEP_CAPTURE:-}" \
   FAKE_GO_SLEEP_CAPTURE_SHARD="${FAKE_GO_SLEEP_CAPTURE_SHARD:-}" \
   FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION="${FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION:-}" \
@@ -1015,11 +1017,11 @@ write_fake_make "$dual_browser_dir"
 dual_browser_manifest="${dual_browser_dir}/manifest.json"
 write_manifest "$dual_browser_manifest" check-service-backed \
   'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
-  'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated'
+  'make_target|browser-e2e-stateful|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
 dual_browser_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.2 \
-  FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.2 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_STATEFUL=0.2 \
     run_scheduler "$dual_browser_dir" "$dual_browser_manifest" check-service-backed dual-browser 2>&1
 )"
 assert_contains "$dual_browser_output" "[RESULT] target=check-service-backed status=pass" "dual browser aggregate child tests"
@@ -1037,9 +1039,9 @@ const indexOf = (needle) => {
 };
 const webStart = indexOf("start browser-e2e-webserver-backed");
 const webEnd = indexOf("end browser-e2e-webserver-backed");
-const isolatedStart = indexOf("start browser-e2e ");
-const isolatedEnd = indexOf("end browser-e2e ");
-if (!(webStart < isolatedEnd && isolatedStart < webEnd)) {
+const statefulStart = indexOf("start browser-e2e-stateful");
+const statefulEnd = indexOf("end browser-e2e-stateful");
+if (!(webStart < statefulEnd && statefulStart < webEnd)) {
   throw new Error("distinct browser stages did not overlap when browser_stack capacity allowed it");
 }
 EOF
@@ -1051,13 +1053,13 @@ dependency_order_manifest="${dependency_order_dir}/manifest.json"
 write_manifest "$dependency_order_manifest" check-service-backed \
   'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||' \
   'make_target|browser-e2e-webserver-backed|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|' \
-  'make_target|browser-e2e|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated|backend-process,browser-e2e-webserver-backed'
+  'make_target|browser-e2e-stateful|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful|backend-process'
 dependency_order_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
-  FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.15 \
-  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05 \
-  FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.01 \
+  FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.05 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.15 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_STATEFUL=0.01 \
     run_scheduler "$dependency_order_dir" "$dependency_order_manifest" check-service-backed dependency-order 2>&1
 )"
 assert_contains "$dependency_order_output" "[PROGRESS] target=check-service-backed completed=0/3" "dependency-blocked browser human progress"
@@ -1068,19 +1070,19 @@ const fs = require("node:fs");
 const [eventsFile, summaryFile] = process.argv.slice(2);
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
-if (!summary.waiting_on_seen?.includes("backend-process") || !summary.waiting_on_seen?.includes("browser-e2e-webserver-backed")) {
+if (!summary.waiting_on_seen?.includes("backend-process")) {
   throw new Error("summary must record service-backed waiting_on targets");
 }
 const dependencyBlocked = events.find((event) => event.event === "blocked" && event.blocked_reason === "dependencies");
 if (!dependencyBlocked) {
   throw new Error("missing service-backed dependency blocked event");
 }
-if (!dependencyBlocked.waiting_on?.includes("backend-process") || !dependencyBlocked.waiting_on?.includes("browser-e2e-webserver-backed")) {
+if (!dependencyBlocked.waiting_on?.includes("backend-process")) {
   throw new Error("dependency blocked event must record direct waiting_on targets");
 }
-const browserBlocked = dependencyBlocked.blocked_units?.find((entry) => entry.work_unit === "browser-e2e");
-if (!browserBlocked?.waiting_on?.includes("backend-process") || !browserBlocked?.waiting_on?.includes("browser-e2e-webserver-backed")) {
-  throw new Error("blocked_units must record browser-e2e direct dependencies");
+const browserBlocked = dependencyBlocked.blocked_units?.find((entry) => entry.work_unit === "browser-e2e-stateful");
+if (!browserBlocked?.waiting_on?.includes("backend-process") || browserBlocked?.waiting_on?.includes("browser-e2e-webserver-backed")) {
+  throw new Error("blocked_units must record only browser-e2e-stateful backend dependency");
 }
 EOF
 "$NODE_BIN" - "${dependency_order_dir}/make.log" <<'EOF'
@@ -1096,11 +1098,14 @@ const indexOf = (needle) => {
 };
 const backendEnd = indexOf("end backend-process");
 const webEnd = indexOf("end browser-e2e-webserver-backed");
-const isolatedStart = indexOf("start browser-e2e ");
-if (!(backendEnd < isolatedStart && webEnd < isolatedStart)) {
-  throw new Error("browser-e2e started before declared dependencies completed");
+const statefulStart = indexOf("start browser-e2e-stateful");
+if (!(backendEnd < statefulStart)) {
+  throw new Error("browser-e2e-stateful started before declared backend dependencies completed");
 }
-if (!lines.some((line) => line.includes("args --no-print-directory --output-sync=target -j1 browser-e2e"))) {
+if (!(statefulStart < webEnd)) {
+  throw new Error("browser-e2e-stateful incorrectly waited for browser-e2e-webserver-backed");
+}
+if (!lines.some((line) => line.includes("args --no-print-directory --output-sync=target -j1 browser-e2e-stateful"))) {
   throw new Error("service-backed make_target children must run with explicit -j1");
 }
 EOF
@@ -1195,12 +1200,12 @@ write_fake_make "$browser_stack_lane_dir"
 browser_stack_lane_manifest="${browser_stack_lane_dir}/manifest.json"
 write_manifest "$browser_stack_lane_manifest" check-service-backed \
   'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
-  'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated'
+  'make_target|browser-e2e-stateful|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
 browser_stack_lane_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=1 \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05 \
-  FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_STATEFUL=0.05 \
     run_scheduler "$browser_stack_lane_dir" "$browser_stack_lane_manifest" check-service-backed browser-stack-lane 2>&1
 )"
 assert_contains "$browser_stack_lane_output" "blocker=browser_stack" "shared browser stack blocks overlapping browser stages"
@@ -1210,8 +1215,8 @@ cleanup_paths+=("$same_browser_lane_dir")
 write_fake_make "$same_browser_lane_dir"
 same_browser_lane_manifest="${same_browser_lane_dir}/manifest.json"
 write_manifest "$same_browser_lane_manifest" test-fast-service-backed \
-  'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1, "browser_stage_isolated": 1|backend' \
-  'make_target|backend-store|20|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "browser_stage_isolated": 1|backend'
+  'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1, "browser_stage_stateful": 1|backend' \
+  'make_target|backend-store|20|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "browser_stage_stateful": 1|backend'
 same_browser_lane_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
@@ -1219,7 +1224,7 @@ same_browser_lane_output="$(
   FAKE_SCHEDULER_SLEEP_BACKEND_STORE=0.05 \
     run_scheduler "$same_browser_lane_dir" "$same_browser_lane_manifest" test-fast-service-backed same-browser-lane 2>&1
 )"
-assert_contains "$same_browser_lane_output" "blocker=browser_stage_isolated" "same browser stage lane blocks overlapping work"
+assert_contains "$same_browser_lane_output" "blocker=browser_stage_stateful" "same browser stage lane blocks overlapping work"
 "$NODE_BIN" - "${same_browser_lane_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
@@ -1234,7 +1239,7 @@ const indexOf = (needle) => {
 const processEnd = indexOf("end backend-process");
 const storeStart = indexOf("start backend-store");
 if (!(processEnd < storeStart)) {
-  throw new Error("same browser_stage_isolated lane work overlapped");
+  throw new Error("same browser_stage_stateful lane work overlapped");
 }
 EOF
 
@@ -1473,18 +1478,34 @@ for (const excluded of ["browser-e2e-functional", "browser-e2e-support"]) {
     throw new Error(`untagged helper stage ${excluded} must not enter service-backed schedules`);
   }
 }
-const isolated = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
-  (source) => source.target === "browser-e2e",
-);
+if (testSources.includes("browser-e2e")) {
+  throw new Error("browser-e2e aggregate must not enter service-backed schedules");
+}
+const expectedBrowserTargets = [
+  "browser-e2e-webserver-backed",
+  "browser-e2e-stateful",
+  "browser-e2e-measurement",
+  "browser-e2e-visual",
+];
+const actualBrowserTargets = (byTarget.get("test-service-backed")?.work_unit_sources ?? [])
+  .filter((source) => source.class === "browser")
+  .map((source) => source.target);
+if (JSON.stringify(actualBrowserTargets) !== JSON.stringify(expectedBrowserTargets)) {
+  throw new Error(`service-backed browser sources got ${JSON.stringify(actualBrowserTargets)}`);
+}
 const expectedNeeds = [
   "backend-store",
   "backend-integration",
   "backend-integration-support",
   "backend-process",
-  "browser-e2e-webserver-backed",
 ];
-if (JSON.stringify(isolated?.needs ?? []) !== JSON.stringify(expectedNeeds)) {
-  throw new Error(`isolated browser needs got ${JSON.stringify(isolated?.needs ?? [])}`);
+for (const target of expectedBrowserTargets.slice(1)) {
+  const source = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
+    (candidate) => candidate.target === target,
+  );
+  if (JSON.stringify(source?.needs ?? []) !== JSON.stringify(expectedNeeds)) {
+    throw new Error(`${target} needs got ${JSON.stringify(source?.needs ?? [])}`);
+  }
 }
 if (manifest.generated?.generator !== "scripts/render-service-backed-schedule-manifest.mjs") {
   throw new Error("rendered schedule must record generator metadata");

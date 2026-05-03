@@ -19,7 +19,9 @@
         "process": 4,
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
-        "browser_stage_isolated": 1
+        "browser_stage_stateful": 1,
+        "browser_stage_measurement": 1,
+        "browser_stage_visual": 1
       },
       "work_unit_sources": [
         {
@@ -79,22 +81,61 @@
         {
           "type": "make_target",
           "class": "browser",
-          "target": "browser-e2e",
-          "browser_stage": "isolated",
+          "target": "browser-e2e-stateful",
+          "browser_stage": "stateful",
           "needs": [
             "backend-store",
             "backend-integration",
             "backend-integration-support",
-            "backend-process",
-            "browser-e2e-webserver-backed"
+            "backend-process"
           ],
-          "weight": 22608,
+          "weight": 10000,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
             "process": 1,
             "browser_stack": 1,
-            "browser_stage_isolated": 1
+            "browser_stage_stateful": 1
+          }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e-measurement",
+          "browser_stage": "measurement",
+          "needs": [
+            "backend-store",
+            "backend-integration",
+            "backend-integration-support",
+            "backend-process"
+          ],
+          "weight": 10000,
+          "resource_claims": {
+            "postgres": 1,
+            "minio": 1,
+            "process": 1,
+            "browser_stack": 1,
+            "browser_stage_measurement": 1
+          }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "browser_stage": "visual",
+          "needs": [
+            "backend-store",
+            "backend-integration",
+            "backend-integration-support",
+            "backend-process"
+          ],
+          "weight": 10000,
+          "resource_claims": {
+            "postgres": 1,
+            "minio": 1,
+            "process": 1,
+            "browser_stack": 1,
+            "browser_stage_visual": 1
           }
         }
       ]
@@ -165,7 +206,9 @@
         "process": 4,
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
-        "browser_stage_isolated": 1
+        "browser_stage_stateful": 1,
+        "browser_stage_measurement": 1,
+        "browser_stage_visual": 1
       },
       "work_unit_sources": [
         {
@@ -225,22 +268,61 @@
         {
           "type": "make_target",
           "class": "browser",
-          "target": "browser-e2e",
-          "browser_stage": "isolated",
+          "target": "browser-e2e-stateful",
+          "browser_stage": "stateful",
           "needs": [
             "backend-store",
             "backend-integration",
             "backend-integration-support",
-            "backend-process",
-            "browser-e2e-webserver-backed"
+            "backend-process"
           ],
-          "weight": 22608,
+          "weight": 10000,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
             "process": 1,
             "browser_stack": 1,
-            "browser_stage_isolated": 1
+            "browser_stage_stateful": 1
+          }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e-measurement",
+          "browser_stage": "measurement",
+          "needs": [
+            "backend-store",
+            "backend-integration",
+            "backend-integration-support",
+            "backend-process"
+          ],
+          "weight": 10000,
+          "resource_claims": {
+            "postgres": 1,
+            "minio": 1,
+            "process": 1,
+            "browser_stack": 1,
+            "browser_stage_measurement": 1
+          }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e-visual",
+          "browser_stage": "visual",
+          "needs": [
+            "backend-store",
+            "backend-integration",
+            "backend-integration-support",
+            "backend-process"
+          ],
+          "weight": 10000,
+          "resource_claims": {
+            "postgres": 1,
+            "minio": 1,
+            "process": 1,
+            "browser_stack": 1,
+            "browser_stage_visual": 1
           }
         }
       ]

@@ -5,7 +5,9 @@
   "default_make_target_weight_ms": 10000,
   "targets": {
     "backend-process": 14504,
-    "browser-e2e": 22608,
+    "browser-e2e-measurement": 10000,
+    "browser-e2e-stateful": 10000,
+    "browser-e2e-visual": 10000,
     "browser-e2e-webserver-backed": 45961
   }
 }

@@ -166,7 +166,7 @@ run_case() {
 }
 
 run_case pass 0 0 0
-expected_children="backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e"
+expected_children="backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual"
 assert_contains "$(cat "$tmp_dir/pass.log")" "summary args=target-summary test-service-backed pass --children $expected_children" "pass summary"
 
 run_case scheduler-fail 7 0 7

@@ -50,6 +50,10 @@
     {
       "name": "stateful",
       "target": "browser-e2e-stateful",
+      "schedule_tags": [
+        "service_backed_full"
+      ],
+      "scheduler_dependency_policy": "after_backend",
       "groups": [
         {
           "name": "stateful",
@@ -64,6 +68,10 @@
     {
       "name": "measurement",
       "target": "browser-e2e-measurement",
+      "schedule_tags": [
+        "service_backed_full"
+      ],
+      "scheduler_dependency_policy": "after_backend",
       "groups": [
         {
           "name": "measurement",
@@ -78,6 +86,10 @@
     {
       "name": "visual",
       "target": "browser-e2e-visual",
+      "schedule_tags": [
+        "service_backed_full"
+      ],
+      "scheduler_dependency_policy": "after_backend",
       "groups": [
         {
           "name": "visual",
@@ -124,10 +136,6 @@
         "browser-e2e-measurement",
         "browser-e2e-visual"
       ],
-      "schedule_tags": [
-        "service_backed_full"
-      ],
-      "scheduler_dependency_policy": "after_backend_and_prior_browser",
       "groups": [
         {
           "name": "stateful",

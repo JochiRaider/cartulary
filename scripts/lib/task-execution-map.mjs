@@ -3,12 +3,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { newestTargetArtifact } from "./artifact-discovery.mjs";
-import { loadBrowserBatchStages } from "./browser-batch-manifest.mjs";
+import { normalizeBrowserBatchStages } from "./browser-batch-manifest.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
   targetForExecutionDependency,
 } from "./execution-dependencies.mjs";
+import {
+  loadExecutionTopology,
+  renderBrowserBatchManifest,
+} from "./execution-topology.mjs";
 import {
   collectEntries,
   collectSupportGoEntries,
@@ -241,11 +245,13 @@ function phaseRowsForTarget(target, rows) {
 
 function browserStagesByTarget(root = repoRoot) {
   const result = new Map();
-  const manifestPath = path.join(root, "tools", "browser_e2e_batch_manifest.json");
+  const manifestPath = path.join(root, "tools", "execution_topology_manifest.json");
   if (!existsSync(manifestPath)) {
     return result;
   }
-  for (const stage of loadBrowserBatchStages(manifestPath).values()) {
+  const topology = loadExecutionTopology({ manifestPath });
+  const stages = normalizeBrowserBatchStages(renderBrowserBatchManifest(topology));
+  for (const stage of stages.values()) {
     const stageEntry = {
       stage: stage.name,
       target: stage.target,
