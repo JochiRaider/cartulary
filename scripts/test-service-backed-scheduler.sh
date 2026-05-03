@@ -6,6 +6,15 @@ SCRIPT="${ROOT_DIR}/scripts/run-service-backed-schedule.mjs"
 TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
+SUITE="${1:-all}"
+
+case "$SUITE" in
+  all | fast | matrix) ;;
+  *)
+    echo "usage: test-service-backed-scheduler.sh [fast|matrix]" >&2
+    exit 2
+    ;;
+esac
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
 
@@ -762,6 +771,7 @@ assert_contains "$weighted_verbose_output" "resource_limits={go_cpu:6,go_io:6,br
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "verbose scheduler finish telemetry"
 assert_contains "$weighted_verbose_output" "fake pass for backend-store" "verbose scheduler replays successful child logs"
 
+if [[ "$SUITE" != "fast" ]]; then
 auto_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-auto-capacity.XXXXXX")"
 cleanup_paths+=("$auto_capacity_dir")
 write_fake_make "$auto_capacity_dir"
@@ -831,6 +841,7 @@ if (sources.browser_stack !== "env:CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT"
   throw new Error(`browser_stack env source got ${sources.browser_stack}`);
 }
 EOF
+fi
 
 resource_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-resource-block.XXXXXX")"
 cleanup_paths+=("$resource_block_dir")
@@ -850,6 +861,7 @@ assert_not_contains "$resource_block_output" "blocked_resources=go_cpu" "default
 assert_not_contains "$resource_block_output" "active_resource_claims=" "default blocked output hides raw active resources"
 assert_scheduler_artifacts "$resource_block_dir" resource-block test-fast-service-backed pass go_cpu blocked
 
+if [[ "$SUITE" != "fast" ]]; then
 resource_block_machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-machine.XXXXXX")"
 cleanup_paths+=("$resource_block_machine_dir")
 write_fake_make "$resource_block_machine_dir"
@@ -893,6 +905,7 @@ write_manifest "$io_block_manifest" test-fast-service-backed \
 io_block_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed host_io-block 2>&1)"
 assert_contains "$io_block_output" "[PROGRESS] target=test-fast-service-backed completed=0/3" "scheduler go_io-blocked human progress"
 assert_contains "$io_block_output" "blocker=go_io" "scheduler go_io-blocked human progress explains blocker"
+fi
 
 browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser.XXXXXX")"
 cleanup_paths+=("$browser_dir")
@@ -956,6 +969,7 @@ if (!(finalizeStart < browserEnd)) {
 }
 EOF
 
+if [[ "$SUITE" != "fast" ]]; then
 separate_finalizer_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-separate-finalizer.XXXXXX")"
 cleanup_paths+=("$separate_finalizer_dir")
 write_fake_make "$separate_finalizer_dir"
@@ -1250,6 +1264,8 @@ set -e
 assert_equals "$empty_budget_status" "0" "empty postgres fixture budget target list status"
 assert_equals "$empty_budget_output" "" "empty postgres fixture budget target list output"
 
+fi
+
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failure.XXXXXX")"
 cleanup_paths+=("$failure_dir")
 write_fake_make "$failure_dir"
@@ -1281,6 +1297,7 @@ assert_contains "$failure_output" "[RERUN] command=\"make test-fast-service-back
 assert_contains "$failure_output" "[INVESTIGATE] command=\"make explain-target TARGET=test-fast-service-backed DETAIL=artifacts\"" "failure investigate command"
 assert_scheduler_artifacts "$failure_dir" failure test-fast-service-backed fail - finish
 
+if [[ "$SUITE" != "fast" ]]; then
 failed_shard_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failed-shard.XXXXXX")"
 cleanup_paths+=("$failed_shard_dir")
 write_fake_make "$failed_shard_dir"
@@ -1616,6 +1633,7 @@ invalid_browser_target_status=$?
 set -e
 assert_equals "$invalid_browser_target_status" "1" "invalid browser target manifest status"
 assert_contains "$invalid_browser_target_output" "must match browser_stage webserver-backed aggregate target browser-e2e-webserver-backed" "invalid browser target manifest output"
+fi
 
 legacy_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy.XXXXXX")"
 cleanup_paths+=("$legacy_dir")
@@ -1629,6 +1647,7 @@ set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
 assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v8" "legacy manifest output"
 
+if [[ "$SUITE" != "fast" ]]; then
 unknown_option_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-option.XXXXXX")"
 cleanup_paths+=("$unknown_option_dir")
 write_fake_make "$unknown_option_dir"
@@ -1653,3 +1672,4 @@ unknown_option_status=$?
 set -e
 assert_equals "$unknown_option_status" "2" "unknown option status"
 assert_contains "$unknown_option_output" "usage: run-service-backed-schedule.mjs" "unknown option output"
+fi

@@ -218,8 +218,16 @@ function createFixture(scenario) {
   };
 }
 
-function withFixture(scenario, fn) {
+function createContext(scenario) {
   const fixture = createFixture(scenario);
+  return {
+    ...fixture,
+    manifest: parseJSON(readFileSync(taskSurfaceManifest, "utf8"), "task surface manifest"),
+  };
+}
+
+function withContext(scenario, fn) {
+  const fixture = createContext(scenario);
   try {
     fn(fixture);
     const actualFiles = countFiles(fixture.resultsDir);
@@ -309,7 +317,7 @@ function scenarioTaskGuidePhaseSlices(fixture) {
     nodeScript(taskGuide, ["--role", "feature-dev", "--phase", "phase4", "--json"]),
     "phase4 task-guide JSON",
   );
-  const manifest = parseJSON(readFileSync(taskSurfaceManifest, "utf8"), "task surface manifest");
+  const manifest = fixture.manifest;
   if (phase4Guide.schema_id !== "cartulary.task_guide.v1") {
     fail("phase4 task-guide JSON must expose task guide schema_id");
   }
@@ -632,7 +640,58 @@ function scenarioGuidanceMakeWrappers(fixture) {
   assertContains(detailZeroOutput, "usage: print-explain-target.mjs", "DETAIL=0 rejected");
 }
 
+function scenarioGuidanceCore(fixture) {
+  const resultsEnv = { CARTULARY_TEST_RESULTS_DIR: fixture.resultsDir };
+
+  const phase4Guide = parseJSON(
+    nodeScript(taskGuide, ["--role", "feature-dev", "--phase", "phase4", "--json"], resultsEnv),
+    "core task-guide JSON",
+  );
+  if (phase4Guide.schema_id !== "cartulary.task_guide.v1") {
+    fail("core task-guide JSON must expose task guide schema_id");
+  }
+  if (phase4Guide.role !== "feature-dev" || phase4Guide.phase !== "phase4") {
+    fail("core task-guide JSON must preserve feature-dev phase4 selection");
+  }
+  const featureRole = phase4Guide.roles.find((entry) => entry.role === "feature-dev");
+  const tierNames = new Set((featureRole?.recommendation_tiers ?? []).map((tier) => tier.name));
+  for (const tier of ["minimal phase slice", "service-backed slice", "general hygiene"]) {
+    if (!tierNames.has(tier)) {
+      fail(`core task-guide missing tier ${tier}`);
+    }
+  }
+  if (JSON.stringify(phase4Guide).includes("scheduler_owner")) {
+    fail("core task-guide JSON must not expose legacy scheduler_owner");
+  }
+
+  const makeTaskGuideJSON = parseJSON(
+    makeTarget(["task-guide", "ROLE=feature-dev", "PHASE=phase4", "JSON=1"], resultsEnv),
+    "core make task-guide JSON",
+  );
+  if (makeTaskGuideJSON.role !== "feature-dev" || makeTaskGuideJSON.phase !== "phase4") {
+    fail("core make task-guide JSON must preserve role and phase");
+  }
+
+  const phaseJSON = parseJSON(nodeScript(explainPhase, ["--phase", "phase1", "--json"], resultsEnv), "core explain-phase JSON");
+  if (phaseJSON.schema_id !== "cartulary.phase_guidance.v1" || phaseJSON.phase !== "phase1") {
+    fail("core explain-phase JSON must expose phase1 guidance");
+  }
+
+  const backendSummary = nodeScript(explainTarget, ["--target", "backend-store"], resultsEnv);
+  assertContains(backendSummary, "Cartulary target guidance: backend-store", "core explain-target header");
+  assertContains(backendSummary, "latest_artifact: tmp/task-guidance", "core explain-target latest artifact");
+
+  const explainRunProgressSummary = nodeScript(explainRun, [
+    "--results-dir",
+    path.join(fixture.resultsDir, "run-h"),
+    "--target",
+    "check",
+  ]);
+  assertContains(explainRunProgressSummary, "[PROGRESS-SNAPSHOT] [PROGRESS] check 1/2", "core explain-run progress");
+}
+
 const scenarios = new Map([
+  ["guidance-core", scenarioGuidanceCore],
   ["task-guide-roles", scenarioTaskGuideRoles],
   ["task-guide-phase-slices", scenarioTaskGuidePhaseSlices],
   ["explain-phase", scenarioExplainPhase],
@@ -641,19 +700,48 @@ const scenarios = new Map([
   ["guidance-make-wrappers", scenarioGuidanceMakeWrappers],
 ]);
 
+const suites = new Map([
+  ["core", ["guidance-core"]],
+  [
+    "matrix",
+    [
+      "task-guide-roles",
+      "task-guide-phase-slices",
+      "explain-phase",
+      "explain-target-artifacts",
+      "explain-run-progress",
+      "guidance-make-wrappers",
+    ],
+  ],
+]);
+
+function runScenarioSet(label, names) {
+  withContext(label, (fixture) => {
+    for (const name of names) {
+      scenarios.get(name)(fixture);
+    }
+  });
+}
+
 function main(argv) {
   const scenario = argv[0] ?? "";
   if (argv.length === 0) {
-    for (const [name, fn] of scenarios.entries()) {
-      withFixture(name, fn);
-    }
+    runScenarioSet("guidance-matrix", suites.get("matrix"));
     return;
   }
-  if (!scenarios.has(scenario) || argv.length !== 1) {
-    const names = Array.from(scenarios.keys()).join("|");
+  if (argv.length !== 1) {
+    const names = [...suites.keys(), ...scenarios.keys()].join("|");
     fail(`usage: test-task-guidance.mjs [${names}]`);
   }
-  withFixture(scenario, scenarios.get(scenario));
+  if (suites.has(scenario)) {
+    runScenarioSet(`guidance-${scenario}`, suites.get(scenario));
+    return;
+  }
+  if (!scenarios.has(scenario)) {
+    const names = [...suites.keys(), ...scenarios.keys()].join("|");
+    fail(`usage: test-task-guidance.mjs [${names}]`);
+  }
+  runScenarioSet(scenario, [scenario]);
 }
 
 try {

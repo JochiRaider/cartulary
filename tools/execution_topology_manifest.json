@@ -5220,12 +5220,7 @@
           "harness-smoke-task-surface-report",
           "harness-smoke-make-node-tools",
           "harness-smoke-execution-topology",
-          "harness-smoke-task-guide-roles",
-          "harness-smoke-task-guide-phase-slices",
-          "harness-smoke-explain-phase",
-          "harness-smoke-explain-target-artifacts",
-          "harness-smoke-explain-run-progress",
-          "harness-smoke-guidance-make-wrappers",
+          "harness-smoke-guidance-core",
           "harness-smoke-phase-slice",
           "harness-smoke-go-test-duration-baselines",
           "harness-smoke-service-backed-make-target-duration-baselines",
@@ -5235,7 +5230,7 @@
           "harness-smoke-run-phase",
           "harness-smoke-run-go-target-fast",
           "harness-smoke-print-target-plan",
-          "harness-smoke-service-backed-scheduler",
+          "harness-smoke-service-backed-scheduler-fast",
           "harness-smoke-cartulary-runner-service-backed-target",
           "harness-smoke-check-scheduler",
           "harness-smoke-run-playwright-phase",
@@ -5249,6 +5244,8 @@
       },
       "extended": {
         "checks": [
+          "harness-smoke-guidance-matrix",
+          "harness-smoke-service-backed-scheduler-matrix",
           "harness-smoke-run-make-sequence",
           "harness-smoke-run-go-target"
         ]
@@ -5280,12 +5277,7 @@
           "harness-smoke-task-surface-report",
           "harness-smoke-make-node-tools",
           "harness-smoke-execution-topology",
-          "harness-smoke-task-guide-roles",
-          "harness-smoke-task-guide-phase-slices",
-          "harness-smoke-explain-phase",
-          "harness-smoke-explain-target-artifacts",
-          "harness-smoke-explain-run-progress",
-          "harness-smoke-guidance-make-wrappers",
+          "harness-smoke-guidance-core",
           "harness-smoke-phase-slice",
           "harness-smoke-go-test-duration-baselines",
           "harness-smoke-service-backed-make-target-duration-baselines",
@@ -5295,7 +5287,7 @@
           "harness-smoke-run-phase",
           "harness-smoke-run-go-target-fast",
           "harness-smoke-print-target-plan",
-          "harness-smoke-service-backed-scheduler",
+          "harness-smoke-service-backed-scheduler-fast",
           "harness-smoke-cartulary-runner-service-backed-target",
           "harness-smoke-check-scheduler",
           "harness-smoke-tool-output-real-targets",
@@ -5306,6 +5298,8 @@
           "harness-smoke-run-vitest-manifest-phase",
           "harness-smoke-run-frontend-unit",
           "harness-smoke-frontend-import-boundaries",
+          "harness-smoke-guidance-matrix",
+          "harness-smoke-service-backed-scheduler-matrix",
           "harness-smoke-run-make-sequence",
           "harness-smoke-run-go-target",
           "harness-smoke-web-e2e-lifecycle",
@@ -5453,69 +5447,25 @@
         ]
       },
       {
-        "name": "harness-smoke-task-guide-roles",
+        "name": "harness-smoke-guidance-core",
         "backing_scripts": [
           "scripts/test-task-guidance.mjs"
         ],
         "command": [
           "$(NODE_BIN)",
           "scripts/test-task-guidance.mjs",
-          "task-guide-roles"
+          "core"
         ]
       },
       {
-        "name": "harness-smoke-task-guide-phase-slices",
+        "name": "harness-smoke-guidance-matrix",
         "backing_scripts": [
           "scripts/test-task-guidance.mjs"
         ],
         "command": [
           "$(NODE_BIN)",
           "scripts/test-task-guidance.mjs",
-          "task-guide-phase-slices"
-        ]
-      },
-      {
-        "name": "harness-smoke-explain-phase",
-        "backing_scripts": [
-          "scripts/test-task-guidance.mjs"
-        ],
-        "command": [
-          "$(NODE_BIN)",
-          "scripts/test-task-guidance.mjs",
-          "explain-phase"
-        ]
-      },
-      {
-        "name": "harness-smoke-explain-target-artifacts",
-        "backing_scripts": [
-          "scripts/test-task-guidance.mjs"
-        ],
-        "command": [
-          "$(NODE_BIN)",
-          "scripts/test-task-guidance.mjs",
-          "explain-target-artifacts"
-        ]
-      },
-      {
-        "name": "harness-smoke-explain-run-progress",
-        "backing_scripts": [
-          "scripts/test-task-guidance.mjs"
-        ],
-        "command": [
-          "$(NODE_BIN)",
-          "scripts/test-task-guidance.mjs",
-          "explain-run-progress"
-        ]
-      },
-      {
-        "name": "harness-smoke-guidance-make-wrappers",
-        "backing_scripts": [
-          "scripts/test-task-guidance.mjs"
-        ],
-        "command": [
-          "$(NODE_BIN)",
-          "scripts/test-task-guidance.mjs",
-          "guidance-make-wrappers"
+          "matrix"
         ]
       },
       {
@@ -5583,10 +5533,27 @@
         ]
       },
       {
-        "name": "harness-smoke-service-backed-scheduler",
+        "name": "harness-smoke-service-backed-scheduler-fast",
         "backing_scripts": [
           "scripts/test-service-backed-scheduler.sh",
           "scripts/run-service-backed-schedule.mjs"
+        ],
+        "command": [
+          "bash",
+          "scripts/test-service-backed-scheduler.sh",
+          "fast"
+        ]
+      },
+      {
+        "name": "harness-smoke-service-backed-scheduler-matrix",
+        "backing_scripts": [
+          "scripts/test-service-backed-scheduler.sh",
+          "scripts/run-service-backed-schedule.mjs"
+        ],
+        "command": [
+          "bash",
+          "scripts/test-service-backed-scheduler.sh",
+          "matrix"
         ]
       },
       {
