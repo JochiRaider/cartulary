@@ -394,7 +394,6 @@ function hasPlaywrightRows(coverage, executionDependency) {
     if (
       collectEntries(manifest).some(
         (entry) =>
-          entry.section === "e2e" &&
           entry.runner === "playwright" &&
           entry.coverage === coverage &&
           entry.execution_dependency === executionDependency,

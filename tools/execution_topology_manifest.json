@@ -74,10 +74,17 @@
       "service_backed": true
     },
     {
+      "id": "browser_visual",
+      "target": "browser-e2e-visual",
+      "category": "browser",
+      "order": 100,
+      "service_backed": true
+    },
+    {
       "id": "browser_support",
       "target": "browser-e2e-support",
       "category": "browser",
-      "order": 100,
+      "order": 110,
       "service_backed": true
     }
   ],
@@ -5934,8 +5941,8 @@
             "name": "visual",
             "target": "browser-e2e-visual",
             "kind": "visual",
-            "coverage": "raw",
-            "execution_dependency": "",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_visual",
             "workers": "1"
           }
         ]
@@ -5960,8 +5967,8 @@
             "name": "visual",
             "target": "browser-e2e-visual",
             "kind": "visual",
-            "coverage": "raw",
-            "execution_dependency": "",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_visual",
             "workers": "1",
             "reset_before": "measurement-to-visual"
           }
@@ -5997,8 +6004,8 @@
             "name": "visual",
             "target": "browser-e2e-visual",
             "kind": "visual",
-            "coverage": "raw",
-            "execution_dependency": "",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_visual",
             "workers": "1",
             "reset_before": "measurement-to-visual"
           }

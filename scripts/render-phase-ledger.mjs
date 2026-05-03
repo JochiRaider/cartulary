@@ -60,6 +60,8 @@ function sectionPrefix(section) {
       return "I";
     case "e2e":
       return "E";
+    case "visual":
+      return "V";
     default:
       throw new Error(`unsupported support section ${section}`);
   }
@@ -105,7 +107,7 @@ function ledgerConfig(manifest, phase, registryEntry) {
     throw new Error(`${phase} ledger.sections must not be empty`);
   }
   for (const [section, title] of sections) {
-    if (!["unit", "integration", "e2e"].includes(section)) {
+    if (!["unit", "integration", "e2e", "visual"].includes(section)) {
       throw new Error(`${phase} ledger.sections has unsupported section ${section}`);
     }
     if (typeof title !== "string" || title.trim() === "") {

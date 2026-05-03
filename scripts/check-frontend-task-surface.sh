@@ -456,7 +456,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = process.argv[2];
-const sections = ["unit", "integration", "e2e"];
+const sections = ["unit", "integration", "e2e", "visual"];
 const phaseSchemaID = "cartulary.phase_test_map.v1";
 const registrySchemaID = "cartulary.phase_registry.v1";
 const phases = [];

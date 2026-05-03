@@ -365,6 +365,16 @@ The Phase 3 workbook currently renders through the RDG-backed `@cartulary/grid-a
 
 Browser tests bound to Core 05 measurement predicates or p95 fixture-sensitive envelope checks are isolated-run evidence. They must execute through the measurement browser suite and not inside the parallel heavy verification block used for functional gate work.
 
+### 5.3.6 Visual regression tests
+
+| ID          | Test                                                                                                                                          | Exact REQs                                     | Exact ACs              |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------- |
+| V-3-GRID-01 | Timeline default viewport captures stable row identity, visible `row_version`, and save-state strip without generated incident ID leakage.    | REQ-01-015..REQ-01-017, REQ-01-022, REQ-03-087 | AC-001, AC-043, AC-231 |
+| V-3-GRID-02 | Timeline edit-state visuals cover active editable cell plus `Syncing`, `Saved`, and `Conflict` save-state presentations on the browser surface. | REQ-03-033..REQ-03-040, REQ-03-087..REQ-03-089 | AC-043, AC-126         |
+| V-3-GRID-03 | Timeline grouped rows and currently exposed grid chrome render deterministically through the owned visual harness.                            | REQ-01-022, REQ-03-236..REQ-03-241             | AC-124, AC-184, AC-231 |
+
+Phase 3 visual rows intentionally do not claim row-gutter collaboration markers, drag-fill, frozen-column, resize-handle, treegrid, or full conflict-resolution fixtures until those controls are product-exposed and owned by their later phase manifests.
+
 ---
 
 ## 6. Phase 4 — Entities, mentions, resolution, merge, and canonical-indicator foundations

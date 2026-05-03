@@ -27,6 +27,7 @@ shared_playwright_config="$repo_root/apps/web/playwright.shared.config.ts"
 web_package_json="$repo_root/apps/web/package.json"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
 measurement_script="$repo_root/scripts/run-browser-e2e-measurement.sh"
+visual_script="$repo_root/scripts/run-browser-e2e-visual.sh"
 resettable_script="$repo_root/scripts/run-browser-e2e-resettable.sh"
 reset_script="$repo_root/scripts/reset-web-e2e-stack.sh"
 webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
@@ -692,6 +693,9 @@ fi
 if ! [[ -f "$measurement_script" ]]; then
   fail "missing scripts/run-browser-e2e-measurement.sh"
 fi
+if ! [[ -f "$visual_script" ]]; then
+  fail "missing scripts/run-browser-e2e-visual.sh"
+fi
 if ! [[ -f "$resettable_script" ]]; then
   fail "missing scripts/run-browser-e2e-resettable.sh"
 fi
@@ -761,6 +765,9 @@ if ! grep -Fq '"execution_dependency": "browser_functional"' "$browser_batch_man
 fi
 if ! grep -Fq '"execution_dependency": "browser_support"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare browser_support manifest selection for support groups"
+fi
+if ! grep -Fq '"execution_dependency": "browser_visual"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must declare browser_visual manifest selection for visual groups"
 fi
 if ! grep -Fq 'cartulary.browser_e2e_duration_baselines.v2' "$browser_duration_baselines"; then
   fail "browser E2E duration baselines must declare their schema"
@@ -972,6 +979,18 @@ assert_manifest_owned_files_not_raw_selected \
   authoritative \
   browser_measurement \
   "$measurement_script" \
+  "$web_package_json"
+if ! grep -Fq 'browser_visual' "$visual_script"; then
+  fail "scripts/run-browser-e2e-visual.sh must execute browser_visual rows through the manifest"
+fi
+if ! grep -Fq 'run-browser-e2e-manifest-dependency.sh' "$visual_script"; then
+  fail "scripts/run-browser-e2e-visual.sh must use manifest-derived phase discovery"
+fi
+assert_manifest_owned_files_not_raw_selected \
+  "browser visual execution" \
+  authoritative \
+  browser_visual \
+  "$visual_script" \
   "$web_package_json"
 if ! grep -Fq 'run-browser-e2e-batch.sh" resettable' "$resettable_script"; then
   fail "scripts/run-browser-e2e-resettable.sh must delegate resettable sequencing to the browser batch runner"

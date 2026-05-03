@@ -410,5 +410,6 @@
       "execution_family": "backend-process",
       "execution_label": "backend-process phase0 authoritative"
     }
-  ]
+  ],
+  "visual": []
 }

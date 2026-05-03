@@ -83,6 +83,7 @@ const phaseManifestTopLevelKeys = new Set([
   "unit",
   "integration",
   "e2e",
+  "visual",
 ]);
 const phaseManifestRequiredKeys = new Set([
   "note",
@@ -119,6 +120,7 @@ const phaseMapEntryKeys = new Set([
   "execution_label",
   "fixture_policy",
   "fixture_budget",
+  "fixture_refs",
   "template_clone_reason",
   "migration_scratch_reason",
 ]);
@@ -542,7 +544,7 @@ function validatePhaseMapShape(file) {
       `${file}.forbidden_id_files`,
     );
   }
-  for (const section of ["unit", "integration", "e2e"]) {
+  for (const section of ["unit", "integration", "e2e", "visual"]) {
     const entries = requireObjectArray(
       manifest[section] ?? [],
       `${file}.${section}`,
@@ -563,6 +565,11 @@ function validatePhaseMapShape(file) {
         new Set(["go_test", "playwright", "vitest"]),
       );
       requireString(entry.file, `${label}.file`);
+      if (entry.fixture_refs !== undefined) {
+        requireStringArray(entry.fixture_refs, `${label}.fixture_refs`, {
+          nonEmpty: true,
+        });
+      }
       requireString(entry.evidence_layer, `${label}.evidence_layer`);
       if (entry.symbol !== undefined && entry.symbols !== undefined) {
         throw new Error(`${label} must declare symbol or symbols[], not both`);

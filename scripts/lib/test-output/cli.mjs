@@ -5699,7 +5699,6 @@ function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
   return collectEntries(manifest).filter((entry) => {
     if (
       entry.runner !== "playwright" ||
-      entry.section !== "e2e" ||
       entry.coverage !== coverage
     ) {
       return false;

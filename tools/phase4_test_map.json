@@ -493,5 +493,6 @@
       "claim": "The browser workbook creates and edits Parties, Notes, Task Requests, Decisions, Evidence, Communications Log, Handoff, Status Review, and Lesson rows through real typed workbook mutation controls, including direct values, reference selectors, collection actions, and visible required-field validation.",
       "out_of_scope": "Detailed lifecycle transition and idempotency assertions remain backend integration evidence."
     }
-  ]
+  ],
+  "visual": []
 }

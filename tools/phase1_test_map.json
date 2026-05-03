@@ -562,5 +562,6 @@
       "claim": "Phase 1 process smoke exercises login, CSRF, session revocation, enrollment, credential, and admin flows through the standalone server process.",
       "out_of_scope": "Authoritative Phase 1 browser and API completion evidence remains owned by the existing E-1-* and I-1-* rows."
     }
-  ]
+  ],
+  "visual": []
 }

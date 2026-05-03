@@ -19,6 +19,7 @@ const sectionDefinitions = [
   ["unit", "U-"],
   ["integration", "I-"],
   ["e2e", "E-"],
+  ["visual", "V-"],
 ];
 const implementationTestingGuidePath = path.join(
   "docs",
@@ -42,6 +43,7 @@ const phaseManifestTopLevelKeys = new Set([
   "unit",
   "integration",
   "e2e",
+  "visual",
 ]);
 const phaseManifestRequiredKeys = new Set([
   "note",
@@ -78,6 +80,7 @@ const phaseManifestEntryKeys = new Set([
   "execution_label",
   "fixture_policy",
   "fixture_budget",
+  "fixture_refs",
   "template_clone_reason",
   "migration_scratch_reason",
 ]);
@@ -564,7 +567,7 @@ function phaseIDRegex(layerPrefix, phaseNumber) {
 
 function claimedPhaseIDRegex(phaseNumber, separator) {
   return new RegExp(
-    String.raw`\b[UIE]${escapeRegex(separator)}${phaseNumber}${escapeRegex(
+    String.raw`\b[UIEV]${escapeRegex(separator)}${phaseNumber}${escapeRegex(
       separator,
     )}(?:[A-Z0-9]+${escapeRegex(separator)})*\d{2}\b`,
     "g",
@@ -591,7 +594,7 @@ function validateExpectedIDs(expectedIDs, phaseNumber, manifestPath) {
 function loadGuideExpectedIDs(root, phaseNumber) {
   const source = readFileSync(path.join(root, implementationTestingGuidePath), "utf8");
   const pattern = new RegExp(
-    String.raw`^\|\s*([UIE]-${phaseNumber}(?:-[A-Z0-9]+)*-\d{2})\s*\|`,
+    String.raw`^\|\s*([UIEV]-${phaseNumber}(?:-[A-Z0-9]+)*-\d{2})\s*\|`,
   );
   const ids = new Set();
   for (const line of source.split(/\r?\n/)) {
@@ -1017,6 +1020,8 @@ export function validateManifest(root, phase) {
           throw new Error(`manifest entry ${entry.id} must declare a non-empty out_of_scope`);
         }
       }
+      validateFixtureRefs(entry, `manifest entry ${entry.id}`);
+      assertAuthoritativeGridRowsUseLiveAdapter(root, entry, `manifest entry ${entry.id}`);
       entries.push({ ...entry, section });
     }
   }
@@ -1223,6 +1228,44 @@ function entryMatchesExecutionDependency(entry, executionDependency) {
   return executionDependency === "" || entry.execution_dependency === executionDependency;
 }
 
+function validateFixtureRefs(entry, label) {
+  if (entry.fixture_refs === undefined) {
+    return;
+  }
+  if (!Array.isArray(entry.fixture_refs) || entry.fixture_refs.length === 0) {
+    throw new Error(`${label} fixture_refs must be a non-empty string array when present`);
+  }
+  const seen = new Set();
+  for (const [index, ref] of entry.fixture_refs.entries()) {
+    if (typeof ref !== "string" || !/^VFIX-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{2}$/.test(ref)) {
+      throw new Error(`${label} fixture_refs[${index + 1}] must be a VFIX-* fixture identifier`);
+    }
+    if (seen.has(ref)) {
+      throw new Error(`${label} fixture_refs contains duplicate ${ref}`);
+    }
+    seen.add(ref);
+  }
+}
+
+function assertAuthoritativeGridRowsUseLiveAdapter(root, entry, label) {
+  if (
+    entry.coverage !== "authoritative" ||
+    entry.runner !== "vitest" ||
+    !/^U-\d+-GRID-/.test(entry.id)
+  ) {
+    return;
+  }
+  const source = readFileSync(path.join(root, entry.file), "utf8");
+  const mocksGridAdapter =
+    /vi\s*\.\s*mock\s*\(\s*["']@cartulary\/grid-adapter["']/.test(source) ||
+    /mock\s*\(\s*["']@cartulary\/grid-adapter["']/.test(source);
+  if (mocksGridAdapter && source.includes("@cartulary/grid-adapter/test-support")) {
+    throw new Error(
+      `${label} must use the production @cartulary/grid-adapter path, not @cartulary/grid-adapter/test-support`,
+    );
+  }
+}
+
 function selectGoEntries(
   root,
   phase,
@@ -1355,7 +1398,6 @@ function selectPlaywrightEntries(root, phase, coverage, executionDependency) {
   const { manifest } = loadManifest(root, phase);
   return collectEntries(manifest).filter(
     (entry) =>
-      entry.section === "e2e" &&
       entry.runner === "playwright" &&
       entry.coverage === coverage &&
       entryMatchesExecutionDependency(entry, executionDependency),
@@ -1376,7 +1418,6 @@ function selectPlaywrightPhases(root, coverage, executionDependency) {
     const { manifest } = loadManifest(root, phase);
     return collectEntries(manifest).some(
       (entry) =>
-        entry.section === "e2e" &&
         entry.runner === "playwright" &&
         entry.coverage === coverage &&
         entryMatchesExecutionDependency(entry, executionDependency),

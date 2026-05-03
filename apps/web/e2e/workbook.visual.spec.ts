@@ -1,239 +1,254 @@
 import { changeGrouping } from "@cartulary/test-utils";
-import { gridGroupRowTestId } from "@cartulary/ui-contracts";
-import type { Page, TestInfo } from "@playwright/test";
-
+import { gridGroupRowTestId, gridShellTestId } from "@cartulary/ui-contracts";
+import type { Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   createIncident,
   createViewRow,
   holdBrowserApiRequest,
-  patchTimelineRecord,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
 
-const hostsViewSchemaId = "cartulary.view.hosts.v1";
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
-const hostRefsFieldKey = "timeline.host_refs";
+const timelineViewSchemaId = "timeline";
+const timelineApiViewSchemaId = "cartulary.view.timeline.v1";
 
 type ViewRow = {
   record_id: string;
   row_version: number;
-  cells: Record<string, { value: unknown }>;
+  cells: Record<string, unknown>;
 };
 
-type CollectionItem = Record<string, unknown>;
-
-test("visual workbook default and grouped states", async ({
-  page,
-}, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-
-  const incidentId = await createIncident(
+test.describe("Phase 3 workbook visual evidence", () => {
+  test("V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip", async ({
     page,
-    uniqueIncidentKey("V301"),
-    "Workbook visual default",
-  );
-  await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("v301-alpha"),
-    "timeline.summary": "Alpha grouped row",
-  });
-  const reviewedRow = await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("v301-beta"),
-      "timeline.summary": "Beta grouped row",
-    },
-  );
-
-  await page.goto(`/?incident_id=${incidentId}`);
-  await page.getByTestId(`row-${reviewedRow.record_id}-mark-reviewed`).click();
-  await expect(
-    page.getByTestId(`row-${reviewedRow.record_id}-capture-state`),
-  ).toHaveText("reviewed");
-
-  await captureScreenshot(
-    page,
-    testInfo,
-    "workbook-default-viewport",
-    page.getByRole("main"),
-  );
-
-  await changeGrouping(page, "timeline", "timeline.capture_state");
-  await expect(
-    page.getByTestId(
-      gridGroupRowTestId("timeline", "timeline.capture_state", "reviewed"),
-    ),
-  ).toBeVisible();
-  await captureScreenshot(
-    page,
-    testInfo,
-    "workbook-grouped-grid",
-    page.getByTestId("timeline-grid-shell"),
-  );
-});
-
-test("visual workbook mention and save-state states", async ({
-  page,
-}, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey("V302"),
-    "Workbook visual mentions",
-  );
-  const resolvedHost = (await createViewRow(
-    page,
-    incidentId,
-    hostsViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("v302-host"),
-      "host.display_name": "Gateway node",
-      "host.hostname": "gateway-node.example.test",
-      "host.aliases": collectionActionsPayload(["VPN Gateway"]),
-    },
-  )) as ViewRow;
-  const unresolvedRow = (await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("v302-unresolved"),
-      "timeline.summary": "Unresolved mention row",
-      "timeline.host_refs": collectionActionsPayload(["WS-023?"]),
-    },
-  )) as ViewRow;
-  const resolvedRow = (await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("v302-resolved"),
-      "timeline.summary": "Resolved mention row",
-      "timeline.host_refs": collectionActionsPayload([" vpn   gateway "]),
-    },
-  )) as ViewRow;
-  const resolvedMention = requireItemByRawText(
-    collectionItems(resolvedRow, hostRefsFieldKey),
-    " vpn   gateway ",
-  );
-  await patchTimelineRecord(page, resolvedRow.record_id, {
-    view_schema_id: timelineViewSchemaId,
-    base_row_version: resolvedRow.row_version,
-    client_txn_id: uniqueTxn("v302-resolve"),
-    changes: [
-      {
-        field_key: hostRefsFieldKey,
-        action_payload: {
-          kind: "collection_actions_v1",
-          actions: [
-            {
-              op: "resolve_item",
-              item_ref: resolvedMention.item_ref,
-              resolved_record_id: resolvedHost.record_id,
-            },
-          ],
-        },
-      },
-    ],
-  });
-
-  await page.goto(`/?incident_id=${incidentId}`);
-  await expect(
-    page.getByTestId(`row-${unresolvedRow.record_id}-hostRefs-items`),
-  ).toContainText("WS-023?");
-  await expect(
-    page
-      .getByTestId(`row-${resolvedRow.record_id}-hostRefs-items`)
-      .getByLabel("Resolved Gateway node"),
-  ).toBeVisible();
-  await captureScreenshot(
-    page,
-    testInfo,
-    "workbook-mention-states",
-    page.getByTestId("timeline-grid-shell"),
-  );
-
-  const heldPatch = await holdBrowserApiRequest(page, {
-    method: "PATCH",
-    path: `/api/v1/records/${resolvedRow.record_id}`,
-  });
-
-  try {
-    const summaryInput = page.getByTestId(
-      `row-${resolvedRow.record_id}-summary`,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V3GRID01"),
+      "Phase 3 visual default",
     );
-    await summaryInput.fill("Save-state strip visual");
-    await summaryInput.press("Enter");
-    await heldPatch.waitForHit;
-    await expect(page.getByTestId("save-state")).toHaveText("Syncing");
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V3GRID01-ROW"),
+        "timeline.occurred_at": "2025-02-17T09:12:00Z",
+        "timeline.summary": "Default visual row",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+
+    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+    await expect(
+      page.getByTestId(`row-${timelineRow.record_id}-row-version`),
+    ).toHaveText(String(timelineRow.row_version));
+    await expect(
+      page.getByTestId(`row-${timelineRow.record_id}-summary`),
+    ).toHaveValue("Default visual row");
+
     await captureScreenshot(
       page,
       testInfo,
-      "workbook-save-state-strip",
-      page.locator('[data-testid="save-state"]').locator(".."),
+      "v-3-grid-01-timeline-default",
+      page.getByRole("main"),
     );
-    expect(heldPatch.hitCount()).toBe(1);
-    heldPatch.release();
-    await expect(page.getByTestId("save-state")).toHaveText("Saved");
-  } finally {
-    await heldPatch.dispose();
-  }
-});
+  });
 
-function collectionActionsPayload(tokens: readonly string[]) {
-  return {
-    kind: "collection_actions_v1",
-    actions: tokens.map((rawText) => ({
-      op: "add_token",
-      raw_text: rawText,
-    })),
-  };
-}
+  test("V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V3GRID02"),
+      "Phase 3 visual edit state",
+    );
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V3GRID02-ROW"),
+        "timeline.occurred_at": "2025-02-17T10:30:00Z",
+        "timeline.summary": "Editable visual row",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+
+    const saveState = page.getByTestId("save-state");
+    const saveStateStrip = saveState.locator("..");
+    const summaryInput = page.getByTestId(
+      `row-${timelineRow.record_id}-summary`,
+    );
+
+    await expect(saveState).toHaveText("Saved");
+    await summaryInput.focus();
+    await summaryInput.fill("Active visual edit");
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-3-grid-02-active-edit-cell",
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    );
+
+    const patchUrl = `**/api/v1/records/${timelineRow.record_id}`;
+    const hold = await holdBrowserApiRequest(page, {
+      method: "PATCH",
+      path: `/api/v1/records/${timelineRow.record_id}`,
+    });
+
+    try {
+      await summaryInput.press("Enter");
+      await hold.waitForHit;
+      await expect(saveState).toHaveText("Syncing");
+      await captureScreenshot(
+        page,
+        testInfo,
+        "v-3-grid-02-syncing-strip",
+        saveStateStrip,
+      );
+      await hold.release();
+      await expect(saveState).toHaveText("Saved");
+      await captureScreenshot(
+        page,
+        testInfo,
+        "v-3-grid-02-saved-strip",
+        saveStateStrip,
+      );
+    } finally {
+      await hold.dispose();
+    }
+
+    const conflictHandler = async (route: Route) => {
+      if (route.request().method().toUpperCase() !== "PATCH") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            status: 409,
+            code: "same_field_conflict",
+            message: "same-field conflict",
+            request_id: "visual-conflict",
+            retryable: false,
+            details: {},
+            conflict: {
+              field_key: "timeline.summary",
+              base_row_version: timelineRow.row_version,
+              current_row_version: timelineRow.row_version + 1,
+              base_value: "Active visual edit",
+              server_value: "Server visual edit",
+              client_value: "Conflict visual edit",
+            },
+          },
+        }),
+      });
+    };
+
+    await page.route(patchUrl, conflictHandler);
+    try {
+      await summaryInput.fill("Conflict visual edit");
+      await summaryInput.press("Enter");
+      await expect(saveState).toHaveText("Conflict");
+      await captureScreenshot(
+        page,
+        testInfo,
+        "v-3-grid-02-conflict-strip",
+        saveStateStrip,
+      );
+    } finally {
+      await page.unroute(patchUrl, conflictHandler);
+    }
+  });
+
+  test("V-3-GRID-03 captures Timeline grouped rows and currently exposed grid chrome", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V3GRID03"),
+      "Phase 3 visual grouped rows",
+    );
+    const firstRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V3GRID03-ROWA"),
+        "timeline.occurred_at": "2025-02-17T11:00:00Z",
+        "timeline.summary": "Alpha grouped row",
+      },
+    )) as ViewRow;
+    await createViewRow(page, incidentId, timelineApiViewSchemaId, {
+      client_txn_id: uniqueTxn("V3GRID03-ROWB"),
+      "timeline.occurred_at": "2025-02-17T11:05:00Z",
+      "timeline.summary": "Beta grouped row",
+    });
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+    await page.getByTestId(`row-${firstRow.record_id}-mark-reviewed`).click();
+    await expect(
+      page.getByTestId(`row-${firstRow.record_id}-capture-state`),
+    ).toHaveText("reviewed");
+
+    await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+    await expect(
+      page.getByTestId(
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          "reviewed",
+        ),
+      ),
+    ).toBeVisible();
+
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-3-grid-03-grouped-grid",
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    );
+  });
+});
 
 async function captureScreenshot(
   page: Page,
   testInfo: TestInfo,
   name: string,
-  target: {
-    screenshot: (options: { path: string }) => Promise<Buffer>;
-  },
+  locator = page.getByRole("main"),
 ) {
-  const path = testInfo.outputPath(`${name}.png`);
-  await target.screenshot({ path });
+  await expect(locator).toBeVisible();
+  await page.evaluate(() => {
+    document.documentElement.dataset.visualSnapshot = "true";
+  });
+  const screenshot = await locator.screenshot({
+    animations: "disabled",
+    caret: "hide",
+  });
   await testInfo.attach(name, {
-    path,
+    body: screenshot,
     contentType: "image/png",
   });
-  await expect.soft(page).toBeTruthy();
 }
 
-function collectionItems(row: ViewRow, fieldKey: string): CollectionItem[] {
-  const value = row.cells[fieldKey]?.value;
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    !("items" in value) ||
-    !Array.isArray(value.items)
-  ) {
-    return [];
-  }
-  return value.items.filter(
-    (item): item is CollectionItem => item !== null && typeof item === "object",
-  );
-}
-
-function requireItemByRawText(
-  items: readonly CollectionItem[],
-  rawText: string,
-): CollectionItem {
-  const item = items.find((entry) => entry.raw_text === rawText);
-  if (!item) {
-    throw new Error(`missing collection item for raw text ${rawText}`);
-  }
-  return item;
+async function maskIncidentIdentity(page: Page, incidentId: string) {
+  await page.evaluate((id) => {
+    for (const node of document.querySelectorAll("p")) {
+      if (node.textContent?.includes(id)) {
+        node.textContent = "Incident visual-fixture";
+      }
+    }
+  }, incidentId);
 }

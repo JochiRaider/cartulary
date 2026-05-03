@@ -238,7 +238,9 @@ function phaseRowsForTarget(target, rows) {
     return rows.filter((row) => row.coverage !== "raw");
   }
   if (target === "browser-e2e") {
-    return rows.filter((row) => ["browser-e2e-stateful", "browser-e2e-measurement"].includes(row.target));
+    return rows.filter((row) =>
+      ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"].includes(row.target),
+    );
   }
   return rows.filter((row) => row.target === target);
 }

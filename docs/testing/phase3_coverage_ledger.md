@@ -15,7 +15,7 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 - `backend-integration` selects authoritative `I-3-*` rows through `cartulary-runner.mjs go-target backend-integration`, with target-plan selection constrained by the Phase 3 manifest and `backend_integration` execution dependency.
 - `frontend-unit` selects authoritative `U-3-*` workbook rows only through the Phase 3 Vitest manifest for `frontend_unit`.
 - `tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 3: `browser-e2e-webserver-backed` carries authoritative functional `E-3-*` rows through duration-balanced Playwright manifest-entry shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. Service-backed scheduling runs isolated browser evidence as leaf targets while direct `browser-e2e` remains the local aggregate for stateful, measurement, and visual browser batches.
-- `tools/execution_topology_manifest.json` also keeps `browser-e2e-measurement` as the isolated Phase 3 browser batch for authoritative measurement `E-3-*` rows selected through the Phase 3 Playwright manifest for `browser_measurement`.
+- `tools/execution_topology_manifest.json` also keeps `browser-e2e-measurement` and `browser-e2e-visual` as isolated Phase 3 browser batches for authoritative Playwright rows selected through `browser_measurement` and `browser_visual`.
 
 ## Support-Only Execution
 
@@ -64,6 +64,14 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 | `E-3-02` | `apps/web/e2e/measurement/phase3_measurement.spec.ts::E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope` | `browser_measurement` | The isolated measurement suite proves one real-stack visible `Syncing -> Saved` transition under controlled latency, then measures typing acknowledgement and blank-row-create completion against the Phase 3 envelope. | `Conflict` labeling remains component-layer evidence. |
 | `E-3-03` | `apps/web/e2e/phase3.spec.ts::E-3-03 drives review, demotion, and supersede through the visible workbook surface` | `browser_functional` | A reviewer-session browser flow visibly performs review, material-edit demotion, legal supersede, and post-supersede disabling on the workbook surface. | Durable substrate counts and replay internals remain backend or disclosed hybrid evidence. |
 | `E-3-04` | `apps/web/e2e/phase3.spec.ts::E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation` | `browser_functional` | Real browser replay preserves the original committed result, avoids duplicate history growth, and suppresses duplicate visible invalidation. | The disclosed snapshot harness is intentionally test-only and not part of runtime behavior. |
+
+## Visual Regression
+
+| Row | Evidence | Execution | Claim | Out of scope |
+| --- | --- | --- | --- | --- |
+| `V-3-GRID-01` | `apps/web/e2e/workbook.visual.spec.ts::V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip` | `browser_visual` | The visual harness captures a deterministic Timeline default viewport with visible row version and save-state strip while masking generated incident identity. | Presence, row-gutter collaboration markers, frozen columns, and future grid controls remain owned by later phase visual rows when exposed. |
+| `V-3-GRID-02` | `apps/web/e2e/workbook.visual.spec.ts::V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states` | `browser_visual` | The visual harness drives the real Timeline workbook surface through active edit, `Syncing`, `Saved`, and `Conflict` save-state presentations. | Full same-field conflict resolution UI remains Phase 6 evidence. |
+| `V-3-GRID-03` | `apps/web/e2e/workbook.visual.spec.ts::V-3-GRID-03 captures Timeline grouped rows and currently exposed grid chrome` | `browser_visual` | The visual harness captures a deterministic grouped Timeline viewport with group headers rendered as presentation-only rows and visible grid chrome currently exposed by the product. | Drag-fill, resize handles, treegrid controls, and frozen-column visual states are not claimed until those capabilities are product-exposed. |
 
 ## Shared Harness Coverage
 
