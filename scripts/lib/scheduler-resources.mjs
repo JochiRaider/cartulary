@@ -2,6 +2,17 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  readJsonObject,
+  requireInteger,
+  requireObject as requireShapeObject,
+  requireSchemaID,
+  requireString as requireShapeString,
+  requireStringArray as requireShapeStringArray,
+  validateObjectArray,
+  validateObjectShape,
+} from "./json-shape.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const defaultRegistryPath = path.join(repoRoot, "tools", "scheduler_resource_registry.json");
@@ -21,6 +32,111 @@ const forwardingProfileKeys = new Set(["name", "mappings"]);
 const forwardingMappingKeys = new Set(["source_resource", "target_resource", "env_variable"]);
 
 let cachedRegistry = null;
+
+function registryShapeValue(fileOrManifest, label) {
+  return typeof fileOrManifest === "string"
+    ? readJsonObject(fileOrManifest, label)
+    : requireShapeObject(fileOrManifest, label);
+}
+
+export function validateSchedulerResourceRegistryShape(fileOrManifest, label = fileOrManifest) {
+  const registry = registryShapeValue(fileOrManifest, label);
+  validateObjectShape(registry, label, { keys: registryTopLevelKeys });
+  requireSchemaID(registry, registrySchemaID, label);
+  validateObjectArray(
+    registry.resources,
+    `${label}.resources`,
+    { nonEmpty: true, keys: resourceKeys },
+    (resource, resourceLabel) => {
+      requireShapeString(resource.name, `${resourceLabel}.name`);
+      requireShapeString(resource.display_name, `${resourceLabel}.display_name`);
+      requireShapeStringArray(resource.schedulers, `${resourceLabel}.schedulers`, {
+        nonEmpty: true,
+      });
+      requireInteger(resource.display_order, `${resourceLabel}.display_order`, {
+        min: 0,
+      });
+      if (resource.capacity !== undefined) {
+        const capacity = validateObjectShape(
+          resource.capacity,
+          `${resourceLabel}.capacity`,
+          { keys: new Set(["default_limit", "auto_policy", "override_env"]) },
+        );
+        if (capacity.default_limit !== undefined) {
+          requirePositiveInteger(
+            capacity.default_limit,
+            `${resourceLabel}.capacity.default_limit`,
+          );
+        }
+        if (capacity.auto_policy !== undefined) {
+          requireShapeString(capacity.auto_policy, `${resourceLabel}.capacity.auto_policy`);
+        }
+        if (
+          (capacity.default_limit === undefined) ===
+          (capacity.auto_policy === undefined)
+        ) {
+          throw new Error(
+            `${resourceLabel}.capacity must declare exactly one of default_limit or auto_policy`,
+          );
+        }
+        if (capacity.override_env !== undefined) {
+          requireShapeString(capacity.override_env, `${resourceLabel}.capacity.override_env`, {
+            pattern: envVariablePattern,
+          });
+        }
+      }
+    },
+  );
+  validateObjectArray(
+    registry.templates,
+    `${label}.templates`,
+    { nonEmpty: true, keys: templateKeys },
+    (template, templateLabel) => {
+      requireShapeString(template.name, `${templateLabel}.name`);
+      requireShapeString(template.prefix, `${templateLabel}.prefix`);
+      requireShapeString(template.display_name, `${templateLabel}.display_name`);
+      requireShapeStringArray(template.schedulers, `${templateLabel}.schedulers`, {
+        nonEmpty: true,
+      });
+      requireInteger(template.display_order, `${templateLabel}.display_order`, {
+        min: 0,
+      });
+    },
+  );
+  validateObjectArray(
+    registry.capacity_profiles,
+    `${label}.capacity_profiles`,
+    { nonEmpty: true, keys: capacityProfileKeys },
+    (profile, profileLabel) => {
+      requireShapeString(profile.name, `${profileLabel}.name`);
+      requireShapeString(profile.scheduler, `${profileLabel}.scheduler`);
+      requireShapeStringArray(profile.resources, `${profileLabel}.resources`, {
+        nonEmpty: true,
+      });
+    },
+  );
+  validateObjectArray(
+    registry.forwarding_profiles,
+    `${label}.forwarding_profiles`,
+    { keys: forwardingProfileKeys },
+    (profile, profileLabel) => {
+      requireShapeString(profile.name, `${profileLabel}.name`);
+      validateObjectArray(
+        profile.mappings,
+        `${profileLabel}.mappings`,
+        { nonEmpty: true, keys: forwardingMappingKeys },
+        (mapping, mappingLabel) => {
+          requireShapeString(mapping.source_resource, `${mappingLabel}.source_resource`);
+          requireShapeString(mapping.target_resource, `${mappingLabel}.target_resource`);
+          requireShapeString(mapping.env_variable, `${mappingLabel}.env_variable`, {
+            pattern: envVariablePattern,
+          });
+        },
+      );
+    },
+  );
+  return registry;
+}
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -110,10 +226,7 @@ function normalizeCapacity(value, label) {
 
 function loadRawRegistry(file = defaultRegistryPath) {
   const registry = requirePlainObject(JSON.parse(readFileSync(file, "utf8")), "scheduler resource registry");
-  if (registry.schema_id !== registrySchemaID) {
-    throw new Error(`${file} must declare schema_id ${registrySchemaID}`);
-  }
-  assertKnownObjectKeys(registry, "scheduler resource registry", registryTopLevelKeys);
+  validateSchedulerResourceRegistryShape(registry, file);
   return registry;
 }
 

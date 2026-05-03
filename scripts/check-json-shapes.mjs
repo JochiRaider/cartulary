@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 import {
   browserBatchManifestSchemaID,
   loadBrowserBatchManifest,
+  validateBrowserBatchManifestShape,
 } from "./lib/browser-batch-manifest.mjs";
+import { validateCheckScheduleManifestShape } from "./lib/check-schedule-manifest.mjs";
 import {
-  checkScheduleSchemaID,
   defaultExecutionTopologyManifestPath,
   executionTopologySchemaID,
   loadExecutionTopology,
@@ -16,7 +17,6 @@ import {
   renderCheckScheduleManifest,
   browserBatchManifestSchemaID as renderedBrowserBatchSchemaID,
   renderTaskSurfaceManifest,
-  serviceBackedScheduleSchemaID,
   taskSurfaceSchemaID,
 } from "./lib/execution-topology.mjs";
 import {
@@ -44,7 +44,11 @@ import {
   phaseRegistrySchemaID,
   validatePhaseRegistry,
 } from "./lib/phase-registry.mjs";
-import { loadSchedulerResourceRegistry } from "./lib/scheduler-resources.mjs";
+import {
+  loadSchedulerResourceRegistry,
+  validateSchedulerResourceRegistryShape as validateSchedulerResourceRegistryManifestShape,
+} from "./lib/scheduler-resources.mjs";
+import { validateServiceBackedScheduleManifestShape } from "./lib/service-backed-schedule-manifest.mjs";
 import { validateServiceBackedScheduleTopology } from "./lib/service-backed-schedule-topology.mjs";
 import {
   collectTaskSurfaceManifestErrors,
@@ -60,8 +64,6 @@ const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
 const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
-const schedulerResourceRegistrySchemaID =
-  "cartulary.scheduler_resource_registry.v3";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.service_backed_make_target_duration_baselines.v1";
@@ -71,7 +73,6 @@ const phaseStatusValues = new Set(["active", "planned", "retired"]);
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const snakeIDPattern = /^[a-z][a-z0-9_]*$/;
-const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const phaseManifestTopLevelKeys = new Set([
   "schema_id",
   "phase",
@@ -160,13 +161,6 @@ const frontendBoundaryKeys = new Set([
   "scan_roots",
   "scan_excludes",
   "rules",
-]);
-const schedulerResourceRegistryKeys = new Set([
-  "schema_id",
-  "resources",
-  "templates",
-  "capacity_profiles",
-  "forwarding_profiles",
 ]);
 const bootstrapAdminKeys = new Set([
   "bootstrap_schema_id",
@@ -264,68 +258,6 @@ const toolRunHelperUnitKeys = new Set(["target", "status", "artifact_root"]);
 const toolRunSlowestKeys = new Set(["id", "duration_ms", "kind"]);
 const rfc3339TimestampPattern =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
-const checkScheduleKeys = new Set(["schema_id", "schedules"]);
-const checkScheduleEntryKeys = new Set([
-  "target",
-  "capacity_profile",
-  "resource_limits",
-  "summary_groups",
-  "work_units",
-]);
-const checkWorkUnitKeys = new Set([
-  "target",
-  "weight",
-  "needs",
-  "produces_summary_targets",
-  "resource_claims",
-  "make_jobs",
-  "env",
-  "nested_scheduler",
-]);
-const serviceScheduleKeys = new Set(["schema_id", "generated", "schedules"]);
-const serviceScheduleEntryKeys = new Set([
-  "target",
-  "capacity_profile",
-  "resource_limits",
-  "work_unit_sources",
-]);
-const serviceSourceKeys = new Set([
-  "type",
-  "class",
-  "target",
-  "needs",
-  "weight",
-  "resource_claims",
-  "browser_stage",
-]);
-const serviceGeneratedKeys = new Set([
-  "generator",
-  "topology",
-  "browser_batch_manifest",
-  "make_target_duration_baseline",
-]);
-const browserBatchKeys = new Set(["schema_id", "stages"]);
-const browserStageKeys = new Set([
-  "name",
-  "target",
-  "schedule_tags",
-  "scheduler_dependency_policy",
-  "summary_children",
-  "groups",
-]);
-const browserGroupKeys = new Set([
-  "name",
-  "kind",
-  "target",
-  "project",
-  "workers",
-  "config",
-  "coverage",
-  "execution_dependency",
-  "dependency_target",
-  "reset_before",
-  "specs",
-]);
 const generatedArtifactEntryKeys = new Set([
   "path",
   "allowed_extensions",
@@ -368,36 +300,6 @@ const restrictedImportKeys = new Set([
   "path",
   "package_roots",
   "include_subpaths",
-]);
-const schedulerResourceKeys = new Set([
-  "name",
-  "display_name",
-  "schedulers",
-  "display_order",
-  "capacity",
-]);
-const schedulerTemplateKeys = new Set([
-  "name",
-  "prefix",
-  "display_name",
-  "schedulers",
-  "display_order",
-]);
-const schedulerCapacityKeys = new Set([
-  "default_limit",
-  "auto_policy",
-  "override_env",
-]);
-const schedulerCapacityProfileKeys = new Set([
-  "name",
-  "scheduler",
-  "resources",
-]);
-const schedulerForwardingProfileKeys = new Set(["name", "mappings"]);
-const schedulerForwardingMappingKeys = new Set([
-  "source_resource",
-  "target_resource",
-  "env_variable",
 ]);
 
 function usage() {
@@ -679,121 +581,15 @@ function validateTaskSurfaceShape(file) {
 }
 
 function validateCheckScheduleShape(file) {
-  const manifest = readShapeFile(file, file);
-  assertObjectKeys(manifest, checkScheduleKeys, file);
-  requireSchemaID(manifest, checkScheduleSchemaID, file);
-  for (const [scheduleIndex, schedule] of requireObjectArray(
-    manifest.schedules,
-    `${file}.schedules`,
-    { nonEmpty: true },
-  ).entries()) {
-    const label = `${file}.schedules[${scheduleIndex + 1}]`;
-    assertObjectKeys(schedule, checkScheduleEntryKeys, label);
-    requireString(schedule.target, `${label}.target`, {
-      pattern: makeTargetPattern,
-    });
-    requireString(schedule.capacity_profile, `${label}.capacity_profile`);
-    for (const [unitIndex, unit] of requireObjectArray(
-      schedule.work_units,
-      `${label}.work_units`,
-      { nonEmpty: true },
-    ).entries()) {
-      const unitLabel = `${label}.work_units[${unitIndex + 1}]`;
-      assertObjectKeys(unit, checkWorkUnitKeys, unitLabel);
-      requireString(unit.target, `${unitLabel}.target`, {
-        pattern: makeTargetPattern,
-      });
-      requirePositiveInteger(unit.weight, `${unitLabel}.weight`);
-      if (unit.env !== undefined) {
-        for (const name of Object.keys(
-          requireObject(unit.env, `${unitLabel}.env`),
-        )) {
-          requireString(name, `${unitLabel}.env key`, {
-            pattern: envNamePattern,
-          });
-        }
-      }
-    }
-  }
+  validateCheckScheduleManifestShape(file, file);
 }
 
 function validateServiceBackedScheduleShape(file) {
-  const manifest = readShapeFile(file, file);
-  assertObjectKeys(manifest, serviceScheduleKeys, file);
-  requireSchemaID(manifest, serviceBackedScheduleSchemaID, file);
-  const generated = requireObject(manifest.generated, `${file}.generated`);
-  assertObjectKeys(generated, serviceGeneratedKeys, `${file}.generated`);
-  for (const key of serviceGeneratedKeys) {
-    requireString(generated[key], `${file}.generated.${key}`);
-  }
-  for (const [scheduleIndex, schedule] of requireObjectArray(
-    manifest.schedules,
-    `${file}.schedules`,
-    { nonEmpty: true },
-  ).entries()) {
-    const label = `${file}.schedules[${scheduleIndex + 1}]`;
-    assertObjectKeys(schedule, serviceScheduleEntryKeys, label);
-    requireString(schedule.target, `${label}.target`, {
-      pattern: makeTargetPattern,
-    });
-    requireString(schedule.capacity_profile, `${label}.capacity_profile`);
-    for (const [sourceIndex, source] of requireObjectArray(
-      schedule.work_unit_sources,
-      `${label}.work_unit_sources`,
-      { nonEmpty: true },
-    ).entries()) {
-      const sourceLabel = `${label}.work_unit_sources[${sourceIndex + 1}]`;
-      assertObjectKeys(source, serviceSourceKeys, sourceLabel);
-      requireEnum(
-        source.type,
-        `${sourceLabel}.type`,
-        new Set(["go_shards", "make_target"]),
-      );
-      requireEnum(
-        source.class,
-        `${sourceLabel}.class`,
-        new Set(["backend", "browser"]),
-      );
-      requireString(source.target, `${sourceLabel}.target`, {
-        pattern: makeTargetPattern,
-      });
-      if (source.type === "make_target") {
-        requirePositiveInteger(source.weight, `${sourceLabel}.weight`);
-      }
-    }
-  }
+  validateServiceBackedScheduleManifestShape(file, file);
 }
 
 function validateBrowserBatchShape(file) {
-  const manifest = readShapeFile(file, file);
-  assertObjectKeys(manifest, browserBatchKeys, file);
-  requireSchemaID(manifest, browserBatchManifestSchemaID, file);
-  for (const [stageIndex, stage] of requireObjectArray(
-    manifest.stages,
-    `${file}.stages`,
-    { nonEmpty: true },
-  ).entries()) {
-    const label = `${file}.stages[${stageIndex + 1}]`;
-    assertObjectKeys(stage, browserStageKeys, label);
-    requireString(stage.name, `${label}.name`);
-    requireString(stage.target, `${label}.target`, {
-      pattern: makeTargetPattern,
-    });
-    for (const [groupIndex, group] of requireObjectArray(
-      stage.groups,
-      `${label}.groups`,
-      {
-        nonEmpty: true,
-      },
-    ).entries()) {
-      const groupLabel = `${label}.groups[${groupIndex + 1}]`;
-      assertObjectKeys(group, browserGroupKeys, groupLabel);
-      requireString(group.name, `${groupLabel}.name`);
-      requireString(group.target, `${groupLabel}.target`, {
-        pattern: makeTargetPattern,
-      });
-    }
-  }
+  validateBrowserBatchManifestShape(file, file);
 }
 
 function validateGeneratedArtifactPolicyShape(file) {
@@ -975,106 +771,7 @@ function validateFrontendImportBoundariesShape(file) {
 }
 
 function validateSchedulerResourceRegistryShape(file) {
-  const registry = readShapeFile(file, file);
-  assertObjectKeys(registry, schedulerResourceRegistryKeys, file);
-  requireSchemaID(registry, schedulerResourceRegistrySchemaID, file);
-  for (const [index, resource] of requireObjectArray(
-    registry.resources,
-    `${file}.resources`,
-    {
-      nonEmpty: true,
-    },
-  ).entries()) {
-    const label = `${file}.resources[${index + 1}]`;
-    assertObjectKeys(resource, schedulerResourceKeys, label);
-    requireString(resource.name, `${label}.name`);
-    requireString(resource.display_name, `${label}.display_name`);
-    requireStringArray(resource.schedulers, `${label}.schedulers`, {
-      nonEmpty: true,
-    });
-    requireInteger(resource.display_order, `${label}.display_order`, {
-      min: 0,
-    });
-    if (resource.capacity !== undefined) {
-      const capacity = requireObject(resource.capacity, `${label}.capacity`);
-      assertObjectKeys(capacity, schedulerCapacityKeys, `${label}.capacity`);
-      if (capacity.default_limit !== undefined) {
-        requirePositiveInteger(
-          capacity.default_limit,
-          `${label}.capacity.default_limit`,
-        );
-      }
-      if (capacity.auto_policy !== undefined) {
-        requireString(capacity.auto_policy, `${label}.capacity.auto_policy`);
-      }
-      if (
-        (capacity.default_limit === undefined) ===
-        (capacity.auto_policy === undefined)
-      ) {
-        throw new Error(
-          `${label}.capacity must declare exactly one of default_limit or auto_policy`,
-        );
-      }
-      if (capacity.override_env !== undefined) {
-        requireString(capacity.override_env, `${label}.capacity.override_env`, {
-          pattern: envNamePattern,
-        });
-      }
-    }
-  }
-  for (const [index, template] of requireObjectArray(
-    registry.templates,
-    `${file}.templates`,
-    {
-      nonEmpty: true,
-    },
-  ).entries()) {
-    const label = `${file}.templates[${index + 1}]`;
-    assertObjectKeys(template, schedulerTemplateKeys, label);
-    requireString(template.name, `${label}.name`);
-    requireString(template.prefix, `${label}.prefix`);
-    requireString(template.display_name, `${label}.display_name`);
-    requireStringArray(template.schedulers, `${label}.schedulers`, {
-      nonEmpty: true,
-    });
-    requireInteger(template.display_order, `${label}.display_order`, {
-      min: 0,
-    });
-  }
-  for (const [index, profile] of requireObjectArray(
-    registry.capacity_profiles,
-    `${file}.capacity_profiles`,
-    { nonEmpty: true },
-  ).entries()) {
-    const label = `${file}.capacity_profiles[${index + 1}]`;
-    assertObjectKeys(profile, schedulerCapacityProfileKeys, label);
-    requireString(profile.name, `${label}.name`);
-    requireString(profile.scheduler, `${label}.scheduler`);
-    requireStringArray(profile.resources, `${label}.resources`, {
-      nonEmpty: true,
-    });
-  }
-  for (const [index, profile] of requireObjectArray(
-    registry.forwarding_profiles,
-    `${file}.forwarding_profiles`,
-  ).entries()) {
-    const label = `${file}.forwarding_profiles[${index + 1}]`;
-    assertObjectKeys(profile, schedulerForwardingProfileKeys, label);
-    requireString(profile.name, `${label}.name`);
-    for (const [mappingIndex, mapping] of requireObjectArray(
-      profile.mappings,
-      `${label}.mappings`,
-      { nonEmpty: true },
-    ).entries()) {
-      const mappingLabel = `${label}.mappings[${mappingIndex + 1}]`;
-      assertObjectKeys(mapping, schedulerForwardingMappingKeys, mappingLabel);
-      requireString(mapping.source_resource, `${mappingLabel}.source_resource`);
-      requireString(mapping.target_resource, `${mappingLabel}.target_resource`);
-      requireString(mapping.env_variable, `${mappingLabel}.env_variable`, {
-        pattern: envNamePattern,
-      });
-    }
-  }
+  validateSchedulerResourceRegistryManifestShape(file, file);
 }
 
 function validateBootstrapAdminShape(file) {

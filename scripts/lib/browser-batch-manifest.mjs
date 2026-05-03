@@ -2,8 +2,40 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+import {
+  readJsonObject,
+  requireObject,
+  requireSchemaID,
+  requireString,
+  validateObjectArray,
+  validateObjectShape,
+} from "./json-shape.mjs";
+
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";
 
+const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
+const browserBatchKeys = new Set(["schema_id", "stages"]);
+const browserStageKeys = new Set([
+  "name",
+  "target",
+  "schedule_tags",
+  "scheduler_dependency_policy",
+  "summary_children",
+  "groups",
+]);
+const browserGroupKeys = new Set([
+  "name",
+  "kind",
+  "target",
+  "project",
+  "workers",
+  "config",
+  "coverage",
+  "execution_dependency",
+  "dependency_target",
+  "reset_before",
+  "specs",
+]);
 const allowedGroupKinds = new Set([
   "webserver-backed",
   "duration_balanced_specs",
@@ -19,15 +51,46 @@ const allowedSchedulerDependencyPolicies = new Set([
   "after_backend",
 ]);
 
-export function loadBrowserBatchManifest(manifestPath) {
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  if (manifest.schema_id !== browserBatchManifestSchemaID) {
-    throw new Error(`${manifestPath} must declare schema_id ${browserBatchManifestSchemaID}`);
-  }
-  if (!Array.isArray(manifest.stages)) {
-    throw new Error(`${manifestPath} must declare stages[]`);
-  }
+function manifestValue(fileOrManifest, label) {
+  return typeof fileOrManifest === "string"
+    ? readJsonObject(fileOrManifest, label)
+    : requireObject(fileOrManifest, label);
+}
+
+export function validateBrowserBatchManifestShape(fileOrManifest, label = fileOrManifest) {
+  const manifest = manifestValue(fileOrManifest, label);
+  validateObjectShape(manifest, label, { keys: browserBatchKeys });
+  requireSchemaID(manifest, browserBatchManifestSchemaID, label);
+  validateObjectArray(
+    manifest.stages,
+    `${label}.stages`,
+    { nonEmpty: true, keys: browserStageKeys },
+    (stage, stageLabel) => {
+      requireString(stage.name, `${stageLabel}.name`);
+      requireString(stage.target, `${stageLabel}.target`, {
+        pattern: makeTargetPattern,
+      });
+      validateObjectArray(
+        stage.groups,
+        `${stageLabel}.groups`,
+        { nonEmpty: true, keys: browserGroupKeys },
+        (group, groupLabel) => {
+          requireString(group.name, `${groupLabel}.name`);
+          requireString(group.target, `${groupLabel}.target`, {
+            pattern: makeTargetPattern,
+          });
+        },
+      );
+    },
+  );
   return manifest;
+}
+
+export function loadBrowserBatchManifest(manifestPath) {
+  return validateBrowserBatchManifestShape(
+    JSON.parse(readFileSync(manifestPath, "utf8")),
+    manifestPath,
+  );
 }
 
 export function loadBrowserBatchStages(manifestPath) {

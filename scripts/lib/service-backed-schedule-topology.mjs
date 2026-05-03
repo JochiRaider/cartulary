@@ -19,10 +19,10 @@ import {
   normalizeResourceClaims,
   normalizeResourceLimits,
 } from "./scheduler-resources.mjs";
+import { validateServiceBackedScheduleManifestShape } from "./service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
-const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 
 function resolveRepoPath(file) {
   return path.isAbsolute(file) ? file : path.join(repoRoot, file);
@@ -48,10 +48,7 @@ function requireString(value, label) {
 
 function loadScheduleManifest(file) {
   const manifest = readJSON(file);
-  if (manifest.schema_id !== scheduleSchemaID) {
-    throw new Error(`${file} must declare schema_id ${scheduleSchemaID}`);
-  }
-  return manifest;
+  return validateServiceBackedScheduleManifestShape(manifest, file);
 }
 
 function assertSameList(actual, expected, label) {

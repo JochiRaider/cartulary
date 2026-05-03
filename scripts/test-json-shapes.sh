@@ -171,6 +171,106 @@ write_valid_check_schedule() {
 JSON
 }
 
+write_valid_service_backed_schedule() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_schedule.v8",
+  "generated": {
+    "generator": "synthetic",
+    "topology": "tools/execution_topology_manifest.json",
+    "browser_batch_manifest": "tools/browser_e2e_batch_manifest.json",
+    "make_target_duration_baseline": "tools/service_backed_make_target_duration_baselines.json"
+  },
+  "schedules": [
+    {
+      "target": "test",
+      "capacity_profile": "service_backed_default",
+      "resource_limits": {
+        "go_cpu": 1
+      },
+      "work_unit_sources": [
+        {
+          "type": "make_target",
+          "class": "backend",
+          "target": "backend-store",
+          "needs": [],
+          "weight": 1,
+          "resource_claims": {}
+        }
+      ]
+    }
+  ]
+}
+JSON
+}
+
+write_valid_browser_batch() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v4",
+  "stages": [
+    {
+      "name": "functional",
+      "target": "browser-e2e-functional",
+      "schedule_tags": ["browser"],
+      "scheduler_dependency_policy": "parallel",
+      "summary_children": [],
+      "groups": [
+        {
+          "name": "functional-core",
+          "kind": "functional",
+          "target": "browser-e2e-functional"
+        }
+      ]
+    }
+  ]
+}
+JSON
+}
+
+write_valid_scheduler_resource_registry() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_resource_registry.v3",
+  "resources": [
+    {
+      "name": "host_cpu",
+      "display_name": "Host CPU",
+      "schedulers": ["check"],
+      "display_order": 10,
+      "capacity": {
+        "default_limit": 1,
+        "override_env": "CHECK_HOST_CPU_JOBS"
+      }
+    }
+  ],
+  "templates": [
+    {
+      "name": "browser_stage",
+      "prefix": "browser_stage_",
+      "display_name": "Browser stage",
+      "schedulers": ["service_backed"],
+      "display_order": 100
+    }
+  ],
+  "capacity_profiles": [
+    {
+      "name": "check_default",
+      "scheduler": "check",
+      "resources": ["host_cpu"]
+    }
+  ],
+  "forwarding_profiles": []
+}
+JSON
+}
+
 write_valid_bootstrap_admin() {
   local file="$1"
 
@@ -290,6 +390,41 @@ const mutations = {
   "check-schedule-schema-v6": (fixture) => {
     fixture.schema_id = "cartulary.check_schedule.v6";
   },
+  "check-schedule-unknown-work-unit-key": (fixture) => {
+    fixture.schedules[0].work_units[0].legacy_key = true;
+  },
+  "check-schedule-empty-schedules": (fixture) => {
+    fixture.schedules = [];
+  },
+  "check-schedule-invalid-env-name": (fixture) => {
+    fixture.schedules[0].work_units[0].env = {
+      "not-safe": "1",
+    };
+  },
+  "service-backed-unknown-source-key": (fixture) => {
+    fixture.schedules[0].work_unit_sources[0].legacy_key = true;
+  },
+  "service-backed-empty-sources": (fixture) => {
+    fixture.schedules[0].work_unit_sources = [];
+  },
+  "service-backed-missing-generated": (fixture) => {
+    delete fixture.generated.topology;
+  },
+  "browser-batch-unknown-stage-key": (fixture) => {
+    fixture.stages[0].legacy_key = true;
+  },
+  "browser-batch-unknown-group-key": (fixture) => {
+    fixture.stages[0].groups[0].legacy_key = true;
+  },
+  "browser-batch-empty-groups": (fixture) => {
+    fixture.stages[0].groups = [];
+  },
+  "scheduler-registry-bad-capacity-one-of": (fixture) => {
+    fixture.resources[0].capacity.auto_policy = "host_cpu_auto";
+  },
+  "scheduler-registry-unknown-key": (fixture) => {
+    fixture.legacy_key = true;
+  },
   "execution-topology-duplicate-target": (fixture) => {
     fixture.task_surface.targets.push({ name: "backend-unit" });
   },
@@ -390,6 +525,90 @@ write_valid_check_schedule "$stale_schedule"
 mutate_json_fixture check-schedule-schema-v6 "$stale_schedule"
 stale_schedule_output="$(assert_fails "stale generated schedule shape" run_shape_check check-schedule "$stale_schedule")"
 assert_contains "$stale_schedule_output" "must declare schema_id cartulary.check_schedule.v7" "stale generated schedule shape"
+
+unknown_work_unit_key="$tmp_dir/check_schedule_unknown_work_unit_key.json"
+write_valid_check_schedule "$unknown_work_unit_key"
+mutate_json_fixture check-schedule-unknown-work-unit-key "$unknown_work_unit_key"
+unknown_work_unit_output="$(assert_fails "unknown check schedule work unit key" run_shape_check check-schedule "$unknown_work_unit_key")"
+assert_contains "$unknown_work_unit_output" "unknown key legacy_key" "unknown check schedule work unit key"
+
+empty_check_schedules="$tmp_dir/check_schedule_empty_schedules.json"
+write_valid_check_schedule "$empty_check_schedules"
+mutate_json_fixture check-schedule-empty-schedules "$empty_check_schedules"
+empty_check_schedules_output="$(assert_fails "empty check schedule schedules" run_shape_check check-schedule "$empty_check_schedules")"
+assert_contains "$empty_check_schedules_output" "schedules must be a non-empty array" "empty check schedule schedules"
+
+invalid_check_env="$tmp_dir/check_schedule_invalid_env.json"
+write_valid_check_schedule "$invalid_check_env"
+mutate_json_fixture check-schedule-invalid-env-name "$invalid_check_env"
+invalid_check_env_output="$(assert_fails "invalid check schedule env name" run_shape_check check-schedule "$invalid_check_env")"
+assert_contains "$invalid_check_env_output" "env key has invalid value" "invalid check schedule env name"
+
+service_backed_schedule="$tmp_dir/service_backed_schedule.json"
+write_valid_service_backed_schedule "$service_backed_schedule"
+assert_contains "$(assert_passes "valid service-backed schedule" run_shape_check service-backed-schedule "$service_backed_schedule")" \
+  "json shape check passed" \
+  "valid service-backed schedule"
+
+unknown_service_source_key="$tmp_dir/service_backed_schedule_unknown_source_key.json"
+write_valid_service_backed_schedule "$unknown_service_source_key"
+mutate_json_fixture service-backed-unknown-source-key "$unknown_service_source_key"
+unknown_service_source_output="$(assert_fails "unknown service-backed source key" run_shape_check service-backed-schedule "$unknown_service_source_key")"
+assert_contains "$unknown_service_source_output" "unknown key legacy_key" "unknown service-backed source key"
+
+empty_service_sources="$tmp_dir/service_backed_schedule_empty_sources.json"
+write_valid_service_backed_schedule "$empty_service_sources"
+mutate_json_fixture service-backed-empty-sources "$empty_service_sources"
+empty_service_sources_output="$(assert_fails "empty service-backed sources" run_shape_check service-backed-schedule "$empty_service_sources")"
+assert_contains "$empty_service_sources_output" "work_unit_sources must be a non-empty array" "empty service-backed sources"
+
+missing_service_generated="$tmp_dir/service_backed_schedule_missing_generated.json"
+write_valid_service_backed_schedule "$missing_service_generated"
+mutate_json_fixture service-backed-missing-generated "$missing_service_generated"
+missing_service_generated_output="$(assert_fails "missing service-backed generated metadata" run_shape_check service-backed-schedule "$missing_service_generated")"
+assert_contains "$missing_service_generated_output" "generated.topology must be a non-empty string" "missing service-backed generated metadata"
+
+browser_batch="$tmp_dir/browser_batch.json"
+write_valid_browser_batch "$browser_batch"
+assert_contains "$(assert_passes "valid browser batch" run_shape_check browser-batch "$browser_batch")" \
+  "json shape check passed" \
+  "valid browser batch"
+
+unknown_browser_stage_key="$tmp_dir/browser_batch_unknown_stage_key.json"
+write_valid_browser_batch "$unknown_browser_stage_key"
+mutate_json_fixture browser-batch-unknown-stage-key "$unknown_browser_stage_key"
+unknown_browser_stage_output="$(assert_fails "unknown browser stage key" run_shape_check browser-batch "$unknown_browser_stage_key")"
+assert_contains "$unknown_browser_stage_output" "unknown key legacy_key" "unknown browser stage key"
+
+unknown_browser_group_key="$tmp_dir/browser_batch_unknown_group_key.json"
+write_valid_browser_batch "$unknown_browser_group_key"
+mutate_json_fixture browser-batch-unknown-group-key "$unknown_browser_group_key"
+unknown_browser_group_output="$(assert_fails "unknown browser group key" run_shape_check browser-batch "$unknown_browser_group_key")"
+assert_contains "$unknown_browser_group_output" "unknown key legacy_key" "unknown browser group key"
+
+empty_browser_groups="$tmp_dir/browser_batch_empty_groups.json"
+write_valid_browser_batch "$empty_browser_groups"
+mutate_json_fixture browser-batch-empty-groups "$empty_browser_groups"
+empty_browser_groups_output="$(assert_fails "empty browser groups" run_shape_check browser-batch "$empty_browser_groups")"
+assert_contains "$empty_browser_groups_output" "groups must be a non-empty array" "empty browser groups"
+
+scheduler_registry="$tmp_dir/scheduler_resource_registry.json"
+write_valid_scheduler_resource_registry "$scheduler_registry"
+assert_contains "$(assert_passes "valid scheduler resource registry" run_shape_check scheduler-resource-registry "$scheduler_registry")" \
+  "json shape check passed" \
+  "valid scheduler resource registry"
+
+bad_scheduler_capacity="$tmp_dir/scheduler_resource_registry_bad_capacity.json"
+write_valid_scheduler_resource_registry "$bad_scheduler_capacity"
+mutate_json_fixture scheduler-registry-bad-capacity-one-of "$bad_scheduler_capacity"
+bad_scheduler_capacity_output="$(assert_fails "invalid scheduler capacity one-of" run_shape_check scheduler-resource-registry "$bad_scheduler_capacity")"
+assert_contains "$bad_scheduler_capacity_output" "must declare exactly one of default_limit or auto_policy" "invalid scheduler capacity one-of"
+
+unknown_scheduler_key="$tmp_dir/scheduler_resource_registry_unknown_key.json"
+write_valid_scheduler_resource_registry "$unknown_scheduler_key"
+mutate_json_fixture scheduler-registry-unknown-key "$unknown_scheduler_key"
+unknown_scheduler_key_output="$(assert_fails "unknown scheduler registry key" run_shape_check scheduler-resource-registry "$unknown_scheduler_key")"
+assert_contains "$unknown_scheduler_key_output" "unknown key legacy_key" "unknown scheduler registry key"
 
 bootstrap_admin="$tmp_dir/bootstrap-admin.json"
 write_valid_bootstrap_admin "$bootstrap_admin"

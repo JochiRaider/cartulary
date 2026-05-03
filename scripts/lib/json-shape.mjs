@@ -108,6 +108,21 @@ export function assertRequiredKeys(object, requiredKeys, label) {
   }
 }
 
+export function validateObjectShape(
+  value,
+  label,
+  { keys = null, requiredKeys = null } = {},
+) {
+  const object = requireObject(value, label);
+  if (keys) {
+    assertObjectKeys(object, keys, label);
+  }
+  if (requiredKeys) {
+    assertRequiredKeys(object, requiredKeys, label);
+  }
+  return object;
+}
+
 export function assertUnique(values, label) {
   const seen = new Set();
   for (const value of values) {
@@ -144,4 +159,21 @@ export function requireObjectArray(value, label, { nonEmpty = false } = {}) {
   return requireArray(value, label, { nonEmpty }).map((entry, index) =>
     requireObject(entry, `${label}[${index + 1}]`),
   );
+}
+
+export function validateObjectArray(
+  value,
+  label,
+  { nonEmpty = false, keys = null, requiredKeys = null } = {},
+  visit = null,
+) {
+  const entries = requireObjectArray(value, label, { nonEmpty });
+  for (const [index, entry] of entries.entries()) {
+    const entryLabel = `${label}[${index + 1}]`;
+    validateObjectShape(entry, entryLabel, { keys, requiredKeys });
+    if (visit) {
+      visit(entry, entryLabel, index);
+    }
+  }
+  return entries;
 }

@@ -688,6 +688,38 @@ const fail = (message) => {
   throw new Error(message);
 };
 
+const validSchedulerRegistry = () => ({
+  schema_id: "cartulary.scheduler_resource_registry.v3",
+  resources: [
+    {
+      name: "host_cpu",
+      display_name: "host CPU",
+      schedulers: ["check"],
+      display_order: 10,
+      capacity: {
+        default_limit: 1,
+      },
+    },
+  ],
+  templates: [
+    {
+      name: "browser_stage",
+      prefix: "browser_stage_",
+      display_name: "browser stage",
+      schedulers: ["service_backed"],
+      display_order: 100,
+    },
+  ],
+  capacity_profiles: [
+    {
+      name: "check_default",
+      scheduler: "check",
+      resources: ["host_cpu"],
+    },
+  ],
+  forwarding_profiles: [],
+});
+
 if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed") {
   fail("browser stage lane derivation changed");
 }
@@ -748,19 +780,11 @@ if (cliResolved.limits.get("host_cpu") !== 4 || cliResolved.sources.get("host_cp
   fail("check host_cpu CLI override must win over env override");
 }
 const invalidRegistryPath = path.join(mkdtempSync(path.join(os.tmpdir(), "cartulary-registry-test-")), "registry.json");
+const invalidCapacityRegistry = validSchedulerRegistry();
+invalidCapacityRegistry.resources[0].capacity.auto_policy = "bad_policy";
 writeFileSync(
   invalidRegistryPath,
-  `${JSON.stringify({
-    schema_id: "cartulary.scheduler_resource_registry.v3",
-    resources: [
-      {
-        name: "bad",
-        display_name: "bad",
-        schedulers: ["check"],
-        capacity: { default_limit: 1, auto_policy: "bad_policy" },
-      },
-    ],
-  })}\n`,
+  `${JSON.stringify(invalidCapacityRegistry)}\n`,
 );
 try {
   loadSchedulerResourceRegistry(invalidRegistryPath);
@@ -771,13 +795,11 @@ try {
   }
 }
 const unknownRegistryKeyPath = path.join(mkdtempSync(path.join(os.tmpdir(), "cartulary-registry-key-test-")), "registry.json");
+const unknownKeyRegistry = validSchedulerRegistry();
+unknownKeyRegistry.retired_aliases = [];
 writeFileSync(
   unknownRegistryKeyPath,
-  `${JSON.stringify({
-    schema_id: "cartulary.scheduler_resource_registry.v3",
-    resources: [],
-    retired_aliases: [],
-  })}\n`,
+  `${JSON.stringify(unknownKeyRegistry)}\n`,
 );
 try {
   loadSchedulerResourceRegistry(unknownRegistryKeyPath);
