@@ -551,6 +551,70 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 	}
 }
 
+func TestPhase2_I_2_07_MembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase2-i-2-07")
+
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	targetUserID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-i207-target@example.test", "Phase 2 I207 Target", "Phase2I207TargetPass!", false, false, true)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-i-2-07-create",
+		"incident_key":  "IR-I207",
+		"title":         "Membership Same Role",
+	})
+	incidentID := incident["incident_id"].(string)
+	membership := phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+		"client_txn_id": "txn-i-2-07-membership",
+		"user_id":       targetUserID,
+		"role":          "viewer",
+	})
+	baseVersion := membership["membership_version"]
+	baseVersionFloat, ok := baseVersion.(float64)
+	if !ok {
+		t.Fatalf("unexpected membership_version type in create payload: %#v", membership)
+	}
+	beforeMutationArtifacts := phase2test.CountMutationArtifacts(
+		t,
+		harness.DB,
+		phase2test.MutationSelector{IncidentID: incidentID},
+		phase2test.MutationOwnerIncidentMembership,
+	)
+
+	noOp := phase2test.PatchMembership(t, harness.Server, adminLogin, incidentID, targetUserID, map[string]any{
+		"base_membership_version": baseVersion,
+		"role":                    "viewer",
+	})
+	if noOp["role"] != "viewer" || noOp["membership_version"] != baseVersion {
+		t.Fatalf("same-role membership patch must return unchanged role and version: before=%#v after=%#v", membership, noOp)
+	}
+
+	var (
+		durableRole    string
+		durableVersion int64
+	)
+	if err := harness.DB.QueryRow(`
+SELECT role, membership_version
+  FROM incident_memberships
+ WHERE incident_id::text = $1
+   AND user_id::text = $2
+`, incidentID, targetUserID).Scan(&durableRole, &durableVersion); err != nil {
+		t.Fatalf("query membership after same-role patch: %v", err)
+	}
+	if durableRole != "viewer" || float64(durableVersion) != baseVersionFloat {
+		t.Fatalf("same-role membership patch must keep durable role and version stable: role=%q version=%d before=%#v", durableRole, durableVersion, membership)
+	}
+
+	afterMutationArtifacts := phase2test.CountMutationArtifacts(
+		t,
+		harness.DB,
+		phase2test.MutationSelector{IncidentID: incidentID},
+		phase2test.MutationOwnerIncidentMembership,
+	)
+	if afterMutationArtifacts != beforeMutationArtifacts {
+		t.Fatalf("same-role membership patch must not write membership mutation artifacts: before=%d after=%d", beforeMutationArtifacts, afterMutationArtifacts)
+	}
+}
+
 func TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-i-2-05")

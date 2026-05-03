@@ -44,7 +44,7 @@ test("supports route-owned incident validation errors through browser-authentica
     "invalid_incident_create",
     {
       field: "initial_memberships",
-      reason_code: "initial_memberships_not_supported",
+      reason_code: "collaborator_seeding_not_supported",
     },
   );
 
@@ -61,7 +61,7 @@ test("supports route-owned incident validation errors through browser-authentica
     "invalid_incident_create",
     {
       field: "unexpected",
-      reason_code: "unknown_top_level_member",
+      reason_code: "unknown_field",
     },
   );
 
@@ -91,7 +91,7 @@ test("supports route-owned incident validation errors through browser-authentica
     "invalid_incident_patch",
     {
       field: "unknown",
-      reason_code: "unknown_top_level_member",
+      reason_code: "unknown_field",
     },
   );
 });

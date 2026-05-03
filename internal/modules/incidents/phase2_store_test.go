@@ -464,6 +464,36 @@ func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *te
 		t.Fatalf("stale membership patch must not mutate membership state: before=%#v after=%#v", membershipResult.Membership, current)
 	}
 
+	noOp, changed, err := store.UpdateMembership(
+		context.Background(),
+		admin,
+		incidentResult.Incident.ID,
+		target.ID,
+		incidents.MembershipPatchRequest{
+			BaseMembershipVersion: membershipResult.Membership.MembershipVersion,
+			Role:                  membershipResult.Membership.Role,
+		},
+		"req-phase2-u-2-07-no-op",
+		time.Now().UTC(),
+	)
+	if err != nil {
+		t.Fatalf("same-role membership patch must succeed: %v", err)
+	}
+	if changed {
+		t.Fatalf("same-role membership patch must report no material change: %#v", noOp)
+	}
+	if noOp.Role != membershipResult.Membership.Role || noOp.MembershipVersion != membershipResult.Membership.MembershipVersion {
+		t.Fatalf("same-role membership patch must keep role and version stable: before=%#v after=%#v", membershipResult.Membership, noOp)
+	}
+
+	current, err = store.GetMembership(context.Background(), incidentResult.Incident.ID, target.ID)
+	if err != nil {
+		t.Fatalf("lookup membership after same-role patch: %v", err)
+	}
+	if current.Role != membershipResult.Membership.Role || current.MembershipVersion != membershipResult.Membership.MembershipVersion {
+		t.Fatalf("same-role membership patch must not mutate durable state: before=%#v after=%#v", membershipResult.Membership, current)
+	}
+
 	if err := store.DeleteMembership(
 		context.Background(),
 		admin,

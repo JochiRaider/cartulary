@@ -361,7 +361,7 @@ emit_playwright_manifest_slice() {
   local helper_status
 
   phase_dir="$(prepare_phase_artifact_dir "$label")"
-  selection_report="${phase_dir}/manifest-selection.json"
+  selection_report="${phase_dir}/manifest-selected-tests.json"
   "$node_bin" "$manifest_script" playwright-selection-report "$phase" authoritative browser_functional >"$selection_report"
 
   set +e
@@ -401,7 +401,7 @@ emit_playwright_support_slice() {
   local helper_status
 
   phase_dir="$(prepare_phase_artifact_dir "$label")"
-  selection_report="${phase_dir}/manifest-selection.json"
+  selection_report="${phase_dir}/manifest-selected-tests.json"
   "$node_bin" "$manifest_script" playwright-selection-report "$phase" supplemental browser_support >"$selection_report"
 
   set +e

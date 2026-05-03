@@ -43,7 +43,8 @@ mapfile -t manifest_files < <("$node_bin" "$manifest_script" playwright-files "$
 grep_pattern="$("$node_bin" "$manifest_script" playwright-grep "$phase_manifest" "$coverage" "$execution_dependency")"
 output_mode="$(resolve_output_mode)"
 phase_dir="$(prepare_phase_artifact_dir "$phase_label")"
-selection_report="${phase_dir}/manifest-selection.json"
+selection_report="${phase_dir}/manifest-selected-tests.json"
+list_report="${phase_dir}/playwright-list.json"
 run_report="${phase_dir}/runner.json"
 stdout_log="${phase_dir}/stdout.log"
 stderr_log="${phase_dir}/stderr.log"
@@ -64,7 +65,7 @@ run_command_text="$(render_command "${run_command[@]}")"
 phase_capture_start PHASE
 
 set +e
-PLAYWRIGHT_JSON_OUTPUT_FILE="$selection_report" "${list_command[@]}" >"$stdout_log" 2>"$stderr_log"
+PLAYWRIGHT_JSON_OUTPUT_FILE="$list_report" "${list_command[@]}" >"$stdout_log" 2>"$stderr_log"
 list_status=$?
 set -e
 if [[ "$list_status" -ne 0 ]]; then
@@ -88,6 +89,8 @@ if [[ "$list_status" -ne 0 ]]; then
   emit_target_summary fail || true
   exit "$list_status"
 fi
+
+"$node_bin" "$manifest_script" playwright-selection-report "$phase_manifest" "$coverage" "$execution_dependency" >"$selection_report"
 
 set +e
 if [[ "$output_mode" != "quiet" ]]; then

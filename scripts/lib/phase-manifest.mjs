@@ -1844,13 +1844,25 @@ function main(argv) {
       if (entries.length === 0) {
         throw new Error(`no ${coverage} playwright tests found for ${phase}`);
       }
-      const specs = entries.map((entry) => ({
-        title: entry.title,
-        file: normalizePlaywrightFile(entry.file),
-        tests: [{ results: [], status: "skipped" }],
-      }));
       process.stdout.write(
-        `${JSON.stringify({ suites: [{ specs, suites: [] }], errors: [] }, null, 2)}\n`,
+        `${JSON.stringify(
+          {
+            schema_id: "cartulary.playwright_manifest_selection.v1",
+            phase,
+            coverage,
+            execution_dependency: executionDependency,
+            expected_count: entries.length,
+            selected_tests: entries.map((entry) => ({
+              id: entry.id,
+              file: normalizePlaywrightFile(entry.file),
+              title: entry.title,
+              coverage: entry.coverage,
+              execution_dependency: entry.execution_dependency ?? "",
+            })),
+          },
+          null,
+          2,
+        )}\n`,
       );
       return;
     }

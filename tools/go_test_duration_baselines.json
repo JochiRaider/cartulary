@@ -102,6 +102,7 @@
     "github.com/JochiRaider/cartulary/internal/modules/incidents::TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange": 180,
     "github.com/JochiRaider/cartulary/internal/modules/incidents::TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks": 180,
     "github.com/JochiRaider/cartulary/internal/modules/incidents::TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot": 190,
+    "github.com/JochiRaider/cartulary/internal/modules/incidents::TestPhase2_I_2_07_MembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact": 210,
     "github.com/JochiRaider/cartulary/internal/modules/incidents::TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences": 170,
     "github.com/JochiRaider/cartulary/internal/modules/incidents::TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue": 30,
     "github.com/JochiRaider/cartulary/internal/modules/incidents::TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor": 90,
@@ -156,5 +157,5 @@
     "github.com/JochiRaider/cartulary/internal/platform/objectstore::TestSupportPhase0_ManagedServiceObjectStoreBinding": 20,
     "github.com/JochiRaider/cartulary/internal/platform/postgres::TestPhase0_SchemaBootstrap_I_0_01": 1310
   },
-  "updated_at": "2026-05-02T16:19:13.249Z"
+  "updated_at": "2026-05-03T14:17:02.288Z"
 }

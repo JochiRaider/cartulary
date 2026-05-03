@@ -5837,7 +5837,7 @@ function handlePlaywrightPhase({ manifestAware }) {
     manifestSummary,
     manifestMismatch,
     artifacts: {
-      selection_json: selectionReport,
+      selected_tests_json: selectionReport,
       runner_json: reportFile,
       stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
       stderr_log: existsSync(stderrLog) ? stderrLog : "",

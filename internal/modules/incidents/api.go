@@ -84,12 +84,25 @@ func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth
 		"current_phase":             {},
 		"primary_external_case_ref": {},
 	}
+	serverManaged := map[string]struct{}{
+		"incident_id":        {},
+		"status":             {},
+		"incident_version":   {},
+		"closed_at":          {},
+		"created_at":         {},
+		"updated_at":         {},
+		"created_by_user_id": {},
+		"updated_by_user_id": {},
+	}
 	for key := range raw {
 		if key == "initial_memberships" {
-			return CreateIncidentRequest{}, invalidIncidentCreate(key, "initial_memberships_not_supported")
+			return CreateIncidentRequest{}, invalidIncidentCreate(key, "collaborator_seeding_not_supported")
+		}
+		if _, ok := serverManaged[key]; ok {
+			return CreateIncidentRequest{}, invalidIncidentCreate(key, "server_managed_field")
 		}
 		if _, ok := allowed[key]; !ok {
-			return CreateIncidentRequest{}, invalidIncidentCreate(key, "unknown_top_level_member")
+			return CreateIncidentRequest{}, invalidIncidentCreate(key, "unknown_field")
 		}
 	}
 
@@ -177,7 +190,7 @@ func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.A
 			return IncidentPatchRequest{}, invalidIncidentPatch(key, "forbidden_field")
 		}
 		if _, ok := allowed[key]; !ok {
-			return IncidentPatchRequest{}, invalidIncidentPatch(key, "unknown_top_level_member")
+			return IncidentPatchRequest{}, invalidIncidentPatch(key, "unknown_field")
 		}
 	}
 

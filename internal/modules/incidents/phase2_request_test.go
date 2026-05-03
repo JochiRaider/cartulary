@@ -46,7 +46,7 @@ func TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncident
 		"title":"Example",
 		"initial_memberships":[]
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "initial_memberships", "initial_memberships_not_supported")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "initial_memberships", "collaborator_seeding_not_supported")
 
 	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-01-invalid-top-level",
@@ -54,7 +54,15 @@ func TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncident
 		"title":"Example",
 		"unexpected":true
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "unexpected", "unknown_top_level_member")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "unexpected", "unknown_field")
+
+	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-01-server-managed",
+		"incident_key":"IR-2026-004",
+		"title":"Example",
+		"incident_version":1
+	}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "incident_version", "server_managed_field")
 }
 
 func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable(t *testing.T) {
@@ -118,7 +126,7 @@ func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStabl
 	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
 		"unknown":"field"
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "unknown", "unknown_top_level_member")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "unknown", "unknown_field")
 }
 
 func TestPhase2_U_2_06_MembershipCreateUsesLookupOnlyForUserOrEmailTargets(t *testing.T) {

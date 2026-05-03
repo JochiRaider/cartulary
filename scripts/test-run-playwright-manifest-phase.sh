@@ -121,7 +121,9 @@ success_output="$(
 )"
 assert_empty "$success_output" "playwright manifest success"
 success_summary="$tmp_dir/results/playwright-manifest-success/adhoc/playwright-manifest-success/phase-summary.json"
-assert_contains "$(json_field "$success_summary" "artifacts.selection_json")" "manifest-selection.json" "playwright success selection artifact"
+selected_tests_json="$(json_field "$success_summary" "artifacts.selected_tests_json")"
+assert_contains "$selected_tests_json" "manifest-selected-tests.json" "playwright success selection artifact"
+assert_contains "$(json_field "$selected_tests_json" "schema_id")" "cartulary.playwright_manifest_selection.v1" "playwright success selection schema"
 assert_contains "$(json_field "$success_summary" "artifacts.runner_json")" "runner.json" "playwright success runner artifact"
 
 set +e

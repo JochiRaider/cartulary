@@ -65,6 +65,7 @@
     "I-2-04",
     "I-2-05",
     "I-2-06",
+    "I-2-07",
     "E-2-01",
     "E-2-02",
     "E-2-03"
@@ -269,8 +270,8 @@
       "symbol": "TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Store-backed membership patch and delete reject stale `base_membership_version` values without mutating durable membership state.",
-      "out_of_scope": "Pure decoder shape and `last_incident_admin` guard coverage stay on the executed support-only unit surface.",
+      "claim": "Store-backed membership patch and delete reject stale `base_membership_version` values without mutating durable membership state, and same-role membership patch keeps `membership_version` stable.",
+      "out_of_scope": "Live HTTP same-role patch evidence is covered by I-2-07; pure decoder shape and `last_incident_admin` guard coverage stay on the executed support-only unit surface.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase2 authoritative"
     },
@@ -452,6 +453,20 @@
       "evidence_layer": "integration",
       "claim": "Reserved but unclaimed family roots and descendants return canonical `extension_profile_not_claimed`, while outside-family paths preserve ordinary 404 handling.",
       "out_of_scope": "None for the declared dispatch contract.",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration phase2 authoritative incidents"
+    },
+    {
+      "id": "I-2-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_integration_test.go",
+      "symbol": "TestPhase2_I_2_07_MembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "integration",
+      "claim": "Live membership patch to the current role returns `200 OK`, keeps `membership_version` and durable role stable, and writes no membership mutation artifact.",
+      "out_of_scope": "Role-change authorization re-derivation remains I-2-03 evidence.",
       "execution_family": "backend-integration-incidents",
       "execution_label": "backend-integration phase2 authoritative incidents"
     }
