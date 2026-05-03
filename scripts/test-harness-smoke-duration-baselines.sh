@@ -24,6 +24,22 @@ assert_contains() {
   fi
 }
 
+assert_fails_with() {
+  local label="$1"
+  local needle="$2"
+  shift 2
+
+  set +e
+  local output
+  output="$("$@" 2>&1)"
+  local status=$?
+  set -e
+  if [[ "$status" -eq 0 ]]; then
+    fail "$label: expected command to fail"
+  fi
+  assert_contains "$output" "$needle" "$label"
+}
+
 phase_stdout_from_result() {
   local output="$1"
   local root
@@ -104,6 +120,23 @@ JSON
 
 update_output="$("$NODE_BIN" "$SCRIPT" update --baseline-file "$tmp_dir/baseline.json" --manifest "$manifest" "$results_dir" 2>&1)"
 assert_contains "$update_output" "updated 3 harness smoke duration baselines" "baseline update output"
+
+assert_fails_with \
+  "missing baseline flag value shows usage" \
+  "usage:" \
+  "$NODE_BIN" "$SCRIPT" update --baseline-file
+assert_fails_with \
+  "service-only topology flag is rejected" \
+  "usage:" \
+  "$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --manifest "$manifest" --topology "$tmp_dir/topology.json" "$results_dir"
+assert_fails_with \
+  "multiple harness results dirs are rejected" \
+  "usage:" \
+  "$NODE_BIN" "$SCRIPT" update --baseline-file "$tmp_dir/baseline.json" --manifest "$manifest" "$results_dir" "$results_dir"
+assert_fails_with \
+  "duplicate manifest flags are rejected" \
+  "usage:" \
+  "$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --manifest "$manifest" --manifest "$manifest" "$results_dir"
 
 "$NODE_BIN" - "$tmp_dir/baseline.json" <<'EOF'
 const fs = require("node:fs");

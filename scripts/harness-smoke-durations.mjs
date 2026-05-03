@@ -2,7 +2,6 @@
 
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   defaultTaskSurfaceManifestPath,
@@ -10,19 +9,21 @@ import {
   loadTaskSurfaceManifest,
 } from "./lib/task-surface.mjs";
 import {
+  durationBaselineCliContext,
+  parseDurationBaselineResultsArgs,
+} from "./lib/duration-baseline-cli.mjs";
+import {
   durationDriftDescription,
   durationDriftKind,
 } from "./lib/duration-drift.mjs";
 import { findFilesNamed } from "./lib/result-artifacts.mjs";
-import { relToRepo, resolveRepoPath } from "./lib/repo-paths.mjs";
 import {
   readJSON,
   readPositiveTargetBaseline,
   sortedObjectByKey,
 } from "./lib/target-duration-baselines.mjs";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "..");
+const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
 const baselineSchemaID = "cartulary.harness_smoke_duration_baselines.v1";
 const defaultBaselineFile = path.join(repoRoot, "tools", "harness_smoke_duration_baselines.json");
 const baselineNote =
@@ -39,54 +40,19 @@ function usage() {
   process.exit(2);
 }
 
-function resolvePath(file) {
-  return resolveRepoPath(repoRoot, file);
-}
-
-function rel(file) {
-  return relToRepo(repoRoot, file);
-}
-
-function parseArgs(argv, command) {
-  const options = {
-    baselineFile: process.env.HARNESS_SMOKE_DURATION_BASELINE
-      ? resolvePath(process.env.HARNESS_SMOKE_DURATION_BASELINE)
-      : defaultBaselineFile,
-    manifestFile: process.env.TASK_SURFACE_MANIFEST
-      ? resolvePath(process.env.TASK_SURFACE_MANIFEST)
-      : defaultTaskSurfaceManifestPath,
-    resultsDir: "",
-  };
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--baseline-file") {
-      options.baselineFile = resolvePath(argv[index + 1] ?? "");
-      index += 1;
-      if (!options.baselineFile) {
-        usage();
-      }
-      continue;
-    }
-    if (arg === "--manifest") {
-      options.manifestFile = resolvePath(argv[index + 1] ?? "");
-      index += 1;
-      if (!options.manifestFile) {
-        usage();
-      }
-      continue;
-    }
-    if (arg.startsWith("--")) {
-      usage();
-    }
-    if (options.resultsDir) {
-      usage();
-    }
-    options.resultsDir = resolvePath(arg);
-  }
-  if (!command || !options.resultsDir) {
-    usage();
-  }
-  return options;
+function parseArgs(argv) {
+  return parseDurationBaselineResultsArgs(argv, {
+    usage,
+    resolvePath,
+    baselineFile: defaultBaselineFile,
+    flags: [
+      {
+        flag: "--manifest",
+        name: "manifestFile",
+        defaultValue: defaultTaskSurfaceManifestPath,
+      },
+    ],
+  });
 }
 
 function readBaseline(file, { allowMissing = false } = {}) {
@@ -217,11 +183,11 @@ function checkBaselineDrift(options) {
 function main(argv) {
   const [command, ...rest] = argv;
   if (command === "update") {
-    updateBaselines(parseArgs(rest, command));
+    updateBaselines(parseArgs(rest));
     return;
   }
   if (command === "check-drift") {
-    checkBaselineDrift(parseArgs(rest, command));
+    checkBaselineDrift(parseArgs(rest));
     return;
   }
   usage();

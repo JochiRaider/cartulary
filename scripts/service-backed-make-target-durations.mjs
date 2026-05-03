@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderServiceBackedScheduleProfile,
 } from "./lib/execution-topology.mjs";
+import {
+  durationBaselineCliContext,
+  parseDurationBaselineResultsArgs,
+} from "./lib/duration-baseline-cli.mjs";
 import {
   collectServiceTimingContamination,
   durationDriftDescription,
@@ -16,15 +19,13 @@ import {
   printContaminationReasons,
 } from "./lib/duration-drift.mjs";
 import { findFilesNamed } from "./lib/result-artifacts.mjs";
-import { relToRepo, resolveRepoPath } from "./lib/repo-paths.mjs";
 import {
   readJSON,
   readPositiveTargetBaseline,
   sortedObjectByKey,
 } from "./lib/target-duration-baselines.mjs";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "..");
+const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
 const baselineSchemaID = "cartulary.service_backed_make_target_duration_baselines.v1";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 const defaultBaselineFile = path.join(
@@ -49,63 +50,30 @@ function usage() {
   process.exit(2);
 }
 
-function resolvePath(file) {
-  return resolveRepoPath(repoRoot, file);
-}
-
-function rel(file) {
-  return relToRepo(repoRoot, file);
-}
-
 function positiveInteger(value, fallback) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
 function parseCommonArgs(argv, { includeTopology = false } = {}) {
-  const options = {
+  return parseDurationBaselineResultsArgs(argv, {
+    usage,
+    resolvePath,
     baselineFile: defaultBaselineFile,
-    topologyFile: defaultTopologyFile,
-    scheduleManifestFile: defaultScheduleManifestFile,
-    resultsDir: "",
-  };
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--baseline-file") {
-      options.baselineFile = resolvePath(argv[index + 1] ?? "");
-      index += 1;
-      if (!options.baselineFile) {
-        usage();
-      }
-      continue;
-    }
-    if (includeTopology && arg === "--topology") {
-      options.topologyFile = resolvePath(argv[index + 1] ?? "");
-      index += 1;
-      if (!options.topologyFile) {
-        usage();
-      }
-      continue;
-    }
-    if (includeTopology && arg === "--schedule-manifest") {
-      options.scheduleManifestFile = resolvePath(argv[index + 1] ?? "");
-      index += 1;
-      if (!options.scheduleManifestFile) {
-        usage();
-      }
-      continue;
-    }
-    if (arg.startsWith("--")) {
-      usage();
-    }
-    if (options.resultsDir) {
-      usage();
-    }
-    options.resultsDir = resolvePath(arg);
-  }
-  if (!options.resultsDir) {
-    usage();
-  }
-  return options;
+    flags: includeTopology
+      ? [
+          {
+            flag: "--topology",
+            name: "topologyFile",
+            defaultValue: defaultTopologyFile,
+          },
+          {
+            flag: "--schedule-manifest",
+            name: "scheduleManifestFile",
+            defaultValue: defaultScheduleManifestFile,
+          },
+        ]
+      : [],
+  });
 }
 
 function schedulerSummaryFiles(root) {

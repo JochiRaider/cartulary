@@ -21,6 +21,22 @@ assert_contains() {
   fi
 }
 
+assert_fails_with() {
+  local label="$1"
+  local needle="$2"
+  shift 2
+
+  set +e
+  local output
+  output="$("$@" 2>&1)"
+  local status=$?
+  set -e
+  if [[ "$status" -eq 0 ]]; then
+    fail "$label: expected command to fail"
+  fi
+  assert_contains "$output" "$needle" "$label"
+}
+
 phase_stdout_from_result() {
   local output="$1"
   local root
@@ -114,6 +130,23 @@ JSON
 
 update_output="$("$NODE_BIN" "$SCRIPT" update --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1)"
 assert_contains "$update_output" "updated 2 service-backed make-target duration baselines from 2 successful scheduler artifact(s)" "baseline update output"
+
+assert_fails_with \
+  "update rejects topology flag" \
+  "usage:" \
+  "$NODE_BIN" "$SCRIPT" update --baseline-file "$tmp_dir/baseline.json" --topology "$tmp_dir/topology.json" "$results_dir"
+assert_fails_with \
+  "missing schedule manifest flag value shows usage" \
+  "usage:" \
+  "$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --topology "$tmp_dir/topology.json" --schedule-manifest
+assert_fails_with \
+  "multiple service-backed results dirs are rejected" \
+  "usage:" \
+  "$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" "$results_dir"
+assert_fails_with \
+  "duplicate topology flags are rejected" \
+  "usage:" \
+  "$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --topology "$tmp_dir/topology.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir"
 
 "$NODE_BIN" - "$tmp_dir/baseline.json" <<'EOF'
 const fs = require("node:fs");
