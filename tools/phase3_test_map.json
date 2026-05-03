@@ -218,7 +218,7 @@
       "symbol": "TestPhase3_ProjectionContract_U_3_08",
       "execution_dependency": "backend_unit",
       "evidence_layer": "projection_contract",
-      "claim": "Timeline projection rows expose the full grid-owned field contract and keep stable `record_id` and `row_version` binding plus derived field shapes.",
+      "claim": "Timeline projection contract shaping exposes the full grid-owned field contract and keeps stable `record_id` and `row_version` binding plus derived field shapes.",
       "out_of_scope": "Persisted rebuild maintenance remains integration evidence.",
       "execution_family": "backend-unit-core",
       "execution_label": "backend-unit phase3 authoritative"

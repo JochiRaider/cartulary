@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 )
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
+const httpListenFDEnv = "CARTULARY_HTTP_LISTEN_FD"
 const enableTestRoutesEnv = "CARTULARY_ENABLE_TEST_ROUTES"
 
 func main() {
@@ -73,10 +76,36 @@ func main() {
 	}()
 
 	logger.Info("starting cartulary bootstrap server", "addr", server.Addr)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := serveHTTP(server, logger); err != nil && err != http.ErrServerClosed {
 		logger.Error("server exited", "error", err)
 		os.Exit(1)
 	}
+}
+
+func serveHTTP(server *http.Server, logger *slog.Logger) error {
+	if configuredFD := os.Getenv(httpListenFDEnv); configuredFD != "" {
+		fd, err := strconv.Atoi(configuredFD)
+		if err != nil {
+			return err
+		}
+		listenerFile := os.NewFile(uintptr(fd), "cartulary-http-listener")
+		if listenerFile == nil {
+			return errors.New("create inherited http listener file")
+		}
+		defer listenerFile.Close()
+
+		listener, err := net.FileListener(listenerFile)
+		if err != nil {
+			return err
+		}
+		defer listener.Close()
+
+		server.Addr = listener.Addr().String()
+		logger.Info("serving cartulary bootstrap server on inherited listener", "addr", server.Addr)
+		return server.Serve(listener)
+	}
+
+	return server.ListenAndServe()
 }
 
 func writeStartupError(err error, logger *slog.Logger, action string) {

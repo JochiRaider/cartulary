@@ -76,7 +76,7 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 		t.Fatalf("unexpected projection cell keys: got %v want %v", gotCellKeys, wantCellKeys)
 	}
 	if cells["timeline.summary"].(map[string]any)["value"] != summary || cells["timeline.details"].(map[string]any)["value"] != details || cells["timeline.source_text"].(map[string]any)["value"] != sourceText {
-		t.Fatalf("expected scalar field values in projection row, got %#v", cells)
+		t.Fatalf("expected scalar field values in projection contract row shape, got %#v", cells)
 	}
 	if cells["timeline.capture_state"].(map[string]any)["value"] != captureStateReviewed {
 		t.Fatalf("expected capture_state cell value, got %#v", cells["timeline.capture_state"])

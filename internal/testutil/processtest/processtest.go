@@ -20,6 +20,7 @@ import (
 )
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
+const httpListenFDEnv = "CARTULARY_HTTP_LISTEN_FD"
 const serverBinEnv = "CARTULARY_SERVER_BIN"
 
 type Server struct {
@@ -44,20 +45,30 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	for key, value := range options.Env {
 		env[key] = value
 	}
-	if strings.TrimSpace(env[httpAddrEnv]) == "" {
-		env[httpAddrEnv] = freeAddress(t)
+	listenAddr := strings.TrimSpace(env[httpAddrEnv])
+	if listenAddr == "" {
+		listenAddr = "127.0.0.1:0"
 	}
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		t.Fatalf("open cmd/server listener: %v", err)
+	}
+	listenerFile := listenerFile(t, listener)
+	env[httpAddrEnv] = listener.Addr().String()
+	env[httpListenFDEnv] = "3"
 
 	ctx, cancel := context.WithCancel(context.Background())
 	command, args := serverCommand()
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = repoRoot()
 	cmd.Env = append(os.Environ(), envPairs(env)...)
+	cmd.ExtraFiles = []*os.File{listenerFile}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
+	address := clientAddress(listener.Addr())
 	server := &Server{
-		Address: env[httpAddrEnv],
-		BaseURL: "http://" + env[httpAddrEnv],
+		Address: address,
+		BaseURL: "http://" + address,
 		cancel:  cancel,
 		done:    make(chan error, 1),
 		cmd:     cmd,
@@ -66,9 +77,13 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	cmd.Stderr = &server.stderr
 
 	if err := cmd.Start(); err != nil {
+		_ = listenerFile.Close()
+		_ = listener.Close()
 		cancel()
 		t.Fatalf("start cmd/server: %v", err)
 	}
+	_ = listenerFile.Close()
+	_ = listener.Close()
 
 	go func() {
 		server.done <- cmd.Wait()
@@ -255,15 +270,30 @@ func serverCommand() (string, []string) {
 	return "go", []string{"run", "./cmd/server"}
 }
 
-func freeAddress(t testing.TB) string {
+func listenerFile(t testing.TB, listener net.Listener) *os.File {
 	t.Helper()
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("reserve free tcp port: %v", err)
+	tcpListener, ok := listener.(*net.TCPListener)
+	if !ok {
+		t.Fatalf("expected TCP listener, got %T", listener)
 	}
-	defer listener.Close()
-	return listener.Addr().String()
+	file, err := tcpListener.File()
+	if err != nil {
+		t.Fatalf("duplicate cmd/server listener fd: %v", err)
+	}
+	return file
+}
+
+func clientAddress(addr net.Addr) string {
+	host, port, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return addr.String()
+	}
+	switch host {
+	case "", "0.0.0.0", "::":
+		host = "127.0.0.1"
+	}
+	return net.JoinHostPort(host, port)
 }
 
 func repoRoot() string {
