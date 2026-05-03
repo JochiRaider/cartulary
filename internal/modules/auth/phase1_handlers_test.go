@@ -126,7 +126,12 @@ func TestPhase1_LoginCreatesSessionAndResource_U_1_03(t *testing.T) {
 
 	userID := uuid.MustParse("10000000-0000-0000-0000-000000000101")
 	sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000102")
-	incidentID := uuid.MustParse("10000000-0000-0000-0000-000000000103")
+	incidentIDs := []uuid.UUID{
+		uuid.MustParse("10000000-0000-0000-0000-000000000103"),
+		uuid.MustParse("10000000-0000-0000-0000-000000000104"),
+		uuid.MustParse("10000000-0000-0000-0000-000000000105"),
+		uuid.MustParse("10000000-0000-0000-0000-000000000106"),
+	}
 	password := "  Exact Login Secret  "
 	passwordHash, err := authn.HashPassword(password)
 	if err != nil {
@@ -177,7 +182,10 @@ func TestPhase1_LoginCreatesSessionAndResource_U_1_03(t *testing.T) {
 				t.Fatalf("unexpected membership lookup user: got %s want %s", gotUserID, userID)
 			}
 			return []authn.IncidentMembershipSummary{
-				{IncidentID: incidentID, Role: "commander"},
+				{IncidentID: incidentIDs[0], Role: "viewer"},
+				{IncidentID: incidentIDs[1], Role: "editor"},
+				{IncidentID: incidentIDs[2], Role: "reviewer"},
+				{IncidentID: incidentIDs[3], Role: "admin"},
 			}, nil
 		},
 	}
@@ -230,12 +238,34 @@ func TestPhase1_LoginCreatesSessionAndResource_U_1_03(t *testing.T) {
 		t.Fatalf("unexpected session_expires_at response: got %v", got)
 	}
 	memberships, ok := data["memberships"].([]any)
-	if !ok || len(memberships) != 1 {
-		t.Fatalf("expected one membership summary, got %#v", data["memberships"])
+	if !ok || len(memberships) != len(incidentIDs) {
+		t.Fatalf("expected canonical membership summaries, got %#v", data["memberships"])
 	}
-	member, ok := memberships[0].(map[string]any)
-	if !ok || member["incident_id"] != incidentID.String() || member["role"] != "commander" {
-		t.Fatalf("unexpected membership summary: %#v", memberships[0])
+	wantRolesByIncident := map[string]string{
+		incidentIDs[0].String(): "viewer",
+		incidentIDs[1].String(): "editor",
+		incidentIDs[2].String(): "reviewer",
+		incidentIDs[3].String(): "admin",
+	}
+	canonicalRoles := map[string]bool{
+		"viewer":   true,
+		"editor":   true,
+		"reviewer": true,
+		"admin":    true,
+	}
+	for _, membership := range memberships {
+		member, ok := membership.(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected membership summary shape: %#v", membership)
+		}
+		incidentID, _ := member["incident_id"].(string)
+		role, _ := member["role"].(string)
+		if !canonicalRoles[role] {
+			t.Fatalf("session membership role must use the closed incident role vocabulary, got %#v", member)
+		}
+		if wantRolesByIncident[incidentID] != role {
+			t.Fatalf("unexpected membership summary: %#v", member)
+		}
 	}
 	authcookietest.RequireAuthCookies(t, recorder.Result().Cookies())
 }
@@ -1650,7 +1680,7 @@ func TestPhase1_AdminCredentialActionGuards_U_1_13(t *testing.T) {
 	keys := loadUnitMasterKeys(t)
 	targetUserID := uuid.MustParse("10000000-0000-0000-0000-000000000201")
 
-	t.Run("incident admins do not gain deployment-admin credential routes", func(t *testing.T) {
+	t.Run("non-deployment-admin sessions do not gain deployment-admin credential routes", func(t *testing.T) {
 		actorID := uuid.MustParse("10000000-0000-0000-0000-000000000202")
 		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000203")
 		token := "incident-admin-token"
@@ -1661,9 +1691,9 @@ func TestPhase1_AdminCredentialActionGuards_U_1_13(t *testing.T) {
 		store := &authStoreStub{
 			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
 				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, token)) {
-					t.Fatal("unexpected session fingerprint for denied admin action")
+					t.Fatal("unexpected session fingerprint for denied credential action")
 				}
-				user := activeUserRecord(actorID, "incident-admin@example.test")
+				user := activeUserRecord(actorID, "ordinary-user@example.test")
 				user.IsDeploymentAdmin = false
 				return activeSessionRecord(sessionID, actorID, now), user, nil
 			},
@@ -1713,7 +1743,7 @@ func TestPhase1_AdminCredentialActionGuards_U_1_13(t *testing.T) {
 		}
 
 		if passwordResetCalls != 0 || totpResetCalls != 0 || revokeAllCalls != 0 {
-			t.Fatalf("admin credential stores must not run for incident admins: password=%d totp=%d revoke_all=%d", passwordResetCalls, totpResetCalls, revokeAllCalls)
+			t.Fatalf("admin credential stores must not run for non-deployment-admin sessions: password=%d totp=%d revoke_all=%d", passwordResetCalls, totpResetCalls, revokeAllCalls)
 		}
 	})
 

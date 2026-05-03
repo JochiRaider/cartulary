@@ -1,9 +1,16 @@
 package auth
 
 import (
+	"context"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func TestPhase1_LoginRequestShape_U_1_01(t *testing.T) {
@@ -173,6 +180,46 @@ func TestPhase1_LoginRequestShape_U_1_01(t *testing.T) {
 			requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_auth_request", tc.wantField)
 		})
 	}
+
+	t.Run("full login route rejects malformed auth requests before session side effects", func(t *testing.T) {
+		now := time.Date(2026, time.April, 17, 11, 45, 0, 0, time.UTC)
+		keys := loadUnitMasterKeys(t)
+
+		storeCalls := 0
+		store := &authStoreStub{
+			getUserByNormalizedEmailFunc: func(context.Context, string) (authn.UserRecord, error) {
+				storeCalls++
+				t.Fatal("malformed login request must not look up users")
+				return authn.UserRecord{}, nil
+			},
+			createSessionWithConcurrencyFunc: func(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error) {
+				storeCalls++
+				t.Fatal("malformed login request must not create sessions")
+				return authn.SessionRecord{}, nil, nil
+			},
+			issueBootstrapTokenFunc: func(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error) {
+				storeCalls++
+				t.Fatal("malformed login request must not issue bootstrap tokens")
+				return authn.BootstrapTokenRecord{}, nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		recorder := httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/login", `{
+			"username":"analyst@example.test",
+			"password":"exact password",
+			"client_txn_id":"forbidden"
+		}`)
+		service.handleLogin(recorder, request)
+
+		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_auth_request", "client_txn_id")
+		requireNoCookieByName(t, recorder.Result().Cookies(), authn.SessionCookieName)
+		requireNoCookieByName(t, recorder.Result().Cookies(), authn.CSRFCookieName)
+		if storeCalls != 0 {
+			t.Fatalf("malformed login request must not call auth store, got %d calls", storeCalls)
+		}
+	})
 }
 
 func requireAPIError(t testing.TB, apiErr *APIError, wantStatus int, wantCode string, wantField string) {
@@ -211,6 +258,15 @@ func requireNoSecretKeys(t testing.TB, value any, forbidden ...string) {
 	case []any:
 		for _, item := range typed {
 			requireNoSecretKeys(t, item, forbidden...)
+		}
+	}
+}
+
+func requireNoCookieByName(t testing.TB, cookies []*http.Cookie, name string) {
+	t.Helper()
+	for _, cookie := range cookies {
+		if cookie.Name == name {
+			t.Fatalf("expected no %s cookie, got %#v", name, cookie)
 		}
 	}
 }

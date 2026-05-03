@@ -131,9 +131,9 @@
       "file": "internal/modules/auth/phase1_request_test.go",
       "symbol": "TestPhase1_LoginRequestShape_U_1_01",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "decoder",
-      "claim": "Login request-shape validation rejects unknown top-level members, unsupported `second_factor.kind`, and malformed TOTP assertions with the route-owned invalid-auth surface.",
-      "out_of_scope": "Does not execute the full login route or session creation path.",
+      "evidence_layer": "http_conformance",
+      "claim": "Login request-shape validation rejects unknown top-level members, unsupported `second_factor.kind`, and malformed TOTP assertions with the route-owned invalid-auth surface, and the full login route returns the error envelope before user lookup, session creation, bootstrap issuance, or auth-cookie emission.",
+      "out_of_scope": "Successful route login and durable session creation are covered by adjacent unit and integration rows.",
       "execution_family": "backend-unit-auth",
       "execution_label": "backend-unit phase1 authoritative"
     },
@@ -300,8 +300,8 @@
       "symbol": "TestPhase1_AdminCredentialActionGuards_U_1_13",
       "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance",
-      "claim": "Deployment-admin-only credential routes fail closed for ordinary or incident-admin sessions and keep route-local revoke and reset consequences stable.",
-      "out_of_scope": "Audit persistence, replay storage, and WebSocket revocation remain integration evidence.",
+      "claim": "Deployment-admin-only credential routes fail closed for non-deployment-admin sessions and keep route-local revoke and reset consequences stable.",
+      "out_of_scope": "True incident-admin denial, audit persistence, replay storage, and WebSocket revocation remain integration evidence.",
       "execution_family": "backend-unit-auth",
       "execution_label": "backend-unit phase1 authoritative"
     },
@@ -430,7 +430,7 @@
       ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
-      "claim": "Admin password reset, TOTP reset, and revoke-all revoke attached sockets, preserve deployment-local authorization boundaries, store only secret-safe replay payloads, reject divergent replay with `client_txn_conflict`, keep one idempotency row per committed request, return original committed replay payloads, prove password-reset replay after later user mutation, and prove persisted Argon2id password-hash replacement on admin reset.",
+      "claim": "Admin password reset, TOTP reset, and revoke-all revoke attached sockets, preserve deployment-local authorization boundaries including true incident-admin denial, store only secret-safe replay payloads, reject divergent replay with `client_txn_conflict`, keep one idempotency row per committed request, return original committed replay payloads, prove password-reset replay after later user mutation, and prove persisted Argon2id password-hash replacement on admin reset.",
       "out_of_scope": "None for the declared Phase 1 contract.",
       "execution_family": "backend-integration-auth",
       "execution_label": "backend-integration phase1 authoritative auth"

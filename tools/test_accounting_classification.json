@@ -51,6 +51,13 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/App.phase1.test.tsx",
+      "title": "keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable",
+      "coverage": "unowned_regression",
+      "reason": "Residual deployment-admin shell state handling remains intentional product regression coverage outside the Phase 1 authoritative row inventory."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/WorkbookShell.assessments.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Workbook assessment component behavior is intentional regression coverage until a later phase owns it."

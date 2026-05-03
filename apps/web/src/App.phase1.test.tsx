@@ -131,8 +131,10 @@ describe("Phase 1 ordinary app shell", () => {
       }
       if (url === "/api/v1/auth/login" && method === "POST") {
         return Promise.resolve(
-          errorResponse("mfa_setup_required", 409, {
+          errorResponse("mfa_setup_required", 401, {
+            required_setup_kinds: ["totp"],
             bootstrap_token: "bootstrap-token-123",
+            bootstrap_expires_at: "2026-04-17T12:10:00Z",
           }),
         );
       }

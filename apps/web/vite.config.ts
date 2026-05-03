@@ -8,8 +8,8 @@ const browserUnitIncludes = [
   "src/**/*.test.tsx",
   "src/**/*.spec.ts",
   "src/**/*.spec.tsx",
-  "../../packages/**/*.test.ts",
-  "../../packages/**/*.test.tsx",
+  "../../packages/*/src/**/*.test.ts",
+  "../../packages/*/src/**/*.test.tsx",
 ];
 
 const harnessNodeIncludes = ["e2e/**/*.test.ts"];
