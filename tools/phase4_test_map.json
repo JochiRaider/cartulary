@@ -26,13 +26,13 @@
     "shared_harness": [
       "| Harness | Phase 4 evidence |",
       "| --- | --- |",
-      "| Real runtime and route helpers | `internal/testutil/phase4test` centralizes the Postgres + MinIO runtime boot path, bootstrap-admin login helpers, and inventory-driven support matrix metadata for owned Phase 4 HTTP routes, while `internal/testutil/phase4storetest` owns rollback-backed entity or mention seed helpers and contract-derived field-surface helpers for store rows. |",
-      "| Cross-cutting HTTP and projection helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, authorization re-derivation assertions, closed-vocabulary checks, field-key conformance, and projection determinism assertions shared across the Phase 4 backend suite. |",
+      "| Real runtime and route helpers | `internal/testutil/phase4test` centralizes the Postgres + MinIO runtime boot path, bootstrap-admin login helpers, inventory-driven route metadata, and authoritative replay/history conformance helpers for owned Phase 4 HTTP routes, while `internal/testutil/phase4storetest` owns rollback-backed entity or mention seed helpers and contract-derived field-surface helpers for store rows. |",
+      "| Cross-cutting HTTP and projection helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, authorization re-derivation assertions, mutation attribution checks, closed-vocabulary checks, field-key conformance, and projection determinism assertions shared across the Phase 4 backend suite. |",
       "| Entity and Timeline substrate inspection | `internal/testutil/assertx`, `internal/testutil/timelinetest`, and Phase 4 package-local lookup helpers inspect durable mention, link, change-set, projection, and observation state that the authoritative Phase 4 rows rely on. |",
       "| Browser helper fixtures | `apps/web/src/timelineWorkbookTestSupport.tsx` and `apps/web/src/workbookShellPhase4.ts` provide the mocked workbook row, websocket, and mention helper scaffolding used by the support-only Phase 4 workbook tests. |"
     ],
     "support_only": [
-      "`internal/modules/entities/phase4_support_integration_test.go` consumes the centralized Phase 4 route-family inventory through `TestSupportPhase4Integration_SurfaceEnvelope`, `..._CSRFProtection`, `..._ReplayAndDivergentConflict`, `..._AuthorizationReDerivation`, `..._DefaultQueryMetaAndFieldKeyConformance`, and `..._ProjectionAndWebsocketConsequences`. Together they keep mention, merge, entity-origin, indicator, Timeline, object-blob, evidence-handle, Parties, assessment, coordination, and generic workbook routes on one enforced support-only matrix without replacing any authoritative `I-4-*` row.",
+      "`internal/modules/entities/phase4_support_integration_test.go` consumes the centralized Phase 4 route-family inventory through `TestSupportPhase4Integration_SurfaceEnvelope`, `..._CSRFProtection`, `..._ReplayAndDivergentConflict`, `..._AuthorizationReDerivation`, `..._DefaultQueryMetaAndFieldKeyConformance`, and `..._ProjectionAndWebsocketConsequences`. These tests are diagnostic smoke coverage for mention, merge, entity-origin, indicator, Timeline, object-blob, evidence-handle, Parties, assessment, coordination, and generic workbook routes; authoritative completion claims must live in the owned `I-4-*` rows.",
       "`apps/web/src/WorkbookShell.phase4.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4."
     ]
   },
@@ -57,6 +57,7 @@
     "I-4-07",
     "I-4-08",
     "I-4-09",
+    "I-4-COLLECTION-01",
     "I-4-BLOB-01",
     "I-4-COORD-01",
     "I-4-COORD-02",
@@ -145,7 +146,7 @@
       "symbol": "TestPhase4_BindingMode_U_4_01",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Timeline mention fields prove `mention_origin` binding while representative Host and Identity writable plus alias fields prove `entity_origin`, and the store writes mentions versus entity rows without synthesizing the other substrate.",
+      "claim": "Timeline mention fields prove `mention_origin` binding while Host and Identity entity-origin writes create concrete entity rows, and the store writes mentions versus entity rows without synthesizing the other substrate.",
       "out_of_scope": "HTTP route behavior and browser-visible resolution flows remain integration or browser evidence.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase4 authoritative"
@@ -328,7 +329,7 @@
       "symbol": "TestPhase4_ResolveRoute_I_4_01",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "The mention resolve route persists durable resolve, dismiss, and revert transitions through the live HTTP surface with replay stability, websocket invalidation, and live target validation.",
+      "claim": "The mention resolve route persists durable resolve, dismiss, and revert transitions through the live HTTP surface with authoritative replay/divergent-replay conformance, attributed mutation history, websocket invalidation, row-version conflict handling, and live target validation.",
       "out_of_scope": "Browser inspector workflows remain browser evidence.",
       "execution_family": "backend-integration-entities",
       "execution_label": "backend-integration phase4 authoritative entities"
@@ -387,7 +388,7 @@
       "symbol": "TestPhase4_AutoResolutionEligibility_I_4_08",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Timeline patch and query routes auto-resolve only eligible exact matches, keep ineligible tokens unresolved, and return contract-conformant current-state rows before and after projection rebuilds.",
+      "claim": "Timeline patch and query routes auto-resolve only eligible exact matches, keep ineligible tokens unresolved, prove generic patch `resolve_item` behavior for `timeline.host_refs`, and return contract-conformant current-state rows before and after projection rebuilds.",
       "out_of_scope": "Browser-visible chip rendering and inspector affordances remain browser or support-only frontend evidence.",
       "execution_family": "backend-integration-timeline",
       "execution_label": "backend-integration phase4 authoritative timeline"
@@ -407,6 +408,20 @@
       "execution_label": "backend-integration phase4 authoritative timeline"
     },
     {
+      "id": "I-4-COLLECTION-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/workbook_mutation_integration_test.go",
+      "symbol": "TestPhase4_CoordinationCollections_I_4_COORD_02",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Generic record patch collection fields use stable record anchors, `field_key`, `row_version`, `base_row_version`, `collection_actions_v1`, and `collection_value_v1` semantics for add/remove/replace actions without accepting legacy array-shaped writes.",
+      "out_of_scope": "Keyboard paste expansion, queued multi-row commands, and broader grid command translation remain Phase 9 evidence.",
+      "execution_family": "backend-integration-workbook",
+      "execution_label": "backend-integration phase4 authoritative workbook"
+    },
+    {
       "id": "I-4-BLOB-01",
       "coverage": "authoritative",
       "runner": "go_test",
@@ -415,7 +430,7 @@
       "symbol": "TestPhase4_ObjectBlobCreate_I_4_BLOB_01",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "The object-blob create route enforces request shape and declared-size limits, records the normalized accepted contract, returns stable idempotent replay, rejects divergent replay, and creates no blob state on oversize rejection.",
+      "claim": "The object-blob create route enforces request shape, authorization re-derivation, and declared-size limits, records the normalized accepted contract, returns stable idempotent replay, rejects divergent replay, and creates no blob state on rejected requests.",
       "out_of_scope": "Browser upload UX and attach route lifecycle coverage remain separate evidence.",
       "execution_family": "backend-integration-evidence",
       "execution_label": "backend-integration phase4 authoritative evidence"
@@ -429,7 +444,7 @@
       "symbol": "TestPhase4_CoordinationDefaults_I_4_COORD_01",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Communications Log, Handoff, Status Review, and Lesson creates enforce their minimum semantic fields, apply server defaults, expose immutable server ids as read-only fields, distinguish clearable from non-clearable scalars, and leave no partial rows on rejected creates.",
+      "claim": "Communications Log, Handoff, Status Review, and Lesson creates enforce their minimum semantic fields, apply server defaults, expose immutable server ids as read-only fields, distinguish clearable from non-clearable scalars, and include authoritative create replay/history conformance without partial rows on rejected creates.",
       "out_of_scope": "End-user browser flows for coordination surfaces remain future browser evidence.",
       "execution_family": "backend-integration-workbook",
       "execution_label": "backend-integration phase4 authoritative workbook"
@@ -457,7 +472,7 @@
       "symbol": "TestPhase4_CoordinationProjectionQueries_I_4_COORD_03",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Parties and coordination system views query seeded incident rows through projection-backed or projection-shaped state with contract-declared filters, sorts, grouping values, row ids, and cell values.",
+      "claim": "Parties and coordination system views query route-created Parties and coordination rows plus seeded support rows through projection-backed or projection-shaped state with contract-declared filters, sorts, grouping values, row ids, and cell values.",
       "out_of_scope": "Optional artifact-backed surfaces outside the base profile remain outside this Phase 4 row.",
       "execution_family": "backend-integration-workbook",
       "execution_label": "backend-integration phase4 authoritative workbook"
@@ -471,7 +486,7 @@
       "symbol": "TestPhase4_EvidenceHandles_I_4_HANDLE_01",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Preview and download handle issuance accepts only an empty JSON object body, rejects zero-length, null, non-object, unknown, and client_txn_id bodies, and returns distinct preview versus download handle contracts.",
+      "claim": "Preview and download handle issuance accepts only an empty JSON object body, rejects zero-length, null, non-object, unknown, and client_txn_id bodies for both routes without side effects, re-derives session authorization, and returns distinct preview versus download handle contracts.",
       "out_of_scope": "Detailed redeem expiry, revocation, and browser preview behavior remain separate evidence.",
       "execution_family": "backend-integration-evidence",
       "execution_label": "backend-integration phase4 authoritative evidence"
@@ -485,7 +500,7 @@
       "symbol": "TestPhase4_PartiesSurface_I_4_PARTIES_01",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "The Parties system view is discoverable as a base-profile system view, fetchable by singleton schema route, incident-scoped in query behavior, rejects incomplete creates without partial state, and successfully creates normalized party rows.",
+      "claim": "The Parties system view is discoverable as a base-profile system view, fetchable by singleton schema route, incident-scoped in query behavior, rejects incomplete creates without partial state, and creates normalized party rows with authoritative replay/history conformance.",
       "out_of_scope": "Inspector-driven party linking and browser party creation affordances remain browser or later route evidence.",
       "execution_family": "backend-integration-workbook",
       "execution_label": "backend-integration phase4 authoritative workbook"
@@ -544,8 +559,8 @@
       "title": "E-4-05 creates append-only assessment history through the workbook UI",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "The browser workbook creates append-only assessment rows through the Assessments surface with band-first confidence, rationale, support refs, default ordering, and state or confidence filters.",
-      "out_of_scope": "Assessment storage, projection determinism, idempotency, and validation remain backend evidence."
+      "claim": "The browser workbook drives the Assessments surface through ordinary user controls with band-first confidence, rationale, support refs, default ordering, and state or confidence filters.",
+      "out_of_scope": "Append-only assessment storage, projection determinism, idempotency, validation, and audit history remain backend evidence."
     },
     {
       "id": "E-4-06",
@@ -555,8 +570,8 @@
       "title": "E-4-06 creates and edits required workbook mutation surfaces through typed generic controls",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "The browser workbook creates and edits Parties, Notes, Task Requests, Decisions, Evidence, Communications Log, Handoff, Status Review, and Lesson rows through real typed workbook mutation controls, including direct values, reference selectors, collection actions, and visible required-field validation.",
-      "out_of_scope": "Detailed lifecycle transition and idempotency assertions remain backend integration evidence."
+      "claim": "The browser workbook exercises Parties, Notes, Task Requests, Decisions, Evidence, Communications Log, Handoff, Status Review, and Lesson surfaces through real typed controls, including direct values, reference selectors, collection actions, and visible required-field validation.",
+      "out_of_scope": "Durable mutation history, replay/idempotency, authorization, projection rebuild, and detailed lifecycle-transition assertions remain backend integration evidence."
     }
   ],
   "visual": [

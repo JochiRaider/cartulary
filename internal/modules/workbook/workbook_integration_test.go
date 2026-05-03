@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
@@ -317,6 +318,7 @@ func TestPhase4_CoordinationProjectionQueries_I_4_COORD_03(t *testing.T) {
 	seeds := []struct {
 		viewSchemaID string
 		recordType   string
+		createBody   func() map[string]any
 		insertChild  func(recordID uuid.UUID)
 		filter       map[string]any
 		sortField    string
@@ -418,24 +420,28 @@ VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12
 		{
 			viewSchemaID: "cartulary.view.parties.v1",
 			recordType:   "party",
-			insertChild: func(recordID uuid.UUID) {
-				execSeed(t, harness, `
-INSERT INTO parties (record_id, incident_id, display_name, party_kind, updated_at)
-VALUES ($1, $2, 'Acme Legal', 'external', '2026-04-24T12:30:00Z')
-`, recordID, incidentID)
+			createBody: func() map[string]any {
+				return map[string]any{
+					"client_txn_id":      "txn-workbook-query-parties-create",
+					"party.display_name": "Acme Legal",
+					"party.party_kind":   "organization",
+				}
 			},
 			filter:    prefixFilter("party.display_name", "acme"),
 			wantField: "party.party_kind",
-			wantValue: "external",
+			wantValue: "organization",
 		},
 		{
 			viewSchemaID: "cartulary.view.comm_log.v1",
 			recordType:   "artifact",
-			insertChild: func(recordID uuid.UUID) {
-				execSeed(t, harness, `
-INSERT INTO artifacts (record_id, incident_id, artifact_type, comm_type, audience, channel_or_meeting, summary, timestamp_utc, created_by_user_id)
-VALUES ($1, $2, 'comm_log', 'briefing', 'leadership', 'Bridge', 'Initial update', '2026-04-24T13:00:00Z', $3)
-`, recordID, incidentID, adminUserID)
+			createBody: func() map[string]any {
+				return map[string]any{
+					"client_txn_id":               "txn-workbook-query-comm-create",
+					"comm_log.comm_type":          "briefing",
+					"comm_log.audience":           "leadership",
+					"comm_log.channel_or_meeting": "Bridge",
+					"comm_log.summary":            "Initial update",
+				}
 			},
 			filter:    prefixFilter("comm_log.comm_type", "brief"),
 			sortField: "comm_log.timestamp_day",
@@ -446,11 +452,12 @@ VALUES ($1, $2, 'comm_log', 'briefing', 'leadership', 'Bridge', 'Initial update'
 		{
 			viewSchemaID: "cartulary.view.handoff.v1",
 			recordType:   "artifact",
-			insertChild: func(recordID uuid.UUID) {
-				execSeed(t, harness, `
-INSERT INTO artifacts (record_id, incident_id, artifact_type, incoming_owner_user_id, current_state_summary, timestamp_utc, created_by_user_id)
-VALUES ($1, $2, 'handoff', $3, 'Night shift takes containment', '2026-04-24T14:00:00Z', $3)
-`, recordID, incidentID, adminUserID)
+			createBody: func() map[string]any {
+				return map[string]any{
+					"client_txn_id":                  "txn-workbook-query-handoff-create",
+					"handoff.incoming_owner_user_id": adminUserID.String(),
+					"handoff.current_state_summary":  "Night shift takes containment",
+				}
 			},
 			filter:    eqFilter("handoff.ack_state", "pending"),
 			sortField: "handoff.timestamp_day",
@@ -461,11 +468,12 @@ VALUES ($1, $2, 'handoff', $3, 'Night shift takes containment', '2026-04-24T14:0
 		{
 			viewSchemaID: "cartulary.view.status_review.v1",
 			recordType:   "artifact",
-			insertChild: func(recordID uuid.UUID) {
-				execSeed(t, harness, `
-INSERT INTO artifacts (record_id, incident_id, artifact_type, current_state_summary, timestamp_utc, review_owner_user_id, created_by_user_id)
-VALUES ($1, $2, 'status_review', 'Containment in progress', '2026-04-24T15:00:00Z', $3, $3)
-`, recordID, incidentID, adminUserID)
+			createBody: func() map[string]any {
+				return map[string]any{
+					"client_txn_id":                       "txn-workbook-query-status-create",
+					"status_review.current_state_summary": "Containment in progress",
+					"status_review.timestamp_utc":         "2026-04-24T15:00:00Z",
+				}
 			},
 			filter:    map[string]any{"field_key": "status_review.timestamp_day", "op": "eq", "arg": map[string]any{"value": "2026-04-24"}},
 			sortField: "status_review.next_report_day",
@@ -476,11 +484,11 @@ VALUES ($1, $2, 'status_review', 'Containment in progress', '2026-04-24T15:00:00
 		{
 			viewSchemaID: "cartulary.view.lesson.v1",
 			recordType:   "artifact",
-			insertChild: func(recordID uuid.UUID) {
-				execSeed(t, harness, `
-INSERT INTO artifacts (record_id, incident_id, artifact_type, summary, owner_user_id, closure_state, timestamp_utc, created_by_user_id)
-VALUES ($1, $2, 'lesson', 'Preserve VPN logs earlier', $3, 'open', '2026-04-24T16:00:00Z', $3)
-`, recordID, incidentID, adminUserID)
+			createBody: func() map[string]any {
+				return map[string]any{
+					"client_txn_id":  "txn-workbook-query-lesson-create",
+					"lesson.summary": "Preserve VPN logs earlier",
+				}
 			},
 			filter:    prefixFilter("lesson.closure_state", "op"),
 			sortField: "lesson.timestamp_day",
@@ -493,8 +501,21 @@ VALUES ($1, $2, 'lesson', 'Preserve VPN logs earlier', $3, 'open', '2026-04-24T1
 	for _, seed := range seeds {
 		t.Run(seed.viewSchemaID, func(t *testing.T) {
 			recordID := uuid.New()
-			seedRecordEnvelope(t, harness, incidentID, adminUserID, recordID, seed.recordType)
-			seed.insertChild(recordID)
+			if seed.createBody == nil {
+				seedRecordEnvelope(t, harness, incidentID, adminUserID, recordID, seed.recordType)
+				seed.insertChild(recordID)
+			} else {
+				resp := phase4test.DoJSON(
+					t,
+					http.MethodPost,
+					harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+seed.viewSchemaID+"/rows",
+					seed.createBody(),
+					phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+					phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				)
+				data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+				recordID = phase4test.MustUUID(t, data["row"].(map[string]any)["record_id"].(string))
+			}
 
 			queryBody := map[string]any{"filters": []map[string]any{seed.filter}}
 			if seed.sortField != "" {

@@ -25,6 +25,43 @@ import (
 
 // I-4-01 / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
 func TestPhase4_ResolveRoute_I_4_01(t *testing.T) {
+	t.Run("resolve_item uses authoritative route replay and history conformance", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-01-resolve-conformance")
+		adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-01-resolve-conf-incident",
+			"incident_key":  "IR-I401-RC",
+			"title":         "Phase 4 I-4-01 resolve conformance",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		phase4test.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4TimelineRecordID)
+		phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		phase4test.SeedMention(t, harness.DB, adminUserID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+
+		ctx := phase4test.RouteInventoryContext{
+			IncidentID:       incidentID.String(),
+			ActorUserID:      adminUserID.String(),
+			TimelineRecordID: golden.Phase4TimelineRecordID.String(),
+			MentionID:        golden.Phase4HostMentionID.String(),
+			HostRecordID:     golden.Phase4CanonicalHostRecordID.String(),
+		}
+		route := phase4test.MustRoute(t, phase4test.RouteMentionResolve, ctx)
+		phase4test.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, phase4test.RouteConformanceCase{
+			Route:                  route,
+			Context:                ctx,
+			ClientTxnID:            "txn-phase4-i-4-01-resolve-conformance",
+			Login:                  adminLogin,
+			ActorUserID:            adminUserID.String(),
+			ExpectedMutationSource: "entities.entity_mentions.resolve",
+		})
+
+		mention := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.Phase4CanonicalHostRecordID {
+			t.Fatalf("expected route conformance resolve to leave mention resolved to target, got %#v", mention)
+		}
+	})
+
 	t.Run("resolve_item persists durable state, replays idempotently, and emits websocket invalidation", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-i-4-01-resolve")
 		adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)

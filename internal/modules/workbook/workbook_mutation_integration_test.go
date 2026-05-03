@@ -14,7 +14,7 @@ import (
 
 func TestPhase4_PartiesSurface_I_4_PARTIES_01(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase4-parties-surface")
-	adminLogin, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase4-parties-surface-incident",
 		"incident_key":  "IR-PHASE4-PARTIES",
@@ -45,6 +45,23 @@ func TestPhase4_PartiesSurface_I_4_PARTIES_01(t *testing.T) {
 	}
 	if got := countViewRows(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1"); got != beforeProjection {
 		t.Fatalf("rejected party create changed query rows: got %d want %d", got, beforeProjection)
+	}
+
+	routeCtx := phase4test.RouteInventoryContext{
+		IncidentID:  incidentID.String(),
+		ActorUserID: adminUserID.String(),
+	}
+	partyCreateRoute := phase4test.MustRoute(t, phase4test.RoutePartiesCreate, routeCtx)
+	partyConformanceData := phase4test.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, phase4test.RouteConformanceCase{
+		Route:                  partyCreateRoute,
+		Context:                routeCtx,
+		ClientTxnID:            "txn-phase4-party-create-conformance",
+		Login:                  adminLogin,
+		ActorUserID:            adminUserID.String(),
+		ExpectedMutationSource: "workbook.rows.create",
+	})
+	if got := partyConformanceData["row"].(map[string]any)["record_id"]; got == "" {
+		t.Fatalf("party conformance create did not return a row record id: %#v", partyConformanceData)
 	}
 
 	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
@@ -212,6 +229,23 @@ func TestPhase4_CoordinationDefaults_I_4_COORD_01(t *testing.T) {
 		"title":         "Phase 4 coordination defaults",
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	routeCtx := phase4test.RouteInventoryContext{
+		IncidentID:  incidentID.String(),
+		ActorUserID: adminUserID.String(),
+	}
+	commCreateRoute := phase4test.MustRoute(t, phase4test.RouteCommLogCreate, routeCtx)
+	commConformanceData := phase4test.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, phase4test.RouteConformanceCase{
+		Route:                  commCreateRoute,
+		Context:                routeCtx,
+		ClientTxnID:            "txn-phase4-comm-defaults-conformance",
+		Login:                  adminLogin,
+		ActorUserID:            adminUserID.String(),
+		ExpectedMutationSource: "workbook.rows.create",
+	})
+	if got := commConformanceData["row"].(map[string]any)["record_id"]; got == "" {
+		t.Fatalf("coordination conformance create did not return a row record id: %#v", commConformanceData)
+	}
 
 	beforeRecords := countIncidentRecords(t, harness, incidentID)
 	for _, invalid := range []struct {

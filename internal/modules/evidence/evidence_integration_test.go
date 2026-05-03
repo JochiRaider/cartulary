@@ -35,6 +35,64 @@ func TestPhase4_ObjectBlobCreate_I_4_BLOB_01(t *testing.T) {
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 
+	beforeInvalidShape := countObjectBlobs(t, harness, incidentID)
+	for name, body := range map[string]any{
+		"unknown field": map[string]any{
+			"incident_id":   incidentID.String(),
+			"client_txn_id": "txn-blob-unknown-field",
+			"byte_size":     1,
+			"unexpected":    true,
+		},
+		"missing incident": map[string]any{
+			"client_txn_id": "txn-blob-missing-incident",
+			"byte_size":     1,
+		},
+		"invalid digest": map[string]any{
+			"incident_id":   incidentID.String(),
+			"client_txn_id": "txn-blob-invalid-digest",
+			"byte_size":     1,
+			"sha256_hex":    "not-a-digest",
+		},
+	} {
+		t.Run("request shape "+name, func(t *testing.T) {
+			resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", body, authOptions(login)...)
+			httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_blob_create_request")
+		})
+	}
+	if got := countObjectBlobs(t, harness, incidentID); got != beforeInvalidShape {
+		t.Fatalf("invalid blob create request shape wrote object_blobs: got %d want %d", got, beforeInvalidShape)
+	}
+
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = 'viewer',
+       updated_at = now(),
+       updated_by_user_id = $3
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, adminID, adminID); err != nil {
+		t.Fatalf("demote actor before blob auth re-derivation: %v", err)
+	}
+	deniedCreate := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		"incident_id":   incidentID.String(),
+		"client_txn_id": "txn-blob-viewer-denied",
+		"byte_size":     1,
+	}, authOptions(login)...)
+	httptestx.RequireErrorEnvelope(t, deniedCreate, http.StatusForbidden, "authorization_denied")
+	if got := countObjectBlobs(t, harness, incidentID); got != beforeInvalidShape {
+		t.Fatalf("unauthorized blob create wrote object_blobs: got %d want %d", got, beforeInvalidShape)
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = 'admin',
+       updated_at = now(),
+       updated_by_user_id = $3
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, adminID, adminID); err != nil {
+		t.Fatalf("restore actor membership before blob create: %v", err)
+	}
+
 	beforeRejectedBlob := countObjectBlobs(t, harness, incidentID)
 	rejectedBlob := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":   incidentID.String(),
@@ -140,17 +198,29 @@ func TestPhase4_EvidenceHandles_I_4_HANDLE_01(t *testing.T) {
 	payload := []byte("handle body")
 	attachUploadedBlob(t, harness, login, incidentID, recordID, payload, "txn-phase4-handles-blob", "txn-phase4-handles-attach")
 
-	for name, body := range map[string]string{
-		"zero length": "",
-		"null":        "null",
-		"array":       "[]",
-		"unknown":     `{"unexpected":true}`,
-		"client txn":  `{"client_txn_id":"forbidden"}`,
+	beforeInvalidHandles := countAccessHandles(t, harness, incidentID)
+	for _, endpoint := range []struct {
+		name string
+		path string
+	}{
+		{name: "preview", path: "preview-handle"},
+		{name: "download", path: "download-handle"},
 	} {
-		t.Run(name, func(t *testing.T) {
-			resp := doRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", body, authOptions(login)...)
-			httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_evidence_handle_request")
-		})
+		for name, body := range map[string]string{
+			"zero length": "",
+			"null":        "null",
+			"array":       "[]",
+			"unknown":     `{"unexpected":true}`,
+			"client txn":  `{"client_txn_id":"forbidden"}`,
+		} {
+			t.Run(endpoint.name+" "+name, func(t *testing.T) {
+				resp := doRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint.path, body, authOptions(login)...)
+				httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_evidence_handle_request")
+			})
+		}
+	}
+	if got := countAccessHandles(t, harness, incidentID); got != beforeInvalidHandles {
+		t.Fatalf("invalid handle issuance requests wrote evidence_access_handles: got %d want %d", got, beforeInvalidHandles)
 	}
 
 	previewResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
@@ -165,6 +235,25 @@ func TestPhase4_EvidenceHandles_I_4_HANDLE_01(t *testing.T) {
 	}
 	if _, ok := downloadData["preview_kind"]; ok {
 		t.Fatalf("download handle must omit preview_kind, got %#v", downloadData)
+	}
+	afterIssuedHandles := countAccessHandles(t, harness, incidentID)
+	if afterIssuedHandles != beforeInvalidHandles+2 {
+		t.Fatalf("expected exactly two successful handle rows, got %d want %d", afterIssuedHandles, beforeInvalidHandles+2)
+	}
+
+	if _, err := harness.DB.ExecContext(context.Background(), `
+DELETE FROM incident_memberships
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, adminID); err != nil {
+		t.Fatalf("remove incident membership before handle auth re-derivation: %v", err)
+	}
+	for _, endpoint := range []string{"preview-handle", "download-handle"} {
+		resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "evidence_record_not_found")
+	}
+	if got := countAccessHandles(t, harness, incidentID); got != afterIssuedHandles {
+		t.Fatalf("authorization failures wrote evidence_access_handles: got %d want %d", got, afterIssuedHandles)
 	}
 }
 
@@ -234,6 +323,15 @@ func countObjectBlobs(t *testing.T, harness *phase4test.ServerHarness, incidentI
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM object_blobs WHERE incident_id = $1`, incidentID).Scan(&count); err != nil {
 		t.Fatalf("count object_blobs: %v", err)
+	}
+	return count
+}
+
+func countAccessHandles(t *testing.T, harness *phase4test.ServerHarness, incidentID uuid.UUID) int {
+	t.Helper()
+	var count int
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM evidence_access_handles WHERE incident_id = $1`, incidentID).Scan(&count); err != nil {
+		t.Fatalf("count evidence access handles: %v", err)
 	}
 	return count
 }

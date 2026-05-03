@@ -79,6 +79,26 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, entityResult.RecordID); got != 0 {
 		t.Fatalf("entity_origin write must not synthesize mentions, got %d", got)
 	}
+
+	identityResult, err := entityStore.CreateIdentityRow(context.Background(), actor, incident.ID, entities.CreateRequest{
+		ClientTxnID: "txn-phase4-u-4-01-identity",
+		Values: map[string]string{
+			"identity.display_name": "Alex Analyst",
+			"identity.email":        "alex.analyst@example.test",
+		},
+	}, []byte("txn-phase4-u-4-01-identity"), "req-phase4-u-4-01-identity", time.Now().UTC())
+	if err != nil {
+		t.Fatalf("create entity-origin identity row: %v", err)
+	}
+	if identityResult.RecordID == timelineResult.RecordID || identityResult.RecordID == entityResult.RecordID {
+		t.Fatalf("unexpected shared record id between timeline, host, and identity rows: timeline=%s host=%s identity=%s", timelineResult.RecordID, entityResult.RecordID, identityResult.RecordID)
+	}
+	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1`, incident.ID); got != 1 {
+		t.Fatalf("expected entity_origin write to create one identity, got %d", got)
+	}
+	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityResult.RecordID); got != 0 {
+		t.Fatalf("identity entity_origin write must not synthesize mentions, got %d", got)
+	}
 }
 
 // U-4-02 / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.
