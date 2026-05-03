@@ -1455,7 +1455,7 @@ cat >"$split_lane_manifest" <<'JSON'
       ],
       "work_units": [
         {
-          "target": "check-build-prereqs",
+          "target": "build-migrate",
           "weight": 30,
           "needs": [],
           "resource_claims": { "host_cpu": 1 },
@@ -1464,7 +1464,7 @@ cat >"$split_lane_manifest" <<'JSON'
         {
           "target": "check-service-backed",
           "weight": 20,
-          "needs": ["check-build-prereqs"],
+          "needs": ["build-migrate"],
           "produces_summary_targets": ["check-service-backed"],
           "resource_claims": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
           "make_jobs": "host_cpu",
@@ -1478,7 +1478,7 @@ cat >"$split_lane_manifest" <<'JSON'
         {
           "target": "migration-drift",
           "weight": 10,
-          "needs": ["check-build-prereqs"],
+          "needs": ["build-migrate"],
           "produces_summary_targets": ["migration-drift"],
           "resource_claims": { "host_cpu": 1, "host_io": 1, "migration_scratch_postgres": 1 },
           "make_jobs": "host_cpu"

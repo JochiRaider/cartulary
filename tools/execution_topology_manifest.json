@@ -1986,14 +1986,6 @@
         "projection": "check-harness-smoke",
         "test_target": "self"
       },
-      "check-build-prereqs": {
-        "prerequisites": [
-          "build-server",
-          "build-migrate",
-          "test-service-images"
-        ],
-        "type": "alias"
-      },
       "check-go-test-duration-baseline-drift": {
         "type": "summary_target",
         "prerequisites": [],
@@ -2822,7 +2814,7 @@
           "priority_band": "post_build",
           "order": 0,
           "needs": [
-            "check-build-prereqs"
+            "build-migrate"
           ]
         },
         "output_policy": {
@@ -2861,7 +2853,8 @@
           "priority_band": "post_build",
           "order": 1000,
           "needs": [
-            "check-build-prereqs"
+            "build-server",
+            "build-migrate"
           ]
         }
       },
@@ -3879,8 +3872,20 @@
         "name": "test-service-images",
         "classification": "helper_only",
         "included_in": [
+          "check",
           "helper_only"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_service_images",
+          "priority_band": "build_readiness",
+          "order": 2000,
+          "needs": [
+            "toolchain-drift"
+          ]
+        }
       },
       {
         "name": "run-harness-smoke-fast",
@@ -4830,24 +4835,6 @@
         }
       },
       {
-        "name": "check-build-prereqs",
-        "classification": "check_internal",
-        "included_in": [
-          "check"
-        ],
-        "check_schedule": {
-          "schedules": [
-            "check"
-          ],
-          "profile": "build_readiness_gate",
-          "priority_band": "build_readiness",
-          "order": 0,
-          "needs": [
-            "check-frontend-install"
-          ]
-        }
-      },
-      {
         "name": "check-go-test-duration-baseline-drift",
         "classification": "check_internal",
         "included_in": [
@@ -4970,7 +4957,9 @@
             "forwarding": "check_host_to_service_backed_go"
           },
           "needs": [
-            "check-build-prereqs"
+            "build-server",
+            "build-migrate",
+            "test-service-images"
           ]
         }
       },
@@ -5083,8 +5072,20 @@
         "name": "build-server",
         "classification": "public",
         "included_in": [
+          "check",
           "helper_only"
         ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_server",
+          "priority_band": "build_readiness",
+          "order": 0,
+          "needs": [
+            "check-frontend-install"
+          ]
+        },
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -5108,8 +5109,20 @@
         "name": "build-migrate",
         "classification": "public",
         "included_in": [
+          "check",
           "helper_only"
         ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_go_binary",
+          "priority_band": "build_readiness",
+          "order": 1000,
+          "needs": [
+            "toolchain-drift"
+          ]
+        },
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -5650,14 +5663,24 @@
   "check_schedules": {
     "defaults": {
       "resource_profiles": {
-        "build_readiness_gate": {
+        "build_readiness_server": {
           "resource_claims": {
-            "host_cpu": {
-              "mode": "bounded_limit",
-              "reserve": 3,
-              "min": 1,
-              "max": 8
-            }
+            "host_cpu": 2,
+            "host_io": 2
+          },
+          "make_jobs": "host_cpu"
+        },
+        "build_readiness_go_binary": {
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        "build_readiness_service_images": {
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 2
           },
           "make_jobs": "host_cpu"
         },

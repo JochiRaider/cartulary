@@ -498,7 +498,9 @@ for scheduled_target in \
   gosec-toolchain \
   shell-lint-toolchain \
   check-frontend-install \
-  check-build-prereqs \
+  build-server \
+  build-migrate \
+  test-service-images \
   check-service-backed \
   check-go-test-duration-baseline-drift \
   check-browser-e2e-duration-baseline-drift \

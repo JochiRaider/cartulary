@@ -332,9 +332,8 @@ mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_servic
 
 "$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$execution_topology_manifest"
 
-check_build_prereqs_line="$(extract_target_prereqs check-build-prereqs)"
-if [[ -z "$check_build_prereqs_line" ]]; then
-  fail "Makefile must define check-build-prereqs prerequisites"
+if target_exists check-build-prereqs; then
+  fail "check-build-prereqs must not remain as an aggregate check readiness gate"
 fi
 for removed_check_bundle in check-static-validation check-local-product check-meta-validation; do
   if target_exists "$removed_check_bundle"; then
@@ -438,7 +437,9 @@ for scheduled_target in \
   gosec-toolchain \
   shell-lint-toolchain \
   check-frontend-install \
-  check-build-prereqs \
+  build-server \
+  build-migrate \
+  test-service-images \
   check-service-backed \
   check-go-test-duration-baseline-drift \
   check-browser-e2e-duration-baseline-drift \
@@ -489,7 +490,17 @@ if (Array.isArray(topology.check_schedules)) {
   throw new Error("execution topology must own check schedule profiles, not flat schedules");
 }
 const profiles = topology.check_schedules?.defaults?.resource_profiles ?? {};
-for (const requiredProfile of ["setup_cpu", "setup_cpu_io", "build_readiness_gate", "nested_service_backed_scheduler", "post_build_migration_scratch_postgres", "after_setup_cpu", "after_setup_cpu_io"]) {
+for (const requiredProfile of [
+  "setup_cpu",
+  "setup_cpu_io",
+  "build_readiness_server",
+  "build_readiness_go_binary",
+  "build_readiness_service_images",
+  "nested_service_backed_scheduler",
+  "post_build_migration_scratch_postgres",
+  "after_setup_cpu",
+  "after_setup_cpu_io",
+]) {
   if (!profiles[requiredProfile]) {
     throw new Error(`execution topology must declare ${requiredProfile} check schedule profile`);
   }
@@ -513,7 +524,9 @@ assertCheckMetadata("govulncheck-toolchain", "setup_cpu_io");
 assertCheckMetadata("gosec-toolchain", "setup_cpu_io");
 assertCheckMetadata("shell-lint-toolchain", "setup_cpu_io");
 assertCheckMetadata("check-frontend-install", "setup_cpu_io");
-assertCheckMetadata("check-build-prereqs", "build_readiness_gate");
+assertCheckMetadata("build-server", "build_readiness_server");
+assertCheckMetadata("build-migrate", "build_readiness_go_binary");
+assertCheckMetadata("test-service-images", "build_readiness_service_images");
 assertCheckMetadata("check-service-backed", "nested_service_backed_scheduler");
 assertCheckMetadata("migration-drift", "post_build_migration_scratch_postgres");
 assertCheckMetadata("backend-unit", "after_setup_cpu");
@@ -555,22 +568,22 @@ for (const unit of schedule.work_units ?? []) {
     throw new Error(`LINT_SHELL_STRICT must not leak into scheduled ${unit.target}`);
   }
 }
-const build = (schedule.work_units ?? []).find((entry) => entry.target === "check-build-prereqs");
-if (!build) {
-  throw new Error("missing check-build-prereqs work unit");
+const unitByTarget = new Map((schedule.work_units ?? []).map((entry) => [entry.target, entry]));
+if (unitByTarget.has("check-build-prereqs")) {
+  throw new Error("check-build-prereqs must not remain scheduled");
 }
-const buildCpu = build.resource_claims?.host_cpu;
-if (
-  !buildCpu ||
-  typeof buildCpu !== "object" ||
-  Array.isArray(buildCpu) ||
-  buildCpu.mode !== "bounded_limit" ||
-  buildCpu.reserve !== 3 ||
-  buildCpu.min !== 1 ||
-  buildCpu.max !== 8
-) {
-  throw new Error("check-build-prereqs must claim bounded host_cpu with reserve=3 min=1 max=8");
-}
+const assertClaims = (target, expectedClaims) => {
+  const unit = unitByTarget.get(target);
+  if (!unit) {
+    throw new Error(`missing ${target} work unit`);
+  }
+  if (JSON.stringify(unit.resource_claims ?? {}) !== JSON.stringify(expectedClaims)) {
+    throw new Error(`${target} has unexpected resource claims ${JSON.stringify(unit.resource_claims ?? {})}`);
+  }
+};
+assertClaims("build-server", { host_cpu: 2, host_io: 2 });
+assertClaims("build-migrate", { host_cpu: 1, host_io: 1 });
+assertClaims("test-service-images", { host_cpu: 1, host_io: 2 });
 const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");
 if (!service) {
   throw new Error("missing check-service-backed work unit");
@@ -621,10 +634,12 @@ assert_check_needs toolchain-drift ""
 for scheduled_target in codegen-toolchain go-lint-toolchain govulncheck-toolchain gosec-toolchain shell-lint-toolchain check-frontend-install; do
   assert_check_needs "$scheduled_target" "toolchain-drift"
 done
-assert_check_needs check-build-prereqs "check-frontend-install"
-for scheduled_target in check-service-backed migration-drift deployable-shape; do
-  assert_check_needs "$scheduled_target" "check-build-prereqs"
-done
+assert_check_needs build-server "check-frontend-install"
+assert_check_needs build-migrate "toolchain-drift"
+assert_check_needs test-service-images "toolchain-drift"
+assert_check_needs check-service-backed "build-server,build-migrate,test-service-images"
+assert_check_needs migration-drift "build-migrate"
+assert_check_needs deployable-shape "build-server,build-migrate"
 for scheduled_target in \
   backend-unit \
   check-harness-smoke \
@@ -861,9 +876,8 @@ if ! text_contains "$test_service_images_block" '$(TEST_SERVICES_BIN) warm-image
   fail "test-service-images must warm pinned service images through $(TEST_SERVICES_BIN)"
 fi
 
-check_build_prereqs="$(extract_target_prereqs check-build-prereqs)"
-if ! text_matches "$check_build_prereqs" '(^|[[:space:]])test-service-images($|[[:space:]])'; then
-  fail "check-build-prereqs must warm service images before pre-browser check work"
+if target_exists check-build-prereqs; then
+  fail "check-build-prereqs must not remain as the service-image readiness owner"
 fi
 
 if [[ ! -x "$cartulary_runner_script" ]]; then

@@ -1785,14 +1785,6 @@
       "projection": "check-harness-smoke",
       "test_target": "self"
     },
-    "check-build-prereqs": {
-      "prerequisites": [
-        "build-server",
-        "build-migrate",
-        "test-service-images"
-      ],
-      "type": "alias"
-    },
     "check-go-test-duration-baseline-drift": {
       "type": "summary_target",
       "prerequisites": [],
@@ -3468,6 +3460,7 @@
       "name": "test-service-images",
       "classification": "helper_only",
       "included_in": [
+        "check",
         "helper_only"
       ]
     },
@@ -4242,13 +4235,6 @@
       ]
     },
     {
-      "name": "check-build-prereqs",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ]
-    },
-    {
       "name": "check-go-test-duration-baseline-drift",
       "classification": "check_internal",
       "included_in": [
@@ -4408,6 +4394,7 @@
       "name": "build-server",
       "classification": "public",
       "included_in": [
+        "check",
         "helper_only"
       ],
       "output_policy": {
@@ -4433,6 +4420,7 @@
       "name": "build-migrate",
       "classification": "public",
       "included_in": [
+        "check",
         "helper_only"
       ],
       "output_policy": {

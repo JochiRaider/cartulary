@@ -126,18 +126,38 @@
           "make_jobs": "host_cpu"
         },
         {
-          "target": "check-build-prereqs",
+          "target": "build-server",
           "weight": 40000,
           "needs": [
             "check-frontend-install"
           ],
           "resource_claims": {
-            "host_cpu": {
-              "mode": "bounded_limit",
-              "reserve": 3,
-              "min": 1,
-              "max": 8
-            }
+            "host_cpu": 2,
+            "host_io": 2
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "build-migrate",
+          "weight": 39000,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "test-service-images",
+          "weight": 38000,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 2
           },
           "make_jobs": "host_cpu"
         },
@@ -145,7 +165,9 @@
           "target": "check-service-backed",
           "weight": 30000,
           "needs": [
-            "check-build-prereqs"
+            "build-server",
+            "build-migrate",
+            "test-service-images"
           ],
           "produces_summary_targets": [
             "check-service-backed"
@@ -219,7 +241,7 @@
           "target": "migration-drift",
           "weight": 27000,
           "needs": [
-            "check-build-prereqs"
+            "build-migrate"
           ],
           "resource_claims": {
             "host_cpu": 1,
@@ -232,7 +254,8 @@
           "target": "deployable-shape",
           "weight": 26000,
           "needs": [
-            "check-build-prereqs"
+            "build-server",
+            "build-migrate"
           ],
           "resource_claims": {
             "host_cpu": 1,
