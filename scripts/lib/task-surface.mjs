@@ -871,22 +871,37 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
   }
 }
 
-function validateMakeExports(errors, exports, label) {
-  if (exports === undefined) {
+function validateMakeAssignmentMap(
+  errors,
+  assignments,
+  label,
+  { keyDescription },
+) {
+  if (assignments === undefined) {
     return;
   }
-  if (!exports || typeof exports !== "object" || Array.isArray(exports)) {
+  if (
+    !assignments ||
+    typeof assignments !== "object" ||
+    Array.isArray(assignments)
+  ) {
     errors.push(`${label} must be an object`);
     return;
   }
-  for (const [name, value] of Object.entries(exports)) {
+  for (const [name, value] of Object.entries(assignments)) {
     if (!makeVariablePattern.test(name)) {
-      errors.push(`${label}.${name} must be a safe Make variable name`);
+      errors.push(`${label}.${name} must be a safe ${keyDescription}`);
     }
     if (typeof value !== "string" || !makeValuePattern.test(value)) {
       errors.push(`${label}.${name} must be a safe Make value`);
     }
   }
+}
+
+function validateMakeExports(errors, exports, label) {
+  validateMakeAssignmentMap(errors, exports, label, {
+    keyDescription: "Make variable name",
+  });
 }
 
 function validateMakeComments(errors, comments, label) {
@@ -909,21 +924,9 @@ function validateMakeComments(errors, comments, label) {
 }
 
 function validateEnvEntries(errors, env, label) {
-  if (env === undefined) {
-    return;
-  }
-  if (!env || typeof env !== "object" || Array.isArray(env)) {
-    errors.push(`${label} must be an object`);
-    return;
-  }
-  for (const [name, value] of Object.entries(env)) {
-    if (!makeVariablePattern.test(name)) {
-      errors.push(`${label}.${name} must be a safe environment variable name`);
-    }
-    if (typeof value !== "string" || !makeValuePattern.test(value)) {
-      errors.push(`${label}.${name} must be a safe Make value`);
-    }
-  }
+  validateMakeAssignmentMap(errors, env, label, {
+    keyDescription: "environment variable name",
+  });
 }
 
 function validateCommandTokens(

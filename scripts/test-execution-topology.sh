@@ -54,6 +54,15 @@ assert.deepEqual(
   "migration-drift must declare its Postgres service requirement",
 );
 
+const taskSurfaceFixture = () => JSON.parse(JSON.stringify(renderedTaskSurface));
+const taskSurfaceErrors = (manifest) =>
+  taskSurfaceModule
+    .collectTaskSurfaceManifestErrors(manifest, {
+      browserBatchManifest: renderedBrowserBatch,
+      serviceBackedScheduleManifest: renderedServiceBacked,
+    })
+    .join("\n");
+
 const invalidHarnessReference = JSON.parse(JSON.stringify(renderedTaskSurface));
 invalidHarnessReference.harness_tiers.fast.checks.push("harness-smoke-missing");
 assert.match(
@@ -97,6 +106,64 @@ assert.match(
     .join("\n"),
   /migration-drift\.service_requirements\[2\] has invalid service requirement "legacy-db"/,
   "task-surface validation must reject unknown service requirements",
+);
+
+const invalidExportsShape = taskSurfaceFixture();
+invalidExportsShape.make_recipes.help.exports = [];
+assert.match(
+  taskSurfaceErrors(invalidExportsShape),
+  /make_recipes\.help\.exports must be an object/,
+  "task-surface validation must reject non-object Make exports",
+);
+
+const invalidExportsKey = taskSurfaceFixture();
+invalidExportsKey.make_recipes.help.exports = { "bad-name": "1" };
+assert.match(
+  taskSurfaceErrors(invalidExportsKey),
+  /make_recipes\.help\.exports\.bad-name must be a safe Make variable name/,
+  "task-surface validation must reject unsafe Make export names",
+);
+
+const invalidExportsValue = taskSurfaceFixture();
+invalidExportsValue.make_recipes.help.exports = { SAFE_NAME: "unsafe`value" };
+assert.match(
+  taskSurfaceErrors(invalidExportsValue),
+  /make_recipes\.help\.exports\.SAFE_NAME must be a safe Make value/,
+  "task-surface validation must reject unsafe Make export values",
+);
+
+const obsoleteTestTargetExport = taskSurfaceFixture();
+obsoleteTestTargetExport.make_recipes.help.exports = {
+  CARTULARY_TEST_TARGET: "help",
+};
+assert.match(
+  taskSurfaceErrors(obsoleteTestTargetExport),
+  /make_recipes\.help\.exports\.CARTULARY_TEST_TARGET is obsolete; use test_target: "self"/,
+  "task-surface validation must reject obsolete CARTULARY_TEST_TARGET exports",
+);
+
+const invalidEnvShape = taskSurfaceFixture();
+invalidEnvShape.make_recipes.doctor.env = [];
+assert.match(
+  taskSurfaceErrors(invalidEnvShape),
+  /make_recipes\.doctor\.env must be an object/,
+  "task-surface validation must reject non-object command env",
+);
+
+const invalidEnvKey = taskSurfaceFixture();
+invalidEnvKey.make_recipes.doctor.env = { "bad-name": "1" };
+assert.match(
+  taskSurfaceErrors(invalidEnvKey),
+  /make_recipes\.doctor\.env\.bad-name must be a safe environment variable name/,
+  "task-surface validation must reject unsafe command env names",
+);
+
+const invalidEnvValue = taskSurfaceFixture();
+invalidEnvValue.make_recipes.doctor.env = { SAFE_NAME: "unsafe`value" };
+assert.match(
+  taskSurfaceErrors(invalidEnvValue),
+  /make_recipes\.doctor\.env\.SAFE_NAME must be a safe Make value/,
+  "task-surface validation must reject unsafe command env values",
 );
 
 const serialize = (value) => `${JSON.stringify(value, null, 2)}\n`;
