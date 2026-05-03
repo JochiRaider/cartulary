@@ -3,6 +3,13 @@ import { fileURLToPath } from "node:url";
 
 import { loadExecutionTopology } from "./execution-topology.mjs";
 import {
+  aggregatePackages,
+  aggregateRegex,
+  collectAggregateEmissions,
+  fixturePolicyAssignments,
+  resetTableAssignments,
+} from "./go-target-aggregate.mjs";
+import {
   collectEntries,
   collectSupportGoEntries,
   effectiveGoEntryPostgresFixtureBudget,
@@ -17,12 +24,6 @@ import {
 
 const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);
-const postgresFixturePolicyEnvAssignable = new Set([
-  "template_clone",
-  "package_reset",
-  "transaction",
-  "group_clone",
-]);
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -224,162 +225,6 @@ function rowsForAggregate(root, target, executionFamily) {
     throw new Error(`unknown execution family ${executionFamily} for ${target}`);
   }
   return rows;
-}
-
-function rowPackages(row) {
-  if (row.package) {
-    return [row.package];
-  }
-  return [...(row.packages ?? [])];
-}
-
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-}
-
-function exactRegex(values) {
-  if (values.length === 0) {
-    throw new Error("cannot build an exact regex from an empty value list");
-  }
-  const escaped = values.map(escapeRegex);
-  if (escaped.length === 1) {
-    return `^${escaped[0]}$`;
-  }
-  return `^(${escaped.join("|")})$`;
-}
-
-function buildUnionRegex(components) {
-  const values = components.filter((component) => component !== "");
-  if (values.length === 0) {
-    throw new Error("cannot build aggregate regex from an empty selection");
-  }
-  if (values.length === 1) {
-    return values[0];
-  }
-  return values.map((component) => `(${component})`).join("|");
-}
-
-function aggregateRegex(rows) {
-  const symbols = rows.flatMap((row) => row.symbols ?? []);
-  const components = [];
-  if (symbols.length > 0) {
-    components.push(exactRegex(symbols.sort(compareStrings)));
-  }
-  for (const row of rows) {
-    if (row.raw_selector) {
-      components.push(row.raw_selector);
-    }
-  }
-  return buildUnionRegex(components);
-}
-
-function aggregatePackages(rows) {
-  return Array.from(new Set(rows.flatMap(rowPackages))).sort(compareStrings);
-}
-
-function fixturePolicyAssignments(rows, mode) {
-  const assignments = [];
-  for (const row of rows) {
-    const policy = row.fixture_policy?.postgres ?? "";
-    if (!postgresFixturePolicyEnvAssignable.has(policy)) {
-      continue;
-    }
-    if (mode === "tests" && row.coverage !== "raw") {
-      for (const symbol of row.symbols ?? []) {
-        assignments.push(`${symbol}=${policy}`);
-      }
-    }
-    if (mode === "packages" && row.coverage === "raw") {
-      for (const pkg of row.packages ?? []) {
-        assignments.push(`${pkg}=${policy}`);
-      }
-    }
-  }
-  return assignments.sort(compareStrings);
-}
-
-function resetTableAssignments(rows, mode) {
-  const assignments = [];
-  for (const row of rows) {
-    const dirtyTables = row.fixture_budget?.postgres?.dirty_tables ?? [];
-    if (dirtyTables.length === 0) {
-      continue;
-    }
-    if (mode === "tests" && row.coverage !== "raw") {
-      for (const symbol of row.symbols ?? []) {
-        assignments.push(`${symbol}=${dirtyTables.join("|")}`);
-      }
-    }
-    if (mode === "packages" && row.coverage === "raw") {
-      for (const pkg of row.packages ?? []) {
-        assignments.push(`${pkg}=${dirtyTables.join("|")}`);
-      }
-    }
-  }
-  return assignments.sort(compareStrings);
-}
-
-function aggregateKey(row) {
-  if (row.coverage === "raw") {
-    return `raw:${row.id}`;
-  }
-  if (row.support_only) {
-    return [
-      "support",
-      row.manifest_phase,
-      row.execution_dependency,
-      row.execution_family,
-      row.execution_label,
-    ].join("\u001f");
-  }
-  return [
-    "manifest",
-    row.manifest_phase,
-    row.section,
-    row.coverage,
-    row.execution_dependency,
-    row.execution_family,
-    row.execution_label,
-  ].join("\u001f");
-}
-
-function collectAggregateEmissions(rows) {
-  const groups = new Map();
-  for (const row of rows) {
-    const key = aggregateKey(row);
-    if (!groups.has(key)) {
-      groups.set(key, {
-        mode: row.coverage === "raw" ? "raw" : row.support_only ? "support" : "manifest",
-        label: row.execution_label,
-        phase: row.manifest_phase,
-        section: row.section,
-        coverage: row.coverage,
-        execution_dependency: row.execution_dependency,
-        execution_family: row.execution_family,
-        support_target: row.support_only ? row.execution_dependency : "",
-        regex: row.raw_selector ?? "",
-        packages: new Set(),
-        symbols: [],
-      });
-    }
-    const group = groups.get(key);
-    for (const pkg of rowPackages(row)) {
-      group.packages.add(pkg);
-    }
-    if (row.support_only) {
-      group.symbols.push(...(row.symbols ?? []));
-    }
-  }
-
-  return Array.from(groups.values()).map((group) => {
-    const symbols = group.symbols.sort(compareStrings);
-    return {
-      ...group,
-      regex: group.mode === "support" ? exactRegex(symbols) : group.regex,
-      packages: Array.from(group.packages).sort(compareStrings),
-      symbols,
-    };
-  });
 }
 
 function aggregateNames(root, target) {
