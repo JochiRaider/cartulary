@@ -185,7 +185,7 @@
         },
         {
           "target": "go-vulncheck",
-          "description": "run Go vulnerability scanning"
+          "description": "run Go vulnerability scanning over authored package roots"
         },
         {
           "target": "go-gosec-targeted",
@@ -4543,6 +4543,7 @@
         "harness-smoke-generated-artifact-policy",
         "harness-smoke-json-shapes",
         "harness-smoke-run-go-staticcheck",
+        "harness-smoke-run-go-govulncheck",
         "harness-smoke-run-go-gosec-targeted",
         "harness-smoke-run-go-gosec-audit",
         "harness-smoke-run-make-sequence-fast",
@@ -4600,6 +4601,7 @@
         "harness-smoke-generated-artifact-policy",
         "harness-smoke-json-shapes",
         "harness-smoke-run-go-staticcheck",
+        "harness-smoke-run-go-govulncheck",
         "harness-smoke-run-go-gosec-targeted",
         "harness-smoke-run-go-gosec-audit",
         "harness-smoke-run-make-sequence-fast",
@@ -4705,6 +4707,12 @@
       "name": "harness-smoke-run-go-staticcheck",
       "backing_scripts": [
         "scripts/test-run-go-staticcheck.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-run-go-govulncheck",
+      "backing_scripts": [
+        "scripts/test-run-go-govulncheck.sh"
       ]
     },
     {

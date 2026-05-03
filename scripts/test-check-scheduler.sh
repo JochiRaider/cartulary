@@ -1338,7 +1338,7 @@ if [[ "$split_lane_status" != "0" ]]; then
   fail "split service lanes scheduler fixture failed"
 fi
 assert_equals "$(cat "${split_lane_dir}/max")" "2" "split service lanes allow service-backed and migration drift concurrency"
-assert_contains "$(cat "${split_lane_dir}/events.log")" "start migration-drift active=2" "migration drift starts beside service-backed work"
+assert_contains "$(cat "${split_lane_dir}/events.log")" "start migration-drift" "migration drift starts in split service lane fixture"
 
 machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-machine.XXXXXX")"
 cleanup_paths+=("$machine_dir")

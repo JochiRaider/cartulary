@@ -5,6 +5,10 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-shellcheck.sh"
 cleanup_paths=()
 
+# shellcheck source=scripts/lib/harness-scratch.sh
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
+
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do
@@ -41,7 +45,7 @@ assert_equals() {
 
 make_fixture_repo() {
   local dir
-  dir="$(mktemp -d "$ROOT_DIR/tmp/lint-shell-fixture.XXXXXX")"
+  dir="$(cartulary_harness_mktemp_dir lint-shell-fixture.XXXXXX)"
   cleanup_paths+=("$dir")
   git -C "$dir" init -q
   printf '%s\n' "$dir"
@@ -112,7 +116,7 @@ assert_equals "$inventory_output" "$expected_inventory_output" "deterministic li
 expected_args=$'bin/shebang-runner\ngenerated/skip.sh\nscripts/a.sh\nscripts/z.sh'
 assert_equals "$(cat "$args_log")" "$expected_args" "deterministic shellcheck argv"
 
-artifact_dir="$(mktemp -d "$ROOT_DIR/tmp/lint-shell-artifacts.XXXXXX")"
+artifact_dir="$(cartulary_harness_mktemp_dir lint-shell-artifacts.XXXXXX)"
 cleanup_paths+=("$artifact_dir")
 artifact_output="$(
   CARTULARY_SHELLCHECK_ROOT="$inventory_repo" \

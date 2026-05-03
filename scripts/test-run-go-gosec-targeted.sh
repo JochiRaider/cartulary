@@ -5,6 +5,10 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="$ROOT_DIR/scripts/run-go-gosec-targeted.sh"
 cleanup_paths=()
 
+# shellcheck source=scripts/lib/harness-scratch.sh
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
+
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do
@@ -39,7 +43,7 @@ assert_equals() {
   fi
 }
 
-scratch="$(mktemp -d "$ROOT_DIR/tmp/go-gosec-targeted.XXXXXX")"
+scratch="$(cartulary_harness_mktemp_dir go-gosec-targeted.XXXXXX)"
 cleanup_paths+=("$scratch")
 
 fake_go="$scratch/go"

@@ -7,8 +7,12 @@ GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 GOVULNCHECK_BIN="${GOVULNCHECK_BIN:-$ROOT_DIR/tmp/toolbin/govulncheck-v1.3.0}"
 GOVULNCHECK_FLAGS="${GOVULNCHECK_FLAGS:--test}"
-GOVULNCHECK_PATTERNS="${GOVULNCHECK_PATTERNS:-./...}"
+GOVULNCHECK_PATTERNS="${GOVULNCHECK_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
 GOVULNCHECK_DB="${GOVULNCHECK_DB:-}"
+
+# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
 
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then
   GO_BIN="$(command -v "$GO_BIN")"
@@ -49,7 +53,19 @@ if [[ -z "$GOVULNCHECK_PATTERNS" ]]; then
 fi
 read -r -a patterns <<<"$GOVULNCHECK_PATTERNS"
 
+mapfile -t packages < <(
+  GOCACHE="$GO_CACHE_DIR" \
+  GOMODCACHE="$GO_MOD_CACHE_DIR" \
+    "$GO_BIN" list "${patterns[@]}" |
+    cartulary_filter_authored_go_packages
+)
+
+if [[ "${#packages[@]}" -eq 0 ]]; then
+  echo "go-vulncheck package discovery returned no authored packages" >&2
+  exit 1
+fi
+
 env GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
   PATH="$(dirname "$GO_BIN"):$PATH" \
-  "$GOVULNCHECK_BIN" "${args[@]}" "${patterns[@]}"
+  "$GOVULNCHECK_BIN" "${args[@]}" "${packages[@]}"

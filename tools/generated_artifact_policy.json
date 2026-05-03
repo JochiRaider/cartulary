@@ -44,6 +44,13 @@
         ]
       },
       {
+        "path": "scripts/run-go-govulncheck.sh",
+        "must_contain": [
+          "scripts/lib/generated-artifacts.sh",
+          "cartulary_filter_authored_go_packages"
+        ]
+      },
+      {
         "path": "scripts/run-shellcheck.sh",
         "must_contain": [
           "scripts/lib/generated-artifacts.sh",

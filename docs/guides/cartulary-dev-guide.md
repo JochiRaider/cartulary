@@ -749,6 +749,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make test-fast`     | Run the narrower pure-unit, service-backed backend, frontend type-check, and frontend unit/process loop      |
 | `make test`          | Run the authoritative full test corpus with shared service-backed backend and webserver browser orchestration |
 | `make lint`          | Run backend gofmt/vet/Staticcheck, authored frontend Biome, scripts Biome, warning-only ShellCheck, and frontend type checks |
+| `make go-vulncheck`  | Run Govulncheck over authored Go package roots and tests, excluding generated Go packages                    |
 | `make go-gosec-targeted` | Run focused Go security static analysis plus scoped blocking runtime file/path rules                    |
 | `make go-gosec-audit` | Run warning-only Gosec audit profiles for goroutine context and scoped file/path rules                     |
 | `make lint-scripts`  | Run check-only Biome lint over JavaScript orchestration scripts                                               |

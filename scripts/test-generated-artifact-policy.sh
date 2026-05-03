@@ -6,6 +6,10 @@ CHECKER="$ROOT_DIR/scripts/check-generated-artifact-policy.mjs"
 VET_WRAPPER="$ROOT_DIR/scripts/run-go-vet.sh"
 cleanup_paths=()
 
+# shellcheck source=scripts/lib/harness-scratch.sh
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
+
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do
@@ -80,6 +84,10 @@ write_policy() {
         "must_contain": ["scripts/lib/generated-artifacts.sh", "cartulary_filter_authored_go_packages"]
       },
       {
+        "path": "scripts/run-go-govulncheck.sh",
+        "must_contain": ["scripts/lib/generated-artifacts.sh", "cartulary_filter_authored_go_packages"]
+      },
+      {
         "path": "scripts/run-shellcheck.sh",
         "must_contain": ["scripts/lib/generated-artifacts.sh", "cartulary_is_generated_artifact_path"],
         "must_not_contain": ["*/generated/*", "generated/*"]
@@ -132,6 +140,10 @@ EOF
 source scripts/lib/generated-artifacts.sh
 cartulary_filter_authored_go_packages
 EOF
+  cat >"$repo/scripts/run-go-govulncheck.sh" <<'EOF'
+source scripts/lib/generated-artifacts.sh
+cartulary_filter_authored_go_packages
+EOF
   cat >"$repo/scripts/run-shellcheck.sh" <<'EOF'
 source scripts/lib/generated-artifacts.sh
 cartulary_is_generated_artifact_path
@@ -175,7 +187,7 @@ JSON
 
 make_policy_repo() {
   local repo
-  repo="$(mktemp -d "$ROOT_DIR/tmp/generated-policy.XXXXXX")"
+  repo="$(cartulary_harness_mktemp_dir generated-policy.XXXXXX)"
   cleanup_paths+=("$repo")
   git -C "$repo" init -q
   write_support_files "$repo"
@@ -313,7 +325,7 @@ cat >"$duplicate_policy_repo/tools/generated_artifact_policy.json" <<'JSON'
 JSON
 expect_policy_failure "$duplicate_policy_repo" "duplicate generated root internal/gen" "duplicate generated root"
 
-vet_scratch="$(mktemp -d "$ROOT_DIR/tmp/go-vet-generated.XXXXXX")"
+vet_scratch="$(cartulary_harness_mktemp_dir go-vet-generated.XXXXXX)"
 cleanup_paths+=("$vet_scratch")
 fake_go="$vet_scratch/go"
 vet_args_log="$vet_scratch/vet-args.log"

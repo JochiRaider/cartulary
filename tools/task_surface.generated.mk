@@ -65,7 +65,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make frontend-import-boundary-check enforce frontend import ownership boundaries' \
 	'  make lint-scripts                   run JavaScript orchestration script Biome checks' \
 	'  make lint-shell                     run warning-only ShellCheck over tracked shell scripts' \
-	'  make go-vulncheck                   run Go vulnerability scanning' \
+	'  make go-vulncheck                   run Go vulnerability scanning over authored package roots' \
 	'  make go-gosec-targeted              run targeted Go security static analysis' \
 	'  make go-gosec-audit                 run warning-only Go security audit profiles' \
 	'' \

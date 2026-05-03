@@ -58,7 +58,7 @@
 - `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` prints public targets plus private/check-internal task-surface diagnostics.
 - `make doctor` verifies required local tools and pinned toolchain versions without installing them.
 - `make bootstrap` installs the pinned Go CLI tools, pinned ShellCheck, and workspace dependencies.
-- `make go-vulncheck` runs pinned Govulncheck against Go source and tests using the default `./...` package pattern.
+- `make go-vulncheck` runs pinned Govulncheck against authored Go source and tests using the default `./cmd/... ./internal/... ./db/... ./tools/...` package roots, with generated Go packages filtered out.
 - `make go-gosec-targeted` runs pinned Gosec with the focused `G602,G124,G112,G114` rule set plus scoped blocking runtime file/path rules against authored Go source.
 - `make go-gosec-audit` runs pinned Gosec warning-only audit profiles for `G118` and scoped file/path rules across runtime and support code.
 - `make lint-shell` runs pinned ShellCheck warning-only over the deterministic tracked shell-script inventory; set `LINT_SHELL_STRICT=1` to fail on findings.

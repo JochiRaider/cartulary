@@ -27,6 +27,7 @@
     "harness-smoke-run-frontend-unit": 4230,
     "harness-smoke-run-go-gosec-audit": 30,
     "harness-smoke-run-go-gosec-targeted": 50,
+    "harness-smoke-run-go-govulncheck": 50,
     "harness-smoke-run-go-staticcheck": 40,
     "harness-smoke-run-go-target-fast": 1630,
     "harness-smoke-run-make-sequence-fast": 3580,
