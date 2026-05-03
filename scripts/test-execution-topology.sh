@@ -62,6 +62,11 @@ const taskSurfaceErrors = (manifest) =>
       serviceBackedScheduleManifest: renderedServiceBacked,
     })
     .join("\n");
+const taskSurfaceErrorList = (manifest) =>
+  taskSurfaceModule.collectTaskSurfaceManifestErrors(manifest, {
+    browserBatchManifest: renderedBrowserBatch,
+    serviceBackedScheduleManifest: renderedServiceBacked,
+  });
 
 const invalidHarnessReference = JSON.parse(JSON.stringify(renderedTaskSurface));
 invalidHarnessReference.harness_tiers.fast.checks.push("harness-smoke-missing");
@@ -164,6 +169,153 @@ assert.match(
   taskSurfaceErrors(invalidEnvValue),
   /make_recipes\.doctor\.env\.SAFE_NAME must be a safe Make value/,
   "task-surface validation must reject unsafe command env values",
+);
+
+const unknownRecipeType = taskSurfaceFixture();
+unknownRecipeType.make_recipes.help.type = "future_recipe";
+assert.match(
+  taskSurfaceErrors(unknownRecipeType),
+  /make_recipes\.help\.type must be one of alias, cleanup, print_help, sequence, check_schedule, go_target, service_backed_target, service_backed_schedule, browser_batch, phase_command, summary_target, node_tool/,
+  "task-surface validation must reject unknown Make recipe types with the registry order",
+);
+
+const aliasWithoutTypeSpecificFields = taskSurfaceFixture();
+aliasWithoutTypeSpecificFields.make_recipes.doctor = {
+  type: "alias",
+  prerequisites: [],
+};
+assert.deepEqual(
+  taskSurfaceErrorList(aliasWithoutTypeSpecificFields),
+  [],
+  "alias recipes must not require type-specific fields beyond common preflight",
+);
+
+// Future Make recipe types must be added to makeRecipeValidators and covered here.
+const recipeValidationCases = [
+  {
+    type: "cleanup",
+    target: "clean",
+    mutate: (recipe) => {
+      recipe.scope = "scrub";
+    },
+    pattern: /make_recipes\.clean\.scope must be clean or distclean/,
+  },
+  {
+    type: "print_help",
+    target: "help",
+    mutate: (recipe) => {
+      recipe.scope = "wide";
+    },
+    pattern: /make_recipes\.help\.scope must be compact or all/,
+  },
+  {
+    type: "sequence",
+    target: "test-fast",
+    mutate: (recipe) => {
+      recipe.sequence = "missing-sequence";
+    },
+    pattern: /make_recipes\.test-fast\.sequence references unknown sequence "missing-sequence"/,
+  },
+  {
+    type: "check_schedule",
+    target: "check",
+    mutate: (recipe) => {
+      recipe.manifest_variable = "bad-name";
+    },
+    pattern: /make_recipes\.check\.manifest_variable must be a safe Make variable name/,
+  },
+  {
+    type: "go_target",
+    target: "backend-unit",
+    mutate: (recipe) => {
+      recipe.env = [];
+    },
+    pattern: /make_recipes\.backend-unit\.env must be an object/,
+  },
+  {
+    type: "service_backed_target",
+    target: "backend-store",
+    mutate: (recipe) => {
+      recipe.env = [];
+    },
+    pattern: /make_recipes\.backend-store\.env must be an object/,
+  },
+  {
+    type: "service_backed_schedule",
+    target: "test-service-backed",
+    mutate: (recipe) => {
+      recipe.phase_label = "";
+    },
+    pattern: /make_recipes\.test-service-backed\.phase_label must be a non-empty string/,
+  },
+  {
+    type: "browser_batch",
+    target: "browser-e2e",
+    mutate: (recipe) => {
+      recipe.stage = "bad`stage";
+    },
+    pattern: /make_recipes\.browser-e2e\.stage must be a safe browser stage name/,
+  },
+  {
+    type: "phase_command",
+    target: "doctor",
+    mutate: (recipe) => {
+      recipe.mode = "shell";
+    },
+    pattern: /make_recipes\.doctor\.mode must be run_phase, node, or command/,
+  },
+  {
+    type: "summary_target",
+    target: "check-harness-smoke",
+    mutate: (recipe) => {
+      recipe.child_target = "missing-target";
+    },
+    pattern: /make_recipes\.check-harness-smoke\.child_target references unknown target "missing-target"/,
+  },
+  {
+    type: "node_tool",
+    target: "doctor",
+    mutate: (_recipe, manifest) => {
+      manifest.make_recipes.doctor = {
+        type: "node_tool",
+        prerequisites: [],
+      };
+    },
+    pattern: /make_recipes\.doctor has no scripts\/lib\/make-node-tools\.mjs registry entry/,
+  },
+];
+for (const validationCase of recipeValidationCases) {
+  const invalidRecipe = taskSurfaceFixture();
+  validationCase.mutate(
+    invalidRecipe.make_recipes[validationCase.target],
+    invalidRecipe,
+  );
+  assert.match(
+    taskSurfaceErrors(invalidRecipe),
+    validationCase.pattern,
+    `task-surface validation must reject invalid ${validationCase.type} recipe fields`,
+  );
+}
+
+const invalidCheckScheduleOrder = taskSurfaceFixture();
+Object.assign(invalidCheckScheduleOrder.make_recipes.check, {
+  target: "missing-schedule",
+  summary_profile: "legacy-summary",
+  manifest_variable: "bad-name",
+  schedule_manifest: "bad`path.json",
+  resource_limits: { cpu: 1 },
+});
+const checkScheduleErrors = taskSurfaceErrorList(invalidCheckScheduleOrder);
+assert.deepEqual(
+  checkScheduleErrors.filter((error) => error.startsWith("make_recipes.check.")),
+  [
+    'make_recipes.check.target references unknown schedule target "missing-schedule"',
+    "make_recipes.check.summary_profile is obsolete; summary targets derive from the check schedule",
+    "make_recipes.check.manifest_variable must be a safe Make variable name",
+    "make_recipes.check.schedule_manifest must be a safe repo-local JSON path",
+    "make_recipes.check.resource_limits is obsolete; scheduler capacity overrides come from the resource registry",
+  ],
+  "check_schedule recipe validation errors must remain deterministic",
 );
 
 const serialize = (value) => `${JSON.stringify(value, null, 2)}\n`;
