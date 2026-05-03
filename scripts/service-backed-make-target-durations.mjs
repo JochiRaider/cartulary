@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,6 +15,13 @@ import {
   formatContaminationReasons,
   printContaminationReasons,
 } from "./lib/duration-drift.mjs";
+import { findFilesNamed } from "./lib/result-artifacts.mjs";
+import { relToRepo, resolveRepoPath } from "./lib/repo-paths.mjs";
+import {
+  readJSON,
+  readPositiveTargetBaseline,
+  sortedObjectByKey,
+} from "./lib/target-duration-baselines.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -43,19 +50,11 @@ function usage() {
 }
 
 function resolvePath(file) {
-  return path.isAbsolute(file) ? file : path.join(repoRoot, file);
+  return resolveRepoPath(repoRoot, file);
 }
 
 function rel(file) {
-  return path.relative(repoRoot, file);
-}
-
-function readJSON(file) {
-  return JSON.parse(readFileSync(resolvePath(file), "utf8"));
-}
-
-function sortedObject(entries) {
-  return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
+  return relToRepo(repoRoot, file);
 }
 
 function positiveInteger(value, fallback) {
@@ -110,28 +109,7 @@ function parseCommonArgs(argv, { includeTopology = false } = {}) {
 }
 
 function schedulerSummaryFiles(root) {
-  const files = [];
-  const stack = [resolvePath(root)];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    let entries = [];
-    try {
-      entries = readdirSync(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (entry.isFile() && entry.name === "scheduler-summary.json") {
-        files.push(next);
-      }
-    }
-  }
-  return files.sort();
+  return findFilesNamed(root, "scheduler-summary.json", { repoRoot });
 }
 
 function readSchedulerEvents(eventsFile) {
@@ -149,7 +127,7 @@ function collectObservedMakeTargetDurations(resultsDir) {
   const observed = new Map();
   let passedSchedulerCount = 0;
   for (const summaryFile of schedulerSummaryFiles(resultsDir)) {
-    const summary = readJSON(summaryFile);
+    const summary = readJSON(repoRoot, summaryFile);
     if (summary.scheduler_kind !== "service-backed" || summary.status !== "pass") {
       continue;
     }
@@ -183,31 +161,18 @@ function collectObservedMakeTargetDurations(resultsDir) {
 }
 
 function readBaseline(file, { allowMissing = false } = {}) {
-  const baselineFile = resolvePath(file);
-  if (!existsSync(baselineFile)) {
-    if (allowMissing) {
-      return {
-        schema_id: baselineSchemaID,
-        note: baselineNote,
-        default_make_target_weight_ms: defaultMakeTargetWeightMs,
-        targets: {},
-      };
-    }
-    throw new Error(`${rel(baselineFile)} is missing`);
-  }
-  const baseline = readJSON(baselineFile);
-  if (baseline.schema_id !== baselineSchemaID) {
-    throw new Error(`${rel(baselineFile)} must declare schema_id ${baselineSchemaID}`);
-  }
-  if (!baseline.targets || typeof baseline.targets !== "object" || Array.isArray(baseline.targets)) {
-    throw new Error(`${rel(baselineFile)} targets must be an object`);
-  }
-  for (const [target, weight] of Object.entries(baseline.targets)) {
-    if (!Number.isInteger(weight) || weight <= 0) {
-      throw new Error(`${rel(baselineFile)} targets.${target} must be positive integer weight ms`);
-    }
-  }
-  return baseline;
+  return readPositiveTargetBaseline({
+    repoRoot,
+    file,
+    schemaID: baselineSchemaID,
+    missingDocument: {
+      schema_id: baselineSchemaID,
+      note: baselineNote,
+      default_make_target_weight_ms: defaultMakeTargetWeightMs,
+      targets: {},
+    },
+    allowMissing,
+  });
 }
 
 function readTopologyProfile(file) {
@@ -220,7 +185,7 @@ function readTopologyProfile(file) {
 
 function readScheduleMakeTargets(file) {
   const scheduleFile = resolvePath(file);
-  const manifest = readJSON(scheduleFile);
+  const manifest = readJSON(repoRoot, scheduleFile);
   if (manifest.schema_id !== scheduleSchemaID) {
     throw new Error(`${rel(scheduleFile)} must declare schema_id ${scheduleSchemaID}`);
   }
@@ -304,7 +269,7 @@ function update(argv) {
     baseline.targets[target] = durationMs;
   }
   baseline.updated_at = new Date().toISOString();
-  baseline.targets = sortedObject(Object.entries(baseline.targets));
+  baseline.targets = sortedObjectByKey(Object.entries(baseline.targets));
   writeFileSync(options.baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
   process.stdout.write(
     `updated ${observed.size} service-backed make-target duration baselines from ${passedSchedulerCount} successful scheduler artifact(s)\n`,

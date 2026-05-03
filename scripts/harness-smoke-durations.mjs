@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,13 @@ import {
   durationDriftDescription,
   durationDriftKind,
 } from "./lib/duration-drift.mjs";
+import { findFilesNamed } from "./lib/result-artifacts.mjs";
+import { relToRepo, resolveRepoPath } from "./lib/repo-paths.mjs";
+import {
+  readJSON,
+  readPositiveTargetBaseline,
+  sortedObjectByKey,
+} from "./lib/target-duration-baselines.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -33,19 +40,11 @@ function usage() {
 }
 
 function resolvePath(file) {
-  return path.isAbsolute(file) ? file : path.join(repoRoot, file);
+  return resolveRepoPath(repoRoot, file);
 }
 
 function rel(file) {
-  return path.relative(repoRoot, file).replaceAll("\\", "/");
-}
-
-function readJSON(file) {
-  return JSON.parse(readFileSync(resolvePath(file), "utf8"));
-}
-
-function sortedObject(entries) {
-  return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
+  return relToRepo(repoRoot, file);
 }
 
 function parseArgs(argv, command) {
@@ -91,55 +90,21 @@ function parseArgs(argv, command) {
 }
 
 function readBaseline(file, { allowMissing = false } = {}) {
-  const baselineFile = resolvePath(file);
-  if (!existsSync(baselineFile)) {
-    if (allowMissing) {
-      return {
-        schema_id: baselineSchemaID,
-        note: baselineNote,
-        targets: {},
-      };
-    }
-    throw new Error(`${rel(baselineFile)} is missing`);
-  }
-  const baseline = readJSON(baselineFile);
-  if (baseline.schema_id !== baselineSchemaID) {
-    throw new Error(`${rel(baselineFile)} must declare schema_id ${baselineSchemaID}`);
-  }
-  if (!baseline.targets || typeof baseline.targets !== "object" || Array.isArray(baseline.targets)) {
-    throw new Error(`${rel(baselineFile)} targets must be an object`);
-  }
-  for (const [target, weight] of Object.entries(baseline.targets)) {
-    if (!Number.isInteger(weight) || weight <= 0) {
-      throw new Error(`${rel(baselineFile)} targets.${target} must be positive integer weight ms`);
-    }
-  }
-  return baseline;
+  return readPositiveTargetBaseline({
+    repoRoot,
+    file,
+    schemaID: baselineSchemaID,
+    missingDocument: {
+      schema_id: baselineSchemaID,
+      note: baselineNote,
+      targets: {},
+    },
+    allowMissing,
+  });
 }
 
 function targetSummaryFiles(root) {
-  const files = [];
-  const stack = [resolvePath(root)];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    let entries = [];
-    try {
-      entries = readdirSync(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (entry.isFile() && entry.name === "target-summary.json") {
-        files.push(next);
-      }
-    }
-  }
-  return files.sort();
+  return findFilesNamed(root, "target-summary.json", { repoRoot });
 }
 
 function positiveDuration(summary) {
@@ -157,7 +122,7 @@ function collectObservedHarnessDurations(resultsDir, fastChecks) {
   for (const file of targetSummaryFiles(resultsDir)) {
     let summary;
     try {
-      summary = readJSON(file);
+      summary = readJSON(repoRoot, file);
     } catch {
       continue;
     }
@@ -205,7 +170,7 @@ function updateBaselines(options) {
   baseline.schema_id = baselineSchemaID;
   baseline.note = baselineNote;
   baseline.updated_at = new Date().toISOString();
-  baseline.targets = sortedObject(fastChecks.map((target) => [target, observed.get(target)]));
+  baseline.targets = sortedObjectByKey(fastChecks.map((target) => [target, observed.get(target)]));
   writeFileSync(options.baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
   process.stdout.write(`updated ${observed.size} harness smoke duration baselines from ${rel(options.resultsDir)}\n`);
 }
