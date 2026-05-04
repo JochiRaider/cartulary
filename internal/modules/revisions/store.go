@@ -13,6 +13,7 @@ import (
 type Store struct{}
 
 type ChangeSetParams struct {
+	ChangeSetID *uuid.UUID
 	IncidentID  uuid.UUID
 	ActorUserID uuid.UUID
 	Source      string
@@ -47,6 +48,24 @@ func NewStore() *Store {
 }
 
 func (s *Store) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params ChangeSetParams) (uuid.UUID, error) {
+	if params.ChangeSetID != nil {
+		if _, err := tx.Exec(ctx, `
+INSERT INTO change_sets (
+    change_set_id,
+    incident_id,
+    actor_user_id,
+    source,
+    reason,
+    client_txn_id,
+    request_id,
+    created_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`, *params.ChangeSetID, params.IncidentID, params.ActorUserID, params.Source, params.Reason, params.ClientTxnID, params.RequestID, params.CreatedAt.UTC()); err != nil {
+			return uuid.UUID{}, fmt.Errorf("insert change set: %w", err)
+		}
+		return *params.ChangeSetID, nil
+	}
 	var changeSetID uuid.UUID
 	if err := tx.QueryRow(ctx, `
 INSERT INTO change_sets (

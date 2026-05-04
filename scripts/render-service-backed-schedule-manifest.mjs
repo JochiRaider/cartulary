@@ -367,8 +367,8 @@ function browserStageResourceClaims(profile, stageName) {
     throw new Error(`defaults.browser_stage_resource_claims.${stageName} must be an object when present`);
   }
   for (const [resource, amount] of Object.entries(stageClaims)) {
-    if (!Number.isInteger(amount) || amount < 1) {
-      throw new Error(`defaults.browser_stage_resource_claims.${stageName}.${resource} must be a positive integer`);
+    if (amount !== "limit" && (!Number.isInteger(amount) || amount < 1)) {
+      throw new Error(`defaults.browser_stage_resource_claims.${stageName}.${resource} must be a positive integer or "limit"`);
     }
   }
   return cloneObject(stageClaims);

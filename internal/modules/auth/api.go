@@ -178,6 +178,15 @@ func ShouldSlideIdleExpiry(method string, path string) bool {
 	return !(method == http.MethodGet && path == "/api/v1/auth/session")
 }
 
+const SessionSlideWriteInterval = time.Minute
+
+func ShouldPersistIdleExpirySlide(timing authn.SessionTiming, now time.Time) bool {
+	if now.After(timing.AbsoluteExpiresAt) || !timing.SessionExpiresAt.After(now) {
+		return false
+	}
+	return !now.Before(timing.LastQualifyingActivityAt.Add(SessionSlideWriteInterval))
+}
+
 func AllowsBootstrapTokenRoute(path string) bool {
 	switch path {
 	case "/api/v1/auth/mfa/totp/begin", "/api/v1/auth/mfa/totp/complete":

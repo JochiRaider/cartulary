@@ -44,12 +44,10 @@ import {
   addResourceClaims,
   blockedSnapshot,
   counted,
-  dependenciesSatisfied,
   finalizer,
   formatBlockedWorkUnits,
-  hasFailedDependency,
-  hasResourceCapacity,
   pendingFinalizerCount,
+  priorityAdmissiblePendingUnitIndex,
   progressDelay,
   removeResourceClaims,
   runningFinalizerCount,
@@ -890,12 +888,13 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
 
       if (!stopScheduling) {
         while (true) {
-          const nextIndex = pending.findIndex(
-            (candidate) =>
-              !hasFailedDependency(candidate, failedKeys) &&
-              dependenciesSatisfied(candidate, completedKeys) &&
-              hasResourceCapacity(candidate, schedule.resourceLimits, activeClaims),
-          );
+          const nextIndex = priorityAdmissiblePendingUnitIndex({
+            pending,
+            completedKeys,
+            failedKeys,
+            resourceLimits: schedule.resourceLimits,
+            activeClaims,
+          });
           if (nextIndex === -1) {
             break;
           }

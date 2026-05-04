@@ -14,6 +14,7 @@ import {
   estimateBrowserStackAutoLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
+  provisionalResourceLimitsForClaims,
   resolveAutoResourceLimits,
   resolveForwardingProfile,
   resourceMapToObject as schedulerResourceMapToObject,
@@ -387,8 +388,9 @@ function findSchedule(manifest, target, overrides) {
       order: index,
     };
   };
+  const provisionalLimits = provisionalResourceLimitsForClaims(normalizedLimits.limits);
   const provisionalUnits = schedule.work_units.map((unit, index) =>
-    normalizeUnit(unit, index, normalizedLimits.limits),
+    normalizeUnit(unit, index, provisionalLimits),
   );
   const resolvedLimits = resolveAutoResourceLimits(
     normalizedLimits.limits,

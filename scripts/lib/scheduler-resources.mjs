@@ -695,6 +695,16 @@ export function normalizeResourceClaims(value, label, resourceLimits, { schedule
   return claims;
 }
 
+export function provisionalResourceLimitsForClaims(resourceLimits) {
+  const limits = new Map(resourceLimits.entries());
+  for (const [resource, amount] of limits.entries()) {
+    if (amount === "auto") {
+      limits.set(resource, Number.MAX_SAFE_INTEGER);
+    }
+  }
+  return limits;
+}
+
 export function resolveForwardingProfile(name, resourceClaims, label) {
   const profileName = requireString(name, `${label}.forwarding`);
   const profile = schedulerResourceRegistry().forwardingProfiles.get(profileName);

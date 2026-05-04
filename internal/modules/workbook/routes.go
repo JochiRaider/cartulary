@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -168,6 +169,7 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 	viewSchemaID := r.PathValue("view_schema_id")
+	timing := newTimelineCreateTiming(r, viewSchemaID)
 	incidentID, ok := pathUUID(w, r, "incident_id")
 	if !ok {
 		return
@@ -177,12 +179,14 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	timing.mark("auth")
 	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	timing.mark("role_check")
 	if viewSchemaID == timeline.TimelineViewSchemaID {
-		s.handleTimelineCreate(w, r, principal, incidentID)
+		s.handleTimelineCreate(w, r, principal, incidentID, timing)
 		return
 	}
 	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
@@ -236,13 +240,18 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 
-func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, incidentID uuid.UUID) {
+func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, incidentID uuid.UUID, timing *timelineCreateTiming) {
 	request, apiErr := timeline.DecodeTimelineCreateRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.timelineStore.CreateRow(r.Context(), principal.User, incidentID, request, timeline.TimelineCreateRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	timing.mark("decode")
+	requestHash := timeline.TimelineCreateRequestHash(request)
+	timing.mark("hash")
+	storeCtx := timeline.WithCreateTimingRecorder(r.Context(), timing)
+	result, err := s.store.timelineStore.CreateRow(storeCtx, principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	timing.mark("store_create")
 	var mutationErr *MutationValidationError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
@@ -266,10 +275,14 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 			ChangedFieldKeys: result.ChangedFieldKeys,
 		}, principal.User.ID)
 	}
+	timing.mark("websocket_publish")
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
+	timing.mark("session_slide")
+	timing.mark("response_prep")
+	timing.write(w)
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
@@ -452,6 +465,46 @@ func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UU
 	})
 }
 
+type timelineCreateTiming struct {
+	enabled bool
+	last    time.Time
+	parts   []string
+}
+
+func newTimelineCreateTiming(r *http.Request, viewSchemaID string) *timelineCreateTiming {
+	if viewSchemaID != timeline.TimelineViewSchemaID || r.Header.Get("X-Cartulary-Timing-Debug") != "1" {
+		return nil
+	}
+	return &timelineCreateTiming{
+		enabled: true,
+		last:    time.Now(),
+	}
+}
+
+func (t *timelineCreateTiming) MarkTimelineCreateTiming(name string) {
+	t.mark(name)
+}
+
+func (t *timelineCreateTiming) mark(name string) {
+	if t == nil || !t.enabled {
+		return
+	}
+	now := time.Now()
+	if t.last.IsZero() {
+		t.last = now
+		return
+	}
+	t.parts = append(t.parts, fmt.Sprintf("%s;dur=%.3f", name, float64(now.Sub(t.last).Microseconds())/1000))
+	t.last = now
+}
+
+func (t *timelineCreateTiming) write(w http.ResponseWriter) {
+	if t == nil || !t.enabled || len(t.parts) == 0 {
+		return
+	}
+	w.Header().Set("Server-Timing", strings.Join(t.parts, ", "))
+}
+
 func decodeViewQueryRequest(r *http.Request, viewSchemaID string) (viewquery.Query, *auth.APIError) {
 	query, err := viewquery.Decode(r.Body, viewSchemaID)
 	if err != nil {
@@ -560,7 +613,12 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 		IdleExpiresAt:            principal.Session.IdleExpiresAt,
 		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
 		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}.Slide(s.now())
+	}
+	now := s.now()
+	if !auth.ShouldPersistIdleExpirySlide(sliding, now) {
+		return nil
+	}
+	sliding = sliding.Slide(now)
 	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
 	if err != nil {
 		return err

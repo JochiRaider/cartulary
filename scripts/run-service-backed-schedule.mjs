@@ -12,6 +12,7 @@ import {
   estimateBrowserStackAutoLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
+  provisionalResourceLimitsForClaims,
   resolveAutoResourceLimits,
 } from "./lib/scheduler-resources.mjs";
 import {
@@ -191,6 +192,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
       target,
       needs,
       resourceClaims,
+      rawResourceClaims: source.resource_claims,
       order: index,
     };
   }
@@ -205,6 +207,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
     needs,
     weight: source.weight,
     resourceClaims,
+    rawResourceClaims: source.resource_claims,
     order: index,
   };
 }
@@ -223,7 +226,7 @@ function findSchedule(manifest, target, browserStages, overrides) {
     schedule.capacity_profile ?? null,
     overrides,
   );
-  const resourceLimits = normalizedLimits.limits;
+  const resourceLimits = provisionalResourceLimitsForClaims(normalizedLimits.limits);
   const sources = schedule.work_unit_sources.map((source, index) =>
     validateSource(target, source, index, resourceLimits, browserStages),
   );
@@ -314,6 +317,7 @@ function expandSchedule(schedule) {
         failureKeys: [source.target],
         weight: source.weight,
         resourceClaims: cloneResourceClaims(source.resourceClaims),
+        rawResourceClaims: source.rawResourceClaims,
         order: source.order,
       });
       continue;
@@ -382,10 +386,25 @@ function expandSchedule(schedule) {
       left.label.localeCompare(right.label),
   );
   const workUnits = [...countedWorkUnits, ...finalizerUnits];
+  const resolvedLimits = resolveResourceLimits(schedule.resourceLimits, schedule.resourceLimitSources, countedWorkUnits);
+  const finalWorkUnits = workUnits.map((unit) => {
+    if (unit.kind !== "make_target" || !unit.rawResourceClaims) {
+      return unit;
+    }
+    const { rawResourceClaims, ...rest } = unit;
+    return {
+      ...rest,
+      resourceClaims: normalizeResourceClaims(
+        rawResourceClaims,
+        `${schedule.target} work_unit_sources ${unit.order + 1} ${unit.target}`,
+        resolvedLimits.resourceLimits,
+      ),
+    };
+  });
   return {
     ...schedule,
-    ...resolveResourceLimits(schedule.resourceLimits, schedule.resourceLimitSources, countedWorkUnits),
-    workUnits,
+    ...resolvedLimits,
+    workUnits: finalWorkUnits,
     totalWorkUnits: countedWorkUnits.length,
     finalizerCount: finalizerUnits.length,
   };

@@ -527,7 +527,7 @@
             "browser-e2e-measurement"
           ],
           "resource_claims": {
-            "browser_stack": 1,
+            "browser_stack": "limit",
             "browser_stage_measurement": 1,
             "host_cpu": 4,
             "host_io": 4,

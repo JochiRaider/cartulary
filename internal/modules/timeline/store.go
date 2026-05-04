@@ -249,6 +249,7 @@ func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentI
 		ClientTxnID: request.ClientTxnID,
 	}
 	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
+		markCreateTiming(ctx, "store_idempotency")
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -270,16 +271,21 @@ func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentI
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return MutationResult{}, fmt.Errorf("query timeline create idempotency: %w", err)
 	}
+	markCreateTiming(ctx, "store_idempotency")
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return MutationResult{}, fmt.Errorf("begin timeline create transaction: %w", err)
 	}
+	markCreateTiming(ctx, "store_tx_begin")
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
 
+	recordID := uuid.New()
+	changeSetID := uuid.New()
 	current := sourceRecord{
+		RecordID:        recordID,
 		IncidentID:      incidentID,
 		OccurredAt:      request.OccurredAt,
 		Summary:         request.Summary,
@@ -292,7 +298,8 @@ func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentI
 		CreatedByUserID: actor.ID,
 		UpdatedByUserID: actor.ID,
 	}
-	recordID, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+	if _, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+		RecordID:        &recordID,
 		IncidentID:      incidentID,
 		RecordType:      "timeline_event",
 		CreatedByUserID: actor.ID,
@@ -300,12 +307,10 @@ func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentI
 		UpdatedByUserID: actor.ID,
 		UpdatedAt:       now.UTC(),
 		RowVersion:      1,
-	})
-	if err != nil {
+	}); err != nil {
 		return MutationResult{}, err
 	}
-	current.RecordID = recordID
-	if err := tx.QueryRow(ctx, `
+	if _, err := tx.Exec(ctx, `
 INSERT INTO timeline_events (
     record_id,
     incident_id,
@@ -321,10 +326,10 @@ INSERT INTO timeline_events (
     updated_by_user_id
 )
 VALUES ($1, $2, $3, $4, $5, $6, 'rough', 1, $7, $7, $8, $8)
-RETURNING record_id
-`, current.RecordID, incidentID, request.OccurredAt, request.Summary, request.Details, request.SourceText, now.UTC(), actor.ID).Scan(&current.RecordID); err != nil {
+`, current.RecordID, incidentID, request.OccurredAt, request.Summary, request.Details, request.SourceText, now.UTC(), actor.ID); err != nil {
 		return MutationResult{}, fmt.Errorf("insert timeline record: %w", err)
 	}
+	markCreateTiming(ctx, "store_base_insert")
 
 	if err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, now.UTC()); err != nil {
 		return MutationResult{}, err
@@ -332,20 +337,24 @@ RETURNING record_id
 	if err := applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC()); err != nil {
 		return MutationResult{}, err
 	}
+	markCreateTiming(ctx, "store_collection_actions")
 
 	projected := projectRecord(current, nil)
-	if err := hydrateProjectedCollections(ctx, tx, &projected); err != nil {
-		return MutationResult{}, err
+	if createRequestHasCollectionActions(request) {
+		if err := hydrateProjectedCollections(ctx, tx, &projected); err != nil {
+			return MutationResult{}, err
+		}
 	}
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	markCreateTiming(ctx, "store_project_row")
+	if _, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+		ChangeSetID: &changeSetID,
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      createRouteKey,
 		ClientTxnID: &request.ClientTxnID,
 		RequestID:   &requestID,
 		CreatedAt:   now.UTC(),
-	})
-	if err != nil {
+	}); err != nil {
 		return MutationResult{}, err
 	}
 
@@ -373,6 +382,7 @@ RETURNING record_id
 	if err := s.projectionStore.UpsertTimelineRowTx(ctx, tx, projectionInput(projected)); err != nil {
 		return MutationResult{}, err
 	}
+	markCreateTiming(ctx, "store_revision_projection")
 
 	payload := BuildMutationPayload(projected, changeSetID)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusCreated, payload); err != nil {
@@ -381,6 +391,7 @@ RETURNING record_id
 		}
 		return MutationResult{}, err
 	}
+	markCreateTiming(ctx, "store_route_idempotency")
 	if err := s.beforeCommit(createRouteKey, current.RecordID); err != nil {
 		return MutationResult{}, err
 	}
@@ -388,6 +399,7 @@ RETURNING record_id
 	if err := tx.Commit(ctx); err != nil {
 		return MutationResult{}, fmt.Errorf("commit timeline create transaction: %w", err)
 	}
+	markCreateTiming(ctx, "store_commit")
 	return MutationResult{
 		Payload:          payload,
 		StatusCode:       http.StatusCreated,
@@ -399,6 +411,12 @@ RETURNING record_id
 		ChangedFieldKeys: ComputeChangedFieldKeys(nil, projected),
 		Row:              projected,
 	}, nil
+}
+
+func createRequestHasCollectionActions(request CreateRequest) bool {
+	return (request.HostRefs != nil && len(request.HostRefs.Actions) > 0) ||
+		(request.IdentityRefs != nil && len(request.IdentityRefs.Actions) > 0) ||
+		(request.Tags != nil && len(request.Tags.Actions) > 0)
 }
 
 func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {

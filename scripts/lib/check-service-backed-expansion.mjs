@@ -25,8 +25,15 @@ function resourceClaimsObject(value) {
 }
 
 function addClaim(claims, resource, amount) {
+  if (amount === "limit") {
+    claims.set(resource, amount);
+    return;
+  }
   if (!Number.isInteger(amount) || amount < 1) {
-    throw new Error(`resource claim ${resource} must be a positive integer`);
+    throw new Error(`resource claim ${resource} must be a positive integer or "limit"`);
+  }
+  if (claims.get(resource) === "limit") {
+    return;
   }
   claims.set(resource, (claims.get(resource) ?? 0) + amount);
 }

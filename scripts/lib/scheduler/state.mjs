@@ -74,6 +74,41 @@ export function hasResourceCapacity(unit, resourceLimits, activeClaims) {
   return blockedResourcesForUnit(unit, resourceLimits, activeClaims).length === 0;
 }
 
+function claimsReservedResource(unit, reservedResources) {
+  for (const resource of unit.resourceClaims.keys()) {
+    if (reservedResources.has(resource)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function priorityAdmissiblePendingUnitIndex({
+  pending,
+  completedKeys,
+  failedKeys,
+  resourceLimits,
+  activeClaims,
+}) {
+  const reservedResources = new Set();
+  for (const [index, candidate] of pending.entries()) {
+    if (hasFailedDependency(candidate, failedKeys) || !dependenciesSatisfied(candidate, completedKeys)) {
+      continue;
+    }
+    const blockedResources = blockedResourcesForUnit(candidate, resourceLimits, activeClaims);
+    if (blockedResources.length === 0) {
+      if (!claimsReservedResource(candidate, reservedResources)) {
+        return index;
+      }
+      continue;
+    }
+    for (const resource of blockedResources) {
+      reservedResources.add(resource);
+    }
+  }
+  return -1;
+}
+
 export function blockedResourcesForUnit(unit, resourceLimits, activeClaims) {
   const blocked = [];
   for (const [resource, amount] of unit.resourceClaims.entries()) {

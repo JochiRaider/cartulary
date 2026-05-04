@@ -102,7 +102,7 @@
             "postgres": 1,
             "minio": 1,
             "process": 1,
-            "browser_stack": 1,
+            "browser_stack": "limit",
             "go_cpu": 4,
             "go_io": 4,
             "browser_stage_measurement": 1
@@ -273,7 +273,7 @@
             "postgres": 1,
             "minio": 1,
             "process": 1,
-            "browser_stack": 1,
+            "browser_stack": "limit",
             "go_cpu": 4,
             "go_io": 4,
             "browser_stage_measurement": 1

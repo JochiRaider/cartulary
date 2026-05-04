@@ -1274,6 +1274,57 @@ if (summary.resource_limit_sources?.browser_stack !== "env:CARTULARY_SERVICE_BAC
   throw new Error(`browser_stack override source got ${summary.resource_limit_sources?.browser_stack}`);
 }
 EOF
+
+priority_reservation_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-priority-reservation.XXXXXX")"
+cleanup_paths+=("$priority_reservation_dir")
+write_fake_make "$priority_reservation_dir"
+priority_reservation_manifest="${priority_reservation_dir}/manifest.json"
+cat >"$priority_reservation_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v9",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 2, "host_io": 1, "suite_service_stack": 1, "migration_scratch_postgres": 1 },
+      "summary_groups": [
+        { "name": "priority-reservation", "summary_targets": ["alpha", "build-server", "low-cpu", "low-io"] }
+      ],
+      "work_units": [
+        { "target": "alpha", "weight": 50, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "build-server", "weight": 40, "needs": [], "produces_summary_targets": ["build-server"], "resource_claims": { "host_cpu": 2 }, "make_jobs": "host_cpu" },
+        { "target": "low-cpu", "weight": 30, "needs": [], "produces_summary_targets": ["low-cpu"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "low-io", "weight": 20, "needs": [], "produces_summary_targets": ["low-io"], "resource_claims": { "host_io": 1 }, "make_jobs": 1 }
+      ]
+    }
+  ]
+}
+JSON
+priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=0.2 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$priority_reservation_dir" "$priority_reservation_manifest" priority-reservation 2>&1)"
+assert_contains "$priority_reservation_output" "[SUMMARY] target=check status=pass work_units=4/4" "priority reservation scheduler pass summary"
+"$NODE_BIN" - "${priority_reservation_dir}/events.log" <<'EOF'
+const fs = require("node:fs");
+const [eventLog] = process.argv.slice(2);
+const lines = fs.readFileSync(eventLog, "utf8").trim().split(/\n/).filter(Boolean);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.startsWith(needle));
+  if (index === -1) {
+    throw new Error(`missing event ${needle}\n${lines.join("\n")}`);
+  }
+  return index;
+};
+const startAlpha = indexOf("start alpha ");
+const startLowIO = indexOf("start low-io ");
+const endLowIO = indexOf("end low-io ");
+const endAlpha = indexOf("end alpha ");
+const startBuild = indexOf("start build-server ");
+const startLowCPU = indexOf("start low-cpu ");
+if (!(startAlpha < startLowIO && startLowIO < endLowIO && endLowIO < endAlpha)) {
+  throw new Error("unrelated host_io work must backfill while build-server waits for host_cpu");
+}
+if (!(endAlpha < startBuild && startBuild < startLowCPU)) {
+  throw new Error("lower-priority host_cpu work must not backfill before build-server starts");
+}
+EOF
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_not_contains "$success_output" "[RUN] check" "success hides legacy run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1}" "success concise scheduler start"

@@ -18,6 +18,7 @@ import {
   browserStageResource,
   normalizeResourceClaims,
   normalizeResourceLimits,
+  provisionalResourceLimitsForClaims,
 } from "./scheduler-resources.mjs";
 import { validateServiceBackedScheduleManifestShape } from "./service-backed-schedule-manifest.mjs";
 
@@ -164,7 +165,7 @@ function validateResourceShape(schedule) {
     capacityProfile: schedule.capacity_profile ?? null,
     allowAuto: true,
   });
-  const resourceLimits = normalized.limits;
+  const resourceLimits = provisionalResourceLimitsForClaims(normalized.limits);
   for (const resource of ["go_cpu", "go_io"]) {
     if (!resourceLimits.has(resource)) {
       throw new Error(`${label} must declare ${resource} resource limit`);

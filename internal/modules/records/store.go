@@ -31,10 +31,25 @@ func (s *Store) InsertTx(ctx context.Context, tx pgx.Tx, params InsertParams) (u
 	if rowVersion == 0 {
 		rowVersion = 1
 	}
-	var recordIDArg any
 	if params.RecordID != nil {
-		recordIDArg = *params.RecordID
+		if _, err := tx.Exec(ctx, `
+INSERT INTO records (
+    record_id,
+    incident_id,
+    record_type,
+    created_by_user_id,
+    created_at,
+    updated_by_user_id,
+    updated_at,
+    row_version
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`, *params.RecordID, params.IncidentID, params.RecordType, params.CreatedByUserID, params.CreatedAt.UTC(), params.UpdatedByUserID, params.UpdatedAt.UTC(), rowVersion); err != nil {
+			return uuid.UUID{}, fmt.Errorf("insert record envelope: %w", err)
+		}
+		return *params.RecordID, nil
 	}
+	var recordIDArg any
 	var recordID uuid.UUID
 	if err := tx.QueryRow(ctx, `
 INSERT INTO records (

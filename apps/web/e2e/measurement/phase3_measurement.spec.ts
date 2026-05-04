@@ -61,13 +61,37 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
 
   await draftSummary.fill("");
 
-  const blankRowCreateSamples: number[] = [];
+  const blankRowCreateSamples: Array<{
+    committedDurationMs: number;
+    networkDurationMs: number;
+    recordId: string;
+    sampleIndex: number;
+    serverTiming: string;
+    status: number;
+    summary: string;
+  }> = [];
   for (let sampleIndex = 0; sampleIndex < 13; sampleIndex += 1) {
     const summary = `Timing sample ${sampleIndex} ${uniqueTxn("blank-row")}`;
     await draftSummary.fill(summary);
-    blankRowCreateSamples.push(await measureBlankRowCreate(page, summary));
+    blankRowCreateSamples.push({
+      ...(await measureBlankRowCreate(page, summary)),
+      sampleIndex,
+      summary,
+    });
     await expect(page.getByTestId("draft-row-summary")).toBeFocused();
   }
-  const blankRowCreateP95 = percentile95(blankRowCreateSamples.slice(1));
-  expect(blankRowCreateP95).toBeLessThanOrEqual(150);
+  const blankRowCreateP95 = percentile95(
+    blankRowCreateSamples.slice(1).map((sample) => sample.committedDurationMs),
+  );
+  expect(
+    blankRowCreateP95,
+    JSON.stringify(
+      {
+        blankRowCreateP95,
+        samples: blankRowCreateSamples,
+      },
+      null,
+      2,
+    ),
+  ).toBeLessThanOrEqual(150);
 });

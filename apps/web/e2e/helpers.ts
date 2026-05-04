@@ -603,13 +603,53 @@ export async function measureBlankRowCreate(
   page: Page,
   expectedSummary: string,
 ) {
+  const createRoute =
+    "**/api/v1/incidents/*/views/cartulary.view.timeline.v1/rows";
+  const routeHandler = async (route: Route) => {
+    await route.fallback({
+      headers: {
+        ...route.request().headers(),
+        "X-Cartulary-Timing-Debug": "1",
+      },
+    });
+  };
+  await page.route(createRoute, routeHandler);
   const completion = waitForCommittedRowSummary(page, {
     expectedSummary,
     surface: "timeline",
     timeoutMs: 5_000,
   });
+  const responseCompletion = page.waitForResponse(
+    (response) => {
+      const request = response.request();
+      if (
+        request.method() !== "POST" ||
+        !response.url().includes("/views/cartulary.view.timeline.v1/rows")
+      ) {
+        return false;
+      }
+      const postData = request.postData();
+      return postData?.includes(expectedSummary) ?? false;
+    },
+    { timeout: 5_000 },
+  );
+  const networkStart = Date.now();
   await page.getByTestId("draft-row-summary").press("Enter");
-  return (await completion).durationMs;
+  try {
+    const [committed, response] = await Promise.all([
+      completion,
+      responseCompletion,
+    ]);
+    return {
+      committedDurationMs: committed.durationMs,
+      networkDurationMs: Date.now() - networkStart,
+      recordId: committed.recordId,
+      serverTiming: response.headers()["server-timing"] ?? "",
+      status: response.status(),
+    };
+  } finally {
+    await page.unroute(createRoute, routeHandler);
+  }
 }
 
 export function percentile95(samples: number[]) {
