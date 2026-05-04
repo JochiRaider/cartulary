@@ -111,6 +111,130 @@ function checkToolSummaryExtension({ errors, file, summary, timing }) {
   }
 }
 
+function checkSchedulerCriticalPath({ errors, file, summary, timing, events }) {
+  const criticalPathMs = integerField(summary, "critical_path_wall_duration_ms");
+  if (criticalPathMs === null) {
+    errors.push(`${file}: missing critical_path_wall_duration_ms`);
+    return;
+  }
+  if (criticalPathMs !== timing.totalDurationMs) {
+    errors.push(
+      `${file}: critical_path_wall_duration_ms ${criticalPathMs}ms does not match scheduler total ${timing.totalDurationMs}ms`,
+    );
+  }
+  const units = summary.critical_path_units;
+  if (!Array.isArray(units)) {
+    errors.push(`${file}: critical_path_units must be an array`);
+    return;
+  }
+  const terminal = summary.critical_path_terminal_unit;
+  if (terminal !== null && (!terminal || typeof terminal !== "object" || Array.isArray(terminal))) {
+    errors.push(`${file}: critical_path_terminal_unit must be null or an object`);
+    return;
+  }
+  if (!terminal) {
+    if ((summary.completed_work_units ?? 0) > 0) {
+      errors.push(`${file}: critical_path_terminal_unit is missing despite completed work`);
+    }
+    return;
+  }
+  const finishEvents = events.filter(
+    (event) => event.event === "finish" || event.event === "finalize-finish",
+  );
+  const startEvents = events.filter(
+    (event) => event.event === "start" || event.event === "finalize-start",
+  );
+  const finishByID = new Map(
+    finishEvents.map((event) => [event.work_unit_id ?? event.finalizer_id, event]),
+  );
+  const startByID = new Map(
+    startEvents.map((event) => [event.work_unit_id ?? event.finalizer_id, event]),
+  );
+  const matchingFinish = finishEvents.find((event) =>
+    event.work_unit_id === terminal.id || event.finalizer_id === terminal.id,
+  );
+  if (!matchingFinish) {
+    errors.push(`${file}: critical_path_terminal_unit ${terminal.id} has no finish event`);
+  }
+  const finishedMs = integerField(terminal, "finished_monotonic_ms");
+  if (finishedMs === null) {
+    errors.push(`${file}: critical_path_terminal_unit.finished_monotonic_ms is missing`);
+    return;
+  }
+  const terminalWallMs = Math.max(0, finishedMs - timing.startedMonotonicMs);
+  if (terminalWallMs > criticalPathMs) {
+    errors.push(
+      `${file}: terminal critical path wall ${terminalWallMs}ms exceeds critical_path_wall_duration_ms ${criticalPathMs}ms`,
+    );
+  }
+  if (units.length === 0) {
+    errors.push(`${file}: critical_path_units is empty despite terminal unit ${terminal.id}`);
+    return;
+  }
+  if (units[units.length - 1]?.id !== terminal.id) {
+    errors.push(`${file}: critical_path_terminal_unit ${terminal.id} does not match last critical_path_units entry`);
+  }
+  let previous = null;
+  for (const [index, unit] of units.entries()) {
+    if (!unit || typeof unit !== "object" || Array.isArray(unit)) {
+      errors.push(`${file}: critical_path_units[${index}] must be an object`);
+      continue;
+    }
+    if (typeof unit.id !== "string" || unit.id.trim() === "") {
+      errors.push(`${file}: critical_path_units[${index}].id must be a non-empty string`);
+      continue;
+    }
+    const startMs = integerField(unit, "started_monotonic_ms");
+    const finishMs = integerField(unit, "finished_monotonic_ms");
+    const durationMs = integerField(unit, "duration_ms");
+    if (startMs === null || finishMs === null || durationMs === null) {
+      errors.push(`${file}: critical_path_units[${index}] is missing monotonic timing fields`);
+      continue;
+    }
+    if (finishMs < startMs) {
+      errors.push(`${file}: critical_path_units[${index}] finishes before it starts`);
+    }
+    if (durationMs !== Math.max(0, finishMs - startMs)) {
+      errors.push(`${file}: critical_path_units[${index}] duration does not match monotonic start/finish`);
+    }
+    const startEvent = startByID.get(unit.id);
+    const finishEvent = finishByID.get(unit.id);
+    if (!startEvent) {
+      errors.push(`${file}: critical_path_units[${index}] ${unit.id} has no start event`);
+    }
+    if (!finishEvent) {
+      errors.push(`${file}: critical_path_units[${index}] ${unit.id} has no finish event`);
+    }
+    if (startEvent && finishEvent) {
+      const startEventMs = Number.isInteger(startEvent.monotonic_ms) ? startEvent.monotonic_ms : null;
+      const finishEventMs = Number.isInteger(finishEvent.monotonic_ms) ? finishEvent.monotonic_ms : null;
+      if (startEventMs !== null && finishEventMs !== null && finishEventMs < startEventMs) {
+        errors.push(`${file}: critical_path_units[${index}] finish event precedes start event`);
+      }
+      if (startEventMs !== null && startEventMs > finishMs) {
+        errors.push(`${file}: critical_path_units[${index}] retained start event is after unit finish`);
+      }
+      if (finishEventMs !== null && finishEventMs < startMs) {
+        errors.push(`${file}: critical_path_units[${index}] retained finish event is before unit start`);
+      }
+    }
+    if (previous) {
+      const previousKeys = new Set(
+        Array.isArray(previous.completion_keys) ? previous.completion_keys : [],
+      );
+      const needs = Array.isArray(unit.needs) ? unit.needs : [];
+      if (!needs.some((need) => previousKeys.has(need))) {
+        errors.push(`${file}: critical_path_units[${index}] ${unit.id} is not linked to previous unit ${previous.id}`);
+      }
+      const previousFinish = integerField(previous, "finished_monotonic_ms");
+      if (previousFinish !== null && startMs < previousFinish) {
+        errors.push(`${file}: critical_path_units[${index}] starts before previous critical-path unit finishes`);
+      }
+    }
+    previous = unit;
+  }
+}
+
 function checkSchedulerDirectory(eventsFile) {
   const errors = [];
   const targetDir = path.dirname(eventsFile);
@@ -139,6 +263,13 @@ function checkSchedulerDirectory(eventsFile) {
       errors: [`${schedulerSummaryFile}: missing scheduler timing envelope`],
     };
   }
+  checkSchedulerCriticalPath({
+    errors,
+    file: schedulerSummaryFile,
+    summary: schedulerSummary,
+    timing,
+    events,
+  });
   const expectedTotal = Math.max(
     0,
     timing.completedMonotonicMs - timing.startedMonotonicMs,

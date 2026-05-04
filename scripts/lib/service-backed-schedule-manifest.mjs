@@ -2,10 +2,12 @@ import { serviceBackedScheduleSchemaID } from "./execution-topology.mjs";
 import {
   readJsonObject,
   requireEnum,
+  requireInteger,
   requireObject,
   requirePositiveInteger,
   requireSchemaID,
   requireString,
+  requireStringArray,
   validateObjectArray,
   validateObjectShape,
 } from "./json-shape.mjs";
@@ -26,7 +28,25 @@ const serviceSourceKeys = new Set([
   "weight",
   "resource_claims",
   "browser_stage",
+  "groups",
 ]);
+const serviceBrowserGroupKeys = new Set([
+  "id",
+  "name",
+  "kind",
+  "target",
+  "aggregate_target",
+  "coverage",
+  "execution_dependency",
+  "shard_name",
+  "shard_index",
+  "shard_count",
+  "phases",
+  "entry_ids",
+  "weight",
+  "resource_claims",
+]);
+const browserGroupKinds = new Set(["functional_shard", "support", "stateful", "measurement", "visual"]);
 const serviceGeneratedKeys = new Set([
   "generator",
   "topology",
@@ -70,7 +90,7 @@ export function validateServiceBackedScheduleManifestShape(
           requireEnum(
             source.type,
             `${sourceLabel}.type`,
-            new Set(["go_shards", "make_target"]),
+            new Set(["go_shards", "make_target", "browser_stage"]),
           );
           requireEnum(
             source.class,
@@ -80,8 +100,33 @@ export function validateServiceBackedScheduleManifestShape(
           requireString(source.target, `${sourceLabel}.target`, {
             pattern: makeTargetPattern,
           });
-          if (source.type === "make_target") {
+          if (source.type === "make_target" || source.type === "browser_stage") {
             requirePositiveInteger(source.weight, `${sourceLabel}.weight`);
+          }
+          if (source.type === "browser_stage") {
+            validateObjectArray(
+              source.groups,
+              `${sourceLabel}.groups`,
+              { nonEmpty: true, keys: serviceBrowserGroupKeys },
+              (group, groupLabel) => {
+                requireString(group.id, `${groupLabel}.id`);
+                requireString(group.name, `${groupLabel}.name`);
+                requireEnum(group.kind, `${groupLabel}.kind`, browserGroupKinds);
+                requireString(group.target, `${groupLabel}.target`, {
+                  pattern: makeTargetPattern,
+                });
+                requireString(group.aggregate_target, `${groupLabel}.aggregate_target`, {
+                  pattern: makeTargetPattern,
+                });
+                requirePositiveInteger(group.weight, `${groupLabel}.weight`);
+                if (group.kind === "functional_shard") {
+                  requireString(group.shard_name, `${groupLabel}.shard_name`);
+                  requireInteger(group.shard_index, `${groupLabel}.shard_index`, { min: 0 });
+                  requirePositiveInteger(group.shard_count, `${groupLabel}.shard_count`);
+                  requireStringArray(group.entry_ids, `${groupLabel}.entry_ids`, { nonEmpty: true });
+                }
+              },
+            );
           }
         },
       );

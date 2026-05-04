@@ -35,9 +35,14 @@ SERVER_PGID=""
 VITE_PGID=""
 CHILD_PGID=""
 cleanup_done=0
+SESSION_MODE="wrap"
+SESSION_ENV_FILE=""
+SESSION_LEASE_FILE=""
 
 usage() {
   echo "usage: start-web-e2e.sh [-- <command...>]" >&2
+  echo "       start-web-e2e.sh --session-start --env-file <path> --lease-file <path>" >&2
+  echo "       start-web-e2e.sh --session-stop --lease-file <path>" >&2
 }
 
 parse_child_command() {
@@ -46,6 +51,55 @@ parse_child_command() {
   if [[ "$#" -eq 0 ]]; then
     return 0
   fi
+
+  case "$1" in
+    --session-start)
+      SESSION_MODE="start"
+      shift
+      while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+          --env-file)
+            SESSION_ENV_FILE="${2:-}"
+            shift 2
+            ;;
+          --lease-file)
+            SESSION_LEASE_FILE="${2:-}"
+            shift 2
+            ;;
+          *)
+            usage
+            return 2
+            ;;
+        esac
+      done
+      if [[ -z "${SESSION_ENV_FILE}" || -z "${SESSION_LEASE_FILE}" ]]; then
+        usage
+        return 2
+      fi
+      return 0
+      ;;
+    --session-stop)
+      SESSION_MODE="stop"
+      shift
+      while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+          --lease-file)
+            SESSION_LEASE_FILE="${2:-}"
+            shift 2
+            ;;
+          *)
+            usage
+            return 2
+            ;;
+        esac
+      done
+      if [[ -z "${SESSION_LEASE_FILE}" ]]; then
+        usage
+        return 2
+      fi
+      return 0
+      ;;
+  esac
 
   if [[ "$1" != "--" ]]; then
     usage
@@ -394,6 +448,116 @@ cleanup() {
   return "${cleanup_status}"
 }
 
+release_process_group_monitor() {
+  local group_id="$1"
+  local monitor_pid=""
+
+  if [[ -z "${group_id}" ]]; then
+    return 0
+  fi
+  monitor_pid="${CARTULARY_LIFECYCLE_GROUP_MONITORS[$group_id]:-}"
+  if [[ -z "${monitor_pid}" ]]; then
+    return 0
+  fi
+  kill "${monitor_pid}" >/dev/null 2>&1 || true
+  wait "${monitor_pid}" >/dev/null 2>&1 || true
+  unset "CARTULARY_LIFECYCLE_GROUP_MONITORS[$group_id]"
+}
+
+write_session_files() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+
+  mkdir -p "$(dirname "${SESSION_ENV_FILE}")" "$(dirname "${SESSION_LEASE_FILE}")"
+  CARTULARY_WEB_E2E_SESSION_ENV_FILE="${SESSION_ENV_FILE}" \
+  CARTULARY_WEB_E2E_SESSION_LEASE_FILE="${SESSION_LEASE_FILE}" \
+  CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
+  CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
+  CARTULARY_WEB_E2E_BACKEND_PORT="${BACKEND_PORT}" \
+  CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}" \
+  CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
+  CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
+  CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
+  CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
+  CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
+  CARTULARY_WEB_E2E_KEEP_RUNTIME_ROOT="${KEEP_RUNTIME_ROOT}" \
+  CARTULARY_WEB_E2E_DB="${E2E_DB}" \
+  CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="${TEST_SERVICES_METADATA_FILE}" \
+  CARTULARY_WEB_E2E_TEST_SERVICES_ACTIVE="${CARTULARY_TEST_SERVICES_ACTIVE:-}" \
+    "${node_bin}" <<'EOF'
+const fs = require("node:fs");
+
+const env = {
+  CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER: "1",
+  CARTULARY_PLAYWRIGHT_STATE_DIR: process.env.CARTULARY_PLAYWRIGHT_STATE_DIR,
+  CARTULARY_WEB_E2E_API_ORIGIN: process.env.CARTULARY_WEB_E2E_API_ORIGIN,
+  CARTULARY_WEB_E2E_PUBLIC_ORIGIN: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN,
+  CARTULARY_WEB_E2E_BACKEND_PORT: process.env.CARTULARY_WEB_E2E_BACKEND_PORT,
+  CARTULARY_WEB_E2E_FRONTEND_PORT: process.env.CARTULARY_WEB_E2E_FRONTEND_PORT,
+  CARTULARY_WEB_E2E_RUNTIME_ROOT: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
+  CARTULARY_WEB_E2E_SERVER_LOG: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
+  CARTULARY_WEB_E2E_WEB_LOG: process.env.CARTULARY_WEB_E2E_WEB_LOG,
+};
+const lease = {
+  schema_id: "cartulary.web_e2e_session_lease.v1",
+  env,
+  backend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_BACKEND_PORT ?? "", 10),
+  frontend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_FRONTEND_PORT ?? "", 10),
+  runtime_root: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
+  server_log: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
+  web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
+  server_pgid: process.env.CARTULARY_WEB_E2E_SERVER_PGID,
+  vite_pgid: process.env.CARTULARY_WEB_E2E_VITE_PGID,
+  keep_runtime_root: process.env.CARTULARY_WEB_E2E_KEEP_RUNTIME_ROOT === "1",
+  e2e_db: process.env.CARTULARY_WEB_E2E_DB,
+  test_services_metadata_file: process.env.CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE,
+  test_services_active: process.env.CARTULARY_WEB_E2E_TEST_SERVICES_ACTIVE === "1",
+};
+
+fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_ENV_FILE, `${JSON.stringify(env, null, 2)}\n`);
+fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_LEASE_FILE, `${JSON.stringify(lease, null, 2)}\n`);
+EOF
+}
+
+load_session_lease() {
+  local lease_file="$1"
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+
+  eval "$("${node_bin}" - "${lease_file}" <<'EOF'
+const fs = require("node:fs");
+const lease = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const q = (value) => JSON.stringify(String(value ?? ""));
+console.log(`SERVER_PGID=${q(lease.server_pgid)}`);
+console.log(`VITE_PGID=${q(lease.vite_pgid)}`);
+console.log(`BACKEND_PORT=${q(lease.backend_port)}`);
+console.log(`FRONTEND_PORT=${q(lease.frontend_port)}`);
+console.log(`RUNTIME_ROOT_BASE=${q(lease.runtime_root)}`);
+console.log(`SERVER_LOG=${q(lease.server_log)}`);
+console.log(`WEB_LOG=${q(lease.web_log)}`);
+console.log(`KEEP_RUNTIME_ROOT=${lease.keep_runtime_root ? "1" : "0"}`);
+console.log(`E2E_DB=${q(lease.e2e_db)}`);
+console.log(`TEST_SERVICES_METADATA_FILE=${q(lease.test_services_metadata_file)}`);
+console.log(`CARTULARY_TEST_SERVICES_ACTIVE=${lease.test_services_active ? "1" : ""}`);
+EOF
+  )"
+  export CARTULARY_TEST_SERVICES_ACTIVE
+}
+
+stop_session() {
+  if [[ ! -f "${SESSION_LEASE_FILE}" ]]; then
+    echo "browser e2e session lease ${SESSION_LEASE_FILE} is missing" >&2
+    return 1
+  fi
+  load_session_lease "${SESSION_LEASE_FILE}"
+  cleanup
+  rm -f "${SESSION_LEASE_FILE}"
+}
+
 on_exit() {
   local status=$?
   local cleanup_status=0
@@ -583,6 +747,12 @@ supervise_stack() {
 
 main() {
   parse_child_command "$@"
+
+  if [[ "${SESSION_MODE}" == "stop" ]]; then
+    stop_session
+    return $?
+  fi
+
   prepare_runtime_root
 
   trap on_exit EXIT
@@ -641,6 +811,14 @@ main() {
 
   CARTULARY_PHASE_TIMING_BUCKET=server_startup run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
   CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready
+
+  if [[ "${SESSION_MODE}" == "start" ]]; then
+    run_timing_span "setup" "browser-e2e write session lease" write_session_files
+    release_process_group_monitor "${SERVER_PGID}"
+    release_process_group_monitor "${VITE_PGID}"
+    trap - EXIT
+    return 0
+  fi
 
   if [[ "${#child_command[@]}" -gt 0 ]]; then
     start_process_group CHILD_PGID "" "${child_command[@]}"

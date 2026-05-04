@@ -4853,8 +4853,11 @@
           "produces_summary_targets": [
             "check-go-test-duration-baseline-drift"
           ],
-          "needs": [
-            "check-service-backed"
+          "expanded_needs": [
+            "backend-store",
+            "backend-integration",
+            "backend-integration-support",
+            "backend-process"
           ]
         }
       },
@@ -4877,8 +4880,11 @@
           "produces_summary_targets": [
             "check-browser-e2e-duration-baseline-drift"
           ],
-          "needs": [
-            "check-service-backed"
+          "expanded_needs": [
+            "browser-e2e-webserver-backed",
+            "browser-e2e-stateful",
+            "browser-e2e-measurement",
+            "browser-e2e-visual"
           ]
         }
       },
@@ -4901,8 +4907,12 @@
           "produces_summary_targets": [
             "check-service-backed-make-target-duration-baseline-drift"
           ],
-          "needs": [
-            "check-service-backed"
+          "expanded_needs": [
+            "backend-process",
+            "browser-e2e-webserver-backed",
+            "browser-e2e-stateful",
+            "browser-e2e-measurement",
+            "browser-e2e-visual"
           ]
         }
       },
@@ -5807,6 +5817,7 @@
         "minio": 1
       },
       "make_target_duration_baseline": "service_backed_make_target_duration_baselines.json",
+      "browser_functional_shards": 2,
       "make_target_weight_overrides": {},
       "backend_make_target_resource_claims": {
         "backend-process": {
@@ -5825,7 +5836,6 @@
       },
       "browser_stage_resource_claims": {
         "measurement": {
-          "browser_stack": "limit",
           "go_cpu": 4,
           "go_io": 4
         }

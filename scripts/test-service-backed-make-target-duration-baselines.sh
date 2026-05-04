@@ -59,7 +59,7 @@ mkdir -p "$results_dir/run-a/check-service-backed" "$results_dir/run-b/test-serv
 
 cat >"$results_dir/run-a/check-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v8",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "check-service-backed",
   "status": "pass",
   "scheduler_kind": "service-backed"
@@ -79,7 +79,7 @@ JSONL
 
 cat >"$results_dir/run-b/test-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v8",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "test-service-backed",
   "status": "pass",
   "scheduler_kind": "service-backed"
@@ -92,7 +92,7 @@ JSONL
 
 cat >"$results_dir/run-c/check-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v8",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "check-service-backed",
   "status": "fail",
   "scheduler_kind": "service-backed"
@@ -105,7 +105,7 @@ JSONL
 
 cat >"$results_dir/run-d/check/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.check_scheduler_summary.v8",
+  "schema_id": "cartulary.check_scheduler_summary.v9",
   "target": "check",
   "status": "pass",
   "scheduler_kind": "check"
@@ -128,7 +128,7 @@ cp "$ROOT_DIR/tools/service_backed_make_target_duration_baselines.json" \
   "$tmp_dir/service_backed_make_target_duration_baselines.json"
 cat >"$tmp_dir/schedule.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v8",
+  "schema_id": "cartulary.service_backed_schedule.v9",
   "schedules": [
     {
       "target": "check-service-backed",

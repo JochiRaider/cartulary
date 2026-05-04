@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { existsSync } from "node:fs";
 import { mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,9 +45,9 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v9";
+const supportedSchemaID = "cartulary.check_schedule.v10";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
-const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v8";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v9";
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const schedulerOwnedEnvNames = new Set([
   "CARTULARY_TEST_TARGET",
@@ -294,6 +295,13 @@ function normalizeRetainedResourceClaims(value, label, resourceClaims) {
   return retained;
 }
 
+function normalizeReleaseRetainedResourceClaims(value, label, resourceLimits) {
+  if (value === undefined) {
+    return new Map();
+  }
+  return normalizeResourceClaims(value, label, resourceLimits);
+}
+
 function findSchedule(manifest, target, overrides) {
   const schedule = selectSingleSchedule(manifest, target, { label: "check schedule" });
   if (!Array.isArray(schedule.work_units) || schedule.work_units.length === 0) {
@@ -336,6 +344,11 @@ function findSchedule(manifest, target, overrides) {
       `${label} ${unitTarget}`,
       claims,
     );
+    const releaseRetainedResourceClaims = normalizeReleaseRetainedResourceClaims(
+      unit.release_retained_resource_claims,
+      `${label} ${unitTarget}`,
+      resourceLimits,
+    );
     const nestedScheduler = normalizeNestedScheduler(
       unit.nested_scheduler,
       `${label} ${unitTarget}`,
@@ -370,10 +383,15 @@ function findSchedule(manifest, target, overrides) {
       ),
       resourceClaims: claims,
       retainedResourceClaims,
+      releaseRetainedResourceClaims,
       makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unitTarget}`, claims),
       env: normalizeUnitEnv(unit.env, `${label} ${unitTarget}`),
       nestedScheduler,
       serviceSession: unit.service_session ?? null,
+      browserStage: typeof unit.browser_stage === "string" ? unit.browser_stage : "",
+      browserGroup: unit.browser_group && typeof unit.browser_group === "object" && !Array.isArray(unit.browser_group)
+        ? unit.browser_group
+        : null,
       shard: typeof unit.shard === "string" ? unit.shard : "",
       shardNames: Array.isArray(unit.shard_names)
         ? unit.shard_names.filter((entry) => typeof entry === "string" && entry !== "")
@@ -699,6 +717,14 @@ function attachRuntime(schedule, {
 }) {
   const nestedProgress = createNestedProgressSupport(schedule);
   const summaryTargetSet = new Set(summaryTargets);
+  const browserSessionScript =
+    process.env.CARTULARY_BROWSER_E2E_SESSION_SCRIPT || path.join(repoRoot, "scripts", "start-web-e2e.sh");
+  const browserGroupRunner = process.env.CARTULARY_BROWSER_E2E_GROUP_RUNNER || "";
+  const testOutputCommand = testOutputScript.endsWith(".mjs")
+    ? `${JSON.stringify(process.env.NODE_BIN || process.execPath)} ${JSON.stringify(testOutputScript)}`
+    : JSON.stringify(testOutputScript);
+  const cartularyTestServicesBin =
+    process.env.CARTULARY_TEST_SERVICES_BIN || testServicesBin || process.env.TEST_SERVICES_BIN || "";
   const serviceSessionTargets = Array.from(
     new Set(schedule.workUnits.map(serviceSessionTarget).filter((target) => target !== "")),
   ).sort((left, right) => left.localeCompare(right));
@@ -715,6 +741,25 @@ function attachRuntime(schedule, {
   const serviceSessionCleanupStatus = new Map(
     serviceSessionTargets.map((target) => [target, "not_started"]),
   );
+  const browserSessionTargets = Array.from(
+    new Set(
+      schedule.workUnits
+        .filter((unit) => unit.kind === "browser_stage_session")
+        .map((unit) => unit.target)
+        .filter((target) => target !== ""),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+  const browserSessionFiles = new Map(
+    schedule.workUnits
+      .filter((unit) => unit.kind === "browser_stage_session")
+      .map((unit) => [
+        unit.target,
+        {
+          envFile: path.join(tempDir, `${unit.browserStage}-browser-env.json`),
+          leaseFile: path.join(tempDir, `${unit.browserStage}-browser-lease.json`),
+        },
+      ]),
+  );
   const serviceEnvFor = async (target) => {
     const files = serviceSessionFiles.get(target);
     if (!files) {
@@ -724,6 +769,13 @@ function attachRuntime(schedule, {
       ...process.env,
       ...(await readServiceSessionEnv(files.envFile)),
     };
+  };
+  const browserEnvFor = async (target) => {
+    const files = browserSessionFiles.get(target);
+    if (!files) {
+      return {};
+    }
+    return readServiceSessionEnv(files.envFile);
   };
   const helperUnitNames = schedule.workUnits
     .filter((unit) => !summaryTargetSet.has(unit.target))
@@ -755,6 +807,136 @@ function attachRuntime(schedule, {
           }),
         };
       };
+      continue;
+    }
+    if (unit.kind === "browser_stage_session") {
+      const files = browserSessionFiles.get(unit.target);
+      unit.command = async () => ({
+        command: browserSessionScript,
+        args: [
+          "--session-start",
+          "--env-file",
+          files.envFile,
+          "--lease-file",
+          files.leaseFile,
+        ],
+        env: makeChildEnv({
+          ...(await serviceEnvFor(serviceSessionTarget(unit))),
+          ...unit.env,
+          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        }),
+      });
+      continue;
+    }
+    if (unit.kind === "browser_group") {
+      unit.command = async () => {
+        const sessionEnv = await browserEnvFor(unit.aggregateTarget);
+        const serviceEnv = await serviceEnvFor(serviceSessionTarget(unit));
+        const group = unit.browserGroup;
+        const pnpmBin = process.env.PNPM || path.join(repoRoot, "tmp", "node-runtime", "bin", "pnpm");
+        const commonEnv = makeChildEnv({
+          ...serviceEnv,
+          ...sessionEnv,
+          ...unit.env,
+          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+          CARTULARY_TEST_TARGET: unit.aggregateTarget,
+          CARTULARY_BROWSER_STAGE: unit.browserStage,
+          CARTULARY_BROWSER_GROUP_KIND: group.kind,
+          CARTULARY_BROWSER_GROUP_NAME: group.name,
+          CARTULARY_BROWSER_GROUP_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        });
+        if (browserGroupRunner) {
+          return {
+            command: browserGroupRunner,
+            args: [],
+            env: commonEnv,
+          };
+        }
+        if (group.kind === "functional_shard") {
+          return {
+            command: path.join(repoRoot, "scripts", "lib", "run-playwright-webserver-batch.sh"),
+            args: [
+              "functional-shard",
+              group.shard_name,
+              String(group.shard_index),
+              String(group.shard_count),
+              "--",
+              pnpmBin,
+              "--dir",
+              "apps/web",
+              "exec",
+              "playwright",
+              "test",
+              "--config",
+              "playwright.webserver-backed.config.ts",
+            ],
+            env: commonEnv,
+          };
+        }
+        if (group.kind === "support") {
+          return {
+            command: path.join(repoRoot, "scripts", "lib", "run-playwright-webserver-batch.sh"),
+            args: [
+              "support",
+              "--",
+              pnpmBin,
+              "--dir",
+              "apps/web",
+              "exec",
+              "playwright",
+              "test",
+              "--config",
+              "playwright.webserver-backed.config.ts",
+            ],
+            env: commonEnv,
+          };
+        }
+        const scriptsByKind = new Map([
+          ["stateful", "run-browser-e2e-stateful.sh"],
+          ["measurement", "run-browser-e2e-measurement.sh"],
+          ["visual", "run-browser-e2e-visual.sh"],
+        ]);
+        const script = scriptsByKind.get(group.kind);
+        if (!script) {
+          throw new Error(`unsupported browser group kind ${group.kind}`);
+        }
+        return {
+          command: path.join(repoRoot, "scripts", script),
+          args: [],
+          env: {
+            ...commonEnv,
+            PLAYWRIGHT_WORKERS: "1",
+          },
+        };
+      };
+      continue;
+    }
+    if (unit.kind === "browser_stage_complete") {
+      const files = browserSessionFiles.get(unit.target);
+      unit.command = () => ({
+        command: "bash",
+        args: [
+          "-c",
+          [
+            `${testOutputCommand} target-summary ${JSON.stringify(unit.target)} pass --quiet-success`,
+            `summary_status=$?`,
+            `${JSON.stringify(browserSessionScript)} --session-stop --lease-file ${JSON.stringify(files.leaseFile)}`,
+            `stop_status=$?`,
+            `if [[ "$summary_status" -ne 0 ]]; then exit "$summary_status"; fi`,
+            `exit "$stop_status"`,
+          ].join("; "),
+        ],
+        env: makeChildEnv({
+          ...process.env,
+          ...unit.env,
+          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        }),
+      });
       continue;
     }
     if (unit.kind === "go_shard") {
@@ -847,6 +1029,20 @@ function attachRuntime(schedule, {
     },
     afterWorkComplete: async ({ firstFailure }) => {
       let cleanupFailure = null;
+      for (const target of browserSessionTargets) {
+        const files = browserSessionFiles.get(target);
+        if (!files?.leaseFile) {
+          continue;
+        }
+        if (!existsSync(files.leaseFile)) {
+          continue;
+        }
+        await runLifecycle(repoRoot, browserSessionScript, [
+          "--session-stop",
+          "--lease-file",
+          files.leaseFile,
+        ]).catch(() => {});
+      }
       for (const target of serviceSessionTargets) {
         const files = serviceSessionFiles.get(target);
         const status = firstFailure === 0 ? "pass" : "fail";
@@ -894,6 +1090,14 @@ function attachRuntime(schedule, {
           lease_file: relToRepoPath(repoRoot, files.leaseFile),
           metadata_dir: relToRepoPath(repoRoot, files.metadataDir),
           cleanup_status: serviceSessionCleanupStatus.get(target) ?? "unknown",
+        };
+      }),
+      browser_stage_sessions: browserSessionTargets.map((target) => {
+        const files = browserSessionFiles.get(target);
+        return {
+          target,
+          env_file: relToRepoPath(repoRoot, files.envFile),
+          lease_file: relToRepoPath(repoRoot, files.leaseFile),
         };
       }),
     }),

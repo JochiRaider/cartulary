@@ -226,8 +226,15 @@ function writeSchedulerSummary(summary) {
   const slowest = (summary.slowest_work_units ?? [])
     .map((entry) => `${entry.label}(${formatDuration(entry.duration_ms)})`)
     .join(",") || "none";
+  const terminal = summary.critical_path_terminal_unit?.label
+    ? `${summary.critical_path_terminal_unit.label}(${formatDuration(summary.critical_path_terminal_unit.duration_ms ?? 0)})`
+    : "none";
+  const blockers = (summary.critical_path_blockers ?? summary.top_blockers ?? [])
+    .slice(0, 3)
+    .map((entry) => `${entry.kind}:${entry.name}(${entry.count})`)
+    .join(",") || "none";
   process.stdout.write(
-    `[SCHEDULER] ${summary.target} status=${summary.status}${failureClassField(summary)} completed_work_units=${summary.completed_work_units}/${summary.total_work_units} failed=${summary.failed_work_unit ?? "none"} slowest=${slowest} logs=${summary.artifacts?.scheduler_logs_dir ?? ""} progress=${summary.artifacts?.progress_summary_log ?? ""}\n`,
+    `[SCHEDULER] ${summary.target} status=${summary.status}${failureClassField(summary)} completed_work_units=${summary.completed_work_units}/${summary.total_work_units} failed=${summary.failed_work_unit ?? "none"} critical_path=${formatDuration(summary.critical_path_wall_duration_ms ?? 0)} terminal=${terminal} blockers=${blockers} slowest=${slowest} logs=${summary.artifacts?.scheduler_logs_dir ?? ""} progress=${summary.artifacts?.progress_summary_log ?? ""}\n`,
   );
   writeFailureHeadline(summary.target, summary);
   writeSchedulerProgressDigest(summary);

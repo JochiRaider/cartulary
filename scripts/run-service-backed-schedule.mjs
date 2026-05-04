@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,15 +40,16 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-const supportedSchemaID = "cartulary.service_backed_schedule.v8";
+const supportedSchemaID = "cartulary.service_backed_schedule.v9";
 const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v5";
-const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v8";
+const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v9";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const postgresResetResource = "postgres_reset";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
-const validSourceTypes = new Set(["go_shards", "make_target"]);
+const validSourceTypes = new Set(["go_shards", "make_target", "browser_stage"]);
 const validSourceClasses = new Set(["backend", "browser"]);
+const validBrowserGroupKinds = new Set(["functional_shard", "support", "stateful", "measurement", "visual"]);
 
 function usage() {
   process.stderr.write(
@@ -129,8 +131,8 @@ function validateBackendTarget(scheduleTarget, target, label) {
 }
 
 function validateBrowserTarget(source, target, label, browserStages) {
-  if (source.type !== "make_target") {
-    throw new Error(`${label} browser target ${target} must use type make_target`);
+  if (source.type !== "browser_stage") {
+    throw new Error(`${label} browser target ${target} must use type browser_stage`);
   }
   if (typeof source.browser_stage !== "string" || source.browser_stage.trim() === "") {
     throw new Error(`${label} browser target ${target} must declare browser_stage`);
@@ -147,13 +149,72 @@ function validateBrowserTarget(source, target, label, browserStages) {
   }
 }
 
+function validateBrowserGroup(source, group, groupIndex, label, resourceLimits) {
+  const groupLabel = `${label} ${source.target} groups ${groupIndex + 1}`;
+  if (!group || typeof group !== "object" || Array.isArray(group)) {
+    throw new Error(`${groupLabel} must be an object`);
+  }
+  for (const field of ["id", "name", "kind", "target", "aggregate_target"]) {
+    if (typeof group[field] !== "string" || group[field].trim() === "") {
+      throw new Error(`${groupLabel}.${field} must be a non-empty string`);
+    }
+  }
+  if (group.aggregate_target.trim() !== source.target.trim()) {
+    throw new Error(`${groupLabel}.aggregate_target must match ${source.target}`);
+  }
+  if (!Number.isFinite(group.weight) || group.weight < 0) {
+    throw new Error(`${groupLabel}.weight must be non-negative`);
+  }
+  if (!validBrowserGroupKinds.has(group.kind.trim())) {
+    throw new Error(`${groupLabel}.kind must be one of ${Array.from(validBrowserGroupKinds).join(", ")}`);
+  }
+  if (group.kind.trim() === "functional_shard") {
+    if (typeof group.shard_name !== "string" || group.shard_name.trim() === "") {
+      throw new Error(`${groupLabel}.shard_name must be a non-empty string for functional_shard`);
+    }
+    if (!Number.isInteger(group.shard_index) || group.shard_index < 0) {
+      throw new Error(`${groupLabel}.shard_index must be a non-negative integer for functional_shard`);
+    }
+    if (!Number.isInteger(group.shard_count) || group.shard_count < 1) {
+      throw new Error(`${groupLabel}.shard_count must be a positive integer for functional_shard`);
+    }
+    if (group.shard_index >= group.shard_count) {
+      throw new Error(`${groupLabel}.shard_index must be less than shard_count`);
+    }
+    if (!Array.isArray(group.entry_ids) || group.entry_ids.length === 0) {
+      throw new Error(`${groupLabel}.entry_ids must be non-empty for functional_shard`);
+    }
+  }
+  return {
+    id: group.id.trim(),
+    name: group.name.trim(),
+    kind: group.kind.trim(),
+    target: group.target.trim(),
+    aggregateTarget: group.aggregate_target.trim(),
+    coverage: typeof group.coverage === "string" ? group.coverage.trim() : "",
+    executionDependency: typeof group.execution_dependency === "string" ? group.execution_dependency.trim() : "",
+    shardName: typeof group.shard_name === "string" ? group.shard_name.trim() : "",
+    shardIndex: Number.isInteger(group.shard_index) ? group.shard_index : 0,
+    shardCount: Number.isInteger(group.shard_count) ? group.shard_count : 0,
+    phases: Array.isArray(group.phases) ? group.phases.filter((entry) => typeof entry === "string") : [],
+    entryIDs: Array.isArray(group.entry_ids) ? group.entry_ids.filter((entry) => typeof entry === "string") : [],
+    weight: group.weight,
+    resourceClaims: normalizeResourceClaims(
+      group.resource_claims ?? {},
+      groupLabel,
+      resourceLimits,
+    ),
+    rawResourceClaims: group.resource_claims ?? {},
+  };
+}
+
 function validateSource(scheduleTarget, source, index, resourceLimits, browserStages) {
   const label = `${scheduleTarget} work_unit_sources ${index + 1}`;
   if (!source || typeof source !== "object" || Array.isArray(source)) {
     throw new Error(`${label} must be an object`);
   }
   if (!validSourceTypes.has(source.type)) {
-    throw new Error(`${label} must declare type go_shards or make_target`);
+    throw new Error(`${label} must declare type go_shards, make_target, or browser_stage`);
   }
   if (typeof source.target !== "string" || source.target.trim() === "") {
     throw new Error(`${label} must declare target`);
@@ -193,6 +254,32 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
       needs,
       resourceClaims,
       rawResourceClaims: source.resource_claims,
+      order: index,
+    };
+  }
+
+  if (source.type === "browser_stage") {
+    if (source.class !== "browser") {
+      throw new Error(`${label} ${target} browser_stage sources must declare class browser`);
+    }
+    const groups = Array.isArray(source.groups)
+      ? source.groups.map((group, groupIndex) =>
+          validateBrowserGroup(source, group, groupIndex, label, resourceLimits),
+        )
+      : [];
+    if (groups.length === 0) {
+      throw new Error(`${label} ${target} browser_stage sources must declare groups[]`);
+    }
+    return {
+      type: source.type,
+      class: source.class,
+      target,
+      browserStage: source.browser_stage.trim(),
+      needs,
+      weight: source.weight,
+      resourceClaims,
+      rawResourceClaims: source.resource_claims,
+      groups,
       order: index,
     };
   }
@@ -296,12 +383,116 @@ function shardCompletionKey(shardName) {
   return `go_shard:${shardName}`;
 }
 
+function browserStageSessionKey(target) {
+  return `browser_stage_session:${target}`;
+}
+
+function browserGroupCompletionKey(groupID) {
+  return `browser_group:${groupID}`;
+}
+
+function browserGroupNeeds(source, group) {
+  const needs = [browserStageSessionKey(source.target)];
+  if (group.kind === "functional_shard") {
+    const previousFunctionalShard = source.groups
+      .filter((candidate) => candidate.kind === "functional_shard")
+      .sort((left, right) =>
+        (left.shardIndex ?? 0) - (right.shardIndex ?? 0) ||
+        left.id.localeCompare(right.id),
+      )
+      .find((candidate) => (candidate.shardIndex ?? 0) === (group.shardIndex ?? 0) - 1);
+    if (previousFunctionalShard) {
+      needs.push(browserGroupCompletionKey(previousFunctionalShard.id));
+    }
+  }
+  if (group.kind === "support") {
+    needs.push(
+      ...source.groups
+        .filter((candidate) => candidate.kind === "functional_shard")
+        .map((candidate) => browserGroupCompletionKey(candidate.id)),
+    );
+  }
+  return needs;
+}
+
+function retainedBrowserStageClaims(resourceClaims) {
+  return new Map(
+    Array.from(resourceClaims.entries()).filter(
+      ([resource]) => resource !== goCPUResource && resource !== goIOResource,
+    ),
+  );
+}
+
 function expandSchedule(schedule) {
   const countedWorkUnits = [];
   const finalizerUnits = [];
   const shardWorkByName = new Map();
 
   for (const source of schedule.sources) {
+    if (source.type === "browser_stage") {
+      const retainedClaims = retainedBrowserStageClaims(source.resourceClaims);
+      countedWorkUnits.push({
+        id: `browser-stage-session:${source.browserStage}`,
+        label: `${source.target}/stage-session`,
+        kind: "browser_stage_session",
+        type: "browser_stage_session",
+        class: source.class,
+        target: source.target,
+        aggregateTarget: source.target,
+        group: source.target,
+        browserStage: source.browserStage,
+        needs: [...source.needs],
+        completionKeys: [browserStageSessionKey(source.target)],
+        failureKeys: [browserStageSessionKey(source.target)],
+        weight: source.weight,
+        resourceClaims: cloneResourceClaims(source.resourceClaims),
+        retainedResourceClaims: retainedClaims,
+        order: source.order,
+      });
+      finalizerUnits.push({
+        id: `browser-stage-complete:${source.browserStage}`,
+        label: `${source.target}/complete`,
+        kind: "browser_stage_complete",
+        type: "browser_stage_complete",
+        class: source.class,
+        target: source.target,
+        aggregateTarget: source.target,
+        group: source.target,
+        browserStage: source.browserStage,
+        needs: source.groups.map((group) => browserGroupCompletionKey(group.id)),
+        completionKeys: [source.target],
+        failureKeys: [source.target],
+        countInTotal: false,
+        countsStarted: false,
+        resourceClaims: new Map(),
+        releaseRetainedResourceClaims: retainedClaims,
+        weight: 0,
+        order: source.order,
+      });
+      for (const group of source.groups) {
+        countedWorkUnits.push({
+          id: group.id,
+          label: `${source.target}/${group.name}`,
+          kind: "browser_group",
+          type: "browser_group",
+          class: source.class,
+          target: group.target,
+          aggregateTarget: source.target,
+          group: source.target,
+          browserStage: source.browserStage,
+          browserGroup: group,
+          needs: browserGroupNeeds(source, group),
+          completionKeys: [browserGroupCompletionKey(group.id)],
+          failureKeys: [browserGroupCompletionKey(group.id)],
+          weight: group.weight,
+          resourceClaims: cloneResourceClaims(group.resourceClaims),
+          rawResourceClaims: group.rawResourceClaims,
+          order: source.order,
+        });
+      }
+      continue;
+    }
+
     if (source.type === "make_target") {
       countedWorkUnits.push({
         id: source.target,
@@ -388,7 +579,7 @@ function expandSchedule(schedule) {
   const workUnits = [...countedWorkUnits, ...finalizerUnits];
   const resolvedLimits = resolveResourceLimits(schedule.resourceLimits, schedule.resourceLimitSources, countedWorkUnits);
   const finalWorkUnits = workUnits.map((unit) => {
-    if (unit.kind !== "make_target" || !unit.rawResourceClaims) {
+    if (!["make_target", "browser_stage_session", "browser_group"].includes(unit.kind) || !unit.rawResourceClaims) {
       return unit;
     }
     const { rawResourceClaims, ...rest } = unit;
@@ -408,6 +599,16 @@ function expandSchedule(schedule) {
     totalWorkUnits: countedWorkUnits.length,
     finalizerCount: finalizerUnits.length,
   };
+}
+
+async function readJSONEnvFile(file) {
+  const parsed = JSON.parse(await readFile(file, "utf8"));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${file} must contain a JSON environment object`);
+  }
+  return Object.fromEntries(
+    Object.entries(parsed).filter((entry) => typeof entry[1] === "string"),
+  );
 }
 
 function clampInteger(value, min, max) {
@@ -490,6 +691,29 @@ function displayCapacity(schedule) {
 
 function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTargetRunner, metadataDir }) {
   const capacityDisplay = displayCapacity(schedule);
+  const browserSessionScript =
+    process.env.CARTULARY_BROWSER_E2E_SESSION_SCRIPT || path.join(repoRoot, "scripts", "start-web-e2e.sh");
+  const browserGroupRunner = process.env.CARTULARY_BROWSER_E2E_GROUP_RUNNER || "";
+  const testOutputCommand = testOutputScript.endsWith(".mjs")
+    ? `${JSON.stringify(process.env.NODE_BIN || process.execPath)} ${JSON.stringify(testOutputScript)}`
+    : JSON.stringify(testOutputScript);
+  const cartularyTestServicesBin =
+    process.env.CARTULARY_TEST_SERVICES_BIN || process.env.TEST_SERVICES_BIN || "";
+  const browserSessionFiles = new Map(
+    schedule.workUnits
+      .filter((unit) => unit.kind === "browser_stage_session")
+      .map((unit) => [
+        unit.target,
+        {
+          envFile: path.join(metadataDir, `${unit.browserStage}-browser-env.json`),
+          leaseFile: path.join(metadataDir, `${unit.browserStage}-browser-lease.json`),
+        },
+      ]),
+  );
+  const browserSessionEnvFor = async (target) => {
+    const files = browserSessionFiles.get(target);
+    return files ? readJSONEnvFile(files.envFile) : {};
+  };
   for (const unit of schedule.workUnits) {
     if (unit.kind === "make_target") {
       unit.command = () => ({
@@ -499,6 +723,133 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
           ...makeChildEnv(process.env),
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        },
+      });
+      continue;
+    }
+    if (unit.kind === "browser_stage_session") {
+      const files = browserSessionFiles.get(unit.target);
+      unit.command = () => ({
+        command: browserSessionScript,
+        args: [
+          "--session-start",
+          "--env-file",
+          files.envFile,
+          "--lease-file",
+          files.leaseFile,
+        ],
+        env: {
+          ...process.env,
+          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        },
+      });
+      continue;
+    }
+    if (unit.kind === "browser_group") {
+      unit.command = async () => {
+        const sessionEnv = await browserSessionEnvFor(unit.aggregateTarget);
+        const group = unit.browserGroup;
+        const pnpmBin = process.env.PNPM || path.join(repoRoot, "tmp", "node-runtime", "bin", "pnpm");
+        const commonEnv = {
+          ...process.env,
+          ...sessionEnv,
+          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+          CARTULARY_TEST_TARGET: unit.aggregateTarget,
+          CARTULARY_BROWSER_STAGE: unit.browserStage,
+          CARTULARY_BROWSER_GROUP_KIND: group.kind,
+          CARTULARY_BROWSER_GROUP_NAME: group.name,
+          CARTULARY_BROWSER_GROUP_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        };
+        if (browserGroupRunner) {
+          return {
+            command: browserGroupRunner,
+            args: [],
+            env: commonEnv,
+          };
+        }
+        if (group.kind === "functional_shard") {
+          return {
+            command: path.join(repoRoot, "scripts", "lib", "run-playwright-webserver-batch.sh"),
+            args: [
+              "functional-shard",
+              group.shardName,
+              String(group.shardIndex),
+              String(group.shardCount),
+              "--",
+              pnpmBin,
+              "--dir",
+              "apps/web",
+              "exec",
+              "playwright",
+              "test",
+              "--config",
+              "playwright.webserver-backed.config.ts",
+            ],
+            env: commonEnv,
+          };
+        }
+        if (group.kind === "support") {
+          return {
+            command: path.join(repoRoot, "scripts", "lib", "run-playwright-webserver-batch.sh"),
+            args: [
+              "support",
+              "--",
+              pnpmBin,
+              "--dir",
+              "apps/web",
+              "exec",
+              "playwright",
+              "test",
+              "--config",
+              "playwright.webserver-backed.config.ts",
+            ],
+            env: commonEnv,
+          };
+        }
+        const scriptsByKind = new Map([
+          ["stateful", "run-browser-e2e-stateful.sh"],
+          ["measurement", "run-browser-e2e-measurement.sh"],
+          ["visual", "run-browser-e2e-visual.sh"],
+        ]);
+        const script = scriptsByKind.get(group.kind);
+        if (!script) {
+          throw new Error(`unsupported browser group kind ${group.kind}`);
+        }
+        return {
+          command: path.join(repoRoot, "scripts", script),
+          args: [],
+          env: {
+            ...commonEnv,
+            CARTULARY_TEST_TARGET: unit.target,
+            PLAYWRIGHT_WORKERS: "1",
+          },
+        };
+      };
+      continue;
+    }
+    if (unit.kind === "browser_stage_complete") {
+      const files = browserSessionFiles.get(unit.target);
+      unit.command = () => ({
+        command: "bash",
+        args: [
+          "-c",
+          [
+            `${testOutputCommand} target-summary ${JSON.stringify(unit.target)} pass --quiet-success`,
+            `summary_status=$?`,
+            `${JSON.stringify(browserSessionScript)} --session-stop --lease-file ${JSON.stringify(files.leaseFile)}`,
+            `stop_status=$?`,
+            `if [[ "$summary_status" -ne 0 ]]; then exit "$summary_status"; fi`,
+            `exit "$stop_status"`,
+          ].join("; "),
+        ],
+        env: {
+          ...process.env,
+          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+          CARTULARY_TEST_TARGET: unit.target,
+          TEST_OUTPUT_SCRIPT: testOutputScript,
         },
       });
       continue;
@@ -573,7 +924,27 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
     shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,
     afterWorkComplete: async ({ firstFailure }) => {
       if (firstFailure !== 0 || schedule.backendChildren.length === 0) {
+        for (const files of browserSessionFiles.values()) {
+          if (!existsSync(files.leaseFile)) {
+            continue;
+          }
+          await runLifecycle(repoRoot, browserSessionScript, [
+            "--session-stop",
+            "--lease-file",
+            files.leaseFile,
+          ]).catch(() => {});
+        }
         return null;
+      }
+      for (const files of browserSessionFiles.values()) {
+        if (!existsSync(files.leaseFile)) {
+          continue;
+        }
+        await runLifecycle(repoRoot, browserSessionScript, [
+          "--session-stop",
+          "--lease-file",
+          files.leaseFile,
+        ]).catch(() => {});
       }
       const status = await runPostgresFixtureBudgetCheck(schedule.backendChildren);
       return status === 0 ? null : { status, label: "postgres-fixture-budget" };

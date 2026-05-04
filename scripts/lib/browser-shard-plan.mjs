@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   collectEntries,
@@ -219,7 +219,7 @@ function planShardCount(entries, maxShards) {
   return Math.max(1, Math.min(entries.length, maxShards));
 }
 
-function createPlan({ baselineFile, maxShards, phase = "" }) {
+export function createPlan({ baselineFile, maxShards, phase = "" }) {
   const activeEntries = browserFunctionalEntries(repoRoot);
   const baseline = readBaseline(baselineFile, activeEntries);
   const entries = collectEntryRows(repoRoot, baseline, { phase });
@@ -579,9 +579,11 @@ function main(argv) {
   }
 }
 
-try {
-  main(process.argv.slice(2));
-} catch (error) {
-  process.stderr.write(`${error.message}\n`);
-  process.exit(1);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main(process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  }
 }

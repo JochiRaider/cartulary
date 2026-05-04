@@ -6,6 +6,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {
   echo "usage: run-playwright-webserver-batch.sh <webserver-backed|functional|support> -- <playwright test command...>" >&2
+  echo "       run-playwright-webserver-batch.sh functional-shard <shard-name> <shard-index> <shard-count> -- <playwright test command...>" >&2
   exit 2
 }
 
@@ -15,6 +16,31 @@ fi
 
 mode="$1"
 shift
+single_shard_name=""
+single_shard_index=""
+single_shard_count=""
+
+if [[ "$mode" == "functional-shard" ]]; then
+  if [[ "$#" -lt 5 ]]; then
+    usage
+  fi
+  single_shard_name="$1"
+  single_shard_index="$2"
+  single_shard_count="$3"
+  shift 3
+  if [[ ! "$single_shard_index" =~ ^[0-9]+$ ]] || (( single_shard_index < 0 )); then
+    echo "functional-shard index must be a non-negative integer" >&2
+    exit 2
+  fi
+  if [[ ! "$single_shard_count" =~ ^[0-9]+$ ]] || (( single_shard_count < 1 )); then
+    echo "functional-shard count must be a positive integer" >&2
+    exit 2
+  fi
+  if (( single_shard_index >= single_shard_count )); then
+    echo "functional-shard index must be less than shard count" >&2
+    exit 2
+  fi
+fi
 
 if [[ "$1" != "--" ]]; then
   usage
@@ -26,7 +52,7 @@ if [[ "$#" -eq 0 ]]; then
 fi
 
 case "$mode" in
-  webserver-backed | functional | support)
+  webserver-backed | functional | support | functional-shard)
     ;;
   *)
     usage
@@ -40,7 +66,11 @@ node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
 shard_plan_script="$repo_root/scripts/lib/browser-shard-plan.mjs"
 output_mode="$(resolve_output_mode)"
-batch_dir="$(prepare_target_support_dir "playwright-${mode}-batch")"
+batch_label="playwright-${mode}-batch"
+if [[ "$mode" == "functional-shard" ]]; then
+  batch_label="playwright-${mode}-${single_shard_name}-batch"
+fi
+batch_dir="$(prepare_target_support_dir "$batch_label")"
 run_report="${batch_dir}/runner.json"
 support_report="${batch_dir}/support-runner.json"
 stdout_log="${batch_dir}/stdout.log"
@@ -68,7 +98,11 @@ EOF
   return 2
 }
 
-functional_shard_limit="$(resolve_functional_shard_limit)"
+if [[ "$mode" == "functional-shard" ]]; then
+  functional_shard_limit="$single_shard_count"
+else
+  functional_shard_limit="$(resolve_functional_shard_limit)"
+fi
 
 if [[ "$mode" != "support" ]]; then
   shard_plan_command=("$node_bin" "$shard_plan_script" plan --max-shards "$functional_shard_limit")
@@ -101,6 +135,20 @@ for (const shard of plan.shards ?? []) {
 }
 EOF
   )
+  if [[ "$mode" == "functional-shard" ]]; then
+    shard_found=0
+    for shard in "${shard_names[@]}"; do
+      if [[ "$shard" == "$single_shard_name" ]]; then
+        shard_found=1
+        break
+      fi
+    done
+    if [[ "$shard_found" -ne 1 ]]; then
+      echo "browser functional shard plan did not contain ${single_shard_name}" >&2
+      exit 1
+    fi
+    shard_names=("$single_shard_name")
+  fi
 fi
 
 if [[ "$mode" != "support" && "${#shard_names[@]}" -eq 0 ]]; then
@@ -111,11 +159,15 @@ fi
 functional_phases=()
 if [[ "$mode" != "support" ]]; then
   mapfile -t functional_phases < <(
-    "$node_bin" - "$shard_plan" <<'EOF'
+    "$node_bin" - "$shard_plan" "$single_shard_name" <<'EOF'
 const fs = require("node:fs");
-const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const [planPath, selectedShardName] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
 const phases = new Set();
 for (const shard of plan.shards ?? []) {
+  if (selectedShardName && shard.name !== selectedShardName) {
+    continue;
+  }
   for (const phase of shard.phases ?? []) {
     phases.add(phase);
   }
@@ -247,11 +299,23 @@ run_functional_shard() {
   local shard_stdout
   local shard_stderr
   local shard_output_dir
+  local selected_ids
   local -a run_command
   local status
 
   grep="$(shard_grep "$shard")"
   files="$(shard_files "$shard")"
+  selected_ids="$("$node_bin" - "$shard_plan" "$shard" <<'EOF'
+const fs = require("node:fs");
+const [planPath, shardName] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+const shard = (plan.shards ?? []).find((entry) => entry.name === shardName);
+if (!shard) {
+  throw new Error(`missing shard ${shardName}`);
+}
+process.stdout.write(`${(shard.entries ?? []).map((entry) => entry.id).join("\n")}\n`);
+EOF
+  )"
   shard_report="${batch_dir}/${shard}.json"
   shard_stdout="${batch_dir}/${shard}.stdout.log"
   shard_stderr="${batch_dir}/${shard}.stderr.log"
@@ -267,8 +331,9 @@ run_functional_shard() {
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES="$files" \
   CARTULARY_PLAYWRIGHT_SUPPORT_GREP="$all_support_grep" \
   CARTULARY_PLAYWRIGHT_SUPPORT_FILES="$all_support_files" \
-  CARTULARY_PLAYWRIGHT_WORKER_COUNT="${#shard_names[@]}" \
+  CARTULARY_PLAYWRIGHT_WORKER_COUNT="$functional_shard_limit" \
   CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index" \
+  CARTULARY_MANIFEST_SELECTED_IDS="$selected_ids" \
   PLAYWRIGHT_WORKERS=1 \
   PLAYWRIGHT_JSON_OUTPUT_FILE="$shard_report" \
     "${run_command[@]}" >"$shard_stdout" 2>"$shard_stderr"
@@ -283,7 +348,11 @@ functional_status=0
 if [[ "$mode" != "support" ]]; then
   active_shards=0
   for shard_index in "${!shard_names[@]}"; do
-    run_functional_shard "${shard_names[$shard_index]}" "$shard_index" &
+    actual_shard_index="$shard_index"
+    if [[ "$mode" == "functional-shard" ]]; then
+      actual_shard_index="$single_shard_index"
+    fi
+    run_functional_shard "${shard_names[$shard_index]}" "$actual_shard_index" &
     active_shards=$((active_shards + 1))
     if (( active_shards >= functional_shard_limit )); then
       if ! wait -n; then
@@ -356,6 +425,7 @@ emit_playwright_manifest_slice() {
   local logical_duration_ms="$4"
   local executed_duration_ms="$5"
   local wall_duration_ms="$6"
+  local selected_ids="$7"
   local phase_dir
   local selection_report
   local helper_status
@@ -387,6 +457,7 @@ emit_playwright_manifest_slice() {
   CARTULARY_MANIFEST_PHASE="$phase" \
   CARTULARY_MANIFEST_COVERAGE=authoritative \
   CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=browser_functional \
+  CARTULARY_MANIFEST_SELECTED_IDS="$selected_ids" \
     NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" playwright-manifest-phase
   helper_status=$?
   set -e
@@ -439,11 +510,32 @@ for phase in "${functional_phases[@]}"; do
     continue
   fi
   label="browser-e2e-functional ${phase} authoritative"
+  if [[ "$mode" == "functional-shard" ]]; then
+    label="${label} ${single_shard_name}"
+  fi
+  selected_phase_ids="$("$node_bin" - "$shard_plan" "$phase" "$single_shard_name" <<'EOF'
+const fs = require("node:fs");
+const [planPath, phase, selectedShardName] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+const ids = [];
+for (const shard of plan.shards ?? []) {
+  if (selectedShardName && shard.name !== selectedShardName) {
+    continue;
+  }
+  for (const entry of shard.entries ?? []) {
+    if (entry.phase === phase) {
+      ids.push(entry.id);
+    }
+  }
+}
+process.stdout.write(`${ids.join("\n")}\n`);
+EOF
+  )"
   accounting_mode=actual
   logical_ms="$duration_ms"
   executed_ms="$duration_ms"
   wall_ms="${BATCH_WALL_DURATION_MS}"
-  if ! emit_playwright_manifest_slice "$label" "$phase" "$accounting_mode" "$logical_ms" "$executed_ms" "$wall_ms"; then
+  if ! emit_playwright_manifest_slice "$label" "$phase" "$accounting_mode" "$logical_ms" "$executed_ms" "$wall_ms" "$selected_phase_ids"; then
     overall_status=1
   fi
 done

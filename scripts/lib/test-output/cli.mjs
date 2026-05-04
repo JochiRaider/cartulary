@@ -4763,13 +4763,15 @@ function finalizeManifestAwareRunnerPhase(context, {
 
   if (manifestAware && selectedSlicePassed) {
     const scope = readManifestScopeEnv();
+    const selectedIDs = optionalSetFromLines("CARTULARY_MANIFEST_SELECTED_IDS");
+    const entries = selectManifestEntries(repoRoot, {
+      runner,
+      section,
+      ...scope,
+    }).filter((entry) => selectedIDs.size === 0 || selectedIDs.has(entry.id));
     const verification = evaluateFlatTitleManifest(summary, {
       phase: scope.phase,
-      entries: selectManifestEntries(repoRoot, {
-        runner,
-        section,
-        ...scope,
-      }),
+      entries,
       inventoryCoverage: manifestCoverageToInventoryCoverage(scope.coverage),
     });
     manifestSummary = {

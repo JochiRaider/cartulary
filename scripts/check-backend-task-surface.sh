@@ -197,8 +197,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v9") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v9");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -222,8 +222,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v9") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v9");
+if (manifest.schema_id !== "cartulary.check_schedule.v10") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v10");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -251,8 +251,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v9") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v9");
+if (manifest.schema_id !== "cartulary.check_schedule.v10") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v10");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -275,8 +275,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v9") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v9");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -531,8 +531,8 @@ assertCheckMetadata("check-service-backed", "service_session_start");
 assertCheckMetadata("migration-drift", "post_build_migration_scratch_postgres");
 assertCheckMetadata("backend-unit", "after_setup_cpu");
 assertCheckMetadata("go-vulncheck", "after_setup_cpu_io");
-if (manifest.schema_id !== "cartulary.check_schedule.v9") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v9");
+if (manifest.schema_id !== "cartulary.check_schedule.v10") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v10");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -622,7 +622,7 @@ done
 assert_check_needs build-server "check-frontend-install"
 assert_check_needs build-migrate "toolchain-drift"
 assert_check_needs test-service-images "toolchain-drift"
-assert_check_needs check-service-backed "build-server,build-migrate,test-service-images"
+assert_check_needs check-service-backed "build-migrate,test-service-images"
 assert_check_needs migration-drift "build-migrate"
 assert_check_needs deployable-shape "build-server,build-migrate"
 for scheduled_target in \
@@ -649,9 +649,9 @@ assert_check_needs lint-shell "shell-lint-toolchain"
 for scheduled_target in frontend-typecheck frontend-unit frontend-import-boundary-check lint-biome lint-scripts phase-map-check phase-ledger-drift; do
   assert_check_needs "$scheduled_target" "check-frontend-install"
 done
-assert_check_needs check-go-test-duration-baseline-drift "check-service-backed"
-assert_check_needs check-browser-e2e-duration-baseline-drift "check-service-backed"
-assert_check_needs check-service-backed-make-target-duration-baseline-drift "check-service-backed"
+assert_check_needs check-go-test-duration-baseline-drift "backend-store,backend-integration,backend-integration-support,backend-process"
+assert_check_needs check-browser-e2e-duration-baseline-drift "browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual"
+assert_check_needs check-service-backed-make-target-duration-baseline-drift "backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual"
 assert_check_needs check-harness-smoke-duration-baseline-drift "check-harness-smoke"
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,suite_service_stack" ]]; then
   fail "check-service-backed must claim host_cpu, host_io, and suite_service_stack resources in the check schedule"

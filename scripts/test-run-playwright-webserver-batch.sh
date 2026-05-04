@@ -94,6 +94,7 @@ mkdir -p "$(dirname "$output_file")"
 if [[ -n "${FAKE_PLAYWRIGHT_INVOCATIONS:-}" ]]; then
   project="(none)"
   previous=""
+  selected_ids_log="${CARTULARY_MANIFEST_SELECTED_IDS:-}"
   for arg in "$@"; do
     if [[ "$previous" == "--project" ]]; then
       project="$arg"
@@ -101,11 +102,12 @@ if [[ -n "${FAKE_PLAYWRIGHT_INVOCATIONS:-}" ]]; then
     fi
     previous="$arg"
   done
-  printf 'project=%s worker_count=%s worker_offset=%s files=%s\n' \
+  printf 'project=%s worker_count=%s worker_offset=%s files=%s selected_ids=%s\n' \
     "$project" \
     "${CARTULARY_PLAYWRIGHT_WORKER_COUNT:-}" \
     "${CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET:-}" \
-    "${CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES//$'\n'/,}" >>"$FAKE_PLAYWRIGHT_INVOCATIONS"
+    "${CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES//$'\n'/,}" \
+    "${selected_ids_log//$'\n'/,}" >>"$FAKE_PLAYWRIGHT_INVOCATIONS"
 fi
 
 node - "$output_file" "${FAKE_PLAYWRIGHT_MODE:-success}" "$@" <<'NODE'
@@ -339,6 +341,39 @@ success_target_summary="$success_root/target-summary.json"
 assert_equals "$(json_field "$success_target_summary" "kind")" "leaf" "batch target summary kind"
 assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.actual")" "4" "batch target actual phase count"
 assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.derived")" "2" "batch target derived phase count"
+
+single_shard_invocations="$tmp_dir/batch-single-shard-invocations.log"
+single_shard_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="batch-single-shard" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_PLAYWRIGHT_INVOCATIONS="$single_shard_invocations" \
+    "$HELPER" functional-shard browser-functional-shard-01 0 2 -- "$fake_playwright"
+)"
+assert_empty "$single_shard_output" "playwright webserver single shard success"
+"${NODE:-node}" - "$single_shard_invocations" <<'NODE'
+const fs = require("node:fs");
+const lines = fs.readFileSync(process.argv[2], "utf8").trim().split(/\n/u).filter(Boolean);
+const functional = lines.filter((line) => line.startsWith("project=functional "));
+if (functional.length !== 1) {
+  throw new Error(`expected one functional shard invocation, got ${functional.length}`);
+}
+if (!functional[0].includes("worker_count=2 ") || !functional[0].includes("worker_offset=0 ")) {
+  throw new Error(`single shard worker routing was not preserved: ${functional[0]}`);
+}
+if (!functional[0].includes("selected_ids=E-")) {
+  throw new Error(`single shard must pass selected manifest IDs: ${functional[0]}`);
+}
+if (lines.some((line) => line.startsWith("project=support "))) {
+  throw new Error("functional-shard mode must not run support project");
+}
+NODE
+single_shard_root="$tmp_dir/results/batch-single-shard/adhoc"
+single_shard_phase1="$single_shard_root/browser-e2e-functional-phase1-authoritative-browser-functional-shard-01/phase-summary.json"
+assert_equals "$(json_field "$single_shard_phase1" "status")" "pass" "single shard phase1 status"
+assert_equals "$(json_field "$single_shard_phase1" "accounting_mode")" "actual" "single shard phase1 accounting"
 
 phase_filter_invocations="$tmp_dir/batch-phase-filter-invocations.log"
 phase_filter_output="$(

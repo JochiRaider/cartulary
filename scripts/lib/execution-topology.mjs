@@ -19,8 +19,8 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "execution_topology_manifest.json",
 );
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
-export const checkScheduleSchemaID = "cartulary.check_schedule.v9";
-export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
+export const checkScheduleSchemaID = "cartulary.check_schedule.v10";
+export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v9";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
 export const makeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v1";
@@ -43,6 +43,7 @@ const checkScheduleTargetKeys = new Set([
   "schedules",
   "profile",
   "needs",
+  "expanded_needs",
   "priority_band",
   "order",
   "produces_summary_targets",
@@ -511,6 +512,7 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
     schedules,
     profile: requireString(raw.profile, `${label}.check_schedule.profile`),
     needs: requireStringArray(raw.needs ?? [], `${label}.check_schedule.needs`),
+    expandedNeeds: requireStringArray(raw.expanded_needs ?? [], `${label}.check_schedule.expanded_needs`),
     priorityBand: requireString(raw.priority_band, `${label}.check_schedule.priority_band`),
     order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
     producesSummaryTargets,
@@ -626,6 +628,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         target,
         weight,
         needs: clone(metadata.needs),
+        ...(metadata.expandedNeeds.length > 0 ? { expanded_needs: clone(metadata.expandedNeeds) } : {}),
         ...(metadata.producesSummaryTargets.length > 0
           ? { produces_summary_targets: clone(metadata.producesSummaryTargets) }
           : {}),
@@ -794,7 +797,11 @@ function expandCheckScheduleServiceBackedUnits(schedule, serviceBackedManifest, 
   let resourceLimits = clone(schedule.resource_limits);
   for (const unit of schedule.work_units) {
     if (!unit.service_backed_schedule) {
-      workUnits.push(unit);
+      const { expanded_needs: expandedNeeds = [], ...rest } = unit;
+      workUnits.push({
+        ...rest,
+        needs: [...(unit.needs ?? []), ...expandedNeeds],
+      });
       continue;
     }
     const serviceSchedule = schedulesByTarget.get(unit.service_backed_schedule);

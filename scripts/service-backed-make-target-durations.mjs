@@ -26,7 +26,7 @@ import {
 
 const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
 const baselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v1";
-const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
+const scheduleSchemaID = "cartulary.service_backed_schedule.v9";
 const defaultBaselineFile = path.join(
   repoRoot,
   "tools",
@@ -153,7 +153,7 @@ function collectObservedWorkUnitDurations(resultsDir) {
         continue;
       }
       const start = starts.get(event.work_unit_id);
-      if (!["make_target", "service_make_target"].includes(normalizeWorkUnitType(start?.work_unit_type))) {
+      if (!["make_target", "service_make_target", "browser_group"].includes(normalizeWorkUnitType(start?.work_unit_type))) {
         continue;
       }
       const entry = observedEntryFromEvents(summary, start, event);
@@ -254,6 +254,18 @@ function readScheduledWorkUnits(topologyFile, scheduleManifestFile) {
           work_unit_id: source.target,
           aggregate_target: source.target,
         });
+      } else if (source?.type === "browser_stage" && Array.isArray(source.groups)) {
+        for (const group of source.groups) {
+          if (typeof group.id !== "string" || typeof source.target !== "string") {
+            continue;
+          }
+          add({
+            scheduler_kind: "service-backed",
+            schedule_target: schedule.target,
+            work_unit_id: group.id,
+            aggregate_target: source.target,
+          });
+        }
       }
     }
   }
@@ -264,12 +276,16 @@ function readScheduledWorkUnits(topologyFile, scheduleManifestFile) {
     : { schedules: topology.checkSchedules ?? [] };
   for (const schedule of checkManifest.schedules ?? []) {
     for (const unit of schedule.work_units ?? []) {
-      if (unit?.kind === "service_make_target" && typeof unit.id === "string" && typeof unit.target === "string") {
+      if (
+        ["service_make_target", "browser_group"].includes(unit?.kind) &&
+        typeof unit.id === "string" &&
+        typeof unit.aggregate_target === "string"
+      ) {
         add({
           scheduler_kind: "check",
           schedule_target: schedule.target,
           work_unit_id: unit.id,
-          aggregate_target: unit.target,
+          aggregate_target: unit.aggregate_target,
         });
       }
     }

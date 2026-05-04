@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { normalizeBrowserBatchStages } from "./lib/browser-batch-manifest.mjs";
+import { createPlan as createBrowserShardPlan } from "./lib/browser-shard-plan.mjs";
 import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
@@ -27,9 +28,10 @@ import { collectTargetPlanRows, findTargetDescriptor } from "./lib/target-plan.m
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
+const scheduleSchemaID = "cartulary.service_backed_schedule.v9";
 const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v1";
+const defaultBrowserFunctionalShards = 2;
 
 function usage() {
   throw new Error(
@@ -225,6 +227,20 @@ function makeTargetWeight(timing, scheduleTarget, target) {
   return timing.baseline.defaultWeightMs;
 }
 
+function browserGroupBaselineKey(scheduleTarget, groupID, aggregateTarget) {
+  return ["service-backed", scheduleTarget, groupID, aggregateTarget].join("|");
+}
+
+function browserGroupWeight(timing, scheduleTarget, groupID, aggregateTarget, fallback = 0) {
+  const baselineWeight = timing.baseline.workUnits.get(
+    browserGroupBaselineKey(scheduleTarget, groupID, aggregateTarget),
+  );
+  if (Number.isInteger(baselineWeight) && baselineWeight > 0) {
+    return baselineWeight;
+  }
+  return Number.isInteger(fallback) && fallback > 0 ? fallback : timing.baseline.defaultWeightMs;
+}
+
 function minExecutionDependency(target) {
   const descriptor = findTargetDescriptor(target, repoRoot);
   const dependencies = [
@@ -374,7 +390,83 @@ function browserStageResourceClaims(profile, stageName) {
   return cloneObject(stageClaims);
 }
 
-function browserSource(profile, timing, scheduleTarget, stage, selectedTargets) {
+function browserFunctionalShardCount(profile) {
+  const configured = profile.defaults.browser_functional_shards ?? defaultBrowserFunctionalShards;
+  if (!Number.isInteger(configured) || configured < 1) {
+    throw new Error("defaults.browser_functional_shards must be a positive integer when present");
+  }
+  return configured;
+}
+
+function browserGroupSources(profile, timing, scheduleTarget, stage) {
+  const groups = [];
+  const shardCount = browserFunctionalShardCount(profile);
+  for (const group of stage.groups) {
+    if (stage.name === "webserver-backed" && group.kind === "duration_balanced_specs") {
+      const plan = createBrowserShardPlan({
+        baselineFile: path.join(repoRoot, "tools", "browser_e2e_duration_baselines.json"),
+        maxShards: shardCount,
+      });
+      for (const [index, shard] of plan.shards.entries()) {
+        const id = `${stage.target}:${shard.name}`;
+        groups.push({
+          id,
+          name: shard.name,
+          kind: "functional_shard",
+          target: stage.target,
+          aggregate_target: stage.target,
+          coverage: group.coverage,
+          execution_dependency: group.executionDependency,
+          shard_name: shard.name,
+          shard_index: index,
+          shard_count: plan.shard_count,
+          phases: shard.phases,
+          entry_ids: shard.entries.map((entry) => entry.id),
+          weight: browserGroupWeight(timing, scheduleTarget, id, stage.target, shard.weight_ms),
+          resource_claims: {
+            go_cpu: 1,
+            go_io: 1,
+          },
+        });
+      }
+      groups.push({
+        id: `${stage.target}:support`,
+        name: "support",
+        kind: "support",
+        target: stage.target,
+        aggregate_target: stage.target,
+        coverage: "supplemental",
+        execution_dependency: "browser_support",
+        weight: browserGroupWeight(timing, scheduleTarget, `${stage.target}:support`, stage.target),
+        resource_claims: {
+          go_cpu: 1,
+          go_io: 1,
+        },
+      });
+      continue;
+    }
+
+    const id = `${stage.target}:${group.name}`;
+    groups.push({
+      id,
+      name: group.name,
+      kind: group.kind,
+      target: group.target,
+      aggregate_target: stage.target,
+      coverage: group.coverage,
+      execution_dependency: group.executionDependency,
+      weight: browserGroupWeight(timing, scheduleTarget, id, stage.target, makeTargetWeight(timing, scheduleTarget, group.target)),
+      resource_claims: {
+        go_cpu: 1,
+        go_io: 1,
+        ...browserStageResourceClaims(profile, stage.name),
+      },
+    });
+  }
+  return groups;
+}
+
+function browserSource(profile, timing, scheduleTarget, stage, selectedTargets, generatedNeeds = []) {
   const stageName = stage.name;
   const laneResource = browserStageResource(stageName);
   const claims = {
@@ -382,15 +474,19 @@ function browserSource(profile, timing, scheduleTarget, stage, selectedTargets) 
     ...browserStageResourceClaims(profile, stageName),
     [laneResource]: 1,
   };
-  const needs = browserStageNeeds(stage, selectedTargets, scheduleTarget);
+  const needs = Array.from(
+    new Set([...browserStageNeeds(stage, selectedTargets, scheduleTarget), ...generatedNeeds]),
+  );
   return {
-    type: "make_target",
+    type: "browser_stage",
     class: "browser",
     target: stage.target,
     browser_stage: stageName,
     ...(needs.length > 0 ? { needs } : {}),
-    weight: makeTargetWeight(timing, scheduleTarget, stage.target),
+    weight: browserGroupSources(profile, timing, scheduleTarget, stage)
+      .reduce((sum, group) => sum + group.weight, 0),
     resource_claims: claims,
+    groups: browserGroupSources(profile, timing, scheduleTarget, stage),
   };
 }
 
@@ -497,12 +593,21 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   ]);
   for (const stage of stages) {
     resourceLimits[browserStageResource(stage.name)] = 1;
+    const generatedNeeds = stage.name === "measurement"
+      ? [
+          ...backendTargets,
+          ...stages
+            .filter((candidate) => candidate.name !== stage.name)
+            .map((candidate) => candidate.target),
+        ]
+      : [];
     const source = browserSource(
       profile,
       timing,
       target,
       stage,
       selectedTargets,
+      generatedNeeds,
     );
     sources.push(source);
   }

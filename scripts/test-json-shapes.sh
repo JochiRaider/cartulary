@@ -145,7 +145,7 @@ write_valid_check_schedule() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v9",
+  "schema_id": "cartulary.check_schedule.v10",
   "schedules": [
     {
       "target": "check",
@@ -176,7 +176,7 @@ write_valid_service_backed_schedule() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v8",
+  "schema_id": "cartulary.service_backed_schedule.v9",
   "generated": {
     "generator": "synthetic",
     "topology": "tools/execution_topology_manifest.json",
@@ -528,7 +528,7 @@ stale_schedule="$tmp_dir/check_schedule_stale.json"
 write_valid_check_schedule "$stale_schedule"
 mutate_json_fixture check-schedule-schema-v6 "$stale_schedule"
 stale_schedule_output="$(assert_fails "stale generated schedule shape" run_shape_check check-schedule "$stale_schedule")"
-assert_contains "$stale_schedule_output" "must declare schema_id cartulary.check_schedule.v9" "stale generated schedule shape"
+assert_contains "$stale_schedule_output" "must declare schema_id cartulary.check_schedule.v10" "stale generated schedule shape"
 
 unknown_work_unit_key="$tmp_dir/check_schedule_unknown_work_unit_key.json"
 write_valid_check_schedule "$unknown_work_unit_key"

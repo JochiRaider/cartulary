@@ -154,7 +154,7 @@ function createFixture(scenario) {
     artifacts: { dir: "tmp/task-guidance/run-h" },
   });
   writeJSON(path.join(resultsDir, "run-h", "check", "scheduler-summary.json"), {
-    schema_id: "cartulary.check_scheduler_summary.v8",
+    schema_id: "cartulary.check_scheduler_summary.v9",
     target: "check",
     status: "pass",
     scheduler_kind: "check",

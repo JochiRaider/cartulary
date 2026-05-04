@@ -169,8 +169,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v9") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v9");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -195,8 +195,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v9") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v9");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -244,8 +244,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v9") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v9");
+if (manifest.schema_id !== "cartulary.check_schedule.v10") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v10");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -265,8 +265,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v9") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v9");
+if (manifest.schema_id !== "cartulary.check_schedule.v10") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v10");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -592,8 +592,14 @@ const browserDrift = (schedule.work_units ?? []).find((entry) => entry.target ==
 if (!browserDrift) {
   throw new Error("missing check-browser-e2e-duration-baseline-drift work unit");
 }
-if (JSON.stringify(browserDrift.needs ?? []) !== JSON.stringify(["check-service-backed"])) {
-  throw new Error("check-browser-e2e-duration-baseline-drift must depend on check-service-backed");
+const expectedBrowserEvidence = [
+  "browser-e2e-webserver-backed",
+  "browser-e2e-stateful",
+  "browser-e2e-measurement",
+  "browser-e2e-visual",
+];
+if (JSON.stringify(browserDrift.needs ?? []) !== JSON.stringify(expectedBrowserEvidence)) {
+  throw new Error("check-browser-e2e-duration-baseline-drift must depend on browser evidence targets");
 }
 if (browserDrift.resource_claims?.host_cpu !== 1 || Object.keys(browserDrift.resource_claims ?? {}).length !== 1) {
   throw new Error("check-browser-e2e-duration-baseline-drift must claim only host_cpu=1");
@@ -608,19 +614,34 @@ if (service.retained_resource_claims?.suite_service_stack !== 1) {
 if ((schedule.work_units ?? []).some((entry) => entry.nested_scheduler)) {
   throw new Error("check schedule must not use nested service-backed scheduler metadata");
 }
-for (const expectedLeaf of [
-  "browser-e2e-webserver-backed",
-  "browser-e2e-stateful",
-  "browser-e2e-measurement",
-  "browser-e2e-visual",
-]) {
-  const leaf = (schedule.work_units ?? []).find((entry) => entry.target === expectedLeaf && entry.service_session?.target === "check-service-backed");
-  if (!leaf) {
-    throw new Error(`check schedule must expose ${expectedLeaf} as service-backed browser leaf work`);
+for (const expectedLeaf of expectedBrowserEvidence) {
+  const session = (schedule.work_units ?? []).find((entry) =>
+    entry.target === expectedLeaf &&
+    entry.kind === "browser_stage_session" &&
+    entry.service_session?.target === "check-service-backed"
+  );
+  const complete = (schedule.work_units ?? []).find((entry) =>
+    entry.target === expectedLeaf &&
+    entry.kind === "browser_stage_complete" &&
+    entry.service_session?.target === "check-service-backed"
+  );
+  if (!session || !complete) {
+    throw new Error(`check schedule must expose ${expectedLeaf} as browser stage session and completion work`);
   }
-  if (JSON.stringify(leaf.needs ?? []) !== JSON.stringify(["service_session:check-service-backed"])) {
-    throw new Error(`${expectedLeaf} must depend only on the check-service-backed service session`);
+  if (!session.needs?.includes("service_session:check-service-backed") || !session.needs?.includes("build-server")) {
+    throw new Error(`${expectedLeaf} browser stage session must depend on the service session and build-server`);
   }
+}
+const webserverGroups = (schedule.work_units ?? []).filter((entry) =>
+  entry.target === "browser-e2e-webserver-backed" && entry.kind === "browser_group"
+);
+if (webserverGroups.length < 3 || !webserverGroups.some((entry) => entry.browser_group?.kind === "functional_shard")) {
+  throw new Error("check schedule must split browser-e2e-webserver-backed into functional shard and support browser groups");
+}
+if ((schedule.work_units ?? []).some((entry) =>
+  entry.target === "browser-e2e-webserver-backed" && entry.kind === "service_make_target"
+)) {
+  throw new Error("check schedule must not keep browser-e2e-webserver-backed as one service_make_target leaf");
 }
 EOF
 
@@ -841,7 +862,7 @@ fi
 if ! grep -Fq 'PLAYWRIGHT_WORKERS=1' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must run each functional shard with one Playwright worker"
 fi
-if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_COUNT="${#shard_names[@]}"' "$webserver_batch_script"; then
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_COUNT="$functional_shard_limit"' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must provision one worker-admin slot per parallel shard"
 fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index"' "$webserver_batch_script"; then

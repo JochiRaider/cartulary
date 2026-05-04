@@ -6,6 +6,7 @@ const goIOResource = "go_io";
 const hostCPUResource = "host_cpu";
 const hostIOResource = "host_io";
 const postgresResetResource = "postgres_reset";
+const buildServerTarget = "build-server";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -88,8 +89,61 @@ function shardCompletionKey(shardName) {
   return `go_shard:${shardName}`;
 }
 
-function sourceNeeds(source, serviceSessionKey) {
-  return [serviceSessionKey, ...(source.needs ?? [])];
+function browserStageSessionKey(target) {
+  return `browser_stage_session:${target}`;
+}
+
+function browserGroupCompletionKey(groupID) {
+  return `browser_group:${groupID}`;
+}
+
+function browserGroupNeeds(source, group, stageSessionKey) {
+  const needs = [stageSessionKey];
+  if (group.kind === "functional_shard") {
+    const previousFunctionalShard = (source.groups ?? [])
+      .filter((candidate) => candidate.kind === "functional_shard")
+      .sort((left, right) =>
+        (left.shard_index ?? 0) - (right.shard_index ?? 0) ||
+        left.id.localeCompare(right.id),
+      )
+      .find((candidate) => (candidate.shard_index ?? 0) === (group.shard_index ?? 0) - 1);
+    if (previousFunctionalShard) {
+      needs.push(browserGroupCompletionKey(previousFunctionalShard.id));
+    }
+  }
+  if (group.kind === "support") {
+    needs.push(
+      ...(source.groups ?? [])
+        .filter((candidate) => candidate.kind === "functional_shard")
+        .map((candidate) => browserGroupCompletionKey(candidate.id)),
+    );
+  }
+  return needs;
+}
+
+function sourceNeeds(source, serviceSessionKey, extraNeeds = []) {
+  return [serviceSessionKey, ...extraNeeds, ...(source.needs ?? [])];
+}
+
+function serviceSessionNeeds(parentNeeds) {
+  return parentNeeds.filter((need) => need !== buildServerTarget);
+}
+
+function browserStageExtraNeeds(parentNeeds) {
+  return parentNeeds.includes(buildServerTarget) ? [buildServerTarget] : [];
+}
+
+function retainedBrowserStageClaims(rawClaims) {
+  const mapped = mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost: true });
+  return resourceClaimsObject(
+    Object.fromEntries(
+      Object.entries(mapped).filter(([resource]) => resource !== hostCPUResource && resource !== hostIOResource),
+    ),
+  );
+}
+
+function browserGroupClaims(rawClaims) {
+  return mapServiceBackedClaimsToCheckClaims(rawClaims ?? {}, { ensureHost: true });
 }
 
 export function expandServiceBackedScheduleForCheck({
@@ -100,7 +154,8 @@ export function expandServiceBackedScheduleForCheck({
   const scheduleTarget = serviceSchedule.target;
   const serviceSessionKey = `service_session:${scheduleTarget}`;
   const serviceWeight = parentUnit.weight;
-  const serviceNeeds = [...(parentUnit.needs ?? [])];
+  const parentNeeds = [...(parentUnit.needs ?? [])];
+  const serviceNeeds = serviceSessionNeeds(parentNeeds);
   const expanded = [
     {
       id: `${scheduleTarget}:service-session`,
@@ -125,6 +180,72 @@ export function expandServiceBackedScheduleForCheck({
   ];
 
   for (const [sourceIndex, source] of (serviceSchedule.work_unit_sources ?? []).entries()) {
+    if (source.type === "browser_stage") {
+      const retainedClaims = retainedBrowserStageClaims(source.resource_claims);
+      const stageSessionKey = browserStageSessionKey(source.target);
+      expanded.push({
+        id: `${scheduleTarget}:browser-stage-session:${source.browser_stage}`,
+        kind: "browser_stage_session",
+        target: source.target,
+        label: `${source.target}/stage-session`,
+        aggregate_target: source.target,
+        weight: source.weight,
+        needs: sourceNeeds(source, serviceSessionKey, browserStageExtraNeeds(parentNeeds)),
+        completion_keys: [stageSessionKey],
+        failure_keys: [stageSessionKey],
+        resource_claims: mapServiceBackedClaimsToCheckClaims(source.resource_claims, {
+          ensureHost: true,
+        }),
+        retained_resource_claims: retainedClaims,
+        service_session: {
+          target: scheduleTarget,
+        },
+        browser_stage: source.browser_stage,
+        order: sourceIndex,
+      });
+      expanded.push({
+        id: `${scheduleTarget}:browser-stage-complete:${source.browser_stage}`,
+        kind: "browser_stage_complete",
+        target: source.target,
+        label: `${source.target}/complete`,
+        aggregate_target: source.target,
+        weight: 1,
+        needs: (source.groups ?? []).map((group) => browserGroupCompletionKey(group.id)),
+        completion_keys: [source.target],
+        failure_keys: [source.target],
+        count_in_total: false,
+        counts_started: false,
+        resource_claims: {},
+        release_retained_resource_claims: retainedClaims,
+        service_session: {
+          target: scheduleTarget,
+        },
+        browser_stage: source.browser_stage,
+        order: sourceIndex,
+      });
+      for (const group of source.groups ?? []) {
+        expanded.push({
+          id: `${scheduleTarget}:${group.id}`,
+          kind: "browser_group",
+          target: group.target,
+          label: `${source.target}/${group.name}`,
+          aggregate_target: source.target,
+          weight: group.weight,
+          needs: browserGroupNeeds(source, group, stageSessionKey),
+          completion_keys: [browserGroupCompletionKey(group.id)],
+          failure_keys: [browserGroupCompletionKey(group.id)],
+          resource_claims: browserGroupClaims(group.resource_claims),
+          service_session: {
+            target: scheduleTarget,
+          },
+          browser_stage: source.browser_stage,
+          browser_group: clone(group),
+          order: sourceIndex,
+        });
+      }
+      continue;
+    }
+
     if (source.type === "make_target") {
       expanded.push({
         id: `${scheduleTarget}:${source.target}`,

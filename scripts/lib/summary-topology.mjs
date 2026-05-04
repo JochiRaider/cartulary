@@ -18,7 +18,7 @@ export const defaultServiceBackedScheduleManifestPath = path.join(
   "service_backed_schedule_manifest.json",
 );
 export const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
+export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v9";
 
 function resolveRepoPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);

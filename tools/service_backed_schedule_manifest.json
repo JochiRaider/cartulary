@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule.v8",
+  "schema_id": "cartulary.service_backed_schedule.v9",
   "generated": {
     "generator": "scripts/render-service-backed-schedule-manifest.mjs",
     "topology": "tools/execution_topology_manifest.json",
@@ -65,21 +65,104 @@
           }
         },
         {
-          "type": "make_target",
+          "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 33121,
+          "weight": 48787,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
             "process": 1,
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1
-          }
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-webserver-backed:browser-functional-shard-01",
+              "name": "browser-functional-shard-01",
+              "kind": "functional_shard",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_functional",
+              "shard_name": "browser-functional-shard-01",
+              "shard_index": 0,
+              "shard_count": 2,
+              "phases": [
+                "phase1",
+                "phase2",
+                "phase4"
+              ],
+              "entry_ids": [
+                "E-1-01",
+                "E-1-02",
+                "E-1-06",
+                "E-1-08",
+                "E-2-01",
+                "E-2-03",
+                "E-4-02",
+                "E-4-06"
+              ],
+              "weight": 19385,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            },
+            {
+              "id": "browser-e2e-webserver-backed:browser-functional-shard-02",
+              "name": "browser-functional-shard-02",
+              "kind": "functional_shard",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_functional",
+              "shard_name": "browser-functional-shard-02",
+              "shard_index": 1,
+              "shard_count": 2,
+              "phases": [
+                "phase1",
+                "phase2",
+                "phase3",
+                "phase4"
+              ],
+              "entry_ids": [
+                "E-1-03",
+                "E-1-07",
+                "E-2-02",
+                "E-3-01",
+                "E-3-03",
+                "E-3-04",
+                "E-4-04",
+                "E-4-01",
+                "E-4-03",
+                "E-4-05"
+              ],
+              "weight": 19402,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            },
+            {
+              "id": "browser-e2e-webserver-backed:support",
+              "name": "support",
+              "kind": "support",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "supplemental",
+              "execution_dependency": "browser_support",
+              "weight": 10000,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            }
+          ]
         },
         {
-          "type": "make_target",
+          "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
@@ -90,26 +173,67 @@
             "process": 1,
             "browser_stack": 1,
             "browser_stage_stateful": 1
-          }
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-stateful:stateful",
+              "name": "stateful",
+              "kind": "stateful",
+              "target": "browser-e2e-stateful",
+              "aggregate_target": "browser-e2e-stateful",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_stateful",
+              "weight": 10167,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            }
+          ]
         },
         {
-          "type": "make_target",
+          "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-measurement",
           "browser_stage": "measurement",
+          "needs": [
+            "backend-store",
+            "backend-integration",
+            "backend-integration-support",
+            "backend-process",
+            "browser-e2e-webserver-backed",
+            "browser-e2e-stateful",
+            "browser-e2e-visual"
+          ],
           "weight": 11098,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
             "process": 1,
-            "browser_stack": "limit",
+            "browser_stack": 1,
             "go_cpu": 4,
             "go_io": 4,
             "browser_stage_measurement": 1
-          }
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-measurement:measurement",
+              "name": "measurement",
+              "kind": "measurement",
+              "target": "browser-e2e-measurement",
+              "aggregate_target": "browser-e2e-measurement",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_measurement",
+              "weight": 11098,
+              "resource_claims": {
+                "go_cpu": 4,
+                "go_io": 4
+              }
+            }
+          ]
         },
         {
-          "type": "make_target",
+          "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
@@ -120,7 +244,23 @@
             "process": 1,
             "browser_stack": 1,
             "browser_stage_visual": 1
-          }
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-visual:visual",
+              "name": "visual",
+              "kind": "visual",
+              "target": "browser-e2e-visual",
+              "aggregate_target": "browser-e2e-visual",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_visual",
+              "weight": 11143,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            }
+          ]
         }
       ]
     },
@@ -236,21 +376,104 @@
           }
         },
         {
-          "type": "make_target",
+          "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 33121,
+          "weight": 48787,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
             "process": 1,
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1
-          }
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-webserver-backed:browser-functional-shard-01",
+              "name": "browser-functional-shard-01",
+              "kind": "functional_shard",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_functional",
+              "shard_name": "browser-functional-shard-01",
+              "shard_index": 0,
+              "shard_count": 2,
+              "phases": [
+                "phase1",
+                "phase2",
+                "phase4"
+              ],
+              "entry_ids": [
+                "E-1-01",
+                "E-1-02",
+                "E-1-06",
+                "E-1-08",
+                "E-2-01",
+                "E-2-03",
+                "E-4-02",
+                "E-4-06"
+              ],
+              "weight": 19385,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            },
+            {
+              "id": "browser-e2e-webserver-backed:browser-functional-shard-02",
+              "name": "browser-functional-shard-02",
+              "kind": "functional_shard",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_functional",
+              "shard_name": "browser-functional-shard-02",
+              "shard_index": 1,
+              "shard_count": 2,
+              "phases": [
+                "phase1",
+                "phase2",
+                "phase3",
+                "phase4"
+              ],
+              "entry_ids": [
+                "E-1-03",
+                "E-1-07",
+                "E-2-02",
+                "E-3-01",
+                "E-3-03",
+                "E-3-04",
+                "E-4-04",
+                "E-4-01",
+                "E-4-03",
+                "E-4-05"
+              ],
+              "weight": 19402,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            },
+            {
+              "id": "browser-e2e-webserver-backed:support",
+              "name": "support",
+              "kind": "support",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "supplemental",
+              "execution_dependency": "browser_support",
+              "weight": 10000,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            }
+          ]
         },
         {
-          "type": "make_target",
+          "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
@@ -261,26 +484,67 @@
             "process": 1,
             "browser_stack": 1,
             "browser_stage_stateful": 1
-          }
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-stateful:stateful",
+              "name": "stateful",
+              "kind": "stateful",
+              "target": "browser-e2e-stateful",
+              "aggregate_target": "browser-e2e-stateful",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_stateful",
+              "weight": 10167,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            }
+          ]
         },
         {
-          "type": "make_target",
+          "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-measurement",
           "browser_stage": "measurement",
+          "needs": [
+            "backend-store",
+            "backend-integration",
+            "backend-integration-support",
+            "backend-process",
+            "browser-e2e-webserver-backed",
+            "browser-e2e-stateful",
+            "browser-e2e-visual"
+          ],
           "weight": 11098,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
             "process": 1,
-            "browser_stack": "limit",
+            "browser_stack": 1,
             "go_cpu": 4,
             "go_io": 4,
             "browser_stage_measurement": 1
-          }
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-measurement:measurement",
+              "name": "measurement",
+              "kind": "measurement",
+              "target": "browser-e2e-measurement",
+              "aggregate_target": "browser-e2e-measurement",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_measurement",
+              "weight": 11098,
+              "resource_claims": {
+                "go_cpu": 4,
+                "go_io": 4
+              }
+            }
+          ]
         },
         {
-          "type": "make_target",
+          "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
@@ -291,7 +555,23 @@
             "process": 1,
             "browser_stack": 1,
             "browser_stage_visual": 1
-          }
+          },
+          "groups": [
+            {
+              "id": "browser-e2e-visual:visual",
+              "name": "visual",
+              "kind": "visual",
+              "target": "browser-e2e-visual",
+              "aggregate_target": "browser-e2e-visual",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_visual",
+              "weight": 11143,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            }
+          ]
         }
       ]
     }

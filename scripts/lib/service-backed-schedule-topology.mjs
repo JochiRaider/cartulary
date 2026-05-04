@@ -196,8 +196,8 @@ function validateBrowserSource(schedule, source, stage, resourceLimits) {
   const claims = normalizeResourceClaims(source.resource_claims, label, resourceLimits, {
     scheduler: "service_backed",
   });
-  if (source.type !== "make_target") {
-    throw new Error(`${label} must use make_target for browser work`);
+  if (source.type !== "browser_stage") {
+    throw new Error(`${label} must use browser_stage for browser work`);
   }
   if (source.browser_stage !== stage.name) {
     throw new Error(`${label} must declare browser_stage ${stage.name}`);
@@ -217,6 +217,27 @@ function validateBrowserSource(schedule, source, stage, resourceLimits) {
   if (!claims.has(stageResource)) {
     throw new Error(`${label} must claim ${stageResource}`);
   }
+  if (!Array.isArray(source.groups) || source.groups.length === 0) {
+    throw new Error(`${label} must declare browser stage groups`);
+  }
+  if (stage.name === "webserver-backed") {
+    const functionalShards = source.groups.filter((group) => group.kind === "functional_shard");
+    if (functionalShards.length < 1 || !source.groups.some((group) => group.kind === "support")) {
+      throw new Error(`${label} must split webserver-backed work into functional shards plus support`);
+    }
+  }
+}
+
+function generatedNeedsForStage(stage, backendTargets, selectedStages) {
+  if (stage.name !== "measurement") {
+    return [];
+  }
+  return [
+    ...backendTargets,
+    ...selectedStages
+      .filter((candidate) => candidate.name !== stage.name)
+      .map((candidate) => candidate.target),
+  ];
 }
 
 export function validateServiceBackedScheduleTopology({
@@ -261,7 +282,10 @@ export function validateServiceBackedScheduleTopology({
         throw new Error(`${scheduleTarget} must include browser stage ${stage.name} target ${stage.target}`);
       }
       validateBrowserSource(schedule, source, stage, resourceLimits);
-      const expectedNeeds = expectedNeedsForStage(stage, selectedTargets, scheduleTarget);
+      const expectedNeeds = [
+        ...expectedNeedsForStage(stage, selectedTargets, scheduleTarget),
+        ...generatedNeedsForStage(stage, backendTargets, selectedStages),
+      ];
       assertSameList(source.needs ?? [], expectedNeeds, `${scheduleTarget} ${source.target} needs`);
     }
 

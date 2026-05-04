@@ -117,6 +117,91 @@ function finalizerTimings(completedWork) {
     }));
 }
 
+function criticalPathSummary(completedWork, schedulerStartedMonotonicMs, schedulerCompletedMonotonicMs, topBlockers) {
+  const records = completedWork.filter((record) => record.status === 0);
+  if (records.length === 0) {
+    return {
+      critical_path_wall_duration_ms: 0,
+      critical_path_units: [],
+      critical_path_blockers: topBlockers.slice(0, 5),
+      critical_path_terminal_unit: null,
+    };
+  }
+  const byCompletionKey = new Map();
+  for (const record of records) {
+    for (const key of record.completion_keys ?? []) {
+      byCompletionKey.set(key, record);
+    }
+  }
+  const pathByID = new Map();
+  for (const record of records.slice().sort((left, right) =>
+    left.finished_monotonic_ms - right.finished_monotonic_ms ||
+    left.id.localeCompare(right.id),
+  )) {
+    let predecessor = null;
+    for (const need of record.needs ?? []) {
+      const candidate = byCompletionKey.get(need);
+      if (!candidate || !pathByID.has(candidate.id)) {
+        continue;
+      }
+      const candidatePath = pathByID.get(candidate.id);
+      if (!predecessor || candidatePath.path_duration_ms > predecessor.path_duration_ms) {
+        predecessor = candidatePath;
+      }
+    }
+    pathByID.set(record.id, {
+      record,
+      predecessor,
+      path_duration_ms: record.duration_ms + (predecessor?.path_duration_ms ?? 0),
+    });
+  }
+  const terminal = records
+    .slice()
+    .sort((left, right) =>
+      right.finished_monotonic_ms - left.finished_monotonic_ms ||
+      right.duration_ms - left.duration_ms ||
+      left.id.localeCompare(right.id),
+    )[0];
+  let cursor = pathByID.get(terminal.id) ?? null;
+  const units = [];
+  while (cursor) {
+    const record = cursor.record;
+    units.push({
+      id: record.id,
+      label: record.label,
+      kind: record.kind,
+      aggregate_target: record.aggregate_target,
+      duration_ms: record.duration_ms,
+      started_monotonic_ms: record.started_monotonic_ms,
+      finished_monotonic_ms: record.finished_monotonic_ms,
+      needs: [...(record.needs ?? [])],
+      completion_keys: [...(record.completion_keys ?? [])],
+    });
+    cursor = cursor.predecessor;
+  }
+  units.reverse();
+  const terminalUnit = {
+    id: terminal.id,
+    label: terminal.label,
+    kind: terminal.kind,
+    aggregate_target: terminal.aggregate_target,
+    duration_ms: terminal.duration_ms,
+    started_monotonic_ms: terminal.started_monotonic_ms,
+    finished_monotonic_ms: terminal.finished_monotonic_ms,
+    needs: [...(terminal.needs ?? [])],
+    completion_keys: [...(terminal.completion_keys ?? [])],
+  };
+  return {
+    critical_path_wall_duration_ms: Math.max(
+      0,
+      schedulerCompletedMonotonicMs - schedulerStartedMonotonicMs,
+    ),
+    critical_path_units: units,
+    critical_path_blockers: topBlockers.slice(0, 5),
+    critical_path_terminal_unit: terminalUnit,
+  };
+}
+
 class SchedulerReporter {
   constructor(repoRoot, schedule, targetDir, logDir) {
     this.repoRoot = repoRoot;
@@ -289,7 +374,8 @@ class SchedulerReporter {
 
   finishUnit(unit, result, state) {
     const now = this.clock.monotonicMs();
-    const durationMs = Math.max(0, now - (this.startedAt.get(unit.id) ?? now));
+    const startedMonotonicMs = this.startedAt.get(unit.id) ?? now;
+    const durationMs = Math.max(0, now - startedMonotonicMs);
     this.startedAt.delete(unit.id);
     if (this.schedule.countCompletedUnit(unit, result)) {
       this.completedCount += 1;
@@ -301,6 +387,10 @@ class SchedulerReporter {
       kind: finalizer(unit) ? "finalizer" : "work_unit",
       status: result.status,
       duration_ms: durationMs,
+      started_monotonic_ms: startedMonotonicMs,
+      finished_monotonic_ms: now,
+      needs: [...(unit.needs ?? [])],
+      completion_keys: [...unitCompletionKeys(unit)],
       log_file: relToRepo(this.repoRoot, result.logFile),
     };
     this.completedWork.push(record);
@@ -610,6 +700,12 @@ class SchedulerReporter {
           ],
     );
     const timing = this.timingEnvelope();
+    const criticalPath = criticalPathSummary(
+      this.completedWork,
+      this.schedulerStartedMonotonicMs,
+      timing.scheduler_completed_monotonic_ms,
+      topBlockers,
+    );
     const summaryLine = schedulerSummaryLine({
       prefix: this.schedule.prefix,
       target: this.schedule.target,
@@ -640,6 +736,7 @@ class SchedulerReporter {
       total_work_units: this.schedule.totalWorkUnits,
       completed_work_units: this.completedCount,
       ...timing,
+      ...criticalPath,
       skipped_work_units: this.skippedWork,
       failed_work_unit: failed,
       failed_work_unit_detail: failedDetail,
@@ -874,6 +971,30 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
     retainedClaims.clear();
   };
 
+  const releaseRetainedClaimsForUnit = (unit) => {
+    const claims = unit.releaseRetainedResourceClaims ?? new Map();
+    if (claims.size === 0) {
+      return;
+    }
+    const releasable = new Map();
+    for (const [resource, amount] of claims.entries()) {
+      const retainedAmount = retainedClaims.get(resource) ?? 0;
+      const next = Math.min(retainedAmount, amount);
+      if (next <= 0) {
+        continue;
+      }
+      if (retainedAmount === next) {
+        retainedClaims.delete(resource);
+      } else {
+        retainedClaims.set(resource, retainedAmount - next);
+      }
+      releasable.set(resource, next);
+    }
+    if (releasable.size > 0) {
+      removeResourceClaims({ resourceClaims: releasable }, activeClaims);
+    }
+  };
+
   try {
     reporter.startLifecycle(stateSnapshot());
     if (schedule.beforeRun) {
@@ -988,6 +1109,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       }
 
       reporter.finishUnit(finishedUnit, result, stateSnapshot());
+      releaseRetainedClaimsForUnit(finishedUnit);
       if (schedule.afterUnitFinish) {
         await schedule.afterUnitFinish({
           unit: finishedUnit,
