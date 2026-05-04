@@ -4,12 +4,40 @@
   "updated_at": "2026-05-03T01:13:30.514Z",
   "default_work_unit_weight_ms": 10000,
   "work_units": {
-    "check|check|check-service-backed|check-service-backed": {
+    "check|check|check-service-backed:backend-process|backend-process": {
       "scheduler_kind": "check",
       "schedule_target": "check",
-      "work_unit_id": "check-service-backed",
-      "aggregate_target": "check-service-backed",
-      "duration_ms": 121233
+      "work_unit_id": "check-service-backed:backend-process",
+      "aggregate_target": "backend-process",
+      "duration_ms": 6739
+    },
+    "check|check|check-service-backed:browser-e2e-measurement|browser-e2e-measurement": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-measurement",
+      "aggregate_target": "browser-e2e-measurement",
+      "duration_ms": 11098
+    },
+    "check|check|check-service-backed:browser-e2e-stateful|browser-e2e-stateful": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-stateful",
+      "aggregate_target": "browser-e2e-stateful",
+      "duration_ms": 10167
+    },
+    "check|check|check-service-backed:browser-e2e-visual|browser-e2e-visual": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-visual",
+      "aggregate_target": "browser-e2e-visual",
+      "duration_ms": 11143
+    },
+    "check|check|check-service-backed:browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
+      "scheduler_kind": "check",
+      "schedule_target": "check",
+      "work_unit_id": "check-service-backed:browser-e2e-webserver-backed",
+      "aggregate_target": "browser-e2e-webserver-backed",
+      "duration_ms": 33121
     },
     "service-backed|check-service-backed|backend-process|backend-process": {
       "scheduler_kind": "service-backed",

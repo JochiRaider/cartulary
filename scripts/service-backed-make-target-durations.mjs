@@ -153,7 +153,7 @@ function collectObservedWorkUnitDurations(resultsDir) {
         continue;
       }
       const start = starts.get(event.work_unit_id);
-      if (normalizeWorkUnitType(start?.work_unit_type) !== "make_target") {
+      if (!["make_target", "service_make_target"].includes(normalizeWorkUnitType(start?.work_unit_type))) {
         continue;
       }
       const entry = observedEntryFromEvents(summary, start, event);
@@ -258,13 +258,17 @@ function readScheduledWorkUnits(topologyFile, scheduleManifestFile) {
     }
   }
   const topology = loadExecutionTopology({ manifestPath: resolvePath(topologyFile) });
-  for (const schedule of topology.checkSchedules ?? []) {
+  const checkScheduleFile = resolvePath(topology.generatedOutputs.check_schedule_manifest);
+  const checkManifest = existsSync(checkScheduleFile)
+    ? readJSON(repoRoot, checkScheduleFile)
+    : { schedules: topology.checkSchedules ?? [] };
+  for (const schedule of checkManifest.schedules ?? []) {
     for (const unit of schedule.work_units ?? []) {
-      if (unit?.nested_scheduler?.type === "service_backed" && typeof unit.target === "string") {
+      if (unit?.kind === "service_make_target" && typeof unit.id === "string" && typeof unit.target === "string") {
         add({
           scheduler_kind: "check",
           schedule_target: schedule.target,
-          work_unit_id: unit.target,
+          work_unit_id: unit.id,
           aggregate_target: unit.target,
         });
       }

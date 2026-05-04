@@ -4944,18 +4944,13 @@
           "schedules": [
             "check"
           ],
-          "profile": "nested_service_backed_scheduler",
+          "profile": "service_session_start",
           "priority_band": "service_backed",
           "order": 0,
           "produces_summary_targets": [
             "check-service-backed"
           ],
-          "nested_scheduler": {
-            "type": "service_backed",
-            "target": "check-service-backed",
-            "manifest": "tools/service_backed_schedule_manifest.json",
-            "forwarding": "check_host_to_service_backed_go"
-          },
+          "service_backed_schedule": "check-service-backed",
           "needs": [
             "build-server",
             "build-migrate",
@@ -5684,20 +5679,10 @@
           },
           "make_jobs": "host_cpu"
         },
-        "nested_service_backed_scheduler": {
+        "service_session_start": {
           "resource_claims": {
-            "host_cpu": {
-              "mode": "bounded_limit",
-              "reserve": 3,
-              "min": 1,
-              "max": 8
-            },
-            "host_io": {
-              "mode": "bounded_limit",
-              "reserve": 4,
-              "min": 1,
-              "max": 10
-            },
+            "host_cpu": 1,
+            "host_io": 1,
             "suite_service_stack": 1
           },
           "make_jobs": "host_cpu"

@@ -244,8 +244,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v7") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v7");
+if (manifest.schema_id !== "cartulary.check_schedule.v8") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v8");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -265,8 +265,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v7") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v7");
+if (manifest.schema_id !== "cartulary.check_schedule.v8") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v8");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -559,7 +559,7 @@ if (Array.isArray(topology.check_schedules)) {
 const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
 for (const [target, profile] of [
   ["check-frontend-install", "setup_cpu_io"],
-  ["check-service-backed", "nested_service_backed_scheduler"],
+  ["check-service-backed", "service_session_start"],
   ["check-browser-e2e-duration-baseline-drift", "post_service_duration_check"],
   ["browser-e2e-task-surface-check", "after_setup_cpu"],
 ]) {
@@ -584,7 +584,7 @@ if (
 ) {
   throw new Error("check schedule must declare host_cpu, host_io, suite_service_stack, and migration_scratch_postgres limits");
 }
-const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");
+const service = (schedule.work_units ?? []).find((entry) => entry.kind === "service_session" && entry.target === "check-service-backed");
 if (!service) {
   throw new Error("missing check-service-backed work unit");
 }
@@ -599,34 +599,24 @@ if (browserDrift.resource_claims?.host_cpu !== 1 || Object.keys(browserDrift.res
   throw new Error("check-browser-e2e-duration-baseline-drift must claim only host_cpu=1");
 }
 const claims = service.resource_claims ?? {};
-const assertBoundedClaim = (claim, resource, expected) => {
-  if (!claim || typeof claim !== "object" || Array.isArray(claim)) {
-    throw new Error(`check-service-backed ${resource} claim must use bounded_limit`);
-  }
-  const keys = Object.keys(claim).sort().join(",");
-  if (keys !== "max,min,mode,reserve") {
-    throw new Error(`check-service-backed ${resource} bounded claim has unexpected keys ${keys}`);
-  }
-  for (const [key, value] of Object.entries(expected)) {
-    if (claim[key] !== value) {
-      throw new Error(`check-service-backed ${resource}.${key} got ${claim[key]} want ${value}`);
-    }
-  }
-};
-assertBoundedClaim(claims.host_cpu, "host_cpu", { mode: "bounded_limit", reserve: 3, min: 1, max: 8 });
-assertBoundedClaim(claims.host_io, "host_io", { mode: "bounded_limit", reserve: 4, min: 1, max: 10 });
-if (claims.suite_service_stack !== 1) {
-  throw new Error("check-service-backed must claim exclusive suite_service_stack");
+if (JSON.stringify(claims) !== JSON.stringify({ host_cpu: 1, host_io: 1, suite_service_stack: 1 })) {
+  throw new Error(`check-service-backed service session has unexpected claims ${JSON.stringify(claims)}`);
 }
-const nested = service.nested_scheduler ?? {};
-if (nested.type !== "service_backed" || nested.target !== "check-service-backed") {
-  throw new Error("check-service-backed must declare service_backed nested scheduler metadata");
+if (service.retained_resource_claims?.suite_service_stack !== 1) {
+  throw new Error("check-service-backed service session must retain suite_service_stack");
 }
-if (nested.manifest !== "tools/service_backed_schedule_manifest.json") {
-  throw new Error("check-service-backed nested scheduler must point at the service-backed manifest");
+if ((schedule.work_units ?? []).some((entry) => entry.nested_scheduler)) {
+  throw new Error("check schedule must not use nested service-backed scheduler metadata");
 }
-if (nested.forwarding !== "check_host_to_service_backed_go") {
-  throw new Error("check-service-backed nested scheduler must use the host-to-service-backed forwarding profile");
+for (const expectedLeaf of [
+  "browser-e2e-webserver-backed",
+  "browser-e2e-stateful",
+  "browser-e2e-measurement",
+  "browser-e2e-visual",
+]) {
+  if (!(schedule.work_units ?? []).some((entry) => entry.target === expectedLeaf && entry.service_session?.target === "check-service-backed")) {
+    throw new Error(`check schedule must expose ${expectedLeaf} as service-backed browser leaf work`);
+  }
 }
 EOF
 

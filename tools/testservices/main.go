@@ -199,13 +199,15 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | warm-images")
 		return 2
 	}
 
 	switch args[0] {
 	case "run":
 		return runWrappedCommand(args, env, deps)
+	case "start-suite":
+		return runStartSuite(args[1:], env, deps)
 	case "prepare-web-e2e":
 		return runPrepareWebE2E(args[1:], env, deps)
 	case "cleanup-web-e2e":
@@ -426,6 +428,170 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	return childExitCode
 }
 
+func runStartSuite(args []string, env map[string]string, deps dependencies) int {
+	wrapperStart := time.Now().UTC()
+	envFile, leaseFile, usageErr := parseStartSuiteArgs(args)
+	if usageErr != nil {
+		fmt.Fprintln(os.Stderr, usageErr)
+		return 2
+	}
+	if suiteservices.SuiteActive(env) {
+		fmt.Fprintln(os.Stderr, "start-suite requires ownership of a new suite; nested active suites are not supported")
+		return 2
+	}
+
+	suiteID, err := deps.suiteID()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "generate suite id: %v\n", err)
+		return 1
+	}
+
+	ownedEnv := cloneEnv(env)
+	ownedEnv[suiteservices.ActiveEnv] = "1"
+	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
+
+	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
+	deps.refreshSummary(ownedEnv)
+	recordTimingSpan(deps, ownedEnv, bucketSetup, "test-services wrapper setup", wrapperStart, time.Now().UTC(), "pass")
+
+	restoreRyuk := disableTestcontainersRyukForSuiteStartup()
+	defer restoreRyuk()
+
+	preflightStart := time.Now().UTC()
+	preflightCtx, cancelPreflight := context.WithTimeout(context.Background(), suitePreflightTimeout)
+	preflightResult, err := runConfiguredSuitePreflight(preflightCtx, deps, ownedEnv)
+	cancelPreflight()
+	preflightResult.RyukDisabledForSuiteStartup = true
+	recordSuitePreflight(deps, ownedEnv, preflightResult, err)
+	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services suite startup preflight", preflightStart, err)
+	deps.refreshSummary(ownedEnv)
+	if err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageStartupPreflight, "suite startup preflight", err))
+		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", 1)
+		return 1
+	}
+
+	var postgresSvc postgresService
+	var minioSvc minioService
+	startupCtx, cancelStartup := context.WithCancel(context.Background())
+	defer cancelStartup()
+	postgresResultCh := startPostgresAsync(startupCtx, deps, ownedEnv)
+	minioResultCh := startMinIOAsync(startupCtx, deps, ownedEnv)
+
+	postgresResult := <-postgresResultCh
+	postgresSvc = postgresResult.service
+	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start postgres", postgresResult.start, postgresResult.end, postgresResult.err)
+	if postgresResult.err != nil {
+		cancelStartup()
+		minioResult := <-minioResultCh
+		minioSvc = minioResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		return 1
+	}
+
+	templateDB := templateDatabaseName(suiteID)
+	deps.recordEvent(ownedEnv, suiteservices.Event{
+		Type:    suiteservices.EventServiceStarted,
+		Service: suiteservices.ServicePostgres,
+		Details: map[string]any{
+			"host":              postgresSvc.host,
+			"port":              postgresSvc.port,
+			"user":              postgresSvc.user,
+			"template_database": templateDB,
+		},
+	})
+	deps.refreshSummary(ownedEnv)
+
+	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
+	templateStart := time.Now().UTC()
+	err = withSuiteGooseLog(ownedEnv, func() error {
+		return deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
+	})
+	recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
+	cancelTemplate()
+	if err != nil {
+		cancelStartup()
+		minioResult := <-minioResultCh
+		minioSvc = minioResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		return 1
+	}
+	deps.recordEvent(ownedEnv, suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBCreated,
+		Name:    templateDB,
+		Kind:    "template",
+		Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
+	})
+	deps.recordEvent(ownedEnv, suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBMigrated,
+		Name:    templateDB,
+		Kind:    "template",
+		Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
+	})
+	deps.refreshSummary(ownedEnv)
+
+	minioResult := <-minioResultCh
+	minioSvc = minioResult.service
+	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+	if minioResult.err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", minioResult.err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		return 1
+	}
+	deps.recordEvent(ownedEnv, suiteservices.Event{
+		Type:    suiteservices.EventServiceStarted,
+		Service: suiteservices.ServiceMinIO,
+		Details: map[string]any{
+			"endpoint": minioSvc.endpoint,
+			"secure":   minioSvc.secure,
+		},
+	})
+	deps.refreshSummary(ownedEnv)
+
+	generatedLeasePath, err := writeServiceLease(ownedEnv, postgresSvc, minioSvc)
+	if err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		return 1
+	}
+	if err := copyFile(generatedLeasePath, leaseFile, 0o600); err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "copy suite service lease", err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
+		return 1
+	}
+
+	janitorCtx, cancelJanitor := context.WithTimeout(context.Background(), staleFixtureJanitorTimeout)
+	janitorStart := time.Now().UTC()
+	err = cleanupStaleWebE2EFixtures(janitorCtx, deps, serviceBackedCleanupEnv(ownedEnv, postgresSvc, minioSvc))
+	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services janitor stale browser fixtures", janitorStart, err)
+	cancelJanitor()
+	if err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
+		return 1
+	}
+
+	childEnv := cloneEnv(ownedEnv)
+	childEnv[suiteservices.PGAdminDSNEnv] = postgresSvc.adminDSN
+	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
+	childEnv[suiteservices.PGTemplateDBEnv] = templateDB
+	childEnv[suiteservices.S3EndpointEnv] = minioSvc.endpoint
+	childEnv[suiteservices.S3AccessKeyEnv] = minioSvc.accessKey
+	childEnv[suiteservices.S3SecretKeyEnv] = minioSvc.secretKey
+	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", minioSvc.secure)
+	if err := writeEnvJSON(envFile, childEnv); err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "write suite child environment", err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
+		return 1
+	}
+	deps.refreshSummary(ownedEnv)
+	return 0
+}
+
 func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) int {
 	envFile, metadataFile, err := parsePrepareWebE2EArgs(args)
 	if err != nil {
@@ -585,6 +751,22 @@ func parseCleanupWebE2EArgs(args []string) (string, error) {
 		return "", errors.New("usage: testservices cleanup-web-e2e --metadata-file <path>")
 	}
 	return metadataFile, nil
+}
+
+func parseStartSuiteArgs(args []string) (string, string, error) {
+	values, err := parseFlagPairs(args, map[string]struct{}{
+		"--env-file":   {},
+		"--lease-file": {},
+	})
+	if err != nil {
+		return "", "", err
+	}
+	envFile := strings.TrimSpace(values["--env-file"])
+	leaseFile := strings.TrimSpace(values["--lease-file"])
+	if envFile == "" || leaseFile == "" {
+		return "", "", errors.New("usage: testservices start-suite --env-file <path> --lease-file <path>")
+	}
+	return envFile, leaseFile, nil
 }
 
 func parseTerminateSuiteArgs(args []string) (string, error) {
@@ -2234,6 +2416,34 @@ func generateSuiteID() (string, error) {
 
 func templateDatabaseName(suiteID string) string {
 	return fmt.Sprintf("ct_tpl_%s", suiteservices.ShortHash(suiteID, 12))
+}
+
+func copyFile(source string, destination string, mode os.FileMode) error {
+	payload, err := os.ReadFile(source) // #nosec G304 -- source path is produced by the suite-service lease writer.
+	if err != nil {
+		return fmt.Errorf("read %s: %w", source, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(destination), 0o700); err != nil {
+		return fmt.Errorf("create %s parent: %w", destination, err)
+	}
+	if err := os.WriteFile(destination, payload, mode); err != nil { // #nosec G306 -- caller supplies the intended private file mode.
+		return fmt.Errorf("write %s: %w", destination, err)
+	}
+	return nil
+}
+
+func writeEnvJSON(path string, env map[string]string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("create %s parent: %w", path, err)
+	}
+	payload, err := json.MarshalIndent(env, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode suite env: %w", err)
+	}
+	if err := os.WriteFile(path, append(payload, '\n'), 0o600); err != nil {
+		return fmt.Errorf("write suite env: %w", err)
+	}
+	return nil
 }
 
 func cloneEnv(env map[string]string) map[string]string {

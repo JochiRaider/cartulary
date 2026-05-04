@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, open, readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,9 +23,11 @@ import {
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "./lib/scheduler-runner.mjs";
+import { createRunnerContext } from "./lib/runner-context.mjs";
 import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
+  serviceBackedScheduleChildren,
   summaryGroupsSpec,
 } from "./lib/summary-topology.mjs";
 import {
@@ -34,13 +36,12 @@ import {
   normalizeStringList as normalizeTargetList,
   parseResourceLimitOverride,
   selectSingleSchedule,
-  validateTargetDependencyGraph,
 } from "./lib/scheduler-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v7";
+const supportedSchemaID = "cartulary.check_schedule.v8";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v8";
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -54,6 +55,7 @@ const schedulerOwnedEnvNames = new Set([
   "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT",
   "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT",
 ]);
+const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 
 function usage() {
   process.stderr.write(
@@ -271,6 +273,24 @@ function nestedSchedulerDetail(unit) {
   };
 }
 
+function normalizeCompletionKeys(value, label, fallback) {
+  const normalized = normalizeTargetList(value, label);
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+function normalizeRetainedResourceClaims(value, label, resourceClaims) {
+  if (value === undefined) {
+    return new Map();
+  }
+  const retained = normalizeResourceClaims(value, label, resourceClaims);
+  for (const [resource, amount] of retained.entries()) {
+    if ((resourceClaims.get(resource) ?? 0) < amount) {
+      throw new Error(`${label} retained_resource_claims.${resource} exceeds resource_claims`);
+    }
+  }
+  return retained;
+}
+
 function findSchedule(manifest, target, overrides) {
   const schedule = selectSingleSchedule(manifest, target, { label: "check schedule" });
   if (!Array.isArray(schedule.work_units) || schedule.work_units.length === 0) {
@@ -296,7 +316,24 @@ function findSchedule(manifest, target, overrides) {
       throw new Error(`${label} ${unit.target} must declare non-negative weight`);
     }
     const unitTarget = unit.target.trim();
+    const unitKind = typeof unit.kind === "string" && unit.kind.trim() !== ""
+      ? unit.kind.trim()
+      : "make_target";
+    const unitID = typeof unit.id === "string" && unit.id.trim() !== ""
+      ? unit.id.trim()
+      : unitTarget;
+    const labelText = typeof unit.label === "string" && unit.label.trim() !== ""
+      ? unit.label.trim()
+      : unitTarget;
+    const aggregateTarget = typeof unit.aggregate_target === "string" && unit.aggregate_target.trim() !== ""
+      ? unit.aggregate_target.trim()
+      : unitTarget;
     const claims = normalizeResourceClaims(unit.resource_claims, `${label} ${unitTarget}`, resourceLimits);
+    const retainedResourceClaims = normalizeRetainedResourceClaims(
+      unit.retained_resource_claims,
+      `${label} ${unitTarget}`,
+      claims,
+    );
     const nestedScheduler = normalizeNestedScheduler(
       unit.nested_scheduler,
       `${label} ${unitTarget}`,
@@ -304,13 +341,25 @@ function findSchedule(manifest, target, overrides) {
       claims,
     );
     return {
-      id: unitTarget,
-      label: unitTarget,
-      kind: "make_target",
+      id: unitID,
+      label: labelText,
+      kind: unitKind,
       target: unitTarget,
-      aggregateTarget: unitTarget,
-      completionKeys: [unitTarget],
-      failureKeys: [unitTarget],
+      aggregateTarget,
+      completionKeys: normalizeCompletionKeys(
+        unit.completion_keys,
+        `${label} ${unitTarget} completion_keys`,
+        [unitID],
+      ),
+      failureKeys: normalizeCompletionKeys(
+        unit.failure_keys,
+        `${label} ${unitTarget} failure_keys`,
+        normalizeCompletionKeys(unit.completion_keys, `${label} ${unitTarget} completion_keys`, [unitID]),
+      ),
+      runningDependencyKeys: normalizeTargetList(
+        unit.running_dependency_keys,
+        `${label} ${unitTarget} running_dependency_keys`,
+      ),
       weight: unit.weight,
       needs: normalizeNeeds(unit.needs, `${label} ${unitTarget}`),
       producesSummaryTargets: normalizeTargetList(
@@ -318,17 +367,26 @@ function findSchedule(manifest, target, overrides) {
         `${label} ${unitTarget} produces_summary_targets`,
       ),
       resourceClaims: claims,
+      retainedResourceClaims,
       makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unitTarget}`, claims),
       env: normalizeUnitEnv(unit.env, `${label} ${unitTarget}`),
       nestedScheduler,
+      serviceSession: unit.service_session ?? null,
+      shard: typeof unit.shard === "string" ? unit.shard : "",
+      shardNames: Array.isArray(unit.shard_names)
+        ? unit.shard_names.filter((entry) => typeof entry === "string" && entry !== "")
+        : [],
+      countInTotal: unit.count_in_total === false ? false : undefined,
+      countsStarted: unit.counts_started === false ? false : undefined,
+      completeOnFailure: unit.complete_on_failure === true,
+      unblockLabel: typeof unit.unblock_label === "string" && unit.unblock_label.trim() !== ""
+        ? unit.unblock_label.trim()
+        : undefined,
       startDetail: nestedScheduler ? { nested_scheduler: null } : {},
       order: index,
     };
   });
-  validateTargetDependencyGraph(units, {
-    scheduleLabel: `check schedule ${target}`,
-    nodeKind: "work unit",
-  });
+  validateCheckWorkUnitDependencyGraph(units, `check schedule ${target}`);
   const sortedUnits = units.sort(
     (left, right) => right.weight - left.weight || left.order - right.order || left.target.localeCompare(right.target),
   );
@@ -341,6 +399,32 @@ function findSchedule(manifest, target, overrides) {
     summaryGroups: schedule.summary_groups ?? [],
     workUnits: sortedUnits,
   };
+}
+
+function validateCheckWorkUnitDependencyGraph(units, scheduleLabel) {
+  const ids = new Set();
+  const completionKeys = new Map();
+  for (const unit of units) {
+    if (ids.has(unit.id)) {
+      throw new Error(`${scheduleLabel} contains duplicate work unit id ${unit.id}`);
+    }
+    ids.add(unit.id);
+    for (const key of unit.completionKeys) {
+      if (completionKeys.has(key)) {
+        throw new Error(
+          `${scheduleLabel} completion key ${key} is produced by both ${completionKeys.get(key)} and ${unit.id}`,
+        );
+      }
+      completionKeys.set(key, unit.id);
+    }
+  }
+  for (const unit of units) {
+    for (const need of unit.needs) {
+      if (!completionKeys.has(need)) {
+        throw new Error(`${scheduleLabel} work unit ${unit.id} depends on unknown completion key ${need}`);
+      }
+    }
+  }
 }
 
 function integerOrZero(value) {
@@ -569,14 +653,141 @@ function createNestedProgressSupport(schedule) {
   };
 }
 
-function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, summaryGroups }) {
+async function readServiceSessionEnv(envFile) {
+  const raw = await readFile(envFile, "utf8");
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`service session env file ${envFile} must contain an object`);
+  }
+  return Object.fromEntries(
+    Object.entries(parsed).filter((entry) => typeof entry[1] === "string"),
+  );
+}
+
+function serviceSessionTarget(unit) {
+  return typeof unit.serviceSession?.target === "string" && unit.serviceSession.target.trim() !== ""
+    ? unit.serviceSession.target.trim()
+    : "";
+}
+
+function attachRuntime(schedule, {
+  makeBin,
+  testOutputScript,
+  summaryTargets,
+  summaryGroups,
+  testServicesBin,
+  goTargetRunner,
+  tempDir,
+  serviceSummaryChildren,
+}) {
   const nestedProgress = createNestedProgressSupport(schedule);
   const summaryTargetSet = new Set(summaryTargets);
+  const serviceSessionTargets = Array.from(
+    new Set(schedule.workUnits.map(serviceSessionTarget).filter((target) => target !== "")),
+  ).sort((left, right) => left.localeCompare(right));
+  const serviceSessionFiles = new Map(
+    serviceSessionTargets.map((target) => [
+      target,
+      {
+        envFile: path.join(tempDir, `${target}-env.json`),
+        leaseFile: path.join(tempDir, `${target}-lease.json`),
+        metadataDir: path.join(tempDir, `${target}-go-shard-metadata`),
+      },
+    ]),
+  );
+  const serviceSessionCleanupStatus = new Map(
+    serviceSessionTargets.map((target) => [target, "not_started"]),
+  );
+  const serviceEnvFor = async (target) => {
+    const files = serviceSessionFiles.get(target);
+    if (!files) {
+      return process.env;
+    }
+    return {
+      ...process.env,
+      ...(await readServiceSessionEnv(files.envFile)),
+    };
+  };
   const helperUnitNames = schedule.workUnits
     .filter((unit) => !summaryTargetSet.has(unit.target))
     .map((unit) => unit.target);
+  const countedWorkUnitCount = schedule.workUnits
+    .filter((unit) => unit.countInTotal !== false)
+    .length;
   for (const unit of schedule.workUnits) {
     unit.startDetail = unit.nestedScheduler ? { nested_scheduler: nestedSchedulerDetail(unit) } : {};
+    if (unit.kind === "service_session") {
+      const files = serviceSessionFiles.get(serviceSessionTarget(unit));
+      unit.command = () => {
+        if (!testServicesBin) {
+          throw new Error("TEST_SERVICES_BIN is required for check service sessions");
+        }
+        return {
+          command: testServicesBin,
+          args: [
+            "start-suite",
+            "--env-file",
+            files.envFile,
+            "--lease-file",
+            files.leaseFile,
+          ],
+          env: makeChildEnv({
+            ...unit.env,
+            CARTULARY_TEST_TARGET: unit.target,
+            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+          }),
+        };
+      };
+      continue;
+    }
+    if (unit.kind === "go_shard") {
+      const files = serviceSessionFiles.get(serviceSessionTarget(unit));
+      unit.command = async () => ({
+        command: goTargetRunner,
+        args: ["capture-shard", unit.target, unit.shard, files.metadataDir],
+        env: {
+          ...(await serviceEnvFor(serviceSessionTarget(unit))),
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        },
+      });
+      continue;
+    }
+    if (unit.kind === "finalizer") {
+      const files = serviceSessionFiles.get(serviceSessionTarget(unit) || serviceSessionTargets[0]);
+      unit.command = () => ({
+        command: goTargetRunner,
+        args: ["finalize-shards", unit.aggregateTarget, files?.metadataDir ?? tempDir],
+        env: {
+          ...process.env,
+          CARTULARY_TEST_TARGET: unit.aggregateTarget,
+          TEST_OUTPUT_SCRIPT: testOutputScript,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        },
+      });
+      continue;
+    }
+    if (unit.kind === "service_make_target") {
+      unit.command = async () => ({
+        command: makeBin,
+        args: ["--no-print-directory", "--output-sync=target", "-j1", unit.target],
+        env: makeChildEnv({
+          ...(await serviceEnvFor(serviceSessionTarget(unit))),
+          ...unit.env,
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        }),
+      });
+      continue;
+    }
+    if (unit.kind === "service_complete") {
+      unit.command = () => ({
+        command: process.execPath,
+        args: ["-e", ""],
+        env: process.env,
+      });
+      continue;
+    }
     unit.command = () => ({
       command: makeBin,
       args: ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target],
@@ -597,26 +808,11 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
     resourceScheduler: "check",
     stopOnFirstFailure: true,
     progressExtras: nestedProgress.progressExtras,
-    countCompletedUnit: (_unit, result) => result.status === 0,
+    countCompletedUnit: (unit, result) => unit.countInTotal !== false && result.status === 0,
     shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,
     afterUnitFinish: refreshNestedSchedulerTargetSummary,
-    beforeRun: async () => {
-      const capacityDisplay = schedule.resourceLimits.get("host_cpu") ?? Math.max(...schedule.resourceLimits.values());
-      await runLifecycle(repoRoot, testOutputScript, [
-        "run-start",
-        schedule.target,
-        "--steps",
-        String(schedule.workUnits.length),
-        "--summary-targets",
-        String(summaryTargets.length),
-        "--helper-units",
-        String(helperUnitNames.length),
-        "--jobs",
-        String(capacityDisplay),
-      ]);
-    },
     beforeUnitStart: async ({ unit, started, total, reporter }) => {
-      if (!reporter.verbose) {
+      if (!reporter.verbose || unit.countInTotal === false) {
         return;
       }
       await runLifecycle(repoRoot, testOutputScript, [
@@ -629,6 +825,73 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
         "scheduler",
         "--jobs",
         String(unit.makeJobs),
+      ]);
+    },
+    afterWorkComplete: async ({ firstFailure }) => {
+      let cleanupFailure = null;
+      for (const target of serviceSessionTargets) {
+        const files = serviceSessionFiles.get(target);
+        const status = firstFailure === 0 ? "pass" : "fail";
+        const children = serviceSummaryChildren.get(target) ?? [];
+        if (children.length > 0) {
+          await runLifecycle(repoRoot, testOutputScript, [
+            "target-summary",
+            target,
+            status,
+            "--children",
+            children.join(","),
+            status === "pass" ? "--quiet-success" : "--quiet-failure",
+          ]).catch((error) => {
+            if (!cleanupFailure) {
+              cleanupFailure = { status: 1, label: `${target}:target-summary`, error };
+            }
+          });
+        }
+        if (files?.leaseFile) {
+          serviceSessionCleanupStatus.set(target, "running");
+          const result = await runLifecycle(repoRoot, testServicesBin, [
+            "terminate-suite",
+            "--lease",
+            files.leaseFile,
+          ]).then(
+            () => 0,
+            () => 1,
+          );
+          if (result !== 0 && !cleanupFailure) {
+            serviceSessionCleanupStatus.set(target, "failed");
+            cleanupFailure = { status: result, label: `${target}:terminate-suite` };
+          } else if (result === 0) {
+            serviceSessionCleanupStatus.set(target, "pass");
+          }
+        }
+      }
+      return cleanupFailure;
+    },
+    summaryExtra: () => ({
+      service_sessions: serviceSessionTargets.map((target) => {
+        const files = serviceSessionFiles.get(target);
+        return {
+          target,
+          env_file: relToRepoPath(repoRoot, files.envFile),
+          lease_file: relToRepoPath(repoRoot, files.leaseFile),
+          metadata_dir: relToRepoPath(repoRoot, files.metadataDir),
+          cleanup_status: serviceSessionCleanupStatus.get(target) ?? "unknown",
+        };
+      }),
+    }),
+    beforeRun: async () => {
+      const capacityDisplay = schedule.resourceLimits.get("host_cpu") ?? Math.max(...schedule.resourceLimits.values());
+      await runLifecycle(repoRoot, testOutputScript, [
+        "run-start",
+        schedule.target,
+        "--steps",
+        String(countedWorkUnitCount),
+        "--summary-targets",
+        String(summaryTargets.length),
+        "--helper-units",
+        String(helperUnitNames.length),
+        "--jobs",
+        String(capacityDisplay),
       ]);
     },
     nestedSchedulerLimits: () =>
@@ -645,7 +908,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
         schedule.target,
         requestedStatus,
         String(reporter.completedCount),
-        String(schedule.workUnits.length),
+        String(countedWorkUnitCount),
         firstFailureLabel ?? "-",
         "--suppress-machine-output",
         "--quiet-failure",
@@ -699,6 +962,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
 }
 
 async function main() {
+  const context = createRunnerContext({ repoRoot });
   const options = parseArgs(process.argv.slice(2));
   const { manifest, manifestPath } = await loadScheduleManifest(options.manifest, {
     repoRoot,
@@ -718,7 +982,26 @@ async function main() {
   const makeBin = process.env.MAKE || "make";
   const testOutputScript =
     process.env.TEST_OUTPUT_SCRIPT || path.join(repoRoot, "scripts", "lib", "test-output.mjs");
-  const runtimeSchedule = attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, summaryGroups });
+  const serviceSummaryChildren = new Map();
+  for (const unit of schedule.workUnits) {
+    const target = serviceSessionTarget(unit);
+    if (target && !serviceSummaryChildren.has(target)) {
+      serviceSummaryChildren.set(target, serviceBackedScheduleChildren(topologyContext, target));
+    }
+  }
+  const tempDir = path.join(context.resultsDir, context.runId, options.target, "service-sessions");
+  await rm(tempDir, { recursive: true, force: true });
+  await mkdir(tempDir, { recursive: true });
+  const runtimeSchedule = attachRuntime(schedule, {
+    makeBin,
+    testOutputScript,
+    summaryTargets,
+    summaryGroups,
+    testServicesBin: process.env.TEST_SERVICES_BIN || context.testServicesBin,
+    goTargetRunner: process.env[goTargetRunnerEnv] || context.runnerScript,
+    tempDir,
+    serviceSummaryChildren,
+  });
 
   if (isDryRunFromMakeFlags()) {
     writeSchedulerDryRun({

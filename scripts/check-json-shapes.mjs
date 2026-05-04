@@ -9,6 +9,7 @@ import {
   validateBrowserBatchManifestShape,
 } from "./lib/browser-batch-manifest.mjs";
 import { validateCheckScheduleManifestShape } from "./lib/check-schedule-manifest.mjs";
+import { expandServiceBackedScheduleForCheck } from "./lib/check-service-backed-expansion.mjs";
 import {
   defaultExecutionTopologyManifestPath,
   executionTopologySchemaID,
@@ -955,11 +956,14 @@ function validateAll(root) {
     manifestPath: repoFile(root, "tools/execution_topology_manifest.json"),
   });
   const taskSurface = renderTaskSurfaceManifest(topology);
-  const checkSchedule = renderCheckScheduleManifest(topology);
   const browserBatch = renderBrowserBatchManifest(topology);
   const serviceBackedSchedule = renderServiceBackedScheduleManifest({
     topology: defaultExecutionTopologyManifestPath,
     topologyObject: topology,
+  });
+  const checkSchedule = renderCheckScheduleManifest(topology, {
+    serviceBackedScheduleManifest: serviceBackedSchedule,
+    expandServiceBackedScheduleForCheck,
   });
   assertGeneratedJSONFresh(
     root,

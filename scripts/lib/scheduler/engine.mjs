@@ -796,6 +796,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
   const completedKeys = new Set();
   const failedKeys = new Map();
   const activeClaims = new Map();
+  const retainedClaims = new Map();
   const unitsByCompletionKey = new Map();
   for (const unit of schedule.workUnits) {
     for (const key of unitCompletionKeys(unit)) {
@@ -828,7 +829,9 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       await schedule.beforeUnitStart({ unit, started, total: schedule.totalWorkUnits, reporter, testOutputScript });
     }
     addResourceClaims(unit, activeClaims);
-    const commandSpec = typeof unit.command === "function" ? unit.command({ unit, logFile }) : unit.command;
+    const commandSpec = typeof unit.command === "function"
+      ? await unit.command({ unit, logFile })
+      : unit.command;
     const promise = runCommand(
       repoRoot,
       commandSpec.command,
@@ -843,6 +846,30 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
     }));
     running.set(promise, unit);
     reporter.startUnit(unit, logFile, stateSnapshot());
+  };
+
+  const removeFinishedUnitClaims = (unit) => {
+    const retained = unit.retainedResourceClaims ?? new Map();
+    const releasable = new Map();
+    for (const [resource, amount] of unit.resourceClaims.entries()) {
+      const retainedAmount = retained.get(resource) ?? 0;
+      const next = amount - retainedAmount;
+      if (next > 0) {
+        releasable.set(resource, next);
+      }
+      if (retainedAmount > 0) {
+        retainedClaims.set(resource, (retainedClaims.get(resource) ?? 0) + retainedAmount);
+      }
+    }
+    removeResourceClaims({ resourceClaims: releasable }, activeClaims);
+  };
+
+  const releaseRetainedClaims = () => {
+    if (retainedClaims.size === 0) {
+      return;
+    }
+    removeResourceClaims({ resourceClaims: retainedClaims }, activeClaims);
+    retainedClaims.clear();
   };
 
   try {
@@ -944,7 +971,11 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       for (const [promise, candidate] of running.entries()) {
         if (candidate.id === result.id) {
           running.delete(promise);
-          removeResourceClaims(candidate, activeClaims);
+          if (result.status === 0) {
+            removeFinishedUnitClaims(candidate);
+          } else {
+            removeResourceClaims(candidate, activeClaims);
+          }
           finishedUnit = candidate;
           break;
         }
@@ -997,6 +1028,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
         firstFailureLabel = hookFailure.label;
       }
     }
+    releaseRetainedClaims();
 
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";
     reporter.finishLifecycle(stateSnapshot());

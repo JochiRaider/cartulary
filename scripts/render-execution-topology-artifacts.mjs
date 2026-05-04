@@ -12,6 +12,7 @@ import {
 } from "./lib/execution-topology.mjs";
 import { validateAllPhaseSlicePlans } from "./lib/phase-slice-plan.mjs";
 import { collectTaskSurfaceManifestErrors, renderTaskSurfaceMake } from "./lib/task-surface.mjs";
+import { expandServiceBackedScheduleForCheck } from "./lib/check-service-backed-expansion.mjs";
 import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -84,7 +85,10 @@ function renderArtifacts(options) {
     outputEntry(topology.generatedOutputs.task_surface_manifest, serializeJSON(taskSurfaceManifest)),
     outputEntry(
       topology.generatedOutputs.check_schedule_manifest,
-      serializeJSON(renderCheckScheduleManifest(topology)),
+      serializeJSON(renderCheckScheduleManifest(topology, {
+        serviceBackedScheduleManifest,
+        expandServiceBackedScheduleForCheck,
+      })),
     ),
     outputEntry(
       topology.generatedOutputs.browser_e2e_batch_manifest,

@@ -1308,7 +1308,7 @@ function renderMakeRecipe(recipe, manifest) {
       ...prefix,
       header,
       ...prerequisitePrelude,
-      `\t$(Q)env MAKE="$(MAKE)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"`,
+      `\t$(Q)env MAKE="$(MAKE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"`,
     ];
   }
   if (recipe.type === "go_target") {

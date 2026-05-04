@@ -681,7 +681,6 @@ import {
   resourceLimitsForCapacityProfile,
   resourceOverrideEnvVariablesForScheduler,
   preferredResourcesForScheduler,
-  resolveForwardingProfile,
 } from "./scripts/lib/scheduler-resources.mjs";
 
 const fail = (message) => {
@@ -723,10 +722,10 @@ const validSchedulerRegistry = () => ({
 if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed") {
   fail("browser stage lane derivation changed");
 }
-if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres") {
+if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,minio,postgres,process,postgres_reset") {
   fail("check resource display order changed");
 }
-if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS") {
+if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT") {
   fail("check override env names changed");
 }
 if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLimitResource("browser_stack")) {
@@ -822,10 +821,6 @@ const claims = normalizeResourceClaims(
 );
 if (claims.get("host_cpu") !== 3) {
   fail(`bounded host_cpu claim got ${claims.get("host_cpu")}`);
-}
-const forwarding = resolveForwardingProfile("check_host_to_service_backed_go", claims, "registry test");
-if (forwarding.forwardedResourceLimits.get("go_cpu") !== 3 || forwarding.forwardedResourceLimits.get("go_io") !== 1) {
-  fail("forwarded service-backed limits were not resolved from host claims");
 }
 EOF
 
@@ -1115,7 +1110,7 @@ write_fake_make "$success_dir"
 success_manifest="${success_dir}/manifest.json"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1138,13 +1133,7 @@ cat >"$success_manifest" <<'JSON'
             "host_io": { "mode": "bounded_limit", "reserve": 4, "min": 1, "max": 10 },
             "suite_service_stack": 1
           },
-          "make_jobs": "host_cpu",
-          "nested_scheduler": {
-            "type": "service_backed",
-            "target": "service",
-            "manifest": "tools/service_backed_schedule_manifest.json",
-            "forwarding": "check_host_to_service_backed_go"
-          }
+          "make_jobs": "host_cpu"
         },
         { "target": "meta", "weight": 10, "needs": ["build"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
@@ -1183,8 +1172,7 @@ assert_not_contains "$success_output" "[RUN] check" "success hides legacy run st
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1}" "success concise scheduler start"
 assert_contains "$success_output" "[PROGRESS] target=check completed=0/5" "success human scheduler progress"
 assert_contains "$success_output" "blocker=dependencies" "success human scheduler progress explains blocker"
-assert_contains "$success_output" "bottleneck=service:3/6" "success human scheduler progress includes nested service bottleneck"
-assert_occurrences "$success_output" "bottleneck=service:3/6" "1" "success human nested scheduler progress is material-change throttled"
+assert_not_contains "$success_output" "bottleneck=service:3/6" "success flattened service work has no nested bottleneck"
 assert_not_contains "$success_output" "[CHECK-SCHEDULER] check progress completed_work_units=" "quiet check scheduler hides key/value progress"
 assert_not_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress" "quiet check scheduler hides key/value nested progress"
 assert_contains "$success_output" "[SUMMARY] target=check status=pass work_units=5/5 failed=none slowest=" "success concise scheduler summary"
@@ -1203,7 +1191,7 @@ assert_contains "$success_events" "end local" "success local completed"
 assert_contains "$success_events" "strict-env local 1" "success child make receives target-scoped env"
 assert_contains "$success_events" "strict-env service unset" "success sibling child make does not inherit target-scoped env"
 assert_fake_make_overlap "${success_dir}/events.log" local service "success service overlapped with cheap local work"
-assert_contains "$success_events" "env service go_cpu=1 go_io=1" "success service forwarded bounded nested scheduler limits"
+assert_not_contains "$success_events" "env service go_cpu=" "success service receives no forwarded nested scheduler limits"
 assert_contains "$success_events" "end service" "success service completed"
 assert_contains "$success_events" "end meta" "success meta completed"
 assert_not_contains "$success_events" "browser" "success check schedule has no browser tail"
@@ -1289,55 +1277,14 @@ if (summary.max_active_resource_claims?.host_cpu !== 2) {
 if (!events.some((event) => event.running >= 2 && event.active_resource_claims?.host_cpu === 2)) {
   throw new Error("scheduler events must record two logically admitted host_cpu work units");
 }
-const serviceStart = events.find((event) => event.event === "start" && event.work_unit === "service");
-if (serviceStart?.nested_scheduler?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT !== 1) {
-  throw new Error("service start event must record forwarded bounded nested go host_cpu limit");
+if (events.some((event) => event.nested_scheduler)) {
+  throw new Error("flattened service work must not emit nested scheduler start metadata");
 }
-if (serviceStart?.nested_scheduler?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_IO_LIMIT !== 1) {
-  throw new Error("service start event must record forwarded bounded nested go host_io limit");
+if (events.some((event) => event.nested_scheduler_progress?.length > 0)) {
+  throw new Error("flattened service work must not emit nested scheduler progress");
 }
-const serviceSummary = summary.nested_scheduler_limits?.find((entry) => entry.work_unit === "service");
-if (serviceSummary?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT !== 1) {
-  throw new Error("summary must record forwarded bounded nested go host_cpu limit");
-}
-if (serviceSummary?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_IO_LIMIT !== 1) {
-  throw new Error("summary must record forwarded bounded nested go host_io limit");
-}
-const progressEvent = events.find((event) => event.event === "progress" && event.nested_scheduler_progress?.length > 0);
-if (!progressEvent) {
-  throw new Error("outer scheduler progress events must record nested scheduler progress");
-}
-if (!progressEvent.active_groups || progressEvent.blocked_by === undefined || !Object.hasOwn(progressEvent, "unblocks_after") || !Object.hasOwn(progressEvent, "slowest_running")) {
-  throw new Error("outer progress event must expose structured v3 progress fields");
-}
-const nestedProgress = progressEvent.nested_scheduler_progress.find((entry) => entry.work_unit === "service");
-if (!nestedProgress) {
-  throw new Error("outer progress event must include service nested scheduler snapshot");
-}
-if (nestedProgress.active_groups?.["backend-integration"] !== 1) {
-  throw new Error("nested progress must preserve active_groups");
-}
-if (!nestedProgress.blocked_by?.includes("go_io")) {
-  throw new Error("nested progress must preserve blocked_by");
-}
-if (!nestedProgress.waiting_on?.includes("backend-store")) {
-  throw new Error("nested progress must preserve waiting_on");
-}
-if (nestedProgress.unblocks_after !== "backend-integration/shard-a") {
-  throw new Error(`nested progress unblocks_after got ${nestedProgress.unblocks_after}`);
-}
-if (nestedProgress.slowest_running?.label !== "backend-integration/shard-a") {
-  throw new Error("nested progress must preserve structured slowest_running");
-}
-const serviceObservation = summary.nested_scheduler_observations?.find((entry) => entry.work_unit === "service");
-if (!serviceObservation || serviceObservation.observed_progress_events < 1) {
-  throw new Error("summary must record nested scheduler observations");
-}
-if (serviceObservation.latest_progress?.events_jsonl?.includes("service/scheduler-events.jsonl") !== true) {
-  throw new Error("nested observation must include nested event artifact");
-}
-if (!summary.slowest_running_observations?.some((entry) => entry.source === "nested" && entry.work_unit === "service" && entry.label === "backend-integration/shard-a")) {
-  throw new Error("summary must retain nested scheduler slowest running observations");
+if ((summary.nested_scheduler_limits ?? []).length !== 0 || (summary.nested_scheduler_observations ?? []).length !== 0) {
+  throw new Error("flattened service work must not record nested scheduler summaries");
 }
 for (const [index, event] of events.entries()) {
   const limits = event.resource_limits ?? {};
@@ -1359,7 +1306,7 @@ write_fake_make "$blocker_clarity_dir"
 blocker_clarity_manifest="${blocker_clarity_dir}/manifest.json"
 cat >"$blocker_clarity_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1411,7 +1358,7 @@ write_fake_make "$success_budget_dir"
 success_budget_manifest="${success_budget_dir}/manifest.json"
 cat >"$success_budget_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1440,7 +1387,7 @@ write_fake_make "$split_lane_dir"
 split_lane_manifest="${split_lane_dir}/manifest.json"
 cat >"$split_lane_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1467,13 +1414,7 @@ cat >"$split_lane_manifest" <<'JSON'
           "needs": ["build-migrate"],
           "produces_summary_targets": ["check-service-backed"],
           "resource_claims": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
-          "make_jobs": "host_cpu",
-          "nested_scheduler": {
-            "type": "service_backed",
-            "target": "check-service-backed",
-            "manifest": "tools/service_backed_schedule_manifest.json",
-            "forwarding": "check_host_to_service_backed_go"
-          }
+          "make_jobs": "host_cpu"
         },
         {
           "target": "migration-drift",
@@ -1534,7 +1475,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1546,13 +1487,7 @@ cat >"$partial_manifest" <<'JSON'
           "needs": [],
           "produces_summary_targets": ["partial-service"],
           "resource_claims": { "host_cpu": 1, "host_io": 1 },
-          "make_jobs": "host_cpu",
-          "nested_scheduler": {
-            "type": "service_backed",
-            "target": "partial-service",
-            "manifest": "tools/service_backed_schedule_manifest.json",
-            "forwarding": "check_host_to_service_backed_go"
-          }
+          "make_jobs": "host_cpu"
         }
       ]
     }
@@ -1569,7 +1504,7 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1598,7 +1533,7 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1703,7 +1638,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1720,12 +1655,12 @@ invalid_output="$(run_scheduler "$invalid_dir" "$invalid_manifest" invalid 2>&1)
 invalid_status=$?
 set -e
 assert_equals "$invalid_status" "1" "invalid dependency status"
-assert_contains "$invalid_output" "depends on unknown target missing" "invalid dependency output"
+assert_contains "$invalid_output" "depends on unknown completion key missing" "invalid dependency output"
 
 invalid_env_manifest="${invalid_dir}/invalid-env-manifest.json"
 cat >"$invalid_env_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1744,10 +1679,10 @@ set -e
 assert_equals "$invalid_env_status" "1" "invalid env status"
 assert_contains "$invalid_env_output" "env.CARTULARY_TEST_TARGET is scheduler-owned" "invalid env output"
 
-invalid_nested_manifest="${invalid_dir}/invalid-nested-manifest.json"
-cat >"$invalid_nested_manifest" <<'JSON'
+invalid_retained_manifest="${invalid_dir}/invalid-retained-manifest.json"
+cat >"$invalid_retained_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1758,12 +1693,7 @@ cat >"$invalid_nested_manifest" <<'JSON'
           "weight": 1,
           "needs": [],
           "resource_claims": { "host_cpu": 1 },
-          "nested_scheduler": {
-            "type": "service_backed",
-            "target": "service",
-            "manifest": "tools/service_backed_schedule_manifest.json",
-            "forwarding": "check_host_to_service_backed_go"
-          }
+          "retained_resource_claims": { "host_io": 1 }
         }
       ]
     }
@@ -1771,16 +1701,16 @@ cat >"$invalid_nested_manifest" <<'JSON'
 }
 JSON
 set +e
-invalid_nested_output="$(run_scheduler "$invalid_dir" "$invalid_nested_manifest" invalid-nested 2>&1)"
-invalid_nested_status=$?
+invalid_retained_output="$(run_scheduler "$invalid_dir" "$invalid_retained_manifest" invalid-retained 2>&1)"
+invalid_retained_status=$?
 set -e
-assert_equals "$invalid_nested_status" "1" "invalid nested scheduler status"
-assert_contains "$invalid_nested_output" "source host_io must be claimed by work unit" "invalid nested scheduler output"
+assert_equals "$invalid_retained_status" "1" "invalid retained resource status"
+assert_contains "$invalid_retained_output" "resource_claims entry host_io is not declared in resource_limits" "invalid retained resource output"
 
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v7",
+  "schema_id": "cartulary.check_schedule.v8",
   "schedules": [
     {
       "target": "check",
@@ -1824,4 +1754,4 @@ dry_run_verbose_output="$(
     run_scheduler "$dry_run_dir" "$success_manifest" dry-run-verbose --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1
 )"
 assert_contains "$dry_run_verbose_output" "[DRY-RUN] check unit setup needs=none claims={host_cpu:1} make_jobs=1" "verbose dry-run includes unit claims"
-assert_contains "$dry_run_verbose_output" "nested_scheduler={\"type\":\"service_backed\",\"target\":\"service\"" "verbose dry-run includes nested scheduler metadata"
+assert_not_contains "$dry_run_verbose_output" "nested_scheduler=" "verbose dry-run omits obsolete nested scheduler metadata"

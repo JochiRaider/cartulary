@@ -8,7 +8,6 @@ import {
   normalizeResourceLimits,
   resourceOverrideEnvVariablesForScheduler,
   resourceLimitsForCapacityProfile,
-  resolveForwardingProfile,
 } from "./scheduler-resources.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -20,7 +19,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "execution_topology_manifest.json",
 );
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
-export const checkScheduleSchemaID = "cartulary.check_schedule.v7";
+export const checkScheduleSchemaID = "cartulary.check_schedule.v8";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";
 export const makeTargetBaselineSchemaID =
@@ -51,7 +50,7 @@ const checkScheduleTargetKeys = new Set([
   "priority_band",
   "order",
   "produces_summary_targets",
-  "nested_scheduler",
+  "service_backed_schedule",
   "env",
 ]);
 
@@ -509,7 +508,9 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
     priorityBand: requireString(raw.priority_band, `${label}.check_schedule.priority_band`),
     order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
     producesSummaryTargets,
-    nestedScheduler: raw.nested_scheduler === undefined ? null : clone(raw.nested_scheduler),
+    serviceBackedSchedule: raw.service_backed_schedule === undefined
+      ? null
+      : requireString(raw.service_backed_schedule, `${label}.check_schedule.service_backed_schedule`),
     env: normalizeCheckScheduleEnv(raw.env, `${label}.check_schedule.env`),
   };
 }
@@ -548,30 +549,6 @@ function normalizeCheckMakeJobs(value, label, claims) {
     return resource;
   }
   return requirePositiveInteger(value, `${label}.make_jobs`);
-}
-
-function normalizeCheckNestedScheduler(value, label, unitTarget, claims) {
-  if (value === null) {
-    return null;
-  }
-  const nested = requireObject(value, `${label}.nested_scheduler`);
-  const allowedKeys = new Set(["type", "target", "manifest", "forwarding"]);
-  validateAllowedKeys(nested, allowedKeys, `${label}.nested_scheduler`);
-  if (nested.type !== "service_backed") {
-    throw new Error(`${label}.nested_scheduler.type must be service_backed`);
-  }
-  if (requireString(nested.target, `${label}.nested_scheduler.target`) !== unitTarget) {
-    throw new Error(`${label}.nested_scheduler.target must match work unit target ${unitTarget}`);
-  }
-  requireString(nested.manifest, `${label}.nested_scheduler.manifest`);
-  if (nested.forwarding === undefined) {
-    throw new Error(`${label}.nested_scheduler.forwarding must be declared`);
-  }
-  if (!claims.has("suite_service_stack")) {
-    throw new Error(`${label}.nested_scheduler forwarding must claim suite_service_stack`);
-  }
-  resolveForwardingProfile(nested.forwarding, claims, `${label}.nested_scheduler`);
-  return clone(nested);
 }
 
 function claimsCheckServiceBoundaryResource(claims) {
@@ -630,19 +607,13 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         scheduler: "check",
         allowBounded: true,
       });
-      const nestedScheduler = normalizeCheckNestedScheduler(
-        metadata.nestedScheduler,
-        `${target}.check_schedule`,
-        target,
-        claims,
-      );
       if (
         requiresCheckServiceStack(entry) &&
         !claimsCheckServiceBoundaryResource(claims) &&
-        nestedScheduler?.type !== "service_backed"
+        !metadata.serviceBackedSchedule
       ) {
         throw new Error(
-          `${target}.check_schedule target declares service_requirements and must claim a check service boundary resource or use a nested service-backed scheduler`,
+          `${target}.check_schedule target declares service_requirements and must claim a check service boundary resource or use a service-backed schedule`,
         );
       }
       const unit = {
@@ -655,7 +626,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         resource_claims: clone(profile.resourceClaims),
         make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${target}.check_schedule profile ${profile.name}`, claims),
         ...(Object.keys(metadata.env).length > 0 ? { env: clone(metadata.env) } : {}),
-        ...(nestedScheduler ? { nested_scheduler: nestedScheduler } : {}),
+        ...(metadata.serviceBackedSchedule ? { service_backed_schedule: metadata.serviceBackedSchedule } : {}),
       };
       units.push({ ...unit, order: metadata.order });
     }
@@ -796,10 +767,73 @@ export function renderBrowserBatchManifest(topology) {
   };
 }
 
-export function renderCheckScheduleManifest(topology) {
+function serviceBackedScheduleByTarget(manifest) {
+  return new Map((manifest?.schedules ?? []).map((schedule) => [schedule.target, schedule]));
+}
+
+function serviceBackedCheckResourceLimits(serviceSchedule) {
+  const limits = {};
+  for (const [resource, limit] of Object.entries(serviceSchedule.resource_limits ?? {})) {
+    if (resource === "go_cpu" || resource === "go_io") {
+      continue;
+    }
+    limits[resource] = limit === "auto" ? 2 : limit;
+  }
+  return limits;
+}
+
+function expandCheckScheduleServiceBackedUnits(schedule, serviceBackedManifest, expandServiceBackedScheduleForCheck) {
+  const schedulesByTarget = serviceBackedScheduleByTarget(serviceBackedManifest);
+  const workUnits = [];
+  let resourceLimits = clone(schedule.resource_limits);
+  for (const unit of schedule.work_units) {
+    if (!unit.service_backed_schedule) {
+      workUnits.push(unit);
+      continue;
+    }
+    const serviceSchedule = schedulesByTarget.get(unit.service_backed_schedule);
+    if (!serviceSchedule) {
+      throw new Error(
+        `check schedule ${schedule.target} references missing service-backed schedule ${unit.service_backed_schedule}`,
+      );
+    }
+    resourceLimits = {
+      ...resourceLimits,
+      ...serviceBackedCheckResourceLimits(serviceSchedule),
+    };
+    workUnits.push(
+      ...expandServiceBackedScheduleForCheck({
+        repoRoot,
+        serviceSchedule,
+        parentUnit: unit,
+      }),
+    );
+  }
+  return {
+    ...schedule,
+    resource_limits: resourceLimits,
+    work_units: workUnits,
+  };
+}
+
+export function renderCheckScheduleManifest(topology, options = {}) {
+  const serviceBackedManifest = options.serviceBackedScheduleManifest ?? null;
+  const expandServiceBackedScheduleForCheck = options.expandServiceBackedScheduleForCheck ?? null;
+  if (serviceBackedManifest && typeof expandServiceBackedScheduleForCheck !== "function") {
+    throw new Error("renderCheckScheduleManifest requires expandServiceBackedScheduleForCheck with serviceBackedScheduleManifest");
+  }
+  const schedules = serviceBackedManifest
+    ? topology.checkSchedules.map((schedule) =>
+        expandCheckScheduleServiceBackedUnits(
+          schedule,
+          serviceBackedManifest,
+          expandServiceBackedScheduleForCheck,
+        ),
+      )
+    : topology.checkSchedules;
   return {
     schema_id: checkScheduleSchemaID,
-    schedules: clone(topology.checkSchedules),
+    schedules: clone(schedules),
   };
 }
 

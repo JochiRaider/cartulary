@@ -20,14 +20,29 @@ const checkScheduleEntryKeys = new Set([
   "work_units",
 ]);
 const checkWorkUnitKeys = new Set([
+  "id",
+  "kind",
   "target",
+  "label",
+  "aggregate_target",
   "weight",
   "needs",
   "produces_summary_targets",
+  "completion_keys",
+  "failure_keys",
+  "running_dependency_keys",
   "resource_claims",
+  "retained_resource_claims",
   "make_jobs",
   "env",
-  "nested_scheduler",
+  "service_session",
+  "shard",
+  "shard_names",
+  "scheduler_profile",
+  "count_in_total",
+  "counts_started",
+  "complete_on_failure",
+  "unblock_label",
 ]);
 
 function manifestValue(fileOrManifest, label) {
