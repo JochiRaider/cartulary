@@ -611,6 +611,7 @@ class SchedulerReporter {
             },
           ],
     );
+    const timing = this.timingEnvelope();
     const summaryLine = schedulerSummaryLine({
       prefix: this.schedule.prefix,
       target: this.schedule.target,
@@ -621,6 +622,9 @@ class SchedulerReporter {
       failureClass,
       skipped,
       finalizerFailures: this.finalizerFailures,
+      totalWallTimeMs: this.schedule.summaryTotalWallTime
+        ? timing.scheduler_total_duration_ms
+        : null,
       slowest,
       topBlockers,
       artifacts: relToRepo(this.repoRoot, this.targetDir),
@@ -637,7 +641,7 @@ class SchedulerReporter {
       scheduler_kind: this.schedule.kind,
       total_work_units: this.schedule.totalWorkUnits,
       completed_work_units: this.completedCount,
-      ...this.timingEnvelope(),
+      ...timing,
       skipped_work_units: this.skippedWork,
       failed_work_unit: failed,
       failed_work_unit_detail: failedDetail,

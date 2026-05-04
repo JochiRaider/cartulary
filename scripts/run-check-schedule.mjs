@@ -807,6 +807,7 @@ function attachRuntime(schedule, {
     summarySchemaID: schedulerSummarySchemaID,
     resourceScheduler: "check",
     stopOnFirstFailure: true,
+    summaryTotalWallTime: true,
     progressExtras: nestedProgress.progressExtras,
     countCompletedUnit: (unit, result) => unit.countInTotal !== false && result.status === 0,
     shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,

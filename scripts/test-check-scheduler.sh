@@ -1175,7 +1175,8 @@ assert_contains "$success_output" "blocker=dependencies" "success human schedule
 assert_not_contains "$success_output" "bottleneck=service:3/6" "success flattened service work has no nested bottleneck"
 assert_not_contains "$success_output" "[CHECK-SCHEDULER] check progress completed_work_units=" "quiet check scheduler hides key/value progress"
 assert_not_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress" "quiet check scheduler hides key/value nested progress"
-assert_contains "$success_output" "[SUMMARY] target=check status=pass work_units=5/5 failed=none slowest=" "success concise scheduler summary"
+assert_contains "$success_output" "[SUMMARY] target=check status=pass work_units=5/5 total_wall_time=" "success concise scheduler summary"
+assert_contains "$success_output" " failed=none slowest=" "success concise scheduler summary preserves failed and slowest field order"
 assert_contains "$success_output" "slowest=" "success concise scheduler summary includes slowest work"
 assert_contains "$success_output" "blockers=" "success concise scheduler summary includes blockers"
 assert_not_contains "$success_output" "active_resource_claims=" "default scheduler output hides raw active resources"
@@ -1202,6 +1203,24 @@ success_summary="${success_dir}/results/success/run-summary.json"
 success_target_summary="${success_dir}/results/success/check/target-summary.json"
 success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
 success_scheduler_events="${success_dir}/results/success/check/scheduler-events.jsonl"
+assert_contains "$(cat "${success_dir}/results/success/check/progress-summary.log")" "total_wall_time=" "success progress summary retains wall time field"
+SUCCESS_OUTPUT="$success_output" "$NODE_BIN" - "$success_scheduler_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const output = process.env.SUCCESS_OUTPUT ?? "";
+const match = output.match(/\[SUMMARY\] target=check status=pass work_units=5\/5 total_wall_time=([0-9]+\.[0-9]{2}s) failed=none slowest=/);
+if (!match) {
+  throw new Error("success scheduler summary must include total_wall_time before failed");
+}
+const reportedMs = Math.round(Number(match[1].slice(0, -1)) * 1000);
+if (!Number.isInteger(summary.scheduler_total_duration_ms) || summary.scheduler_total_duration_ms < 0) {
+  throw new Error(`scheduler_total_duration_ms got ${summary.scheduler_total_duration_ms}`);
+}
+if (Math.abs(reportedMs - summary.scheduler_total_duration_ms) > 10) {
+  throw new Error(`total_wall_time ${reportedMs}ms does not match scheduler_total_duration_ms ${summary.scheduler_total_duration_ms}ms`);
+}
+EOF
 assert_equals "$(json_field "$success_summary" "status")" "pass" "success summary status"
 assert_equals "$(json_field "$success_summary" "schema_id")" "cartulary.test_run_summary.v6" "success run summary schema"
 assert_file_present "$success_target_summary" "success check target summary"
@@ -1563,6 +1582,7 @@ assert_contains "$failure_output" "[FAIL] target=check" "failure summary"
 assert_occurrences "$failure_output" "[FAIL] target=check" "1" "failure single check failure block"
 assert_contains "$failure_output" "[SUMMARY] target=check status=fail" "failure scheduler status summary"
 assert_contains "$failure_output" "failure_class=helper" "failure scheduler class output"
+assert_contains "$failure_output" " total_wall_time=" "failure scheduler wall time output"
 assert_contains "$failure_output" "failed=beta" "failure scheduler failed work unit"
 failure_events="$(cat "${failure_dir}/events.log")"
 assert_contains "$failure_events" "start alpha" "failure alpha started"
@@ -1588,6 +1608,20 @@ if (summary.summary_targets.missing.includes("external-summary")) {
 EOF
 failure_scheduler_summary="${failure_dir}/results/failure/check/scheduler-summary.json"
 assert_equals "$(json_field "$failure_scheduler_summary" "failure_class")" "helper" "failure scheduler summary class"
+FAILURE_OUTPUT="$failure_output" "$NODE_BIN" - "$failure_scheduler_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const output = process.env.FAILURE_OUTPUT ?? "";
+const match = output.match(/\[SUMMARY\] target=check status=fail failure_class=helper work_units=\d+\/4 total_wall_time=([0-9]+\.[0-9]{2}s) failed=beta/);
+if (!match) {
+  throw new Error("failure scheduler summary must include total_wall_time before failed");
+}
+const reportedMs = Math.round(Number(match[1].slice(0, -1)) * 1000);
+if (Math.abs(reportedMs - summary.scheduler_total_duration_ms) > 10) {
+  throw new Error(`failure total_wall_time ${reportedMs}ms does not match scheduler_total_duration_ms ${summary.scheduler_total_duration_ms}ms`);
+}
+EOF
 failure_scheduler_events="${failure_dir}/results/failure/check/scheduler-events.jsonl"
 assert_check_scheduler_artifacts "$failure_dir" failure check fail beta 4 skip
 "$NODE_BIN" - "$failure_scheduler_summary" "$failure_scheduler_events" "$ROOT_DIR" <<'EOF'

@@ -519,6 +519,7 @@ export function schedulerSummaryLine({
   failureClass = null,
   skipped = 0,
   finalizerFailures = 0,
+  totalWallTimeMs = null,
   slowest = [],
   topBlockers = [],
 }) {
@@ -527,6 +528,9 @@ export function schedulerSummaryLine({
     `status=${status}`,
     status === "pass" ? null : `failure_class=${failureClass ?? "helper"}`,
     `work_units=${completed}/${total}`,
+    Number.isFinite(totalWallTimeMs)
+      ? `total_wall_time=${formatDurationMs(totalWallTimeMs)}`
+      : null,
     `failed=${failed ?? "none"}`,
     skipped > 0 ? `skipped=${skipped}` : null,
     finalizerFailures > 0 ? `finalizer_failures=${finalizerFailures}` : null,
