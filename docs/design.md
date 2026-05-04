@@ -145,6 +145,7 @@ components:
   button-secondary:
     backgroundColor: "{colors.surface-2}"
     textColor: "{colors.ink}"
+    border: "{border.hairline}"
     typography: "{typography.button}"
     rounded: "{rounded.md}"
     padding: "7px 12px"
@@ -271,6 +272,8 @@ Color is never the only carrier of state. Every state-bearing color must be pair
 | Token             | Value     | Use                                                                                                |
 | ----------------- | --------- | -------------------------------------------------------------------------------------------------- |
 | `accent`          | `#FACC15` | Focus, selected shell control, primary affirmative action, active grid affordance, brand emphasis. |
+| `accent-hover`    | `#FDE047` | Pointer hover state for accent-filled controls and active accent affordances.                      |
+| `accent-active`   | `#EAB308` | Pointer press or active state for accent-filled controls and active accent affordances.            |
 | `on-accent`       | `#111827` | Text/icon on accent-filled controls.                                                               |
 | `canvas`          | `#0B0C0F` | Application background and deepest grid surround.                                                  |
 | `surface-1`       | `#111318` | Top bar, status strip, base panels.                                                                |
@@ -353,11 +356,13 @@ At the base viewport, built-in tabs are always-visible primary tabs in this orde
 | Surface family                          | Shell exposure                              | Ordering                                               |
 | --------------------------------------- | ------------------------------------------- | ------------------------------------------------------ |
 | Built-in tabs                           | Always-visible primary tabs.                | Timeline, Hosts, Identities, Evidence, Notes.          |
-| Scope and assessment system views       | `System views` switcher.                    | Indicators, Assessments, Parties.                      |
+| Scope and assessment system views       | `System views` switcher.                    | Indicators, Compromise Assessments, Parties.           |
 | Coordination system views               | `System views` switcher.                    | Task Requests, Decisions, Communications Log, Handoff. |
 | Review and learning system views        | `System views` switcher.                    | Status Review, Lesson.                                 |
 | Standardized optional artifact surfaces | Same switcher when implemented and exposed. | Findings, Investigative Queries, Forensic Keywords.    |
 | Saved views                             | Active surface view selector.               | Scope group, then display name.                        |
+
+For documentation, use `Compromise Assessments` as the canonical surface label for `cartulary.view.assessments.v1`. Constrained UI labels may use `Assessments` as a display shorthand only; no semantic distinction is intended.
 
 Do not expose all fourteen required surfaces as primary tabs. Do not make command-palette-only access the only way to reach required system views. Do not implement coordination surfaces as separate application modules.
 
@@ -488,7 +493,7 @@ Evidence is not a file path and not a pasted cell attachment. Use the evidence r
 | --------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | `requested`           | Evidence row exists without blob.                                        | `Requested` label and optional requested-at metadata.        |
 | `pending_receipt`     | Evidence expected but not received.                                      | Pending cue, no preview action.                              |
-| `received`            | Evidence metadata received, availability not complete.                   | Received cue, show next expected action.                     |
+| `received`            | Evidence metadata received, availability not complete.                   | Received cue; show Attach blob or Awaiting upload affordance as the next expected action depending on whether an upload slot has been issued. |
 | `pending` upload slot | Upload slot exists but is not attached.                                  | Local pending marker, no evidence count increment.           |
 | `available`           | Evidence available for preview or download according to handle contract. | Evidence count, preview/download affordance as allowed.      |
 | `failed`              | Upload or finalization failed.                                           | Failure marker and retry/fresh-slot affordance when allowed. |
@@ -556,7 +561,8 @@ Empty states stay in the active shell. They name the surface, explain the minimu
 | Evidence             | Evidence lifecycle, collector/source text and party references, upload/preview/download state.    |
 | Notes                | Artifact-backed text surface; not a replacement for task, decision, handoff, or evidence state.   |
 | Indicators           | Canonical indicators plus pivots to source observations and lifecycle history.                    |
-| Assessments          | Append-style assessment history, confidence band, rationale, support links.                       |
+| Compromise Assessments | Append-style assessment history, confidence band, rationale, support links.                     |
+| Parties              | Incident-scoped coordination identities; linkable from coordination surfaces, task requests, decisions, and communications log entries. |
 | Task Requests        | Queue-oriented work with owner, status, priority, due, blockers, and linked records.              |
 | Decisions            | Rationale-bearing coordination choices with owner, status, review class, and support references.  |
 | Communications Log   | Durable communication memory with audience, channel, summary, decisions, and action follow-up.    |

@@ -301,7 +301,7 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 | Status Review      | `cartulary.view.status_review.v1` | Checkpoint review and rebalancing.                              |
 | Lesson             | `cartulary.view.lesson.v1`        | Retrospective follow-through.                                   |
 
-*Design direction.* The label `Assessments` is the guide-local display label for `cartulary.view.assessments.v1`. The owner corpus MAY also use `Compromise Assessments` for the same surface. No semantic distinction is intended.
+*Design direction.* `Compromise Assessments` is the documentation-canonical surface label for `cartulary.view.assessments.v1`. Constrained UI labels MAY use `Assessments` as display shorthand only; no semantic distinction is intended.
 
 ### 6.3 Optional standardized workbook surfaces
 
