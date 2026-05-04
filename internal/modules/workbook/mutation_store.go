@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
@@ -188,11 +190,20 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 		return MutationResult{}, pgx.ErrNoRows
 	}
 	if meta.RowVersion != request.BaseRowVersion {
-		if collectionChange := firstCollectionChange(request.Changes); collectionChange != nil {
-			current, loadErr := s.loadGenericRowTx(ctx, tx, request.ViewSchemaID, recordID)
-			if loadErr == nil {
-				return MutationResult{}, buildCollectionSameFieldConflict(recordID, request.BaseRowVersion, meta.RowVersion, *collectionChange, current)
+		window, err := loadWorkbookPatchConflictWindowTx(ctx, tx, recordID, request.ViewSchemaID, request.BaseRowVersion, meta.RowVersion)
+		if err != nil {
+			return MutationResult{}, err
+		}
+		if change, changed, ok := overlappingWorkbookPatchChange(request.Changes, window.ChangedFields); ok {
+			current, err := s.loadGenericRowTx(ctx, tx, request.ViewSchemaID, recordID)
+			if err != nil {
+				return MutationResult{}, err
 			}
+			conflict, err := buildWorkbookSameFieldConflict(recordID, request.ViewSchemaID, request.BaseRowVersion, meta.RowVersion, requestHash, window, change, changed, current)
+			if err != nil {
+				return MutationResult{}, err
+			}
+			return MutationResult{}, conflict
 		}
 		return MutationResult{}, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
 	}
@@ -1134,26 +1145,6 @@ func touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recor
 	return nil
 }
 
-func buildCollectionSameFieldConflict(recordID uuid.UUID, base int64, current int64, change PatchChange, currentRow map[string]any) *SameFieldConflictError {
-	return &SameFieldConflictError{Conflict: map[string]any{
-		"record_id":           recordID.String(),
-		"field_key":           change.FieldKey,
-		"base_row_version":    base,
-		"current_row_version": current,
-		"current_field_value": cellValue(currentRow, change.FieldKey),
-		"conflict_resolution": "collection_review",
-	}}
-}
-
-func firstCollectionChange(changes []PatchChange) *PatchChange {
-	for index := range changes {
-		if changes[index].Collection != nil {
-			return &changes[index]
-		}
-	}
-	return nil
-}
-
 func changedFieldKeys(before map[string]any, after map[string]any) []string {
 	afterCells, _ := after["cells"].(map[string]any)
 	beforeCells := map[string]any{}
@@ -1170,10 +1161,329 @@ func changedFieldKeys(before map[string]any, after map[string]any) []string {
 	return keys
 }
 
-func cellValue(row map[string]any, fieldKey string) any {
+type workbookPatchConflictWindow struct {
+	BaseRow       map[string]any
+	ChangedFields map[string]workbookPatchChangedField
+}
+
+type workbookPatchChangedField struct {
+	ServerUpdatedBy uuid.UUID
+	ServerUpdatedAt time.Time
+}
+
+func loadWorkbookPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, currentRowVersion int64) (workbookPatchConflictWindow, error) {
+	rows, err := tx.Query(ctx, `
+SELECT rr.row_version, rr.before_json, rr.after_json, cs.actor_user_id, cs.created_at
+  FROM record_revisions rr
+  JOIN change_sets cs
+    ON cs.change_set_id = rr.change_set_id
+ WHERE rr.record_id = $1
+   AND rr.row_version >= $2
+   AND rr.row_version <= $3
+ ORDER BY rr.row_version ASC
+`, recordID, baseRowVersion, currentRowVersion)
+	if err != nil {
+		return workbookPatchConflictWindow{}, fmt.Errorf("query workbook patch conflict window: %w", err)
+	}
+	defer rows.Close()
+
+	window := workbookPatchConflictWindow{ChangedFields: make(map[string]workbookPatchChangedField)}
+	for rows.Next() {
+		var (
+			rowVersion int64
+			beforeJSON []byte
+			afterJSON  []byte
+			actorID    uuid.UUID
+			createdAt  time.Time
+		)
+		if err := rows.Scan(&rowVersion, &beforeJSON, &afterJSON, &actorID, &createdAt); err != nil {
+			return workbookPatchConflictWindow{}, fmt.Errorf("scan workbook patch conflict window: %w", err)
+		}
+		if rowVersion == baseRowVersion {
+			baseRow, ok := decodeRevisionRow(afterJSON)
+			if !ok {
+				return workbookPatchConflictWindow{}, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+			}
+			window.BaseRow = baseRow
+			continue
+		}
+		beforeRow, beforeOK := decodeRevisionRow(beforeJSON)
+		afterRow, afterOK := decodeRevisionRow(afterJSON)
+		if !beforeOK || !afterOK {
+			return workbookPatchConflictWindow{}, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+		}
+		for _, fieldKey := range changedRevisionWritableFieldKeys(viewSchemaID, beforeRow, afterRow) {
+			window.ChangedFields[fieldKey] = workbookPatchChangedField{
+				ServerUpdatedBy: actorID,
+				ServerUpdatedAt: createdAt.UTC(),
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return workbookPatchConflictWindow{}, fmt.Errorf("iterate workbook patch conflict window: %w", err)
+	}
+	if window.BaseRow == nil {
+		return workbookPatchConflictWindow{}, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+	}
+	return window, nil
+}
+
+func decodeRevisionRow(data []byte) (map[string]any, bool) {
+	if len(data) == 0 {
+		return nil, false
+	}
+	var row map[string]any
+	if err := json.Unmarshal(data, &row); err != nil {
+		return nil, false
+	}
+	if _, ok := row["cells"].(map[string]any); !ok {
+		return nil, false
+	}
+	return row, true
+}
+
+func changedRevisionWritableFieldKeys(viewSchemaID string, beforeRow map[string]any, afterRow map[string]any) []string {
+	beforeCells, _ := beforeRow["cells"].(map[string]any)
+	afterCells, _ := afterRow["cells"].(map[string]any)
+	changed := make([]string, 0)
+	for fieldKey, afterCell := range afterCells {
+		field, ok := viewschema.LookupField(viewSchemaID, fieldKey)
+		if !ok || !field.Writable || isReadOnlySystemField(fieldKey) {
+			continue
+		}
+		if !reflect.DeepEqual(beforeCells[fieldKey], afterCell) {
+			changed = append(changed, fieldKey)
+		}
+	}
+	slices.Sort(changed)
+	return changed
+}
+
+func overlappingWorkbookPatchChange(changes []PatchChange, changedFields map[string]workbookPatchChangedField) (PatchChange, workbookPatchChangedField, bool) {
+	for _, change := range changes {
+		changed, ok := changedFields[change.FieldKey]
+		if ok {
+			return change, changed, true
+		}
+	}
+	return PatchChange{}, workbookPatchChangedField{}, false
+}
+
+func buildWorkbookSameFieldConflict(recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, window workbookPatchConflictWindow, change PatchChange, changed workbookPatchChangedField, currentRow map[string]any) (*SameFieldConflictError, error) {
+	baseValue, ok := rowCellValue(window.BaseRow, change.FieldKey)
+	if !ok {
+		return nil, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+	}
+	serverValue, ok := rowCellValue(currentRow, change.FieldKey)
+	if !ok {
+		return nil, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+	}
+	clientValue, err := workbookPatchClientConflictValue(recordID, change, baseValue, requestHash)
+	if err != nil {
+		return nil, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
+	}
+	field, _ := viewschema.LookupField(viewSchemaID, change.FieldKey)
+	conflictClass := field.ConflictResolutionClass
+	if conflictClass == "" {
+		conflictClass = "atomic_replace"
+	}
+	return &SameFieldConflictError{Conflict: map[string]any{
+		"conflict_token":            workbookConflictToken(recordID, change.FieldKey, baseRowVersion, currentRowVersion, requestHash),
+		"record_id":                 recordID.String(),
+		"field_key":                 change.FieldKey,
+		"conflict_resolution_class": conflictClass,
+		"base_row_version":          baseRowVersion,
+		"current_row_version":       currentRowVersion,
+		"client_value":              clientValue,
+		"server_value":              serverValue,
+		"server_updated_by":         changed.ServerUpdatedBy.String(),
+		"server_updated_at":         changed.ServerUpdatedAt.UTC().Format(time.RFC3339Nano),
+		"base_value":                baseValue,
+	}}, nil
+}
+
+func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
 	cells, _ := row["cells"].(map[string]any)
-	cell, _ := cells[fieldKey].(map[string]any)
-	return cell["value"]
+	cell, ok := cells[fieldKey].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	value, ok := cell["value"]
+	return value, ok
+}
+
+func workbookPatchClientConflictValue(recordID uuid.UUID, change PatchChange, baseValue any, requestHash []byte) (any, error) {
+	if change.Collection == nil {
+		return canonicalValue(*change.Value), nil
+	}
+	return applyWorkbookCollectionConflictActions(recordID, change.FieldKey, baseValue, *change.Collection, requestHash)
+}
+
+func applyWorkbookCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseValue any, payload CollectionActionPayload, requestHash []byte) (map[string]any, error) {
+	ordered, items, ok := cloneWorkbookCollectionConflictValue(baseValue)
+	if !ok {
+		return nil, fmt.Errorf("invalid base collection value for %s", fieldKey)
+	}
+	for index, action := range payload.Actions {
+		switch action.Op {
+		case "add_record_ref", "add_party_ref", "add_token", "add_risk_ref":
+			items = upsertWorkbookCollectionConflictItem(items, newWorkbookClientCollectionItem(recordID, fieldKey, action, requestHash, index))
+		case "remove_record_ref", "remove_party_ref", "remove_risk_ref":
+			items = removeWorkbookCollectionConflictItem(items, action.ItemRef)
+		default:
+			return nil, fmt.Errorf("unsupported collection action: %s", action.Op)
+		}
+	}
+	if !ordered {
+		slices.SortFunc(items, func(left map[string]any, right map[string]any) int {
+			return strings.Compare(workbookCollectionSortKey(left), workbookCollectionSortKey(right))
+		})
+	}
+	return map[string]any{"kind": "collection_value_v1", "ordered": ordered, "items": items}, nil
+}
+
+func cloneWorkbookCollectionConflictValue(value any) (bool, []map[string]any, bool) {
+	object, ok := value.(map[string]any)
+	if !ok || object["kind"] != "collection_value_v1" {
+		return false, nil, false
+	}
+	ordered, ok := object["ordered"].(bool)
+	if !ok {
+		return false, nil, false
+	}
+	items := make([]map[string]any, 0)
+	switch rawItems := object["items"].(type) {
+	case []any:
+		for _, rawItem := range rawItems {
+			item, ok := rawItem.(map[string]any)
+			if !ok {
+				return false, nil, false
+			}
+			items = append(items, cloneWorkbookMap(item))
+		}
+	case []map[string]any:
+		for _, item := range rawItems {
+			items = append(items, cloneWorkbookMap(item))
+		}
+	default:
+		return false, nil, false
+	}
+	return ordered, items, true
+}
+
+func cloneWorkbookMap(source map[string]any) map[string]any {
+	cloned := make(map[string]any, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func newWorkbookClientCollectionItem(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) map[string]any {
+	switch action.Op {
+	case "add_record_ref":
+		linkedID := action.LinkedRecordID.String()
+		targetType := expectedTargetType(fieldKey)
+		if targetType == "" {
+			targetType = "record"
+		}
+		return map[string]any{
+			"item_ref":         "record_ref:" + linkedID,
+			"item_kind":        "record_ref",
+			"display_text":     targetType + ":" + linkedID,
+			"linked_record_id": linkedID,
+		}
+	case "add_party_ref":
+		partyID := action.PartyID.String()
+		return map[string]any{
+			"item_ref":     "party_ref:" + partyID,
+			"item_kind":    "party_ref",
+			"display_text": "party:" + partyID,
+			"party_id":     partyID,
+		}
+	case "add_token":
+		return map[string]any{
+			"item_ref":     "tag:" + action.NormalizedText,
+			"item_kind":    "tag",
+			"display_text": action.NormalizedText,
+			"raw_text":     action.NormalizedText,
+		}
+	case "add_risk_ref":
+		riskRefID := workbookConflictLocalUUID(recordID, fieldKey, action, requestHash, actionIndex)
+		return map[string]any{
+			"item_ref":      "risk_ref:" + riskRefID.String(),
+			"item_kind":     "risk_ref",
+			"display_text":  action.RiskRefText,
+			"risk_ref_id":   riskRefID.String(),
+			"risk_ref_text": action.RiskRefText,
+		}
+	default:
+		return map[string]any{}
+	}
+}
+
+func upsertWorkbookCollectionConflictItem(items []map[string]any, item map[string]any) []map[string]any {
+	itemRef, _ := item["item_ref"].(string)
+	if itemRef == "" {
+		return items
+	}
+	for index, existing := range items {
+		if existing["item_ref"] == itemRef {
+			items[index] = item
+			return items
+		}
+		if item["item_kind"] == "risk_ref" && existing["item_kind"] == "risk_ref" && existing["risk_ref_text"] == item["risk_ref_text"] {
+			items[index] = item
+			return items
+		}
+	}
+	return append(items, item)
+}
+
+func removeWorkbookCollectionConflictItem(items []map[string]any, itemRef string) []map[string]any {
+	filtered := items[:0]
+	for _, item := range items {
+		if item["item_ref"] != itemRef {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func workbookCollectionSortKey(item map[string]any) string {
+	for _, key := range []string{"item_kind", "display_text", "item_ref"} {
+		if value, ok := item[key].(string); ok && value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func workbookConflictToken(recordID uuid.UUID, fieldKey string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) string {
+	sum := hashRequestPayload(map[string]any{
+		"record_id":           recordID.String(),
+		"field_key":           fieldKey,
+		"base_row_version":    baseRowVersion,
+		"current_row_version": currentRowVersion,
+		"request_hash":        base64.RawURLEncoding.EncodeToString(requestHash),
+	})
+	token := base64.RawURLEncoding.EncodeToString(sum)
+	if len(token) > 24 {
+		return token[:24]
+	}
+	return token
+}
+
+func workbookConflictLocalUUID(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {
+	seed, _ := json.Marshal(map[string]any{
+		"record_id":     recordID.String(),
+		"field_key":     fieldKey,
+		"request_hash":  base64.RawURLEncoding.EncodeToString(requestHash),
+		"action_index":  actionIndex,
+		"op":            action.Op,
+		"risk_ref_text": action.NormalizedText,
+	})
+	return uuid.NewSHA1(uuid.NameSpaceOID, seed)
 }
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {
