@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/minio/minio-go/v7"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
@@ -40,7 +39,7 @@ type Options struct {
 	Env         map[string]string
 	HTTP        httpapi.Options
 	Postgres    *pgxpool.Pool
-	ObjectStore *minio.Client
+	ObjectStore objectstore.Store
 	Now         func() time.Time
 }
 
@@ -48,7 +47,7 @@ type Runtime struct {
 	Config      config.Config
 	Handler     http.Handler
 	Postgres    *pgxpool.Pool
-	ObjectStore *minio.Client
+	ObjectStore objectstore.Store
 	Jobs        *jobs.Manager
 	WSHub       *platformws.Hub
 }
@@ -124,6 +123,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 func (r *Runtime) Close() {
 	if r == nil {
 		return
+	}
+	if r.ObjectStore != nil {
+		_ = r.ObjectStore.Close()
 	}
 	if r.Postgres != nil {
 		r.Postgres.Close()

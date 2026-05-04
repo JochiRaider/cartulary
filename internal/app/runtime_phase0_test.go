@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/minio/minio-go/v7"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
@@ -44,7 +44,7 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	}
 
 	var objectStoreCalls int
-	setupObjectStore = func(ctx context.Context, cfg config.Config, env map[string]string) (*minio.Client, error) {
+	setupObjectStore = func(ctx context.Context, cfg config.Config, env map[string]string) (objectstore.Store, error) {
 		objectStoreCalls++
 		return nil, nil
 	}

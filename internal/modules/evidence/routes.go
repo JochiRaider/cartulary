@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/minio/minio-go/v7"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -30,8 +29,7 @@ type Service struct {
 	store          *Store
 	incidentStore  *incidents.Store
 	authStore      *authn.Store
-	objectStore    *minio.Client
-	bucket         string
+	objectStore    objectstore.Store
 	hub            *platformws.Hub
 	keys           authn.MasterKeys
 	now            func() time.Time
@@ -47,6 +45,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 			return err
 		}
 		mux.HandleFunc("POST /api/v1/object-blobs", service.handleCreateBlob)
+		mux.HandleFunc("PUT /api/v1/object-uploads/{upload_token}", service.handleUploadTarget)
 		mux.HandleFunc("POST /api/v1/evidence-records/{record_id}/attach-blob", service.handleAttachBlob)
 		mux.HandleFunc("POST /api/v1/evidence-records/{record_id}/preview-handle", service.handlePreviewHandle)
 		mux.HandleFunc("POST /api/v1/evidence-records/{record_id}/download-handle", service.handleDownloadHandle)
@@ -60,10 +59,6 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	settings, err := objectstore.ResolveSettings(deps.Config, deps.Env)
-	if err != nil {
-		return nil, err
-	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -73,7 +68,6 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		incidentStore:  incidents.NewStore(deps.Postgres),
 		authStore:      authn.NewStore(deps.Postgres),
 		objectStore:    deps.ObjectStore,
-		bucket:         settings.Bucket,
 		hub:            deps.WSHub,
 		keys:           keys,
 		now:            now,
@@ -103,10 +97,17 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 	storageKey := fmt.Sprintf("incidents/%s/object-blobs/%s", request.IncidentID, objectBlobID)
 	targetExpiresAt := now.Add(60 * time.Minute)
 	pendingExpiresAt := now.Add(24 * time.Hour)
-	targetURL, err := s.objectStore.PresignedPutObject(r.Context(), s.bucket, storageKey, 60*time.Minute)
+	target, err := s.objectStore.UploadTarget(r.Context(), storageKey, targetExpiresAt)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
+	}
+	if strings.HasPrefix(target.Href, "/") {
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		target.Href = scheme + "://" + r.Host + target.Href
 	}
 	result, err := s.store.CreateBlobSlot(r.Context(), BlobSlotParams{
 		ObjectBlobID: objectBlobID, IncidentID: request.IncidentID, ActorUserID: principal.User.ID,
@@ -114,10 +115,10 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		ContentTypeHint: request.ContentTypeHint, ExpectedSHA256Hex: request.SHA256Hex,
 		TargetExpiresAt: targetExpiresAt, PendingExpiresAt: pendingExpiresAt,
 		UploadTarget: map[string]any{
-			"href":       targetURL.String(),
-			"method":     "PUT",
+			"href":       target.Href,
+			"method":     target.Method,
 			"expires_at": formatHTTPTime(targetExpiresAt),
-			"headers":    map[string]any{},
+			"headers":    target.Headers,
 		},
 		AcceptedContract: request.AcceptedContract,
 		RequestHash:      BlobCreateRequestHash(request),
@@ -139,6 +140,18 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+}
+
+func (s *Service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("upload_token")
+	contentType := r.Header.Get("Content-Type")
+	body := http.MaxBytesReader(w, r.Body, s.maxBlobBytes+1)
+	defer body.Close()
+	if err := s.objectStore.CompleteUploadTarget(r.Context(), token, body, contentType); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
@@ -345,16 +358,17 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	opts := minio.GetObjectOptions{}
+	readOptions := objectstore.ReadOptions{}
 	status := http.StatusOK
 	if rangeHeader := r.Header.Get("Range"); rangeHeader != "" {
 		if start, end, ok := parseByteRange(rangeHeader, handle.SizeBytes); ok {
-			_ = opts.SetRange(start, end)
+			readOptions.RangeStart = &start
+			readOptions.RangeEnd = &end
 			status = http.StatusPartialContent
 			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, handle.SizeBytes))
 		}
 	}
-	object, err := s.objectStore.GetObject(r.Context(), s.bucket, handle.StorageKey, opts)
+	object, _, err := s.objectStore.ReadObject(r.Context(), handle.StorageKey, readOptions)
 	if err != nil {
 		writeAPIError(w, r, evidenceAccessUnavailable("missing_blob"))
 		return
@@ -370,11 +384,11 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) observeUploadedObject(ctx context.Context, blob BlobRecord) (*ObservedObject, error) {
-	stat, err := s.objectStore.StatObject(ctx, s.bucket, blob.StorageKey, minio.StatObjectOptions{})
+	stat, err := s.objectStore.StatObject(ctx, blob.StorageKey)
 	if err != nil {
 		return nil, err
 	}
-	object, err := s.objectStore.GetObject(ctx, s.bucket, blob.StorageKey, minio.GetObjectOptions{})
+	object, _, err := s.objectStore.ReadObject(ctx, blob.StorageKey, objectstore.ReadOptions{})
 	if err != nil {
 		return nil, err
 	}

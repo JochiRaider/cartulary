@@ -23,17 +23,16 @@ func TestSupportPhase0_ManagedServiceObjectStoreBinding(t *testing.T) {
 			}
 		}()
 
-		client, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
+		store, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
 		if err != nil {
 			t.Fatalf("setup object store from managed-service binding: %v", err)
 		}
 
-		exists, err := client.BucketExists(context.Background(), bucket)
-		if err != nil {
-			t.Fatalf("check bucket existence: %v", err)
+		if err := store.PutObject(context.Background(), "support/proof.txt", strings.NewReader("proof"), int64(len("proof")), "text/plain"); err != nil {
+			t.Fatalf("put managed-service proof object: %v", err)
 		}
-		if !exists {
-			t.Fatalf("expected setup to create configured bucket %q", bucket)
+		if _, err := store.StatObject(context.Background(), "support/proof.txt"); err != nil {
+			t.Fatalf("stat managed-service proof object: %v", err)
 		}
 	})
 

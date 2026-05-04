@@ -125,6 +125,7 @@ func processEnv(t testing.TB, databaseEnv map[string]string, objectStoreEnv map[
 	for key, value := range tempRoots.Paths {
 		env[key] = value
 	}
+	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env)
 	env["CARTULARY_CONFIG_FILE"] = configPath
 	if bootstrapPath != "" {
 		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = bootstrapPath

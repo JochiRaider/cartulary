@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/minio/minio-go/v7"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -22,7 +21,7 @@ type testRuntimeResetService struct {
 	cfg         config.Config
 	env         map[string]string
 	postgres    *pgxpool.Pool
-	objectStore *minio.Client
+	objectStore objectstore.Store
 }
 
 type testRuntimeResetResult struct {
@@ -169,18 +168,14 @@ func truncateTables(ctx context.Context, pool *pgxpool.Pool, tables []string) er
 	return err
 }
 
-func clearConfiguredObjectBucket(ctx context.Context, cfg config.Config, env map[string]string, client *minio.Client) (int, error) {
-	settings, err := objectstore.ResolveSettings(cfg, env)
+func clearConfiguredObjectBucket(ctx context.Context, cfg config.Config, env map[string]string, client objectstore.Store) (int, error) {
+	removed := 0
+	objects, err := client.ListObjects(ctx, "")
 	if err != nil {
 		return 0, err
 	}
-
-	removed := 0
-	for objectInfo := range client.ListObjects(ctx, settings.Bucket, minio.ListObjectsOptions{Recursive: true}) {
-		if objectInfo.Err != nil {
-			return removed, objectInfo.Err
-		}
-		if err := client.RemoveObject(ctx, settings.Bucket, objectInfo.Key, minio.RemoveObjectOptions{}); err != nil {
+	for _, objectInfo := range objects {
+		if err := client.DeleteObject(ctx, objectInfo.Key); err != nil {
 			return removed, err
 		}
 		removed++
@@ -188,20 +183,12 @@ func clearConfiguredObjectBucket(ctx context.Context, cfg config.Config, env map
 	return removed, nil
 }
 
-func countConfiguredObjectBucket(ctx context.Context, cfg config.Config, env map[string]string, client *minio.Client) (int, error) {
-	settings, err := objectstore.ResolveSettings(cfg, env)
+func countConfiguredObjectBucket(ctx context.Context, cfg config.Config, env map[string]string, client objectstore.Store) (int, error) {
+	objects, err := client.ListObjects(ctx, "")
 	if err != nil {
 		return 0, err
 	}
-
-	count := 0
-	for objectInfo := range client.ListObjects(ctx, settings.Bucket, minio.ListObjectsOptions{Recursive: true}) {
-		if objectInfo.Err != nil {
-			return count, objectInfo.Err
-		}
-		count++
-	}
-	return count, nil
+	return len(objects), nil
 }
 
 func countTableRows(ctx context.Context, pool *pgxpool.Pool, table string) (int, error) {

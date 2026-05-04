@@ -119,7 +119,7 @@ run_migrate() {
   (
     cd "$ROOT_DIR"
     export CARTULARY_CONFIG_FILE="$CONFIG_FILE"
-    export CARTULARY_POSTGRES_DSN="postgres://cartulary:cartulary@localhost:5432/$db_name?sslmode=disable"
+    export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://cartulary:cartulary@localhost:5432/$db_name?sslmode=disable"
     if [[ -n "$MIGRATE_BIN" && -x "$MIGRATE_BIN" ]]; then
       "$MIGRATE_BIN" "$command" "$@"
     else

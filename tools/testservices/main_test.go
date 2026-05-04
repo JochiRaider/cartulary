@@ -858,10 +858,10 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 	}
 	envText := string(envRaw)
 	for _, expected := range []string{
-		`export CARTULARY_POSTGRES_DSN='postgres://cartulary:pa'"'"'ss@127.0.0.1:5432/ct_web?sslmode=disable'`,
-		`export CARTULARY_S3_ACCESS_KEY_ID='access'"'"'key'`,
-		`export CARTULARY_S3_BUCKET='ct-web'`,
-		`export CARTULARY_S3_SECURE='true'`,
+		`export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN='postgres://cartulary:pa'"'"'ss@127.0.0.1:5432/ct_web?sslmode=disable'`,
+		`export CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID='access'"'"'key'`,
+		`export CARTULARY_S3_OBJECT_PRIMARY_BUCKET='ct-web'`,
+		`export CARTULARY_S3_OBJECT_PRIMARY_SECURE='true'`,
 	} {
 		if !strings.Contains(envText, expected) {
 			t.Fatalf("env file missing %q in:\n%s", expected, envText)

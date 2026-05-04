@@ -26,7 +26,7 @@
       "| Fail-closed WebSocket boundary | `internal/testutil/processtest.RequireWebsocketConnectionRefused`, built on `internal/testutil/wstest`, proves Phase 0 startup failures expose no WebSocket surface. |",
       "| Mutation attribution, secret-safe payloads, and bootstrap auth-binding shape | `internal/testutil/crosscutting` plus `internal/testutil/phase0test.RequireBootstrapUserLocalAuthOnly` cover startup audit attribution, secret-safe payloads, and bootstrap-created-user auth-binding shape. |",
       "| Real Postgres bootstrap harness | `internal/platform/postgres/postgres_phase0_test.go::TestPhase0_SchemaBootstrap_I_0_01` and the runtime integration suite prove migration and bootstrap state against real PostgreSQL. |",
-      "| Real object-store binding harness | `internal/platform/objectstore/objectstore_phase0_test.go::TestPhase0_ObjectStoreInitialization_I_0_02` and the real process suite prove disconnected `filesystem_root` resolution through the generic `CARTULARY_S3_*` contract and live MinIO reachability. |"
+      "| Real object-store binding harness | `internal/platform/objectstore/objectstore_phase0_test.go::TestPhase0_ObjectStoreInitialization_I_0_02` proves disconnected `filesystem_root` object storage through the configured root path, while the real process suite proves runtime startup consumes validated root bindings. |"
     ],
     "support_only": [
       "`internal/platform/postgres/postgres_phase0_support_test.go` keeps the migration-text regression guard; authoritative schema-bootstrap evidence stays `I-0-01`.",
@@ -228,7 +228,7 @@
       "symbol": "TestPhase0_ObjectStoreInitialization_I_0_02",
       "execution_dependency": "backend_integration",
       "evidence_layer": "object_store_integration",
-      "claim": "Real S3-compatible object-store setup resolves disconnected `filesystem_root` bindings through the generic `CARTULARY_S3_*` contract and completes a live round trip.",
+      "claim": "Disconnected `filesystem_root` object-store setup uses only `roots.object_storage.path`, ignores generic S3 service coordinates, and completes filesystem-backed write, read, stat, list, delete, upload-target, and path-escape checks.",
       "out_of_scope": "Managed-service object-store binding coverage remains supplemental.",
       "execution_family": "backend-integration-platform",
       "execution_label": "backend-integration phase0 authoritative platform"

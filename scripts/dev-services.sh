@@ -114,7 +114,9 @@ db_reset() {
   compose exec -T postgres psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS cartulary;"
   compose exec -T postgres psql -U cartulary -d postgres -c "CREATE DATABASE cartulary;"
   cd "$ROOT_DIR"
-  env CARTULARY_CONFIG_FILE="$config_file" GOCACHE="$go_cache" GOMODCACHE="$go_mod_cache" \
+  env CARTULARY_CONFIG_FILE="$config_file" \
+    CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable" \
+    GOCACHE="$go_cache" GOMODCACHE="$go_mod_cache" \
     "$go_bin" run ./cmd/migrate up
 }
 

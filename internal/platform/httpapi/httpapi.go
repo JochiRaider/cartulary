@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/minio/minio-go/v7"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
@@ -26,7 +26,7 @@ type DependencySet struct {
 	Config      config.Config
 	Env         map[string]string
 	Postgres    *pgxpool.Pool
-	ObjectStore *minio.Client
+	ObjectStore objectstore.Store
 	Jobs        *jobs.Manager
 	WSHub       *platformws.Hub
 	Pagination  *pagination.Registry

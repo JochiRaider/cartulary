@@ -90,7 +90,7 @@ EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
-printf '%s|%s\n' "${CARTULARY_POSTGRES_DSN:?}" "$*" >>"${MIGRATE_LOG:?}"
+printf '%s|%s\n' "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}" "$*" >>"${MIGRATE_LOG:?}"
 if [[ "$*" == *"up-by-one"* ]]; then
   exit 91
 fi

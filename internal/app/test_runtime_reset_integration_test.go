@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/minio/minio-go/v7"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -61,7 +60,7 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 
 	beforeGooseVersions := requireSQLCount(t, db, `SELECT COUNT(*) FROM goose_db_version`)
 	seedTestRuntimeResetRows(t, db)
-	if _, err := runtime.ObjectStore.PutObject(context.Background(), bucket, "reset/proof.txt", bytes.NewReader([]byte("proof")), int64(len("proof")), minio.PutObjectOptions{}); err != nil {
+	if err := runtime.ObjectStore.PutObject(context.Background(), "reset/proof.txt", bytes.NewReader([]byte("proof")), int64(len("proof")), "text/plain"); err != nil {
 		t.Fatalf("put reset proof object: %v", err)
 	}
 
@@ -108,6 +107,7 @@ func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []h
 			effectiveEnv[key] = value
 		}
 	}
+	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv)
 
 	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, effectiveEnv)
 	clock := httpapi.NewTestClock()

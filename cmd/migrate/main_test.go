@@ -43,7 +43,7 @@ func TestMigrateBinaryRunsFromNonRepoWorkingDirectory(t *testing.T) {
 	command.Dir = t.TempDir()
 	command.Env = append(os.Environ(),
 		"CARTULARY_CONFIG_FILE="+filepath.Join(repoRoot, "configs", "dev", "config.toml"),
-		"CARTULARY_POSTGRES_DSN="+testDB.DSN,
+		"CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="+testDB.DSN,
 	)
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("run migrate binary from non-repo cwd: %v\n%s", err, output)

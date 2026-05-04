@@ -68,7 +68,7 @@ func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			counters := installPhase0StartupCounters(t)
-			cfg := tc.mutate(phase0RuntimeConfig(t))
+			cfg := phase0BindPostgres(t, tc.mutate(phase0RuntimeConfig(t)), env)
 
 			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
 			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", tc.goldenFile})
@@ -95,7 +95,7 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 		}()
 
 		env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
-		cfg := phase0RuntimeConfig(t)
+		cfg := phase0BindPostgres(t, phase0RuntimeConfig(t), env)
 		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
 
 		runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
@@ -185,7 +185,7 @@ EXECUTE FUNCTION phase0_fail_bootstrap_audit();
 		}()
 
 		env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
-		cfg := phase0RuntimeConfig(t)
+		cfg := phase0BindPostgres(t, phase0RuntimeConfig(t), env)
 		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
 
 		counters := installPhase0StartupCounters(t)
@@ -306,7 +306,7 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 			}()
 
 			env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
-			cfg := phase0RuntimeConfig(t)
+			cfg := phase0BindPostgres(t, phase0RuntimeConfig(t), env)
 			if tc.manifestPath != nil {
 				cfg.Bootstrap.FirstAdminManifestPath = tc.manifestPath(t)
 			}
@@ -361,7 +361,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				cfg := phase0RuntimeConfig(t)
+				cfg := phase0BindPostgres(t, phase0RuntimeConfig(t), env)
 				cfg.Bootstrap.FirstAdminManifestPath = tc.manifestPath
 
 				runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
@@ -400,7 +400,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 		}()
 
 		env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
-		cfg := phase0RuntimeConfig(t)
+		cfg := phase0BindPostgres(t, phase0RuntimeConfig(t), env)
 		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
 
 		counters := installPhase0StartupCounters(t)
@@ -544,6 +544,12 @@ func phase0IntegrationEnv(databaseEnv map[string]string, objectStoreEnv map[stri
 		env[key] = value
 	}
 	return env
+}
+
+func phase0BindPostgres(t testing.TB, cfg config.Config, env map[string]string) config.Config {
+	t.Helper()
+	configtest.BindPostgresEnvToDatabaseRoot(t, cfg.Roots.DatabaseStorage.Path, env)
+	return cfg
 }
 
 func openPhase0SQL(t testing.TB, dsn string) *sql.DB {

@@ -1033,6 +1033,14 @@ func (db *TestDatabase) Env() map[string]string {
 	}
 }
 
+func (db *TestDatabase) EnvForServiceRef(serviceRef string) map[string]string {
+	key, err := postgres.EnvKeyForServiceRef(serviceRef)
+	if err != nil {
+		return map[string]string{}
+	}
+	return map[string]string{key: db.DSN}
+}
+
 func (h *Harness) dsnFor(database string) string {
 	if h.dsnTemplate != "" {
 		return strings.ReplaceAll(h.dsnTemplate, "{database}", database)

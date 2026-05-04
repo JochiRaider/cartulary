@@ -9,7 +9,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -19,8 +21,11 @@ import (
 )
 
 const (
-	PostgresDSNEnv  = "CARTULARY_POSTGRES_DSN"
-	GooseLogFileEnv = "CARTULARY_GOOSE_LOG_FILE"
+	PostgresDSNEnv          = "CARTULARY_POSTGRES_DSN"
+	FilesystemRootDSNFile   = "postgres.dsn"
+	ManagedServiceDSNPrefix = "CARTULARY_POSTGRES_"
+	ManagedServiceDSNSuffix = "_DSN"
+	GooseLogFileEnv         = "CARTULARY_GOOSE_LOG_FILE"
 )
 
 var (
@@ -32,7 +37,10 @@ var (
 )
 
 type Settings struct {
-	DSN string
+	BindingKind string
+	RootPath    string
+	DSN         string
+	ServiceRef  string
 }
 
 type MigrationSource struct {
@@ -62,17 +70,54 @@ func NewEmbeddedMigrationSource(fsys fs.FS, path string, name string) MigrationS
 }
 
 func ConnectionString(cfg config.Config) string {
-	return ResolveSettings(cfg, nil).DSN
+	settings, err := ResolveSettings(cfg, nil)
+	if err != nil {
+		return ""
+	}
+	return settings.DSN
 }
 
-func ResolveSettings(cfg config.Config, env map[string]string) Settings {
-	_ = cfg
-	if dsn, ok := lookupEnv(env, PostgresDSNEnv); ok && dsn != "" {
-		return Settings{DSN: dsn}
-	}
+func ResolveSettings(cfg config.Config, env map[string]string) (Settings, error) {
+	switch cfg.Roots.DatabaseStorage.BindingKind {
+	case "filesystem_root":
+		if cfg.Roots.DatabaseStorage.Path == "" {
+			return Settings{}, fmt.Errorf("resolve postgres settings: roots.database_storage.path is required")
+		}
+		root, err := os.OpenRoot(cfg.Roots.DatabaseStorage.Path)
+		if err != nil {
+			return Settings{}, fmt.Errorf("resolve postgres settings: open database storage root %s: %w", cfg.Roots.DatabaseStorage.Path, err)
+		}
+		defer root.Close()
 
-	return Settings{
-		DSN: "postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable",
+		payload, err := root.ReadFile(FilesystemRootDSNFile)
+		if err != nil {
+			return Settings{}, fmt.Errorf("resolve postgres settings: read root-bound DSN file %s: %w", filepath.Join(cfg.Roots.DatabaseStorage.Path, FilesystemRootDSNFile), err)
+		}
+		dsn := strings.TrimSpace(string(payload))
+		if dsn == "" {
+			return Settings{}, fmt.Errorf("resolve postgres settings: root-bound DSN file %s is empty", filepath.Join(cfg.Roots.DatabaseStorage.Path, FilesystemRootDSNFile))
+		}
+		return Settings{
+			BindingKind: "filesystem_root",
+			RootPath:    cfg.Roots.DatabaseStorage.Path,
+			DSN:         dsn,
+		}, nil
+	case "managed_service":
+		key, err := EnvKeyForServiceRef(cfg.Roots.DatabaseStorage.ServiceRef)
+		if err != nil {
+			return Settings{}, err
+		}
+		dsn, ok := lookupEnv(env, key)
+		if !ok || dsn == "" {
+			return Settings{}, fmt.Errorf("missing postgres DSN for managed service %q (%s)", cfg.Roots.DatabaseStorage.ServiceRef, key)
+		}
+		return Settings{
+			BindingKind: "managed_service",
+			DSN:         dsn,
+			ServiceRef:  cfg.Roots.DatabaseStorage.ServiceRef,
+		}, nil
+	default:
+		return Settings{}, fmt.Errorf("resolve postgres settings: roots.database_storage.binding_kind must be configured before postgres setup")
 	}
 }
 
@@ -81,13 +126,15 @@ func Setup(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 }
 
 func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string) (*pgxpool.Pool, error) {
-	settings := ResolveSettings(cfg, env)
+	settings, err := ResolveSettings(cfg, env)
+	if err != nil {
+		return nil, err
+	}
 	poolConfig, err := pgxpool.ParseConfig(settings.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("parse postgres config: %w", err)
 	}
 
-	// TODO: derive the runtime DSN from deployment configuration instead of fixed local defaults.
 	return pgxpool.NewWithConfig(ctx, poolConfig)
 }
 
@@ -96,13 +143,24 @@ func OpenSQL(cfg config.Config) (*sql.DB, error) {
 }
 
 func OpenSQLWithEnv(cfg config.Config, env map[string]string) (*sql.DB, error) {
-	settings := ResolveSettings(cfg, env)
+	settings, err := ResolveSettings(cfg, env)
+	if err != nil {
+		return nil, err
+	}
 	db, err := sql.Open("pgx", settings.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("open postgres sql handle: %w", err)
 	}
 
 	return db, nil
+}
+
+func EnvKeyForServiceRef(serviceRef string) (string, error) {
+	normalized := normalizeServiceRef(serviceRef)
+	if normalized == "" {
+		return "", fmt.Errorf("resolve managed postgres env key: service_ref must contain at least one letter or digit")
+	}
+	return ManagedServiceDSNPrefix + normalized + ManagedServiceDSNSuffix, nil
 }
 
 func Migrate(ctx context.Context, db *sql.DB, source MigrationSource, command string, args ...string) (MigrationStatus, error) {
@@ -296,4 +354,21 @@ func lookupEnv(env map[string]string, key string) (string, bool) {
 	}
 
 	return os.LookupEnv(key)
+}
+
+func normalizeServiceRef(value string) string {
+	var builder strings.Builder
+	previousUnderscore := false
+	for _, r := range value {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			builder.WriteRune(unicode.ToUpper(r))
+			previousUnderscore = false
+		case !previousUnderscore:
+			builder.WriteByte('_')
+			previousUnderscore = true
+		}
+	}
+
+	return strings.Trim(builder.String(), "_")
 }

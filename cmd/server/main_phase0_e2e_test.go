@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -49,9 +51,21 @@ func TestPhase0_ReadyState_E_0_01(t *testing.T) {
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 
 	payload := []byte("phase0 ready state proof")
-	got, err := s3Harness.RoundTrip(context.Background(), bucket, "phase0-ready.txt", payload)
+	store, err := objectstore.NewFilesystemStore(env["CARTULARY__ROOTS__OBJECT_STORAGE__PATH"])
 	if err != nil {
-		t.Fatalf("round trip against ready deployment object store: %v", err)
+		t.Fatalf("open configured filesystem object store: %v", err)
+	}
+	if err := store.PutObject(context.Background(), "phase0-ready.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
+		t.Fatalf("write configured filesystem object store: %v", err)
+	}
+	object, _, err := store.ReadObject(context.Background(), "phase0-ready.txt", objectstore.ReadOptions{})
+	if err != nil {
+		t.Fatalf("read configured filesystem object store: %v", err)
+	}
+	defer object.Close()
+	got, err := io.ReadAll(object)
+	if err != nil {
+		t.Fatalf("read configured object-store payload: %v", err)
 	}
 	if !bytes.Equal(got, payload) {
 		t.Fatalf("unexpected object-store payload after ready state: got %q want %q", got, payload)
@@ -355,6 +369,7 @@ func phase0ServerEnv(t testing.TB, databaseEnv map[string]string, objectStoreEnv
 	for key, value := range tempRoots.Paths {
 		env[key] = value
 	}
+	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env)
 	env["CARTULARY_CONFIG_FILE"] = configPath
 	if bootstrapPath != "" {
 		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = bootstrapPath

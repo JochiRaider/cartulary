@@ -3,52 +3,47 @@ package objectstore_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestPhase0_ObjectStoreInitialization_I_0_02(t *testing.T) {
-	s3Harness := s3test.Start(t)
-
-	t.Run("derives disconnected filesystem-root settings from the generic CARTULARY_S3 environment contract", func(t *testing.T) {
-		bucket := fmt.Sprintf("phase0-i-0-02-%d", time.Now().UnixNano())
-		defer func() {
-			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-				t.Logf("cleanup bucket: %v", err)
-			}
-		}()
-
-		client, err := objectstore.SetupWithEnv(context.Background(), disconnectedObjectStoreConfig(t), s3Harness.Env(bucket))
+	t.Run("derives disconnected filesystem-root storage only from roots.object_storage.path", func(t *testing.T) {
+		cfg := disconnectedObjectStoreConfig(t)
+		store, err := objectstore.SetupWithEnv(context.Background(), cfg, map[string]string{
+			objectstore.EndpointEnv:  "127.0.0.1:1",
+			objectstore.AccessKeyEnv: "wrong",
+			objectstore.SecretKeyEnv: "wrong",
+			objectstore.BucketEnv:    "wrong-bucket",
+		})
 		if err != nil {
-			t.Fatalf("setup object store from disconnected filesystem-root binding: %v", err)
+			t.Fatalf("setup filesystem-root object store: %v", err)
 		}
-
-		exists, err := client.BucketExists(context.Background(), bucket)
-		if err != nil {
-			t.Fatalf("check bucket existence: %v", err)
-		}
-		if !exists {
-			t.Fatalf("expected setup to create configured bucket %q", bucket)
-		}
+		defer store.Close()
 
 		payload := []byte("phase0 object-store bootstrap")
-		_, err = client.PutObject(context.Background(), bucket, "proof.txt", bytes.NewReader(payload), int64(len(payload)), minio.PutObjectOptions{})
-		if err != nil {
-			t.Fatalf("put object: %v", err)
+		if err := store.PutObject(context.Background(), "proof/proof.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
+			t.Fatalf("put filesystem object: %v", err)
 		}
 
-		object, err := client.GetObject(context.Background(), bucket, "proof.txt", minio.GetObjectOptions{})
+		stat, err := store.StatObject(context.Background(), "proof/proof.txt")
 		if err != nil {
-			t.Fatalf("get object: %v", err)
+			t.Fatalf("stat filesystem object: %v", err)
+		}
+		if stat.Size != int64(len(payload)) || stat.ContentType != "text/plain" {
+			t.Fatalf("unexpected filesystem object stat: %#v", stat)
+		}
+
+		object, _, err := store.ReadObject(context.Background(), "proof/proof.txt", objectstore.ReadOptions{})
+		if err != nil {
+			t.Fatalf("read filesystem object: %v", err)
 		}
 		defer object.Close()
 
@@ -60,25 +55,86 @@ func TestPhase0_ObjectStoreInitialization_I_0_02(t *testing.T) {
 			t.Fatalf("unexpected object payload: got %q want %q", got, payload)
 		}
 
-		if err := client.RemoveObject(context.Background(), bucket, "proof.txt", minio.RemoveObjectOptions{}); err != nil {
-			t.Fatalf("remove object: %v", err)
+		objects, err := store.ListObjects(context.Background(), "")
+		if err != nil {
+			t.Fatalf("list filesystem objects: %v", err)
+		}
+		if len(objects) != 1 || objects[0].Key != "proof/proof.txt" {
+			t.Fatalf("unexpected filesystem object listing: %#v", objects)
+		}
+
+		if err := store.DeleteObject(context.Background(), "proof/proof.txt"); err != nil {
+			t.Fatalf("delete filesystem object: %v", err)
+		}
+		objects, err = store.ListObjects(context.Background(), "")
+		if err != nil {
+			t.Fatalf("list filesystem objects after delete: %v", err)
+		}
+		if len(objects) != 0 {
+			t.Fatalf("expected no filesystem objects after delete, got %#v", objects)
 		}
 	})
 
-	t.Run("fails closed when only managed-service variables are present for a disconnected filesystem-root binding", func(t *testing.T) {
-		bucket := fmt.Sprintf("phase0-i-0-02-fail-%d", time.Now().UnixNano())
-		env := s3Harness.EnvForServiceRef("object_primary", bucket)
-		env[objectstore.EndpointEnv] = "127.0.0.1:1"
-		env[objectstore.AccessKeyEnv] = "wrong"
-		env[objectstore.SecretKeyEnv] = "wrong"
-		env[objectstore.BucketEnv] = "wrong-bucket"
-
-		_, err := objectstore.SetupWithEnv(context.Background(), disconnectedObjectStoreConfig(t), env)
-		if err == nil {
-			t.Fatal("expected disconnected filesystem-root binding to reject an unusable generic object-store environment")
+	t.Run("issues same-origin upload targets for filesystem-root storage", func(t *testing.T) {
+		store, err := objectstore.SetupWithEnv(context.Background(), disconnectedObjectStoreConfig(t), nil)
+		if err != nil {
+			t.Fatalf("setup filesystem-root object store: %v", err)
 		}
-		if !strings.Contains(err.Error(), `check object store bucket "wrong-bucket"`) {
-			t.Fatalf("unexpected disconnected object-store binding failure: %v", err)
+		defer store.Close()
+		target, err := store.UploadTarget(context.Background(), "uploads/proof.txt", time.Now().Add(time.Minute))
+		if err != nil {
+			t.Fatalf("create filesystem upload target: %v", err)
+		}
+		if !strings.HasPrefix(target.Href, "/api/v1/object-uploads/") || target.Method != "PUT" {
+			t.Fatalf("unexpected filesystem upload target: %#v", target)
+		}
+		token := strings.TrimPrefix(target.Href, "/api/v1/object-uploads/")
+		if err := store.CompleteUploadTarget(context.Background(), token, strings.NewReader("uploaded"), "text/plain"); err != nil {
+			t.Fatalf("complete filesystem upload target: %v", err)
+		}
+		stat, err := store.StatObject(context.Background(), "uploads/proof.txt")
+		if err != nil {
+			t.Fatalf("stat uploaded filesystem object: %v", err)
+		}
+		if stat.Size != int64(len("uploaded")) {
+			t.Fatalf("unexpected uploaded filesystem object size: %#v", stat)
+		}
+	})
+
+	t.Run("rejects object keys that escape the configured root", func(t *testing.T) {
+		store, err := objectstore.SetupWithEnv(context.Background(), disconnectedObjectStoreConfig(t), nil)
+		if err != nil {
+			t.Fatalf("setup filesystem-root object store: %v", err)
+		}
+		defer store.Close()
+		if err := store.PutObject(context.Background(), "../escape.txt", strings.NewReader("escape"), int64(len("escape")), "text/plain"); err == nil {
+			t.Fatal("expected filesystem object store to reject escaping keys")
+		}
+	})
+
+	t.Run("rejects symlinks that escape the configured root", func(t *testing.T) {
+		cfg := disconnectedObjectStoreConfig(t)
+		store, err := objectstore.SetupWithEnv(context.Background(), cfg, nil)
+		if err != nil {
+			t.Fatalf("setup filesystem-root object store: %v", err)
+		}
+		defer store.Close()
+
+		outsideDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(outsideDir, "payload.txt"), []byte("escaped"), 0o600); err != nil {
+			t.Fatalf("write escaped object payload: %v", err)
+		}
+		if err := os.Symlink(outsideDir, filepath.Join(cfg.Roots.ObjectStorage.Path, "linked")); err != nil {
+			t.Fatalf("create escaping object-store symlink: %v", err)
+		}
+
+		if err := store.PutObject(context.Background(), "linked/write.txt", strings.NewReader("escape"), int64(len("escape")), "text/plain"); err == nil {
+			t.Fatal("expected filesystem object store to reject writes through an escaping symlink")
+		}
+		object, _, err := store.ReadObject(context.Background(), "linked/payload.txt", objectstore.ReadOptions{})
+		if err == nil {
+			_ = object.Close()
+			t.Fatal("expected filesystem object store to reject reads through an escaping symlink")
 		}
 	})
 }
@@ -86,6 +142,7 @@ func TestPhase0_ObjectStoreInitialization_I_0_02(t *testing.T) {
 func disconnectedObjectStoreConfig(t testing.TB) config.Config {
 	t.Helper()
 
+	base := t.TempDir()
 	cfg, err := config.Validate(config.Config{
 		ConfigSchemaID:    "cartulary.deployment_config.v1",
 		DeploymentProfile: "disconnected",
@@ -95,27 +152,27 @@ func disconnectedObjectStoreConfig(t testing.TB) config.Config {
 		Roots: config.RootBindings{
 			DatabaseStorage: config.RootBinding{
 				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/postgres",
+				Path:        filepath.Join(base, "postgres"),
 			},
 			ObjectStorage: config.RootBinding{
 				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/object-store",
+				Path:        filepath.Join(base, "object-store"),
 			},
 			BackupStorage: config.RootBinding{
 				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/backups",
+				Path:        filepath.Join(base, "backups"),
 			},
 			ReferencePackStorage: config.RootBinding{
 				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/reference-packs",
+				Path:        filepath.Join(base, "reference-packs"),
 			},
 			TemporaryWork: config.RootBinding{
 				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/tmp",
+				Path:        filepath.Join(base, "tmp"),
 			},
 			ExportOutputs: config.RootBinding{
 				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/exports",
+				Path:        filepath.Join(base, "exports"),
 			},
 		},
 	})

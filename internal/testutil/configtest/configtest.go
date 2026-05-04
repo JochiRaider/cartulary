@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/diagnosticstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
@@ -112,5 +113,28 @@ func SetupTempRoots(t testing.TB) TempRoots {
 	return TempRoots{
 		Base:  base,
 		Paths: paths,
+	}
+}
+
+func BindPostgresDSNToDatabaseRoot(t testing.TB, rootPath string, dsn string) {
+	t.Helper()
+
+	if rootPath == "" || dsn == "" || !filepath.IsAbs(rootPath) {
+		return
+	}
+	if err := os.MkdirAll(rootPath, 0o700); err != nil {
+		t.Fatalf("create postgres root %s: %v", rootPath, err)
+	}
+	dsnPath := filepath.Join(rootPath, postgres.FilesystemRootDSNFile)
+	if err := os.WriteFile(dsnPath, []byte(dsn+"\n"), 0o600); err != nil {
+		t.Fatalf("write root-bound postgres dsn %s: %v", dsnPath, err)
+	}
+}
+
+func BindPostgresEnvToDatabaseRoot(t testing.TB, rootPath string, env map[string]string) {
+	t.Helper()
+
+	if dsn, ok := env[postgres.PostgresDSNEnv]; ok {
+		BindPostgresDSNToDatabaseRoot(t, rootPath, dsn)
 	}
 }

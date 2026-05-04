@@ -253,6 +253,12 @@ main() {
     env \
     CARTULARY_CONFIG_FILE="${CONFIG_FILE}" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
+    CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable" \
+    CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="localhost:9000" \
+    CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="minioadmin" \
+    CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="minioadmin" \
+    CARTULARY_S3_OBJECT_PRIMARY_SECURE="false" \
+    CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${MINIO_BUCKET:-cartulary}" \
     GOCACHE="${GO_CACHE_DIR}" \
     GOMODCACHE="${GO_MOD_CACHE_DIR}" \
     "${backend_command[@]}"

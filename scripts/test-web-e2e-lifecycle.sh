@@ -132,6 +132,10 @@ assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_sp
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e cleanup standalone database"' "browser lifecycle standalone database teardown span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e remove runtime root"' "browser lifecycle runtime root teardown span"
 assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e owned-stack cleanup"' "browser lifecycle inclusive teardown span"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN=\"\${E2E_DSN}\"" "browser lifecycle managed postgres env"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "CARTULARY_S3_OBJECT_PRIMARY_BUCKET=\"\${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:-cartulary}\"" "browser lifecycle managed object-store env"
+assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY__ROOTS__DATABASE_STORAGE__PATH=' "browser lifecycle must not override managed database root path"
+assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY__ROOTS__OBJECT_STORAGE__PATH=' "browser lifecycle must not override managed object-store root path"
 
 signal_recorder="$tmp_dir/signal-recorder.sh"
 cat >"$signal_recorder" <<'EOF'
@@ -728,12 +732,12 @@ case "${1:-}" in
       esac
     done
     cat >"$env_file" <<ENV
-export CARTULARY_POSTGRES_DSN='postgres://cartulary:cartulary@127.0.0.1:15432/ct_web?sslmode=disable'
-export CARTULARY_S3_ENDPOINT='127.0.0.1:19000'
-export CARTULARY_S3_ACCESS_KEY_ID='web-access'
-export CARTULARY_S3_SECRET_ACCESS_KEY='web-secret'
-export CARTULARY_S3_SECURE='false'
-export CARTULARY_S3_BUCKET='ct-web'
+export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN='postgres://cartulary:cartulary@127.0.0.1:15432/ct_web?sslmode=disable'
+export CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT='127.0.0.1:19000'
+export CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID='web-access'
+export CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY='web-secret'
+export CARTULARY_S3_OBJECT_PRIMARY_SECURE='false'
+export CARTULARY_S3_OBJECT_PRIMARY_BUCKET='ct-web'
 ENV
     printf '{"database_name":"ct_web","bucket":"ct-web"}\n' >"$metadata_file"
     ;;
@@ -764,7 +768,7 @@ fi
 CARTULARY_PGTEST_TEMPLATE_DB="suite_template"
 browser_prepare_database
 assert_equals "$E2E_DSN" "postgres://cartulary:cartulary@127.0.0.1:15432/ct_web?sslmode=disable" "active test-service browser dsn"
-assert_equals "$CARTULARY_S3_BUCKET" "ct-web" "active test-service browser bucket"
+assert_equals "$CARTULARY_S3_OBJECT_PRIMARY_BUCKET" "ct-web" "active test-service browser bucket"
 assert_equals "$(head -n 1 "$fake_test_services_log")" "prepare-web-e2e --env-file $TEST_SERVICES_ENV_FILE --metadata-file $TEST_SERVICES_METADATA_FILE" "active test-service prepare command"
 
 cleanup_done=0
