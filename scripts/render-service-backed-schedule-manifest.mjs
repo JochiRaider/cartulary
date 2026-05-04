@@ -342,21 +342,47 @@ function backendSource(profile, timing, scheduleTarget, target) {
   };
 }
 
-function includeBackendDependencies(policy) {
-  return policy === "after_backend";
+function browserStageNeeds(stage, selectedTargets, scheduleTarget) {
+  const needs = stage.schedulerNeeds ?? [];
+  for (const need of needs) {
+    if (need === stage.target) {
+      throw new Error(`${scheduleTarget} browser stage ${stage.name} must not depend on itself`);
+    }
+    if (!selectedTargets.has(need)) {
+      throw new Error(
+        `${scheduleTarget} browser stage ${stage.name} scheduler_needs target ${need} is not selected by the schedule`,
+      );
+    }
+  }
+  return needs;
 }
 
-function browserSource(profile, timing, scheduleTarget, stage, backendTargets) {
+function browserStageResourceClaims(profile, stageName) {
+  const raw = profile.defaults.browser_stage_resource_claims ?? {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("defaults.browser_stage_resource_claims must be an object when present");
+  }
+  const stageClaims = raw[stageName] ?? {};
+  if (!stageClaims || typeof stageClaims !== "object" || Array.isArray(stageClaims)) {
+    throw new Error(`defaults.browser_stage_resource_claims.${stageName} must be an object when present`);
+  }
+  for (const [resource, amount] of Object.entries(stageClaims)) {
+    if (!Number.isInteger(amount) || amount < 1) {
+      throw new Error(`defaults.browser_stage_resource_claims.${stageName}.${resource} must be a positive integer`);
+    }
+  }
+  return cloneObject(stageClaims);
+}
+
+function browserSource(profile, timing, scheduleTarget, stage, selectedTargets) {
   const stageName = stage.name;
   const laneResource = browserStageResource(stageName);
   const claims = {
     ...cloneObject(profile.defaults.browser_make_target_resource_claims),
+    ...browserStageResourceClaims(profile, stageName),
     [laneResource]: 1,
   };
-  const needs = [];
-  if (includeBackendDependencies(stage.schedulerDependencyPolicy)) {
-    needs.push(...backendTargets);
-  }
+  const needs = browserStageNeeds(stage, selectedTargets, scheduleTarget);
   return {
     type: "make_target",
     class: "browser",
@@ -464,14 +490,19 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const backendTargets = sources
     .filter((source) => source.class === "backend")
     .map((source) => source.target);
-  for (const stage of selectedBrowserStages(scheduleProfile, browserStages)) {
+  const stages = selectedBrowserStages(scheduleProfile, browserStages);
+  const selectedTargets = new Set([
+    ...backendTargets,
+    ...stages.map((stage) => stage.target),
+  ]);
+  for (const stage of stages) {
     resourceLimits[browserStageResource(stage.name)] = 1;
     const source = browserSource(
       profile,
       timing,
       target,
       stage,
-      backendTargets,
+      selectedTargets,
     );
     sources.push(source);
   }

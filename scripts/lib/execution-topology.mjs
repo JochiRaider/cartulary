@@ -12,7 +12,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v2";
+export const executionTopologySchemaID = "cartulary.execution_topology.v3";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -21,7 +21,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
 export const checkScheduleSchemaID = "cartulary.check_schedule.v8";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
 export const makeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v1";
 
@@ -29,10 +29,6 @@ const validDependencyCategories = new Set(["backend", "frontend", "browser"]);
 const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);
 const validBrowserCoverage = new Set(["authoritative", "supplemental", "raw"]);
-const validBrowserDependencyPolicies = new Set([
-  "parallel",
-  "after_backend",
-]);
 const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "minio", "browser_stack"]);
 const checkScheduleProfileKeys = new Set(["resource_claims", "make_jobs"]);
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -343,9 +339,19 @@ function validateBrowserBatch(topology, dependencyByID, taskTargets) {
       throw new Error(`${label}.target ${target} is missing from task_surface.targets`);
     }
     if (stage.scheduler_dependency_policy !== undefined) {
-      const policy = requireString(stage.scheduler_dependency_policy, `${label}.scheduler_dependency_policy`);
-      if (!validBrowserDependencyPolicies.has(policy)) {
-        throw new Error(`${label}.scheduler_dependency_policy is invalid`);
+      throw new Error(`${label}.scheduler_dependency_policy is obsolete; use scheduler_needs[]`);
+    }
+    if (stage.scheduler_needs !== undefined) {
+      const seenNeeds = new Set();
+      for (const [needIndex, need] of requireArray(stage.scheduler_needs, `${label}.scheduler_needs`).entries()) {
+        const targetNeed = requireString(need, `${label}.scheduler_needs[${needIndex + 1}]`);
+        if (seenNeeds.has(targetNeed)) {
+          throw new Error(`${label}.scheduler_needs contains duplicate ${targetNeed}`);
+        }
+        seenNeeds.add(targetNeed);
+        if (!taskTargets.has(targetNeed)) {
+          throw new Error(`${label}.scheduler_needs target ${targetNeed} is missing from task_surface.targets`);
+        }
       }
     }
     for (const group of requireNonEmptyArray(stage.groups, `${label}.groups`)) {

@@ -349,10 +349,15 @@ function addBrowserUnit(plan, target, rows, stageByTarget) {
 }
 
 function browserNeeds(plan, stage) {
-  const needs = [];
-  const policy = stage.schedulerDependencyPolicy;
-  if (policy === "after_backend") {
-    needs.push(...plan.backendTargets);
+  const selectedTargets = new Set(plan.child_target_names);
+  const needs = stage.schedulerNeeds ?? [];
+  for (const need of needs) {
+    if (need === stage.target) {
+      throw new Error(`phase slice browser target ${stage.target} must not depend on itself`);
+    }
+    if (!selectedTargets.has(need)) {
+      throw new Error(`phase slice browser target ${stage.target} scheduler_needs target ${need} is not selected by the slice`);
+    }
   }
   return needs;
 }

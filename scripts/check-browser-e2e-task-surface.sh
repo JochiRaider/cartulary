@@ -550,8 +550,8 @@ const fs = require("node:fs");
 const [manifestFile, topologyFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 const topology = JSON.parse(fs.readFileSync(topologyFile, "utf8"));
-if (topology.schema_id !== "cartulary.execution_topology.v2") {
-  throw new Error("execution topology must declare schema_id=cartulary.execution_topology.v2");
+if (topology.schema_id !== "cartulary.execution_topology.v3") {
+  throw new Error("execution topology must declare schema_id=cartulary.execution_topology.v3");
 }
 if (Array.isArray(topology.check_schedules)) {
   throw new Error("execution topology must own check schedule profiles, not flat schedules");
@@ -614,8 +614,12 @@ for (const expectedLeaf of [
   "browser-e2e-measurement",
   "browser-e2e-visual",
 ]) {
-  if (!(schedule.work_units ?? []).some((entry) => entry.target === expectedLeaf && entry.service_session?.target === "check-service-backed")) {
+  const leaf = (schedule.work_units ?? []).find((entry) => entry.target === expectedLeaf && entry.service_session?.target === "check-service-backed");
+  if (!leaf) {
     throw new Error(`check schedule must expose ${expectedLeaf} as service-backed browser leaf work`);
+  }
+  if (JSON.stringify(leaf.needs ?? []) !== JSON.stringify(["service_session:check-service-backed"])) {
+    throw new Error(`${expectedLeaf} must depend only on the check-service-backed service session`);
   }
 }
 EOF
@@ -716,7 +720,7 @@ if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres minio' "$start
   fail "scripts/start-web-e2e.sh must keep Compose-backed startup for standalone browser E2E"
 fi
 
-if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v4' "$browser_batch_manifest"; then
+if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v5' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare its schema"
 fi
 "$node_bin" - "$browser_batch_manifest" <<'EOF' || fail "browser E2E batch manifest must tag service-backed scheduler stages"
@@ -727,11 +731,14 @@ if (!(manifest.stages ?? []).some((stage) => (stage.schedule_tags ?? []).include
   throw new Error("missing service_backed_full schedule tag");
 }
 EOF
-"$node_bin" - "$browser_batch_manifest" <<'EOF' || fail "browser E2E batch manifest must schedule isolated browser leaves after backend readiness"
+"$node_bin" - "$browser_batch_manifest" <<'EOF' || fail "browser E2E batch manifest must schedule isolated browser leaves independently"
 const fs = require("node:fs");
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 const byName = new Map((manifest.stages ?? []).map((stage) => [stage.name, stage]));
+if ((manifest.stages ?? []).some((stage) => stage.scheduler_dependency_policy !== undefined)) {
+  throw new Error("browser stages must not use obsolete scheduler_dependency_policy");
+}
 for (const name of ["stateful", "measurement", "visual"]) {
   const stage = byName.get(name);
   if (!stage) {
@@ -740,12 +747,12 @@ for (const name of ["stateful", "measurement", "visual"]) {
   if (!(stage.schedule_tags ?? []).includes("service_backed_full")) {
     throw new Error(`${name} must be tagged service_backed_full`);
   }
-  if (stage.scheduler_dependency_policy !== "after_backend") {
-    throw new Error(`${name} must use after_backend scheduler policy`);
+  if ((stage.scheduler_needs ?? []).length !== 0) {
+    throw new Error(`${name} must not declare broad service-backed scheduler needs`);
   }
 }
 const isolated = byName.get("isolated");
-if (!isolated || (isolated.schedule_tags ?? []).length > 0 || isolated.scheduler_dependency_policy !== undefined) {
+if (!isolated || (isolated.schedule_tags ?? []).length > 0 || (isolated.scheduler_needs ?? []).length > 0) {
   throw new Error("isolated aggregate must remain unscheduled direct-run aggregation");
 }
 EOF
@@ -808,6 +815,9 @@ if ! [[ -x "$browser_target_script" ]]; then
 fi
 if ! grep -Fq 'run-browser-e2e-batch.sh" "$stage" --defer-summary' "$browser_target_script"; then
   fail "browser E2E target wrapper must defer batch stage summary ownership"
+fi
+if ! grep -Fq 'start-web-e2e.sh' "$browser_target_script"; then
+  fail "browser E2E target wrapper must give every scheduled browser leaf an owned stack"
 fi
 if ! grep -Fq 'target-summary "$target" "$requested"' "$browser_target_script"; then
   fail "browser E2E target wrapper must emit the authoritative stage target summary"

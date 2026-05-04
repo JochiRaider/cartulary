@@ -119,7 +119,7 @@ write_valid_execution_topology() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.execution_topology.v2",
+  "schema_id": "cartulary.execution_topology.v3",
   "execution_dependencies": [
     {
       "id": "backend_unit",
@@ -211,13 +211,13 @@ write_valid_browser_batch() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v4",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v5",
   "stages": [
     {
       "name": "functional",
       "target": "browser-e2e-functional",
       "schedule_tags": ["browser"],
-      "scheduler_dependency_policy": "parallel",
+      "scheduler_needs": [],
       "summary_children": [],
       "groups": [
         {
@@ -419,6 +419,10 @@ const mutations = {
   "browser-batch-empty-groups": (fixture) => {
     fixture.stages[0].groups = [];
   },
+  "browser-batch-obsolete-scheduler-policy": (fixture) => {
+    delete fixture.stages[0].scheduler_needs;
+    fixture.stages[0].scheduler_dependency_policy = "parallel";
+  },
   "scheduler-registry-bad-capacity-one-of": (fixture) => {
     fixture.resources[0].capacity.auto_policy = "host_cpu_auto";
   },
@@ -591,6 +595,12 @@ write_valid_browser_batch "$empty_browser_groups"
 mutate_json_fixture browser-batch-empty-groups "$empty_browser_groups"
 empty_browser_groups_output="$(assert_fails "empty browser groups" run_shape_check browser-batch "$empty_browser_groups")"
 assert_contains "$empty_browser_groups_output" "groups must be a non-empty array" "empty browser groups"
+
+obsolete_browser_policy="$tmp_dir/browser_batch_obsolete_scheduler_policy.json"
+write_valid_browser_batch "$obsolete_browser_policy"
+mutate_json_fixture browser-batch-obsolete-scheduler-policy "$obsolete_browser_policy"
+obsolete_browser_policy_output="$(assert_fails "obsolete browser scheduler policy" run_shape_check browser-batch "$obsolete_browser_policy")"
+assert_contains "$obsolete_browser_policy_output" "scheduler_dependency_policy is obsolete; use scheduler_needs[]" "obsolete browser scheduler policy"
 
 scheduler_registry="$tmp_dir/scheduler_resource_registry.json"
 write_valid_scheduler_resource_registry "$scheduler_registry"

@@ -1080,6 +1080,38 @@ if (!(webStart < statefulEnd && statefulStart < webEnd)) {
 }
 EOF
 
+browser_backend_overlap_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-backend-overlap.XXXXXX")"
+cleanup_paths+=("$browser_backend_overlap_dir")
+write_fake_make "$browser_backend_overlap_dir"
+browser_backend_overlap_manifest="${browser_backend_overlap_dir}/manifest.json"
+write_manifest "$browser_backend_overlap_manifest" check-service-backed \
+  'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
+  'make_target|browser-e2e-stateful|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
+browser_backend_overlap_output="$(
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
+  FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.25 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_STATEFUL=0.05 \
+    run_scheduler "$browser_backend_overlap_dir" "$browser_backend_overlap_manifest" check-service-backed browser-backend-overlap 2>&1
+)"
+assert_contains "$browser_backend_overlap_output" "[RESULT] target=check-service-backed status=pass" "browser backend overlap aggregate child tests"
+"$NODE_BIN" - "${browser_backend_overlap_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const backendEnd = indexOf("end backend-process");
+const statefulStart = indexOf("start browser-e2e-stateful");
+if (!(statefulStart < backendEnd)) {
+  throw new Error("browser-e2e-stateful waited for backend-process without a declared dependency");
+}
+EOF
+
 dependency_order_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-dependency-order.XXXXXX")"
 cleanup_paths+=("$dependency_order_dir")
 write_fake_make "$dependency_order_dir"
@@ -1538,17 +1570,11 @@ const actualBrowserTargets = (byTarget.get("test-service-backed")?.work_unit_sou
 if (JSON.stringify(actualBrowserTargets) !== JSON.stringify(expectedBrowserTargets)) {
   throw new Error(`service-backed browser sources got ${JSON.stringify(actualBrowserTargets)}`);
 }
-const expectedNeeds = [
-  "backend-store",
-  "backend-integration",
-  "backend-integration-support",
-  "backend-process",
-];
 for (const target of expectedBrowserTargets.slice(1)) {
   const source = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
     (candidate) => candidate.target === target,
   );
-  if (JSON.stringify(source?.needs ?? []) !== JSON.stringify(expectedNeeds)) {
+  if (JSON.stringify(source?.needs ?? []) !== JSON.stringify([])) {
     throw new Error(`${target} needs got ${JSON.stringify(source?.needs ?? [])}`);
   }
 }
@@ -1568,7 +1594,6 @@ manifest.browser_e2e_batch.stages.push({
   name: "tagged-without-rows",
   target: "browser-e2e-support",
   schedule_tags: ["service_backed_full"],
-  scheduler_dependency_policy: "parallel",
   groups: [
     {
       name: "missing-phase-map-rows",

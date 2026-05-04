@@ -11,7 +11,7 @@ import {
   validateObjectShape,
 } from "./json-shape.mjs";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const browserBatchKeys = new Set(["schema_id", "stages"]);
@@ -20,6 +20,7 @@ const browserStageKeys = new Set([
   "target",
   "schedule_tags",
   "scheduler_dependency_policy",
+  "scheduler_needs",
   "summary_children",
   "groups",
 ]);
@@ -46,11 +47,6 @@ const allowedGroupKinds = new Set([
   "visual",
 ]);
 const allowedCoverage = new Set(["authoritative", "supplemental", "raw"]);
-const allowedSchedulerDependencyPolicies = new Set([
-  "parallel",
-  "after_backend",
-]);
-
 function manifestValue(fileOrManifest, label) {
   return typeof fileOrManifest === "string"
     ? readJsonObject(fileOrManifest, label)
@@ -70,6 +66,9 @@ export function validateBrowserBatchManifestShape(fileOrManifest, label = fileOr
       requireString(stage.target, `${stageLabel}.target`, {
         pattern: makeTargetPattern,
       });
+      if (stage.scheduler_dependency_policy !== undefined) {
+        throw new Error(`${stageLabel}.scheduler_dependency_policy is obsolete; use scheduler_needs[]`);
+      }
       validateObjectArray(
         stage.groups,
         `${stageLabel}.groups`,
@@ -171,7 +170,7 @@ function normalizeStage(stage, index) {
     target: stage.target.trim(),
     summaryChildren: normalizedSummaryChildren,
     scheduleTags: normalizeScheduleTags(stage),
-    schedulerDependencyPolicy: normalizeSchedulerDependencyPolicy(stage),
+    schedulerNeeds: normalizeSchedulerNeeds(stage),
     groups: normalizedGroups,
   };
 }
@@ -200,19 +199,32 @@ function normalizeScheduleTags(stage) {
   return tags;
 }
 
-function normalizeSchedulerDependencyPolicy(stage) {
-  if (stage.scheduler_dependency_policy === undefined) {
-    return "parallel";
+function normalizeSchedulerNeeds(stage) {
+  if (stage.scheduler_dependency_policy !== undefined) {
+    throw new Error(`browser E2E batch stage ${stage.name} must use scheduler_needs[], not obsolete scheduler_dependency_policy`);
   }
-  const policy = String(stage.scheduler_dependency_policy).trim();
-  if (!allowedSchedulerDependencyPolicies.has(policy)) {
-    throw new Error(
-      `browser E2E batch stage ${stage.name} scheduler_dependency_policy must be ${Array.from(
-        allowedSchedulerDependencyPolicies,
-      ).join("|")}`,
-    );
+  if (stage.scheduler_needs === undefined) {
+    return [];
   }
-  return policy;
+  if (!Array.isArray(stage.scheduler_needs)) {
+    throw new Error(`browser E2E batch stage ${stage.name} scheduler_needs must be an array`);
+  }
+  const needs = [];
+  const seen = new Set();
+  for (const [index, need] of stage.scheduler_needs.entries()) {
+    if (typeof need !== "string" || need.trim() === "") {
+      throw new Error(
+        `browser E2E batch stage ${stage.name} scheduler_needs ${index + 1} must be a non-empty string`,
+      );
+    }
+    const normalized = need.trim();
+    if (seen.has(normalized)) {
+      throw new Error(`browser E2E batch stage ${stage.name} scheduler_needs contains duplicate ${normalized}`);
+    }
+    seen.add(normalized);
+    needs.push(normalized);
+  }
+  return needs;
 }
 
 function normalizeGroup(stageName, group, index) {
@@ -268,7 +280,7 @@ function printRunnerMetadata(stage) {
         group.coverage,
         group.executionDependency,
         stage.scheduleTags.join(","),
-        stage.schedulerDependencyPolicy,
+        stage.schedulerNeeds.join(","),
       ].join("\t") + "\n",
     );
   }

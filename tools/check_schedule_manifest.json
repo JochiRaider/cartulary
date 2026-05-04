@@ -489,11 +489,7 @@
           "aggregate_target": "browser-e2e-visual",
           "weight": 11143,
           "needs": [
-            "service_session:check-service-backed",
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
+            "service_session:check-service-backed"
           ],
           "completion_keys": [
             "browser-e2e-visual"
@@ -522,11 +518,7 @@
           "aggregate_target": "browser-e2e-measurement",
           "weight": 11098,
           "needs": [
-            "service_session:check-service-backed",
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
+            "service_session:check-service-backed"
           ],
           "completion_keys": [
             "browser-e2e-measurement"
@@ -537,8 +529,8 @@
           "resource_claims": {
             "browser_stack": 1,
             "browser_stage_measurement": 1,
-            "host_cpu": 1,
-            "host_io": 1,
+            "host_cpu": 4,
+            "host_io": 4,
             "minio": 1,
             "postgres": 1,
             "process": 1
@@ -619,11 +611,7 @@
           "aggregate_target": "browser-e2e-stateful",
           "weight": 10167,
           "needs": [
-            "service_session:check-service-backed",
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
+            "service_session:check-service-backed"
           ],
           "completion_keys": [
             "browser-e2e-stateful"

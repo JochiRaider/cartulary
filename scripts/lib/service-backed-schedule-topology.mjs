@@ -142,10 +142,17 @@ function selectedBrowserStages(scheduleProfile, scheduleTarget, browserStages) {
   return stages;
 }
 
-function expectedNeedsForPolicy(policy, backendTargets) {
-  const needs = [];
-  if (policy === "after_backend") {
-    needs.push(...backendTargets);
+function expectedNeedsForStage(stage, selectedTargets, scheduleTarget) {
+  const needs = stage.schedulerNeeds ?? [];
+  for (const need of needs) {
+    if (need === stage.target) {
+      throw new Error(`${scheduleTarget} browser stage ${stage.name} must not depend on itself`);
+    }
+    if (!selectedTargets.has(need)) {
+      throw new Error(
+        `${scheduleTarget} browser stage ${stage.name} scheduler_needs target ${need} is not selected by the schedule`,
+      );
+    }
   }
   return needs;
 }
@@ -240,18 +247,20 @@ export function validateServiceBackedScheduleTopology({
       .map((source) => source.target);
     const browserSources = schedule.work_unit_sources.filter((source) => source.class === "browser");
     const expectedBrowserTargets = [];
+    const selectedStages = selectedBrowserStages(scheduleProfile, scheduleTarget, browserStages);
+    const selectedTargets = new Set([
+      ...backendTargets,
+      ...selectedStages.map((stage) => stage.target),
+    ]);
 
-    for (const stage of selectedBrowserStages(scheduleProfile, scheduleTarget, browserStages)) {
+    for (const stage of selectedStages) {
       expectedBrowserTargets.push(stage.target);
       const source = browserSources.find((entry) => entry.browser_stage === stage.name);
       if (!source) {
         throw new Error(`${scheduleTarget} must include browser stage ${stage.name} target ${stage.target}`);
       }
       validateBrowserSource(schedule, source, stage, resourceLimits);
-      const expectedNeeds = expectedNeedsForPolicy(
-        stage.schedulerDependencyPolicy,
-        backendTargets,
-      );
+      const expectedNeeds = expectedNeedsForStage(stage, selectedTargets, scheduleTarget);
       assertSameList(source.needs ?? [], expectedNeeds, `${scheduleTarget} ${source.target} needs`);
     }
 

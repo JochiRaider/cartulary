@@ -97,8 +97,8 @@ const fs = require("node:fs");
 const [manifestFile, topologyFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 const topology = JSON.parse(fs.readFileSync(topologyFile, "utf8"));
-if (topology.schema_id !== "cartulary.execution_topology.v2") {
-  throw new Error("execution topology must declare schema_id=cartulary.execution_topology.v2");
+if (topology.schema_id !== "cartulary.execution_topology.v3") {
+  throw new Error("execution topology must declare schema_id=cartulary.execution_topology.v3");
 }
 if (Array.isArray(topology.check_schedules)) {
   throw new Error("execution topology must own check schedule profiles, not flat schedules");

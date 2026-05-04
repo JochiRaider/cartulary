@@ -31,7 +31,7 @@ const {
 
 const topology = loadExecutionTopology();
 const summary = topologySummary(topology);
-assert.equal(summary.schema_id, "cartulary.execution_topology.v2");
+assert.equal(summary.schema_id, "cartulary.execution_topology.v3");
 assert.ok(summary.execution_dependencies >= 10);
 assert.ok(summary.go_targets >= 5);
 assert.ok(summary.check_schedules >= 1);

@@ -83,12 +83,6 @@
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
-          "needs": [
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
-          ],
           "weight": 10167,
           "resource_claims": {
             "postgres": 1,
@@ -103,18 +97,14 @@
           "class": "browser",
           "target": "browser-e2e-measurement",
           "browser_stage": "measurement",
-          "needs": [
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
-          ],
           "weight": 11098,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
             "process": 1,
             "browser_stack": 1,
+            "go_cpu": 4,
+            "go_io": 4,
             "browser_stage_measurement": 1
           }
         },
@@ -123,12 +113,6 @@
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
-          "needs": [
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
-          ],
           "weight": 11143,
           "resource_claims": {
             "postgres": 1,
@@ -270,12 +254,6 @@
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
-          "needs": [
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
-          ],
           "weight": 10167,
           "resource_claims": {
             "postgres": 1,
@@ -290,18 +268,14 @@
           "class": "browser",
           "target": "browser-e2e-measurement",
           "browser_stage": "measurement",
-          "needs": [
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
-          ],
           "weight": 11098,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
             "process": 1,
             "browser_stack": 1,
+            "go_cpu": 4,
+            "go_io": 4,
             "browser_stage_measurement": 1
           }
         },
@@ -310,12 +284,6 @@
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
-          "needs": [
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process"
-          ],
           "weight": 11143,
           "resource_claims": {
             "postgres": 1,
