@@ -461,14 +461,14 @@ function scenarioExplainPhase() {
     fail("explain-phase JSON must not expose legacy scheduler_owner");
   }
 
-  const plannedJSON = parseJSON(nodeScript(explainPhase, ["--phase", "phase5", "--json"]), "planned explain-phase JSON");
+  const phase5JSON = parseJSON(nodeScript(explainPhase, ["--phase", "phase5", "--json"]), "phase5 explain-phase JSON");
   if (
-    plannedJSON.phase !== "phase5" ||
-    plannedJSON.status !== "planned" ||
-    plannedJSON.targets.length !== 0 ||
-    plannedJSON.execution_map.children.length !== 0
+    phase5JSON.phase !== "phase5" ||
+    phase5JSON.status !== "active" ||
+    phase5JSON.targets.length === 0 ||
+    phase5JSON.execution_map.children.length === 0
   ) {
-    fail("planned explain-phase JSON must expose registered metadata without executable targets");
+    fail("phase5 explain-phase JSON must expose active executable targets");
   }
 
   const unknownPhaseOutput = nodeScriptFails(explainPhase, ["--phase", "phase99"]);

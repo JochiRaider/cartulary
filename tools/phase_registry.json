@@ -54,7 +54,7 @@
     {
       "phase": "phase5",
       "order": 5,
-      "status": "planned",
+      "status": "active",
       "label": "Phase 5",
       "manifest_path": "tools/phase5_test_map.json",
       "ledger_path": "docs/testing/phase5_coverage_ledger.md",
