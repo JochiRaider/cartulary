@@ -257,6 +257,159 @@ DELETE FROM incident_memberships
 	}
 }
 
+func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase4-evidence-handle-issue-reasons")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase4-handle-issue-reasons-incident",
+		"incident_key":  "phase4-handle-issue-reasons",
+		"title":         "Phase 4 handle issue reasons",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	scenarios := []struct {
+		name       string
+		reasonCode string
+		arrange    func(t *testing.T, recordID uuid.UUID)
+	}{
+		{
+			name:       "no linked blob",
+			reasonCode: "no_visible_blob",
+			arrange:    func(t *testing.T, recordID uuid.UUID) {},
+		},
+		{
+			name:       "pending blob",
+			reasonCode: "blob_pending",
+			arrange: func(t *testing.T, recordID uuid.UUID) {
+				linkSeededBlob(t, harness, incidentID, adminID, recordID, "pending", "available", "issue/pending")
+			},
+		},
+		{
+			name:       "failed blob",
+			reasonCode: "blob_failed",
+			arrange: func(t *testing.T, recordID uuid.UUID) {
+				linkSeededBlob(t, harness, incidentID, adminID, recordID, "failed", "available", "issue/failed")
+			},
+		},
+		{
+			name:       "missing backing object",
+			reasonCode: "blob_missing",
+			arrange: func(t *testing.T, recordID uuid.UUID) {
+				linkSeededBlob(t, harness, incidentID, adminID, recordID, "available", "available", "issue/missing-"+recordID.String())
+			},
+		},
+		{
+			name:       "quarantined blob",
+			reasonCode: "evidence_quarantined",
+			arrange: func(t *testing.T, recordID uuid.UUID) {
+				linkSeededBlob(t, harness, incidentID, adminID, recordID, "quarantined", "available", "issue/quarantined")
+			},
+		},
+		{
+			name:       "inconsistent lifecycle",
+			reasonCode: "evidence_inconsistent",
+			arrange: func(t *testing.T, recordID uuid.UUID) {
+				linkSeededBlob(t, harness, incidentID, adminID, recordID, "available", "received", "issue/inconsistent")
+			},
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			recordID := uuid.New()
+			seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+			scenario.arrange(t, recordID)
+
+			beforeHandles := countAccessHandles(t, harness, incidentID)
+			for _, endpoint := range []string{"preview-handle", "download-handle"} {
+				resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+				requireEvidenceAccessUnavailableReason(t, resp, scenario.reasonCode)
+			}
+			if got := countAccessHandles(t, harness, incidentID); got != beforeHandles {
+				t.Fatalf("blocked issuance wrote evidence_access_handles: got %d want %d", got, beforeHandles)
+			}
+		})
+	}
+}
+
+func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase4-evidence-handle-redeem-reasons")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase4-handle-redeem-reasons-incident",
+		"incident_key":  "phase4-handle-redeem-reasons",
+		"title":         "Phase 4 handle redeem reasons",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	scenarios := []struct {
+		name       string
+		reasonCode string
+		mutate     func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID)
+	}{
+		{
+			name:       "detached blob",
+			reasonCode: "no_visible_blob",
+			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
+				updateEvidenceBlobLink(t, harness, recordID, nil)
+			},
+		},
+		{
+			name:       "pending blob",
+			reasonCode: "blob_pending",
+			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
+				updateBlobState(t, harness, objectBlobID, "pending")
+			},
+		},
+		{
+			name:       "failed blob",
+			reasonCode: "blob_failed",
+			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
+				updateBlobState(t, harness, objectBlobID, "failed")
+			},
+		},
+		{
+			name:       "missing backing object",
+			reasonCode: "blob_missing",
+			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
+				updateBlobStorageKey(t, harness, objectBlobID, "redeem/missing-"+recordID.String())
+			},
+		},
+		{
+			name:       "quarantined blob",
+			reasonCode: "evidence_quarantined",
+			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
+				updateBlobState(t, harness, objectBlobID, "quarantined")
+			},
+		},
+		{
+			name:       "inconsistent lifecycle",
+			reasonCode: "evidence_inconsistent",
+			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
+				updateEvidenceLifecycle(t, harness, recordID, "received")
+			},
+		},
+	}
+
+	for _, scenario := range scenarios {
+		for _, endpoint := range []string{"preview-handle", "download-handle"} {
+			t.Run(endpoint+" "+scenario.name, func(t *testing.T) {
+				recordID := uuid.New()
+				seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+				attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("redeem body"), "txn-"+recordID.String()+"-blob", "txn-"+recordID.String()+"-attach")
+				objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+
+				issueResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+				issueData := httptestx.RequireSuccessEnvelope(t, issueResp, http.StatusOK)["data"].(map[string]any)
+				scenario.mutate(t, recordID, objectBlobID)
+
+				redeemResp := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+issueData["href"].(string), nil, phase4test.WithCookies(login.SessionCookie))
+				requireEvidenceAccessUnavailableReason(t, redeemResp, scenario.reasonCode)
+			})
+		}
+	}
+}
+
 func TestEvidenceHandleRequestRejectsUnknownMembers(t *testing.T) {
 	body := strings.NewReader(`{"client_txn_id":"forbidden"}`)
 	if apiErr := evidenceDecodeHandleForTest(body); apiErr == nil || apiErr.Code != "invalid_evidence_handle_request" {
@@ -334,6 +487,103 @@ func countAccessHandles(t *testing.T, harness *phase4test.ServerHarness, inciden
 		t.Fatalf("count evidence access handles: %v", err)
 	}
 	return count
+}
+
+func requireEvidenceAccessUnavailableReason(t *testing.T, resp *http.Response, wantReasonCode string) {
+	t.Helper()
+	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "evidence_access_unavailable")
+	details := body["error"].(map[string]any)["details"].(map[string]any)
+	if got := details["reason_code"]; got != wantReasonCode {
+		t.Fatalf("unexpected evidence_access_unavailable reason_code: got %v want %s", got, wantReasonCode)
+	}
+}
+
+func linkSeededBlob(t *testing.T, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, uploadState string, evidenceLifecycle string, storageKey string) uuid.UUID {
+	t.Helper()
+	objectBlobID := uuid.New()
+	var terminalReason any
+	var failedMarker any
+	if uploadState == "failed" {
+		terminalReason = "pending_timeout"
+		failedMarker = "failed"
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, filename_hint, content_type_hint, observed_size, observed_content_type,
+    observed_sha256_hex, target_expires_at, pending_expires_at, finalized_at,
+    terminal_reason, failed_at, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5,
+    11, 'seed.txt', 'text/plain', 11, 'text/plain',
+    '0000000000000000000000000000000000000000000000000000000000000000',
+    now() + interval '1 hour', now() + interval '24 hours',
+    CASE WHEN $5 IN ('available', 'quarantined') THEN now() ELSE NULL END,
+    $6,
+    CASE WHEN $7::text IS NULL THEN NULL ELSE now() END,
+    now(), now()
+)
+`, objectBlobID, incidentID, actorID, storageKey, uploadState, terminalReason, failedMarker); err != nil {
+		t.Fatalf("seed object blob: %v", err)
+	}
+	updateEvidenceBlobLink(t, harness, recordID, &objectBlobID)
+	updateEvidenceLifecycle(t, harness, recordID, evidenceLifecycle)
+	return objectBlobID
+}
+
+func updateEvidenceBlobLink(t *testing.T, harness *phase4test.ServerHarness, recordID uuid.UUID, objectBlobID *uuid.UUID) {
+	t.Helper()
+	var blobArg any
+	if objectBlobID != nil {
+		blobArg = *objectBlobID
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE evidence
+   SET object_blob_id = $2,
+       upload_state = CASE WHEN $2::uuid IS NULL THEN 'pending' ELSE upload_state END,
+       updated_at = now()
+ WHERE record_id = $1
+`, recordID, blobArg); err != nil {
+		t.Fatalf("update evidence object_blob_id: %v", err)
+	}
+}
+
+func updateEvidenceLifecycle(t *testing.T, harness *phase4test.ServerHarness, recordID uuid.UUID, lifecycleState string) {
+	t.Helper()
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE evidence
+   SET lifecycle_state = $2,
+       updated_at = now()
+ WHERE record_id = $1
+`, recordID, lifecycleState); err != nil {
+		t.Fatalf("update evidence lifecycle_state: %v", err)
+	}
+}
+
+func updateBlobState(t *testing.T, harness *phase4test.ServerHarness, objectBlobID uuid.UUID, uploadState string) {
+	t.Helper()
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE object_blobs
+   SET upload_state = $2,
+       terminal_reason = CASE WHEN $2 = 'failed' THEN 'pending_timeout' ELSE NULL END,
+       failed_at = CASE WHEN $2 = 'failed' THEN now() ELSE NULL END,
+       updated_at = now()
+ WHERE object_blob_id = $1
+`, objectBlobID, uploadState); err != nil {
+		t.Fatalf("update object blob upload_state: %v", err)
+	}
+}
+
+func updateBlobStorageKey(t *testing.T, harness *phase4test.ServerHarness, objectBlobID uuid.UUID, storageKey string) {
+	t.Helper()
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE object_blobs
+   SET storage_key = $2,
+       updated_at = now()
+ WHERE object_blob_id = $1
+`, objectBlobID, storageKey); err != nil {
+		t.Fatalf("update object blob storage_key: %v", err)
+	}
 }
 
 func doRawJSON(t *testing.T, method string, url string, body string, options ...func(*http.Request)) *http.Response {

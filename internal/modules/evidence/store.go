@@ -3,6 +3,7 @@ package evidence
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -91,8 +92,9 @@ type AttachBlobResult struct {
 type EvidenceAccessRecord struct {
 	IncidentID             uuid.UUID
 	RecordID               uuid.UUID
-	ObjectBlobID           uuid.UUID
-	StorageKey             string
+	ObjectBlobID           *uuid.UUID
+	BlobMetadataVisible    bool
+	StorageKey             *string
 	EvidenceLifecycleState string
 	UploadState            string
 	FilenameSource         string
@@ -358,28 +360,71 @@ UPDATE evidence
 
 func (s *Store) LoadEvidenceAccess(ctx context.Context, recordID uuid.UUID) (EvidenceAccessRecord, error) {
 	row := s.pool.QueryRow(ctx, `
-SELECT e.incident_id, e.record_id, e.object_blob_id, b.storage_key,
-       e.lifecycle_state, b.upload_state,
+SELECT e.incident_id, e.record_id, e.object_blob_id::text, b.object_blob_id IS NOT NULL, b.storage_key,
+       e.lifecycle_state, COALESCE(b.upload_state, ''),
        COALESCE(b.filename_hint, e.title, ''),
        COALESCE(b.observed_content_type, b.content_type_hint, 'application/octet-stream'),
-       COALESCE(b.observed_size, b.byte_size),
+       COALESCE(b.observed_size, b.byte_size, 0),
        b.observed_sha256_hex
   FROM evidence e
   JOIN records r ON r.record_id = e.record_id AND r.deleted_at IS NULL
-  JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
+  LEFT JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
  WHERE e.record_id = $1
 `, recordID)
 	var access EvidenceAccessRecord
-	if err := row.Scan(&access.IncidentID, &access.RecordID, &access.ObjectBlobID, &access.StorageKey,
+	var objectBlobID sql.NullString
+	var storageKey sql.NullString
+	var sha256 sql.NullString
+	if err := row.Scan(&access.IncidentID, &access.RecordID, &objectBlobID, &access.BlobMetadataVisible, &storageKey,
 		&access.EvidenceLifecycleState, &access.UploadState, &access.FilenameSource, &access.ContentType,
-		&access.SizeBytes, &access.SHA256); err != nil {
+		&access.SizeBytes, &sha256); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return EvidenceAccessRecord{}, ErrEvidenceNotFound
 		}
 		return EvidenceAccessRecord{}, err
 	}
+	if objectBlobID.Valid {
+		parsed, err := uuid.Parse(objectBlobID.String)
+		if err != nil {
+			return EvidenceAccessRecord{}, err
+		}
+		access.ObjectBlobID = &parsed
+	}
+	if storageKey.Valid {
+		value := storageKey.String
+		access.StorageKey = &value
+	}
+	if sha256.Valid {
+		value := sha256.String
+		access.SHA256 = &value
+	}
 	access.MediaClass, access.PreviewKind = classifyMedia(access.ContentType)
 	return access, nil
+}
+
+func classifyEvidenceAccess(access EvidenceAccessRecord, boundObjectBlobID *uuid.UUID) string {
+	if access.ObjectBlobID == nil {
+		return "no_visible_blob"
+	}
+	if boundObjectBlobID != nil && *access.ObjectBlobID != *boundObjectBlobID {
+		return "evidence_inconsistent"
+	}
+	if !access.BlobMetadataVisible {
+		return "blob_missing"
+	}
+	if access.EvidenceLifecycleState == "quarantined" || access.UploadState == "quarantined" {
+		return "evidence_quarantined"
+	}
+	switch access.UploadState {
+	case "pending":
+		return "blob_pending"
+	case "failed":
+		return "blob_failed"
+	}
+	if (access.EvidenceLifecycleState != "available" && access.EvidenceLifecycleState != "released") || access.UploadState != "available" {
+		return "evidence_inconsistent"
+	}
+	return ""
 }
 
 func (s *Store) InsertHandle(ctx context.Context, handle HandleRecord, issuedByUserID uuid.UUID) error {
@@ -432,28 +477,21 @@ UPDATE evidence_access_handles
 	return nil
 }
 
-func (s *Store) CheckHandleAccess(ctx context.Context, handle HandleRecord) error {
-	var ok bool
-	err := s.pool.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM evidence e
-      JOIN records r ON r.record_id = e.record_id AND r.deleted_at IS NULL
-      JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
-     WHERE e.incident_id = $1
-       AND e.record_id = $2
-       AND e.object_blob_id = $3
-       AND e.lifecycle_state IN ('available', 'released')
-       AND b.upload_state = 'available'
-)
-`, handle.IncidentID, handle.RecordID, handle.ObjectBlobID).Scan(&ok)
+func (s *Store) CheckHandleAccess(ctx context.Context, handle HandleRecord) (string, error) {
+	access, err := s.LoadEvidenceAccess(ctx, handle.RecordID)
+	if errors.Is(err, ErrEvidenceNotFound) {
+		return "evidence_inconsistent", nil
+	}
 	if err != nil {
-		return err
+		return "", err
 	}
-	if !ok {
-		return ErrBlobNotAttachable
+	if access.IncidentID != handle.IncidentID {
+		return "evidence_inconsistent", nil
 	}
-	return nil
+	if reasonCode := classifyEvidenceAccess(access, &handle.ObjectBlobID); reasonCode != "" {
+		return reasonCode, nil
+	}
+	return "", nil
 }
 
 type evidenceMeta struct {

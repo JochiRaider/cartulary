@@ -178,7 +178,7 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	if err == nil && blob.UploadState == "pending" {
 		observed, err = s.observeUploadedObject(r.Context(), blob)
 		if err != nil {
-			writeAPIError(w, r, evidenceAccessUnavailable("missing_blob"))
+			writeAPIError(w, r, evidenceAccessUnavailable("blob_missing"))
 			return
 		}
 	}
@@ -195,7 +195,7 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, evidenceRecordNotFound())
 		return
 	case errors.Is(err, ErrBlobNotFound):
-		writeAPIError(w, r, evidenceAccessUnavailable("missing_blob"))
+		writeAPIError(w, r, evidenceAccessUnavailable("blob_missing"))
 		return
 	case errors.Is(err, ErrIncidentMismatch):
 		writeAPIError(w, r, evidenceAccessUnavailable("incident_mismatch"))
@@ -252,8 +252,12 @@ func (s *Service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 		writeAPIError(w, r, evidenceRecordNotFound())
 		return
 	}
-	if access.UploadState != "available" || (access.EvidenceLifecycleState != "available" && access.EvidenceLifecycleState != "released") {
-		writeAPIError(w, r, evidenceAccessUnavailable("not_available"))
+	if reasonCode := classifyEvidenceAccess(access, nil); reasonCode != "" {
+		writeAPIError(w, r, evidenceAccessUnavailable(reasonCode))
+		return
+	}
+	if reasonCode := s.verifyEvidenceObjectAvailable(r.Context(), access); reasonCode != "" {
+		writeAPIError(w, r, evidenceAccessUnavailable(reasonCode))
 		return
 	}
 	if kind == "preview" {
@@ -283,8 +287,8 @@ func (s *Service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 	}
 	filename := sanitizeFilename(access.FilenameSource, recordID, access.ContentType)
 	handle := HandleRecord{
-		Token: token, IncidentID: access.IncidentID, RecordID: access.RecordID, ObjectBlobID: access.ObjectBlobID,
-		StorageKey: access.StorageKey, SessionID: principal.Session.ID, HandleKind: kind,
+		Token: token, IncidentID: access.IncidentID, RecordID: access.RecordID, ObjectBlobID: *access.ObjectBlobID,
+		StorageKey: *access.StorageKey, SessionID: principal.Session.ID, HandleKind: kind,
 		MediaClass: access.MediaClass, PreviewKind: access.PreviewKind, Disposition: disposition,
 		Filename: filename, ContentType: access.ContentType, SizeBytes: access.SizeBytes, SHA256: access.SHA256,
 		ExpiresAt: expiresAt,
@@ -348,8 +352,11 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, evidenceAccessUnavailable("authorization_lost"))
 		return
 	}
-	if err := s.store.CheckHandleAccess(r.Context(), handle); err != nil {
-		writeAPIError(w, r, evidenceAccessUnavailable("not_available"))
+	if reasonCode, err := s.store.CheckHandleAccess(r.Context(), handle); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	} else if reasonCode != "" {
+		writeAPIError(w, r, evidenceAccessUnavailable(reasonCode))
 		return
 	}
 	if handle.HandleKind == "download" {
@@ -370,7 +377,7 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 	}
 	object, _, err := s.objectStore.ReadObject(r.Context(), handle.StorageKey, readOptions)
 	if err != nil {
-		writeAPIError(w, r, evidenceAccessUnavailable("missing_blob"))
+		writeAPIError(w, r, evidenceAccessUnavailable("blob_missing"))
 		return
 	}
 	defer object.Close()
@@ -402,6 +409,16 @@ func (s *Service) observeUploadedObject(ctx context.Context, blob BlobRecord) (*
 		contentType = firstNonEmptyPtr(blob.ContentTypeHint, nil, "application/octet-stream")
 	}
 	return &ObservedObject{Size: stat.Size, ContentType: contentType, SHA256Hex: fmt.Sprintf("%x", hash.Sum(nil))}, nil
+}
+
+func (s *Service) verifyEvidenceObjectAvailable(ctx context.Context, access EvidenceAccessRecord) string {
+	if access.StorageKey == nil {
+		return "evidence_inconsistent"
+	}
+	if _, err := s.objectStore.StatObject(ctx, *access.StorageKey); err != nil {
+		return "blob_missing"
+	}
+	return ""
 }
 
 func (s *Service) publishRecordChange(result AttachBlobResult, actorUserID uuid.UUID) {
