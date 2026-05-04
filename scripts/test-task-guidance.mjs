@@ -299,7 +299,7 @@ function scenarioTaskGuidePhaseSlices(fixture) {
   assertContains(phase4FeatureOutput, "general hygiene: useful non-phase checks", "phase4 feature-dev hygiene tier");
   assertContains(phase4FeatureOutput, "make phase-slice PHASE=phase4 | selected phase manifest-row slice | phase_relevance=phase_slice", "phase4 public phase slice");
   assertContains(phase4FeatureOutput, "make service-backed-slice PHASE=phase4 | selected phase service-backed manifest-row slice | phase_relevance=service_backed_slice", "phase4 public service-backed slice");
-  assertContains(phase4FeatureOutput, "execution=public evidence: 4 targets, support/internal evidence: 1 target", "phase4 public phase execution summary");
+  assertContains(phase4FeatureOutput, "execution=public evidence: 6 targets, support/internal evidence: 1 target", "phase4 public phase execution summary");
   assertContains(phase4FeatureOutput, "public evidence:", "phase4 public evidence group");
   assertContains(phase4FeatureOutput, "support/internal evidence:", "phase4 support/internal evidence group");
   assertNotContains(phase4FeatureOutput, "scheduler=", "task-guide must not print flat scheduler owner fields");
@@ -308,9 +308,8 @@ function scenarioTaskGuidePhaseSlices(fixture) {
   assertNotContains(phase4FeatureOutput, "make backend-integration | selected phase execution dependency | phase_relevance=phase_slice", "phase4 backend-integration not direct phase slice");
   assertNotContains(phase4FeatureOutput, "make backend-integration-support | selected phase execution dependency | phase_relevance=phase_slice", "phase4 backend-integration-support not direct phase slice");
   assertNotContains(phase4FeatureOutput, "make browser-e2e-webserver-backed | selected phase execution dependency | phase_relevance=phase_slice", "phase4 browser not direct phase slice");
-  assertContains(phase4FeatureOutput, "make frontend-unit | general hygiene outside the selected phase slice | phase_relevance=general_hygiene", "phase4 frontend-unit hygiene");
+  assertContains(phase4FeatureOutput, "make frontend-unit services=none coverage=phases=phase4", "phase4 frontend-unit phase evidence");
   assertContains(phase4FeatureOutput, "make lint | general hygiene outside the selected phase slice | phase_relevance=general_hygiene", "phase4 lint hygiene");
-  assertNotContains(phase4FeatureOutput, "make frontend-unit | selected phase execution dependency | phase_relevance=phase_slice", "phase4 frontend-unit not phase slice");
   assertNotContains(phase4FeatureOutput, "make lint | selected phase execution dependency | phase_relevance=phase_slice", "phase4 lint not phase slice");
 
   const phase4Guide = parseJSON(
@@ -363,7 +362,9 @@ function scenarioTaskGuidePhaseSlices(fixture) {
     "backend-store",
     "backend-integration",
     "backend-integration-support",
+    "frontend-unit",
     "browser-e2e-webserver-backed",
+    "browser-e2e-visual",
   ]) {
     if (!phaseSliceChildren.has(target)) {
       fail(`phase4 minimal slice children missing ${target}`);
@@ -373,7 +374,7 @@ function scenarioTaskGuidePhaseSlices(fixture) {
   if (!supportChild || supportChild.classification !== "check_internal") {
     fail("phase4 support child must remain check_internal");
   }
-  for (const target of ["frontend-unit", "lint"]) {
+  for (const target of ["lint"]) {
     if (phaseSliceChildren.has(target)) {
       fail(`phase4 minimal slice children must not include ${target}`);
     }
@@ -394,6 +395,7 @@ function scenarioTaskGuidePhaseSlices(fixture) {
     "backend-integration",
     "backend-integration-support",
     "browser-e2e-webserver-backed",
+    "browser-e2e-visual",
   ]) {
     if (!serviceChildren.has(target)) {
       fail(`phase4 service-backed slice children missing ${target}`);
@@ -407,8 +409,8 @@ function scenarioTaskGuidePhaseSlices(fixture) {
     fail("full local gate must include test-fast and check");
   }
   const hygieneTargets = new Set(tierByName.get("general hygiene").recommendations.map((item) => item.target));
-  if (!hygieneTargets.has("frontend-unit") || !hygieneTargets.has("lint")) {
-    fail("phase4 hygiene must include frontend-unit and lint");
+  if (hygieneTargets.has("frontend-unit") || !hygieneTargets.has("lint")) {
+    fail("phase4 hygiene must include lint and exclude frontend-unit");
   }
   for (const item of tierByName.get("general hygiene").recommendations) {
     if (item.phase_relevance !== "general_hygiene") {

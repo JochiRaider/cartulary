@@ -6,6 +6,15 @@ SCRIPT="${ROOT_DIR}/scripts/run-check-schedule.mjs"
 TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
+SUITE="${1:-all}"
+
+case "$SUITE" in
+  all | smoke) ;;
+  *)
+    echo "usage: test-check-scheduler.sh [smoke]" >&2
+    exit 2
+    ;;
+esac
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS LINT_SHELL_STRICT
 
@@ -667,6 +676,44 @@ run_scheduler() {
   CARTULARY_TEST_RUN_ID="$run_id" \
     "$NODE_BIN" "$SCRIPT" --target check --manifest "$manifest" "$@"
 }
+
+if [[ "$SUITE" == "smoke" ]]; then
+smoke_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-smoke.XXXXXX")"
+cleanup_paths+=("$smoke_dir")
+write_fake_make "$smoke_dir"
+smoke_manifest="${smoke_dir}/manifest.json"
+cat >"$smoke_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v8",
+  "schedules": [
+    {
+      "target": "check",
+      "capacity_profile": "check_default",
+      "resource_limits": { "host_cpu": 12, "host_io": 12, "suite_service_stack": 1, "migration_scratch_postgres": 1 },
+      "summary_groups": [
+        { "name": "check-work", "summary_targets": ["local", "meta"] }
+      ],
+      "work_units": [
+        { "target": "setup", "weight": 30, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "local", "weight": 20, "needs": ["setup"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "meta", "weight": 10, "needs": ["setup"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+smoke_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$smoke_dir" "$smoke_manifest" smoke --resource-limit host_cpu=2 --resource-limit host_io=2 2>&1)"
+assert_contains "$smoke_output" "[CHECK-SCHEDULER] check start work_units=3 capacity={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1}" "smoke scheduler start"
+assert_contains "$smoke_output" "[SUMMARY] target=check status=pass work_units=3/3" "smoke scheduler pass summary"
+assert_not_contains "$smoke_output" "[STEP] check" "smoke output hides per-unit steps"
+assert_check_scheduler_artifacts "$smoke_dir" smoke check pass - 3 finish
+
+smoke_dry_run_output="$(MAKEFLAGS=n run_scheduler "$smoke_dir" "$smoke_manifest" smoke-dry-run --resource-limit host_cpu=2 --resource-limit host_io=2 2>&1)"
+assert_contains "$smoke_dry_run_output" "[DRY-RUN] check manifest=" "smoke dry-run output"
+assert_contains "$smoke_dry_run_output" "resource_limits={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1} work_units=3 dependencies=2 top_weighted=setup:30,local:20,meta:10" "smoke dry-run compact summary"
+assert_not_contains "$smoke_dry_run_output" "[DRY-RUN] check unit" "smoke dry-run hides unit expansion"
+exit 0
+fi
 
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
 import { mkdtempSync, writeFileSync } from "node:fs";

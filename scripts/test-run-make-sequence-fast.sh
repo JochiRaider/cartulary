@@ -618,6 +618,18 @@ for (const check of fullOnlyChecks) {
   }
 }
 
+const expectedFast = [
+  "harness-smoke-execution-topology",
+  "harness-smoke-task-surface-report",
+  "harness-smoke-run-make-sequence-fast",
+  "harness-smoke-cartulary-runner-service-backed-target",
+  "harness-smoke-check-scheduler-smoke",
+  "harness-smoke-service-backed-scheduler-smoke",
+];
+if (JSON.stringify(fast.checks) !== JSON.stringify(expectedFast)) {
+  fail(`fast harness tier must be the check-gate smoke set, got ${fast.checks.join(",")}`);
+}
+
 const tierMembership = new Map();
 for (const [tier, checks] of [["fast", fast.checks], ["extended", extended.checks], ["lifecycle", lifecycle.checks]]) {
   for (const check of checks) {
@@ -633,9 +645,14 @@ for (const target of ["harness-smoke-run-make-sequence", "harness-smoke-run-go-t
     fail(`${target} must stay in extended harness smoke`);
   }
 }
-for (const target of ["harness-smoke-run-make-sequence-fast", "harness-smoke-run-go-target-fast"]) {
-  if (tierMembership.get(target) !== "fast") {
-    fail(`${target} must stay in fast harness smoke`);
+for (const target of ["harness-smoke-guidance-core", "harness-smoke-run-phase", "harness-smoke-check-scheduler"]) {
+  if (tierMembership.get(target) !== "extended") {
+    fail(`${target} must stay in extended harness smoke`);
+  }
+}
+for (const retired of ["harness-smoke-run-go-target-fast", "harness-smoke-service-backed-scheduler-fast"]) {
+  if (manifest.harness_checks.some((check) => check.name === retired) || tierMembership.has(retired)) {
+    fail(`${retired} must be retired from harness smoke`);
   }
 }
 EOF
@@ -659,7 +676,8 @@ assert_contains "${ci_script}" '[[ -z "${CARTULARY_OUTPUT_MODE+x}" ]]' "CI scrip
 assert_contains "${ci_script}" "export CARTULARY_OUTPUT_MODE=ci" "CI script defaults to ci output mode"
 assert_contains "${release_check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
 assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-run-make-sequence-fast.sh" "fast make-sequence smoke backing script"
-assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-run-go-target-fast.sh" "fast run-go-target smoke backing script"
+assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-check-scheduler.sh" "fast check scheduler smoke backing script"
+assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-service-backed-scheduler.sh" "fast service-backed scheduler smoke backing script"
 
 for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-make-n-${target}.XXXXXX")"

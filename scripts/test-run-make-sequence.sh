@@ -512,7 +512,9 @@ for (const target of ["check", "run-harness-smoke-extended"]) {
 EOF
 assert_contains "${manifest_content}" "\"harness_checks\"" "manifest logical harness checks"
 assert_contains "${manifest_content}" "harness-smoke-run-make-sequence-fast" "harness smoke fast make sequence check"
-assert_contains "${manifest_content}" "harness-smoke-run-go-target-fast" "harness smoke fast go target"
+assert_contains "${manifest_content}" "harness-smoke-check-scheduler-smoke" "harness smoke fast check scheduler smoke"
+assert_contains "${manifest_content}" "harness-smoke-service-backed-scheduler-smoke" "harness smoke fast service-backed scheduler smoke"
+assert_not_contains "${manifest_content}" "harness-smoke-run-go-target-fast" "retired fast go target harness smoke"
 assert_contains "${test_service_backed_block}" 'service-backed-target --target test-service-backed --phase-label "test service-backed" --service-wrapper test-services' "test service-backed scheduler invocation"
 assert_contains "${test_fast_service_backed_block}" 'service-backed-target --target test-fast-service-backed --phase-label "test-fast service-backed" --service-wrapper test-services' "test-fast service-backed scheduler invocation"
 assert_contains "${check_service_backed_block}" 'service-backed-target --target check-service-backed --phase-label "check service-backed" --service-wrapper test-services' "check service-backed scheduler invocation"

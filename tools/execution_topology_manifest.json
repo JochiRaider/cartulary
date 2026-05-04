@@ -5216,6 +5216,16 @@
     "harness_tiers": {
       "fast": {
         "checks": [
+          "harness-smoke-execution-topology",
+          "harness-smoke-task-surface-report",
+          "harness-smoke-run-make-sequence-fast",
+          "harness-smoke-cartulary-runner-service-backed-target",
+          "harness-smoke-check-scheduler-smoke",
+          "harness-smoke-service-backed-scheduler-smoke"
+        ]
+      },
+      "extended": {
+        "checks": [
           "harness-smoke-toolchain-pins",
           "harness-smoke-bootstrap-node-runtime",
           "harness-smoke-bootstrap-shellcheck",
@@ -5229,14 +5239,12 @@
           "harness-smoke-run-go-govulncheck",
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-go-gosec-audit",
-          "harness-smoke-run-make-sequence-fast",
           "harness-smoke-release-task-surface",
           "harness-smoke-sbom-license-evidence",
           "harness-smoke-benchmark-claim-check",
-          "harness-smoke-task-surface-report",
           "harness-smoke-make-node-tools",
-          "harness-smoke-execution-topology",
           "harness-smoke-guidance-core",
+          "harness-smoke-guidance-matrix",
           "harness-smoke-phase-slice",
           "harness-smoke-go-test-duration-baselines",
           "harness-smoke-service-backed-make-target-duration-baselines",
@@ -5244,11 +5252,11 @@
           "harness-smoke-browser-shard-plan",
           "harness-smoke-phase-test-names",
           "harness-smoke-run-phase",
-          "harness-smoke-run-go-target-fast",
           "harness-smoke-print-target-plan",
-          "harness-smoke-service-backed-scheduler-fast",
-          "harness-smoke-cartulary-runner-service-backed-target",
           "harness-smoke-check-scheduler",
+          "harness-smoke-service-backed-scheduler-matrix",
+          "harness-smoke-run-make-sequence",
+          "harness-smoke-run-go-target",
           "harness-smoke-run-playwright-phase",
           "harness-smoke-run-playwright-manifest-phase",
           "harness-smoke-run-playwright-webserver-batch",
@@ -5256,14 +5264,6 @@
           "harness-smoke-run-vitest-manifest-phase",
           "harness-smoke-run-frontend-unit",
           "harness-smoke-frontend-import-boundaries"
-        ]
-      },
-      "extended": {
-        "checks": [
-          "harness-smoke-guidance-matrix",
-          "harness-smoke-service-backed-scheduler-matrix",
-          "harness-smoke-run-make-sequence",
-          "harness-smoke-run-go-target"
         ]
       },
       "lifecycle": {
@@ -5274,6 +5274,12 @@
       },
       "full": {
         "checks": [
+          "harness-smoke-execution-topology",
+          "harness-smoke-task-surface-report",
+          "harness-smoke-run-make-sequence-fast",
+          "harness-smoke-cartulary-runner-service-backed-target",
+          "harness-smoke-check-scheduler-smoke",
+          "harness-smoke-service-backed-scheduler-smoke",
           "harness-smoke-toolchain-pins",
           "harness-smoke-bootstrap-node-runtime",
           "harness-smoke-bootstrap-shellcheck",
@@ -5287,14 +5293,12 @@
           "harness-smoke-run-go-govulncheck",
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-go-gosec-audit",
-          "harness-smoke-run-make-sequence-fast",
           "harness-smoke-release-task-surface",
           "harness-smoke-sbom-license-evidence",
           "harness-smoke-benchmark-claim-check",
-          "harness-smoke-task-surface-report",
           "harness-smoke-make-node-tools",
-          "harness-smoke-execution-topology",
           "harness-smoke-guidance-core",
+          "harness-smoke-guidance-matrix",
           "harness-smoke-phase-slice",
           "harness-smoke-go-test-duration-baselines",
           "harness-smoke-service-backed-make-target-duration-baselines",
@@ -5302,12 +5306,11 @@
           "harness-smoke-browser-shard-plan",
           "harness-smoke-phase-test-names",
           "harness-smoke-run-phase",
-          "harness-smoke-run-go-target-fast",
           "harness-smoke-print-target-plan",
-          "harness-smoke-service-backed-scheduler-fast",
-          "harness-smoke-cartulary-runner-service-backed-target",
           "harness-smoke-check-scheduler",
-          "harness-smoke-tool-output-real-targets",
+          "harness-smoke-service-backed-scheduler-matrix",
+          "harness-smoke-run-make-sequence",
+          "harness-smoke-run-go-target",
           "harness-smoke-run-playwright-phase",
           "harness-smoke-run-playwright-manifest-phase",
           "harness-smoke-run-playwright-webserver-batch",
@@ -5315,12 +5318,9 @@
           "harness-smoke-run-vitest-manifest-phase",
           "harness-smoke-run-frontend-unit",
           "harness-smoke-frontend-import-boundaries",
-          "harness-smoke-guidance-matrix",
-          "harness-smoke-service-backed-scheduler-matrix",
-          "harness-smoke-run-make-sequence",
-          "harness-smoke-run-go-target",
           "harness-smoke-web-e2e-lifecycle",
-          "harness-smoke-dev-stack-lifecycle"
+          "harness-smoke-dev-stack-lifecycle",
+          "harness-smoke-tool-output-real-targets"
         ]
       }
     },
@@ -5538,12 +5538,6 @@
         ]
       },
       {
-        "name": "harness-smoke-run-go-target-fast",
-        "backing_scripts": [
-          "scripts/test-run-go-target-fast.sh"
-        ]
-      },
-      {
         "name": "harness-smoke-run-go-target",
         "backing_scripts": [
           "scripts/test-run-go-target.sh"
@@ -5556,7 +5550,7 @@
         ]
       },
       {
-        "name": "harness-smoke-service-backed-scheduler-fast",
+        "name": "harness-smoke-service-backed-scheduler-smoke",
         "backing_scripts": [
           "scripts/test-service-backed-scheduler.sh",
           "scripts/run-service-backed-schedule.mjs"
@@ -5564,7 +5558,7 @@
         "command": [
           "bash",
           "scripts/test-service-backed-scheduler.sh",
-          "fast"
+          "smoke"
         ]
       },
       {
@@ -5584,6 +5578,18 @@
         "backing_scripts": [
           "scripts/test-cartulary-runner-service-backed-target.sh",
           "scripts/cartulary-runner.mjs"
+        ]
+      },
+      {
+        "name": "harness-smoke-check-scheduler-smoke",
+        "backing_scripts": [
+          "scripts/test-check-scheduler.sh",
+          "scripts/run-check-schedule.mjs"
+        ],
+        "command": [
+          "bash",
+          "scripts/test-check-scheduler.sh",
+          "smoke"
         ]
       },
       {

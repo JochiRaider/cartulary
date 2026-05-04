@@ -9,9 +9,9 @@ cleanup_paths=()
 SUITE="${1:-all}"
 
 case "$SUITE" in
-  all | fast | matrix) ;;
+  all | smoke | fast | matrix) ;;
   *)
-    echo "usage: test-service-backed-scheduler.sh [fast|matrix]" >&2
+    echo "usage: test-service-backed-scheduler.sh [smoke|fast|matrix]" >&2
     exit 2
     ;;
 esac
@@ -762,6 +762,27 @@ run_scheduler() {
   CARTULARY_TEST_RUN_ID="$run_id" \
     "$NODE_BIN" "$SCRIPT" --target "$target" --manifest "$manifest" "$@"
 }
+
+if [[ "$SUITE" == "smoke" ]]; then
+smoke_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-smoke.XXXXXX")"
+cleanup_paths+=("$smoke_dir")
+write_fake_make "$smoke_dir"
+smoke_manifest="${smoke_dir}/manifest.json"
+write_manifest "$smoke_manifest" test-fast-service-backed \
+  'make_target|backend-store|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|backend-process|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||backend-store'
+smoke_output="$(FAKE_SCHEDULER_SLEEP=0.01 run_scheduler "$smoke_dir" "$smoke_manifest" test-fast-service-backed smoke 2>&1)"
+assert_contains "$smoke_output" "[SCHEDULER] test-fast-service-backed start work_units=2 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "smoke scheduler start"
+assert_contains "$smoke_output" "[SUMMARY] target=test-fast-service-backed status=pass work_units=2/2 failed=none slowest=" "smoke scheduler pass summary"
+assert_not_contains "$smoke_output" "[STEP] test-fast-service-backed" "smoke output hides per-unit steps"
+assert_scheduler_artifacts "$smoke_dir" smoke test-fast-service-backed pass - start
+
+smoke_dry_run_output="$(MAKEFLAGS=n run_scheduler "$smoke_dir" "$smoke_manifest" test-fast-service-backed smoke-dry-run 2>&1)"
+assert_contains "$smoke_dry_run_output" "[DRY-RUN] test-fast-service-backed manifest=" "smoke dry-run output"
+assert_contains "$smoke_dry_run_output" "work_units=2 dependencies=1 classes={backend:2} types={make_target:2}" "smoke dry-run compact summary"
+assert_not_contains "$smoke_dry_run_output" "claims={" "smoke dry-run hides raw claims"
+exit 0
+fi
 
 weighted_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-weighted.XXXXXX")"
 cleanup_paths+=("$weighted_dir")
