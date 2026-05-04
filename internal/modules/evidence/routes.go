@@ -359,20 +359,15 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, evidenceAccessUnavailable(reasonCode))
 		return
 	}
-	if handle.HandleKind == "download" {
-		if err := s.store.ConsumeDownloadHandle(r.Context(), token, now); err != nil {
-			writeAPIError(w, r, &auth.APIError{Status: http.StatusGone, Code: "handle_consumed", Details: map[string]any{}})
-			return
-		}
-	}
 	readOptions := objectstore.ReadOptions{}
 	status := http.StatusOK
+	contentRange := ""
 	if rangeHeader := r.Header.Get("Range"); rangeHeader != "" {
 		if start, end, ok := parseByteRange(rangeHeader, handle.SizeBytes); ok {
 			readOptions.RangeStart = &start
 			readOptions.RangeEnd = &end
 			status = http.StatusPartialContent
-			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, handle.SizeBytes))
+			contentRange = fmt.Sprintf("bytes %d-%d/%d", start, end, handle.SizeBytes)
 		}
 	}
 	object, _, err := s.objectStore.ReadObject(r.Context(), handle.StorageKey, readOptions)
@@ -381,8 +376,17 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer object.Close()
+	if handle.HandleKind == "download" {
+		if err := s.store.ConsumeDownloadHandle(r.Context(), token, now); err != nil {
+			writeAPIError(w, r, &auth.APIError{Status: http.StatusGone, Code: "handle_consumed", Details: map[string]any{}})
+			return
+		}
+	}
 	w.Header().Set("Content-Type", handle.ContentType)
 	w.Header().Set("Content-Disposition", mime.FormatMediaType(handle.Disposition, map[string]string{"filename": handle.Filename}))
+	if contentRange != "" {
+		w.Header().Set("Content-Range", contentRange)
+	}
 	if handle.SHA256 != nil {
 		w.Header().Set("Digest", "sha-256="+*handle.SHA256)
 	}

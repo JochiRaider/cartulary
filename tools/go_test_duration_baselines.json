@@ -90,6 +90,7 @@
     "github.com/JochiRaider/cartulary/internal/modules/entities::TestSupportPhase4Integration_RecordEnvelopeHeadSchema": 120,
     "github.com/JochiRaider/cartulary/internal/modules/entities::TestSupportPhase4Integration_ReplayAndDivergentConflict": 10930,
     "github.com/JochiRaider/cartulary/internal/modules/entities::TestSupportPhase4Integration_SurfaceEnvelope": 11280,
+    "github.com/JochiRaider/cartulary/internal/modules/evidence::TestPhase4_DownloadHandleBlobMissingDoesNotConsumeHandle_I_4_HANDLE_01": 290,
     "github.com/JochiRaider/cartulary/internal/modules/evidence::TestPhase4_EvidenceHandles_I_4_HANDLE_01": 650,
     "github.com/JochiRaider/cartulary/internal/modules/evidence::TestPhase4_ObjectBlobCreate_I_4_BLOB_01": 920,
     "github.com/JochiRaider/cartulary/internal/modules/incidents::TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically": 840,

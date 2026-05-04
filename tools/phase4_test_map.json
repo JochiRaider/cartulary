@@ -483,10 +483,13 @@
       "runner": "go_test",
       "package": "./internal/modules/evidence",
       "file": "internal/modules/evidence/evidence_integration_test.go",
-      "symbol": "TestPhase4_EvidenceHandles_I_4_HANDLE_01",
+      "symbols": [
+        "TestPhase4_EvidenceHandles_I_4_HANDLE_01",
+        "TestPhase4_DownloadHandleBlobMissingDoesNotConsumeHandle_I_4_HANDLE_01"
+      ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Preview and download handle issuance accepts only an empty JSON object body, rejects zero-length, null, non-object, unknown, and client_txn_id bodies for both routes without side effects, re-derives session authorization, and returns distinct preview versus download handle contracts.",
+      "claim": "Preview and download handle issuance accepts only an empty JSON object body, rejects zero-length, null, non-object, unknown, and client_txn_id bodies for both routes without side effects, re-derives session authorization, returns distinct preview versus download handle contracts, and consumes single-use download handles only after a successful redeem starts byte delivery.",
       "out_of_scope": "Detailed redeem expiry, revocation, and browser preview behavior remain separate evidence.",
       "execution_family": "backend-integration-evidence",
       "execution_label": "backend-integration phase4 authoritative evidence"

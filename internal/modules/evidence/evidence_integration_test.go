@@ -410,6 +410,39 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 	}
 }
 
+func TestPhase4_DownloadHandleBlobMissingDoesNotConsumeHandle_I_4_HANDLE_01(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase4-download-handle-no-byte-failure")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase4-download-no-byte-incident",
+		"incident_key":  "phase4-download-no-byte",
+		"title":         "Phase 4 download no-byte failure",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	recordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+	payload := []byte("download retry body")
+	attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, payload, "txn-phase4-download-no-byte-blob", "txn-phase4-download-no-byte-attach")
+	objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+	originalStorageKey := blobStorageKey(t, harness, objectBlobID)
+
+	downloadResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
+	downloadData := httptestx.RequireSuccessEnvelope(t, downloadResp, http.StatusOK)["data"].(map[string]any)
+	downloadURL := harness.Server.HTTP.URL + downloadData["href"].(string)
+
+	updateBlobStorageKey(t, harness, objectBlobID, "redeem/missing-"+recordID.String())
+	missingResp := phase4test.DoJSON(t, http.MethodGet, downloadURL, nil, phase4test.WithCookies(login.SessionCookie))
+	requireEvidenceAccessUnavailableReason(t, missingResp, "blob_missing")
+
+	updateBlobStorageKey(t, harness, objectBlobID, originalStorageKey)
+	downloadBody := redeemHandle(t, downloadURL, login)
+	if string(downloadBody) != string(payload) {
+		t.Fatalf("download body mismatch after no-byte failure: got %q", string(downloadBody))
+	}
+	second := phase4test.DoJSON(t, http.MethodGet, downloadURL, nil, phase4test.WithCookies(login.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
+}
+
 func TestEvidenceHandleRequestRejectsUnknownMembers(t *testing.T) {
 	body := strings.NewReader(`{"client_txn_id":"forbidden"}`)
 	if apiErr := evidenceDecodeHandleForTest(body); apiErr == nil || apiErr.Code != "invalid_evidence_handle_request" {
@@ -584,6 +617,19 @@ UPDATE object_blobs
 `, objectBlobID, storageKey); err != nil {
 		t.Fatalf("update object blob storage_key: %v", err)
 	}
+}
+
+func blobStorageKey(t *testing.T, harness *phase4test.ServerHarness, objectBlobID uuid.UUID) string {
+	t.Helper()
+	var storageKey string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT storage_key
+  FROM object_blobs
+ WHERE object_blob_id = $1
+`, objectBlobID).Scan(&storageKey); err != nil {
+		t.Fatalf("load object blob storage_key: %v", err)
+	}
+	return storageKey
 }
 
 func doRawJSON(t *testing.T, method string, url string, body string, options ...func(*http.Request)) *http.Response {
