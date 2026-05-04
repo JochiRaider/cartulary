@@ -12,8 +12,8 @@ This planning artifact does not implement Phase 5 behavior. It is intentionally 
 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
-| [x] | 0. Phase 5 ownership manifest and harness setup | [x] validated | Intentional TDD failures remain for `U-5-01`, `U-5-02`, `U-5-09`, and `I-5-02`. | Phase 5 is active and selectable; Sprint 1 should replace the failing stubs with real assertions. |
-| [ ] | 1. Blob create and upload-slot contract | [ ] pending |  |  |
+| [x] | 0. Phase 5 ownership manifest and harness setup | [x] validated | None for Sprint 0. | Phase 5 is active and selectable; the initial Sprint 1 stubs have been replaced with real assertions. |
+| [x] | 1. Blob create and upload-slot contract | [x] validated | Phase aggregate targets still fail on later Sprint 2+ placeholders. | Blob-create contract, idempotency, size ceiling, and expired-slot replay are implemented. Preview-size behavior remains Sprint 3. |
 | [ ] | 2. Attach finalization, lifecycle bridge, and no-blob evidence | [ ] pending |  |  |
 | [ ] | 3. Handle issuance and redeem hardening | [ ] pending |  |  |
 | [ ] | 4. Object-storage boundary and cleanup/quarantine behavior | [ ] pending |  |  |
@@ -62,17 +62,18 @@ Validation commands:
 - Passed: `make target-plan-json`
 - Passed: `make phase-test-name-check`
 - Passed: `tmp/node-runtime/bin/node scripts/test-task-guidance.mjs`
-- Expected failure: `make phase-slice PHASE=phase5` selects Phase 5 rows and fails on the intentional Sprint 1 backend stubs.
-- Expected failure: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'` fails on the four intentional Sprint 1 stubs.
+- Completed follow-up: Sprint 1 replaced the initial failing symbols with real assertions for `U-5-01`, `U-5-02`, blob-create `U-5-09`, and `I-5-02`.
+- Current expected failure: `make phase-slice PHASE=phase5` selects Phase 5 rows and now fails only on later Sprint 2+ placeholders.
+- Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'`
 
 Deliverables:
 - Delivered: `tools/phase5_test_map.json`
 - Delivered: `docs/testing/phase5_coverage_ledger.md`
-- Delivered: initial failing Phase 5 Sprint 1 symbols.
+- Delivered: initial Phase 5 Sprint 1 symbols, now replaced by passing Sprint 1 assertions.
 
 Risks and assumptions:
 - Assumption retained: create `internal/testutil/phase5test` only when naming clarity or helper ownership is needed; otherwise reuse existing helpers.
-- Follow-up risk: service-backed timing baselines may need refresh after Sprint 1 replaces failing stubs with real passing evidence.
+- Follow-up risk retained for later sprints: service-backed timing baselines may need refresh after remaining Phase 5 placeholders become real tests.
 
 Exit criteria:
 - Met: `make explain-phase PHASE=phase5` discovers the active manifest and planned rows.
@@ -81,6 +82,8 @@ Exit criteria:
 ## Sprint 1. Blob Create and Upload-Slot Contract
 
 Objective: Complete `POST /api/v1/object-blobs` request validation, normalization, idempotency, accepted contract echo, size ceiling, and expired-slot replay behavior.
+
+Status: Complete. Sprint 1 covers the blob-slot portion only; preview payload size enforcement remains in Sprint 3 handle issuance/redeem work.
 
 Relevant IDs:
 - `U-5-01`, `U-5-02`, `U-5-09`, `I-5-02`
@@ -109,33 +112,39 @@ Files and areas:
 - `contracts/openapi/cartulary.openapi.yaml` only if route schema is incomplete.
 
 Test-first sequence:
-1. Add/rename unit decoder tests for `U-5-01`: required `incident_id`, `client_txn_id`, `byte_size`, unknown fields, server-managed fields, optional omission/null equivalence.
-2. Add store/route idempotency tests for `U-5-02`: same `(actor_user_id, incident_id, client_txn_id)` returns original slot; divergent normalized request returns `client_txn_conflict`.
-3. Add size-limit tests for `U-5-09`: reject before slot creation with `413 blob_create_rejected`.
-4. Add service-backed `I-5-02`: replay of expired slot returns original expired `target_expires_at` and `pending_expires_at`; fresh target requires new `client_txn_id`.
+1. Completed: unit decoder tests for `U-5-01` cover required `incident_id`, `client_txn_id`, `byte_size`, non-object bodies, missing fields, null required fields, empty normalized `client_txn_id`, unknown fields, server-managed fields, invalid `byte_size`, invalid `sha256_hex`, and optional omission/null/empty normalization.
+2. Completed: store idempotency tests for `U-5-02` prove `(actor_user_id, incident_id, client_txn_id)` route scoping, exact replay payload stability, divergent normalized request conflict behavior, and independent slots for different incidents or actors.
+3. Completed: blob-create size-limit tests for `U-5-09` prove `536870912` succeeds and `536870913` rejects before durable slot creation with `413 blob_create_rejected`.
+4. Completed: service-backed `I-5-02` proves replay of an expired slot returns the original expired `target_expires_at`, `pending_expires_at`, upload target, and `accepted_contract`; a fresh target requires a new `client_txn_id`.
 
 Implementation tasks:
-- Ensure `invalid_blob_create_request` reason codes use registry tokens: `request_not_object`, `field_not_nullable`, `field_empty_after_normalization`, `invalid_byte_size`, `invalid_sha256_hex`, `unknown_field`, `server_managed_field`.
-- Ensure oversize response includes `requested_byte_size`, `configured_limit_bytes`, and no durable `object_blobs` row.
-- Preserve 60-minute upload target expiry and 24-hour pending slot expiry.
-- Do not add same-slot target refresh or resumable upload.
+- Completed: `invalid_blob_create_request` reason codes use the blob-create registry tokens: `request_not_object`, `missing_required_field`, `field_not_nullable`, `field_empty_after_normalization`, `invalid_byte_size`, `invalid_sha256_hex`, `unknown_field`, and `server_managed_field`.
+- Completed: known server-owned members classify as `server_managed_field`, including blob identity, upload state, expiry fields, upload target, accepted contract, storage key, observed metadata, lifecycle fields, cleanup fields, and related server-managed members.
+- Completed: oversize response includes `requested_byte_size`, `configured_limit_bytes`, and creates no durable `object_blobs` row or idempotency success payload.
+- Completed: 60-minute upload target expiry and 24-hour pending slot expiry are preserved.
+- Completed: same-slot target refresh and resumable upload were not added.
+- Completed: blob creation remains route-only; it does not create or mutate evidence rows, record links, preview handles, release state, or workflow objects.
 
 Validation commands:
-- `go test ./internal/modules/evidence -run 'TestPhase5_.*U_5_0(1|2|9)|TestPhase5_.*I_5_02'`
-- `make backend-unit`
-- `make backend-integration`
+- Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'`
+- Sprint 1 rows passed inside `make phase-slice PHASE=phase5`: `U-5-01`, `U-5-02`, `U-5-09`, and `I-5-02`.
+- Expected failure: `make backend-unit` still fails on later Sprint 3 placeholders `U-5-05` and `U-5-07`.
+- Expected failure: `make backend-store` still fails on later Sprint 2/3 placeholders `U-5-03`, `U-5-04`, and `U-5-06`.
+- Expected failure: `make backend-integration` still fails on later Sprint 2/3/4 placeholders `I-5-01`, `I-5-03`, and `I-5-04`.
+- Expected failure: `make phase-slice PHASE=phase5` still fails only because the later placeholder rows above are intentionally skipped.
 
 Deliverables:
-- Passing `U-5-01`, `U-5-02`, `U-5-09`, `I-5-02`.
-- Blob create route remains route-only and does not mutate evidence rows.
+- Delivered: passing `U-5-01`, `U-5-02`, blob-create `U-5-09`, and `I-5-02`.
+- Delivered: blob create route remains route-only and does not mutate evidence rows.
 
 Risks and assumptions:
 - Existing `TestPhase4_ObjectBlobCreate_I_4_BLOB_01` overlaps; keep it as Phase 4 route-shape smoke or split assertions into new Phase 5 rows without deleting useful regression coverage.
 - Safe assumption: upload target `href` remains opaque and may be app-local for filesystem object storage.
+- Retained assumption: malformed non-empty `incident_id` has no dedicated blob-create reason token in the current registry; no new public reason code was introduced.
 
 Exit criteria:
-- Blob-create failures leave no `object_blobs`, no `upload_target`, and no idempotency success payload.
-- Expired replay never refreshes the original slot.
+- Met: blob-create failures leave no `object_blobs`, no `upload_target`, and no idempotency success payload.
+- Met: expired replay never refreshes the original slot.
 
 ## Sprint 2. Attach Finalization, Lifecycle Bridge, and No-Blob Evidence
 

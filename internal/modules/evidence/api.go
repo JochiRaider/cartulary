@@ -27,6 +27,39 @@ const (
 
 var sha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
+var blobCreateServerManagedFields = map[string]struct{}{
+	"object_blob_id":           {},
+	"record_id":                {},
+	"evidence_record_id":       {},
+	"storage_key":              {},
+	"storage_backend":          {},
+	"bucket":                   {},
+	"key":                      {},
+	"upload_state":             {},
+	"target_expires_at":        {},
+	"pending_expires_at":       {},
+	"upload_target":            {},
+	"accepted_contract":        {},
+	"observed_size":            {},
+	"observed_content_type":    {},
+	"observed_sha256_hex":      {},
+	"finalized_at":             {},
+	"terminal_reason":          {},
+	"failed_at":                {},
+	"finalize_attempt_count":   {},
+	"cleanup_due_at":           {},
+	"cleaned_up_at":            {},
+	"created_at":               {},
+	"updated_at":               {},
+	"created_by_user_id":       {},
+	"preview_kind":             {},
+	"preview_intent":           {},
+	"download_intent":          {},
+	"release_state":            {},
+	"workflow_state":           {},
+	"evidence_lifecycle_state": {},
+}
+
 type BlobCreateRequest struct {
 	IncidentID       uuid.UUID
 	ClientTxnID      string
@@ -54,23 +87,26 @@ func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateReq
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
+			if _, managed := blobCreateServerManagedFields[key]; managed {
+				return BlobCreateRequest{}, invalidBlobCreate(key, "server_managed_field")
+			}
 			return BlobCreateRequest{}, invalidBlobCreate(key, "unknown_field")
 		}
 	}
-	incidentID, apiErr := requiredUUID(raw, "incident_id", "invalid_blob_create_request")
+	incidentID, apiErr := requiredBlobUUID(raw, "incident_id")
 	if apiErr != nil {
 		return BlobCreateRequest{}, apiErr
 	}
-	clientTxnID, apiErr := requiredString(raw, "client_txn_id", "invalid_blob_create_request")
+	clientTxnID, apiErr := requiredBlobString(raw, "client_txn_id")
 	if apiErr != nil {
 		return BlobCreateRequest{}, apiErr
 	}
-	byteSize, apiErr := requiredInt64(raw, "byte_size", "invalid_blob_create_request")
+	byteSize, apiErr := requiredBlobInt64(raw, "byte_size")
 	if apiErr != nil {
 		return BlobCreateRequest{}, apiErr
 	}
 	if byteSize < 0 {
-		return BlobCreateRequest{}, invalidBlobCreate("byte_size", "invalid_value")
+		return BlobCreateRequest{}, invalidBlobCreate("byte_size", "invalid_byte_size")
 	}
 	if byteSize > maxByteSize {
 		return BlobCreateRequest{}, &auth.APIError{
@@ -84,20 +120,20 @@ func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateReq
 			},
 		}
 	}
-	filenameHint, apiErr := optionalTrimmedString(raw, "filename_hint", "invalid_blob_create_request")
+	filenameHint, apiErr := optionalBlobTrimmedString(raw, "filename_hint")
 	if apiErr != nil {
 		return BlobCreateRequest{}, apiErr
 	}
-	contentTypeHint, apiErr := optionalTrimmedString(raw, "content_type_hint", "invalid_blob_create_request")
+	contentTypeHint, apiErr := optionalBlobTrimmedString(raw, "content_type_hint")
 	if apiErr != nil {
 		return BlobCreateRequest{}, apiErr
 	}
-	sha256Hex, apiErr := optionalTrimmedString(raw, "sha256_hex", "invalid_blob_create_request")
+	sha256Hex, apiErr := optionalBlobTrimmedString(raw, "sha256_hex")
 	if apiErr != nil {
 		return BlobCreateRequest{}, apiErr
 	}
 	if sha256Hex != nil && !sha256HexPattern.MatchString(*sha256Hex) {
-		return BlobCreateRequest{}, invalidBlobCreate("sha256_hex", "invalid_value")
+		return BlobCreateRequest{}, invalidBlobCreate("sha256_hex", "invalid_sha256_hex")
 	}
 	accepted := map[string]any{
 		"incident_id":       incidentID.String(),
@@ -186,9 +222,78 @@ func decodeStrictObject(reader io.Reader, code string) (map[string]json.RawMessa
 		return nil, invalidRequest(code, "", "request_not_object")
 	}
 	if decoder.Decode(&struct{}{}) != io.EOF {
-		return nil, invalidRequest(code, "", "invalid_value")
+		return nil, invalidRequest(code, "", "request_not_object")
 	}
 	return raw, nil
+}
+
+func requiredBlobString(raw map[string]json.RawMessage, field string) (string, *auth.APIError) {
+	value, ok := raw[field]
+	if !ok {
+		return "", invalidBlobCreate(field, "missing_required_field")
+	}
+	if string(value) == "null" {
+		return "", invalidBlobCreate(field, "field_not_nullable")
+	}
+	var text string
+	if err := json.Unmarshal(value, &text); err != nil {
+		return "", invalidBlobCreate(field, "field_empty_after_normalization")
+	}
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "", invalidBlobCreate(field, "field_empty_after_normalization")
+	}
+	return trimmed, nil
+}
+
+func requiredBlobUUID(raw map[string]json.RawMessage, field string) (uuid.UUID, *auth.APIError) {
+	text, apiErr := requiredBlobString(raw, field)
+	if apiErr != nil {
+		return uuid.UUID{}, apiErr
+	}
+	id, err := uuid.Parse(text)
+	if err != nil {
+		return uuid.UUID{}, invalidBlobCreate(field, "")
+	}
+	return id, nil
+}
+
+func requiredBlobInt64(raw map[string]json.RawMessage, field string) (int64, *auth.APIError) {
+	value, ok := raw[field]
+	if !ok {
+		return 0, invalidBlobCreate(field, "missing_required_field")
+	}
+	if string(value) == "null" {
+		return 0, invalidBlobCreate(field, "field_not_nullable")
+	}
+	var number json.Number
+	if err := json.Unmarshal(value, &number); err != nil {
+		return 0, invalidBlobCreate(field, "invalid_byte_size")
+	}
+	integer, err := number.Int64()
+	if err != nil || number.String() != fmt.Sprintf("%d", integer) {
+		return 0, invalidBlobCreate(field, "invalid_byte_size")
+	}
+	return integer, nil
+}
+
+func optionalBlobTrimmedString(raw map[string]json.RawMessage, field string) (*string, *auth.APIError) {
+	value, ok := raw[field]
+	if !ok || string(value) == "null" {
+		return nil, nil
+	}
+	var text string
+	if err := json.Unmarshal(value, &text); err != nil {
+		if field == "sha256_hex" {
+			return nil, invalidBlobCreate(field, "invalid_sha256_hex")
+		}
+		return nil, invalidBlobCreate(field, "")
+	}
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return nil, nil
+	}
+	return &trimmed, nil
 }
 
 func requiredString(raw map[string]json.RawMessage, field string, code string) (string, *auth.APIError) {
