@@ -222,8 +222,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v8") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v8");
+if (manifest.schema_id !== "cartulary.check_schedule.v9") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v9");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -251,8 +251,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v8") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v8");
+if (manifest.schema_id !== "cartulary.check_schedule.v9") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v9");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -531,8 +531,8 @@ assertCheckMetadata("check-service-backed", "service_session_start");
 assertCheckMetadata("migration-drift", "post_build_migration_scratch_postgres");
 assertCheckMetadata("backend-unit", "after_setup_cpu");
 assertCheckMetadata("go-vulncheck", "after_setup_cpu_io");
-if (manifest.schema_id !== "cartulary.check_schedule.v8") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v8");
+if (manifest.schema_id !== "cartulary.check_schedule.v9") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v9");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {

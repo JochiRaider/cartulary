@@ -684,7 +684,7 @@ write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"
 cat >"$smoke_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1157,7 +1157,7 @@ write_fake_make "$success_dir"
 success_manifest="${success_dir}/manifest.json"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1212,6 +1212,66 @@ if (summary.resource_limit_sources?.host_cpu !== "env:CHECK_HOST_CPU_JOBS") {
 }
 if (summary.resource_limit_sources?.host_io !== "env:CHECK_HOST_IO_JOBS") {
   throw new Error(`env host_io source got ${summary.resource_limit_sources?.host_io}`);
+}
+EOF
+
+browser_auto_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-browser-auto.XXXXXX")"
+cleanup_paths+=("$browser_auto_dir")
+write_fake_make "$browser_auto_dir"
+browser_auto_manifest="${browser_auto_dir}/manifest.json"
+cat >"$browser_auto_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v9",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": {
+        "host_cpu": 12,
+        "host_io": 12,
+        "suite_service_stack": 1,
+        "migration_scratch_postgres": 1,
+        "browser_stack": "auto",
+        "browser_stage_webserver_backed": 1,
+        "browser_stage_stateful": 1,
+        "browser_stage_measurement": 1,
+        "browser_stage_visual": 1,
+        "process": 4
+      },
+      "summary_groups": [
+        { "name": "browser", "summary_targets": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] }
+      ],
+      "work_units": [
+        { "target": "browser-e2e-webserver-backed", "weight": 40, "needs": [], "produces_summary_targets": ["browser-e2e-webserver-backed"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 }, "make_jobs": "host_cpu" },
+        { "target": "browser-e2e-stateful", "weight": 30, "needs": [], "produces_summary_targets": ["browser-e2e-stateful"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 }, "make_jobs": "host_cpu" },
+        { "target": "browser-e2e-measurement", "weight": 20, "needs": [], "produces_summary_targets": ["browser-e2e-measurement"], "resource_claims": { "host_cpu": 4, "host_io": 4, "process": 1, "browser_stack": 1, "browser_stage_measurement": 1 }, "make_jobs": "host_cpu" },
+        { "target": "browser-e2e-visual", "weight": 10, "needs": [], "produces_summary_targets": ["browser-e2e-visual"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_visual": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+browser_auto_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_DEFAULT=0.2 run_scheduler "$browser_auto_dir" "$browser_auto_manifest" browser-auto 2>&1)"
+assert_contains "$browser_auto_output" "browser_stack:4" "check browser stack auto capacity resolves to all four browser stages"
+assert_equals "$(cat "${browser_auto_dir}/max")" "4" "check browser auto capacity allows all four browser stages to overlap"
+"$NODE_BIN" - "${browser_auto_dir}/results/browser-auto/check/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.resource_limits?.browser_stack !== 4) {
+  throw new Error(`browser_stack limit got ${summary.resource_limits?.browser_stack}`);
+}
+if (summary.resource_limit_sources?.browser_stack !== "auto:service_backed_browser_stack") {
+  throw new Error(`browser_stack source got ${summary.resource_limit_sources?.browser_stack}`);
+}
+EOF
+browser_override_output="$(CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=3 CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$browser_auto_dir" "$browser_auto_manifest" browser-override 2>&1)"
+assert_contains "$browser_override_output" "browser_stack:3" "check browser stack env override applies to flattened check schedule"
+"$NODE_BIN" - "${browser_auto_dir}/results/browser-override/check/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.resource_limit_sources?.browser_stack !== "env:CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT") {
+  throw new Error(`browser_stack override source got ${summary.resource_limit_sources?.browser_stack}`);
 }
 EOF
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
@@ -1372,7 +1432,7 @@ write_fake_make "$blocker_clarity_dir"
 blocker_clarity_manifest="${blocker_clarity_dir}/manifest.json"
 cat >"$blocker_clarity_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1424,7 +1484,7 @@ write_fake_make "$success_budget_dir"
 success_budget_manifest="${success_budget_dir}/manifest.json"
 cat >"$success_budget_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1453,7 +1513,7 @@ write_fake_make "$split_lane_dir"
 split_lane_manifest="${split_lane_dir}/manifest.json"
 cat >"$split_lane_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1541,7 +1601,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1570,7 +1630,7 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1599,7 +1659,7 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1719,7 +1779,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1741,7 +1801,7 @@ assert_contains "$invalid_output" "depends on unknown completion key missing" "i
 invalid_env_manifest="${invalid_dir}/invalid-env-manifest.json"
 cat >"$invalid_env_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1763,7 +1823,7 @@ assert_contains "$invalid_env_output" "env.CARTULARY_TEST_TARGET is scheduler-ow
 invalid_retained_manifest="${invalid_dir}/invalid-retained-manifest.json"
 cat >"$invalid_retained_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -1791,7 +1851,7 @@ assert_contains "$invalid_retained_output" "resource_claims entry host_io is not
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",

@@ -1101,6 +1101,56 @@ if (!(webStart < statefulEnd && statefulStart < webEnd)) {
 }
 EOF
 
+browser_auto_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-auto.XXXXXX")"
+cleanup_paths+=("$browser_auto_dir")
+write_fake_make "$browser_auto_dir"
+browser_auto_manifest="${browser_auto_dir}/manifest.json"
+cat >"$browser_auto_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_schedule.v8",
+  "schedules": [
+    {
+      "target": "check-service-backed",
+      "resource_limits": {
+        "postgres": 32,
+        "minio": 32,
+        "go_cpu": 8,
+        "go_io": 8,
+        "process": 4,
+        "browser_stack": "auto",
+        "browser_stage_webserver_backed": 1,
+        "browser_stage_stateful": 1,
+        "browser_stage_measurement": 1,
+        "browser_stage_visual": 1
+      },
+      "work_unit_sources": [
+        { "type": "make_target", "class": "browser", "target": "browser-e2e-webserver-backed", "browser_stage": "webserver-backed", "weight": 40, "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 } },
+        { "type": "make_target", "class": "browser", "target": "browser-e2e-stateful", "browser_stage": "stateful", "weight": 30, "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 } },
+        { "type": "make_target", "class": "browser", "target": "browser-e2e-measurement", "browser_stage": "measurement", "weight": 20, "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "go_cpu": 4, "go_io": 4, "browser_stage_measurement": 1 } },
+        { "type": "make_target", "class": "browser", "target": "browser-e2e-visual", "browser_stage": "visual", "weight": 10, "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_visual": 1 } }
+      ]
+    }
+  ]
+}
+JSON
+browser_auto_output="$(
+  FAKE_SCHEDULER_SLEEP=0.2 \
+    run_scheduler "$browser_auto_dir" "$browser_auto_manifest" check-service-backed browser-auto 2>&1
+)"
+assert_contains "$browser_auto_output" "browser_stack:4" "service-backed browser stack auto capacity resolves to all four browser stages"
+assert_equals "$(cat "${browser_auto_dir}/max")" "4" "service-backed browser auto capacity allows all four browser stages to overlap"
+"$NODE_BIN" - "${browser_auto_dir}/results/browser-auto/check-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.resource_limits?.browser_stack !== 4) {
+  throw new Error(`browser_stack limit got ${summary.resource_limits?.browser_stack}`);
+}
+if (summary.resource_limit_sources?.browser_stack !== "auto:service_backed_browser_stack") {
+  throw new Error(`browser_stack source got ${summary.resource_limit_sources?.browser_stack}`);
+}
+EOF
+
 browser_backend_overlap_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-backend-overlap.XXXXXX")"
 cleanup_paths+=("$browser_backend_overlap_dir")
 write_fake_make "$browser_backend_overlap_dir"

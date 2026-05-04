@@ -586,6 +586,43 @@ export function resolveAutoResourceLimits(resourceLimits, resourceLimitSources, 
   return { resourceLimits: resolved, resourceLimitSources: sources };
 }
 
+function positiveIntegerLimit(value) {
+  return Number.isInteger(value) && value >= 1 ? value : null;
+}
+
+export function browserStageLaneCount(workUnits) {
+  const lanes = new Set();
+  for (const unit of workUnits) {
+    for (const resource of unit.resourceClaims?.keys?.() ?? []) {
+      if (isBrowserStageResource(resource)) {
+        lanes.add(resource);
+      }
+    }
+  }
+  return lanes.size;
+}
+
+export function estimateBrowserStackAutoLimit(workUnits, resourceLimits, { cpuResources = ["host_cpu", "go_cpu"] } = {}) {
+  const laneCount = browserStageLaneCount(workUnits);
+  if (laneCount === 0) {
+    return 1;
+  }
+  const caps = [laneCount];
+  const processLimit = positiveIntegerLimit(resourceLimits.get("process"));
+  if (processLimit !== null) {
+    caps.push(processLimit);
+  }
+  const cpuLimit = Math.max(
+    0,
+    ...cpuResources
+      .map((resource) => positiveIntegerLimit(resourceLimits.get(resource)) ?? 0),
+  );
+  if (cpuLimit > 0) {
+    caps.push(cpuLimit);
+  }
+  return Math.max(1, Math.min(...caps));
+}
+
 export function normalizeBoundedLimitClaim(value, label, resource, resourceLimit) {
   const allowedKeys = new Set(["mode", "reserve", "min", "max"]);
   for (const key of Object.keys(value)) {

@@ -19,7 +19,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "execution_topology_manifest.json",
 );
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
-export const checkScheduleSchemaID = "cartulary.check_schedule.v8";
+export const checkScheduleSchemaID = "cartulary.check_schedule.v9";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
 export const makeTargetBaselineSchemaID =
@@ -783,7 +783,7 @@ function serviceBackedCheckResourceLimits(serviceSchedule) {
     if (resource === "go_cpu" || resource === "go_io") {
       continue;
     }
-    limits[resource] = limit === "auto" ? 2 : limit;
+    limits[resource] = limit;
   }
   return limits;
 }

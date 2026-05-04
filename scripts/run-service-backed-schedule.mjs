@@ -9,6 +9,7 @@ import { loadBrowserBatchStages as loadBrowserBatchStagesFromManifest } from "./
 import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
 import { formatResourceMap } from "./lib/scheduler-reporting.mjs";
 import {
+  estimateBrowserStackAutoLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   resolveAutoResourceLimits,
@@ -425,34 +426,14 @@ function estimateGoIOLimit(goShardUnits, goCPULimit) {
   return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 16);
 }
 
-function browserStageLaneCount(workUnits) {
-  const lanes = new Set();
-  for (const unit of workUnits) {
-    for (const resource of unit.resourceClaims.keys()) {
-      if (resource.startsWith("browser_stage_")) {
-        lanes.add(resource);
-      }
-    }
-  }
-  return lanes.size;
-}
-
-function estimateBrowserStackLimit(workUnits) {
-  const laneCount = browserStageLaneCount(workUnits);
-  if (laneCount === 0) {
-    return 1;
-  }
-  const hostLimit = availableCPUCount() >= 8 ? 2 : 1;
-  return clampInteger(hostLimit, 1, laneCount);
-}
-
 function resolveResourceLimits(resourceLimits, resourceLimitSources, workUnits) {
   const goShardUnits = workUnits.filter((unit) => unit.kind === "go_shard");
   return resolveAutoResourceLimits(resourceLimits, resourceLimitSources, "service-backed schedule", {
     service_backed_go_cpu: () => estimateGoCPULimit(goShardUnits),
     service_backed_go_io: ({ resourceLimits: currentLimits }) =>
       estimateGoIOLimit(goShardUnits, currentLimits.get(goCPUResource)),
-    service_backed_browser_stack: () => estimateBrowserStackLimit(workUnits),
+    service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
+      estimateBrowserStackAutoLimit(workUnits, currentLimits, { cpuResources: [goCPUResource] }),
   });
 }
 

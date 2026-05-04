@@ -11,8 +11,10 @@ import {
 } from "./lib/scheduler-reporting.mjs";
 import {
   assertKnownResource,
+  estimateBrowserStackAutoLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
+  resolveAutoResourceLimits,
   resolveForwardingProfile,
   resourceMapToObject as schedulerResourceMapToObject,
 } from "./lib/scheduler-resources.mjs";
@@ -41,7 +43,7 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v8";
+const supportedSchemaID = "cartulary.check_schedule.v9";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v8";
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -300,11 +302,10 @@ function findSchedule(manifest, target, overrides) {
     scheduler: "check",
     capacityProfile: schedule.capacity_profile ?? null,
     overrides,
-    allowAuto: false,
+    allowAuto: true,
     env: process.env,
   });
-  const resourceLimits = normalizedLimits.limits;
-  const units = schedule.work_units.map((unit, index) => {
+  const normalizeUnit = (unit, index, resourceLimits) => {
     const label = `check schedule ${target} work_units ${index + 1}`;
     if (!unit || typeof unit !== "object" || Array.isArray(unit)) {
       throw new Error(`${label} must be an object`);
@@ -385,7 +386,21 @@ function findSchedule(manifest, target, overrides) {
       startDetail: nestedScheduler ? { nested_scheduler: null } : {},
       order: index,
     };
-  });
+  };
+  const provisionalUnits = schedule.work_units.map((unit, index) =>
+    normalizeUnit(unit, index, normalizedLimits.limits),
+  );
+  const resolvedLimits = resolveAutoResourceLimits(
+    normalizedLimits.limits,
+    normalizedLimits.sources,
+    `check schedule ${target}`,
+    {
+      service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
+        estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, { cpuResources: ["host_cpu"] }),
+    },
+  );
+  const resourceLimits = resolvedLimits.resourceLimits;
+  const units = schedule.work_units.map((unit, index) => normalizeUnit(unit, index, resourceLimits));
   validateCheckWorkUnitDependencyGraph(units, `check schedule ${target}`);
   const sortedUnits = units.sort(
     (left, right) => right.weight - left.weight || left.order - right.order || left.target.localeCompare(right.target),
@@ -394,7 +409,7 @@ function findSchedule(manifest, target, overrides) {
   return {
     target,
     resourceLimits,
-    resourceLimitSources: normalizedLimits.sources,
+    resourceLimitSources: resolvedLimits.resourceLimitSources,
     summaryTargets,
     summaryGroups: schedule.summary_groups ?? [],
     workUnits: sortedUnits,

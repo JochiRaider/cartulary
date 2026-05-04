@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.check_schedule.v8",
+  "schema_id": "cartulary.check_schedule.v9",
   "schedules": [
     {
       "target": "check",
@@ -13,7 +13,7 @@
         "minio": 32,
         "postgres_reset": 1,
         "process": 4,
-        "browser_stack": 2,
+        "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
         "browser_stage_stateful": 1,
         "browser_stage_measurement": 1,
