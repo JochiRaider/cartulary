@@ -1438,27 +1438,31 @@ EOF
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
 const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const groupLine = (action, group) => (line) =>
+  line.startsWith(`${action} browser-e2e-webserver-backed `) && line.includes(`group=${group}`);
+const functionalOneStart = lines.findIndex(groupLine("start", "browser-functional-shard-01"));
 const functionalOneEnd = lines.findIndex((line) =>
   line.startsWith("end browser-e2e-webserver-backed ") && line.includes("group=browser-functional-shard-01")
 );
-const functionalTwoStart = lines.findIndex((line) =>
-  line.startsWith("start browser-e2e-webserver-backed ") && line.includes("group=browser-functional-shard-02")
-);
-const functionalTwoEnd = lines.findIndex((line) =>
-  line.startsWith("end browser-e2e-webserver-backed ") && line.includes("group=browser-functional-shard-02")
-);
-const supportStart = lines.findIndex((line) =>
-  line.startsWith("start browser-e2e-webserver-backed ") && line.includes("group=support")
-);
+const functionalTwoStart = lines.findIndex(groupLine("start", "browser-functional-shard-02"));
+const functionalTwoEnd = lines.findIndex(groupLine("end", "browser-functional-shard-02"));
+const supportStart = lines.findIndex(groupLine("start", "support"));
+const supportEnd = lines.findIndex(groupLine("end", "support"));
 if (
+  functionalOneStart === -1 ||
   functionalOneEnd === -1 ||
   functionalTwoStart === -1 ||
   functionalTwoEnd === -1 ||
   supportStart === -1 ||
-  functionalTwoStart < functionalOneEnd ||
-  supportStart < functionalTwoEnd
+  supportEnd === -1 ||
+  functionalOneStart > functionalTwoEnd ||
+  functionalTwoStart > functionalOneEnd ||
+  supportStart > functionalOneEnd ||
+  functionalOneStart > supportEnd ||
+  supportStart > functionalTwoEnd ||
+  functionalTwoStart > supportEnd
 ) {
-  throw new Error(`webserver-backed groups must run functional shards in order before support, got\n${lines.join("\n")}`);
+  throw new Error(`webserver-backed groups must overlap after the stage session, got\n${lines.join("\n")}`);
 }
 EOF
 

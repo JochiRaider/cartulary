@@ -241,8 +241,7 @@
           "aggregate_target": "browser-e2e-webserver-backed",
           "weight": 19402,
           "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed",
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
+            "browser_stage_session:browser-e2e-webserver-backed"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
@@ -292,6 +291,10 @@
               "go_cpu": 1,
               "go_io": 1
             }
+          },
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "3",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "1"
           }
         },
         {
@@ -349,6 +352,10 @@
               "go_cpu": 1,
               "go_io": 1
             }
+          },
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "3",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
           }
         },
         {
@@ -644,7 +651,8 @@
               "go_cpu": 1,
               "go_io": 1
             }
-          }
+          },
+          "env": {}
         },
         {
           "id": "check-service-backed:browser-stage-session:visual",
@@ -721,7 +729,8 @@
               "go_cpu": 4,
               "go_io": 4
             }
-          }
+          },
+          "env": {}
         },
         {
           "id": "check-service-backed:browser-stage-session:measurement",
@@ -869,7 +878,8 @@
               "go_cpu": 1,
               "go_io": 1
             }
-          }
+          },
+          "env": {}
         },
         {
           "id": "check-service-backed:browser-stage-session:stateful",
@@ -949,9 +959,7 @@
           "aggregate_target": "browser-e2e-webserver-backed",
           "weight": 10000,
           "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed",
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01",
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
+            "browser_stage_session:browser-e2e-webserver-backed"
           ],
           "completion_keys": [
             "browser_group:browser-e2e-webserver-backed:support"
@@ -980,6 +988,11 @@
               "go_cpu": 1,
               "go_io": 1
             }
+          },
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "3",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "2",
+            "PLAYWRIGHT_WORKERS": "1"
           }
         },
         {

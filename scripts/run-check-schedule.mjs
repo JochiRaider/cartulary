@@ -714,6 +714,8 @@ function attachRuntime(schedule, {
   goTargetRunner,
   tempDir,
   serviceSummaryChildren,
+  resultsDir,
+  runId,
 }) {
   const nestedProgress = createNestedProgressSupport(schedule);
   const summaryTargetSet = new Set(summaryTargets);
@@ -738,6 +740,13 @@ function attachRuntime(schedule, {
       },
     ]),
   );
+  const targetSummaryFile = (target) =>
+    path.join(resultsDir, runId, target, "target-summary.json");
+  const serviceTargetStatus = (requestedStatus, children) =>
+    requestedStatus === "pass" ||
+    children.every((childTarget) => existsSync(targetSummaryFile(childTarget)))
+      ? "pass"
+      : "fail";
   const serviceSessionCleanupStatus = new Map(
     serviceSessionTargets.map((target) => [target, "not_started"]),
   );
@@ -1027,7 +1036,7 @@ function attachRuntime(schedule, {
         String(unit.makeJobs),
       ]);
     },
-    afterWorkComplete: async ({ firstFailure }) => {
+    afterWorkComplete: async () => {
       let cleanupFailure = null;
       for (const target of browserSessionTargets) {
         const files = browserSessionFiles.get(target);
@@ -1045,22 +1054,6 @@ function attachRuntime(schedule, {
       }
       for (const target of serviceSessionTargets) {
         const files = serviceSessionFiles.get(target);
-        const status = firstFailure === 0 ? "pass" : "fail";
-        const children = serviceSummaryChildren.get(target) ?? [];
-        if (children.length > 0) {
-          await runLifecycle(repoRoot, testOutputScript, [
-            "target-summary",
-            target,
-            status,
-            "--children",
-            children.join(","),
-            status === "pass" ? "--quiet-success" : "--quiet-failure",
-          ]).catch((error) => {
-            if (!cleanupFailure) {
-              cleanupFailure = { status: 1, label: `${target}:target-summary`, error };
-            }
-          });
-        }
         if (files?.leaseFile) {
           serviceSessionCleanupStatus.set(target, "running");
           const result = await runLifecycle(repoRoot, testServicesBin, [
@@ -1125,6 +1118,23 @@ function attachRuntime(schedule, {
         })),
     nestedSchedulerObservations: () => nestedProgress.summaryRecords(),
     afterSummary: async ({ reporter, requestedStatus, completedKeys, firstFailureLabel }) => {
+      for (const target of serviceSessionTargets) {
+        const children = serviceSummaryChildren.get(target) ?? [];
+        if (children.length === 0) {
+          continue;
+        }
+        const serviceStatus = serviceTargetStatus(requestedStatus, children);
+        await runLifecycle(repoRoot, testOutputScript, [
+          "target-summary",
+          target,
+          serviceStatus,
+          "--children",
+          children.join(","),
+          "--skipped-from-scheduler",
+          schedule.target,
+          serviceStatus === "pass" ? "--quiet-success" : "--quiet-failure",
+        ]);
+      }
       const summaryArgs = [
         "run-summary",
         schedule.target,
@@ -1177,6 +1187,8 @@ function attachRuntime(schedule, {
         requestedStatus,
         "--children",
         summaryTargets.join(","),
+        "--skipped-from-scheduler",
+        schedule.target,
         "--quiet-success",
       ]);
     },
@@ -1223,6 +1235,8 @@ async function main() {
     goTargetRunner: process.env[goTargetRunnerEnv] || context.runnerScript,
     tempDir,
     serviceSummaryChildren,
+    resultsDir: context.resultsDir,
+    runId: context.runId,
   });
 
   if (isDryRunFromMakeFlags()) {

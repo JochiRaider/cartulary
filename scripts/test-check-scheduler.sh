@@ -1883,6 +1883,72 @@ for (const [label, expectedText] of [
 }
 EOF
 
+service_skip_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-service-skip.XXXXXX")"
+cleanup_paths+=("$service_skip_dir")
+write_fake_make "$service_skip_dir"
+service_skip_manifest="${service_skip_dir}/manifest.json"
+cat >"$service_skip_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v10",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
+      "summary_groups": [
+        { "name": "check-work", "summary_targets": ["lint-biome", "check-service-backed"] }
+      ],
+      "work_units": [
+        { "target": "setup", "weight": 110, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "lint-biome", "weight": 100, "needs": ["setup"], "produces_summary_targets": ["lint-biome"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "backend-store", "weight": 80, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "backend-integration", "weight": 70, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "backend-integration-support", "weight": 60, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "backend-process", "weight": 50, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-webserver-backed", "weight": 40, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-stateful", "weight": 30, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-measurement", "weight": 20, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-visual", "weight": 10, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        {
+          "target": "check-service-backed",
+          "weight": 1,
+          "needs": [
+            "backend-store",
+            "backend-integration",
+            "backend-integration-support",
+            "backend-process",
+            "browser-e2e-webserver-backed",
+            "browser-e2e-stateful",
+            "browser-e2e-measurement",
+            "browser-e2e-visual"
+          ],
+          "produces_summary_targets": ["check-service-backed"],
+          "resource_claims": {},
+          "service_session": { "target": "check-service-backed" }
+        }
+      ]
+    }
+  ]
+}
+JSON
+set +e
+service_skip_output="$(
+  FAKE_FAIL_TARGET=lint-biome \
+    run_scheduler "$service_skip_dir" "$service_skip_manifest" service-skip 2>&1
+)"
+service_skip_status=$?
+set -e
+assert_equals "$service_skip_status" "7" "service skip exit status"
+assert_contains "$service_skip_output" "[FAIL] target=check" "service skip check failure"
+assert_not_contains "$service_skip_output" "missing child target summary: backend-store" "service skip avoids backend-store missing artifact"
+service_skip_summary="${service_skip_dir}/results/service-skip/check-service-backed/target-summary.json"
+assert_file_present "$service_skip_summary" "service skip check-service-backed summary"
+assert_equals "$(json_field "$service_skip_summary" "status")" "fail" "service skip aggregate status"
+assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.target")" "backend-store" "service skip first skipped child target"
+assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.reason")" "schedule_stopped_after_failure" "service skip child reason"
+assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.failed_dependency")" "lint-biome" "service skip child failed dependency"
+assert_equals "$(json_field "$service_skip_summary" "children.missing.length")" "0" "service skip children not missing"
+assert_equals "$(json_field "$service_skip_summary" "own.counts.non_test_failed")" "0" "service skip aggregate avoids artifact failure"
+
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-invalid.XXXXXX")"
 cleanup_paths+=("$invalid_dir")
 write_fake_make "$invalid_dir"

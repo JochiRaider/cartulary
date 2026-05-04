@@ -103,6 +103,7 @@ if [[ "$mode" == "functional-shard" ]]; then
 else
   functional_shard_limit="$(resolve_functional_shard_limit)"
 fi
+playwright_worker_count="${CARTULARY_PLAYWRIGHT_WORKER_COUNT:-$functional_shard_limit}"
 
 if [[ "$mode" != "support" ]]; then
   shard_plan_command=("$node_bin" "$shard_plan_script" plan --max-shards "$functional_shard_limit")
@@ -331,7 +332,7 @@ EOF
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES="$files" \
   CARTULARY_PLAYWRIGHT_SUPPORT_GREP="$all_support_grep" \
   CARTULARY_PLAYWRIGHT_SUPPORT_FILES="$all_support_files" \
-  CARTULARY_PLAYWRIGHT_WORKER_COUNT="$functional_shard_limit" \
+  CARTULARY_PLAYWRIGHT_WORKER_COUNT="$playwright_worker_count" \
   CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index" \
   CARTULARY_MANIFEST_SELECTED_IDS="$selected_ids" \
   PLAYWRIGHT_WORKERS=1 \

@@ -7,6 +7,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadBrowserBatchStages as loadBrowserBatchStagesFromManifest } from "./lib/browser-batch-manifest.mjs";
+import {
+  browserGroupCompletionKey,
+  browserGroupNeeds,
+  browserGroupWorkerEnv,
+  browserStageCompletionNeeds,
+  browserStageSessionKey,
+} from "./lib/browser-scheduler-dependencies.mjs";
 import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
 import { formatResourceMap } from "./lib/scheduler-reporting.mjs";
 import {
@@ -383,38 +390,6 @@ function shardCompletionKey(shardName) {
   return `go_shard:${shardName}`;
 }
 
-function browserStageSessionKey(target) {
-  return `browser_stage_session:${target}`;
-}
-
-function browserGroupCompletionKey(groupID) {
-  return `browser_group:${groupID}`;
-}
-
-function browserGroupNeeds(source, group) {
-  const needs = [browserStageSessionKey(source.target)];
-  if (group.kind === "functional_shard") {
-    const previousFunctionalShard = source.groups
-      .filter((candidate) => candidate.kind === "functional_shard")
-      .sort((left, right) =>
-        (left.shardIndex ?? 0) - (right.shardIndex ?? 0) ||
-        left.id.localeCompare(right.id),
-      )
-      .find((candidate) => (candidate.shardIndex ?? 0) === (group.shardIndex ?? 0) - 1);
-    if (previousFunctionalShard) {
-      needs.push(browserGroupCompletionKey(previousFunctionalShard.id));
-    }
-  }
-  if (group.kind === "support") {
-    needs.push(
-      ...source.groups
-        .filter((candidate) => candidate.kind === "functional_shard")
-        .map((candidate) => browserGroupCompletionKey(candidate.id)),
-    );
-  }
-  return needs;
-}
-
 function retainedBrowserStageClaims(resourceClaims) {
   return new Map(
     Array.from(resourceClaims.entries()).filter(
@@ -459,7 +434,7 @@ function expandSchedule(schedule) {
         aggregateTarget: source.target,
         group: source.target,
         browserStage: source.browserStage,
-        needs: source.groups.map((group) => browserGroupCompletionKey(group.id)),
+        needs: browserStageCompletionNeeds(source.groups),
         completionKeys: [source.target],
         failureKeys: [source.target],
         countInTotal: false,
@@ -481,7 +456,8 @@ function expandSchedule(schedule) {
           group: source.target,
           browserStage: source.browserStage,
           browserGroup: group,
-          needs: browserGroupNeeds(source, group),
+          browserWorkerEnv: browserGroupWorkerEnv(source.groups, group),
+          needs: browserGroupNeeds(browserStageSessionKey(source.target)),
           completionKeys: [browserGroupCompletionKey(group.id)],
           failureKeys: [browserGroupCompletionKey(group.id)],
           weight: group.weight,
@@ -755,6 +731,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
         const commonEnv = {
           ...process.env,
           ...sessionEnv,
+          ...unit.browserWorkerEnv,
           CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
           CARTULARY_TEST_TARGET: unit.aggregateTarget,
           CARTULARY_BROWSER_STAGE: unit.browserStage,

@@ -2106,7 +2106,7 @@ function parseTargetSummaryArgs(args) {
   const [target, ...rest] = args;
   if (!target) {
     throw new Error(
-      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success] [--quiet-failure] [--suppress-machine-output]",
+      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-from-scheduler <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success] [--quiet-failure] [--suppress-machine-output]",
     );
   }
 
@@ -2117,6 +2117,7 @@ function parseTargetSummaryArgs(args) {
   let suppressMachineOutput = false;
   let skippedAfterFailure = [];
   let skippedFromChildTargets = [];
+  let skippedFromSchedulerTargets = [];
   let failedDependency = "";
   const remaining = [...rest];
   if (remaining.length > 0 && !remaining[0].startsWith("--")) {
@@ -2163,6 +2164,16 @@ function parseTargetSummaryArgs(args) {
       );
       continue;
     }
+    if (option === "--skipped-from-scheduler") {
+      const value = remaining.shift();
+      if (value === undefined) {
+        throw new Error("--skipped-from-scheduler requires <target>");
+      }
+      skippedFromSchedulerTargets = skippedFromSchedulerTargets.concat(
+        parseTargetList(value),
+      );
+      continue;
+    }
     if (option === "--failed-dependency") {
       failedDependency = remaining.shift() ?? "";
       if (failedDependency === "") {
@@ -2199,6 +2210,7 @@ function parseTargetSummaryArgs(args) {
     childTargetNames,
     skippedAfterFailure,
     skippedFromChildTargets,
+    skippedFromSchedulerTargets,
     failedDependency,
     quietSuccess,
     quietFailure,
@@ -2464,6 +2476,7 @@ function skippedChildTargetSummaries(
   missingChildTargetSummaries,
   explicitSkippedAfterFailure = [],
   skippedFromChildTargets = [],
+  skippedFromSchedulerTargets = [],
   explicitFailedDependency = "",
 ) {
   const missing = new Set(missingChildTargetSummaries);
@@ -2471,8 +2484,14 @@ function skippedChildTargetSummaries(
     return [];
   }
   const skippedByTarget = new Map();
-  const schedulerSummary = loadSchedulerSummary(parentTarget);
-  if (schedulerSummary) {
+  for (const schedulerTarget of [
+    parentTarget,
+    ...skippedFromSchedulerTargets,
+  ]) {
+    const schedulerSummary = loadSchedulerSummary(schedulerTarget);
+    if (!schedulerSummary) {
+      continue;
+    }
     for (const skipped of schedulerSummary.skipped_work_units ?? []) {
       const childTarget = skipped.aggregate_target;
       if (!missing.has(childTarget) || skippedByTarget.has(childTarget)) {
@@ -2480,7 +2499,7 @@ function skippedChildTargetSummaries(
       }
       skippedByTarget.set(childTarget, {
         target: childTarget,
-        work_unit: skipped.label ?? childTarget,
+        work_unit: skipped.label ?? skipped.id ?? childTarget,
         reason: skipped.reason ?? "unknown",
         failed_dependency:
           skipped.failed_dependency ?? schedulerSummary.failed_work_unit ?? "",
@@ -2962,6 +2981,7 @@ function handleTargetSummary(args) {
     childTargetNames,
     skippedAfterFailure,
     skippedFromChildTargets,
+    skippedFromSchedulerTargets,
     failedDependency,
     quietSuccess,
     quietFailure,
@@ -2980,6 +3000,7 @@ function handleTargetSummary(args) {
     missingChildTargetSummaries,
     skippedAfterFailure,
     skippedFromChildTargets,
+    skippedFromSchedulerTargets,
     failedDependency,
   );
   const skippedChildTargetNames = new Set(
@@ -3008,7 +3029,8 @@ function handleTargetSummary(args) {
     summary.failed === false &&
     timingFailures.length === 0 &&
     unresolvedMissingChildTargetSummaries.length === 0 &&
-    failedChildTargets.length === 0
+    failedChildTargets.length === 0 &&
+    skippedChildTargets.length === 0
   ) {
     summary.counts.failed += 1;
     summary.counts.non_test += 1;
@@ -3019,7 +3041,8 @@ function handleTargetSummary(args) {
     summary.failed === false &&
     timingFailures.length === 0 &&
     unresolvedMissingChildTargetSummaries.length === 0 &&
-    failedChildTargets.length === 0
+    failedChildTargets.length === 0 &&
+    skippedChildTargets.length === 0
       ? [
           {
             failure_class: classifyExecutionFailure(target),
@@ -3050,7 +3073,9 @@ function handleTargetSummary(args) {
     summary.failed ||
     timingFailures.length > 0 ||
     unresolvedMissingChildTargetSummaries.length > 0 ||
-    (requestedStatus === "fail" && failedChildTargets.length === 0);
+    (requestedStatus === "fail" &&
+      failedChildTargets.length === 0 &&
+      skippedChildTargets.length === 0);
   const status =
     ownFailed || failedChildTargets.length > 0 || requestedStatus === "fail"
       ? "FAIL"

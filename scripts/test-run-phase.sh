@@ -1158,6 +1158,45 @@ assert_equals "$(json_field "$imported_skipped_child_summary" "children.skipped.
 assert_equals "$(json_field "$imported_skipped_child_summary" "children.missing.length")" "0" "imported skipped child not missing"
 assert_equals "$(json_field "$imported_skipped_child_summary" "own.counts.non_test_failed")" "0" "imported skipped child does not create artifact failure"
 
+mkdir -p "$skipped_child_run/external-scheduler-source"
+cat >"$skipped_child_run/external-scheduler-source/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_summary.v1",
+  "target": "external-scheduler-source",
+  "status": "fail",
+  "failed_work_unit": "failed-backend",
+  "skipped_work_units": [
+    {
+      "label": "scheduler-imported-work",
+      "id": "scheduler-imported-work-id",
+      "aggregate_target": "scheduler-imported-skipped",
+      "reason": "dependency_failure",
+      "failed_dependency": "failed-backend"
+    }
+  ]
+}
+JSON
+scheduler_imported_skipped_child_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
+  CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
+  CARTULARY_TEST_RUN_ID="skipped-child" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-scheduler-imported-skipped fail \
+      --children failed-backend,scheduler-imported-skipped \
+      --skipped-from-scheduler external-scheduler-source \
+    2>&1
+)"
+assert_contains "$scheduler_imported_skipped_child_output" "[CHILD-SKIPPED] parent-with-scheduler-imported-skipped scheduler-imported-skipped reason=dependency_failure failed_dependency=failed-backend work_unit=scheduler-imported-work" "scheduler imported skipped child output"
+assert_not_contains "$scheduler_imported_skipped_child_output" "[CHILD-MISSING] parent-with-scheduler-imported-skipped scheduler-imported-skipped" "scheduler imported skipped child is not missing output"
+assert_not_contains "$scheduler_imported_skipped_child_output" "missing child target summary: scheduler-imported-skipped" "scheduler imported skipped child avoids artifact failure"
+scheduler_imported_skipped_child_summary="$skipped_child_run/parent-with-scheduler-imported-skipped/target-summary.json"
+assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "children.failed_targets.0")" "failed-backend" "scheduler imported skipped child failed target"
+assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "children.skipped.0.target")" "scheduler-imported-skipped" "scheduler imported skipped child summary target"
+assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "children.skipped.0.reason")" "dependency_failure" "scheduler imported skipped child reason"
+assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "children.skipped.0.work_unit")" "scheduler-imported-work" "scheduler imported skipped child work unit"
+assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "children.skipped.0.failed_dependency")" "failed-backend" "scheduler imported skipped child dependency"
+assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "children.missing.length")" "0" "scheduler imported skipped child not missing"
+assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "own.counts.non_test_failed")" "0" "scheduler imported skipped child does not create artifact failure"
+
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   VERBOSE=1 \

@@ -1,6 +1,10 @@
 import { type APIRequestContext, type Page, request } from "@playwright/test";
 
 import {
+  isExternalServerHarnessMode,
+  usesSharedPlaywrightState,
+} from "./harnessState";
+import {
   apiBase,
   applyCookies,
   authHeadersForStorageState,
@@ -80,19 +84,32 @@ export type DeploymentAdminMutationClient = {
 
 export async function prepareWorkerAdminSuite(workerCount: number) {
   ensureWorkerAdminCleanupMarkerDirectory();
+  const sharedExternalHarness =
+    isExternalServerHarnessMode() && usesSharedPlaywrightState();
 
   const controlPlane = await loginBootstrapControlPlaneContext();
   try {
     const existingManifest = loadWorkerAdminManifestIfPresent();
-    if (existingManifest !== null) {
+    const manifestWorkerCount =
+      sharedExternalHarness && existingManifest !== null
+        ? Math.max(
+            workerCount,
+            ...existingManifest.worker_admins.map(
+              (entry) => entry.parallel_index + 1,
+            ),
+          )
+        : workerCount;
+    if (existingManifest !== null && !sharedExternalHarness) {
       await janitorStaleWorkerAdmins(controlPlane.request, existingManifest);
     }
-    clearWorkerAdminCleanupMarkers();
-    ensureWorkerAdminCleanupMarkerDirectory();
+    if (!sharedExternalHarness) {
+      clearWorkerAdminCleanupMarkers();
+      ensureWorkerAdminCleanupMarkerDirectory();
+    }
     writeWorkerAdminManifest(
       await reconcileWorkerAdminManifest(
         controlPlaneClient(controlPlane.request),
-        buildWorkerAdminBlueprints(workerCount),
+        buildWorkerAdminBlueprints(manifestWorkerCount),
         existingManifest,
       ),
     );

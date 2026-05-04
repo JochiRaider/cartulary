@@ -638,6 +638,49 @@ const webserverGroups = (schedule.work_units ?? []).filter((entry) =>
 if (webserverGroups.length < 3 || !webserverGroups.some((entry) => entry.browser_group?.kind === "functional_shard")) {
   throw new Error("check schedule must split browser-e2e-webserver-backed into functional shard and support browser groups");
 }
+const webserverGroupKeys = new Set(webserverGroups.map((entry) => `browser_group:${entry.browser_group?.id}`));
+const webserverStageSessionKey = "browser_stage_session:browser-e2e-webserver-backed";
+const functionalShardCount = Math.max(
+  ...webserverGroups
+    .filter((entry) => entry.browser_group?.kind === "functional_shard")
+    .map((entry) => entry.browser_group?.shard_count ?? 0),
+);
+const webserverWorkerCount = functionalShardCount + (
+  webserverGroups.some((entry) => entry.browser_group?.kind === "support") ? 1 : 0
+);
+for (const group of webserverGroups) {
+  if (JSON.stringify(group.needs ?? []) !== JSON.stringify([webserverStageSessionKey])) {
+    throw new Error(`${group.label} must depend only on the webserver-backed browser stage session`);
+  }
+  if ((group.needs ?? []).some((need) => webserverGroupKeys.has(need))) {
+    throw new Error(`${group.label} must not depend on another browser group`);
+  }
+  if (group.browser_group?.kind === "functional_shard") {
+    if (
+      group.env?.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== String(webserverWorkerCount) ||
+      group.env?.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== String(group.browser_group.shard_index)
+    ) {
+      throw new Error(`${group.label} must use its functional shard worker slot`);
+    }
+  }
+  if (group.browser_group?.kind === "support") {
+    if (
+      group.env?.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== String(webserverWorkerCount) ||
+      group.env?.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== String(functionalShardCount) ||
+      group.env?.PLAYWRIGHT_WORKERS !== "1"
+    ) {
+      throw new Error(`${group.label} must use a worker slot outside the functional shard range`);
+    }
+  }
+}
+const webserverComplete = (schedule.work_units ?? []).find((entry) =>
+  entry.target === "browser-e2e-webserver-backed" && entry.kind === "browser_stage_complete"
+);
+const expectedWebserverCompleteNeeds = [...webserverGroupKeys].sort();
+const actualWebserverCompleteNeeds = [...(webserverComplete?.needs ?? [])].sort();
+if (JSON.stringify(actualWebserverCompleteNeeds) !== JSON.stringify(expectedWebserverCompleteNeeds)) {
+  throw new Error("browser-e2e-webserver-backed completion must depend on every browser group");
+}
 if ((schedule.work_units ?? []).some((entry) =>
   entry.target === "browser-e2e-webserver-backed" && entry.kind === "service_make_target"
 )) {
@@ -862,8 +905,11 @@ fi
 if ! grep -Fq 'PLAYWRIGHT_WORKERS=1' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must run each functional shard with one Playwright worker"
 fi
-if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_COUNT="$functional_shard_limit"' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must provision one worker-admin slot per parallel shard"
+if ! grep -Fq 'playwright_worker_count="${CARTULARY_PLAYWRIGHT_WORKER_COUNT:-$functional_shard_limit}"' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must allow scheduled browser groups to provision a stage-wide worker-admin range"
+fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_COUNT="$playwright_worker_count"' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must pass the resolved worker-admin count to Playwright"
 fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index"' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must offset each parallel shard to a distinct worker-admin slot"

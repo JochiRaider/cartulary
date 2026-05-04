@@ -1,3 +1,10 @@
+import {
+  browserGroupCompletionKey,
+  browserGroupNeeds,
+  browserGroupWorkerEnv,
+  browserStageCompletionNeeds,
+  browserStageSessionKey,
+} from "./browser-scheduler-dependencies.mjs";
 import { collectGoShardsForTarget } from "./go-shard-plan.mjs";
 
 const serviceSessionResource = "suite_service_stack";
@@ -89,38 +96,6 @@ function shardCompletionKey(shardName) {
   return `go_shard:${shardName}`;
 }
 
-function browserStageSessionKey(target) {
-  return `browser_stage_session:${target}`;
-}
-
-function browserGroupCompletionKey(groupID) {
-  return `browser_group:${groupID}`;
-}
-
-function browserGroupNeeds(source, group, stageSessionKey) {
-  const needs = [stageSessionKey];
-  if (group.kind === "functional_shard") {
-    const previousFunctionalShard = (source.groups ?? [])
-      .filter((candidate) => candidate.kind === "functional_shard")
-      .sort((left, right) =>
-        (left.shard_index ?? 0) - (right.shard_index ?? 0) ||
-        left.id.localeCompare(right.id),
-      )
-      .find((candidate) => (candidate.shard_index ?? 0) === (group.shard_index ?? 0) - 1);
-    if (previousFunctionalShard) {
-      needs.push(browserGroupCompletionKey(previousFunctionalShard.id));
-    }
-  }
-  if (group.kind === "support") {
-    needs.push(
-      ...(source.groups ?? [])
-        .filter((candidate) => candidate.kind === "functional_shard")
-        .map((candidate) => browserGroupCompletionKey(candidate.id)),
-    );
-  }
-  return needs;
-}
-
 function sourceNeeds(source, serviceSessionKey, extraNeeds = []) {
   return [serviceSessionKey, ...extraNeeds, ...(source.needs ?? [])];
 }
@@ -210,7 +185,7 @@ export function expandServiceBackedScheduleForCheck({
         label: `${source.target}/complete`,
         aggregate_target: source.target,
         weight: 1,
-        needs: (source.groups ?? []).map((group) => browserGroupCompletionKey(group.id)),
+        needs: browserStageCompletionNeeds(source.groups),
         completion_keys: [source.target],
         failure_keys: [source.target],
         count_in_total: false,
@@ -231,7 +206,7 @@ export function expandServiceBackedScheduleForCheck({
           label: `${source.target}/${group.name}`,
           aggregate_target: source.target,
           weight: group.weight,
-          needs: browserGroupNeeds(source, group, stageSessionKey),
+          needs: browserGroupNeeds(stageSessionKey),
           completion_keys: [browserGroupCompletionKey(group.id)],
           failure_keys: [browserGroupCompletionKey(group.id)],
           resource_claims: browserGroupClaims(group.resource_claims),
@@ -240,6 +215,7 @@ export function expandServiceBackedScheduleForCheck({
           },
           browser_stage: source.browser_stage,
           browser_group: clone(group),
+          env: browserGroupWorkerEnv(source.groups, group),
           order: sourceIndex,
         });
       }
