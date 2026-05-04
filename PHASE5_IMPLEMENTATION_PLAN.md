@@ -12,7 +12,7 @@ This planning artifact does not implement Phase 5 behavior. It is intentionally 
 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
-| [ ] | 0. Phase 5 ownership manifest and harness setup | [ ] pending |  |  |
+| [x] | 0. Phase 5 ownership manifest and harness setup | [x] validated | Intentional TDD failures remain for `U-5-01`, `U-5-02`, `U-5-09`, and `I-5-02`. | Phase 5 is active and selectable; Sprint 1 should replace the failing stubs with real assertions. |
 | [ ] | 1. Blob create and upload-slot contract | [ ] pending |  |  |
 | [ ] | 2. Attach finalization, lifecycle bridge, and no-blob evidence | [ ] pending |  |  |
 | [ ] | 3. Handle issuance and redeem hardening | [ ] pending |  |  |
@@ -33,43 +33,50 @@ This planning artifact does not implement Phase 5 behavior. It is intentionally 
 
 Objective: Establish Phase 5 test ownership before feature work so TDD rows can be selected by repo tooling.
 
+Status: Complete. Phase 5 is active in `tools/phase_registry.json`, `tools/phase5_test_map.json` owns all authoritative `U-5-*`, `I-5-*`, and `E-5-*` rows, and `docs/testing/phase5_coverage_ledger.md` is generated from the manifest.
+
 Relevant IDs: all `U-5-*`, `I-5-*`, `E-5-*`; `tools/phase5_test_map.json`; `docs/testing/phase5_coverage_ledger.md`.
 
 Files and areas:
-- Add `tools/phase5_test_map.json`.
+- Added `tools/phase5_test_map.json`.
 - Generated ledger via `make phase-ledgers`.
-- Reuse `internal/testutil/phase4test` or introduce `internal/testutil/phase5test` only if Phase 5 helpers diverge materially.
-- Backend tests likely live in `internal/modules/evidence/phase5_*_test.go`, `internal/modules/workbook/phase5_*_test.go`, and optionally `internal/modules/projections/phase5_*_test.go`.
-- Browser tests likely live in `apps/web/e2e/phase5.evidence.spec.ts`; frontend unit tests in `apps/web/src/WorkbookShell.phase5.test.tsx`.
+- Reused existing test harness ownership; no `internal/testutil/phase5test` package was introduced.
+- Backend placeholders live in `internal/modules/evidence/phase5_*_test.go`.
+- Browser placeholders live in `apps/web/e2e/phase5.evidence.spec.ts`; frontend unit placeholder lives in `apps/web/src/WorkbookShell.phase5.test.tsx`.
 
 Test-first sequence:
-1. Add manifest rows with expected symbols before implementing behavior.
-2. Add stub/failing tests for each sprint's first row, keeping symbols grep-friendly, e.g. `TestPhase5_ObjectBlobCreate_U_5_01`, `TestPhase5_BlobCreateIdempotency_U_5_02`, `TestPhase5_AttachBlobValidation_U_5_03`.
-3. Run manifest/name validation before implementation.
+1. Completed: manifest rows were added with expected symbols before behavior implementation.
+2. Completed: Sprint 1 failing stubs were added for `TestPhase5_ObjectBlobCreate_U_5_01`, `TestPhase5_BlobCreateIdempotency_U_5_02`, `TestPhase5_BlobCreateSizeCeiling_U_5_09`, and `TestPhase5_ExpiredSlotReplay_I_5_02`.
+3. Completed: future frontend and browser rows are selectable no-op placeholders so manifest selection can prove coverage without blocking Sprint 1 on later UI work.
+4. Completed: manifest/name validation ran before implementation work.
 
 Implementation tasks:
-- Define authoritative rows for `U-5-01..U-5-09`, `I-5-01..I-5-04`, `E-5-01..E-5-04`.
-- Keep Phase 4 IDs in existing tests unchanged unless a test is intentionally promoted; avoid duplicate ownership.
-- Mark any Phase 4 carryover tests as support-only if they remain broad smoke coverage.
+- Completed: authoritative rows are defined for `U-5-01..U-5-09`, `I-5-01..I-5-04`, and `E-5-01..E-5-04`.
+- Completed: Phase 4 IDs in existing evidence tests remain unchanged.
+- Completed: Phase 4 carryover/support files are listed in `forbidden_id_files` so they cannot claim Phase 5 IDs.
 
 Validation commands:
-- `make explain-phase PHASE=phase5`
-- `make phase-ledgers`
-- `make phase-ledger-drift`
-- `make target-plan-json`
+- Passed: `make explain-phase PHASE=phase5`
+- Passed: `make phase-ledgers`
+- Passed: `make phase-ledger-drift`
+- Passed: `make target-plan-json`
+- Passed: `make phase-test-name-check`
+- Passed: `tmp/node-runtime/bin/node scripts/test-task-guidance.mjs`
+- Expected failure: `make phase-slice PHASE=phase5` selects Phase 5 rows and fails on the intentional Sprint 1 backend stubs.
+- Expected failure: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'` fails on the four intentional Sprint 1 stubs.
 
 Deliverables:
-- `tools/phase5_test_map.json`
-- `docs/testing/phase5_coverage_ledger.md`
-- Initial failing Phase 5 test symbols.
+- Delivered: `tools/phase5_test_map.json`
+- Delivered: `docs/testing/phase5_coverage_ledger.md`
+- Delivered: initial failing Phase 5 Sprint 1 symbols.
 
 Risks and assumptions:
-- Safe assumption: create `internal/testutil/phase5test` only when naming clarity or helper ownership is needed; otherwise reuse `phase4test`.
-- Risk: missing service-backed timing baselines after new authoritative integration rows.
+- Assumption retained: create `internal/testutil/phase5test` only when naming clarity or helper ownership is needed; otherwise reuse existing helpers.
+- Follow-up risk: service-backed timing baselines may need refresh after Sprint 1 replaces failing stubs with real passing evidence.
 
 Exit criteria:
-- `make explain-phase PHASE=phase5` discovers the manifest and planned rows.
-- No Phase 5 authoritative ID appears in support-only files.
+- Met: `make explain-phase PHASE=phase5` discovers the active manifest and planned rows.
+- Met: no Phase 5 authoritative ID appears in support-only files.
 
 ## Sprint 1. Blob Create and Upload-Slot Contract
 
