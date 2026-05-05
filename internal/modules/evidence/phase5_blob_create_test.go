@@ -233,10 +233,44 @@ func TestPhase5_BlobCreateSizeCeiling_U_5_09(t *testing.T) {
 	}
 }
 
+func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase5-preview-size")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase5-preview-size-incident",
+		"incident_key":  "phase5-preview-size",
+		"title":         "Phase 5 preview size",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	atLimitRecordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, atLimitRecordID)
+	atLimitBlob := attachUploadedBlobWithMetadata(t, harness, login, incidentID, atLimitRecordID, []byte("image at limit"), "limit.png", "image/png", "txn-phase5-preview-limit-blob", "txn-phase5-preview-limit-attach")
+	updateBlobObservedMetadata(t, harness, phase4test.MustUUID(t, atLimitBlob["object_blob_id"].(string)), int64(33554432), "image/png", "")
+	preview := issueEvidenceHandle(t, harness, login, atLimitRecordID, "preview-handle")
+	if preview["handle_kind"] != "preview" || preview["preview_kind"] != "image_inline" {
+		t.Fatalf("preview at limit failed to issue image_inline handle: %#v", preview)
+	}
+
+	oversizeRecordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, oversizeRecordID)
+	oversizeBlob := attachUploadedBlobWithMetadata(t, harness, login, incidentID, oversizeRecordID, []byte("image too large"), "oversize.png", "image/png", "txn-phase5-preview-oversize-blob", "txn-phase5-preview-oversize-attach")
+	updateBlobObservedMetadata(t, harness, phase4test.MustUUID(t, oversizeBlob["object_blob_id"].(string)), int64(33554433), "image/png", "")
+	requireEvidenceAccessUnavailableReason(t,
+		phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+oversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+		"preview_payload_too_large",
+	)
+	download := issueEvidenceHandle(t, harness, login, oversizeRecordID, "download-handle")
+	if download["handle_kind"] != "download" {
+		t.Fatalf("oversize preview should not block download issuance: %#v", download)
+	}
+}
+
 func requireBlobCreateReason(t testing.TB, apiErr *auth.APIError, field string, reasonCode string) {
 	t.Helper()
 	if apiErr == nil {
 		t.Fatal("expected blob-create error, got nil")
+		return
 	}
 	if apiErr.Code != "invalid_blob_create_request" || apiErr.Status != http.StatusBadRequest {
 		t.Fatalf("unexpected blob-create error: status=%d code=%s details=%#v", apiErr.Status, apiErr.Code, apiErr.Details)

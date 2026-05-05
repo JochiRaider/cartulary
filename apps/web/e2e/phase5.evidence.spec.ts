@@ -10,8 +10,8 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   apiBase,
-  createViewRow,
   createIncident,
+  createViewRow,
   csrfHeaders,
   queryViewRows,
   uniqueIncidentKey,

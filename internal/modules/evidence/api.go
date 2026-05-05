@@ -292,6 +292,10 @@ func optionalBlobTrimmedString(raw map[string]json.RawMessage, field string) (*s
 		return nil, invalidBlobCreate(field, "")
 	}
 	trimmed := strings.TrimSpace(text)
+	if field == "filename_hint" {
+		trimmed = strings.ReplaceAll(trimmed, "\x00", "")
+		trimmed = strings.TrimSpace(trimmed)
+	}
 	if trimmed == "" {
 		return nil, nil
 	}
@@ -336,22 +340,6 @@ func requiredInt64(raw map[string]json.RawMessage, field string, code string) (i
 		return 0, invalidRequest(code, field, "invalid_value")
 	}
 	return integer, nil
-}
-
-func optionalTrimmedString(raw map[string]json.RawMessage, field string, code string) (*string, *auth.APIError) {
-	value, ok := raw[field]
-	if !ok || string(value) == "null" {
-		return nil, nil
-	}
-	var text string
-	if err := json.Unmarshal(value, &text); err != nil {
-		return nil, invalidRequest(code, field, "invalid_value")
-	}
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		return nil, nil
-	}
-	return &trimmed, nil
 }
 
 func nullableString(value *string) any {

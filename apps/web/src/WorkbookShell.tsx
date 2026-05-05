@@ -3605,7 +3605,7 @@ export function TimelineWorkbook({
             : `timeline-evidence-attach-${row.recordId}`
         }
         style={inspectorSectionStyle}
-        tabIndex={0}
+        aria-label="Timeline evidence attachment"
         onDragOver={(event) => {
           event.preventDefault();
         }}

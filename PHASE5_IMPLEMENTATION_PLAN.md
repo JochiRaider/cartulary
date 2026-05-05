@@ -18,7 +18,7 @@ This planning artifact does not implement Phase 5 behavior. It is intentionally 
 | [x] | 3. Handle issuance and redeem hardening | [x] validated | None for Sprint 3. | Backend/API handle issuance and redeem hardening are implemented for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`; browser `E-5-03` is now delivered by Sprint 5. |
 | [x] | 4. Object-storage boundary and cleanup/quarantine behavior | [x] validated | None for Sprint 4. | Object-boundary, failed-unattached cleanup, quarantine bridge, and active-content preview blocking are implemented for `I-5-04`, `AC-053`, and `AC-405`. |
 | [x] | 5. Workbook UI and browser evidence flows | [x] validated | None for Sprint 5. | Workbook-native Timeline attach, screenshot-only Timeline create, same-origin preview/blocked-preview UI, `attached_evidence` links, and browser `E-5-01..E-5-03` are implemented; `E-5-04` remains delivered from Sprint 2. |
-| [ ] | 6. Phase gate, ledgers, baselines, and handoff cleanup | [ ] pending |  |  |
+| [x] | 6. Phase gate, ledgers, baselines, and handoff cleanup | [x] validated | None for Sprint 6. | Phase 5 manifest, ledger, schedules, duration baselines, and generated-contract artifacts are current; final gate passed at `.cartulary/test-results/20260505T022534Z-p44072/check`. |
 
 ## Global References
 
@@ -483,6 +483,8 @@ Exit criteria:
 
 Objective: Make Phase 5 selectable, validated, and handoff-ready without hiding residual gaps.
 
+Status: Complete. Sprint 6 was limited to traceability, generated ledger/schedule/baseline cleanup, generated-contract drift resolution through `make generate`, and validation, with one narrow behavior fix after the requested public-path `U-5-07` filename NUL assertion exposed a blob-create persistence gap. No public API, schema, normative owner text, README discoverability text, lockfiles, or hand-edited generated code changed.
+
 Relevant IDs:
 - All `U-5-*`, `I-5-*`, `E-5-*`
 - Phase-owned AC set from guide section 16.2 row for Phase 5.
@@ -491,7 +493,10 @@ Files and areas:
 - `tools/phase5_test_map.json`
 - `docs/testing/phase5_coverage_ledger.md`
 - `tools/go_test_duration_baselines.json`
-- Browser duration baselines if new Playwright specs are authoritative.
+- `tools/browser_e2e_duration_baselines.json`
+- `tools/check_schedule_manifest.json`
+- `tools/service_backed_schedule_manifest.json`
+- Tool-managed generated contract artifacts refreshed by `make generate` after `make check` exposed generated drift.
 - `PHASE5_IMPLEMENTATION_PLAN.md` checklist updates.
 
 Test-first sequence:
@@ -500,34 +505,47 @@ Test-first sequence:
 3. Refresh baselines only from successful uncontaminated service-backed results.
 
 Implementation tasks:
-- Update the checklist in `PHASE5_IMPLEMENTATION_PLAN.md`.
-- Mark known unsupported scanner adjunct behavior explicitly if no scanner exists.
-- Keep Phase 4 support rows support-only.
-- Avoid spec owner edits unless the implementation revealed a real normative ambiguity.
+- Completed: updated `tools/phase5_test_map.json` so the extra preview-ceiling assertion belongs to `U-5-09` via `symbols[]`, and the filename NUL sanitation assertion belongs to `U-5-07` via `symbols[]`; Phase 5 still has 17 authoritative guide rows and no duplicate row IDs.
+- Completed: fixed the exposed `filename_hint` NUL request-boundary gap by stripping NUL before blob-create accepted-contract persistence.
+- Completed: regenerated the committed Phase 5 coverage ledger with `make phase-ledgers`.
+- Completed: regenerated phase schedules after moving the service-backed Phase 5 handle rows to `backend_store` ownership with explicit Postgres fixture policy.
+- Completed: refreshed duration baselines only from successful retained artifacts, then verified baseline drift.
+- Completed: scanner adjunct is `N/A` for this profile because no deployed scanner adjunct exists; `I-5-04` remains quarantine-boundary evidence and does not claim public scanner infrastructure.
+- Completed: Phase 4 carryover rows remain support-only and do not claim Phase 5 authoritative guide ownership.
+- Completed: avoided normative spec owner and README discoverability edits.
 
 Validation commands:
-- `make phase-ledgers`
-- `make phase-ledger-drift`
-- `make phase-slice PHASE=phase5`
-- `make service-backed-slice PHASE=phase5`
-- `make test-fast`
-- `make check`
-- If service-backed timing artifacts changed: `make go-test-duration-baselines RESULTS_DIR=<successful-run-dir>` and `make go-test-duration-baseline-drift RESULTS_DIR=<successful-run-dir>`.
-- If browser timings changed: `make browser-e2e-duration-baseline-drift RESULTS_DIR=<successful-run-dir>`.
+- Passed: `make phase-ledgers` (`.cartulary/test-results/20260505T022510Z-p43087/phase-ledgers`)
+- Passed: `make phase-ledger-drift` (`.cartulary/test-results/20260505T022534Z-p44072/phase-ledger-drift`)
+- Passed: `make phase-test-name-check` (`.cartulary/test-results/20260505T022534Z-p44072/phase-test-name-check`)
+- Passed: `make explain-phase PHASE=phase5`; final output reports authoritative=17, support=0, supplemental=0 and dependencies `backend_unit`, `backend_store`, `backend_integration`, `frontend_unit`, and `browser_functional`.
+- Passed: `make phase-slice PHASE=phase5` (`.cartulary/test-results/20260505T022057Z-p84422/phase-slice`)
+- Passed: `make service-backed-slice PHASE=phase5` (`.cartulary/test-results/20260505T022038Z-p81545/service-backed-slice`)
+- Passed: `make go-test-duration-baseline-drift RESULTS_DIR=.cartulary/test-results/20260505T022038Z-p81545` and check-gate drift at `.cartulary/test-results/20260505T022534Z-p44072/check-go-test-duration-baseline-drift`
+- Passed: `make browser-e2e-duration-baseline-drift RESULTS_DIR=.cartulary/test-results/20260505T020011Z-p74930` and check-gate drift at `.cartulary/test-results/20260505T022534Z-p44072/check-browser-e2e-duration-baseline-drift`
+- Passed: `make test-fast` (`.cartulary/test-results/20260505T022138Z-p88298`)
+- Passed: `make generate-drift` (`.cartulary/test-results/20260505T022135Z-p87727/generate-drift`)
+- Passed: `make check` (`.cartulary/test-results/20260505T022534Z-p44072/check`)
+
+Baseline handling:
+- Go baseline refresh source: `.cartulary/test-results/20260505T022038Z-p81545` after successful Phase 5 service-backed execution.
+- Browser baseline refresh source: `.cartulary/test-results/20260505T020011Z-p74930` after successful `browser-e2e-webserver-backed` execution.
+- No service-backed make-target duration baseline refresh was needed; `make check` passed without reporting that drift class.
 
 Deliverables:
-- Phase 5 manifest and ledger are current.
-- Checklist records completion, validation status, blockers, and follow-up notes.
-- No generated drift, migration drift, or unmapped test IDs remain.
+- Delivered: Phase 5 manifest and ledger are current.
+- Delivered: checklist records completion, validation status, blockers, and follow-up notes.
+- Delivered: no generated drift, migration drift, phase-ledger drift, phase-schedule drift, or Phase 5 unmapped test IDs remain.
 
 Risks and assumptions:
-- `make check` may be costly; run narrower phase commands first.
-- If Phase 5 browser rows require new batch metadata, update only the manifest-owned scheduler artifacts generated by existing commands.
+- Assumption retained: the two initially unmanifested Go assertions were not new guide rows.
+- Assumption retained: Phase 5 remains 17 authoritative guide rows: `U-5-01..U-5-09`, `I-5-01..I-5-04`, and `E-5-01..E-5-04`.
+- Residual risk: none currently blocking Sprint 6; future scanner adjunct deployment should add its own profile-specific evidence instead of reusing the current `N/A` rationale.
 
 Exit criteria:
-- `make phase-slice PHASE=phase5` and `make service-backed-slice PHASE=phase5` pass.
-- `make check` passes or has a documented unrelated failure with artifact paths and rerun command.
-- Every Phase 5 AC in the guide has either passing evidence or an explicit, owner-backed `N/A` rationale.
+- Met: `make phase-slice PHASE=phase5` and `make service-backed-slice PHASE=phase5` pass.
+- Met: `make check` passes.
+- Met: every Phase 5 AC in the guide has either passing evidence or an explicit `N/A` rationale for the undeployed scanner adjunct profile.
 
 ## Ambiguities and Safe Defaults
 

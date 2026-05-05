@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -190,36 +189,29 @@ func TestPhase5_DownloadDispositionFallback_U_5_07(t *testing.T) {
 	}
 }
 
-func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-preview-size")
+func TestPhase5_SanitizeFilenameRemovesNUL_U_5_07(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase5-disposition-nul")
 	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase5-preview-size-incident",
-		"incident_key":  "phase5-preview-size",
-		"title":         "Phase 5 preview size",
+		"client_txn_id": "txn-phase5-disposition-nul-incident",
+		"incident_key":  "phase5-disposition-nul",
+		"title":         "Phase 5 disposition NUL",
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
-	atLimitRecordID := uuid.New()
-	seedEvidenceRecord(t, harness, incidentID, adminID, atLimitRecordID)
-	atLimitBlob := attachUploadedBlobWithMetadata(t, harness, login, incidentID, atLimitRecordID, []byte("image at limit"), "limit.png", "image/png", "txn-phase5-preview-limit-blob", "txn-phase5-preview-limit-attach")
-	updateBlobObservedMetadata(t, harness, phase4test.MustUUID(t, atLimitBlob["object_blob_id"].(string)), int64(33554432), "image/png", "")
-	preview := issueEvidenceHandle(t, harness, login, atLimitRecordID, "preview-handle")
-	if preview["handle_kind"] != "preview" || preview["preview_kind"] != "image_inline" {
-		t.Fatalf("preview at limit failed to issue image_inline handle: %#v", preview)
+	recordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, []byte("filename nul body"), "evil\x00name.txt", "text/plain", "txn-phase5-disposition-nul-blob", "txn-phase5-disposition-nul-attach")
+	download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
+	if got := download["filename"]; got != "evilname.txt" {
+		t.Fatalf("NUL-sanitized filename got %#v want evilname.txt", got)
 	}
-
-	oversizeRecordID := uuid.New()
-	seedEvidenceRecord(t, harness, incidentID, adminID, oversizeRecordID)
-	oversizeBlob := attachUploadedBlobWithMetadata(t, harness, login, incidentID, oversizeRecordID, []byte("image too large"), "oversize.png", "image/png", "txn-phase5-preview-oversize-blob", "txn-phase5-preview-oversize-attach")
-	updateBlobObservedMetadata(t, harness, phase4test.MustUUID(t, oversizeBlob["object_blob_id"].(string)), int64(33554433), "image/png", "")
-	requireEvidenceAccessUnavailableReason(t,
-		phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+oversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
-		"preview_payload_too_large",
-	)
-	download := issueEvidenceHandle(t, harness, login, oversizeRecordID, "download-handle")
-	if download["handle_kind"] != "download" {
-		t.Fatalf("oversize preview should not block download issuance: %#v", download)
+	resp := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, phase4test.WithCookies(login.SessionCookie))
+	httptestx.RequireStatus(t, resp, http.StatusOK)
+	_ = resp.Body.Close()
+	disposition := resp.Header.Get("Content-Disposition")
+	if strings.Contains(disposition, "\x00") || !strings.Contains(disposition, `filename=evilname.txt`) || !strings.Contains(disposition, "filename*=UTF-8''evilname.txt") {
+		t.Fatalf("unexpected NUL-sanitized Content-Disposition: %q", disposition)
 	}
 }
 
@@ -354,14 +346,4 @@ UPDATE records
 func sha256Sum(payload []byte) []byte {
 	sum := sha256.Sum256(payload)
 	return sum[:]
-}
-
-func readHandleBody(t testing.TB, resp *http.Response) []byte {
-	t.Helper()
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("read handle body: %v", err)
-	}
-	return data
 }

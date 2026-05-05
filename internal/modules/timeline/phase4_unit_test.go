@@ -177,7 +177,7 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, origin_locator
 	}
 }
 
-func TestPhase5_AttachedEvidenceCreateAndPatch(t *testing.T) {
+func TestSupportPhase5_AttachedEvidenceCreateAndPatch(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase5-attached-evidence")
 	store := NewStore(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)

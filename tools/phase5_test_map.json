@@ -122,12 +122,21 @@
       "package": "./internal/modules/evidence",
       "file": "internal/modules/evidence/phase5_handles_test.go",
       "symbol": "TestPhase5_HandleIssueEmptyBodyNonIdempotent_U_5_05",
-      "execution_dependency": "backend_unit",
+      "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
       "claim": "Preview-handle and download-handle issuance routes accept only `{}` and are intentionally non-idempotent, with each success yielding a fresh opaque same-origin handle.",
       "out_of_scope": "Current-state redemption and object streaming behavior are covered by `U-5-06`, `U-5-07`, and `I-5-03`.",
-      "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase5 authoritative"
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase5 authoritative",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Handle issuance route coverage starts the real runtime harness through phase4test.StartServer."
     },
     {
       "id": "U-5-06",
@@ -149,13 +158,25 @@
       "runner": "go_test",
       "package": "./internal/modules/evidence",
       "file": "internal/modules/evidence/phase5_handles_test.go",
-      "symbol": "TestPhase5_DownloadDispositionFallback_U_5_07",
-      "execution_dependency": "backend_unit",
+      "symbols": [
+        "TestPhase5_DownloadDispositionFallback_U_5_07",
+        "TestPhase5_SanitizeFilenameRemovesNUL_U_5_07"
+      ],
+      "execution_dependency": "backend_store",
       "evidence_layer": "response_contract",
       "claim": "Download responses use authoritative metadata for filename disposition and apply deterministic fallback naming when authoritative names are absent.",
       "out_of_scope": "Authorization re-check and state invalidation during redemption are covered by `U-5-06` and `I-5-03`.",
-      "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase5 authoritative"
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase5 authoritative",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 2
+        }
+      },
+      "template_clone_reason": "Disposition route coverage starts the real runtime harness through phase4test.StartServer."
     },
     {
       "id": "U-5-08",
@@ -174,13 +195,25 @@
       "runner": "go_test",
       "package": "./internal/modules/evidence",
       "file": "internal/modules/evidence/phase5_blob_create_test.go",
-      "symbol": "TestPhase5_BlobCreateSizeCeiling_U_5_09",
-      "execution_dependency": "backend_unit",
+      "symbols": [
+        "TestPhase5_BlobCreateSizeCeiling_U_5_09",
+        "TestPhase5_PreviewPayloadCeiling_U_5_09"
+      ],
+      "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
       "claim": "Blob-create size ceilings reject oversize `byte_size` before slot creation, and preview-handle issuance fails with the route-owned oversized-preview reason while legal downloads remain available.",
       "out_of_scope": "Expired-slot replay and full object upload completion remain separate integration evidence.",
-      "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase5 authoritative"
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase5 authoritative",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 2
+        }
+      },
+      "template_clone_reason": "Blob and preview size route coverage starts the real runtime harness through phase4test.StartServer."
     }
   ],
   "integration": [

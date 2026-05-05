@@ -69,7 +69,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 48787,
+          "weight": 46293,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -91,20 +91,24 @@
               "shard_count": 2,
               "phases": [
                 "phase1",
-                "phase2",
-                "phase4"
+                "phase3",
+                "phase4",
+                "phase5"
               ],
               "entry_ids": [
                 "E-1-01",
                 "E-1-02",
+                "E-1-03",
                 "E-1-06",
                 "E-1-08",
-                "E-2-01",
-                "E-2-03",
-                "E-4-02",
-                "E-4-06"
+                "E-3-03",
+                "E-4-05",
+                "E-4-06",
+                "E-5-02",
+                "E-5-03",
+                "E-5-04"
               ],
-              "weight": 19385,
+              "weight": 18350,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -125,21 +129,23 @@
                 "phase1",
                 "phase2",
                 "phase3",
-                "phase4"
+                "phase4",
+                "phase5"
               ],
               "entry_ids": [
-                "E-1-03",
                 "E-1-07",
+                "E-2-01",
                 "E-2-02",
+                "E-2-03",
                 "E-3-01",
-                "E-3-03",
                 "E-3-04",
                 "E-4-04",
+                "E-4-02",
                 "E-4-01",
                 "E-4-03",
-                "E-4-05"
+                "E-5-01"
               ],
-              "weight": 19402,
+              "weight": 17943,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -380,7 +386,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 48787,
+          "weight": 46293,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -402,20 +408,24 @@
               "shard_count": 2,
               "phases": [
                 "phase1",
-                "phase2",
-                "phase4"
+                "phase3",
+                "phase4",
+                "phase5"
               ],
               "entry_ids": [
                 "E-1-01",
                 "E-1-02",
+                "E-1-03",
                 "E-1-06",
                 "E-1-08",
-                "E-2-01",
-                "E-2-03",
-                "E-4-02",
-                "E-4-06"
+                "E-3-03",
+                "E-4-05",
+                "E-4-06",
+                "E-5-02",
+                "E-5-03",
+                "E-5-04"
               ],
-              "weight": 19385,
+              "weight": 18350,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -436,21 +446,23 @@
                 "phase1",
                 "phase2",
                 "phase3",
-                "phase4"
+                "phase4",
+                "phase5"
               ],
               "entry_ids": [
-                "E-1-03",
                 "E-1-07",
+                "E-2-01",
                 "E-2-02",
+                "E-2-03",
                 "E-3-01",
-                "E-3-03",
                 "E-3-04",
                 "E-4-04",
+                "E-4-02",
                 "E-4-01",
                 "E-4-03",
-                "E-4-05"
+                "E-5-01"
               ],
-              "weight": 19402,
+              "weight": 17943,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
