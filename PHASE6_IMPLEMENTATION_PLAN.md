@@ -14,7 +14,7 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 | ---- | --------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [x]  | 0. Phase 6 ownership manifest and harness setup                       | [x] passed                         | None. Docker is reachable and both Phase 6 public slice wrappers pass.                                                                                                            | `phase-slice` artifact root: `.cartulary/test-results/20260505T222643Z-p41927/phase-slice`; `service-backed-slice` artifact root: `.cartulary/test-results/20260505T222657Z-p45629/service-backed-slice`. |
 | [x]  | 1. Patch conflict contract and explicit resolver domain               | [x] passed | None. The workbook collection auto-rebase regression was fixed as a test-fixture issue, and the workbook package plus Phase 6 public slices pass. | Backend `U-6-01..U-6-04` and frontend `U-6-05..U-6-06` are implemented. Phase 3 Timeline hot-path coverage remains support evidence.                           |
-| [ ]  | 2. Incident socket handshake, resume, replay, and presence hardening  | [ ] pending | Current socket implementation exists but needs Phase 6-owned contract coverage for reset, replay-only event filtering, canonical presence arrays, and revocation close semantics. | Cover `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, and `I-6-04`.                                                                                                    |
+| [x]  | 2. Incident socket handshake, resume, replay, and presence hardening  | [x] passed | None. Focused socket tests, backend integration, and both Phase 6 public slice wrappers pass. | Backend `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, and `I-6-04` are implemented.                                                                                                    |
 | [ ]  | 3. Frontend collaboration client, save state, and local pending queue | [ ] pending | Workbook UI currently has surface flows, but Phase 6 needs a durable browser-runtime queue, save labels, conflict queue state, and reconnect/re-auth behavior.                    | Cover `U-6-05`, `U-6-06`, `U-6-09`, `E-6-03`, and `E-6-05`.                                                                                                    |
 | [ ]  | 4. Browser presence indicators and live-cell anchoring                | [ ] pending | Presence and live patches must remain bound to `record_id` plus `field_key` through sort/filter/group/virtual scrolling or invalidation.                                          | Cover `E-6-01` and `E-6-04`, with focused frontend unit tests for row/cell key stability.                                                                      |
 | [ ]  | 5. Two-client concurrent edit E2E and resolver UX                     | [ ] pending | Requires stable multi-context browser fixture and deterministic conflict setup.                                                                                                   | Cover `I-6-03` and `E-6-02`; verify same-surface resolver actions commit or clear exactly as specified.                                                        |
@@ -196,7 +196,7 @@ Exit criteria:
 
 Objective: Make the incident WebSocket route fully Phase 6 compliant for handshake, resume, replay, presence, origin rejection, heartbeats, and revocation.
 
-Status: Not started.
+Status: Complete for Sprint 2. Phase 6 now owns deterministic socket handshake, resume reset/replay behavior, replayable-only filtering, canonical incident-scoped presence snapshots, origin rejection, and revocation close semantics.
 
 Relevant IDs:
 - `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, `I-6-04`
@@ -218,31 +218,37 @@ Grep references:
 - `heartbeat_timeout`
 
 Files and areas:
-- `internal/modules/collaboration/routes.go`
-- `internal/platform/ws/ws.go`
-- `internal/testutil/incidentwstest`
-- `internal/modules/collaboration/phase6_*_test.go`
-- `internal/modules/timeline/phase6_integration_test.go` only if mutation-generated replay ordering is easier to prove through Timeline writes.
+- `internal/platform/ws/ws.go` now exposes replayable message classification and filters retained replay output to `record_changed` and `job_progress`.
+- `internal/testutil/incidentwstest` now has resume helpers that capture `resume_ack`, replayed messages, and the fresh post-resume `presence_snapshot`.
+- `internal/modules/collaboration/phase6_socket_test.go`, `internal/modules/collaboration/phase6_integration_test.go`, and `internal/platform/ws/phase6_ws_test.go` contain the real Sprint 2 Phase 6 assertions.
 
-Test-first sequence:
-1. Assert the first application message must be exactly one `hello` or `resume`, and later `hello` or `resume` messages close with route-owned invalid-message behavior.
-2. Assert expired, mismatched, or replay-window-too-old resumes produce reset behavior instead of partial replay.
-3. Assert valid resumes replay replayable messages only; `presence_snapshot` and `presence_delta` are rehydrated through the presence flow, not replayed from the stream.
-4. Assert presence payloads are incident-scoped, ephemeral, duplicate-free, and canonically ordered in snapshots.
-5. Assert heartbeats do not slide idle expiry, while logout, expiry, incident access revocation, and concurrency-limit revocation produce `session_revoked` and close the socket with the route-owned reason.
-6. Assert cookie-authenticated browser upgrades reject untrusted `Origin` before incident subscription.
+Completed test-first sequence:
+1. `U-6-07` asserts first-message `hello`/`resume` rules, later establishment-message rejection, and reset behavior for mismatched, future, and expired resumes.
+2. `U-6-08` asserts replay filtering, reset edge cases, incident-scoped canonical presence snapshots, expiry pruning, and revocation reason delivery.
+3. `I-6-01` asserts two-client presence snapshots/deltas, replay ordering within the window, and logout, expiry, concurrency-limit, and incident-access revocations.
+4. `I-6-02` asserts valid resume replays `record_changed` and `job_progress` only, while presence is rehydrated through the fresh snapshot.
+5. `I-6-04` asserts cookie-authenticated untrusted `Origin` rejection before incident subscription.
 
-Implementation tasks:
-- Tighten `Hub.ReplayMessages` filtering so only replayable message types can be replayed.
-- Add canonicalization helpers for presence arrays if current ordering or duplicate handling is insufficient.
-- Ensure socket revocation paths use consistent public `reason_code` values and a stable close reason.
-- Add deterministic fixture controls for clock, replay-token expiry, high-water sequence, and multi-client presence assertions.
+Completed implementation tasks:
+- Tightened `Hub.ReplayMessages` so unknown, expired, mismatched, future, and too-old resumes return `reset_required` with no missed messages.
+- Added an explicit replayable-message classifier and applied it during replay so retained non-replayable messages cannot be returned.
+- Preserved existing route revocation behavior: `session_revoked` is sent with the public `reason_code` and the socket closes with policy violation reason `session_revoked`.
+- Added deterministic fixture coverage for resume token expiry, high-water replay sequence, multi-client presence, origin rejection, and revocation delivery.
 
 Validation commands:
 - `go test ./internal/modules/collaboration ./internal/platform/ws ./internal/testutil/incidentwstest -run 'TestPhase6_.*(U_6_07|U_6_08)'`
 - `go test ./internal/modules/collaboration ./internal/modules/timeline -run 'TestPhase6_.*(I_6_01|I_6_02|I_6_04)'`
 - `make backend-integration`
+- `make phase-slice PHASE=phase6`
+- `make service-backed-slice PHASE=phase6`
 - `git diff --check`
+
+Validation results:
+- `go test ./internal/modules/collaboration ./internal/platform/ws ./internal/testutil/incidentwstest -run 'TestPhase6_.*(U_6_07|U_6_08)' -count=1` passed.
+- `go test ./internal/modules/collaboration ./internal/modules/timeline -run 'TestPhase6_.*(I_6_01|I_6_02|I_6_04)' -count=1` passed.
+- `make backend-integration` passed with 101 tests, 0 failures, and artifact root `.cartulary/test-results/20260505T230546Z-p79001/backend-integration`.
+- `make phase-slice PHASE=phase6` passed with 5/5 work units, 18 tests, 0 failures, and artifact root `.cartulary/test-results/20260505T230546Z-p78996/phase-slice`.
+- `make service-backed-slice PHASE=phase6` passed with 3/3 work units, 12 tests, 0 failures, and artifact root `.cartulary/test-results/20260505T230546Z-p78995/service-backed-slice`.
 
 Deliverables:
 - Socket handshake and resume behavior are Phase 6-owned and deterministic.
@@ -254,8 +260,8 @@ Risks and assumptions:
 - Origin rejection behavior may intentionally be status-only before WebSocket upgrade; tests should not require a JSON envelope unless the owner spec requires one.
 
 Exit criteria:
-- Valid resume never replays presence messages from retained replay storage.
-- Invalid or stale resume never provides partial replay as if it were complete.
+- Valid resume never replays presence messages from retained replay storage. Done.
+- Invalid or stale resume never provides partial replay as if it were complete. Done.
 
 ## Sprint 3. Frontend Collaboration Client, Save State, and Local Pending Queue
 

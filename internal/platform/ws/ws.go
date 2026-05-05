@@ -377,23 +377,40 @@ func (h *Hub) ReplayMessages(sessionID uuid.UUID, incidentID uuid.UUID, clientIn
 	if !ok || record.SessionID != sessionID || record.IncidentID != incidentID || record.ClientInstanceID != clientInstanceID || !record.ExpiresAt.After(now) {
 		return ResumeStatusResetNeeded, nil, highWater
 	}
+	if lastSeenStreamSeq > highWater {
+		return ResumeStatusResetNeeded, nil, highWater
+	}
 	entries := h.replay[incidentID]
-	if len(entries) > 0 {
-		firstSeq := int64(0)
-		if entries[0].Message.StreamSeq != nil {
-			firstSeq = *entries[0].Message.StreamSeq
+	firstSeq := int64(0)
+	for _, entry := range entries {
+		if !IsReplayableMessageType(entry.Message.Type) || entry.Message.StreamSeq == nil {
+			continue
 		}
-		if lastSeenStreamSeq < firstSeq-1 {
-			return ResumeStatusResetNeeded, nil, highWater
-		}
+		firstSeq = *entry.Message.StreamSeq
+		break
+	}
+	if firstSeq > 0 && lastSeenStreamSeq < firstSeq-1 {
+		return ResumeStatusResetNeeded, nil, highWater
 	}
 	missed := make([]Message, 0)
 	for _, entry := range entries {
-		if entry.Message.StreamSeq != nil && *entry.Message.StreamSeq > lastSeenStreamSeq {
+		if !IsReplayableMessageType(entry.Message.Type) || entry.Message.StreamSeq == nil {
+			continue
+		}
+		if *entry.Message.StreamSeq > lastSeenStreamSeq {
 			missed = append(missed, entry.Message)
 		}
 	}
 	return ResumeStatusReplayed, missed, highWater
+}
+
+func IsReplayableMessageType(messageType string) bool {
+	switch messageType {
+	case "record_changed", "job_progress":
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *Hub) HighWater(incidentID uuid.UUID) int64 {

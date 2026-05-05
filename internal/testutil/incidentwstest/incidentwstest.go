@@ -39,9 +39,17 @@ type HelloAck struct {
 	ResumeWindowMS      int    `json:"resume_window_ms"`
 }
 
+type ResumeAck struct {
+	Status                   string `json:"status"`
+	ResumeToken              string `json:"resume_token"`
+	ServerHighWaterStreamSeq int64  `json:"server_high_water_stream_seq"`
+}
+
 type Client struct {
 	raw              *wstest.Client
 	HelloAck         HelloAck
+	ResumeAck        ResumeAck
+	ReplayedMessages []platformws.Message
 	PresenceSnapshot []platformws.PresenceRecord
 	events           chan event
 }
@@ -62,18 +70,7 @@ func (e unexpectedMessageError) Error() string {
 func ConnectAndHello(t testing.TB, serverURL string, incidentID string, options ConnectOptions) *Client {
 	t.Helper()
 
-	if options.ClientInstanceID == "" {
-		options.ClientInstanceID = "incident-ws-test-" + incidentID
-	}
-	if options.Presence.SheetRef == nil {
-		options.Presence = platformws.PresenceInput{
-			SheetRef: map[string]string{
-				"kind": "view_schema",
-				"id":   "cartulary.view.timeline.v1",
-			},
-			Mode: "viewing",
-		}
-	}
+	options = normalizeConnectOptions(incidentID, options)
 
 	rawClient := wstest.ConnectWithHeaders(t, serverURL, incidentPath(incidentID), connectHeaders(options))
 
@@ -107,6 +104,60 @@ func ConnectAndHello(t testing.TB, serverURL string, incidentID string, options 
 	client := &Client{
 		raw:              rawClient,
 		HelloAck:         ack,
+		PresenceSnapshot: snapshot,
+		events:           make(chan event, 32),
+	}
+	go client.readLoop()
+	return client
+}
+
+func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options ConnectOptions, resumeToken string, lastSeenStreamSeq int64) *Client {
+	t.Helper()
+
+	options = normalizeConnectOptions(incidentID, options)
+
+	rawClient := wstest.ConnectWithHeaders(t, serverURL, incidentPath(incidentID), connectHeaders(options))
+
+	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
+	defer cancel()
+
+	if err := rawClient.Send(ctx, platformws.Message{
+		Type: "resume",
+		Payload: platformws.RawPayload(map[string]any{
+			"client_instance_id":   options.ClientInstanceID,
+			"resume_token":         resumeToken,
+			"last_seen_stream_seq": lastSeenStreamSeq,
+			"presence":             options.Presence,
+		}),
+	}); err != nil {
+		t.Fatalf("send canonical incident websocket resume: %v", err)
+	}
+
+	ackMessage, err := rawClient.Receive(ctx)
+	if err != nil {
+		t.Fatalf("receive canonical incident websocket resume_ack: %v", err)
+	}
+	wstest.RequireMessageType(t, ackMessage, "resume_ack")
+	ack := requireResumeAck(t, ackMessage)
+
+	replayed := make([]platformws.Message, 0)
+	var snapshot []platformws.PresenceRecord
+	for {
+		message, err := rawClient.Receive(ctx)
+		if err != nil {
+			t.Fatalf("receive canonical incident websocket resume follow-up message: %v", err)
+		}
+		if message.Type == "presence_snapshot" {
+			snapshot = requirePresenceSnapshot(t, message)
+			break
+		}
+		replayed = append(replayed, message)
+	}
+
+	client := &Client{
+		raw:              rawClient,
+		ResumeAck:        ack,
+		ReplayedMessages: replayed,
 		PresenceSnapshot: snapshot,
 		events:           make(chan event, 32),
 	}
@@ -310,6 +361,27 @@ func requireHelloAck(t testing.TB, message platformws.Message) HelloAck {
 	return ack
 }
 
+func requireResumeAck(t testing.TB, message platformws.Message) ResumeAck {
+	t.Helper()
+
+	var ack ResumeAck
+	if err := json.Unmarshal(message.Payload, &ack); err != nil {
+		t.Fatalf("decode resume_ack payload: %v", err)
+	}
+	switch ack.Status {
+	case platformws.ResumeStatusReplayed, platformws.ResumeStatusResetNeeded:
+	default:
+		t.Fatalf("resume_ack status = %q", ack.Status)
+	}
+	if ack.ResumeToken == "" {
+		t.Fatalf("resume_ack resume_token is required: %#v", ack)
+	}
+	if ack.ServerHighWaterStreamSeq < 0 {
+		t.Fatalf("resume_ack server_high_water_stream_seq must be non-negative: %#v", ack)
+	}
+	return ack
+}
+
 func requirePresenceSnapshot(t testing.TB, message platformws.Message) []platformws.PresenceRecord {
 	t.Helper()
 
@@ -341,6 +413,22 @@ func requirePresenceSnapshot(t testing.TB, message platformws.Message) []platfor
 		t.Fatalf("presence_snapshot connection_ids not sorted ascending: %#v", connectionIDs)
 	}
 	return presences
+}
+
+func normalizeConnectOptions(incidentID string, options ConnectOptions) ConnectOptions {
+	if options.ClientInstanceID == "" {
+		options.ClientInstanceID = "incident-ws-test-" + incidentID
+	}
+	if options.Presence.SheetRef == nil {
+		options.Presence = platformws.PresenceInput{
+			SheetRef: map[string]string{
+				"kind": "view_schema",
+				"id":   "cartulary.view.timeline.v1",
+			},
+			Mode: "viewing",
+		}
+	}
+	return options
 }
 
 func connectHeaders(options ConnectOptions) http.Header {
