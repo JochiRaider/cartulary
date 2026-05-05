@@ -13,7 +13,7 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 | Done | Sprint                                                                | Validation                         | Blockers                                                                                                                                                                          | Follow-up Notes                                                                                                                                                  |
 | ---- | --------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [x]  | 0. Phase 6 ownership manifest and harness setup                       | [x] passed                         | None. Docker is reachable and both Phase 6 public slice wrappers pass.                                                                                                            | `phase-slice` artifact root: `.cartulary/test-results/20260505T222643Z-p41927/phase-slice`; `service-backed-slice` artifact root: `.cartulary/test-results/20260505T222657Z-p45629/service-backed-slice`. |
-| [x]  | 1. Patch conflict contract and explicit resolver domain               | [ ] focused passed; full workbook package regression | `go test ./internal/modules/workbook` reaches service-backed tests and fails at `TestPhase4_CoordinationCollections_I_4_COORD_02`: stale non-overlapping collection patch got HTTP 400, want 200. | Backend `U-6-01..U-6-04` and frontend `U-6-05..U-6-06` are implemented. Phase 3 Timeline hot-path coverage remains support evidence.                           |
+| [x]  | 1. Patch conflict contract and explicit resolver domain               | [x] passed | None. The workbook collection auto-rebase regression was fixed as a test-fixture issue, and the workbook package plus Phase 6 public slices pass. | Backend `U-6-01..U-6-04` and frontend `U-6-05..U-6-06` are implemented. Phase 3 Timeline hot-path coverage remains support evidence.                           |
 | [ ]  | 2. Incident socket handshake, resume, replay, and presence hardening  | [ ] pending | Current socket implementation exists but needs Phase 6-owned contract coverage for reset, replay-only event filtering, canonical presence arrays, and revocation close semantics. | Cover `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, and `I-6-04`.                                                                                                    |
 | [ ]  | 3. Frontend collaboration client, save state, and local pending queue | [ ] pending | Workbook UI currently has surface flows, but Phase 6 needs a durable browser-runtime queue, save labels, conflict queue state, and reconnect/re-auth behavior.                    | Cover `U-6-05`, `U-6-06`, `U-6-09`, `E-6-03`, and `E-6-05`.                                                                                                    |
 | [ ]  | 4. Browser presence indicators and live-cell anchoring                | [ ] pending | Presence and live patches must remain bound to `record_id` plus `field_key` through sort/filter/group/virtual scrolling or invalidation.                                          | Cover `E-6-01` and `E-6-04`, with focused frontend unit tests for row/cell key stability.                                                                      |
@@ -127,7 +127,7 @@ Files and areas:
 - `contracts/openapi/cartulary.openapi.yaml` now declares `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`, `RecordConflictResolveRequest`, and the clear-response envelope used by `keep_saved`.
 - `internal/modules/workbook/mutation_api.go`, `internal/modules/workbook/mutation_store.go`, `internal/modules/workbook/routes.go`, and `internal/modules/workbook/conflict_merge.go` implement the generic workbook resolver path, token claims, idempotent clear/commit behavior, non-overlap auto-rebase, and text merge suggestions.
 - `internal/modules/workbook/phase6_conflict_test.go` contains the real `U-6-01..U-6-04` backend assertions.
-- `internal/modules/workbook/workbook_mutation_integration_test.go` was adjusted so the existing service-backed workbook mutation evidence expects stale non-overlap auto-rebase instead of `row_version_conflict`.
+- `internal/modules/workbook/workbook_mutation_integration_test.go` was adjusted so the existing service-backed workbook mutation evidence expects stale non-overlap auto-rebase instead of `row_version_conflict`. The follow-up regression fix uses a distinct decision fixture for the stale non-overlap collection add, carries the committed row version forward, and locks duplicate collection adds as `no_effective_change` with no durable side effects.
 - `apps/web/src/WorkbookShell.tsx` implements the local conflict queue and same-surface resolver UI for Timeline workbook cells.
 - `apps/web/src/WorkbookShell.phase6.test.tsx` contains the real `U-6-05` and `U-6-06` frontend assertions.
 - Generated protocol artifacts under `internal/gen/**` and `packages/protocol-ts/src/generated/**` were not hand-edited.
@@ -151,6 +151,10 @@ Completed implementation tasks:
 
 Validation commands:
 - `go test ./internal/modules/workbook -run 'TestPhase6_.*(U_6_01|U_6_02|U_6_03|U_6_04)'`
+- `go test ./internal/modules/workbook -run '^TestPhase4_CoordinationCollections_I_4_COORD_02$' -count=1 -v`
+- `go test ./internal/modules/workbook`
+- `make phase-slice PHASE=phase6`
+- `make service-backed-slice PHASE=phase6`
 - `make frontend-unit`
 - `make frontend-typecheck`
 - `make lint-biome`
@@ -164,7 +168,11 @@ Validation results:
 - `make frontend-unit` passed with artifact root `.cartulary/test-results/20260505T222733Z-p48309/frontend-unit`.
 - `make frontend-typecheck` passed with artifact root `.cartulary/test-results/20260505T222733Z-p48407/frontend-typecheck`.
 - `make lint-biome` passed with artifact root `.cartulary/test-results/20260505T222746Z-p49278/lint-biome`.
-- `go test ./internal/modules/workbook` is no longer Docker-blocked; it reaches service-backed tests and currently fails at `TestPhase4_CoordinationCollections_I_4_COORD_02`, `internal/modules/workbook/workbook_mutation_integration_test.go:449`, where the stale non-overlapping `comm_log.decision_ids` collection patch returns HTTP 400 instead of the expected HTTP 200.
+- Regression remediation passed: `go test ./internal/modules/workbook -run '^TestPhase4_CoordinationCollections_I_4_COORD_02$' -count=1 -v`.
+- `go test ./internal/modules/workbook` passed after the fixture correction.
+- `go test ./internal/modules/workbook -run 'TestPhase6_.*(U_6_01|U_6_02|U_6_03|U_6_04)'` passed after the fixture correction.
+- `make phase-slice PHASE=phase6` passed with 5/5 work units, 18 tests, 0 failures, and artifact root `.cartulary/test-results/20260505T223937Z-p53180/phase-slice`.
+- `make service-backed-slice PHASE=phase6` passed with 3/3 work units, 12 tests, 0 failures, and artifact root `.cartulary/test-results/20260505T223955Z-p56214/service-backed-slice`.
 - `git diff --check` passed after the documentation edit.
 - OpenAPI JSON parse passed after the documentation edit.
 
@@ -178,7 +186,7 @@ Risks and assumptions:
 - Phase 3 Timeline store conflict transport remains support evidence. Sprint 1 does not re-own or refactor that hot path.
 - Sprint 1 adds generic workbook resolver route semantics; Timeline backend resolver route wiring should be treated as later integration/E2E hardening unless a future sprint explicitly pulls Phase 3 Timeline commits into the shared resolver service.
 - No durable server-side conflict draft table was added.
-- Full workbook package validation now has a product/test regression, not a Docker requirement issue: stale non-overlapping collection auto-rebase fails in `TestPhase4_CoordinationCollections_I_4_COORD_02`.
+- The stale non-overlap collection regression was a test-fixture issue, not a product behavior change: the original stale add targeted an already-linked decision and correctly produced `no_effective_change`. The fixed fixture proves auto-rebase with a real collection change while preserving duplicate/no-op rejection.
 
 Exit criteria:
 - Backend and frontend tests prove all `U-6-01..U-6-06` claims without relying on browser-only assertions. Done.
