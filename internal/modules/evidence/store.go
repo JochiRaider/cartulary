@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -78,14 +79,22 @@ type ObservedObject struct {
 }
 
 type AttachBlobResult struct {
-	Payload          map[string]any
-	StatusCode       int
-	Replayed         bool
-	IncidentID       uuid.UUID
+	Payload               map[string]any
+	StatusCode            int
+	Replayed              bool
+	IncidentID            uuid.UUID
+	RecordID              uuid.UUID
+	ChangeSetID           uuid.UUID
+	ClientTxnID           string
+	RowVersion            int64
+	ChangedFieldKeys      []string
+	AffectedRecordChanges []AttachRecordChange
+}
+
+type AttachRecordChange struct {
 	RecordID         uuid.UUID
-	ChangeSetID      uuid.UUID
-	ClientTxnID      string
 	RowVersion       int64
+	ViewSchemaID     string
 	ChangedFieldKeys []string
 }
 
@@ -246,6 +255,9 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
+	if evidenceRowCellValue(beforeRow, "evidence.lifecycle_state") == "quarantined" {
+		return AttachBlobResult{}, ErrBlobNotAttachable
+	}
 	blob, err := loadBlobForUpdateTx(ctx, tx, request.ObjectBlobID)
 	if err != nil {
 		return AttachBlobResult{}, err
@@ -261,19 +273,34 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 			if err := failBlobTx(ctx, tx, request.ObjectBlobID, "pending_timeout", now); err != nil {
 				return AttachBlobResult{}, err
 			}
+			if err := tx.Commit(ctx); err != nil {
+				return AttachBlobResult{}, err
+			}
 			return AttachBlobResult{}, ErrBlobNotAttachable
 		}
 		if observed == nil {
+			if err := recordNonTerminalFinalizeFailureTx(ctx, tx, request.ObjectBlobID, now); err != nil {
+				return AttachBlobResult{}, err
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return AttachBlobResult{}, err
+			}
 			return AttachBlobResult{}, ErrBlobNotAttachable
 		}
 		if observed.Size != blob.ByteSize {
 			if err := failBlobTx(ctx, tx, request.ObjectBlobID, "declared_size_mismatch", now); err != nil {
 				return AttachBlobResult{}, err
 			}
+			if err := tx.Commit(ctx); err != nil {
+				return AttachBlobResult{}, err
+			}
 			return AttachBlobResult{}, ErrBlobNotAttachable
 		}
 		if blob.ExpectedSHA256Hex != nil && observed.SHA256Hex != *blob.ExpectedSHA256Hex {
 			if err := failBlobTx(ctx, tx, request.ObjectBlobID, "expected_sha256_mismatch", now); err != nil {
+				return AttachBlobResult{}, err
+			}
+			if err := tx.Commit(ctx); err != nil {
 				return AttachBlobResult{}, err
 			}
 			return AttachBlobResult{}, ErrBlobNotAttachable
@@ -336,6 +363,10 @@ UPDATE evidence
 	}); err != nil {
 		return AttachBlobResult{}, err
 	}
+	affectedChanges, err := refreshEvidenceSupportProjectionsTx(ctx, tx, meta.IncidentID, recordID)
+	if err != nil {
+		return AttachBlobResult{}, err
+	}
 	payload := map[string]any{
 		"view_schema_id": evidenceViewSchemaID,
 		"change_set_id":  changeSetID.String(),
@@ -354,7 +385,7 @@ UPDATE evidence
 	return AttachBlobResult{
 		Payload: payload, StatusCode: http.StatusOK, IncidentID: meta.IncidentID, RecordID: recordID,
 		ChangeSetID: changeSetID, ClientTxnID: request.ClientTxnID, RowVersion: rowVersion,
-		ChangedFieldKeys: sortedChangedKeys(beforeRow, afterRow),
+		ChangedFieldKeys: sortedChangedKeys(beforeRow, afterRow), AffectedRecordChanges: affectedChanges,
 	}, nil
 }
 
@@ -554,10 +585,25 @@ UPDATE object_blobs
    SET upload_state = 'failed',
        terminal_reason = $2,
        failed_at = $3,
-       cleanup_due_at = $3 + interval '1 hour',
+       cleanup_due_at = $3::timestamptz + interval '1 hour',
        updated_at = $3
  WHERE object_blob_id = $1
 `, objectBlobID, reason, now.UTC())
+	return err
+}
+
+func recordNonTerminalFinalizeFailureTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, now time.Time) error {
+	_, err := tx.Exec(ctx, `
+UPDATE object_blobs
+   SET finalize_attempt_count = finalize_attempt_count + 1,
+       upload_state = CASE WHEN finalize_attempt_count + 1 >= 4 THEN 'failed' ELSE upload_state END,
+       terminal_reason = CASE WHEN finalize_attempt_count + 1 >= 4 THEN 'finalize_retry_exhausted' ELSE terminal_reason END,
+       failed_at = CASE WHEN finalize_attempt_count + 1 >= 4 THEN $2 ELSE failed_at END,
+       cleanup_due_at = CASE WHEN finalize_attempt_count + 1 >= 4 THEN $2::timestamptz + interval '1 hour' ELSE cleanup_due_at END,
+       updated_at = $2
+ WHERE object_blob_id = $1
+   AND upload_state = 'pending'
+`, objectBlobID, now.UTC())
 	return err
 }
 
@@ -669,6 +715,18 @@ func evidenceRowFromData(data evidenceRowData) (map[string]any, error) {
 	}, nil
 }
 
+func evidenceRowCellValue(row map[string]any, fieldKey string) any {
+	cells, ok := row["cells"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	cell, ok := cells[fieldKey].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return cell["value"]
+}
+
 func uuidFromDBValue(value any) (uuid.UUID, error) {
 	switch typed := value.(type) {
 	case uuid.UUID:
@@ -719,6 +777,71 @@ UPDATE records
 RETURNING row_version
 `, recordID, now.UTC(), actorUserID).Scan(&rowVersion)
 	return rowVersion, err
+}
+
+func refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {
+	changes, err := loadEvidenceSupportRecordChangesTx(ctx, tx, incidentID, evidenceRecordID)
+	if err != nil {
+		return nil, err
+	}
+	if len(changes) == 0 {
+		return nil, nil
+	}
+	projectionStore := projections.NewStore(nil)
+	if err := projectionStore.RebuildIncidentTimelineTx(ctx, tx, incidentID); err != nil {
+		return nil, err
+	}
+	if err := projectionStore.RebuildIncidentHostsTx(ctx, tx, incidentID); err != nil {
+		return nil, err
+	}
+	if err := projectionStore.RebuildIncidentIdentitiesTx(ctx, tx, incidentID); err != nil {
+		return nil, err
+	}
+	return changes, nil
+}
+
+func loadEvidenceSupportRecordChangesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {
+	rows, err := tx.Query(ctx, `
+SELECT r.record_id, r.row_version, r.record_type
+  FROM record_links rl
+  JOIN records r
+    ON r.incident_id = rl.incident_id
+   AND r.record_id = rl.src_record_id
+   AND r.deleted_at IS NULL
+ WHERE rl.incident_id = $1
+   AND rl.dst_record_id = $2
+   AND rl.link_type = 'supported_by'
+   AND rl.deleted_at IS NULL
+   AND r.record_type IN ('timeline_event', 'host', 'identity')
+ ORDER BY r.record_id
+`, incidentID, evidenceRecordID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var changes []AttachRecordChange
+	for rows.Next() {
+		var change AttachRecordChange
+		var recordType string
+		if err := rows.Scan(&change.RecordID, &change.RowVersion, &recordType); err != nil {
+			return nil, err
+		}
+		switch recordType {
+		case "timeline_event":
+			change.ViewSchemaID = "cartulary.view.timeline.v1"
+			change.ChangedFieldKeys = []string{"timeline.evidence_count", "timeline.has_evidence"}
+		case "host":
+			change.ViewSchemaID = "cartulary.view.hosts.v1"
+			change.ChangedFieldKeys = []string{"host.evidence_count"}
+		case "identity":
+			change.ViewSchemaID = "cartulary.view.identities.v1"
+			change.ChangedFieldKeys = []string{"identity.evidence_count"}
+		default:
+			continue
+		}
+		changes = append(changes, change)
+	}
+	return changes, rows.Err()
 }
 
 func ensureIncidentVisibleTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {

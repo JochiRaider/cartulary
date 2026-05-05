@@ -69,8 +69,36 @@ SELECT
     ) AS replacement_record_id,
     e.occurred_at::date AS occurred_day,
     e.recorded_at::date AS recorded_day,
-    0::integer AS evidence_count,
-    false::boolean AS has_evidence,
+    (
+        SELECT COUNT(*)::integer
+        FROM record_links l
+        JOIN evidence ev
+          ON ev.incident_id = l.incident_id
+         AND ev.record_id = l.dst_record_id
+        JOIN object_blobs b
+          ON b.object_blob_id = ev.object_blob_id
+        WHERE l.incident_id = e.incident_id
+          AND l.src_record_id = e.record_id
+          AND l.link_type = 'supported_by'
+          AND l.deleted_at IS NULL
+          AND ev.lifecycle_state IN ('available', 'released')
+          AND b.upload_state = 'available'
+    ) AS evidence_count,
+    EXISTS (
+        SELECT 1
+        FROM record_links l
+        JOIN evidence ev
+          ON ev.incident_id = l.incident_id
+         AND ev.record_id = l.dst_record_id
+        JOIN object_blobs b
+          ON b.object_blob_id = ev.object_blob_id
+        WHERE l.incident_id = e.incident_id
+          AND l.src_record_id = e.record_id
+          AND l.link_type = 'supported_by'
+          AND l.deleted_at IS NULL
+          AND ev.lifecycle_state IN ('available', 'released')
+          AND b.upload_state = 'available'
+    ) AS has_evidence,
     EXISTS (
         SELECT 1
         FROM entity_mentions em

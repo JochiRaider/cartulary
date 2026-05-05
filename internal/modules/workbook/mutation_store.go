@@ -214,6 +214,9 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 	if err := validatePatchReferencesTx(ctx, tx, meta.IncidentID, request); err != nil {
 		return MutationResult{}, err
 	}
+	if err := validatePatchLifecycleTx(ctx, tx, recordID, request); err != nil {
+		return MutationResult{}, err
+	}
 	changed, err := applyPatchTx(ctx, tx, meta.IncidentID, recordID, actor.ID, request, now.UTC())
 	if err != nil {
 		return MutationResult{}, err
@@ -500,6 +503,73 @@ func validateCreateRequest(request CreateRequest) error {
 		}
 	}
 	return nil
+}
+
+func validatePatchLifecycleTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, request PatchRequest) error {
+	if request.ViewSchemaID != EvidenceViewSchemaID {
+		return nil
+	}
+	var from string
+	var objectBlobID sql.NullString
+	var uploadState sql.NullString
+	if err := tx.QueryRow(ctx, `
+SELECT e.lifecycle_state, e.object_blob_id::text, b.upload_state
+  FROM evidence e
+  LEFT JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
+ WHERE e.record_id = $1
+`, recordID).Scan(&from, &objectBlobID, &uploadState); err != nil {
+		return err
+	}
+	to := from
+	for _, change := range request.Changes {
+		if change.FieldKey == "evidence.lifecycle_state" && change.Value != nil && change.Value.Text != nil {
+			to = *change.Value.Text
+		}
+	}
+	if to != from && !legalEvidenceLifecycleTransition(from, to) {
+		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "illegal_status_transition", ViolatedGuards: []string{"evidence.lifecycle_state"}}
+	}
+	linkedBlobState := ""
+	if uploadState.Valid {
+		linkedBlobState = uploadState.String
+	}
+	if violatesEvidenceBlobBridge(to, objectBlobID.Valid, linkedBlobState) {
+		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "violated_lifecycle_guards", ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"}}
+	}
+	return nil
+}
+
+func legalEvidenceLifecycleTransition(from string, to string) bool {
+	if from == to {
+		return true
+	}
+	switch from {
+	case "requested":
+		return to == "pending_receipt" || to == "received" || to == "available"
+	case "pending_receipt":
+		return to == "requested" || to == "received" || to == "available"
+	case "received":
+		return to == "pending_receipt" || to == "available" || to == "quarantined"
+	case "available":
+		return to == "received" || to == "quarantined" || to == "released"
+	case "quarantined":
+		return to == "received" || to == "available"
+	case "released":
+		return to == "available" || to == "quarantined"
+	default:
+		return false
+	}
+}
+
+func violatesEvidenceBlobBridge(lifecycleState string, hasBlob bool, uploadState string) bool {
+	switch lifecycleState {
+	case "available", "released":
+		return !hasBlob || uploadState != "available"
+	case "quarantined":
+		return hasBlob && uploadState != "quarantined"
+	default:
+		return false
+	}
 }
 
 func insertEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, request CreateRequest, now time.Time) error {

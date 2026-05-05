@@ -178,8 +178,7 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	if err == nil && blob.UploadState == "pending" {
 		observed, err = s.observeUploadedObject(r.Context(), blob)
 		if err != nil {
-			writeAPIError(w, r, evidenceAccessUnavailable("blob_missing"))
-			return
+			observed = nil
 		}
 	}
 	result, err := s.store.AttachBlob(r.Context(), principal.User, recordID, request, AttachBlobRequestHash(request), observed, httpapi.RequestIDFromContext(r.Context()), s.now().UTC())
@@ -429,13 +428,19 @@ func (s *Service) publishRecordChange(result AttachBlobResult, actorUserID uuid.
 	if s.hub == nil || result.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
 		return
 	}
-	changedKeys := append([]string(nil), result.ChangedFieldKeys...)
-	slices.Sort(changedKeys)
-	s.hub.PublishRecordChange(platformws.RecordChange{
-		IncidentID: result.IncidentID, RecordID: result.RecordID, RowVersion: result.RowVersion,
-		ChangeSetID: result.ChangeSetID, ClientTxnID: result.ClientTxnID, ActorUserID: actorUserID,
-		ChangedFieldKeys: changedKeys, ViewSchemaID: evidenceViewSchemaID,
-	})
+	changes := append([]AttachRecordChange{{
+		RecordID: result.RecordID, RowVersion: result.RowVersion,
+		ViewSchemaID: evidenceViewSchemaID, ChangedFieldKeys: result.ChangedFieldKeys,
+	}}, result.AffectedRecordChanges...)
+	for _, change := range changes {
+		changedKeys := append([]string(nil), change.ChangedFieldKeys...)
+		slices.Sort(changedKeys)
+		s.hub.PublishRecordChange(platformws.RecordChange{
+			IncidentID: result.IncidentID, RecordID: change.RecordID, RowVersion: change.RowVersion,
+			ChangeSetID: result.ChangeSetID, ClientTxnID: result.ClientTxnID, ActorUserID: actorUserID,
+			ChangedFieldKeys: changedKeys, ViewSchemaID: change.ViewSchemaID,
+		})
+	}
 }
 
 func parseByteRange(value string, size int64) (int64, int64, bool) {

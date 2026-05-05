@@ -56,7 +56,21 @@ SELECT
     h.hostname,
     h.host_state,
     0,
-    0,
+    (
+        SELECT COUNT(*)::integer
+          FROM record_links l
+          JOIN evidence ev
+            ON ev.incident_id = l.incident_id
+           AND ev.record_id = l.dst_record_id
+          JOIN object_blobs b
+            ON b.object_blob_id = ev.object_blob_id
+         WHERE l.incident_id = h.incident_id
+           AND l.src_record_id = h.record_id
+           AND l.link_type = 'supported_by'
+           AND l.deleted_at IS NULL
+           AND ev.lifecycle_state IN ('available', 'released')
+           AND b.upload_state = 'available'
+    ),
     NULL,
     NULL,
     NULL,
@@ -124,7 +138,21 @@ SELECT
     i.sam_account_name,
     i.identity_state,
     0,
-    0,
+    (
+        SELECT COUNT(*)::integer
+          FROM record_links l
+          JOIN evidence ev
+            ON ev.incident_id = l.incident_id
+           AND ev.record_id = l.dst_record_id
+          JOIN object_blobs b
+            ON b.object_blob_id = ev.object_blob_id
+         WHERE l.incident_id = i.incident_id
+           AND l.src_record_id = i.record_id
+           AND l.link_type = 'supported_by'
+           AND l.deleted_at IS NULL
+           AND ev.lifecycle_state IN ('available', 'released')
+           AND b.upload_state = 'available'
+    ),
     NULL,
     NULL,
     NULL,
