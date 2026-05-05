@@ -490,15 +490,21 @@ func extensionForContentType(contentType string) string {
 func classifyMedia(contentType string) (mediaClass string, previewKind *string) {
 	base := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
 	switch {
-	case strings.HasPrefix(base, "image/"):
+	case base == "text/html" || base == "application/xhtml+xml":
+		return "text", nil
+	case base == "image/svg+xml":
+		return "image", nil
+	case base == "image/png" || base == "image/jpeg" || base == "image/gif" || base == "image/webp" || base == "image/bmp" || base == "image/tiff":
 		kind := "image_inline"
 		return "image", &kind
 	case base == "application/pdf":
 		kind := "pdf_inline"
 		return "pdf", &kind
-	case strings.HasPrefix(base, "text/") || base == "application/json":
+	case base == "text/plain" || base == "text/csv" || base == "text/tab-separated-values" || base == "text/markdown" || base == "application/json" || base == "application/x-ndjson":
 		kind := "text_inline"
 		return "text", &kind
+	case strings.HasPrefix(base, "text/"):
+		return "text", nil
 	case strings.HasPrefix(base, "audio/"):
 		return "audio", nil
 	case strings.HasPrefix(base, "video/"):

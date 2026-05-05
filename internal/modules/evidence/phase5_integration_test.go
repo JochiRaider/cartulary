@@ -3,13 +3,16 @@ package evidence_test
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
@@ -254,7 +257,195 @@ DELETE FROM incident_memberships
 }
 
 func TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04(t *testing.T) {
-	t.Skip("Phase 5 I-5-04 pending Sprint 4 quarantine boundary implementation")
+	t.Run("AC-405 object bytes stay outside structured state and loss fails closed", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase5-i-04-object-boundary")
+		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-phase5-i-04-boundary-incident",
+			"incident_key":  "phase5-i-04-boundary",
+			"title":         "Phase 5 object boundary",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		recordID := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+
+		marker := "phase5-ac405-marker-" + uuid.NewString() + "-payload"
+		payload := []byte("prefix-" + marker + "-suffix")
+		attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, payload, "boundary.txt", "text/plain", "txn-phase5-i-04-boundary-blob", "txn-phase5-i-04-boundary-attach")
+		objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+
+		preview := issueEvidenceHandle(t, harness, login, recordID, "preview-handle")
+		if got := string(redeemHandle(t, harness.Server.HTTP.URL+preview["href"].(string), login)); got != string(payload) {
+			t.Fatalf("preview before object loss got %q want %q", got, string(payload))
+		}
+		download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
+		if got := string(redeemHandle(t, harness.Server.HTTP.URL+download["href"].(string), login)); got != string(payload) {
+			t.Fatalf("download before object loss got %q want %q", got, string(payload))
+		}
+
+		structured := structuredTableText(t, harness,
+			"records", "evidence", "object_blobs", "route_idempotency",
+			"change_sets", "change_set_mutations", "record_revisions", "evidence_access_handles",
+		)
+		if strings.Contains(structured, marker) {
+			t.Fatalf("structured Postgres state contains inline evidence payload marker %q", marker)
+		}
+
+		storageKey := blobStorageKey(t, harness, objectBlobID)
+		if err := harness.Server.Runtime.ObjectStore.DeleteObject(context.Background(), storageKey); err != nil {
+			t.Fatalf("delete object bytes: %v", err)
+		}
+		if got := countEvidenceBlobLinks(t, harness, recordID); got != 1 {
+			t.Fatalf("object loss changed committed evidence blob link count: got %d want 1", got)
+		}
+		requireEvidenceStates(t, harness, recordID, "available", "available")
+		for _, endpoint := range []string{"preview-handle", "download-handle"} {
+			requireEvidenceAccessUnavailableReason(t,
+				phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
+				"blob_missing",
+			)
+		}
+	})
+
+	t.Run("failed unattached cleanup deletes bytes and retains metadata", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase5-i-04-cleanup")
+		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-phase5-i-04-cleanup-incident",
+			"incident_key":  "phase5-i-04-cleanup",
+			"title":         "Phase 5 cleanup",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		now := time.Now().UTC().Truncate(time.Second)
+
+		cleanupBlobID := uuid.New()
+		cleanupKey := "phase5/i-04/cleanup/" + cleanupBlobID.String()
+		cleanupPayload := "phase5 cleanup orphan bytes"
+		if err := harness.Server.Runtime.ObjectStore.PutObject(context.Background(), cleanupKey, strings.NewReader(cleanupPayload), int64(len(cleanupPayload)), "text/plain"); err != nil {
+			t.Fatalf("put cleanup candidate object: %v", err)
+		}
+		insertFailedCleanupBlob(t, harness, incidentID, adminID, cleanupBlobID, cleanupKey, now)
+
+		expiredBlobID := uuid.New()
+		insertExpiredPendingBlob(t, harness, incidentID, adminID, expiredBlobID, "phase5/i-04/expired/"+expiredBlobID.String(), now)
+
+		result, err := evidence.NewStore(harness.Server.Runtime.Postgres).CleanupFailedUnattachedBlobBytes(context.Background(), harness.Server.Runtime.ObjectStore, now, 10)
+		if err != nil {
+			t.Fatalf("cleanup failed unattached blob bytes: %v", err)
+		}
+		if result.ExpiredPendingCount != 1 || result.CleanedBlobCount != 1 {
+			t.Fatalf("cleanup result got expired=%d cleaned=%d want 1/1", result.ExpiredPendingCount, result.CleanedBlobCount)
+		}
+		if _, err := harness.Server.Runtime.ObjectStore.StatObject(context.Background(), cleanupKey); err == nil {
+			t.Fatalf("cleanup candidate object bytes still exist at %s", cleanupKey)
+		}
+		requireCleanedFailedBlobMetadata(t, harness, cleanupBlobID)
+		requireExpiredPendingFailed(t, harness, expiredBlobID)
+		if got := countEvidenceRowsForBlob(t, harness, cleanupBlobID); got != 0 {
+			t.Fatalf("cleanup created or retained evidence link rows: got %d want 0", got)
+		}
+	})
+
+	t.Run("quarantine bridges evidence and blocks attach preview and download", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase5-i-04-quarantine")
+		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-phase5-i-04-quarantine-incident",
+			"incident_key":  "phase5-i-04-quarantine",
+			"title":         "Phase 5 quarantine",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		recordID := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+		attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, []byte("phase5 quarantine body"), "quarantine.txt", "text/plain", "txn-phase5-i-04-quarantine-blob", "txn-phase5-i-04-quarantine-attach")
+		objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+		preview := issueEvidenceHandle(t, harness, login, recordID, "preview-handle")
+		download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
+		beforeRevisions := countEvidenceRevisions(t, harness, recordID)
+
+		store := evidence.NewStore(harness.Server.Runtime.Postgres)
+		if _, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "unsupported_trigger", "req-phase5-i-04-bad-trigger", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
+			t.Fatalf("unsupported quarantine trigger got %v want ErrIllegalBlobTransition", err)
+		}
+		result, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-phase5-i-04-quarantine", time.Now().UTC())
+		if err != nil {
+			t.Fatalf("quarantine blob: %v", err)
+		}
+		if result.ChangedEvidenceRecord != 1 || result.ChangeSetID == uuid.Nil {
+			t.Fatalf("quarantine result got changed=%d change_set=%s", result.ChangedEvidenceRecord, result.ChangeSetID)
+		}
+		requireEvidenceStates(t, harness, recordID, "quarantined", "quarantined")
+		if got := countEvidenceRevisions(t, harness, recordID); got != beforeRevisions+1 {
+			t.Fatalf("quarantine revision count got %d want %d", got, beforeRevisions+1)
+		}
+		requireChangeSetSource(t, harness, result.ChangeSetID, "evidence.blob.quarantine")
+
+		for _, handle := range []map[string]any{preview, download} {
+			requireEvidenceAccessUnavailableReason(t,
+				phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(login.SessionCookie)),
+				"evidence_quarantined",
+			)
+		}
+		for _, endpoint := range []string{"preview-handle", "download-handle"} {
+			requireEvidenceAccessUnavailableReason(t,
+				phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
+				"evidence_quarantined",
+			)
+		}
+		secondRecordID := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, adminID, secondRecordID)
+		requireEvidenceAccessUnavailableReason(t,
+			phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+secondRecordID.String()+"/attach-blob", map[string]any{
+				"object_blob_id":   objectBlobID.String(),
+				"base_row_version": 1,
+				"client_txn_id":    "txn-phase5-i-04-quarantine-attach-blocked",
+			}, authOptions(login)...),
+			"evidence_quarantined",
+		)
+
+		pendingID := uuid.New()
+		insertExpiredPendingBlob(t, harness, incidentID, adminID, pendingID, "phase5/i-04/pending-quarantine/"+pendingID.String(), time.Now().UTC().Add(2*time.Hour))
+		if _, err := store.QuarantineBlob(context.Background(), adminID, pendingID, "admin_quarantine", "req-phase5-i-04-pending-quarantine", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
+			t.Fatalf("pending quarantine got %v want ErrIllegalBlobTransition", err)
+		}
+	})
+
+	t.Run("active content uses observed media state for preview policy", func(t *testing.T) {
+		for _, active := range []struct {
+			name        string
+			contentType string
+			filename    string
+		}{
+			{name: "html", contentType: "text/html", filename: "pretend-image.png"},
+			{name: "svg", contentType: "image/svg+xml", filename: "pretend-raster.png"},
+		} {
+			t.Run(active.name, func(t *testing.T) {
+				harness := phase4test.StartServer(t, "phase5-i-04-active-"+active.name)
+				login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+				incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+					"client_txn_id": "txn-phase5-i-04-active-" + active.name + "-incident",
+					"incident_key":  "phase5-i-04-active-" + active.name,
+					"title":         "Phase 5 active content " + active.name,
+				})
+				incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+				recordID := uuid.New()
+				seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+				payload := []byte("<script>window.__cartulary_phase5_active_content = true</script>")
+				attachData := attachUploadedBlobWithHints(t, harness, login, incidentID, recordID, payload, active.filename, "image/png", active.contentType, "txn-phase5-i-04-active-"+active.name+"-blob", "txn-phase5-i-04-active-"+active.name+"-attach")
+				objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+				requireObservedContentType(t, harness, objectBlobID, active.contentType)
+
+				requireEvidenceAccessUnavailableReason(t,
+					phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+					"unsupported_preview",
+				)
+				download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
+				if got := string(redeemHandle(t, harness.Server.HTTP.URL+download["href"].(string), login)); got != string(payload) {
+					t.Fatalf("download active content got %q want %q", got, string(payload))
+				}
+			})
+		}
+	})
 }
 
 func requireCreateExpiry(t testing.TB, data map[string]any, field string, want time.Time) {
@@ -386,4 +577,178 @@ UPDATE records
 `, recordID, deletedAt); err != nil {
 		t.Fatalf("update record deleted state: %v", err)
 	}
+}
+
+func structuredTableText(t testing.TB, harness *phase4test.ServerHarness, tables ...string) string {
+	t.Helper()
+	var builder strings.Builder
+	for _, table := range tables {
+		query := fmt.Sprintf(`SELECT COALESCE(string_agg(to_jsonb(t)::text, E'\n'), '') FROM %s AS t`, quoteIdent(table))
+		var text string
+		if err := harness.DB.QueryRowContext(context.Background(), query).Scan(&text); err != nil {
+			t.Fatalf("dump structured table %s: %v", table, err)
+		}
+		builder.WriteString(table)
+		builder.WriteByte('\n')
+		builder.WriteString(text)
+		builder.WriteByte('\n')
+	}
+	return builder.String()
+}
+
+func quoteIdent(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
+}
+
+func insertFailedCleanupBlob(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
+	t.Helper()
+	if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, filename_hint, content_type_hint, observed_size, observed_content_type,
+    observed_sha256_hex, target_expires_at, pending_expires_at, finalized_at,
+    terminal_reason, failed_at, cleanup_due_at, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, 'failed',
+    27, 'cleanup.txt', 'text/plain', 27, 'text/plain',
+    '0000000000000000000000000000000000000000000000000000000000000000',
+    $5::timestamptz - interval '3 hours', $5::timestamptz - interval '2 hours', NULL,
+    'pending_timeout', $5::timestamptz - interval '2 hours', $5::timestamptz - interval '1 hour',
+    $5::timestamptz - interval '3 hours', $5::timestamptz - interval '2 hours'
+)
+`, objectBlobID, incidentID, actorID, storageKey, now.UTC()); err != nil {
+		t.Fatalf("insert failed cleanup blob: %v", err)
+	}
+}
+
+func insertExpiredPendingBlob(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
+	t.Helper()
+	if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, filename_hint, content_type_hint,
+    target_expires_at, pending_expires_at, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, 'pending',
+    10, 'expired.txt', 'text/plain',
+    $5::timestamptz - interval '2 hours', $5::timestamptz - interval '1 hour',
+    $5::timestamptz - interval '25 hours', $5::timestamptz - interval '25 hours'
+)
+`, objectBlobID, incidentID, actorID, storageKey, now.UTC()); err != nil {
+		t.Fatalf("insert expired pending blob: %v", err)
+	}
+}
+
+func requireCleanedFailedBlobMetadata(t testing.TB, harness *phase4test.ServerHarness, objectBlobID uuid.UUID) {
+	t.Helper()
+	var uploadState string
+	var cleaned bool
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT upload_state, cleaned_up_at IS NOT NULL
+  FROM object_blobs
+ WHERE object_blob_id = $1
+`, objectBlobID).Scan(&uploadState, &cleaned); err != nil {
+		t.Fatalf("load cleaned blob metadata: %v", err)
+	}
+	if uploadState != "failed" || !cleaned {
+		t.Fatalf("cleaned failed blob metadata got state=%s cleaned=%v want failed/true", uploadState, cleaned)
+	}
+}
+
+func requireExpiredPendingFailed(t testing.TB, harness *phase4test.ServerHarness, objectBlobID uuid.UUID) {
+	t.Helper()
+	var uploadState string
+	var terminalReason string
+	var cleanupDue bool
+	var cleaned bool
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT upload_state, terminal_reason, cleanup_due_at IS NOT NULL, cleaned_up_at IS NOT NULL
+  FROM object_blobs
+ WHERE object_blob_id = $1
+`, objectBlobID).Scan(&uploadState, &terminalReason, &cleanupDue, &cleaned); err != nil {
+		t.Fatalf("load expired pending blob: %v", err)
+	}
+	if uploadState != "failed" || terminalReason != "pending_timeout" || !cleanupDue || cleaned {
+		t.Fatalf("expired pending blob got state=%s reason=%s cleanup_due=%v cleaned=%v", uploadState, terminalReason, cleanupDue, cleaned)
+	}
+}
+
+func countEvidenceRowsForBlob(t testing.TB, harness *phase4test.ServerHarness, objectBlobID uuid.UUID) int {
+	t.Helper()
+	var count int
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT count(*)
+  FROM evidence
+ WHERE object_blob_id = $1
+`, objectBlobID).Scan(&count); err != nil {
+		t.Fatalf("count evidence rows for blob: %v", err)
+	}
+	return count
+}
+
+func requireEvidenceStates(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID, wantLifecycle string, wantUpload string) {
+	t.Helper()
+	var lifecycle string
+	var upload string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT e.lifecycle_state, COALESCE(b.upload_state, e.upload_state)
+  FROM evidence e
+  LEFT JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
+ WHERE e.record_id = $1
+`, recordID).Scan(&lifecycle, &upload); err != nil {
+		t.Fatalf("load evidence states: %v", err)
+	}
+	if lifecycle != wantLifecycle || upload != wantUpload {
+		t.Fatalf("evidence states got lifecycle=%s upload=%s want %s/%s", lifecycle, upload, wantLifecycle, wantUpload)
+	}
+}
+
+func requireChangeSetSource(t testing.TB, harness *phase4test.ServerHarness, changeSetID uuid.UUID, wantSource string) {
+	t.Helper()
+	var source string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT source
+  FROM change_sets
+ WHERE change_set_id = $1
+`, changeSetID).Scan(&source); err != nil {
+		t.Fatalf("load change set source: %v", err)
+	}
+	if source != wantSource {
+		t.Fatalf("change set source got %s want %s", source, wantSource)
+	}
+}
+
+func requireObservedContentType(t testing.TB, harness *phase4test.ServerHarness, objectBlobID uuid.UUID, want string) {
+	t.Helper()
+	var got string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT observed_content_type
+  FROM object_blobs
+ WHERE object_blob_id = $1
+`, objectBlobID).Scan(&got); err != nil {
+		t.Fatalf("load observed content type: %v", err)
+	}
+	if got != want {
+		t.Fatalf("observed content type got %q want %q", got, want)
+	}
+}
+
+func attachUploadedBlobWithHints(t *testing.T, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, hintContentType string, uploadContentType string, createTxn string, attachTxn string) map[string]any {
+	t.Helper()
+	createResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		"incident_id":       incidentID.String(),
+		"client_txn_id":     createTxn,
+		"byte_size":         len(payload),
+		"filename_hint":     filename,
+		"content_type_hint": hintContentType,
+		"sha256_hex":        fmt.Sprintf("%x", sha256Sum(payload)),
+	}, authOptions(login)...)
+	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	putObject(t, createData["upload_target"].(map[string]any)["href"].(string), payload, uploadContentType)
+	attachResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
+		"object_blob_id":   createData["object_blob_id"],
+		"base_row_version": 1,
+		"client_txn_id":    attachTxn,
+	}, authOptions(login)...)
+	return httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
 }

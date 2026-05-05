@@ -16,15 +16,18 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 var (
-	ErrBlobNotFound       = errors.New("evidence: blob not found")
-	ErrEvidenceNotFound   = errors.New("evidence: evidence not found")
-	ErrBlobNotAttachable  = errors.New("evidence: blob not attachable")
-	ErrIncidentMismatch   = errors.New("evidence: incident mismatch")
-	ErrRowVersionConflict = errors.New("evidence: row version conflict")
+	ErrBlobNotFound          = errors.New("evidence: blob not found")
+	ErrEvidenceNotFound      = errors.New("evidence: evidence not found")
+	ErrBlobNotAttachable     = errors.New("evidence: blob not attachable")
+	ErrEvidenceQuarantined   = errors.New("evidence: quarantined")
+	ErrIncidentMismatch      = errors.New("evidence: incident mismatch")
+	ErrRowVersionConflict    = errors.New("evidence: row version conflict")
+	ErrIllegalBlobTransition = errors.New("evidence: illegal blob transition")
 )
 
 type Store struct {
@@ -96,6 +99,19 @@ type AttachRecordChange struct {
 	RowVersion       int64
 	ViewSchemaID     string
 	ChangedFieldKeys []string
+}
+
+type QuarantineBlobResult struct {
+	IncidentID            uuid.UUID
+	ObjectBlobID          uuid.UUID
+	ChangeSetID           uuid.UUID
+	ChangedEvidenceRows   []AttachRecordChange
+	ChangedEvidenceRecord int
+}
+
+type CleanupFailedBlobResult struct {
+	ExpiredPendingCount int
+	CleanedBlobCount    int
 }
 
 type EvidenceAccessRecord struct {
@@ -260,7 +276,7 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 		return AttachBlobResult{}, err
 	}
 	if evidenceRowCellValue(beforeRow, "evidence.lifecycle_state") == "quarantined" {
-		return AttachBlobResult{}, ErrBlobNotAttachable
+		return AttachBlobResult{}, quarantinedError{}
 	}
 	blob, err := loadBlobForUpdateTx(ctx, tx, request.ObjectBlobID)
 	if err != nil {
@@ -269,7 +285,10 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 	if blob.IncidentID != meta.IncidentID {
 		return AttachBlobResult{}, ErrIncidentMismatch
 	}
-	if blob.UploadState == "quarantined" || blob.UploadState == "failed" {
+	if blob.UploadState == "quarantined" {
+		return AttachBlobResult{}, quarantinedError{}
+	}
+	if blob.UploadState == "failed" {
 		return AttachBlobResult{}, ErrBlobNotAttachable
 	}
 	if blob.UploadState == "pending" {
@@ -391,6 +410,185 @@ UPDATE evidence
 		ChangeSetID: changeSetID, ClientTxnID: request.ClientTxnID, RowVersion: rowVersion,
 		ChangedFieldKeys: sortedChangedKeys(beforeRow, afterRow), AffectedRecordChanges: affectedChanges,
 	}, nil
+}
+
+func (s *Store) QuarantineBlob(ctx context.Context, actorUserID uuid.UUID, objectBlobID uuid.UUID, trigger string, requestID string, now time.Time) (QuarantineBlobResult, error) {
+	if trigger != "content_inspection_quarantine" && trigger != "admin_quarantine" {
+		return QuarantineBlobResult{}, ErrIllegalBlobTransition
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return QuarantineBlobResult{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	blob, err := loadBlobForUpdateTx(ctx, tx, objectBlobID)
+	if err != nil {
+		return QuarantineBlobResult{}, err
+	}
+	if blob.UploadState != "available" {
+		return QuarantineBlobResult{}, ErrIllegalBlobTransition
+	}
+
+	rows, err := tx.Query(ctx, `
+SELECT e.record_id
+  FROM evidence e
+  JOIN records r ON r.record_id = e.record_id
+ WHERE e.object_blob_id = $1
+   AND e.lifecycle_state IN ('available', 'released')
+   AND r.deleted_at IS NULL
+ ORDER BY e.record_id
+ FOR UPDATE OF e, r
+`, objectBlobID)
+	if err != nil {
+		return QuarantineBlobResult{}, err
+	}
+	recordIDs := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var recordID uuid.UUID
+		if err := rows.Scan(&recordID); err != nil {
+			rows.Close()
+			return QuarantineBlobResult{}, err
+		}
+		recordIDs = append(recordIDs, recordID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return QuarantineBlobResult{}, err
+	}
+	rows.Close()
+
+	beforeRows := make(map[uuid.UUID]map[string]any, len(recordIDs))
+	beforeVersions := make(map[uuid.UUID]int64, len(recordIDs))
+	for _, recordID := range recordIDs {
+		row, err := loadEvidenceRowTx(ctx, tx, recordID)
+		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		beforeRows[recordID] = row
+		beforeVersions[recordID] = int64FromAny(row["row_version"])
+	}
+
+	_, err = tx.Exec(ctx, `
+UPDATE object_blobs
+   SET upload_state = 'quarantined',
+       updated_at = $2
+ WHERE object_blob_id = $1
+   AND upload_state = 'available'
+`, objectBlobID, now.UTC())
+	if err != nil {
+		return QuarantineBlobResult{}, err
+	}
+
+	var changeSetID uuid.UUID
+	changedRows := make([]AttachRecordChange, 0, len(recordIDs))
+	if len(recordIDs) > 0 {
+		reason := trigger
+		requestIDPtr := &requestID
+		if requestID == "" {
+			requestIDPtr = nil
+		}
+		changeSetID, err = s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+			IncidentID: blob.IncidentID, ActorUserID: actorUserID, Source: "evidence.blob.quarantine",
+			Reason: &reason, RequestID: requestIDPtr, CreatedAt: now.UTC(),
+		})
+		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
+	}
+
+	for idx, recordID := range recordIDs {
+		_, err := tx.Exec(ctx, `
+UPDATE evidence
+   SET lifecycle_state = 'quarantined',
+       upload_state = 'quarantined',
+       updated_at = $2
+ WHERE record_id = $1
+`, recordID, now.UTC())
+		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		rowVersion, err := advanceRecordVersionTx(ctx, tx, recordID, actorUserID, now)
+		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)
+		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		beforeVersionID := fmt.Sprintf("%s:%d", recordID, beforeVersions[recordID])
+		afterVersionID := fmt.Sprintf("%s:%d", recordID, rowVersion)
+		if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+			ChangeSetID: changeSetID, SequenceNo: idx + 1, TargetKind: "record", TargetID: recordID.String(),
+			OperationKind: "patch", BeforeVersionID: &beforeVersionID, AfterVersionID: &afterVersionID,
+			BeforeValue: beforeRows[recordID], AfterValue: afterRow,
+		}); err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		if err := s.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion,
+			BeforeValue: beforeRows[recordID], AfterValue: afterRow,
+		}); err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		projectionChanges, err := refreshEvidenceSupportProjectionsTx(ctx, tx, blob.IncidentID, recordID)
+		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		changedRows = append(changedRows, AttachRecordChange{
+			RecordID: recordID, RowVersion: rowVersion, ViewSchemaID: evidenceViewSchemaID,
+			ChangedFieldKeys: sortedChangedKeys(beforeRows[recordID], afterRow),
+		})
+		changedRows = append(changedRows, projectionChanges...)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return QuarantineBlobResult{}, err
+	}
+	return QuarantineBlobResult{
+		IncidentID: blob.IncidentID, ObjectBlobID: objectBlobID, ChangeSetID: changeSetID,
+		ChangedEvidenceRows: changedRows, ChangedEvidenceRecord: len(recordIDs),
+	}, nil
+}
+
+func (s *Store) CleanupFailedUnattachedBlobBytes(ctx context.Context, objectStore objectstore.Store, now time.Time, limit int) (CleanupFailedBlobResult, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	expiredCount, err := s.markExpiredPendingBlobSlots(ctx, now)
+	if err != nil {
+		return CleanupFailedBlobResult{}, err
+	}
+	candidates, err := s.loadFailedUnattachedCleanupCandidates(ctx, now, limit)
+	if err != nil {
+		return CleanupFailedBlobResult{}, err
+	}
+	cleaned := 0
+	for _, candidate := range candidates {
+		if err := objectStore.DeleteObject(ctx, candidate.StorageKey); err != nil {
+			return CleanupFailedBlobResult{}, err
+		}
+		tag, err := s.pool.Exec(ctx, `
+UPDATE object_blobs b
+   SET cleaned_up_at = $2,
+       updated_at = $2
+ WHERE b.object_blob_id = $1
+   AND b.upload_state = 'failed'
+   AND b.cleaned_up_at IS NULL
+   AND NOT EXISTS (
+       SELECT 1
+         FROM evidence e
+        WHERE e.object_blob_id = b.object_blob_id
+   )
+`, candidate.ObjectBlobID, now.UTC())
+		if err != nil {
+			return CleanupFailedBlobResult{}, err
+		}
+		if tag.RowsAffected() > 0 {
+			cleaned++
+		}
+	}
+	return CleanupFailedBlobResult{ExpiredPendingCount: expiredCount, CleanedBlobCount: cleaned}, nil
 }
 
 func (s *Store) LoadEvidenceAccess(ctx context.Context, recordID uuid.UUID) (EvidenceAccessRecord, error) {
@@ -523,6 +721,9 @@ func (s *Store) CheckHandleAccess(ctx context.Context, handle HandleRecord) (str
 	if access.IncidentID != handle.IncidentID {
 		return "evidence_inconsistent", nil
 	}
+	if access.EvidenceLifecycleState == "quarantined" || access.UploadState == "quarantined" {
+		return "evidence_quarantined", nil
+	}
 	if access.RecordRowVersion != handle.RecordRowVersion {
 		return "evidence_inconsistent", nil
 	}
@@ -654,6 +855,61 @@ UPDATE object_blobs
 	return err
 }
 
+type cleanupCandidate struct {
+	ObjectBlobID uuid.UUID
+	StorageKey   string
+}
+
+func (s *Store) markExpiredPendingBlobSlots(ctx context.Context, now time.Time) (int, error) {
+	tag, err := s.pool.Exec(ctx, `
+UPDATE object_blobs
+   SET upload_state = 'failed',
+       terminal_reason = 'pending_timeout',
+       failed_at = $1,
+       cleanup_due_at = $1::timestamptz + interval '1 hour',
+       updated_at = $1
+ WHERE upload_state = 'pending'
+   AND pending_expires_at <= $1
+`, now.UTC())
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+func (s *Store) loadFailedUnattachedCleanupCandidates(ctx context.Context, now time.Time, limit int) ([]cleanupCandidate, error) {
+	rows, err := s.pool.Query(ctx, `
+SELECT b.object_blob_id, b.storage_key
+  FROM object_blobs b
+ WHERE b.upload_state = 'failed'
+   AND b.cleaned_up_at IS NULL
+   AND b.cleanup_due_at <= $1
+   AND NOT EXISTS (
+       SELECT 1
+         FROM evidence e
+        WHERE e.object_blob_id = b.object_blob_id
+   )
+ ORDER BY b.cleanup_due_at, b.object_blob_id
+ LIMIT $2
+`, now.UTC(), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	candidates := make([]cleanupCandidate, 0)
+	for rows.Next() {
+		var candidate cleanupCandidate
+		if err := rows.Scan(&candidate.ObjectBlobID, &candidate.StorageKey); err != nil {
+			return nil, err
+		}
+		candidates = append(candidates, candidate)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return candidates, nil
+}
+
 func loadEvidenceRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
 	row := tx.QueryRow(ctx, `
 SELECT e.record_id, r.row_version,
@@ -758,6 +1014,31 @@ func evidenceRowCellValue(row map[string]any, fieldKey string) any {
 		return nil
 	}
 	return cell["value"]
+}
+
+func int64FromAny(value any) int64 {
+	switch typed := value.(type) {
+	case int64:
+		return typed
+	case int:
+		return int64(typed)
+	case int32:
+		return int64(typed)
+	case float64:
+		return int64(typed)
+	default:
+		return 0
+	}
+}
+
+type quarantinedError struct{}
+
+func (quarantinedError) Error() string {
+	return ErrEvidenceQuarantined.Error()
+}
+
+func (quarantinedError) Is(target error) bool {
+	return target == ErrEvidenceQuarantined || target == ErrBlobNotAttachable
 }
 
 func uuidFromDBValue(value any) (uuid.UUID, error) {

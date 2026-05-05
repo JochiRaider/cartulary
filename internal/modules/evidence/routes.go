@@ -198,6 +198,9 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrIncidentMismatch):
 		writeAPIError(w, r, evidenceAccessUnavailable("incident_mismatch"))
 		return
+	case errors.Is(err, ErrEvidenceQuarantined):
+		writeAPIError(w, r, evidenceAccessUnavailable("evidence_quarantined"))
+		return
 	case errors.Is(err, ErrBlobNotAttachable):
 		writeAPIError(w, r, evidenceAccessUnavailable("blob_not_attachable"))
 		return

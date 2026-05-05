@@ -13,10 +13,10 @@ This planning artifact does not implement Phase 5 behavior. It is intentionally 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
 | [x] | 0. Phase 5 ownership manifest and harness setup | [x] validated | None for Sprint 0. | Phase 5 is active and selectable; the initial Sprint 1 stubs have been replaced with real assertions. |
-| [x] | 1. Blob create and upload-slot contract | [x] validated | Phase aggregate targets still fail on later Sprint 4+ placeholders. | Blob-create contract, idempotency, size ceiling, expired-slot replay, and Sprint 3 preview-size behavior are implemented. |
-| [x] | 2. Attach finalization, lifecycle bridge, and no-blob evidence | [x] validated | Phase aggregate targets still fail on later Sprint 4 placeholder `I-5-04`. | Attach finalization, no-blob evidence, lifecycle bridge guards, workbook evidence-count projections, `U-5-08`, `I-5-01`, and browser `E-5-04` are implemented. |
-| [x] | 3. Handle issuance and redeem hardening | [x] validated | Phase aggregate targets still fail on later Sprint 4 placeholder `I-5-04`. | Backend/API handle issuance and redeem hardening are implemented for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`; browser `E-5-03` remains Sprint 5. |
-| [ ] | 4. Object-storage boundary and cleanup/quarantine behavior | [ ] pending |  |  |
+| [x] | 1. Blob create and upload-slot contract | [x] validated | None for Sprint 1. | Blob-create contract, idempotency, size ceiling, expired-slot replay, and Sprint 3 preview-size behavior are implemented. |
+| [x] | 2. Attach finalization, lifecycle bridge, and no-blob evidence | [x] validated | None for Sprint 2. | Attach finalization, no-blob evidence, lifecycle bridge guards, workbook evidence-count projections, `U-5-08`, `I-5-01`, and browser `E-5-04` are implemented. |
+| [x] | 3. Handle issuance and redeem hardening | [x] validated | None for Sprint 3. | Backend/API handle issuance and redeem hardening are implemented for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`; browser `E-5-03` remains Sprint 5. |
+| [x] | 4. Object-storage boundary and cleanup/quarantine behavior | [x] validated | None for Sprint 4. | Object-boundary, failed-unattached cleanup, quarantine bridge, and active-content preview blocking are implemented for `I-5-04`, `AC-053`, and `AC-405`. |
 | [ ] | 5. Workbook UI and browser evidence flows | [ ] pending |  |  |
 | [ ] | 6. Phase gate, ledgers, baselines, and handoff cleanup | [ ] pending |  |  |
 
@@ -63,7 +63,7 @@ Validation commands:
 - Passed: `make phase-test-name-check`
 - Passed: `tmp/node-runtime/bin/node scripts/test-task-guidance.mjs`
 - Completed follow-up: Sprint 1 replaced the initial failing symbols with real assertions for `U-5-01`, `U-5-02`, blob-create `U-5-09`, and `I-5-02`.
-- Current expected failure: `make phase-slice PHASE=phase5` selects Phase 5 rows and now fails only on later Sprint 4/5 placeholders.
+- Current expected failure: `make phase-slice PHASE=phase5` selects Phase 5 rows and may still fail on later Sprint 5 browser/UI placeholders.
 - Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'`
 
 Deliverables:
@@ -73,7 +73,7 @@ Deliverables:
 
 Risks and assumptions:
 - Assumption retained: create `internal/testutil/phase5test` only when naming clarity or helper ownership is needed; otherwise reuse existing helpers.
-- Follow-up risk retained for later sprints: service-backed timing baselines may need refresh after remaining Phase 5 placeholders become real tests.
+- Follow-up risk retained for later sprints: browser timing baselines may need refresh after remaining Phase 5 browser placeholders become real tests.
 
 Exit criteria:
 - Met: `make explain-phase PHASE=phase5` discovers the active manifest and planned rows.
@@ -128,9 +128,8 @@ Implementation tasks:
 Validation commands:
 - Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'`
 - Sprint 1 rows passed inside `make phase-slice PHASE=phase5`: `U-5-01`, `U-5-02`, `U-5-09`, and `I-5-02`.
-- Current status: Sprint 3 has since delivered preview-size handle behavior and the backend handle placeholders.
-- Expected failure: `make backend-integration` still fails on later Sprint 4 placeholder `I-5-04`.
-- Expected failure: `make phase-slice PHASE=phase5` still fails because later Sprint 4/5 placeholder rows remain intentionally skipped.
+- Current status: Sprints 3 and 4 have since delivered preview-size handle behavior, backend handle rows, and `I-5-04`.
+- Expected failure: `make phase-slice PHASE=phase5` may still fail because later Sprint 5 browser/UI placeholder rows remain intentionally skipped.
 
 Deliverables:
 - Delivered: passing `U-5-01`, `U-5-02`, blob-create `U-5-09`, and `I-5-02`.
@@ -213,9 +212,8 @@ Validation commands:
 - Passed: `make frontend-unit`
 - Passed: `make frontend-typecheck`
 - Passed: `make browser-e2e-webserver-backed`
-- Current status: Sprint 3 has since delivered `U-5-06` and `I-5-03`.
-- Expected failure: `make backend-integration` still fails because later Sprint 4 row `I-5-04` is skipped.
-- Expected failure: `make service-backed-slice PHASE=phase5` now passes Sprint 3 `backend-store` work and fails only because `I-5-04` remains a Sprint 4 placeholder.
+- Current status: Sprints 3 and 4 have since delivered `U-5-06`, `I-5-03`, and `I-5-04`.
+- Current status: `make backend-integration` and `make service-backed-slice PHASE=phase5` now pass through Sprint 4 coverage.
 
 Deliverables:
 - Delivered: passing attach validation/finalization coverage for `U-5-03`.
@@ -303,8 +301,7 @@ Validation commands:
 - Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_05|U_5_06|U_5_07|U_5_09|I_5_03)' -count=1`
 - Passed: `make go-gosec-targeted`
 - Passed: `make migration-drift`
-- Partial expected failure: `make backend-integration` still fails only because later Sprint 4 placeholder `TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04` is skipped.
-- Partial expected failure: `make service-backed-slice PHASE=phase5` now passes `backend-store`, including `U-5-06`, and fails only at the `backend-integration` finalizer because `I-5-04` remains a Sprint 4 placeholder.
+- Current status: Sprint 4 has since replaced `TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04`; `make backend-integration` and `make service-backed-slice PHASE=phase5` pass.
 
 Deliverables:
 - Delivered: passing handle and redemption tests for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`.
@@ -320,11 +317,13 @@ Risks and assumptions:
 Exit criteria:
 - Met: all Sprint 3 redemption invalidation cases fail closed with registered errors.
 - Met: oversized preview fails with `preview_payload_too_large`; download still succeeds.
-- Met: Sprint 3 service-backed store coverage passes; remaining Phase 5 aggregate failure is the later Sprint 4 `I-5-04` placeholder.
+- Met: Sprint 3 service-backed store coverage passes; Sprint 4 has since replaced the later `I-5-04` placeholder.
 
 ## Sprint 4. Object-Storage Boundary and Cleanup/Quarantine Behavior
 
 Objective: Prove binary payloads remain outside Postgres, object-store loss fails preview/download without corrupting structured rows, and cleanup/quarantine boundaries do not bypass the two-step attach model.
+
+Status: Complete. Sprint 4 covers backend object-boundary, cleanup, quarantine, and active-content preview policy only. It does not add a public scanner adjunct, public lifecycle routes, or a scheduled cleanup worker.
 
 Relevant IDs:
 - `I-5-04`, `AC-053`, `AC-405`
@@ -335,6 +334,9 @@ Grep references:
 - `ReadObject`
 - `StatObject`
 - `DeleteObject`
+- `Store.QuarantineBlob`
+- `Store.CleanupFailedUnattachedBlobBytes`
+- `ErrIllegalBlobTransition`
 - `object_blobs.storage_key`
 - `evidence_access_handles`
 - `terminal_reason`
@@ -344,42 +346,48 @@ Grep references:
 - `evidence_inconsistent`
 
 Files and areas:
-- `internal/platform/objectstore/objectstore.go`
 - `internal/modules/evidence/store.go`
 - `internal/modules/evidence/routes.go`
-- `internal/testutil/s3test`
-- `internal/testutil/suiteservices`
-- New cleanup worker only if existing background-job shell can host it without widening scope.
+- `internal/modules/evidence/api.go`
+- `internal/modules/evidence/phase5_integration_test.go`
+- Existing `objectstore.Store` contract was reused unchanged.
+- No public cleanup worker, scanner adjunct, or lifecycle route was added.
 
 Test-first sequence:
-1. Add `AC-405` integration test: attach unique binary marker bytes, confirm structured DB dump/query does not contain payload bytes, delete object bytes, verify row remains and preview/download fail `blob_missing`.
-2. Add cleanup test for failed unattached blobs: `cleanup_due_at`, object deletion, `cleaned_up_at`.
-3. Add quarantine test for available blob -> quarantined: evidence row becomes or surfaces `quarantined`, preview/download fail `evidence_quarantined`.
-4. Add `I-5-04` scanner-adjunct test as conditional: if no scanner adjunct exists, assert no bypass path exists and quarantine state blocks access.
+1. Completed: `AC-405` integration test attaches unique binary marker bytes, confirms structured DB query output does not contain payload bytes, deletes object bytes, and verifies committed evidence rows remain while preview/download fail `blob_missing`.
+2. Completed: cleanup test covers failed unattached blobs with `cleanup_due_at`, object deletion, `cleaned_up_at`, retained blob metadata, and no evidence row creation.
+3. Completed: quarantine test covers available blob -> `quarantined`, bridge update to linked evidence, revision/change-set evidence, blocked attach, and preview/download failures with `evidence_quarantined`.
+4. Completed: base-profile scanner-adjunct interpretation remains no-op; Sprint 4 asserts the quarantine boundary and no bypass path without adding scanner infrastructure.
+5. Completed: active-content test proves observed `text/html` and `image/svg+xml` are not previewable even when caller hints claim `image/png`; download remains legal.
 
 Implementation tasks:
-- Add narrow cleanup function for expired pending slots and failed unattached object bytes if missing.
-- Implement legal quarantine transitions only if Phase 5 tests require them; do not build a generalized malware scanner.
-- Keep object-store loss as access failure, not structured-row deletion.
-- Avoid storing binary evidence inline in Postgres, JSON fields, revisions, or idempotency payloads.
+- Completed: added `Store.CleanupFailedUnattachedBlobBytes` for expired pending slots and failed unattached object-byte cleanup.
+- Completed: added `Store.QuarantineBlob` for `content_inspection_quarantine` and `admin_quarantine`, with bridge updates for linked available/released evidence and illegal-transition rejection for unsupported triggers or non-available blobs.
+- Completed: object-store loss remains an access failure; committed evidence rows and blob links are not detached or deleted.
+- Completed: preview media classification now uses observed content type and blocks active/scriptable inline preview types while preserving safe inline text, JSON, raster image, and PDF previews.
+- Completed: binary evidence remains outside Postgres structured state, route idempotency payloads, revisions, and handle rows.
 
 Validation commands:
-- `go test ./internal/modules/evidence -run 'TestPhase5_.*(I_5_04|AC_405|Cleanup|Quarantine)'`
-- `make backend-integration`
-- `make go-gosec-targeted`
-- `make service-backed-slice PHASE=phase5`
+- Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(I_5_04|AC_405|Cleanup|Quarantine)' -count=1`
+- Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_03|U_5_04|U_5_06|I_5_01|I_5_03|I_5_04)' -count=1`
+- Passed: `go test ./internal/modules/evidence -count=1`
+- Passed: `make backend-integration`
+- Passed: `make go-gosec-targeted`
+- Passed: `make service-backed-slice PHASE=phase5`
 
 Deliverables:
-- Passing object-boundary and quarantine/cleanup tests.
-- Documented no-op interpretation for scanner adjunct if none exists.
+- Delivered: passing object-boundary and quarantine/cleanup tests.
+- Delivered: documented no-op interpretation for scanner adjunct in the implementation plan.
+- Delivered: active/scriptable observed content is blocked from inline preview while remaining downloadable through ordinary handle validation.
 
 Risks and assumptions:
-- Ambiguity: guide references an upload-scanning adjunct "if the deployment uses" one. Safest assumption is no scanner adjunct in base unless already present; Phase 5 should prove quarantine blocks access, not implement scanner infrastructure.
-- Risk: idempotency payloads or revision snapshots might accidentally include too much object metadata; tests should search for exact payload marker bytes.
+- Retained assumption: no scanner adjunct exists in the base deployment; Sprint 4 proves quarantine blocks access and does not implement scanner infrastructure.
+- Resolved: exact payload marker bytes are asserted absent from structured Postgres state after attachment.
+- Retained follow-up: public/scheduled cleanup worker wiring remains future owner-driven work; Sprint 4 exposes only the internal cleanup operation.
 
 Exit criteria:
-- Postgres structured state contains metadata and object references only.
-- Losing object bytes does not delete or corrupt committed evidence rows.
+- Met: Postgres structured state contains metadata and object references only.
+- Met: losing object bytes does not delete or corrupt committed evidence rows.
 
 ## Sprint 5. Workbook UI and Browser Evidence Flows
 
