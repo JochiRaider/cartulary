@@ -446,10 +446,13 @@ func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
 			{"field_key": "comm_log.decision_ids", "action_payload": collectionActions(addRecordRef(decisionID))},
 		},
 	})
-	httptestx.RequireErrorEnvelope(t, staleNonOverlappingCollection, http.StatusConflict, "row_version_conflict")
+	staleNonOverlappingData := httptestx.RequireSuccessEnvelope(t, staleNonOverlappingCollection, http.StatusOK)["data"].(map[string]any)
+	if staleNonOverlappingData["row"].(map[string]any)["row_version"] != float64(3) {
+		t.Fatalf("stale non-overlapping collection patch should auto-rebase to row_version 3, got %#v", staleNonOverlappingData)
+	}
 	rawArrayPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
-		"base_row_version": 2,
+		"base_row_version": 3,
 		"client_txn_id":    "txn-workbook-comm-raw-array",
 		"changes": []map[string]any{
 			{"field_key": "comm_log.decision_ids", "value": []any{}},
@@ -458,7 +461,7 @@ func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, rawArrayPatch, http.StatusBadRequest, "invalid_mutation_payload")
 	rawNullPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
-		"base_row_version": 2,
+		"base_row_version": 3,
 		"client_txn_id":    "txn-workbook-comm-raw-null",
 		"changes": []map[string]any{
 			{"field_key": "comm_log.decision_ids", "value": nil},
@@ -467,7 +470,7 @@ func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, rawNullPatch, http.StatusBadRequest, "invalid_mutation_payload")
 	wrongTarget := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
-		"base_row_version": 2,
+		"base_row_version": 3,
 		"client_txn_id":    "txn-workbook-comm-wrong-target",
 		"changes": []map[string]any{
 			{"field_key": "comm_log.decision_ids", "action_payload": collectionActions(addRecordRef(partyID))},
@@ -489,7 +492,7 @@ func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
 	foreignPartyID := phase4test.MustUUID(t, foreignPartyData["row"].(map[string]any)["record_id"].(string))
 	foreignPartyRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
-		"base_row_version": 2,
+		"base_row_version": 3,
 		"client_txn_id":    "txn-workbook-comm-foreign-party",
 		"changes": []map[string]any{
 			{"field_key": "comm_log.audience_party_ids", "action_payload": collectionActions(addPartyRef(foreignPartyID))},

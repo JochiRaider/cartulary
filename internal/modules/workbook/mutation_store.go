@@ -154,8 +154,15 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 }
 
 func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	if len(request.Changes) == 0 {
+		return MutationResult{}, mutationValidationError("changes", "empty_changes")
+	}
+	return s.applyWorkbookPatch(ctx, actor, recordID, request, requestHash, requestID, now, workbookPatchRouteKey)
+}
+
+func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string) (MutationResult, error) {
 	idempotencyKey := authn.RouteIdempotencyKey{
-		RouteKey:    workbookPatchRouteKey,
+		RouteKey:    routeKey,
 		ActorUserID: actor.ID,
 		ScopeKey:    recordID.String(),
 		ClientTxnID: request.ClientTxnID,
@@ -172,9 +179,6 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return MutationResult{}, fmt.Errorf("query workbook patch idempotency: %w", err)
 	}
-	if len(request.Changes) == 0 {
-		return MutationResult{}, mutationValidationError("changes", "empty_changes")
-	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -189,7 +193,11 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 	if !recordTypeMatchesView(meta.RecordType, request.ViewSchemaID) {
 		return MutationResult{}, pgx.ErrNoRows
 	}
+	effectiveBeforeVersion := request.BaseRowVersion
 	if meta.RowVersion != request.BaseRowVersion {
+		if meta.RowVersion < request.BaseRowVersion {
+			return MutationResult{}, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
+		}
 		window, err := loadWorkbookPatchConflictWindowTx(ctx, tx, recordID, request.ViewSchemaID, request.BaseRowVersion, meta.RowVersion)
 		if err != nil {
 			return MutationResult{}, err
@@ -205,7 +213,7 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 			}
 			return MutationResult{}, conflict
 		}
-		return MutationResult{}, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
+		effectiveBeforeVersion = meta.RowVersion
 	}
 	beforeRow, err := s.loadGenericRowTx(ctx, tx, request.ViewSchemaID, recordID)
 	if err != nil {
@@ -238,7 +246,7 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 	changeSetID, err := s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
 		IncidentID:  meta.IncidentID,
 		ActorUserID: actor.ID,
-		Source:      workbookPatchRouteKey,
+		Source:      routeKey,
 		ClientTxnID: &request.ClientTxnID,
 		RequestID:   &requestID,
 		CreatedAt:   now.UTC(),
@@ -247,6 +255,9 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 		return MutationResult{}, err
 	}
 	beforeVersionID := workbookVersionID(recordID, request.BaseRowVersion)
+	if effectiveBeforeVersion != request.BaseRowVersion {
+		beforeVersionID = workbookVersionID(recordID, effectiveBeforeVersion)
+	}
 	afterVersionID := workbookVersionID(recordID, rowVersion)
 	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
 		ChangeSetID:     changeSetID,
@@ -290,6 +301,83 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 		RowVersion:       rowVersion,
 		ViewSchemaID:     request.ViewSchemaID,
 		ChangedFieldKeys: changedFieldKeys(beforeRow, afterRow),
+	}, nil
+}
+
+func (s *Store) ResolveWorkbookConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims workbookConflictTokenClaims, request ConflictResolveRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	if request.ResolutionKind == "keep_saved" {
+		return s.clearWorkbookConflict(ctx, actor, recordID, claims, request, requestHash)
+	}
+	if request.ResolvedChange == nil {
+		return MutationResult{}, mutationValidationError("resolved_value", "missing_required_field")
+	}
+	patch := PatchRequest{
+		ViewSchemaID:   claims.ViewSchemaID,
+		BaseRowVersion: claims.CurrentRowVersion,
+		ClientTxnID:    request.ClientTxnID,
+		Changes:        []PatchChange{*request.ResolvedChange},
+	}
+	return s.applyWorkbookPatch(ctx, actor, recordID, patch, requestHash, requestID, now, workbookConflictResolveRouteKey)
+}
+
+func (s *Store) clearWorkbookConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims workbookConflictTokenClaims, request ConflictResolveRequest, requestHash []byte) (MutationResult, error) {
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    workbookConflictResolveRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    recordID.String(),
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
+			return MutationResult{}, authn.ErrClientTxnConflict
+		}
+		payload, err := decodeStoredResponse(existing.ResponseJSON)
+		if err != nil {
+			return MutationResult{}, fmt.Errorf("decode replayed workbook conflict clear payload: %w", err)
+		}
+		return MutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ViewSchemaID: claims.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
+	} else if !errors.Is(err, authn.ErrNotFound) {
+		return MutationResult{}, fmt.Errorf("query workbook conflict clear idempotency: %w", err)
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return MutationResult{}, fmt.Errorf("begin workbook conflict clear transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	meta, err := loadRecordMetaForUpdateTx(ctx, tx, recordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if !recordTypeMatchesView(meta.RecordType, claims.ViewSchemaID) {
+		return MutationResult{}, pgx.ErrNoRows
+	}
+	row, err := s.loadGenericRowTx(ctx, tx, claims.ViewSchemaID, recordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	payload := map[string]any{
+		"view_schema_id": claims.ViewSchemaID,
+		"row":            row,
+	}
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
+		if authn.IsUniqueViolation(err) {
+			return MutationResult{}, authn.ErrClientTxnConflict
+		}
+		return MutationResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return MutationResult{}, fmt.Errorf("commit workbook conflict clear transaction: %w", err)
+	}
+	return MutationResult{
+		Payload:      payload,
+		StatusCode:   http.StatusOK,
+		IncidentID:   meta.IncidentID,
+		RecordID:     recordID,
+		ClientTxnID:  request.ClientTxnID,
+		RowVersion:   meta.RowVersion,
+		ViewSchemaID: claims.ViewSchemaID,
 	}, nil
 }
 
@@ -1357,8 +1445,8 @@ func buildWorkbookSameFieldConflict(recordID uuid.UUID, viewSchemaID string, bas
 	if conflictClass == "" {
 		conflictClass = "atomic_replace"
 	}
-	return &SameFieldConflictError{Conflict: map[string]any{
-		"conflict_token":            workbookConflictToken(recordID, change.FieldKey, baseRowVersion, currentRowVersion, requestHash),
+	conflict := map[string]any{
+		"conflict_token":            workbookConflictToken(recordID, viewSchemaID, change.FieldKey, conflictClass, baseRowVersion, currentRowVersion, requestHash),
 		"record_id":                 recordID.String(),
 		"field_key":                 change.FieldKey,
 		"conflict_resolution_class": conflictClass,
@@ -1369,7 +1457,13 @@ func buildWorkbookSameFieldConflict(recordID uuid.UUID, viewSchemaID string, bas
 		"server_updated_by":         changed.ServerUpdatedBy.String(),
 		"server_updated_at":         changed.ServerUpdatedAt.UTC().Format(time.RFC3339Nano),
 		"base_value":                baseValue,
-	}}, nil
+	}
+	if conflictClass == "text_compare_merge" {
+		if suggested, ok := suggestedTextMergeValue(baseValue, serverValue, clientValue); ok {
+			conflict["suggested_merged_value"] = suggested
+		}
+	}
+	return &SameFieldConflictError{Conflict: conflict}, nil
 }
 
 func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
@@ -1529,19 +1623,65 @@ func workbookCollectionSortKey(item map[string]any) string {
 	return ""
 }
 
-func workbookConflictToken(recordID uuid.UUID, fieldKey string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) string {
-	sum := hashRequestPayload(map[string]any{
-		"record_id":           recordID.String(),
-		"field_key":           fieldKey,
-		"base_row_version":    baseRowVersion,
-		"current_row_version": currentRowVersion,
-		"request_hash":        base64.RawURLEncoding.EncodeToString(requestHash),
-	})
-	token := base64.RawURLEncoding.EncodeToString(sum)
-	if len(token) > 24 {
-		return token[:24]
+type workbookConflictTokenClaims struct {
+	RecordID                string `json:"record_id"`
+	ViewSchemaID            string `json:"view_schema_id"`
+	FieldKey                string `json:"field_key"`
+	ConflictResolutionClass string `json:"conflict_resolution_class"`
+	BaseRowVersion          int64  `json:"base_row_version"`
+	CurrentRowVersion       int64  `json:"current_row_version"`
+	RequestHash             string `json:"request_hash"`
+	Signature               string `json:"sig"`
+}
+
+func workbookConflictToken(recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) string {
+	claims := workbookConflictTokenClaims{
+		RecordID:                recordID.String(),
+		ViewSchemaID:            viewSchemaID,
+		FieldKey:                fieldKey,
+		ConflictResolutionClass: conflictClass,
+		BaseRowVersion:          baseRowVersion,
+		CurrentRowVersion:       currentRowVersion,
+		RequestHash:             base64.RawURLEncoding.EncodeToString(requestHash),
 	}
-	return token
+	claims.Signature = workbookConflictTokenSignature(claims)
+	payload, _ := json.Marshal(claims)
+	return base64.RawURLEncoding.EncodeToString(payload)
+}
+
+func parseWorkbookConflictToken(token string) (workbookConflictTokenClaims, bool) {
+	data, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return workbookConflictTokenClaims{}, false
+	}
+	var claims workbookConflictTokenClaims
+	if err := json.Unmarshal(data, &claims); err != nil {
+		return workbookConflictTokenClaims{}, false
+	}
+	if claims.Signature == "" || claims.Signature != workbookConflictTokenSignature(claims) {
+		return workbookConflictTokenClaims{}, false
+	}
+	if _, err := uuid.Parse(claims.RecordID); err != nil {
+		return workbookConflictTokenClaims{}, false
+	}
+	if claims.ViewSchemaID == "" || claims.FieldKey == "" || claims.BaseRowVersion < 1 || claims.CurrentRowVersion < claims.BaseRowVersion {
+		return workbookConflictTokenClaims{}, false
+	}
+	return claims, true
+}
+
+func workbookConflictTokenSignature(claims workbookConflictTokenClaims) string {
+	payload := map[string]any{
+		"record_id":                  claims.RecordID,
+		"view_schema_id":             claims.ViewSchemaID,
+		"field_key":                  claims.FieldKey,
+		"conflict_resolution_class":  claims.ConflictResolutionClass,
+		"base_row_version":           claims.BaseRowVersion,
+		"current_row_version":        claims.CurrentRowVersion,
+		"request_hash":               claims.RequestHash,
+		"cartulary_conflict_token_v": 1,
+	}
+	return base64.RawURLEncoding.EncodeToString(hashRequestPayload(payload))
 }
 
 func workbookConflictLocalUUID(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {

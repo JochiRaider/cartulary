@@ -12,8 +12,8 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 
 | Done | Sprint                                                                | Validation                         | Blockers                                                                                                                                                                          | Follow-up Notes                                                                                                                                                  |
 | ---- | --------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [x]  | 0. Phase 6 ownership manifest and harness setup                       | [x] passed; full slice env-blocked | `make phase-slice PHASE=phase6` is blocked in this WSL environment before row execution because Docker is unavailable for service image warm-up.                                  | Manifest, ledger, schedules, active registry, and selectable Phase 6 rows exist. Sprint 1 starts from intentional failing `U-6-01..U-6-06` behavior stubs.       |
-| [ ]  | 1. Patch conflict contract and explicit resolver domain               | [ ] pending | Phase 3 covers server-side Timeline rebase/conflict transport, but Phase 6 still needs generalized resolver semantics and browser-facing conflict state.                          | Start with backend/domain rows for `U-6-01..U-6-06`; reuse Phase 3 store behavior where valid instead of duplicating owner claims.                             |
+| [x]  | 0. Phase 6 ownership manifest and harness setup                       | [x] passed                         | None. Docker is reachable and both Phase 6 public slice wrappers pass.                                                                                                            | `phase-slice` artifact root: `.cartulary/test-results/20260505T222643Z-p41927/phase-slice`; `service-backed-slice` artifact root: `.cartulary/test-results/20260505T222657Z-p45629/service-backed-slice`. |
+| [x]  | 1. Patch conflict contract and explicit resolver domain               | [ ] focused passed; full workbook package regression | `go test ./internal/modules/workbook` reaches service-backed tests and fails at `TestPhase4_CoordinationCollections_I_4_COORD_02`: stale non-overlapping collection patch got HTTP 400, want 200. | Backend `U-6-01..U-6-04` and frontend `U-6-05..U-6-06` are implemented. Phase 3 Timeline hot-path coverage remains support evidence.                           |
 | [ ]  | 2. Incident socket handshake, resume, replay, and presence hardening  | [ ] pending | Current socket implementation exists but needs Phase 6-owned contract coverage for reset, replay-only event filtering, canonical presence arrays, and revocation close semantics. | Cover `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, and `I-6-04`.                                                                                                    |
 | [ ]  | 3. Frontend collaboration client, save state, and local pending queue | [ ] pending | Workbook UI currently has surface flows, but Phase 6 needs a durable browser-runtime queue, save labels, conflict queue state, and reconnect/re-auth behavior.                    | Cover `U-6-05`, `U-6-06`, `U-6-09`, `E-6-03`, and `E-6-05`.                                                                                                    |
 | [ ]  | 4. Browser presence indicators and live-cell anchoring                | [ ] pending | Presence and live patches must remain bound to `record_id` plus `field_key` through sort/filter/group/virtual scrolling or invalidation.                                          | Cover `E-6-01` and `E-6-04`, with focused frontend unit tests for row/cell key stability.                                                                      |
@@ -48,7 +48,7 @@ Files and areas:
 
 Completed test-first sequence:
 1. Manifest rows now cover every `U-6-01..U-6-09`, `I-6-01..I-6-04`, and `E-6-01..E-6-05` row.
-2. Intentional failing behavior stubs now exist for `U-6-01..U-6-06`.
+2. Sprint 1 replaced the intentional failing behavior stubs for `U-6-01..U-6-06`.
 3. Later-sprint rows are selectable no-op placeholders and must be replaced before Phase 6 exit.
 4. Manifest/name validation passes before any Phase 6 feature behavior implementation.
 
@@ -68,6 +68,7 @@ Validation commands:
 - `make backend-unit CARTULARY_MANIFEST_PHASE=phase6 CARTULARY_MANIFEST_SECTION=unit CARTULARY_MANIFEST_COVERAGE=authoritative CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_unit`
 - `make frontend-unit CARTULARY_MANIFEST_PHASE=phase6 CARTULARY_MANIFEST_COVERAGE=authoritative CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit`
 - `make phase-slice PHASE=phase6`
+- `make service-backed-slice PHASE=phase6`
 - `git diff --check`
 
 Validation results:
@@ -75,33 +76,36 @@ Validation results:
 - `make explain-phase PHASE=phase6` passed and reports 18 authoritative rows across `backend_unit`, `backend_store`, `backend_integration`, `frontend_unit`, and `browser_functional`.
 - `make phase-ledger-drift` passed after ledger generation.
 - `make phase-schedule-drift` passed after schedule generation.
-- Direct Phase 6 `backend_unit` selection reaches the intentional `U-6-03` behavior stub failure.
-- Direct Phase 6 `frontend_unit` selection reaches the intentional `U-6-05` and `U-6-06` behavior stub failures.
-- `make phase-slice PHASE=phase6` is currently environment-blocked before row execution because Docker is unavailable in this WSL distro and service image warm-up cannot pull Postgres/MinIO images.
+- Direct Phase 6 `backend_unit` selection initially reached the intentional `U-6-03` behavior stub failure; Sprint 1 has since replaced `U-6-01..U-6-04` with real assertions.
+- Direct Phase 6 `frontend_unit` selection initially reached the intentional `U-6-05` and `U-6-06` behavior stub failures; Sprint 1 has since replaced those rows with real assertions.
+- Docker is reachable: `docker info --format '{{json .ServerVersion}} {{json .OSType}} {{json .OperatingSystem}}'` returned `"28.5.1" "linux" "Docker Desktop"`.
+- `make phase-slice PHASE=phase6` passed with 5/5 work units, 18 tests, 0 failures, and artifact root `.cartulary/test-results/20260505T222643Z-p41927/phase-slice`.
+- `make service-backed-slice PHASE=phase6` passed with 3/3 work units, 12 tests, 0 failures, and artifact root `.cartulary/test-results/20260505T222657Z-p45629/service-backed-slice`.
 - `git diff --check` passed.
 
 Deliverables:
 - `tools/phase6_test_map.json` exists and is selectable.
 - `docs/testing/phase6_coverage_ledger.md` exists and names every Phase 6 row.
 - Generated schedule manifests include active Phase 6 service-backed and browser-functional rows.
-- The first Sprint 1 tests fail for behavior, not because of missing harness plumbing, on direct non-service selections.
+- Sprint 1 tests are no longer behavior stubs after the Sprint 1 implementation.
 
 Risks and assumptions:
 - Existing Phase 3 and Phase 1 socket tests already cover parts of the route shape. Phase 6 rows must state whether they are upgrading that evidence or adding new owner coverage.
 - Later placeholder rows are intentionally selectable no-ops only during Phase 6 buildout and must be replaced before Phase 6 exit.
-- Full phase-slice validation requires Docker-backed Postgres/MinIO service image warm-up in the local environment.
+- Docker-backed Postgres/MinIO service image warm-up is available in the local environment as of the Sprint 0/1 Docker validation pass.
 
 Exit criteria:
 - `make explain-phase PHASE=phase6` reports the manifest, ledger path, execution dependencies, service requirements, and target coverage. Done.
 - `make phase-ledger-drift` passes after ledger generation. Done.
 - `make phase-schedule-drift` passes after schedule generation. Done.
-- `make phase-slice PHASE=phase6` reaches only intentional Phase 6 behavior stub failures once Docker is available. Pending environment validation.
+- `make phase-slice PHASE=phase6` passes after Docker availability was restored. Done.
+- `make service-backed-slice PHASE=phase6` passes after Docker availability was restored. Done.
 
 ## Sprint 1. Patch Conflict Contract and Explicit Resolver Domain
 
 Objective: Finish Phase 6-owned optimistic concurrency and same-field resolution semantics without re-owning Phase 3's server-side Timeline hot path.
 
-Status: Not started.
+Status: Complete for Sprint 1. The resolver route, contract shape, backend generic workbook conflict domain, deterministic text merge suggestion logic, collection resolver wire-family validation, and client-local same-surface resolver state are implemented. Phase 3's Timeline patch hot path remains owned by Phase 3 and is reused as support evidence rather than re-owned here.
 
 Relevant IDs:
 - `U-6-01`, `U-6-02`, `U-6-03`, `U-6-04`, `U-6-05`, `U-6-06`
@@ -120,42 +124,65 @@ Grep references:
 - `RecordChangePayload`
 
 Files and areas:
-- Backend conflict/domain tests likely belong in `internal/modules/timeline/phase6_*_test.go` and, when generalized workbook behavior is added, `internal/modules/workbook/phase6_*_test.go`.
-- Frontend resolver state tests belong in `apps/web/src/WorkbookShell.phase6.test.tsx` or a dedicated resolver component test if the resolver is extracted.
-- Avoid hand-editing generated protocol artifacts.
+- `contracts/openapi/cartulary.openapi.yaml` now declares `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`, `RecordConflictResolveRequest`, and the clear-response envelope used by `keep_saved`.
+- `internal/modules/workbook/mutation_api.go`, `internal/modules/workbook/mutation_store.go`, `internal/modules/workbook/routes.go`, and `internal/modules/workbook/conflict_merge.go` implement the generic workbook resolver path, token claims, idempotent clear/commit behavior, non-overlap auto-rebase, and text merge suggestions.
+- `internal/modules/workbook/phase6_conflict_test.go` contains the real `U-6-01..U-6-04` backend assertions.
+- `internal/modules/workbook/workbook_mutation_integration_test.go` was adjusted so the existing service-backed workbook mutation evidence expects stale non-overlap auto-rebase instead of `row_version_conflict`.
+- `apps/web/src/WorkbookShell.tsx` implements the local conflict queue and same-surface resolver UI for Timeline workbook cells.
+- `apps/web/src/WorkbookShell.phase6.test.tsx` contains the real `U-6-05` and `U-6-06` frontend assertions.
+- Generated protocol artifacts under `internal/gen/**` and `packages/protocol-ts/src/generated/**` were not hand-edited.
 
-Test-first sequence:
-1. Assert mutation requests include `record_id`, `base_row_version`, and changed fields only for Phase 6-owned grid writes.
-2. Assert different-field concurrent writes rebase without analyst action while same-field writes return `409 same_field_conflict` with the complete `error.conflict` object.
-3. Assert `text_compare_merge` treats content as plain text, normalizes line endings only for suggestion computation, and never silently commits a suggested merge.
-4. Assert `collection_review` reads and conflicts use `collection_value_v1`, while explicit resolution writes use `collection_actions_v1`.
-5. Assert resolver state remains same-surface, keeps the grid visible, preserves focus, and cannot disappear without explicit `keep_saved`, `use_unsaved`, `merged_value`, or clear behavior.
-6. Assert `keep_saved` creates no revision while `use_unsaved` and `merged_value` create attributed change sets.
+Completed test-first sequence:
+1. `U-6-01` asserts stale non-overlap and same-field overlap are distinguished by `field_key`.
+2. `U-6-02` asserts same-field conflict payloads include stable resolver fields and an opaque content-free token with record/view/field/class/version/request-hash claims.
+3. `U-6-03` asserts `text_compare_merge` normalizes line endings only for merge computation, suggests clean disjoint line merges, suppresses overlapping suggestions, and never auto-commits a suggestion.
+4. `U-6-04` asserts `collection_review` conflict values use `collection_value_v1` while resolver commit payloads accept `collection_actions_v1`.
+5. `U-6-05` asserts the grid remains visible, save state remains exactly `Conflict`, the saved value and local draft remain visible, Enter on open does not resolve, close leaves the conflict unresolved, and focus returns to the cell.
+6. `U-6-06` asserts explicit resolver request bodies for `keep_saved` and `use_unsaved`, including no `resolved_value` for `keep_saved` and the local draft as `resolved_value` for `use_unsaved`.
 
-Implementation tasks:
-- Confirm current Phase 3 conflict payload fields match the Phase 6 resolver needs; add adapter code only where UI/domain state needs a stable shape.
-- Build resolver state as a local conflict queue keyed by `record_id` and `field_key`, not by row index or visible order.
-- Implement explicit resolution writes with row-version preconditions and idempotency where the owner routes require it.
-- Ensure conflict clear and resolution are auditable through normal mutation/change-set paths when they commit.
+Completed implementation tasks:
+- Added a route-scoped resolver request decoder with closed top-level fields and existing error codes: `same_field_conflict`, `row_version_conflict`, `client_txn_conflict`, and `invalid_mutation_payload`.
+- Added an opaque conflict token claim envelope for generic workbook same-field conflicts. It contains record, view schema, field, conflict class, base/current row versions, and request hash, but not field content.
+- Made generic workbook stale non-overlap patches auto-rebase when revision history can prove no requested field changed since the client base row version.
+- Added resolver store flow for generic workbook surfaces: `keep_saved` refreshes the current row without a change set, while `use_unsaved` and `merged_value` commit through the ordinary field write path with current row-version preconditions.
+- Added deterministic text merge suggestion logic for `text_compare_merge`.
+- Added client-local conflict queue state keyed by `record_id:field_key`, separate from the pending save queue.
+- Added same-surface resolver UI, conflict marker, explicit resolver actions, and focus/scroll restoration for the Timeline workbook surface.
 
 Validation commands:
-- `go test ./internal/modules/timeline ./internal/modules/workbook -run 'TestPhase6_.*(U_6_01|U_6_02|U_6_03|U_6_04|U_6_05|U_6_06)'`
+- `go test ./internal/modules/workbook -run 'TestPhase6_.*(U_6_01|U_6_02|U_6_03|U_6_04)'`
 - `make frontend-unit`
 - `make frontend-typecheck`
+- `make lint-biome`
 - `git diff --check`
+- OpenAPI file parse with `tmp/node-runtime/bin/node -e 'const fs=require("fs"); JSON.parse(fs.readFileSync("contracts/openapi/cartulary.openapi.yaml","utf8")); console.log("openapi json ok")'`
+- Broader check attempted: `go test ./internal/modules/workbook`
+
+Validation results:
+- Focused backend Phase 6 unit test command passed.
+- Docker is reachable: `docker info --format '{{json .ServerVersion}} {{json .OSType}} {{json .OperatingSystem}}'` returned `"28.5.1" "linux" "Docker Desktop"`.
+- `make frontend-unit` passed with artifact root `.cartulary/test-results/20260505T222733Z-p48309/frontend-unit`.
+- `make frontend-typecheck` passed with artifact root `.cartulary/test-results/20260505T222733Z-p48407/frontend-typecheck`.
+- `make lint-biome` passed with artifact root `.cartulary/test-results/20260505T222746Z-p49278/lint-biome`.
+- `go test ./internal/modules/workbook` is no longer Docker-blocked; it reaches service-backed tests and currently fails at `TestPhase4_CoordinationCollections_I_4_COORD_02`, `internal/modules/workbook/workbook_mutation_integration_test.go:449`, where the stale non-overlapping `comm_log.decision_ids` collection patch returns HTTP 400 instead of the expected HTTP 200.
+- `git diff --check` passed after the documentation edit.
+- OpenAPI JSON parse passed after the documentation edit.
 
 Deliverables:
-- Same-field conflict payloads are directly consumable by the same-surface resolver.
+- Same-field conflict payloads for generic workbook surfaces are directly consumable by the resolver route.
+- Timeline workbook conflicts are consumed by the browser resolver through the same stable `error.conflict` shape.
 - Text and collection conflict modes expose explicit resolution choices and never silently auto-commit.
 - Resolver local state is keyed by durable row and field identity.
 
 Risks and assumptions:
-- Some conflict transport may already pass through Phase 3 tests. Do not weaken those tests; add Phase 6 tests around client/resolver behavior and generalized grid contracts.
-- If non-Timeline workbook routes are not yet generalized, keep the sprint scoped to surfaces currently exposed while documenting out-of-scope gaps in the manifest row.
+- Phase 3 Timeline store conflict transport remains support evidence. Sprint 1 does not re-own or refactor that hot path.
+- Sprint 1 adds generic workbook resolver route semantics; Timeline backend resolver route wiring should be treated as later integration/E2E hardening unless a future sprint explicitly pulls Phase 3 Timeline commits into the shared resolver service.
+- No durable server-side conflict draft table was added.
+- Full workbook package validation now has a product/test regression, not a Docker requirement issue: stale non-overlapping collection auto-rebase fails in `TestPhase4_CoordinationCollections_I_4_COORD_02`.
 
 Exit criteria:
-- Backend and frontend tests prove all `U-6-01..U-6-06` claims without relying on browser-only assertions.
-- Same-field conflicts remain visible and unresolved until explicit analyst action.
+- Backend and frontend tests prove all `U-6-01..U-6-06` claims without relying on browser-only assertions. Done.
+- Same-field conflicts remain visible and unresolved until explicit analyst action. Done for the Timeline workbook client surface.
 
 ## Sprint 2. Incident Socket Handshake, Resume, Replay, and Presence Hardening
 

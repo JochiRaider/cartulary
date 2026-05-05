@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	workbookCreateRouteKey = "workbook.rows.create"
-	workbookPatchRouteKey  = "workbook.records.patch"
-	maxPatchChanges        = 32
-	maxCollectionActions   = 64
+	workbookCreateRouteKey          = "workbook.rows.create"
+	workbookPatchRouteKey           = "workbook.records.patch"
+	workbookConflictResolveRouteKey = "workbook.records.conflicts.resolve"
+	maxPatchChanges                 = 32
+	maxCollectionActions            = 64
 )
 
 type MutationResult struct {
@@ -48,6 +49,14 @@ type PatchRequest struct {
 	BaseRowVersion int64
 	ClientTxnID    string
 	Changes        []PatchChange
+}
+
+type ConflictResolveRequest struct {
+	ConflictToken  string
+	ResolutionKind string
+	ClientTxnID    string
+	ResolvedChange *PatchChange
+	CanonicalAny   any
 }
 
 type PatchChange struct {
@@ -246,6 +255,78 @@ func DecodePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError) {
 	slices.SortFunc(request.Changes, func(left PatchChange, right PatchChange) int {
 		return strings.Compare(left.FieldKey, right.FieldKey)
 	})
+	return request, nil
+}
+
+func DecodeConflictResolveRequest(reader io.Reader, token string, claims workbookConflictTokenClaims) (ConflictResolveRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader)
+	if apiErr != nil {
+		return ConflictResolveRequest{}, apiErr
+	}
+	allowed := map[string]struct{}{
+		"conflict_token":  {},
+		"resolution_kind": {},
+		"client_txn_id":   {},
+		"resolved_value":  {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return ConflictResolveRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+	request := ConflictResolveRequest{ConflictToken: token}
+	if value, ok := raw["conflict_token"]; !ok {
+		return ConflictResolveRequest{}, invalidMutationPayload("conflict_token", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ConflictToken); err != nil || request.ConflictToken != token {
+		return ConflictResolveRequest{}, invalidMutationPayload("conflict_token", "invalid_value")
+	}
+	if value, ok := raw["resolution_kind"]; !ok {
+		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ResolutionKind); err != nil {
+		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "invalid_value")
+	}
+	switch request.ResolutionKind {
+	case "keep_saved", "use_unsaved", "merged_value":
+	default:
+		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "invalid_value")
+	}
+	if value, ok := raw["client_txn_id"]; !ok {
+		return ConflictResolveRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return ConflictResolveRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	}
+	resolvedValue, hasResolvedValue := raw["resolved_value"]
+	if request.ResolutionKind == "keep_saved" {
+		if hasResolvedValue {
+			return ConflictResolveRequest{}, invalidMutationPayload("resolved_value", "forbidden_field")
+		}
+		return request, nil
+	}
+	if !hasResolvedValue {
+		return ConflictResolveRequest{}, invalidMutationPayload("resolved_value", "missing_required_field")
+	}
+	field, ok := viewschema.LookupField(claims.ViewSchemaID, claims.FieldKey)
+	if !ok || !field.Writable || isReadOnlySystemField(claims.FieldKey) {
+		return ConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
+	}
+	change := PatchChange{FieldKey: claims.FieldKey}
+	if field.ConflictResolutionClass == "collection_review" {
+		payload, apiErr := decodeCollectionActionPayload(claims.FieldKey, resolvedValue)
+		if apiErr != nil {
+			return ConflictResolveRequest{}, apiErr
+		}
+		change.Collection = &payload
+		change.CanonicalAny = canonicalCollectionActionPayload(payload)
+	} else {
+		value, canonical, apiErr := decodeDirectValue(claims.FieldKey, field, resolvedValue, true)
+		if apiErr != nil {
+			return ConflictResolveRequest{}, apiErr
+		}
+		change.Value = &value
+		change.CanonicalAny = canonical
+	}
+	request.ResolvedChange = &change
+	request.CanonicalAny = change.CanonicalAny
 	return request, nil
 }
 
@@ -493,6 +574,19 @@ func PatchRequestHash(request PatchRequest) []byte {
 		"view_schema_id":   request.ViewSchemaID,
 		"base_row_version": request.BaseRowVersion,
 		"changes":          changes,
+	})
+}
+
+func ConflictResolveRequestHash(claims workbookConflictTokenClaims, request ConflictResolveRequest) []byte {
+	return hashRequestPayload(map[string]any{
+		"conflict_token":      request.ConflictToken,
+		"resolution_kind":     request.ResolutionKind,
+		"client_txn_id":       request.ClientTxnID,
+		"record_id":           claims.RecordID,
+		"view_schema_id":      claims.ViewSchemaID,
+		"field_key":           claims.FieldKey,
+		"current_row_version": claims.CurrentRowVersion,
+		"resolved_value":      request.CanonicalAny,
 	})
 }
 

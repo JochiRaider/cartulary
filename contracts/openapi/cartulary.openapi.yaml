@@ -447,6 +447,54 @@
         }
       }
     },
+    "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve": {
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "resolveRecordSameFieldConflict",
+        "summary": "Resolve one same-field workbook conflict explicitly.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConflictResolveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Conflict resolution row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ViewMutationEnvelope"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RecordConflictClearEnvelope"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale conflict token or same-field conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/records/{record_id}/mark-reviewed": {
       "post": {
         "tags": [
@@ -2061,6 +2109,44 @@
           "changes"
         ]
       },
+      "RecordConflictResolveRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conflict_token": {
+            "type": "string"
+          },
+          "resolution_kind": {
+            "type": "string",
+            "enum": [
+              "keep_saved",
+              "use_unsaved",
+              "merged_value"
+            ]
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "resolved_value": {
+            "oneOf": [
+              {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/CollectionActionsV1"
+              }
+            ]
+          }
+        },
+        "required": [
+          "conflict_token",
+          "resolution_kind",
+          "client_txn_id"
+        ]
+      },
       "RecordPatchChange": {
         "type": "object",
         "additionalProperties": false,
@@ -2734,6 +2820,38 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/ViewMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RecordConflictClearData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string"
+          },
+          "row": {
+            "$ref": "#/components/schemas/ViewRow"
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "row"
+        ]
+      },
+      "RecordConflictClearEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecordConflictClearData"
           },
           "meta": {
             "$ref": "#/components/schemas/EnvelopeMeta"

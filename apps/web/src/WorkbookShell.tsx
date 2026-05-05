@@ -200,9 +200,32 @@ type WorkbookQueryEnvelope = {
 type TimelineMutationEnvelope = {
   data: {
     view_schema_id: string;
-    change_set_id: string;
+    change_set_id?: string;
     row: TimelineApiRow;
   };
+};
+
+type SameFieldConflictPayload = {
+  conflict_token: string;
+  record_id: string;
+  field_key: string;
+  conflict_resolution_class: string;
+  base_row_version: number;
+  current_row_version: number;
+  client_value: unknown;
+  server_value: unknown;
+  base_value?: unknown;
+  server_updated_by?: string;
+  server_updated_at?: string;
+  suggested_merged_value?: unknown;
+};
+
+type LocalConflictState = {
+  key: string;
+  conflict: SameFieldConflictPayload;
+  focusKey: string;
+  localValue: unknown;
+  mergedDraft: string;
 };
 
 type TimelineActionEnvelope = {
@@ -524,6 +547,13 @@ const timelineInspectorBindings: readonly TimelineScalarBinding[] =
   timelineInspectorEditableFields.map(
     (fieldKey) => timelineFieldBinding(fieldKey) as TimelineScalarBinding,
   );
+
+function timelineScalarBindingForField(
+  fieldKey: string,
+): TimelineScalarBinding | null {
+  const binding = timelineFieldBinding(fieldKey);
+  return binding.kind === "scalar" ? binding : null;
+}
 
 function timelineColumnWidth(fieldKey: string): number {
   switch (fieldKey) {
@@ -1590,6 +1620,12 @@ export function TimelineWorkbook({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("Saved");
+  const [conflictQueue, setConflictQueue] = useState<
+    Record<string, LocalConflictState>
+  >({});
+  const [activeConflictKey, setActiveConflictKey] = useState<string | null>(
+    null,
+  );
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
@@ -1618,6 +1654,7 @@ export function TimelineWorkbook({
   const pendingSocketTxnTimeoutsRef = useRef(new Map<string, number>());
   const saveQueueRef = useRef(Promise.resolve());
   const rowsRef = useRef(rows);
+  const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
   const hasLoadedRowsRef = useRef(false);
   const loadSequenceRef = useRef(0);
   const scalarDraftValuesRef = useRef(new Map<string, string>());
@@ -1634,6 +1671,21 @@ export function TimelineWorkbook({
   const viewportContinuityTokenRef = useRef(1);
   const [viewportContinuityRequest, setViewportContinuityRequest] =
     useState<ViewportContinuityRequest | null>(null);
+
+  const setConflictQueueState = useCallback(
+    (
+      updater: (
+        current: Record<string, LocalConflictState>,
+      ) => Record<string, LocalConflictState>,
+    ) => {
+      setConflictQueue((current) => {
+        const next = updater(current);
+        conflictQueueRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
 
   const queryPath = useMemo(
     () =>
@@ -2387,6 +2439,114 @@ export function TimelineWorkbook({
     setSaveState(nextState);
   }, []);
 
+  const restoreConflictFocus = useCallback((focusKey: string) => {
+    window.setTimeout(() => {
+      const testId = focusTestIdForKey(focusKey);
+      const element =
+        testId === null
+          ? null
+          : (document.querySelector(
+              `[data-testid="${testId}"]`,
+            ) as HTMLElement | null);
+      element?.focus();
+    }, 0);
+  }, []);
+
+  const updateSaveStateForConflicts = useCallback(
+    (nextQueue: Record<string, LocalConflictState>) => {
+      if (Object.keys(nextQueue).length > 0) {
+        setSaveState("Conflict");
+      } else if (pendingOpsRef.current === 0) {
+        setSaveState("Saved");
+      }
+    },
+    [],
+  );
+
+  const registerSameFieldConflict = useCallback(
+    (
+      conflict: SameFieldConflictPayload,
+      focusKey: string,
+      surface: TimelineScalarEditorSurface,
+    ) => {
+      const queueKey = `${conflict.record_id}:${conflict.field_key}`;
+      const binding = timelineScalarBindingForField(conflict.field_key);
+      if (binding !== null && typeof conflict.client_value === "string") {
+        scalarDraftValuesRef.current.set(
+          inputFocusKey(conflict.record_id, binding.key, surface),
+          conflict.client_value,
+        );
+      }
+      if (binding !== null) {
+        setRows((current) => {
+          const nextRows = current.map((row) => {
+            if (row.recordId !== conflict.record_id) {
+              return row;
+            }
+            const serverText =
+              typeof conflict.server_value === "string"
+                ? conflict.server_value
+                : "";
+            return {
+              ...row,
+              rowVersion: conflict.current_row_version,
+              values: { ...row.values, [binding.key]: serverText },
+              committedValues: {
+                ...row.committedValues,
+                [binding.key]: serverText,
+              },
+              pendingSignature: null,
+            };
+          });
+          rowsRef.current = nextRows;
+          return nextRows;
+        });
+      }
+      setConflictQueueState((current) => {
+        const next = {
+          ...current,
+          [queueKey]: {
+            key: queueKey,
+            conflict,
+            focusKey,
+            localValue: conflict.client_value,
+            mergedDraft:
+              typeof conflict.suggested_merged_value === "string"
+                ? conflict.suggested_merged_value
+                : typeof conflict.server_value === "string"
+                  ? conflict.server_value
+                  : "",
+          },
+        };
+        updateSaveStateForConflicts(next);
+        return next;
+      });
+      setActiveConflictKey(queueKey);
+    },
+    [setConflictQueueState, updateSaveStateForConflicts],
+  );
+
+  const handleMutationConflict = useCallback(
+    (
+      payload: unknown,
+      rowKey: string,
+      focusField: FocusFieldKey,
+      surface: TimelineScalarEditorSurface,
+    ) => {
+      const conflict = parseSameFieldConflict(payload);
+      if (conflict === null) {
+        return false;
+      }
+      registerSameFieldConflict(
+        conflict,
+        inputFocusKey(rowKey, focusField, surface),
+        surface,
+      );
+      return true;
+    },
+    [registerSameFieldConflict],
+  );
+
   const setScalarEditorDraftValue = useCallback(
     (
       rowKey: string,
@@ -2566,6 +2726,17 @@ export function TimelineWorkbook({
               return nextRows;
             });
             clearViewportContinuity(viewportContinuityToken);
+            if (
+              handleMutationConflict(
+                result.payload,
+                rowKey,
+                focusField,
+                options.surface,
+              )
+            ) {
+              finishSave("Conflict");
+              return;
+            }
             finishSave("Conflict");
             return;
           }
@@ -2591,6 +2762,7 @@ export function TimelineWorkbook({
       beginViewportContinuity,
       clearViewportContinuity,
       finishSave,
+      handleMutationConflict,
       incidentId,
       nextClientTxnId,
       resolvePendingSocketTxn,
@@ -2670,6 +2842,12 @@ export function TimelineWorkbook({
           if (!result.ok) {
             resolvePendingSocketTxn(clientTxnId);
             clearViewportContinuity(viewportContinuityToken);
+            if (
+              handleMutationConflict(result.payload, rowKey, focusField, "grid")
+            ) {
+              finishSave("Conflict");
+              return;
+            }
             setInspectorMessage(parseErrorMessage(result.payload));
             finishSave("Conflict");
             return;
@@ -2692,6 +2870,7 @@ export function TimelineWorkbook({
       beginViewportContinuity,
       clearViewportContinuity,
       finishSave,
+      handleMutationConflict,
       incidentId,
       nextClientTxnId,
       resolvePendingSocketTxn,
@@ -3232,31 +3411,48 @@ export function TimelineWorkbook({
           : rowCellTestId(row.recordId, binding.key);
       const dataTestId =
         surface === "grid" ? gridDataTestId : `${gridDataTestId}-inspector`;
+      const conflictKey =
+        row.recordId === null ? null : `${row.recordId}:${binding.fieldKey}`;
+      const localConflict =
+        conflictKey === null ? undefined : conflictQueue[conflictKey];
       return (
-        <TimelineScalarEditor
-          key={inputFocusKey(row.key, binding.key, surface)}
-          accessibleLabel={gridAccessibleLabel}
-          committedValue={row.values[binding.key]}
-          controlId={controlId}
-          dataTestId={dataTestId}
-          draftValue={scalarDraftValuesRef.current.get(
-            inputFocusKey(row.key, binding.key, surface),
-          )}
-          field={binding.key}
-          multiline={binding.multiline}
-          registerInput={registerInput}
-          rowKey={row.key}
-          rowRecordId={row.recordId}
-          surface={surface}
-          onBlurCommit={handleBlur}
-          onDraftChange={setScalarEditorDraftValue}
-          onFocusRecord={handleSelectRow}
-          onKeyCommit={handleKeyDown}
-          onPasteCommit={handlePaste}
-        />
+        <>
+          <TimelineScalarEditor
+            key={inputFocusKey(row.key, binding.key, surface)}
+            accessibleLabel={gridAccessibleLabel}
+            committedValue={row.values[binding.key]}
+            controlId={controlId}
+            dataTestId={dataTestId}
+            draftValue={scalarDraftValuesRef.current.get(
+              inputFocusKey(row.key, binding.key, surface),
+            )}
+            field={binding.key}
+            multiline={binding.multiline}
+            registerInput={registerInput}
+            rowKey={row.key}
+            rowRecordId={row.recordId}
+            surface={surface}
+            onBlurCommit={handleBlur}
+            onDraftChange={setScalarEditorDraftValue}
+            onFocusRecord={handleSelectRow}
+            onKeyCommit={handleKeyDown}
+            onPasteCommit={handlePaste}
+          />
+          {localConflict && surface === "grid" ? (
+            <button
+              type="button"
+              data-testid={`conflict-marker-${sanitizeTestId(localConflict.key)}`}
+              style={conflictMarkerStyle}
+              onClick={() => setActiveConflictKey(localConflict.key)}
+            >
+              Conflict
+            </button>
+          ) : null}
+        </>
       );
     },
     [
+      conflictQueue,
       handleBlur,
       handleKeyDown,
       handlePaste,
@@ -3643,6 +3839,110 @@ export function TimelineWorkbook({
     );
   }
 
+  const activeConflict =
+    activeConflictKey === null
+      ? null
+      : (conflictQueue[activeConflictKey] ?? null);
+
+  useEffect(() => {
+    if (activeConflict === null) {
+      return;
+    }
+    window.setTimeout(() => {
+      (
+        document.querySelector(
+          '[data-testid="conflict-resolver-summary"]',
+        ) as HTMLElement | null
+      )?.focus();
+    }, 0);
+  }, [activeConflict]);
+
+  const clearLocalConflict = useCallback(
+    (conflict: LocalConflictState) => {
+      setConflictQueueState((current) => {
+        const next = { ...current };
+        delete next[conflict.key];
+        updateSaveStateForConflicts(next);
+        return next;
+      });
+      setActiveConflictKey((current) =>
+        current === conflict.key ? null : current,
+      );
+      restoreConflictFocus(conflict.focusKey);
+    },
+    [restoreConflictFocus, setConflictQueueState, updateSaveStateForConflicts],
+  );
+
+  const submitConflictResolution = useCallback(
+    (
+      conflict: LocalConflictState,
+      resolutionKind: "keep_saved" | "use_unsaved" | "merged_value",
+    ) => {
+      const body: Record<string, unknown> = {
+        conflict_token: conflict.conflict.conflict_token,
+        resolution_kind: resolutionKind,
+        client_txn_id: nextClientTxnId(),
+      };
+      if (resolutionKind === "use_unsaved") {
+        body.resolved_value = conflict.localValue;
+      } else if (resolutionKind === "merged_value") {
+        body.resolved_value =
+          conflict.conflict.conflict_resolution_class === "collection_review"
+            ? conflict.localValue
+            : conflict.mergedDraft;
+      }
+      setSaveState("Syncing");
+      saveQueueRef.current = saveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          const result = await fetchJSON<TimelineMutationEnvelope>(
+            apiPath(
+              apiBase,
+              `/api/v1/records/${conflict.conflict.record_id}/conflicts/${conflict.conflict.conflict_token}/resolve`,
+            ),
+            {
+              method: "POST",
+              body: JSON.stringify(body),
+            },
+          );
+          if (!result.ok) {
+            const refreshedConflict = parseSameFieldConflict(result.payload);
+            if (refreshedConflict !== null) {
+              registerSameFieldConflict(
+                refreshedConflict,
+                conflict.focusKey,
+                "grid",
+              );
+              setSaveState("Conflict");
+              return;
+            }
+            setSaveState("Conflict");
+            return;
+          }
+          if (resolutionKind !== "keep_saved") {
+            const envelope = readEnvelope<TimelineMutationEnvelope>(
+              result.payload,
+            );
+            applyRowMutation(conflict.conflict.record_id, envelope, {
+              viewportContinuityToken: beginViewportContinuity({
+                kind: "input",
+                focusKey: conflict.focusKey,
+              }),
+            });
+          }
+          clearLocalConflict(conflict);
+        });
+    },
+    [
+      apiBase,
+      applyRowMutation,
+      beginViewportContinuity,
+      clearLocalConflict,
+      nextClientTxnId,
+      registerSameFieldConflict,
+    ],
+  );
+
   if (isInitialLoading) {
     return (
       <section style={panelStyle}>
@@ -3800,6 +4100,140 @@ export function TimelineWorkbook({
               sort={queryState.sort}
             />
           </GridViewport>
+          {activeConflict ? (
+            <section
+              data-testid="conflict-resolver"
+              style={conflictResolverStyle}
+              aria-label="Same-field conflict resolver"
+            >
+              <div data-testid="conflict-resolver-summary" tabIndex={-1}>
+                <p style={eyebrowStyle}>Conflict</p>
+                <h2 style={sectionTitleStyle}>
+                  {timelineBindingLabel(activeConflict.conflict.field_key)}
+                </h2>
+                <p style={bodyStyle}>
+                  This field changed before your edit was saved. Review the
+                  saved value and your unsaved value.
+                </p>
+              </div>
+              <div style={conflictResolverGridStyle}>
+                <label style={labelStyle}>
+                  Field key
+                  <input
+                    readOnly
+                    style={inputStyle}
+                    data-testid="conflict-field-key"
+                    value={activeConflict.conflict.field_key}
+                  />
+                </label>
+                <label style={labelStyle}>
+                  Saved by
+                  <input
+                    readOnly
+                    style={inputStyle}
+                    data-testid="conflict-server-actor"
+                    value={activeConflict.conflict.server_updated_by ?? ""}
+                  />
+                </label>
+                <label style={labelStyle}>
+                  Saved at
+                  <input
+                    readOnly
+                    style={inputStyle}
+                    data-testid="conflict-server-updated-at"
+                    value={activeConflict.conflict.server_updated_at ?? ""}
+                  />
+                </label>
+              </div>
+              <div style={conflictResolverGridStyle}>
+                <label style={labelStyle}>
+                  Saved value
+                  <textarea
+                    readOnly
+                    style={textareaStyle}
+                    data-testid="conflict-server-value"
+                    value={String(activeConflict.conflict.server_value ?? "")}
+                  />
+                </label>
+                <label style={labelStyle}>
+                  Your unsaved value
+                  <textarea
+                    readOnly
+                    style={textareaStyle}
+                    data-testid="conflict-local-value"
+                    value={String(activeConflict.localValue ?? "")}
+                  />
+                </label>
+                {activeConflict.conflict.conflict_resolution_class ===
+                "text_compare_merge" ? (
+                  <label style={labelStyle}>
+                    Merged value
+                    <textarea
+                      style={textareaStyle}
+                      data-testid="conflict-merged-value"
+                      value={activeConflict.mergedDraft}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        setConflictQueueState((current) => ({
+                          ...current,
+                          [activeConflict.key]: {
+                            ...activeConflict,
+                            mergedDraft: value,
+                          },
+                        }));
+                      }}
+                    />
+                  </label>
+                ) : null}
+              </div>
+              <div style={inlineButtonRowStyle}>
+                <button
+                  type="button"
+                  style={secondaryActionButtonStyle}
+                  data-testid="conflict-close"
+                  onClick={() => {
+                    setActiveConflictKey(null);
+                    restoreConflictFocus(activeConflict.focusKey);
+                  }}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  style={secondaryActionButtonStyle}
+                  data-testid="conflict-keep-saved"
+                  onClick={() =>
+                    submitConflictResolution(activeConflict, "keep_saved")
+                  }
+                >
+                  Keep saved value
+                </button>
+                <button
+                  type="button"
+                  style={actionButtonStyle}
+                  data-testid="conflict-use-unsaved"
+                  onClick={() =>
+                    submitConflictResolution(activeConflict, "use_unsaved")
+                  }
+                >
+                  Use my unsaved value
+                </button>
+                {activeConflict.conflict.conflict_resolution_class ===
+                "text_compare_merge" ? (
+                  <button
+                    type="button"
+                    style={actionButtonStyle}
+                    data-testid="conflict-use-merged"
+                    onClick={() =>
+                      submitConflictResolution(activeConflict, "merged_value")
+                    }
+                  >
+                    Use merged value
+                  </button>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <aside data-testid="timeline-inspector" style={inspectorShellStyle}>
@@ -6073,6 +6507,58 @@ function parseMutationError(payload: unknown): string {
   return fieldKey ? `${base}: ${fieldKey}` : base;
 }
 
+function parseSameFieldConflict(
+  payload: unknown,
+): SameFieldConflictPayload | null {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return null;
+  }
+  const error = payload.error;
+  if (
+    !error ||
+    typeof error !== "object" ||
+    !("code" in error) ||
+    error.code !== "same_field_conflict" ||
+    !("conflict" in error)
+  ) {
+    return null;
+  }
+  const conflict = error.conflict;
+  if (!conflict || typeof conflict !== "object") {
+    return null;
+  }
+  const object = conflict as Record<string, unknown>;
+  if (
+    typeof object.conflict_token !== "string" ||
+    typeof object.record_id !== "string" ||
+    typeof object.field_key !== "string" ||
+    typeof object.conflict_resolution_class !== "string" ||
+    typeof object.base_row_version !== "number" ||
+    typeof object.current_row_version !== "number"
+  ) {
+    return null;
+  }
+  const parsed: SameFieldConflictPayload = {
+    conflict_token: object.conflict_token,
+    record_id: object.record_id,
+    field_key: object.field_key,
+    conflict_resolution_class: object.conflict_resolution_class,
+    base_row_version: object.base_row_version,
+    current_row_version: object.current_row_version,
+    client_value: object.client_value,
+    server_value: object.server_value,
+    base_value: object.base_value,
+    suggested_merged_value: object.suggested_merged_value,
+  };
+  if (typeof object.server_updated_by === "string") {
+    parsed.server_updated_by = object.server_updated_by;
+  }
+  if (typeof object.server_updated_at === "string") {
+    parsed.server_updated_at = object.server_updated_at;
+  }
+  return parsed;
+}
+
 function enumValuesFor(
   contract: ViewContract,
   fieldKey: string,
@@ -6841,6 +7327,30 @@ const actionButtonStyle = {
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "rgb(247 249 247)",
+};
+
+const conflictMarkerStyle = {
+  ...secondaryActionButtonStyle,
+  marginTop: "0.35rem",
+  borderColor: "rgb(180 83 9)",
+  color: "rgb(146 64 14)",
+  background: "rgb(255 251 235)",
+  padding: "0.35rem 0.6rem",
+  fontSize: "0.85rem",
+};
+
+const conflictResolverStyle = {
+  display: "grid",
+  gap: "0.75rem",
+  padding: "1rem",
+  borderTop: "1px solid rgb(199 214 207)",
+  background: "rgb(255 251 235)",
+};
+
+const conflictResolverGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
+  gap: "0.75rem",
 };
 
 const genericErrorTextStyle = {
