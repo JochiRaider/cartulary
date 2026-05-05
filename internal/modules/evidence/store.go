@@ -1124,7 +1124,7 @@ SELECT r.record_id, r.row_version, r.record_type
    AND r.deleted_at IS NULL
  WHERE rl.incident_id = $1
    AND rl.dst_record_id = $2
-   AND rl.link_type = 'supported_by'
+   AND rl.link_type = 'attached_evidence'
    AND rl.deleted_at IS NULL
    AND r.record_type IN ('timeline_event', 'host', 'identity')
  ORDER BY r.record_id

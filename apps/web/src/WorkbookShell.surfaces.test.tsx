@@ -1,4 +1,7 @@
-import { gridShellTestId } from "@cartulary/ui-contracts";
+import {
+  gridShellTestId,
+  rowInspectButtonTestId,
+} from "@cartulary/ui-contracts";
 import {
   requireViewContract,
   type ViewContract,
@@ -43,12 +46,21 @@ describe("WorkbookShell surface selection", () => {
     row_version: number;
     cells: Record<string, { value: unknown }>;
   }>;
+  let timelineRows: Array<{
+    record_id: string;
+    row_version: number;
+    cells: Record<string, { value: unknown }>;
+  }>;
+  let uploadShouldFail: boolean;
 
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     evidenceRows = [];
-    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    timelineRows = [];
+    uploadShouldFail = false;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
           user_id: "user-1",
@@ -104,6 +116,57 @@ describe("WorkbookShell surface selection", () => {
           content_type: "text/plain",
         });
       }
+      if (
+        method === "POST" &&
+        url.endsWith(
+          `/api/v1/incidents/incident-1/views/${evidenceViewSchemaId}/rows`,
+        )
+      ) {
+        return successEnvelope(
+          {
+            view_schema_id: evidenceViewSchemaId,
+            change_set_id: "change-evidence",
+            row: evidenceRow("evidence-created", 1, "Attached screenshot"),
+          },
+          201,
+        );
+      }
+      if (method === "POST" && url.endsWith("/api/v1/object-blobs")) {
+        return successEnvelope(
+          {
+            object_blob_id: "blob-created",
+            upload_target: {
+              href: "/api/v1/object-uploads/test-token",
+              method: "PUT",
+            },
+          },
+          201,
+        );
+      }
+      if (
+        method === "PUT" &&
+        url.endsWith("/api/v1/object-uploads/test-token")
+      ) {
+        return new Response(null, { status: uploadShouldFail ? 500 : 200 });
+      }
+      if (
+        method === "POST" &&
+        url.endsWith("/api/v1/evidence-records/evidence-created/attach-blob")
+      ) {
+        return successEnvelope({
+          record_id: "evidence-created",
+          row_version: 2,
+        });
+      }
+      if (method === "PATCH" && url.endsWith("/api/v1/records/timeline-1")) {
+        const row = timelineRow("timeline-1", 2, "Selected row", 1);
+        timelineRows = [row];
+        return successEnvelope({
+          view_schema_id: timelineViewSchemaId,
+          change_set_id: "change-timeline",
+          row,
+        });
+      }
       for (const viewSchemaId of [
         timelineViewSchemaId,
         hostsViewSchemaId,
@@ -115,7 +178,12 @@ describe("WorkbookShell surface selection", () => {
           return successEnvelope({
             incident_id: "incident-1",
             view_schema_id: viewSchemaId,
-            rows: viewSchemaId === evidenceViewSchemaId ? evidenceRows : [],
+            rows:
+              viewSchemaId === evidenceViewSchemaId
+                ? evidenceRows
+                : viewSchemaId === timelineViewSchemaId
+                  ? timelineRows
+                  : [],
           });
         }
       }
@@ -222,7 +290,156 @@ describe("WorkbookShell surface selection", () => {
       expect.objectContaining({ method: "POST", body: "{}" }),
     );
   });
+
+  it("Phase 5 E-5-01 orchestrates selected Timeline evidence attachment inline", async () => {
+    timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.click(await screen.findByTestId("surface-tab-timeline"));
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("timeline-1")),
+    );
+    const input = await screen.findByTestId(
+      "timeline-evidence-file-timeline-1",
+    );
+    fireEvent.change(input, {
+      target: {
+        files: [
+          new File(["screenshot body"], "screenshot.txt", {
+            type: "text/plain",
+          }),
+        ],
+      },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(`/views/${evidenceViewSchemaId}/rows`),
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/object-blobs"),
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/object-uploads/test-token"),
+        expect.objectContaining({ method: "PUT" }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "/api/v1/evidence-records/evidence-created/attach-blob",
+        ),
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/records/timeline-1"),
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
+    expect(
+      (await screen.findByTestId("timeline-inspector-message")).textContent,
+    ).toBe("Evidence attached.");
+  });
+
+  it("Phase 5 E-5-01 surfaces upload failures inline without issuing Timeline patches", async () => {
+    uploadShouldFail = true;
+    timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.click(await screen.findByTestId("surface-tab-timeline"));
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("timeline-1")),
+    );
+    fireEvent.change(
+      await screen.findByTestId("timeline-evidence-file-timeline-1"),
+      {
+        target: {
+          files: [
+            new File(["screenshot body"], "screenshot.txt", {
+              type: "text/plain",
+            }),
+          ],
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("timeline-inspector-message").textContent).toBe(
+        "upload_failed_500",
+      );
+    });
+    expect(
+      fetchMock.mock.calls.some(([input, init]) => {
+        return (
+          String(input).endsWith("/api/v1/records/timeline-1") &&
+          ((init as RequestInit | undefined)?.method ?? "GET") === "PATCH"
+        );
+      }),
+    ).toBe(false);
+  });
 });
+
+function timelineRow(
+  recordId: string,
+  rowVersion: number,
+  summary: string,
+  evidenceCount: number,
+) {
+  return {
+    record_id: recordId,
+    row_version: rowVersion,
+    cells: {
+      "timeline.occurred_at": { value: "" },
+      "timeline.summary": { value: summary },
+      "timeline.details": { value: "" },
+      "timeline.source_text": { value: "" },
+      "timeline.host_refs": {
+        value: { kind: "collection_value_v1", ordered: true, items: [] },
+      },
+      "timeline.identity_refs": {
+        value: { kind: "collection_value_v1", ordered: true, items: [] },
+      },
+      "timeline.evidence_count": { value: evidenceCount },
+      "timeline.tags": {
+        value: { kind: "collection_value_v1", ordered: false, items: [] },
+      },
+      "timeline.edited_at": { value: "2026-04-24T10:00:00.000Z" },
+      "timeline.recorded_at": { value: "2026-04-24T10:00:00.000Z" },
+      "timeline.sort_ts": { value: "2026-04-24T10:00:00.000Z" },
+      "timeline.capture_state": { value: "rough" },
+      "timeline.replacement_record_id": { value: null },
+      "timeline.occurred_day": { value: null },
+      "timeline.recorded_day": { value: "2026-04-24" },
+      "timeline.has_evidence": { value: evidenceCount > 0 },
+      "timeline.attached_evidence_ids": {
+        value: { kind: "collection_value_v1", ordered: false, items: [] },
+      },
+      "timeline.has_unresolved_mentions": { value: false },
+    },
+  };
+}
+
+function evidenceRow(recordId: string, rowVersion: number, title: string) {
+  return {
+    record_id: recordId,
+    row_version: rowVersion,
+    cells: {
+      "evidence.title": { value: title },
+      "evidence.lifecycle_state": { value: "requested" },
+      "evidence.requested_at": { value: null },
+      "evidence.received_at": { value: null },
+      "evidence.storage_ref": { value: "" },
+      "evidence.blob_hash": { value: "" },
+      "evidence.collector_party_text": { value: "Workbook upload" },
+      "evidence.source_party_text": { value: "" },
+      "evidence.upload_state": { value: "pending" },
+      "evidence.linked_record_count": { value: 0 },
+      "evidence.edited_at": { value: null },
+    },
+  };
+}
 
 describe("generic workbook mutation payloads", () => {
   it("Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears", () => {

@@ -1434,6 +1434,9 @@
           },
           "timeline.tags": {
             "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "timeline.attached_evidence_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
           }
         },
         "required": [

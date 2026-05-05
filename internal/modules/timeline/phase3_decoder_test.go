@@ -127,6 +127,32 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		}
 	})
 
+	t.Run("timeline attached evidence accepts record ref actions", func(t *testing.T) {
+		request, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
+			"view_schema_id": "cartulary.view.timeline.v1",
+			"base_row_version": 1,
+			"client_txn_id": "txn-u-5-attached-evidence",
+			"changes": [
+				{
+					"field_key": "timeline.attached_evidence_ids",
+					"action_payload": {
+						"kind": "collection_actions_v1",
+						"actions": [
+							{ "op": "add_record_ref", "linked_record_id": "00000000-0000-0000-0000-000000000001" }
+						]
+					}
+				}
+			]
+		}`))
+		if apiErr != nil {
+			t.Fatalf("expected timeline.attached_evidence_ids payload to decode, got %#v", apiErr)
+		}
+		action := request.CanonicalChange[0].ActionPayload.Actions[0]
+		if action.Op != "add_record_ref" || action.LinkedRecordID == nil {
+			t.Fatalf("unexpected attached evidence action: %#v", action)
+		}
+	})
+
 	cases := []struct {
 		name   string
 		body   string

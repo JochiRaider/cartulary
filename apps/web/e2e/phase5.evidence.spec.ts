@@ -1,29 +1,158 @@
 import { Buffer } from "node:buffer";
 
-import { rowCellTestId } from "@cartulary/ui-contracts";
+import {
+  gridShellTestId,
+  rowCellTestId,
+  rowInspectButtonTestId,
+} from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
   apiBase,
+  createViewRow,
   createIncident,
   csrfHeaders,
   queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
-import { evidenceViewSchemaId, type ViewRow } from "./phase4Helpers";
+import {
+  evidenceViewSchemaId,
+  timelineViewSchemaId,
+  type ViewRow,
+} from "./phase4Helpers";
 
-test("E-5-01 attaches a screenshot to a selected Timeline row without leaving the workbook surface", async () => {
-  // Pending Sprint 5 browser attach implementation.
+test("E-5-01 attaches a screenshot to a selected Timeline row without leaving the workbook surface", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E5SELECTED"),
+    "Phase 5 selected screenshot attach",
+  );
+  const timelineRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e5-selected-timeline"),
+      "timeline.summary": "Selected row screenshot",
+    },
+  )) as unknown as ViewRow;
+
+  await openTimelineSurface(page, incidentId);
+  await page.getByTestId(rowInspectButtonTestId(timelineRow.record_id)).click();
+  await page
+    .getByTestId(`timeline-evidence-file-${timelineRow.record_id}`)
+    .setInputFiles({
+      name: "selected-screenshot.png",
+      mimeType: "image/png",
+      buffer: tinyPNG(),
+    });
+
+  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+  await expect
+    .poll(async () => {
+      const rows = (await queryViewRows(
+        page,
+        incidentId,
+        timelineViewSchemaId,
+      )) as unknown as ViewRow[];
+      return rows.find((row) => row.record_id === timelineRow.record_id)?.cells[
+        "timeline.evidence_count"
+      ]?.value;
+    })
+    .toBe(1);
+  await expect(
+    page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
+    ),
+  ).toHaveText("1");
 });
 
-test("E-5-02 persists a screenshot-only Timeline row through the two-step evidence path", async () => {
-  // Pending Sprint 5 screenshot-only evidence implementation.
+test("E-5-02 persists a screenshot-only Timeline row through the two-step evidence path", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E5DRAFT"),
+    "Phase 5 draft screenshot attach",
+  );
+
+  await openTimelineSurface(page, incidentId);
+  await page.getByTestId("timeline-evidence-file-draft").setInputFiles({
+    name: "draft-screenshot.png",
+    mimeType: "image/png",
+    buffer: tinyPNG(),
+  });
+
+  await expect
+    .poll(async () => {
+      const rows = (await queryViewRows(
+        page,
+        incidentId,
+        timelineViewSchemaId,
+      )) as unknown as ViewRow[];
+      return rows.find(
+        (row) => row.cells["timeline.evidence_count"]?.value === 1,
+      );
+    })
+    .not.toBeUndefined();
+
+  const rows = (await queryViewRows(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  )) as unknown as ViewRow[];
+  const row = rows.find(
+    (candidate) => candidate.cells["timeline.evidence_count"]?.value === 1,
+  );
+  expect(row).toBeTruthy();
+  expect(row?.cells["timeline.summary"]?.value ?? "").toBe("");
+  expect(row?.cells["timeline.capture_state"]?.value).toBe("rough");
+  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
 });
 
-test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview outcomes", async () => {
-  // Pending Sprint 5 browser preview implementation.
+test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview outcomes", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E5PREVIEW"),
+    "Phase 5 evidence preview",
+  );
+  const safe = await createUploadedEvidence(page, incidentId, {
+    title: "Safe text preview",
+    filename: "safe.txt",
+    contentType: "text/plain",
+    body: Buffer.from("safe preview body", "utf8"),
+  });
+  const unsafe = await createUploadedEvidence(page, incidentId, {
+    title: "Unsafe HTML preview",
+    filename: "unsafe.html",
+    contentType: "text/html",
+    body: Buffer.from(
+      "<script>window.__unsafe_preview = true</script>",
+      "utf8",
+    ),
+  });
+
+  await openEvidenceSurface(page, incidentId);
+  await page.getByTestId(`evidence-preview-${safe.record_id}`).click();
+  await expect(
+    page.getByTestId(`evidence-preview-frame-${safe.record_id}`),
+  ).toBeVisible();
+  await expect(
+    page
+      .frameLocator(`[data-testid="evidence-preview-frame-${safe.record_id}"]`)
+      .locator("body"),
+  ).toContainText("safe preview body");
+
+  await page.getByTestId(`evidence-preview-${unsafe.record_id}`).click();
+  await expect(
+    page.getByTestId(`evidence-access-message-${unsafe.record_id}`),
+  ).toContainText("unsupported_preview");
 });
 
 test("E-5-04 tracks requested evidence before a blob exists and later advances it", async ({
@@ -137,6 +266,15 @@ async function openEvidenceSurface(page: Page, incidentId: string) {
   await expect(page.getByRole("heading", { name: "Evidence" })).toBeVisible();
 }
 
+async function openTimelineSurface(page: Page, incidentId: string) {
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      timelineViewSchemaId,
+    )}`,
+  );
+  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+}
+
 async function setGenericCreateField(
   page: Page,
   fieldKey: string,
@@ -161,4 +299,72 @@ async function waitForEvidenceRow(
   );
   expect(row).toBeTruthy();
   return row as ViewRow;
+}
+
+function tinyPNG() {
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    "base64",
+  );
+}
+
+async function createUploadedEvidence(
+  page: Page,
+  incidentId: string,
+  options: {
+    title: string;
+    filename: string;
+    contentType: string;
+    body: Buffer;
+  },
+) {
+  const row = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("e5-preview-evidence"),
+    "evidence.title": options.title,
+    "evidence.collector_party_text": "Browser evidence",
+  })) as unknown as ViewRow;
+  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
+    headers: await csrfHeaders(page),
+    data: {
+      incident_id: incidentId,
+      client_txn_id: uniqueTxn("e5-preview-blob"),
+      byte_size: options.body.byteLength,
+      filename_hint: options.filename,
+      content_type_hint: options.contentType,
+    },
+  });
+  expect(createBlob.ok()).toBeTruthy();
+  const blobData = (
+    (await createBlob.json()) as {
+      data: { object_blob_id: string; upload_target: { href: string } };
+    }
+  ).data;
+  const upload = await page.request.put(blobData.upload_target.href, {
+    data: options.body,
+    headers: { "Content-Type": options.contentType },
+  });
+  expect(upload.ok()).toBeTruthy();
+
+  const attach = await page.request.post(
+    `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        object_blob_id: blobData.object_blob_id,
+        base_row_version: row.row_version,
+        client_txn_id: uniqueTxn("e5-preview-attach"),
+      },
+    },
+  );
+  expect(attach.ok()).toBeTruthy();
+  const rows = (await queryViewRows(
+    page,
+    incidentId,
+    evidenceViewSchemaId,
+  )) as unknown as ViewRow[];
+  const attached = rows.find(
+    (candidate) => candidate.record_id === row.record_id,
+  );
+  expect(attached).toBeTruthy();
+  return attached as ViewRow;
 }

@@ -283,6 +283,23 @@ type EvidenceHandleEnvelope = {
   };
 };
 
+type ObjectBlobCreateEnvelope = {
+  data: {
+    object_blob_id: string;
+    upload_target: {
+      href: string;
+      method?: string | null;
+    };
+  };
+};
+
+type EvidenceAttachBlobEnvelope = {
+  data: {
+    record_id: string;
+    row_version: number;
+  };
+};
+
 type EvidencePreviewState = {
   href: string;
   recordId: string;
@@ -1000,6 +1017,53 @@ function buildCollectionPatchPayload(
   };
 }
 
+function buildAttachedEvidenceCreatePayload(
+  evidenceRecordId: string,
+  clientTxnId: string,
+) {
+  return {
+    client_txn_id: clientTxnId,
+    "timeline.attached_evidence_ids": {
+      kind: "collection_actions_v1",
+      actions: [
+        {
+          op: "add_record_ref",
+          linked_record_id: evidenceRecordId,
+        },
+      ],
+    },
+  };
+}
+
+function buildAttachedEvidencePatchPayload(
+  row: WorkbookRow,
+  evidenceRecordId: string,
+  clientTxnId: string,
+) {
+  if (row.rowVersion === null) {
+    return null;
+  }
+  return {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: row.rowVersion,
+    client_txn_id: clientTxnId,
+    changes: [
+      {
+        field_key: "timeline.attached_evidence_ids",
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: [
+            {
+              op: "add_record_ref",
+              linked_record_id: evidenceRecordId,
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
 // Dedup queued autosaves by the logical mutation payload, not the per-request txn id.
 function buildStableMutationSignature(payload: unknown): string {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -1254,6 +1318,15 @@ function parseErrorMessage(payload: unknown) {
     return "Request failed.";
   }
   if ("code" in error && typeof error.code === "string") {
+    if (
+      "details" in error &&
+      error.details &&
+      typeof error.details === "object" &&
+      "reason_code" in error.details &&
+      typeof error.details.reason_code === "string"
+    ) {
+      return `${error.code}: ${error.details.reason_code}`;
+    }
     return error.code;
   }
   if ("message" in error && typeof error.message === "string") {
@@ -2940,6 +3013,190 @@ export function TimelineWorkbook({
     [queueScalarSave],
   );
 
+  const createAndAttachEvidenceFile = useCallback(
+    async (file: File): Promise<string> => {
+      const title = normalizeValue(file.name) || "Workbook attachment";
+      const createEvidence = await fetchJSON<ViewMutationEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/views/${evidenceViewSchemaId}/rows`,
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            client_txn_id: nextClientTxnId(),
+            "evidence.title": title,
+            "evidence.collector_party_text": "Workbook upload",
+          }),
+        },
+      );
+      if (!createEvidence.ok) {
+        throw new Error(parseErrorMessage(createEvidence.payload));
+      }
+      const evidenceEnvelope = readEnvelope<ViewMutationEnvelope>(
+        createEvidence.payload,
+      );
+      const evidenceRecord = evidenceEnvelope.data.row;
+
+      const createBlob = await fetchJSON<ObjectBlobCreateEnvelope>(
+        apiPath(apiBase, "/api/v1/object-blobs"),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            incident_id: incidentId,
+            client_txn_id: nextClientTxnId(),
+            byte_size: file.size,
+            filename_hint: file.name || null,
+            content_type_hint: file.type || null,
+          }),
+        },
+      );
+      if (!createBlob.ok) {
+        throw new Error(parseErrorMessage(createBlob.payload));
+      }
+      const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
+        createBlob.payload,
+      );
+      const uploadHref =
+        blobEnvelope.data.upload_target.href.startsWith("/") && apiBase
+          ? apiPath(apiBase, blobEnvelope.data.upload_target.href)
+          : blobEnvelope.data.upload_target.href;
+      const upload = await fetch(uploadHref, {
+        method: blobEnvelope.data.upload_target.method ?? "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      });
+      if (!upload.ok) {
+        throw new Error(`upload_failed_${upload.status}`);
+      }
+
+      const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/evidence-records/${evidenceRecord.record_id}/attach-blob`,
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            object_blob_id: blobEnvelope.data.object_blob_id,
+            base_row_version: evidenceRecord.row_version,
+            client_txn_id: nextClientTxnId(),
+          }),
+        },
+      );
+      if (!attach.ok) {
+        throw new Error(parseErrorMessage(attach.payload));
+      }
+      return evidenceRecord.record_id;
+    },
+    [apiBase, incidentId, nextClientTxnId],
+  );
+
+  const attachEvidenceFileToTimeline = useCallback(
+    (target: WorkbookRow, file: File) => {
+      const snapshot =
+        rowsRef.current.find((candidate) => candidate.key === target.key) ??
+        target;
+      const viewportContinuityToken = beginViewportContinuity(
+        snapshot.recordId === null
+          ? { kind: "scroll-only" }
+          : { kind: "row-inspect", recordId: snapshot.recordId },
+      );
+      beginSave();
+      setInspectorMessage("Uploading evidence.");
+
+      saveQueueRef.current = saveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          try {
+            const evidenceRecordId = await createAndAttachEvidenceFile(file);
+            const clientTxnId = nextClientTxnId();
+            const payload =
+              snapshot.recordId === null
+                ? buildAttachedEvidenceCreatePayload(
+                    evidenceRecordId,
+                    clientTxnId,
+                  )
+                : buildAttachedEvidencePatchPayload(
+                    snapshot,
+                    evidenceRecordId,
+                    clientTxnId,
+                  );
+            if (payload === null) {
+              throw new Error("invalid_timeline_row");
+            }
+
+            trackPendingSocketTxn(clientTxnId);
+            const targetPath =
+              snapshot.recordId === null
+                ? apiPath(
+                    apiBase,
+                    `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
+                  )
+                : apiPath(apiBase, `/api/v1/records/${snapshot.recordId}`);
+            const result = await fetchJSON<TimelineMutationEnvelope>(
+              targetPath,
+              {
+                method: snapshot.recordId === null ? "POST" : "PATCH",
+                body: JSON.stringify(payload),
+              },
+            );
+            if (!result.ok) {
+              resolvePendingSocketTxn(clientTxnId);
+              throw new Error(parseErrorMessage(result.payload));
+            }
+
+            const envelope = readEnvelope<TimelineMutationEnvelope>(
+              result.payload,
+            );
+            applyRowMutation(snapshot.key, envelope, {
+              continueOnFreshDraft: snapshot.recordId === null,
+              promoteToCommittedRowInspect: snapshot.recordId === null,
+              detectAutoResolution: false,
+              viewportContinuityToken,
+            });
+            setInspectorMessage("Evidence attached.");
+            finishSave("Saved");
+          } catch (error) {
+            clearViewportContinuity(viewportContinuityToken);
+            setInspectorMessage(
+              error instanceof Error
+                ? error.message
+                : "Evidence attach failed.",
+            );
+            finishSave("Conflict");
+          }
+        });
+    },
+    [
+      apiBase,
+      applyRowMutation,
+      beginSave,
+      beginViewportContinuity,
+      clearViewportContinuity,
+      createAndAttachEvidenceFile,
+      finishSave,
+      incidentId,
+      nextClientTxnId,
+      resolvePendingSocketTxn,
+      trackPendingSocketTxn,
+    ],
+  );
+
+  const handleTimelineEvidenceFiles = useCallback(
+    (target: WorkbookRow, files: FileList | File[]) => {
+      const [file] = Array.from(files);
+      if (!file) {
+        return;
+      }
+      attachEvidenceFileToTimeline(target, file);
+    },
+    [attachEvidenceFileToTimeline],
+  );
+
   const timelineBindingLabel = useCallback((fieldKey: string) => {
     return timelineContract.fieldMap[fieldKey]?.label ?? fieldKey;
   }, []);
@@ -3186,7 +3443,18 @@ export function TimelineWorkbook({
             const text = stringifyGridValue(
               readCellValue(row.rawRow, binding.fieldKey),
             );
-            return <span style={bodyStyle}>{text === "" ? "—" : text}</span>;
+            return (
+              <span
+                data-testid={
+                  row.recordId === null
+                    ? undefined
+                    : rowCellTestId(row.recordId, binding.fieldKey)
+                }
+                style={bodyStyle}
+              >
+                {text === "" ? "—" : text}
+              </span>
+            );
           },
           sortableFieldKey: resolveHeaderSortFieldKey(
             timelineContract,
@@ -3317,6 +3585,60 @@ export function TimelineWorkbook({
             renderTimelineInspectorEditor(row, binding),
           )}
         </div>
+      </section>
+    );
+  }
+
+  function renderEvidenceAttachSection(row: WorkbookRow) {
+    const inputTestId =
+      row.recordId === null
+        ? "timeline-evidence-file-draft"
+        : `timeline-evidence-file-${row.recordId}`;
+    const evidenceCount = stringifyGridValue(
+      readCellValue(row.rawRow, "timeline.evidence_count"),
+    );
+    return (
+      <section
+        data-testid={
+          row.recordId === null
+            ? "timeline-evidence-attach-draft"
+            : `timeline-evidence-attach-${row.recordId}`
+        }
+        style={inspectorSectionStyle}
+        tabIndex={0}
+        onDragOver={(event) => {
+          event.preventDefault();
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          handleTimelineEvidenceFiles(row, event.dataTransfer.files);
+        }}
+        onPaste={(event) => {
+          if (event.clipboardData.files.length > 0) {
+            handleTimelineEvidenceFiles(row, event.clipboardData.files);
+          }
+        }}
+      >
+        <h3 style={sectionTitleStyle}>Evidence</h3>
+        {row.recordId !== null ? (
+          <p style={bodyStyle}>
+            Attached evidence count:{" "}
+            {evidenceCount === "" ? "0" : evidenceCount}
+          </p>
+        ) : null}
+        <label style={labelStyle}>
+          Attach file
+          <input
+            data-testid={inputTestId}
+            style={inputStyle}
+            type="file"
+            accept="image/*,.txt,.pdf,text/plain,application/pdf"
+            onChange={(event) => {
+              handleTimelineEvidenceFiles(row, event.currentTarget.files ?? []);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
       </section>
     );
   }
@@ -3498,6 +3820,7 @@ export function TimelineWorkbook({
           {selectedRow?.recordId ? (
             <>
               {renderInspectorFieldEditors(selectedRow)}
+              {renderEvidenceAttachSection(selectedRow)}
               <section style={inspectorSectionStyle}>
                 <h3 style={sectionTitleStyle}>Mentions</h3>
                 <div style={mentionGroupStyle}>
@@ -3707,10 +4030,16 @@ export function TimelineWorkbook({
           ) : (
             <>
               {draftRow ? renderInspectorFieldEditors(draftRow) : null}
+              {draftRow ? renderEvidenceAttachSection(draftRow) : null}
               <p style={bodyStyle}>
                 Pick a saved row to inspect unresolved, resolved, and dismissed
                 mentions.
               </p>
+              {inspectorMessage ? (
+                <p data-testid="timeline-inspector-message" style={bodyStyle}>
+                  {inspectorMessage}
+                </p>
+              ) : null}
             </>
           )}
         </aside>

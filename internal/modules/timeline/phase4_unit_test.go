@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
@@ -173,6 +175,98 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, origin_locator
 	if mentions[0].sourceRecord != first.RecordID.String() || mentions[1].sourceRecord != second.RecordID.String() {
 		t.Fatalf("expected mention provenance to stay attached to each source row, got %#v", mentions)
 	}
+}
+
+func TestPhase5_AttachedEvidenceCreateAndPatch(t *testing.T) {
+	harness := phase4storetest.StartStore(t, "phase5-attached-evidence")
+	store := NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attached-incident", "IR-U5ATTACH", "Phase 5 attached evidence")
+
+	evidenceID := seedPhase5TimelineEvidence(t, harness, incident.ID, actor.ID, "Screenshot one", "available")
+	create := CreateRequest{
+		ClientTxnID: "txn-phase5-attached-create",
+		AttachedEvidence: &CollectionActionPayload{Actions: []CollectionAction{{
+			Op:             "add_record_ref",
+			LinkedRecordID: &evidenceID,
+		}}},
+	}
+	created, err := store.CreateRow(context.Background(), actor, incident.ID, create, TimelineCreateRequestHash(create), "req-phase5-attached-create", time.Now().UTC())
+	if err != nil {
+		t.Fatalf("create screenshot-only timeline row: %v", err)
+	}
+	cells := created.Payload["row"].(map[string]any)["cells"].(map[string]any)
+	if got := cells["timeline.capture_state"].(map[string]any)["value"]; got != "rough" {
+		t.Fatalf("screenshot-only create capture state got %#v want rough", got)
+	}
+	if got := cells["timeline.evidence_count"].(map[string]any)["value"]; got != 1 {
+		t.Fatalf("screenshot-only create evidence_count got %#v want 1", got)
+	}
+	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND dst_record_id = $2 AND link_type = 'attached_evidence' AND field_key = 'timeline.attached_evidence_ids' AND deleted_at IS NULL`, created.RecordID, evidenceID); got != 1 {
+		t.Fatalf("expected one attached evidence link, got %d", got)
+	}
+
+	row := CreateRequest{
+		ClientTxnID: "txn-phase5-attached-existing",
+		Summary:     stringPtr("Existing row"),
+	}
+	existing, err := store.CreateRow(context.Background(), actor, incident.ID, row, TimelineCreateRequestHash(row), "req-phase5-attached-existing", time.Now().UTC())
+	if err != nil {
+		t.Fatalf("create existing row: %v", err)
+	}
+	patchEvidenceID := seedPhase5TimelineEvidence(t, harness, incident.ID, actor.ID, "Screenshot two", "available")
+	patch := PatchRequest{
+		ViewSchemaID:   TimelineViewSchemaID,
+		BaseRowVersion: existing.RowVersion,
+		ClientTxnID:    "txn-phase5-attached-patch",
+		CanonicalChange: []PatchChange{{
+			FieldKey: "timeline.attached_evidence_ids",
+			ActionPayload: &CollectionActionPayload{Actions: []CollectionAction{{
+				Op:             "add_record_ref",
+				LinkedRecordID: &patchEvidenceID,
+			}}},
+		}},
+	}
+	patched, err := store.PatchRow(context.Background(), actor, existing.RecordID, patch, TimelinePatchRequestHash(patch), "req-phase5-attached-patch", time.Now().UTC())
+	if err != nil {
+		t.Fatalf("patch existing row with attached evidence: %v", err)
+	}
+	patchedCells := patched.Payload["row"].(map[string]any)["cells"].(map[string]any)
+	if got := patchedCells["timeline.capture_state"].(map[string]any)["value"]; got != "enriched" {
+		t.Fatalf("attached evidence patch capture state got %#v want enriched", got)
+	}
+	if got := patchedCells["timeline.evidence_count"].(map[string]any)["value"]; got != 1 {
+		t.Fatalf("attached evidence patch evidence_count got %#v want 1", got)
+	}
+}
+
+func seedPhase5TimelineEvidence(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, uploadState string) uuid.UUID {
+	t.Helper()
+	now := time.Now().UTC()
+	recordID := uuid.New()
+	blobID := uuid.New()
+	if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, created_at, updated_by_user_id, updated_at, row_version)
+VALUES ($1, $2, 'evidence', $3, $4, $3, $4, 1)
+`, recordID, incidentID, actorID, now); err != nil {
+		t.Fatalf("insert evidence envelope: %v", err)
+	}
+	if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, filename_hint, content_type_hint, observed_size, observed_content_type,
+    target_expires_at, pending_expires_at, finalized_at, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, 8, 'screenshot.txt', 'text/plain', 8, 'text/plain', $6, $6, $7, $7, $7)
+`, blobID, incidentID, actorID, "phase5/"+blobID.String(), uploadState, now.Add(time.Hour), now); err != nil {
+		t.Fatalf("insert object blob: %v", err)
+	}
+	if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id, requested_at, created_at, updated_at)
+VALUES ($1, $2, $3, 'available', $4, $5, $6, $6, $6)
+`, recordID, incidentID, title, uploadState, blobID, now); err != nil {
+		t.Fatalf("insert evidence row: %v", err)
+	}
+	return recordID
 }
 
 func stringPtr(value string) *string {

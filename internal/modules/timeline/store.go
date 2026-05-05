@@ -109,6 +109,7 @@ type projectedRecord struct {
 	HasUnresolvedMentions bool
 	HostRefs              []map[string]any
 	IdentityRefs          []map[string]any
+	AttachedEvidence      []map[string]any
 	Tags                  []map[string]any
 }
 
@@ -337,6 +338,9 @@ VALUES ($1, $2, $3, $4, $5, $6, 'rough', 1, $7, $7, $8, $8)
 	if err := applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC()); err != nil {
 		return MutationResult{}, err
 	}
+	if err := applyAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.AttachedEvidence, now.UTC()); err != nil {
+		return MutationResult{}, err
+	}
 	markCreateTiming(ctx, "store_collection_actions")
 
 	projected := projectRecord(current, nil)
@@ -416,7 +420,8 @@ VALUES ($1, $2, $3, $4, $5, $6, 'rough', 1, $7, $7, $8, $8)
 func createRequestHasCollectionActions(request CreateRequest) bool {
 	return (request.HostRefs != nil && len(request.HostRefs.Actions) > 0) ||
 		(request.IdentityRefs != nil && len(request.IdentityRefs.Actions) > 0) ||
-		(request.Tags != nil && len(request.Tags.Actions) > 0)
+		(request.Tags != nil && len(request.Tags.Actions) > 0) ||
+		(request.AttachedEvidence != nil && len(request.AttachedEvidence.Actions) > 0)
 }
 
 func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
@@ -487,6 +492,7 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 	next := current
 	mentionChanged := false
 	tagChanged := false
+	evidenceChanged := false
 	for _, change := range request.CanonicalChange {
 		switch change.FieldKey {
 		case "timeline.occurred_at":
@@ -504,6 +510,10 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 		case "timeline.tags":
 			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
 				tagChanged = true
+			}
+		case "timeline.attached_evidence_ids":
+			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
+				evidenceChanged = true
 			}
 		}
 	}
@@ -523,7 +533,12 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 			return MutationResult{}, err
 		}
 	}
-	if !materialChanged && !mentionChanged && !tagChanged {
+	if evidenceChanged {
+		if err := applyPatchAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC()); err != nil {
+			return MutationResult{}, err
+		}
+	}
+	if !materialChanged && !mentionChanged && !tagChanged && !evidenceChanged {
 		return MutationResult{}, ErrNoEffectiveChange
 	}
 	nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
@@ -822,6 +837,8 @@ func applyCollectionConflictActions(fieldKey string, baseValue any, payload *Col
 			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, false))
 		case "add_resolved_ref":
 			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, true))
+		case "add_record_ref":
+			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, true))
 		case "resolve_item":
 			if item := findCollectionItem(items, action.ItemRef); item != nil {
 				item["item_kind"] = "resolved_ref"
@@ -837,6 +854,8 @@ func applyCollectionConflictActions(fieldKey string, baseValue any, payload *Col
 				item["item_kind"] = "unresolved_mention"
 				removeResolutionMetadata(item, true)
 			}
+		case "remove_record_ref":
+			items = removeCollectionItem(items, action.ItemRef)
 		default:
 			return nil, fmt.Errorf("unsupported collection action: %s", action.Op)
 		}
@@ -902,6 +921,15 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 		item["item_kind"] = "tag"
 		return item
 	}
+	if fieldKey == "timeline.attached_evidence_ids" {
+		item["item_kind"] = "record_ref"
+		if action.LinkedRecordID != nil {
+			item["item_ref"] = "record_ref:" + action.LinkedRecordID.String()
+			item["linked_record_id"] = action.LinkedRecordID.String()
+			item["display_text"] = action.LinkedRecordID.String()
+		}
+		return item
+	}
 
 	item["entity_type"] = collectionEntityType(fieldKey)
 	if resolved {
@@ -917,12 +945,13 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 
 func clientCollectionItemRef(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) string {
 	sum := hashRequestPayload(map[string]any{
-		"request_hash": base64.RawURLEncoding.EncodeToString(requestHash),
-		"field_key":    fieldKey,
-		"action_index": actionIndex,
-		"op":           action.Op,
-		"raw_text":     action.NormalizedText,
-		"item_ref":     action.ItemRef,
+		"request_hash":     base64.RawURLEncoding.EncodeToString(requestHash),
+		"field_key":        fieldKey,
+		"action_index":     actionIndex,
+		"op":               action.Op,
+		"raw_text":         action.NormalizedText,
+		"item_ref":         action.ItemRef,
+		"linked_record_id": formatUUIDPointer(action.LinkedRecordID),
 	})
 	token := base64.RawURLEncoding.EncodeToString(sum)
 	if len(token) > 18 {
@@ -1859,6 +1888,59 @@ SELECT record_tag_id, tag_name
 	}
 	tagRows.Close()
 	record.Tags = tags
+
+	evidenceRows, err := querier.Query(ctx, `
+SELECT
+    rl.dst_record_id,
+    COALESCE(ev.title, rl.dst_record_id::text) AS title,
+    ev.lifecycle_state,
+    COALESCE(b.upload_state, ev.upload_state, 'pending') AS upload_state
+  FROM record_links rl
+  JOIN evidence ev
+    ON ev.incident_id = rl.incident_id
+   AND ev.record_id = rl.dst_record_id
+  LEFT JOIN object_blobs b
+    ON b.object_blob_id = ev.object_blob_id
+ WHERE rl.incident_id = $1
+   AND rl.src_record_id = $2
+   AND rl.link_type = 'attached_evidence'
+   AND rl.deleted_at IS NULL
+ ORDER BY COALESCE(ev.title, rl.dst_record_id::text) ASC, rl.dst_record_id ASC
+`, record.IncidentID, record.RecordID)
+	if err != nil {
+		return fmt.Errorf("query timeline attached evidence: %w", err)
+	}
+	attachedEvidence := make([]map[string]any, 0)
+	availableEvidenceCount := 0
+	for evidenceRows.Next() {
+		var (
+			evidenceRecordID uuid.UUID
+			title            string
+			lifecycleState   string
+			uploadState      string
+		)
+		if err := evidenceRows.Scan(&evidenceRecordID, &title, &lifecycleState, &uploadState); err != nil {
+			evidenceRows.Close()
+			return fmt.Errorf("scan timeline attached evidence row: %w", err)
+		}
+		attachedEvidence = append(attachedEvidence, map[string]any{
+			"item_ref":         "record_ref:" + evidenceRecordID.String(),
+			"item_kind":        "record_ref",
+			"display_text":     title,
+			"linked_record_id": evidenceRecordID.String(),
+		})
+		if uploadState == "available" && (lifecycleState == "available" || lifecycleState == "released") {
+			availableEvidenceCount += 1
+		}
+	}
+	if err := evidenceRows.Err(); err != nil {
+		evidenceRows.Close()
+		return fmt.Errorf("iterate timeline attached evidence rows: %w", err)
+	}
+	evidenceRows.Close()
+	record.AttachedEvidence = attachedEvidence
+	record.EvidenceCount = availableEvidenceCount
+	record.HasEvidence = availableEvidenceCount > 0
 	return nil
 }
 
@@ -1929,6 +2011,75 @@ func applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 		}
 		if err := insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func applyPatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
+	for _, change := range changes {
+		if change.FieldKey != "timeline.attached_evidence_ids" || change.ActionPayload == nil {
+			continue
+		}
+		if err := applyAttachedEvidenceActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) error {
+	if payload == nil || len(payload.Actions) == 0 {
+		return nil
+	}
+	for _, action := range payload.Actions {
+		switch action.Op {
+		case "add_record_ref":
+			if action.LinkedRecordID == nil {
+				return fmt.Errorf("missing linked evidence record")
+			}
+			if err := validateAttachedEvidenceTargetTx(ctx, tx, incidentID, *action.LinkedRecordID); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `
+INSERT INTO record_links (
+    incident_id,
+    src_record_id,
+    dst_record_id,
+    link_type,
+    field_key,
+    provenance,
+    confidence,
+    owner_user_id,
+    created_by_user_id,
+    decided_at,
+    created_at
+)
+VALUES ($1, $2, $3, 'attached_evidence', 'timeline.attached_evidence_ids', 'manual', NULL, $4, $4, $5, $5)
+ON CONFLICT DO NOTHING
+`, incidentID, recordID, *action.LinkedRecordID, actorUserID, now.UTC()); err != nil {
+				return fmt.Errorf("insert attached evidence link: %w", err)
+			}
+		case "remove_record_ref":
+			evidenceRecordID, err := recordIDFromRecordRefItem(action.ItemRef)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `
+UPDATE record_links
+   SET deleted_at = COALESCE(deleted_at, $5),
+       deleted_by_user_id = COALESCE(deleted_by_user_id, $4)
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND dst_record_id = $3
+   AND link_type = 'attached_evidence'
+   AND field_key = 'timeline.attached_evidence_ids'
+   AND deleted_at IS NULL
+`, incidentID, recordID, evidenceRecordID, actorUserID, now.UTC()); err != nil {
+				return fmt.Errorf("remove attached evidence link: %w", err)
+			}
+		default:
+			return fmt.Errorf("unsupported attached evidence action: %s", action.Op)
 		}
 	}
 	return nil
@@ -2121,6 +2272,41 @@ SELECT EXISTS (
 		return entities.ErrResolvedRecordNotFound
 	}
 	return nil
+}
+
+func validateAttachedEvidenceTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) error {
+	var exists bool
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM records r
+      JOIN evidence ev
+        ON ev.incident_id = r.incident_id
+       AND ev.record_id = r.record_id
+     WHERE r.record_id = $1
+       AND r.incident_id = $2
+       AND r.record_type = 'evidence'
+       AND r.deleted_at IS NULL
+)
+`, evidenceRecordID, incidentID).Scan(&exists); err != nil {
+		return fmt.Errorf("validate attached evidence target: %w", err)
+	}
+	if !exists {
+		return entities.ErrResolvedRecordNotFound
+	}
+	return nil
+}
+
+func recordIDFromRecordRefItem(itemRef string) (uuid.UUID, error) {
+	const prefix = "record_ref:"
+	if !strings.HasPrefix(itemRef, prefix) {
+		return uuid.UUID{}, fmt.Errorf("invalid record ref item_ref: %s", itemRef)
+	}
+	recordID, err := uuid.Parse(strings.TrimPrefix(itemRef, prefix))
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("parse record ref item_ref: %w", err)
+	}
+	return recordID, nil
 }
 
 func mentionOriginLocator(recordID uuid.UUID, fieldKey string, ordinal int) string {

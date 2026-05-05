@@ -15,9 +15,9 @@ This planning artifact does not implement Phase 5 behavior. It is intentionally 
 | [x] | 0. Phase 5 ownership manifest and harness setup | [x] validated | None for Sprint 0. | Phase 5 is active and selectable; the initial Sprint 1 stubs have been replaced with real assertions. |
 | [x] | 1. Blob create and upload-slot contract | [x] validated | None for Sprint 1. | Blob-create contract, idempotency, size ceiling, expired-slot replay, and Sprint 3 preview-size behavior are implemented. |
 | [x] | 2. Attach finalization, lifecycle bridge, and no-blob evidence | [x] validated | None for Sprint 2. | Attach finalization, no-blob evidence, lifecycle bridge guards, workbook evidence-count projections, `U-5-08`, `I-5-01`, and browser `E-5-04` are implemented. |
-| [x] | 3. Handle issuance and redeem hardening | [x] validated | None for Sprint 3. | Backend/API handle issuance and redeem hardening are implemented for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`; browser `E-5-03` remains Sprint 5. |
+| [x] | 3. Handle issuance and redeem hardening | [x] validated | None for Sprint 3. | Backend/API handle issuance and redeem hardening are implemented for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`; browser `E-5-03` is now delivered by Sprint 5. |
 | [x] | 4. Object-storage boundary and cleanup/quarantine behavior | [x] validated | None for Sprint 4. | Object-boundary, failed-unattached cleanup, quarantine bridge, and active-content preview blocking are implemented for `I-5-04`, `AC-053`, and `AC-405`. |
-| [ ] | 5. Workbook UI and browser evidence flows | [ ] pending |  |  |
+| [x] | 5. Workbook UI and browser evidence flows | [x] validated | None for Sprint 5. | Workbook-native Timeline attach, screenshot-only Timeline create, same-origin preview/blocked-preview UI, `attached_evidence` links, and browser `E-5-01..E-5-03` are implemented; `E-5-04` remains delivered from Sprint 2. |
 | [ ] | 6. Phase gate, ledgers, baselines, and handoff cleanup | [ ] pending |  |  |
 
 ## Global References
@@ -41,13 +41,13 @@ Files and areas:
 - Added `tools/phase5_test_map.json`.
 - Generated ledger via `make phase-ledgers`.
 - Reused existing test harness ownership; no `internal/testutil/phase5test` package was introduced.
-- Backend placeholders live in `internal/modules/evidence/phase5_*_test.go`.
-- Browser placeholders live in `apps/web/e2e/phase5.evidence.spec.ts`; frontend unit placeholder lives in `apps/web/src/WorkbookShell.phase5.test.tsx`.
+- Backend Phase 5 coverage lives in `internal/modules/evidence/phase5_*_test.go` and related module tests.
+- Browser Phase 5 coverage lives in `apps/web/e2e/phase5.evidence.spec.ts`; Sprint 5 frontend unit coverage lives in `apps/web/src/WorkbookShell.surfaces.test.tsx`.
 
 Test-first sequence:
 1. Completed: manifest rows were added with expected symbols before behavior implementation.
 2. Completed: Sprint 1 failing stubs were added for `TestPhase5_ObjectBlobCreate_U_5_01`, `TestPhase5_BlobCreateIdempotency_U_5_02`, `TestPhase5_BlobCreateSizeCeiling_U_5_09`, and `TestPhase5_ExpiredSlotReplay_I_5_02`.
-3. Completed: future frontend and browser rows are selectable no-op placeholders so manifest selection can prove coverage without blocking Sprint 1 on later UI work.
+3. Completed at Sprint 0: future frontend and browser rows were selectable no-op placeholders so manifest selection could prove coverage without blocking Sprint 1 on later UI work; later sprints replaced them with real assertions.
 4. Completed: manifest/name validation ran before implementation work.
 
 Implementation tasks:
@@ -63,7 +63,7 @@ Validation commands:
 - Passed: `make phase-test-name-check`
 - Passed: `tmp/node-runtime/bin/node scripts/test-task-guidance.mjs`
 - Completed follow-up: Sprint 1 replaced the initial failing symbols with real assertions for `U-5-01`, `U-5-02`, blob-create `U-5-09`, and `I-5-02`.
-- Current expected failure: `make phase-slice PHASE=phase5` selects Phase 5 rows and may still fail on later Sprint 5 browser/UI placeholders.
+- Current status: `make phase-slice PHASE=phase5` selects Phase 5 rows and passes through Sprint 5 browser/UI coverage.
 - Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'`
 
 Deliverables:
@@ -73,7 +73,7 @@ Deliverables:
 
 Risks and assumptions:
 - Assumption retained: create `internal/testutil/phase5test` only when naming clarity or helper ownership is needed; otherwise reuse existing helpers.
-- Follow-up risk retained for later sprints: browser timing baselines may need refresh after remaining Phase 5 browser placeholders become real tests.
+- Follow-up risk retained for Sprint 6: browser timing baselines may need review now that the remaining Phase 5 browser placeholders are real tests.
 
 Exit criteria:
 - Met: `make explain-phase PHASE=phase5` discovers the active manifest and planned rows.
@@ -129,7 +129,7 @@ Validation commands:
 - Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'`
 - Sprint 1 rows passed inside `make phase-slice PHASE=phase5`: `U-5-01`, `U-5-02`, `U-5-09`, and `I-5-02`.
 - Current status: Sprints 3 and 4 have since delivered preview-size handle behavior, backend handle rows, and `I-5-04`.
-- Expected failure: `make phase-slice PHASE=phase5` may still fail because later Sprint 5 browser/UI placeholder rows remain intentionally skipped.
+- Current status: `make phase-slice PHASE=phase5` passes after Sprint 5 replaced the remaining browser/UI placeholders with real coverage.
 
 Deliverables:
 - Delivered: passing `U-5-01`, `U-5-02`, blob-create `U-5-09`, and `I-5-02`.
@@ -201,7 +201,7 @@ Implementation tasks:
 - Completed: successful attach updates evidence row, revision/change set, idempotency payload, and affected workbook projections atomically.
 - Completed: failed pending finalization records `terminal_reason`, `failed_at`, and `cleanup_due_at` without mutating evidence state.
 - Completed: non-terminal finalization failures increment `finalize_attempt_count`; the 4th failure marks `finalize_retry_exhausted`.
-- Completed: projection refresh uses active `record_links` with `link_type='supported_by'`, `src_record_id=<workbook row>`, and `dst_record_id=<evidence record>`. Counted evidence must be `available` or `released` and linked to an `object_blobs.upload_state='available'` blob.
+- Current status after Sprint 5: projection refresh uses active `record_links` with `link_type='attached_evidence'`, `src_record_id=<Timeline/Host/Identity workbook row>`, and `dst_record_id=<evidence record>`. Counted evidence must be `available` or `released` and linked to an `object_blobs.upload_state='available'` blob.
 - Completed: attach publishes ordinary `record_changed` invalidations for affected source rows and does not add dependent workbook rows inline to the attach response.
 
 Validation commands:
@@ -226,8 +226,8 @@ Deliverables:
 
 Risks and assumptions:
 - Retained ambiguity: the guide requires custody history preservation but current schema has no append-only custody-event owner path. Sprint 2 preserves structured no-blob fields and does not invent custody UX or event tables.
-- Resolved: evidence support uses the active `record_links` direction `src_record_id=<workbook row>`, `dst_record_id=<evidence record>`, `link_type='supported_by'`.
-- Retained follow-up: `E-5-01..E-5-03` remain in Sprint 5 with the full workbook attach/preview UI.
+- Resolved by Sprint 5: evidence attachment uses the active `record_links` direction `src_record_id=<Timeline/Host/Identity workbook row>`, `dst_record_id=<evidence record>`, `link_type='attached_evidence'`; `supported_by` remains for assessment/decision support semantics.
+- Completed follow-up: `E-5-01..E-5-03` are implemented with workbook attach/preview UI.
 
 Exit criteria:
 - Met: replaying attach with the same normalized request creates no second `change_set`.
@@ -238,11 +238,11 @@ Exit criteria:
 
 Objective: Complete safe preview/download issuance and redemption with current authorization, session binding, state invalidation, expiry, single-use download, filename sanitation, range behavior, and preview-size limits.
 
-Status: Complete for backend/API scope. Same-origin preview/download routes are ready for the later browser `E-5-03` work, but workbook/browser preview UI remains Sprint 5.
+Status: Complete for backend/API scope. Sprint 5 has since added browser `E-5-03` coverage for the same-origin preview/download UI.
 
 Relevant IDs:
 - `U-5-05`, `U-5-06`, `U-5-07`, preview-size coverage in `U-5-09`, `I-5-03`
-- Related later browser row: `E-5-03`
+- Related browser row: `E-5-03`, now delivered in Sprint 5.
 - `REQ-01-458..REQ-01-465`, `REQ-04-023`, `REQ-04-053`
 - `AC-251`, `AC-252..AC-255`, `AC-321`, `AC-322`
 
@@ -307,12 +307,12 @@ Deliverables:
 - Delivered: passing handle and redemption tests for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`.
 - Delivered: handle rows store `record_row_version` and current-state binding snapshots.
 - Delivered: handles never expose bucket names, object keys, or long-lived object-store credentials.
-- Delivered: same-origin preview/download routes are hardened and ready for browser `E-5-03`.
+- Delivered: same-origin preview/download routes are hardened; Sprint 5 now exercises browser `E-5-03`.
 
 Risks and assumptions:
 - Resolved: custom helper emits both `filename=` and `filename*=` while preserving deterministic sanitation/fallback behavior.
 - Resolved for backend/API: byte-range preview reads do not consume preview handles, and successful byte-range download reads consume download handles.
-- Retained follow-up: browser `E-5-03` remains Sprint 5; Sprint 3 only made the same-origin routes ready for it.
+- Completed follow-up: browser `E-5-03` is implemented in Sprint 5; Sprint 3 made the same-origin routes ready for it.
 
 Exit criteria:
 - Met: all Sprint 3 redemption invalidation cases fail closed with registered errors.
@@ -393,6 +393,8 @@ Exit criteria:
 
 Objective: Complete analyst-visible evidence upload, attach, preview, download, blocked-preview, and requested-evidence flows without leaving the workbook surface.
 
+Status: Complete. Sprint 5 implements workbook-native Timeline evidence attach and preview flows, corrects Timeline/Host/Identity evidence associations to Core 02 `attached_evidence`, and replaces browser `E-5-01..E-5-03` placeholders with passing coverage. `E-5-04` remains the requested-evidence flow delivered in Sprint 2.
+
 Relevant IDs:
 - `E-5-01`, `E-5-02`, `E-5-03`, `E-5-04`
 - `REQ-03-102`, `REQ-03-116..REQ-03-128`, `REQ-03-242..REQ-03-246`, `REQ-01-458..REQ-01-465`
@@ -400,6 +402,8 @@ Relevant IDs:
 
 Grep references:
 - `apps/web/src/WorkbookShell.tsx`
+- `timeline.attached_evidence_ids`
+- `attached_evidence`
 - `issueEvidenceHandle`
 - `evidence-preview-panel`
 - `evidence-preview-frame-`
@@ -414,43 +418,66 @@ Grep references:
 
 Files and areas:
 - `apps/web/src/WorkbookShell.tsx`
-- `apps/web/src/WorkbookShell.phase5.test.tsx`
+- `apps/web/src/WorkbookShell.surfaces.test.tsx`
 - `apps/web/e2e/phase5.evidence.spec.ts`
 - `apps/web/e2e/phase4Helpers.ts`
 - `apps/web/e2e/helpers.ts`
+- `db/migrations/00011_phase5_attached_evidence_links.sql`
+- `contracts/view-schemas/cartulary.view.timeline.v1.json`
+- `contracts/openapi/cartulary.openapi.yaml`
+- `db/queries/timeline_phase3.sql`
+- `internal/modules/timeline/api.go`
+- `internal/modules/timeline/store.go`
+- `internal/modules/evidence/store.go`
+- `internal/modules/projections/entity_grids.go`
 
 Test-first sequence:
-1. Add frontend unit tests for evidence attach payload flow: create blob slot, upload target, attach blob with `base_row_version`, update selected row state, do not navigate away.
-2. Add browser `E-5-01`: attach screenshot to selected Timeline row; verify grid remains and `timeline.evidence_count` increments.
-3. Add browser `E-5-02`: screenshot-only Timeline row persists through two-step evidence path.
-4. Add browser `E-5-03`: safe inline type previews through same-origin `href`; unsupported/unsafe type surfaces blocked state inline.
-5. Completed in Sprint 2: browser `E-5-04` creates requested no-blob evidence, later attaches a blob through the backend two-step path, and verifies the Evidence surface row remains stable.
+1. Completed: frontend unit coverage verifies selected Timeline evidence attach orchestration calls evidence row create, blob slot create, opaque upload target PUT, attach blob, and Timeline patch, all with inline progress/error handling.
+2. Completed: frontend unit coverage verifies failed upload surfaces an inline Timeline inspector error and does not issue the Timeline patch.
+3. Completed: browser `E-5-01` attaches a screenshot to a selected Timeline row, keeps the Timeline grid visible, and verifies `timeline.evidence_count` increments.
+4. Completed: browser `E-5-02` creates evidence first and then creates a screenshot-only Timeline row with only `client_txn_id` plus `timeline.attached_evidence_ids`, preserving `capture_state='rough'`.
+5. Completed: browser `E-5-03` verifies safe text preview renders through a same-origin iframe handle and unsafe HTML preview shows an inline `unsupported_preview` blocked state.
+6. Completed in Sprint 2: browser `E-5-04` creates requested no-blob evidence, later attaches a blob through the backend two-step path, and verifies the Evidence surface row remains stable.
 
 Implementation tasks:
-- Add UI affordance for file/clipboard/drop upload only as needed for Phase 5 tests; avoid broad file manager or scanner UI.
-- Use `POST /api/v1/object-blobs`, upload to `upload_target.href`, then `POST /api/v1/evidence-records/{record_id}/attach-blob`.
-- Treat `accepted_contract` as server-approved; do not rebuild it from local state.
-- Keep `href` opaque and same-origin for preview/download.
-- Surface blocked preview reason inline with the grid/inspector still present.
+- Completed: added migration `00011_phase5_attached_evidence_links.sql` to allow `record_links.link_type='attached_evidence'` and safely migrate active Timeline/Host/Identity-to-Evidence `supported_by` links to `attached_evidence`.
+- Completed: Timeline, Host, and Identity evidence counts now use `attached_evidence`; assessment/decision support references retain `supported_by`.
+- Completed: added hidden Timeline action field `timeline.attached_evidence_ids` to the view schema, OpenAPI, generated Go contracts, and generated TypeScript protocol contracts.
+- Completed: Timeline create and patch support `timeline.attached_evidence_ids` collection actions. Create accepts screenshot-only rows with one valid attached evidence action and preserves first-commit `capture_state='rough'`; later evidence association patches are capture-state-material.
+- Completed: evidence attach invalidation finds Timeline/Host/Identity anchor rows through `attached_evidence` and publishes ordinary workbook `record_changed` invalidations.
+- Completed: Timeline inspector includes deterministic file input plus drop/paste handling for selected rows and the draft row.
+- Completed: selected-row attach flow creates evidence, creates a blob slot, uploads to opaque `upload_target.href`, attaches the blob, then patches the selected Timeline row with `timeline.attached_evidence_ids`.
+- Completed: draft screenshot-only flow creates and attaches evidence first, then creates the Timeline row with only `client_txn_id` plus `timeline.attached_evidence_ids`.
+- Completed: Evidence surface continues to use `preview-handle`/`download-handle`; safe previews render in the existing same-origin iframe panel and blocked preview reasons render inline via `evidence-access-message-<record_id>`.
 
 Validation commands:
-- `make frontend-unit`
-- `make browser-e2e-webserver-backed`
-- `make browser-e2e-visual` only if screenshots are added/changed.
-- `make phase-slice PHASE=phase5`
-- `make service-backed-slice PHASE=phase5`
+- Passed: `make generate`
+- Passed: `make frontend-unit`
+- Passed: `make frontend-typecheck`
+- Passed: `make browser-e2e-webserver-backed`
+- Passed: `make phase-slice PHASE=phase5`
+- Passed: `make service-backed-slice PHASE=phase5`
+- Passed: `make migration-drift`
+- Passed: `go test ./internal/modules/timeline`
+- Passed: `go test ./internal/modules/evidence ./internal/modules/projections`
+- Passed: `go test ./internal/modules/entities ./internal/modules/assessments ./internal/modules/workbook`
+- Not run: `make browser-e2e-visual`; no screenshot-baseline or visual assertions were added.
 
 Deliverables:
-- Passing `E-5-01..E-5-03`; `E-5-04` is already delivered by Sprint 2.
-- Browser evidence flows stay workbook-native and do not open object-store URLs.
+- Delivered: passing `E-5-01..E-5-03`; `E-5-04` remains delivered by Sprint 2.
+- Delivered: browser evidence flows stay workbook-native and do not open object-store URLs.
+- Delivered: Timeline screenshot-only rows can be created atomically with attached evidence and no user-entered scalar content.
+- Delivered: safe preview and blocked active-content preview outcomes stay on the Evidence surface.
 
 Risks and assumptions:
-- Browser clipboard APIs can be flaky in Playwright. Safest implementation is to support both file input/drop helper and paste, with E2E using the most deterministic path that still satisfies "screenshot attachment".
-- Avoid marketing-style or separate evidence module UI; keep controls inside workbook surface/inspector.
+- Resolved: E2E uses deterministic file input for screenshot attachment while the UI also accepts paste/drop where the browser exposes files.
+- Resolved: no public route family was added; Sprint 5 uses existing workbook create/patch, blob slot, attach blob, and handle routes.
+- Retained: broad file management, scanner UI, custody-event UX, and resumable upload remain out of scope.
 
 Exit criteria:
-- User-visible grid remains in place during attach and blocked preview.
-- Evidence count and requested/available lifecycle state are visible after commit.
+- Met: user-visible grid remains in place during attach and blocked preview.
+- Met: evidence count and requested/available lifecycle state are visible after commit.
+- Met: Phase 5 public slices pass after Sprint 5 browser rows are real tests.
 
 ## Sprint 6. Phase Gate, Ledgers, Baselines, and Handoff Cleanup
 

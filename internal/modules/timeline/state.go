@@ -63,7 +63,8 @@ func CreateRequestHasUserValue(request CreateRequest) bool {
 		request.SourceText != nil ||
 		(request.HostRefs != nil && len(request.HostRefs.Actions) > 0) ||
 		(request.IdentityRefs != nil && len(request.IdentityRefs.Actions) > 0) ||
-		(request.Tags != nil && len(request.Tags.Actions) > 0)
+		(request.Tags != nil && len(request.Tags.Actions) > 0) ||
+		(request.AttachedEvidence != nil && len(request.AttachedEvidence.Actions) > 0)
 }
 
 func CaptureStateAfterMaterialPatch(current string) (string, error) {

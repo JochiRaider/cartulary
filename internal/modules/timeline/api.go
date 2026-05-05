@@ -38,14 +38,15 @@ var directWritableFieldKeys = map[string]struct{}{
 }
 
 type CreateRequest struct {
-	ClientTxnID  string
-	OccurredAt   *time.Time
-	Summary      *string
-	Details      *string
-	SourceText   *string
-	HostRefs     *CollectionActionPayload
-	IdentityRefs *CollectionActionPayload
-	Tags         *CollectionActionPayload
+	ClientTxnID      string
+	OccurredAt       *time.Time
+	Summary          *string
+	Details          *string
+	SourceText       *string
+	HostRefs         *CollectionActionPayload
+	IdentityRefs     *CollectionActionPayload
+	Tags             *CollectionActionPayload
+	AttachedEvidence *CollectionActionPayload
 }
 
 type PatchRequest struct {
@@ -72,6 +73,7 @@ type CollectionAction struct {
 	NormalizedText string
 	ItemRef        string
 	ResolvedRecord *uuid.UUID
+	LinkedRecordID *uuid.UUID
 }
 
 type ActionRequest struct {
@@ -145,6 +147,9 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 		return CreateRequest{}, apiErr
 	}
 	if request.Tags, apiErr = decodeCreateCollectionActionField(raw, "timeline.tags"); apiErr != nil {
+		return CreateRequest{}, apiErr
+	}
+	if request.AttachedEvidence, apiErr = decodeCreateCollectionActionField(raw, "timeline.attached_evidence_ids"); apiErr != nil {
 		return CreateRequest{}, apiErr
 	}
 	if !schema.PermitsZeroFieldCreate && !CreateRequestHasUserValue(request) {
@@ -324,14 +329,15 @@ func DecodeTimelineSupersedeRequest(reader io.Reader) (SupersedeRequest, *auth.A
 
 func TimelineCreateRequestHash(request CreateRequest) []byte {
 	payload := map[string]any{
-		"client_txn_id":          request.ClientTxnID,
-		"timeline.occurred_at":   formatTimestampPointer(request.OccurredAt),
-		"timeline.summary":       derefString(request.Summary),
-		"timeline.details":       derefString(request.Details),
-		"timeline.source_text":   derefString(request.SourceText),
-		"timeline.host_refs":     canonicalCollectionActionPayload(request.HostRefs),
-		"timeline.identity_refs": canonicalCollectionActionPayload(request.IdentityRefs),
-		"timeline.tags":          canonicalCollectionActionPayload(request.Tags),
+		"client_txn_id":                  request.ClientTxnID,
+		"timeline.occurred_at":           formatTimestampPointer(request.OccurredAt),
+		"timeline.summary":               derefString(request.Summary),
+		"timeline.details":               derefString(request.Details),
+		"timeline.source_text":           derefString(request.SourceText),
+		"timeline.host_refs":             canonicalCollectionActionPayload(request.HostRefs),
+		"timeline.identity_refs":         canonicalCollectionActionPayload(request.IdentityRefs),
+		"timeline.tags":                  canonicalCollectionActionPayload(request.Tags),
+		"timeline.attached_evidence_ids": canonicalCollectionActionPayload(request.AttachedEvidence),
 	}
 	return hashRequestPayload(payload)
 }
@@ -376,6 +382,7 @@ func BuildRow(record projectedRecord) map[string]any {
 		"timeline.source_text":             map[string]any{"value": derefString(record.SourceText)},
 		"timeline.host_refs":               map[string]any{"value": collectionValue(true, record.HostRefs)},
 		"timeline.identity_refs":           map[string]any{"value": collectionValue(true, record.IdentityRefs)},
+		"timeline.attached_evidence_ids":   map[string]any{"value": collectionValue(false, record.AttachedEvidence)},
 		"timeline.evidence_count":          map[string]any{"value": record.EvidenceCount},
 		"timeline.tags":                    map[string]any{"value": collectionValue(false, record.Tags)},
 		"timeline.edited_at":               map[string]any{"value": formatTimestamp(record.EditedAt)},
@@ -679,6 +686,12 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 		return nil, apiErr
 	}
 	for _, action := range payload.Actions {
+		if fieldKey == "timeline.attached_evidence_ids" {
+			if action.Op != "add_record_ref" {
+				return nil, invalidMutationPayload(fieldKey, "invalid_value")
+			}
+			continue
+		}
 		if fieldKey == "timeline.tags" {
 			if action.Op != "add_token" {
 				return nil, invalidMutationPayload(fieldKey, "invalid_value")
@@ -695,7 +708,8 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalidField string, actionsField string) (*CollectionActionPayload, *auth.APIError) {
 	if fieldKey != "timeline.host_refs" &&
 		fieldKey != "timeline.identity_refs" &&
-		fieldKey != "timeline.tags" {
+		fieldKey != "timeline.tags" &&
+		fieldKey != "timeline.attached_evidence_ids" {
 		return nil, invalidMutationPayload(invalidField, "invalid_value")
 	}
 
@@ -748,6 +762,9 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 		}
 		switch op {
 		case "add_token":
+			if fieldKey == "timeline.attached_evidence_ids" {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text"}, nil) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
@@ -769,7 +786,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 				NormalizedText: normalized,
 			})
 		case "add_resolved_ref":
-			if fieldKey == "timeline.tags" {
+			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text", "resolved_record_id"}, nil) {
@@ -805,8 +822,28 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 				NormalizedText: normalized,
 				ResolvedRecord: &parsed,
 			})
+		case "add_record_ref":
+			if fieldKey != "timeline.attached_evidence_ids" {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			if !actionHasOnlyFields(rawAction, []string{"op", "linked_record_id"}, nil) {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			linkedRecordValue, ok := rawAction["linked_record_id"]
+			if !ok {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			var linkedRecordID string
+			if err := json.Unmarshal(linkedRecordValue, &linkedRecordID); err != nil {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			parsed, err := uuid.Parse(linkedRecordID)
+			if err != nil {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			actions = append(actions, CollectionAction{Op: op, LinkedRecordID: &parsed})
 		case "resolve_item":
-			if fieldKey == "timeline.tags" {
+			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, []string{"resolved_record_id"}) {
@@ -834,7 +871,23 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 			}
 			actions = append(actions, action)
 		case "dismiss_item", "revert_to_unresolved":
-			if fieldKey == "timeline.tags" {
+			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, nil) {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			itemRefValue, ok := rawAction["item_ref"]
+			if !ok {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			var itemRef string
+			if err := json.Unmarshal(itemRefValue, &itemRef); err != nil || strings.TrimSpace(itemRef) == "" {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			actions = append(actions, CollectionAction{Op: op, ItemRef: itemRef})
+		case "remove_record_ref":
+			if fieldKey != "timeline.attached_evidence_ids" {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, nil) {
@@ -921,6 +974,9 @@ func canonicalCollectionActionPayload(payload *CollectionActionPayload) any {
 		}
 		if action.ResolvedRecord != nil {
 			entry["resolved_record_id"] = action.ResolvedRecord.String()
+		}
+		if action.LinkedRecordID != nil {
+			entry["linked_record_id"] = action.LinkedRecordID.String()
 		}
 		actions = append(actions, entry)
 	}

@@ -32,6 +32,7 @@
     "timeline.occurred_day",
     "timeline.recorded_day",
     "timeline.has_evidence",
+    "timeline.attached_evidence_ids",
     "timeline.has_unresolved_mentions"
   ],
   "default_sort": [
@@ -244,6 +245,27 @@
       "writable": true,
       "read_model": "tags",
       "write_action": "record_tags collection actions"
+    },
+    {
+      "field_key": "timeline.attached_evidence_ids",
+      "label": "Attached Evidence",
+      "default_hidden": true,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "collection",
+      "write_kind": "action_payload",
+      "conflict_resolution_class": "collection_review",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "attached_evidence_ids",
+      "write_action": "attached_evidence collection actions"
     },
     {
       "field_key": "timeline.edited_at",

@@ -41,11 +41,11 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 	evidenceRecordID := phase4test.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
 	if _, err := harness.DB.ExecContext(context.Background(), `
 INSERT INTO record_links (
-    incident_id, src_record_id, dst_record_id, link_type,
+    incident_id, src_record_id, dst_record_id, link_type, field_key,
     provenance, owner_user_id, created_by_user_id, decided_at, created_at
-) VALUES ($1, $2, $3, 'supported_by', 'manual', $4, $4, now(), now())
+) VALUES ($1, $2, $3, 'attached_evidence', 'timeline.attached_evidence_ids', 'manual', $4, $4, now(), now())
 `, incidentID, timelineRecordID, evidenceRecordID, adminID); err != nil {
-		t.Fatalf("insert timeline evidence support link: %v", err)
+		t.Fatalf("insert timeline attached evidence link: %v", err)
 	}
 
 	payload := []byte("phase5 projection object")

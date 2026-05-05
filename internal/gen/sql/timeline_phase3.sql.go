@@ -197,7 +197,7 @@ SELECT
           ON b.object_blob_id = ev.object_blob_id
         WHERE l.incident_id = e.incident_id
           AND l.src_record_id = e.record_id
-          AND l.link_type = 'supported_by'
+          AND l.link_type = 'attached_evidence'
           AND l.deleted_at IS NULL
           AND ev.lifecycle_state IN ('available', 'released')
           AND b.upload_state = 'available'
@@ -212,7 +212,7 @@ SELECT
           ON b.object_blob_id = ev.object_blob_id
         WHERE l.incident_id = e.incident_id
           AND l.src_record_id = e.record_id
-          AND l.link_type = 'supported_by'
+          AND l.link_type = 'attached_evidence'
           AND l.deleted_at IS NULL
           AND ev.lifecycle_state IN ('available', 'released')
           AND b.upload_state = 'available'

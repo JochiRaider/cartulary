@@ -263,6 +263,7 @@ type EvidenceAccessHandle struct {
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
 	ConsumedAt             pgtype.Timestamptz `json:"consumed_at"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	RecordRowVersion       int64              `json:"record_row_version"`
 }
 
 type HandoffRiskRef struct {

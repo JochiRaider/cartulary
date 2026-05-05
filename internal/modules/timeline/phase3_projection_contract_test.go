@@ -49,6 +49,7 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 
 	cells := row["cells"].(map[string]any)
 	wantCellKeys := []string{
+		"timeline.attached_evidence_ids",
 		"timeline.capture_state",
 		"timeline.details",
 		"timeline.edited_at",
