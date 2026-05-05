@@ -176,7 +176,7 @@
           "target": "browser-e2e-webserver-backed",
           "label": "browser-e2e-webserver-backed/stage-session",
           "aggregate_target": "browser-e2e-webserver-backed",
-          "weight": 46293,
+          "weight": 96293,
           "needs": [
             "service_session:check-service-backed",
             "build-server"
@@ -209,6 +209,144 @@
           "browser_stage": "webserver-backed"
         },
         {
+          "id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-02",
+          "kind": "browser_group",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/browser-functional-shard-02",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "weight": 43174,
+          "needs": [
+            "browser_stage_session:browser-e2e-webserver-backed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "browser_stage": "webserver-backed",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:browser-functional-shard-02",
+            "name": "browser-functional-shard-02",
+            "kind": "functional_shard",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "shard_name": "browser-functional-shard-02",
+            "shard_index": 1,
+            "shard_count": 2,
+            "phases": [
+              "phase1",
+              "phase2",
+              "phase3",
+              "phase4",
+              "phase5",
+              "phase6"
+            ],
+            "entry_ids": [
+              "E-1-03",
+              "E-1-07",
+              "E-2-01",
+              "E-2-02",
+              "E-2-03",
+              "E-3-01",
+              "E-4-04",
+              "E-4-02",
+              "E-4-01",
+              "E-4-03",
+              "E-4-06",
+              "E-5-01",
+              "E-6-02",
+              "E-6-04"
+            ],
+            "weight": 43174,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "3",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "1"
+          }
+        },
+        {
+          "id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-01",
+          "kind": "browser_group",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/browser-functional-shard-01",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "weight": 43119,
+          "needs": [
+            "browser_stage_session:browser-e2e-webserver-backed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "browser_stage": "webserver-backed",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:browser-functional-shard-01",
+            "name": "browser-functional-shard-01",
+            "kind": "functional_shard",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "shard_name": "browser-functional-shard-01",
+            "shard_index": 0,
+            "shard_count": 2,
+            "phases": [
+              "phase1",
+              "phase3",
+              "phase4",
+              "phase5",
+              "phase6"
+            ],
+            "entry_ids": [
+              "E-1-01",
+              "E-1-02",
+              "E-1-06",
+              "E-1-08",
+              "E-3-03",
+              "E-3-04",
+              "E-4-05",
+              "E-5-02",
+              "E-5-03",
+              "E-5-04",
+              "E-6-01",
+              "E-6-03",
+              "E-6-05"
+            ],
+            "weight": 43119,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "3",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
+          }
+        },
+        {
           "id": "check-service-backed:service-session",
           "kind": "service_session",
           "target": "check-service-backed",
@@ -228,6 +366,38 @@
           },
           "retained_resource_claims": {
             "suite_service_stack": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-store:backend-store-shard-01",
+          "kind": "go_shard",
+          "target": "backend-store",
+          "label": "backend-store/backend-store-shard-01",
+          "aggregate_target": "backend-store",
+          "weight": 29998,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-store-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-store-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-store"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-store-shard-01",
+          "scheduler_profile": "cpu_heavy",
+          "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -330,68 +500,35 @@
           }
         },
         {
-          "id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-01",
-          "kind": "browser_group",
-          "target": "browser-e2e-webserver-backed",
-          "label": "browser-e2e-webserver-backed/browser-functional-shard-01",
-          "aggregate_target": "browser-e2e-webserver-backed",
-          "weight": 18350,
+          "id": "check-service-backed:backend-store:backend-store-shard-02",
+          "kind": "go_shard",
+          "target": "backend-store",
+          "label": "backend-store/backend-store-shard-02",
+          "aggregate_target": "backend-store",
+          "weight": 23287,
           "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed"
+            "service_session:check-service-backed"
           ],
           "completion_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
+            "go_shard:backend-store-shard-02"
           ],
           "failure_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01"
+            "go_shard:backend-store-shard-02"
           ],
+          "running_dependency_keys": [
+            "backend-store"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-store-shard-02",
+          "scheduler_profile": "cpu_heavy",
           "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
+            "host_cpu": 2,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1
           },
           "service_session": {
             "target": "check-service-backed"
-          },
-          "browser_stage": "webserver-backed",
-          "browser_group": {
-            "id": "browser-e2e-webserver-backed:browser-functional-shard-01",
-            "name": "browser-functional-shard-01",
-            "kind": "functional_shard",
-            "target": "browser-e2e-webserver-backed",
-            "aggregate_target": "browser-e2e-webserver-backed",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "shard_name": "browser-functional-shard-01",
-            "shard_index": 0,
-            "shard_count": 2,
-            "phases": [
-              "phase1",
-              "phase3",
-              "phase4",
-              "phase5"
-            ],
-            "entry_ids": [
-              "E-1-01",
-              "E-1-02",
-              "E-1-03",
-              "E-1-06",
-              "E-1-08",
-              "E-3-03",
-              "E-4-05",
-              "E-4-06",
-              "E-5-02",
-              "E-5-03",
-              "E-5-04"
-            ],
-            "weight": 18350,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "3",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
           }
         },
         {
@@ -424,72 +561,6 @@
           },
           "service_session": {
             "target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-02",
-          "kind": "browser_group",
-          "target": "browser-e2e-webserver-backed",
-          "label": "browser-e2e-webserver-backed/browser-functional-shard-02",
-          "aggregate_target": "browser-e2e-webserver-backed",
-          "weight": 17943,
-          "needs": [
-            "browser_stage_session:browser-e2e-webserver-backed"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "browser_stage": "webserver-backed",
-          "browser_group": {
-            "id": "browser-e2e-webserver-backed:browser-functional-shard-02",
-            "name": "browser-functional-shard-02",
-            "kind": "functional_shard",
-            "target": "browser-e2e-webserver-backed",
-            "aggregate_target": "browser-e2e-webserver-backed",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
-            "shard_name": "browser-functional-shard-02",
-            "shard_index": 1,
-            "shard_count": 2,
-            "phases": [
-              "phase1",
-              "phase2",
-              "phase3",
-              "phase4",
-              "phase5"
-            ],
-            "entry_ids": [
-              "E-1-07",
-              "E-2-01",
-              "E-2-02",
-              "E-2-03",
-              "E-3-01",
-              "E-3-04",
-              "E-4-04",
-              "E-4-02",
-              "E-4-01",
-              "E-4-03",
-              "E-5-01"
-            ],
-            "weight": 17943,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "3",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "1"
           }
         },
         {
@@ -589,38 +660,6 @@
           }
         },
         {
-          "id": "check-service-backed:backend-store:backend-store-shard-01",
-          "kind": "go_shard",
-          "target": "backend-store",
-          "label": "backend-store/backend-store-shard-01",
-          "aggregate_target": "backend-store",
-          "weight": 17637,
-          "needs": [
-            "service_session:check-service-backed"
-          ],
-          "completion_keys": [
-            "go_shard:backend-store-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:backend-store-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-store"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-store-shard-01",
-          "scheduler_profile": "cpu_heavy",
-          "resource_claims": {
-            "host_cpu": 2,
-            "host_io": 1,
-            "minio": 1,
-            "postgres": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-integration:backend-integration-auth-shard-01",
           "kind": "go_shard",
           "target": "backend-integration",
@@ -705,6 +744,38 @@
           ],
           "complete_on_failure": true,
           "shard": "backend-integration-timeline-shard-02",
+          "scheduler_profile": "cpu_heavy",
+          "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-integration:backend-integration-workbook-shard-01",
+          "kind": "go_shard",
+          "target": "backend-integration",
+          "label": "backend-integration/backend-integration-workbook-shard-01",
+          "aggregate_target": "backend-integration",
+          "weight": 17420,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-integration-workbook-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-workbook-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-workbook-shard-01",
           "scheduler_profile": "cpu_heavy",
           "resource_claims": {
             "host_cpu": 2,
@@ -837,6 +908,102 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
+            "minio": 1,
+            "postgres": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-integration:backend-integration-collaboration-shard-01",
+          "kind": "go_shard",
+          "target": "backend-integration",
+          "label": "backend-integration/backend-integration-collaboration-shard-01",
+          "aggregate_target": "backend-integration",
+          "weight": 12492,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-integration-collaboration-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-collaboration-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-collaboration-shard-01",
+          "scheduler_profile": "cpu_heavy",
+          "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-integration:backend-integration-collaboration-shard-02",
+          "kind": "go_shard",
+          "target": "backend-integration",
+          "label": "backend-integration/backend-integration-collaboration-shard-02",
+          "aggregate_target": "backend-integration",
+          "weight": 12492,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-integration-collaboration-shard-02"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-collaboration-shard-02"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-collaboration-shard-02",
+          "scheduler_profile": "cpu_heavy",
+          "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-integration:backend-integration-collaboration-shard-03",
+          "kind": "go_shard",
+          "target": "backend-integration",
+          "label": "backend-integration/backend-integration-collaboration-shard-03",
+          "aggregate_target": "backend-integration",
+          "weight": 12492,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-integration-collaboration-shard-03"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-collaboration-shard-03"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-collaboration-shard-03",
+          "scheduler_profile": "cpu_heavy",
+          "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 1,
             "minio": 1,
             "postgres": 1
           },
@@ -1194,38 +1361,6 @@
           }
         },
         {
-          "id": "check-service-backed:backend-integration:backend-integration-workbook-shard-01",
-          "kind": "go_shard",
-          "target": "backend-integration",
-          "label": "backend-integration/backend-integration-workbook-shard-01",
-          "aggregate_target": "backend-integration",
-          "weight": 9840,
-          "needs": [
-            "service_session:check-service-backed"
-          ],
-          "completion_keys": [
-            "go_shard:backend-integration-workbook-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-workbook-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-integration"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-workbook-shard-01",
-          "scheduler_profile": "balanced",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1,
-            "minio": 1,
-            "postgres": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-integration:backend-integration-app-shard-01",
           "kind": "go_shard",
           "target": "backend-integration",
@@ -1413,6 +1548,38 @@
           }
         },
         {
+          "id": "check-service-backed:backend-integration:backend-integration-workbook-shard-02",
+          "kind": "go_shard",
+          "target": "backend-integration",
+          "label": "backend-integration/backend-integration-workbook-shard-02",
+          "aggregate_target": "backend-integration",
+          "weight": 4980,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-integration-workbook-shard-02"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-workbook-shard-02"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-workbook-shard-02",
+          "scheduler_profile": "balanced",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
           "id": "check-service-backed:backend-integration-support:backend-integration-timeline-shard-04",
           "kind": "go_shard",
           "target": "backend-integration-support",
@@ -1580,7 +1747,8 @@
           "aggregate_target": "backend-store",
           "weight": 1,
           "needs": [
-            "go_shard:backend-store-shard-01"
+            "go_shard:backend-store-shard-01",
+            "go_shard:backend-store-shard-02"
           ],
           "completion_keys": [
             "backend-store"
@@ -1595,7 +1763,8 @@
             "target": "check-service-backed"
           },
           "shard_names": [
-            "backend-store-shard-01"
+            "backend-store-shard-01",
+            "backend-store-shard-02"
           ],
           "unblock_label": "backend-store"
         },
@@ -1611,14 +1780,18 @@
             "go_shard:backend-integration-timeline-shard-01",
             "go_shard:backend-integration-auth-shard-01",
             "go_shard:backend-integration-timeline-shard-02",
+            "go_shard:backend-integration-workbook-shard-01",
             "go_shard:backend-integration-entities-shard-01",
+            "go_shard:backend-integration-collaboration-shard-01",
+            "go_shard:backend-integration-collaboration-shard-02",
+            "go_shard:backend-integration-collaboration-shard-03",
             "go_shard:backend-integration-incidents-shard-02",
             "go_shard:backend-integration-testutil-shard-01",
-            "go_shard:backend-integration-workbook-shard-01",
             "go_shard:backend-integration-app-shard-01",
             "go_shard:backend-integration-timeline-shard-03",
             "go_shard:backend-integration-evidence-shard-01",
             "go_shard:backend-integration-platform-shard-01",
+            "go_shard:backend-integration-workbook-shard-02",
             "go_shard:backend-integration-auth-shard-02"
           ],
           "completion_keys": [
@@ -1638,14 +1811,18 @@
             "backend-integration-timeline-shard-01",
             "backend-integration-auth-shard-01",
             "backend-integration-timeline-shard-02",
+            "backend-integration-workbook-shard-01",
             "backend-integration-entities-shard-01",
+            "backend-integration-collaboration-shard-01",
+            "backend-integration-collaboration-shard-02",
+            "backend-integration-collaboration-shard-03",
             "backend-integration-incidents-shard-02",
             "backend-integration-testutil-shard-01",
-            "backend-integration-workbook-shard-01",
             "backend-integration-app-shard-01",
             "backend-integration-timeline-shard-03",
             "backend-integration-evidence-shard-01",
             "backend-integration-platform-shard-01",
+            "backend-integration-workbook-shard-02",
             "backend-integration-auth-shard-02"
           ],
           "unblock_label": "backend-integration"

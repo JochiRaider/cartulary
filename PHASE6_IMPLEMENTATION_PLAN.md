@@ -10,9 +10,9 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 
 ## Sprint Checklist
 
-| Done | Sprint                                                                | Validation  | Blockers                                                                                                                                                                          | Follow-up Notes                                                                                                                                                |
-| ---- | --------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [ ]  | 0. Phase 6 ownership manifest and harness setup                       | [ ] pending | `tools/phase6_test_map.json` and `docs/testing/phase6_coverage_ledger.md` do not exist yet.                                                                                       | Add the Phase 6 manifest before feature work, activate `phase6`, and create selectable failing or placeholder rows for every `U-6-*`, `I-6-*`, and `E-6-*` ID. |
+| Done | Sprint                                                                | Validation                         | Blockers                                                                                                                                                                          | Follow-up Notes                                                                                                                                                  |
+| ---- | --------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [x]  | 0. Phase 6 ownership manifest and harness setup                       | [x] passed; full slice env-blocked | `make phase-slice PHASE=phase6` is blocked in this WSL environment before row execution because Docker is unavailable for service image warm-up.                                  | Manifest, ledger, schedules, active registry, and selectable Phase 6 rows exist. Sprint 1 starts from intentional failing `U-6-01..U-6-06` behavior stubs.       |
 | [ ]  | 1. Patch conflict contract and explicit resolver domain               | [ ] pending | Phase 3 covers server-side Timeline rebase/conflict transport, but Phase 6 still needs generalized resolver semantics and browser-facing conflict state.                          | Start with backend/domain rows for `U-6-01..U-6-06`; reuse Phase 3 store behavior where valid instead of duplicating owner claims.                             |
 | [ ]  | 2. Incident socket handshake, resume, replay, and presence hardening  | [ ] pending | Current socket implementation exists but needs Phase 6-owned contract coverage for reset, replay-only event filtering, canonical presence arrays, and revocation close semantics. | Cover `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, and `I-6-04`.                                                                                                    |
 | [ ]  | 3. Frontend collaboration client, save state, and local pending queue | [ ] pending | Workbook UI currently has surface flows, but Phase 6 needs a durable browser-runtime queue, save labels, conflict queue state, and reconnect/re-auth behavior.                    | Cover `U-6-05`, `U-6-06`, `U-6-09`, `E-6-03`, and `E-6-05`.                                                                                                    |
@@ -35,47 +35,67 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 
 Objective: Establish Phase 6 test ownership before feature work so TDD rows can be selected by repo tooling.
 
-Status: Not started. `tools/phase_registry.json` already contains Phase 6 as `planned`, but the authoritative manifest and coverage ledger are not present.
+Status: Complete for Sprint 0. `tools/phase_registry.json` now marks Phase 6 as `active`; `tools/phase6_test_map.json`, generated ledger, generated schedules, and selectable test rows exist.
 
 Relevant IDs: all `U-6-*`, `I-6-*`, `E-6-*`; `tools/phase6_test_map.json`; `docs/testing/phase6_coverage_ledger.md`.
 
 Files and areas:
-- Add `tools/phase6_test_map.json` with the authoritative rows from guide section 8.
-- Generate `docs/testing/phase6_coverage_ledger.md` via `make phase-ledgers` after the manifest is accepted.
-- Add or extend reusable WebSocket fixtures under `internal/testutil/incidentwstest` only when existing helpers cannot express Phase 6 semantics.
-- Add frontend unit coverage in `apps/web/src/WorkbookShell.phase6.test.tsx` or smaller Phase 6-specific files when the UI is split.
-- Add browser coverage in `apps/web/e2e/phase6.collaboration.spec.ts`.
+- Added `tools/phase6_test_map.json` with authoritative rows from guide section 8.
+- Generated `docs/testing/phase6_coverage_ledger.md` via `make phase-ledgers`.
+- Regenerated `tools/service_backed_schedule_manifest.json` and `tools/check_schedule_manifest.json` via `make phase-schedules`.
+- Added Phase 6 stubs/placeholders in `internal/modules/workbook/phase6_conflict_test.go`, `internal/modules/collaboration/phase6_socket_test.go`, `internal/modules/collaboration/phase6_integration_test.go`, `internal/modules/workbook/phase6_integration_test.go`, `internal/platform/ws/phase6_ws_test.go`, `apps/web/src/WorkbookShell.phase6.test.tsx`, and `apps/web/e2e/phase6.collaboration.spec.ts`.
+- Did not extend reusable WebSocket fixtures under `internal/testutil/incidentwstest`; resume/replay helper work remains deferred to Sprint 2.
 
-Test-first sequence:
-1. Add manifest rows with expected symbols for every `U-6-01..U-6-09`, `I-6-01..I-6-04`, and `E-6-01..E-6-05` row.
-2. Add failing backend stubs for the first sprint rows before implementing behavior.
-3. Use explicit placeholder/no-op rows only for later frontend or browser work that is intentionally out of the current sprint, and replace them before Phase 6 exit.
-4. Run manifest/name validation before implementing feature behavior.
+Completed test-first sequence:
+1. Manifest rows now cover every `U-6-01..U-6-09`, `I-6-01..I-6-04`, and `E-6-01..E-6-05` row.
+2. Intentional failing behavior stubs now exist for `U-6-01..U-6-06`.
+3. Later-sprint rows are selectable no-op placeholders and must be replaced before Phase 6 exit.
+4. Manifest/name validation passes before any Phase 6 feature behavior implementation.
 
-Implementation tasks:
-- Add Phase 6 manifest metadata and ledger notes clarifying the Phase 3 shared AC boundary.
-- Keep existing Phase 1 and Phase 3 socket tests as support evidence only; do not let them claim Phase 6 IDs unless the test symbol and manifest row are renamed/rewritten for Phase 6.
-- Add `forbidden_id_files` for known support-only files such as older Phase 1/Phase 3 socket tests.
-- Set `phase6` to active only when the manifest and first authoritative rows are ready.
+Completed implementation tasks:
+- Added Phase 6 manifest metadata and ledger notes clarifying the Phase 3 shared AC boundary.
+- Kept existing Phase 1 and Phase 3 socket/conflict/autosave tests as support evidence only.
+- Added `forbidden_id_files` for known support-only carryover files.
+- Set `phase6` active after manifest rows and referenced test symbols/titles existed.
 
 Validation commands:
+- `make phase-map-check`
 - `make explain-phase PHASE=phase6`
 - `make phase-ledgers`
 - `make phase-ledger-drift`
+- `make phase-schedules`
+- `make phase-schedule-drift`
+- `make backend-unit CARTULARY_MANIFEST_PHASE=phase6 CARTULARY_MANIFEST_SECTION=unit CARTULARY_MANIFEST_COVERAGE=authoritative CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_unit`
+- `make frontend-unit CARTULARY_MANIFEST_PHASE=phase6 CARTULARY_MANIFEST_COVERAGE=authoritative CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit`
+- `make phase-slice PHASE=phase6`
 - `git diff --check`
+
+Validation results:
+- `make phase-map-check` passed.
+- `make explain-phase PHASE=phase6` passed and reports 18 authoritative rows across `backend_unit`, `backend_store`, `backend_integration`, `frontend_unit`, and `browser_functional`.
+- `make phase-ledger-drift` passed after ledger generation.
+- `make phase-schedule-drift` passed after schedule generation.
+- Direct Phase 6 `backend_unit` selection reaches the intentional `U-6-03` behavior stub failure.
+- Direct Phase 6 `frontend_unit` selection reaches the intentional `U-6-05` and `U-6-06` behavior stub failures.
+- `make phase-slice PHASE=phase6` is currently environment-blocked before row execution because Docker is unavailable in this WSL distro and service image warm-up cannot pull Postgres/MinIO images.
+- `git diff --check` passed.
 
 Deliverables:
 - `tools/phase6_test_map.json` exists and is selectable.
 - `docs/testing/phase6_coverage_ledger.md` exists and names every Phase 6 row.
-- The first Sprint 1 tests fail for behavior, not because of missing harness plumbing.
+- Generated schedule manifests include active Phase 6 service-backed and browser-functional rows.
+- The first Sprint 1 tests fail for behavior, not because of missing harness plumbing, on direct non-service selections.
 
 Risks and assumptions:
 - Existing Phase 3 and Phase 1 socket tests already cover parts of the route shape. Phase 6 rows must state whether they are upgrading that evidence or adding new owner coverage.
-- If helper schedules need service-backed browser rows, keep schedule updates separate from codegen or migration drift.
+- Later placeholder rows are intentionally selectable no-ops only during Phase 6 buildout and must be replaced before Phase 6 exit.
+- Full phase-slice validation requires Docker-backed Postgres/MinIO service image warm-up in the local environment.
 
 Exit criteria:
-- `make explain-phase PHASE=phase6` reports the manifest, ledger path, execution dependencies, service requirements, and target coverage.
-- `make phase-ledger-drift` passes after ledger generation.
+- `make explain-phase PHASE=phase6` reports the manifest, ledger path, execution dependencies, service requirements, and target coverage. Done.
+- `make phase-ledger-drift` passes after ledger generation. Done.
+- `make phase-schedule-drift` passes after schedule generation. Done.
+- `make phase-slice PHASE=phase6` reaches only intentional Phase 6 behavior stub failures once Docker is available. Pending environment validation.
 
 ## Sprint 1. Patch Conflict Contract and Explicit Resolver Domain
 

@@ -1,0 +1,302 @@
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase6",
+  "note": "Phase 6 authoritative execution manifest for collaboration, presence, same-field conflict resolution, same-surface resolver behavior, and local pending queue semantics.",
+  "ledger": {
+    "title": "Phase 6 Coverage Ledger",
+    "notes": [
+      "Sprint 0 activates the Phase 6 ownership map before feature work. Initial later-sprint rows are selectable placeholders until their owning behavior is implemented.",
+      "Phase 3 remains owner for server-side field-level patch rebase, same-field conflict transport, and collection conflict values. Phase 6 owns resolver, concurrent-client, and local pending-queue behavior."
+    ],
+    "authoritative_execution": [
+      "`backend-unit` selects pure Phase 6 socket, conflict, and resolver-contract rows through the Phase 6 manifest and `backend_unit` execution dependency.",
+      "`backend-store` selects service-backed Phase 6 workbook mutation rows through manifest-owned store-domain selection.",
+      "`frontend-unit` selects Phase 6 workbook resolver, save-state, and pending-queue component rows through the Phase 6 manifest for `frontend_unit`.",
+      "`backend-integration` selects Phase 6 real-runtime WebSocket and concurrent-edit rows through the Phase 6 manifest and `backend_integration` execution dependency.",
+      "`browser-e2e-webserver-backed` carries authoritative `E-6-*` rows through duration-balanced Playwright manifest-entry shards under `browser_functional`."
+    ],
+    "support_execution_extras": [
+      "Existing Phase 1 and Phase 3 socket, revocation, autosave, and same-field conflict tests remain carryover support evidence and must not claim Phase 6 IDs."
+    ],
+    "sections": {
+      "unit": "Unit",
+      "integration": "Integration",
+      "e2e": "Browser E2E"
+    },
+    "shared_harness": [
+      "| Harness | Phase 6 evidence |",
+      "| --- | --- |",
+      "| Incident WebSocket helpers | `internal/testutil/incidentwstest` already owns canonical incident WebSocket handshakes and revocation assertions. Sprint 0 does not extend it; resume and replay-specific helpers belong with the real Sprint 2 tests. |",
+      "| Workbook resolver helpers | `apps/web/src/WorkbookShell.phase6.test.tsx` holds Phase 6 resolver, save-state, and pending-queue component rows until the UI is split into smaller owner components. |",
+      "| Browser collaboration helpers | `apps/web/e2e/phase6.collaboration.spec.ts` holds Phase 6 multi-client browser rows for presence, resolver UX, live-cell anchoring, and pending-queue recovery. |"
+    ],
+    "support_only": [
+      "`internal/modules/auth/phase1_integration_test.go` keeps Phase 1 session revocation socket coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.",
+      "`internal/modules/timeline/phase3_integration_test.go` keeps Phase 3 canonical socket and same-field conflict transport coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.",
+      "`internal/modules/workbook/workbook_mutation_integration_test.go` keeps existing workbook mutation conflict coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.",
+      "`apps/web/src/WorkbookShell.phase3.autosave.test.tsx` keeps Phase 3 autosave and conflict UI coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows."
+    ]
+  },
+  "expected_ids": [
+    "U-6-01",
+    "U-6-02",
+    "U-6-03",
+    "U-6-04",
+    "U-6-05",
+    "U-6-06",
+    "U-6-07",
+    "U-6-08",
+    "U-6-09",
+    "I-6-01",
+    "I-6-02",
+    "I-6-03",
+    "I-6-04",
+    "E-6-01",
+    "E-6-02",
+    "E-6-03",
+    "E-6-04",
+    "E-6-05"
+  ],
+  "forbidden_id_files": [
+    "internal/modules/auth/phase1_integration_test.go",
+    "internal/modules/timeline/phase3_integration_test.go",
+    "internal/modules/workbook/workbook_mutation_integration_test.go",
+    "apps/web/src/WorkbookShell.phase3.autosave.test.tsx"
+  ],
+  "support_go_targets": [],
+  "unit": [
+    {
+      "id": "U-6-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase6_conflict_test.go",
+      "symbol": "TestPhase6_GridWriteConcurrency_U_6_01",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "Every grid write includes `record_id`, `base_row_version`, and changed fields only; different-field concurrent edits auto-rebase, while same-field concurrent edits reject with an explicit conflict payload.",
+      "out_of_scope": "Same-surface resolver UX and local pending-queue replay behavior remain separate Phase 6 rows.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase6 authoritative"
+    },
+    {
+      "id": "U-6-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase6_conflict_test.go",
+      "symbol": "TestPhase6_SameFieldConflictTransport_U_6_02",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "route_contract",
+      "claim": "Same-field conflict transport uses `409`, `error.code='same_field_conflict'`, and an `error.conflict` object with the required base and current values.",
+      "out_of_scope": "Phase 3 remains owner for existing Timeline conflict transport support evidence; Phase 6 owns generalized resolver-consumable coverage.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase6 authoritative"
+    },
+    {
+      "id": "U-6-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase6_conflict_test.go",
+      "symbol": "TestPhase6_TextCompareMerge_U_6_03",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "domain",
+      "claim": "`text_compare_merge` treats the field as plain text, normalizes line endings only for merge computation, and never silently auto-commits a clean merge suggestion.",
+      "out_of_scope": "Browser presentation of suggested merge choices remains resolver UI evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase6 authoritative"
+    },
+    {
+      "id": "U-6-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase6_conflict_test.go",
+      "symbol": "TestPhase6_CollectionReviewWireFamilies_U_6_04",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "route_contract",
+      "claim": "`collection_review` fields use `collection_value_v1` in read or conflict payloads and `collection_actions_v1` in explicit resolution writes.",
+      "out_of_scope": "Interactive resolver choice rendering remains frontend evidence.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase6 authoritative"
+    },
+    {
+      "id": "U-6-05",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase6.test.tsx",
+      "title": "Phase 6 U-6-05 keeps the grid visible, conflict unresolved, and focus bound to the same cell",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "The resolver keeps the grid visible, leaves conflict state unresolved until explicit action, and returns focus to the same cell after resolution or clear.",
+      "out_of_scope": "Backend same-field conflict payload construction remains backend evidence."
+    },
+    {
+      "id": "U-6-06",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase6.test.tsx",
+      "title": "Phase 6 U-6-06 applies explicit resolver outcomes to local conflict state and revisions",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "`keep_saved` clears the local conflict without creating a new revision, while `use_unsaved` and `merged_value` create a new attributed change set.",
+      "out_of_scope": "Low-level mutation persistence and audit attribution remain backend evidence."
+    },
+    {
+      "id": "U-6-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/collaboration",
+      "file": "internal/modules/collaboration/phase6_socket_test.go",
+      "symbol": "TestPhase6_IncidentSocketHandshakeResume_U_6_07",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "route_contract",
+      "claim": "The first application message on the incident socket is exactly one of `hello` or `resume`, and resume outside the replay window yields reset behavior rather than partial replay.",
+      "out_of_scope": "Presence snapshot and revocation close behavior are owned by `U-6-08` and integration rows.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase6 authoritative"
+    },
+    {
+      "id": "U-6-08",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/platform/ws",
+      "file": "internal/platform/ws/phase6_ws_test.go",
+      "symbol": "TestPhase6_PresenceHeartbeatRevocation_U_6_08",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "transport_domain",
+      "claim": "Presence payloads are incident-scoped and ephemeral; heartbeats do not extend idle expiry; `session_revoked` closes the socket with the route-owned reason code set.",
+      "out_of_scope": "Real browser-origin rejection and two-client resume behavior remain integration evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase6 authoritative"
+    },
+    {
+      "id": "U-6-09",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase6.test.tsx",
+      "title": "Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "Save-state labels use only `Syncing`, `Saved`, and `Conflict`; the local pending queue is FIFO, bounded, coalesces only contiguous same-record units, and halts on blocking failures without silent eviction or reload restore.",
+      "out_of_scope": "Browser-runtime re-authentication recovery remains `E-6-05` evidence."
+    }
+  ],
+  "integration": [
+    {
+      "id": "I-6-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/collaboration",
+      "file": "internal/modules/collaboration/phase6_integration_test.go",
+      "symbol": "TestPhase6_TwoClientsPresenceReplay_I_6_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Two real clients connect to the same incident socket, exchange presence snapshots and deltas, and observe deterministic replay ordering within the replay window.",
+      "out_of_scope": "Browser rendering of presence indicators remains `E-6-01` evidence.",
+      "execution_family": "backend-integration-collaboration",
+      "execution_label": "backend-integration phase6 collaboration"
+    },
+    {
+      "id": "I-6-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/collaboration",
+      "file": "internal/modules/collaboration/phase6_integration_test.go",
+      "symbol": "TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Resume with a valid replay token replays replayable messages only, while presence is rehydrated through the documented presence flow rather than replay.",
+      "out_of_scope": "Low-level replay filtering helper behavior remains unit evidence.",
+      "execution_family": "backend-integration-collaboration",
+      "execution_label": "backend-integration phase6 collaboration"
+    },
+    {
+      "id": "I-6-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase6_integration_test.go",
+      "symbol": "TestPhase6_ConcurrentEditsResolverPath_I_6_03",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Concurrent edits to different fields succeed without operator intervention, while concurrent edits to the same field produce the resolver path and preserve both saved and local drafts correctly.",
+      "out_of_scope": "Full browser resolver interaction remains `E-6-02` evidence.",
+      "execution_family": "backend-integration-workbook",
+      "execution_label": "backend-integration phase6 workbook"
+    },
+    {
+      "id": "I-6-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/collaboration",
+      "file": "internal/modules/collaboration/phase6_integration_test.go",
+      "symbol": "TestPhase6_CookieSocketRejectsUntrustedOrigin_I_6_04",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Cookie-authenticated browser socket upgrades reject untrusted `Origin` values before incident subscription is granted.",
+      "out_of_scope": "General host and origin policy helpers remain platform support evidence.",
+      "execution_family": "backend-integration-collaboration",
+      "execution_label": "backend-integration phase6 collaboration"
+    }
+  ],
+  "e2e": [
+    {
+      "id": "E-6-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+      "title": "E-6-01 shows two analysts each other's workbook presence within the expected interaction window",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "Two analysts on the same incident see each other's presence on the workbook surface within the expected interaction window.",
+      "out_of_scope": "Socket-level presence canonicalization remains backend evidence."
+    },
+    {
+      "id": "E-6-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+      "title": "E-6-02 auto-merges different-field concurrent edits and requires explicit same-field resolution",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "Concurrent edits to different fields on the same row auto-merge, while concurrent edits to the same field open the same-surface resolver and require explicit analyst resolution.",
+      "out_of_scope": "Resolver state unit behavior remains frontend-unit evidence."
+    },
+    {
+      "id": "E-6-03",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+      "title": "E-6-03 preserves unsaved local work after socket revocation and re-authentication",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "Logout, expiry, or concurrency-limit revocation emits `session_revoked`, closes the socket, and preserves unsaved local work for later explicit recovery after re-authentication.",
+      "out_of_scope": "Low-level session revocation socket delivery remains backend evidence."
+    },
+    {
+      "id": "E-6-04",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+      "title": "E-6-04 keeps live updates and conflict markers anchored to record_id and field_key",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "Live updates never retarget a pending local edit away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
+      "out_of_scope": "Low-level grid adapter identity helpers may receive separate frontend unit coverage."
+    },
+    {
+      "id": "E-6-05",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+      "title": "E-6-05 replays queued unsent writes after re-authentication without silent reload restore",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "Within one browser runtime, queued unsent writes survive transient disconnect or session revocation, replay in FIFO order after re-authentication, halt on the first blocking non-retryable failure, and are never silently restored after a full reload.",
+      "out_of_scope": "Queue size and coalescing unit semantics remain frontend-unit evidence."
+    }
+  ],
+  "visual": []
+}
