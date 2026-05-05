@@ -101,6 +101,7 @@ type AttachRecordChange struct {
 type EvidenceAccessRecord struct {
 	IncidentID             uuid.UUID
 	RecordID               uuid.UUID
+	RecordRowVersion       int64
 	ObjectBlobID           *uuid.UUID
 	BlobMetadataVisible    bool
 	StorageKey             *string
@@ -115,22 +116,25 @@ type EvidenceAccessRecord struct {
 }
 
 type HandleRecord struct {
-	Token        string
-	IncidentID   uuid.UUID
-	RecordID     uuid.UUID
-	ObjectBlobID uuid.UUID
-	StorageKey   string
-	SessionID    uuid.UUID
-	HandleKind   string
-	MediaClass   string
-	PreviewKind  *string
-	Disposition  string
-	Filename     string
-	ContentType  string
-	SizeBytes    int64
-	SHA256       *string
-	ExpiresAt    time.Time
-	ConsumedAt   *time.Time
+	Token                  string
+	IncidentID             uuid.UUID
+	RecordID               uuid.UUID
+	RecordRowVersion       int64
+	ObjectBlobID           uuid.UUID
+	StorageKey             string
+	SessionID              uuid.UUID
+	HandleKind             string
+	MediaClass             string
+	PreviewKind            *string
+	Disposition            string
+	Filename               string
+	ContentType            string
+	SizeBytes              int64
+	SHA256                 *string
+	EvidenceLifecycleState string
+	UploadState            string
+	ExpiresAt              time.Time
+	ConsumedAt             *time.Time
 }
 
 func NewStore(pool postgres.DB) *Store {
@@ -391,7 +395,7 @@ UPDATE evidence
 
 func (s *Store) LoadEvidenceAccess(ctx context.Context, recordID uuid.UUID) (EvidenceAccessRecord, error) {
 	row := s.pool.QueryRow(ctx, `
-SELECT e.incident_id, e.record_id, e.object_blob_id::text, b.object_blob_id IS NOT NULL, b.storage_key,
+SELECT e.incident_id, e.record_id, r.row_version, e.object_blob_id::text, b.object_blob_id IS NOT NULL, b.storage_key,
        e.lifecycle_state, COALESCE(b.upload_state, ''),
        COALESCE(b.filename_hint, e.title, ''),
        COALESCE(b.observed_content_type, b.content_type_hint, 'application/octet-stream'),
@@ -406,7 +410,7 @@ SELECT e.incident_id, e.record_id, e.object_blob_id::text, b.object_blob_id IS N
 	var objectBlobID sql.NullString
 	var storageKey sql.NullString
 	var sha256 sql.NullString
-	if err := row.Scan(&access.IncidentID, &access.RecordID, &objectBlobID, &access.BlobMetadataVisible, &storageKey,
+	if err := row.Scan(&access.IncidentID, &access.RecordID, &access.RecordRowVersion, &objectBlobID, &access.BlobMetadataVisible, &storageKey,
 		&access.EvidenceLifecycleState, &access.UploadState, &access.FilenameSource, &access.ContentType,
 		&access.SizeBytes, &sha256); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -461,29 +465,29 @@ func classifyEvidenceAccess(access EvidenceAccessRecord, boundObjectBlobID *uuid
 func (s *Store) InsertHandle(ctx context.Context, handle HandleRecord, issuedByUserID uuid.UUID) error {
 	_, err := s.pool.Exec(ctx, `
 INSERT INTO evidence_access_handles (
-    handle_token, incident_id, record_id, object_blob_id, issued_by_user_id, issuing_session_id,
+    handle_token, incident_id, record_id, record_row_version, object_blob_id, issued_by_user_id, issuing_session_id,
     handle_kind, media_class, preview_kind, disposition, filename, content_type,
     size_bytes, sha256, evidence_lifecycle_state, upload_state, expires_at, created_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'available', 'available', $15, $16)
-`, handle.Token, handle.IncidentID, handle.RecordID, handle.ObjectBlobID, issuedByUserID, handle.SessionID,
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+`, handle.Token, handle.IncidentID, handle.RecordID, handle.RecordRowVersion, handle.ObjectBlobID, issuedByUserID, handle.SessionID,
 		handle.HandleKind, handle.MediaClass, handle.PreviewKind, handle.Disposition, handle.Filename,
-		handle.ContentType, handle.SizeBytes, handle.SHA256, handle.ExpiresAt.UTC(), time.Now().UTC())
+		handle.ContentType, handle.SizeBytes, handle.SHA256, handle.EvidenceLifecycleState, handle.UploadState, handle.ExpiresAt.UTC(), time.Now().UTC())
 	return err
 }
 
 func (s *Store) LoadHandle(ctx context.Context, token string) (HandleRecord, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT h.handle_token, h.incident_id, h.record_id, h.object_blob_id, b.storage_key,
-       h.issuing_session_id, h.handle_kind, h.media_class, h.preview_kind, h.disposition,
-       h.filename, h.content_type, h.size_bytes, h.sha256, h.expires_at, h.consumed_at
+       h.record_row_version, h.issuing_session_id, h.handle_kind, h.media_class, h.preview_kind, h.disposition,
+       h.filename, h.content_type, h.size_bytes, h.sha256, h.evidence_lifecycle_state, h.upload_state, h.expires_at, h.consumed_at
   FROM evidence_access_handles h
   JOIN object_blobs b ON b.object_blob_id = h.object_blob_id
  WHERE h.handle_token = $1
 `, token)
 	var handle HandleRecord
 	if err := row.Scan(&handle.Token, &handle.IncidentID, &handle.RecordID, &handle.ObjectBlobID, &handle.StorageKey,
-		&handle.SessionID, &handle.HandleKind, &handle.MediaClass, &handle.PreviewKind, &handle.Disposition,
-		&handle.Filename, &handle.ContentType, &handle.SizeBytes, &handle.SHA256, &handle.ExpiresAt, &handle.ConsumedAt); err != nil {
+		&handle.RecordRowVersion, &handle.SessionID, &handle.HandleKind, &handle.MediaClass, &handle.PreviewKind, &handle.Disposition,
+		&handle.Filename, &handle.ContentType, &handle.SizeBytes, &handle.SHA256, &handle.EvidenceLifecycleState, &handle.UploadState, &handle.ExpiresAt, &handle.ConsumedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return HandleRecord{}, ErrBlobNotFound
 		}
@@ -519,10 +523,39 @@ func (s *Store) CheckHandleAccess(ctx context.Context, handle HandleRecord) (str
 	if access.IncidentID != handle.IncidentID {
 		return "evidence_inconsistent", nil
 	}
+	if access.RecordRowVersion != handle.RecordRowVersion {
+		return "evidence_inconsistent", nil
+	}
 	if reasonCode := classifyEvidenceAccess(access, &handle.ObjectBlobID); reasonCode != "" {
 		return reasonCode, nil
 	}
-	return "", nil
+	if access.ContentType != handle.ContentType ||
+		access.SizeBytes != handle.SizeBytes ||
+		access.MediaClass != handle.MediaClass ||
+		access.EvidenceLifecycleState != handle.EvidenceLifecycleState ||
+		access.UploadState != handle.UploadState ||
+		sanitizeFilename(access.FilenameSource, access.RecordID, access.ContentType) != handle.Filename {
+		return "evidence_inconsistent", nil
+	}
+	if !nullableStringEqual(access.SHA256, handle.SHA256) {
+		return "evidence_inconsistent", nil
+	}
+	if handle.HandleKind == "preview" {
+		if access.PreviewKind == nil || handle.PreviewKind == nil || *access.PreviewKind != *handle.PreviewKind || handle.Disposition != "inline" {
+			return "evidence_inconsistent", nil
+		}
+		return "", nil
+	}
+	if handle.HandleKind == "download" {
+		if access.PreviewKind != nil && handle.PreviewKind != nil {
+			return "evidence_inconsistent", nil
+		}
+		if handle.PreviewKind != nil || handle.Disposition != "attachment" {
+			return "evidence_inconsistent", nil
+		}
+		return "", nil
+	}
+	return "evidence_inconsistent", nil
 }
 
 type evidenceMeta struct {

@@ -169,6 +169,46 @@
       "summary": "The requested target user exists but is inactive and cannot receive an incident membership."
     },
     {
+      "code": "invalid_blob_create_request",
+      "http_status": 400,
+      "summary": "The object blob create request body failed route-owned validation."
+    },
+    {
+      "code": "blob_create_rejected",
+      "http_status": 413,
+      "summary": "The object blob create request was rejected before durable slot creation."
+    },
+    {
+      "code": "evidence_record_not_found",
+      "http_status": 404,
+      "summary": "The requested evidence record is not visible to the current authenticated user."
+    },
+    {
+      "code": "invalid_evidence_handle_request",
+      "http_status": 400,
+      "summary": "The evidence preview-handle or download-handle issuance request body failed route-owned validation."
+    },
+    {
+      "code": "evidence_access_unavailable",
+      "http_status": 409,
+      "summary": "Preview or download cannot currently proceed because the visible evidence or linked blob is unavailable, not previewable, or inconsistent."
+    },
+    {
+      "code": "handle_not_found_or_revoked",
+      "http_status": 404,
+      "summary": "The opaque evidence handle token is unknown, revoked, or no longer available for redeem."
+    },
+    {
+      "code": "handle_expired",
+      "http_status": 410,
+      "summary": "The evidence handle token is no longer redeemable because its expiry time has passed."
+    },
+    {
+      "code": "handle_consumed",
+      "http_status": 410,
+      "summary": "The single-use evidence download handle was already consumed by a prior successful redeem."
+    },
+    {
       "code": "extension_profile_not_claimed",
       "http_status": 404,
       "summary": "The requested reserved extension-family route belongs to an unclaimed deployment extension profile."

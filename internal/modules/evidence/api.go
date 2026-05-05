@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -396,6 +398,10 @@ func evidenceAccessUnavailable(reasonCode string) *auth.APIError {
 	return &auth.APIError{Status: http.StatusConflict, Code: "evidence_access_unavailable", Details: map[string]any{"reason_code": reasonCode}}
 }
 
+func handleNotFoundOrRevoked() *auth.APIError {
+	return &auth.APIError{Status: http.StatusNotFound, Code: "handle_not_found_or_revoked", Details: map[string]any{}}
+}
+
 func randomToken(prefix string) (string, error) {
 	var bytes [20]byte
 	if _, err := rand.Read(bytes[:]); err != nil {
@@ -431,6 +437,37 @@ func sanitizeFilename(input string, recordID uuid.UUID, contentType string) stri
 		name = "evidence-" + recordID.String() + extensionForContentType(contentType)
 	}
 	return name
+}
+
+func formatContentDisposition(disposition string, filename string) string {
+	ascii := asciiHeaderFilename(filename)
+	if ascii == "" {
+		ascii = "download"
+	}
+	formatted := mime.FormatMediaType(disposition, map[string]string{"filename": ascii})
+	return formatted + "; filename*=UTF-8''" + url.PathEscape(filename)
+}
+
+func asciiHeaderFilename(filename string) string {
+	var builder strings.Builder
+	for _, r := range filename {
+		switch {
+		case r >= 0x20 && r <= 0x7e && r != '"' && r != '\\' && r != ';':
+			builder.WriteRune(r)
+		case r == ' ':
+			builder.WriteByte(' ')
+		default:
+			builder.WriteByte('_')
+		}
+	}
+	return strings.TrimSpace(builder.String())
+}
+
+func nullableStringEqual(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func extensionForContentType(contentType string) string {

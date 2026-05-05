@@ -13,9 +13,9 @@ This planning artifact does not implement Phase 5 behavior. It is intentionally 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
 | [x] | 0. Phase 5 ownership manifest and harness setup | [x] validated | None for Sprint 0. | Phase 5 is active and selectable; the initial Sprint 1 stubs have been replaced with real assertions. |
-| [x] | 1. Blob create and upload-slot contract | [x] validated | Phase aggregate targets still fail on later Sprint 3+ placeholders. | Blob-create contract, idempotency, size ceiling, and expired-slot replay are implemented. Preview-size behavior remains Sprint 3. |
-| [x] | 2. Attach finalization, lifecycle bridge, and no-blob evidence | [x] validated | Phase aggregate targets still fail on later Sprint 3/4 placeholders: `U-5-05`, `U-5-06`, `U-5-07`, `I-5-03`, and `I-5-04`. | Attach finalization, no-blob evidence, lifecycle bridge guards, workbook evidence-count projections, `U-5-08`, `I-5-01`, and browser `E-5-04` are implemented. |
-| [ ] | 3. Handle issuance and redeem hardening | [ ] pending |  |  |
+| [x] | 1. Blob create and upload-slot contract | [x] validated | Phase aggregate targets still fail on later Sprint 4+ placeholders. | Blob-create contract, idempotency, size ceiling, expired-slot replay, and Sprint 3 preview-size behavior are implemented. |
+| [x] | 2. Attach finalization, lifecycle bridge, and no-blob evidence | [x] validated | Phase aggregate targets still fail on later Sprint 4 placeholder `I-5-04`. | Attach finalization, no-blob evidence, lifecycle bridge guards, workbook evidence-count projections, `U-5-08`, `I-5-01`, and browser `E-5-04` are implemented. |
+| [x] | 3. Handle issuance and redeem hardening | [x] validated | Phase aggregate targets still fail on later Sprint 4 placeholder `I-5-04`. | Backend/API handle issuance and redeem hardening are implemented for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`; browser `E-5-03` remains Sprint 5. |
 | [ ] | 4. Object-storage boundary and cleanup/quarantine behavior | [ ] pending |  |  |
 | [ ] | 5. Workbook UI and browser evidence flows | [ ] pending |  |  |
 | [ ] | 6. Phase gate, ledgers, baselines, and handoff cleanup | [ ] pending |  |  |
@@ -63,7 +63,7 @@ Validation commands:
 - Passed: `make phase-test-name-check`
 - Passed: `tmp/node-runtime/bin/node scripts/test-task-guidance.mjs`
 - Completed follow-up: Sprint 1 replaced the initial failing symbols with real assertions for `U-5-01`, `U-5-02`, blob-create `U-5-09`, and `I-5-02`.
-- Current expected failure: `make phase-slice PHASE=phase5` selects Phase 5 rows and now fails only on later Sprint 3+ placeholders.
+- Current expected failure: `make phase-slice PHASE=phase5` selects Phase 5 rows and now fails only on later Sprint 4/5 placeholders.
 - Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'`
 
 Deliverables:
@@ -128,10 +128,9 @@ Implementation tasks:
 Validation commands:
 - Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_01|U_5_02|U_5_09|I_5_02)'`
 - Sprint 1 rows passed inside `make phase-slice PHASE=phase5`: `U-5-01`, `U-5-02`, `U-5-09`, and `I-5-02`.
-- Expected failure: `make backend-unit` still fails on later Sprint 3 placeholders `U-5-05` and `U-5-07`.
-- Expected failure: `make backend-store` still fails on later Sprint 3 placeholder `U-5-06`.
-- Expected failure: `make backend-integration` still fails on later Sprint 3/4 placeholders `I-5-03` and `I-5-04`.
-- Expected failure: `make phase-slice PHASE=phase5` still fails only because the later placeholder rows above are intentionally skipped.
+- Current status: Sprint 3 has since delivered preview-size handle behavior and the backend handle placeholders.
+- Expected failure: `make backend-integration` still fails on later Sprint 4 placeholder `I-5-04`.
+- Expected failure: `make phase-slice PHASE=phase5` still fails because later Sprint 4/5 placeholder rows remain intentionally skipped.
 
 Deliverables:
 - Delivered: passing `U-5-01`, `U-5-02`, blob-create `U-5-09`, and `I-5-02`.
@@ -214,9 +213,9 @@ Validation commands:
 - Passed: `make frontend-unit`
 - Passed: `make frontend-typecheck`
 - Passed: `make browser-e2e-webserver-backed`
-- Expected failure: `make backend-store` still fails because later Sprint 3 row `U-5-06` is skipped.
-- Expected failure: `make backend-integration` still fails because later Sprint 3/4 rows `I-5-03` and `I-5-04` are skipped.
-- Expected failure: `make service-backed-slice PHASE=phase5` now passes the Sprint 2 browser/backend rows and fails only because of `U-5-06`, `I-5-03`, and `I-5-04`.
+- Current status: Sprint 3 has since delivered `U-5-06` and `I-5-03`.
+- Expected failure: `make backend-integration` still fails because later Sprint 4 row `I-5-04` is skipped.
+- Expected failure: `make service-backed-slice PHASE=phase5` now passes Sprint 3 `backend-store` work and fails only because `I-5-04` remains a Sprint 4 placeholder.
 
 Deliverables:
 - Delivered: passing attach validation/finalization coverage for `U-5-03`.
@@ -241,8 +240,11 @@ Exit criteria:
 
 Objective: Complete safe preview/download issuance and redemption with current authorization, session binding, state invalidation, expiry, single-use download, filename sanitation, range behavior, and preview-size limits.
 
+Status: Complete for backend/API scope. Same-origin preview/download routes are ready for the later browser `E-5-03` work, but workbook/browser preview UI remains Sprint 5.
+
 Relevant IDs:
-- `U-5-05`, `U-5-06`, `U-5-07`, `U-5-09`, `I-5-03`, `E-5-03`
+- `U-5-05`, `U-5-06`, `U-5-07`, preview-size coverage in `U-5-09`, `I-5-03`
+- Related later browser row: `E-5-03`
 - `REQ-01-458..REQ-01-465`, `REQ-04-023`, `REQ-04-053`
 - `AC-251`, `AC-252..AC-255`, `AC-321`, `AC-322`
 
@@ -254,9 +256,11 @@ Grep references:
 - `Store.LoadHandle`
 - `Store.CheckHandleAccess`
 - `Store.ConsumeDownloadHandle`
+- `record_row_version`
 - `Service.handleIssueHandle`
 - `Service.handleRedeemHandle`
 - `sanitizeFilename`
+- `formatContentDisposition`
 - `classifyMedia`
 - `evidence_access_unavailable`
 - `unsupported_preview`
@@ -270,38 +274,53 @@ Files and areas:
 - `internal/modules/evidence/routes.go`
 - `internal/modules/evidence/store.go`
 - `contracts/errors/index.json`
-- `contracts/openapi/cartulary.openapi.yaml`
+- `db/migrations/00010_phase5_evidence_handle_hardening.sql`
+- `internal/modules/evidence/phase5_handles_test.go`
+- `internal/modules/evidence/phase5_integration_test.go`
+- `internal/modules/evidence/phase5_filename_internal_test.go`
+- `contracts/openapi/cartulary.openapi.yaml` unchanged; no missing response/schema declaration was found.
 
 Test-first sequence:
-1. Add `U-5-05` request-shape and non-idempotency tests: `{}` only; `client_txn_id` rejected; repeated issuance creates fresh `href`.
-2. Add `U-5-06` for unsupported preview, pending/failed/missing/quarantined/inconsistent states, and no silent fallback to download.
-3. Add `U-5-07` for `Content-Disposition` and filename fallback: sanitize `/`, `\`, NUL, CR, LF; fallback `evidence-<record_id><canonical_extension_if_known>`.
-4. Add `U-5-09` preview ceiling test with `limits.previews.max_previewable_payload_bytes` and `limits.previews.max_text_inline_bytes`; download remains legal.
-5. Add `I-5-03`: redeem fails after logout/session revoke, membership removal, blob replacement/detach, evidence delete, quarantine, or failed/pending transition.
+1. Completed: `U-5-05` proves handle issuance accepts only `{}`, rejects empty body, `null`, arrays, `client_txn_id`, and unknown members as `400 invalid_evidence_handle_request`, and repeated preview/download issuance creates distinct `href` values and handle rows.
+2. Completed: `U-5-06` proves unsupported preview does not make the evidence undischargeable for download, and pending, failed, quarantined, inconsistent, and row-version-drift states fail closed without fallback.
+3. Completed: `U-5-07` proves `Content-Disposition` and filename fallback sanitize `/`, `\`, NUL, CR, and LF; path-like names fall back to `evidence-<record_id><canonical_extension_if_known>`; previews use `inline` and downloads use `attachment`.
+4. Completed: `U-5-09` proves preview at the configured payload ceiling succeeds, oversized preview returns `preview_payload_too_large`, and download remains legal.
+5. Completed: `I-5-03` proves redeem fails after logout/session revoke, membership removal, wrong issuing session, blob replacement/detach, evidence delete/restore, quarantine, failed/pending transition, object-byte loss, and metadata mismatch.
 
 Implementation tasks:
-- Ensure standard auth/session failures happen before handle lookup.
-- Bind handle to issuing session, incident, `record_id`, `object_blob_id`, handle kind, filename, disposition, and preview kind.
-- Keep preview handles reusable until 5-minute expiry; keep download handles single-use after first byte delivery or validated redirect.
-- Return `Content-Disposition: inline` for preview and `attachment` for download.
-- Add `filename*=` if practical through existing header helper; at minimum do not expose raw storage keys or caller-provided overrides.
+- Completed: standard auth/session failures happen before handle lookup and continue to return ordinary `401 session_required`.
+- Completed: handle redeem checks the issuing session and current incident membership; wrong session and membership loss return `404 handle_not_found_or_revoked`.
+- Completed: issued handles bind to issuing session, incident, `record_id`, `record_row_version`, `object_blob_id`, media class, preview kind, filename, disposition, content type, size, SHA, evidence lifecycle state, and blob upload state.
+- Completed: `db/migrations/00010_phase5_evidence_handle_hardening.sql` adds `evidence_access_handles.record_row_version bigint NOT NULL` and backfills existing handle rows from `records.row_version`.
+- Completed: redeem compares current incident, row version, object blob, lifecycle/upload states, storage availability, sanitized filename, disposition, content type/media class, preview kind, size, and SHA against the issued handle.
+- Completed: preview handles remain reusable until 5-minute expiry, including byte-range reads.
+- Completed: download handles expire after 2 minutes and are consumed by the first successful `200` or `206` delivery path; no-byte failures do not consume.
+- Completed: `Content-Disposition` emits `inline` for previews and `attachment` for downloads.
+- Completed: filename header output is sanitized and includes both ASCII-safe `filename=` and UTF-8 `filename*=` where possible.
+- Completed: `contracts/errors/index.json` includes Phase 5 evidence handle/blob error tokens already owned by Core 01; generated protocol files were not hand-edited.
 
 Validation commands:
-- `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_05|U_5_06|U_5_07|U_5_09|I_5_03)'`
-- `make backend-integration`
-- `make go-gosec-targeted`
+- Passed: `go test ./internal/modules/evidence -run 'TestPhase5_.*(U_5_05|U_5_06|U_5_07|U_5_09|I_5_03)' -count=1`
+- Passed: `make go-gosec-targeted`
+- Passed: `make migration-drift`
+- Partial expected failure: `make backend-integration` still fails only because later Sprint 4 placeholder `TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04` is skipped.
+- Partial expected failure: `make service-backed-slice PHASE=phase5` now passes `backend-store`, including `U-5-06`, and fails only at the `backend-integration` finalizer because `I-5-04` remains a Sprint 4 placeholder.
 
 Deliverables:
-- Passing handle and redemption tests.
-- Handles never expose bucket names, object keys, or long-lived object-store credentials.
+- Delivered: passing handle and redemption tests for `U-5-05`, `U-5-06`, `U-5-07`, preview-size `U-5-09`, and `I-5-03`.
+- Delivered: handle rows store `record_row_version` and current-state binding snapshots.
+- Delivered: handles never expose bucket names, object keys, or long-lived object-store credentials.
+- Delivered: same-origin preview/download routes are hardened and ready for browser `E-5-03`.
 
 Risks and assumptions:
-- Existing `mime.FormatMediaType` may not emit both `filename=` and `filename*=`; if adding dual-parameter support is invasive, document the residual gap and keep sanitation/fallback exact.
-- Browser range requests must not consume preview handles and must consume download handles only after successful delivery starts.
+- Resolved: custom helper emits both `filename=` and `filename*=` while preserving deterministic sanitation/fallback behavior.
+- Resolved for backend/API: byte-range preview reads do not consume preview handles, and successful byte-range download reads consume download handles.
+- Retained follow-up: browser `E-5-03` remains Sprint 5; Sprint 3 only made the same-origin routes ready for it.
 
 Exit criteria:
-- All redemption invalidation cases fail closed with registered errors.
-- Oversized preview fails with `preview_payload_too_large`; download still succeeds.
+- Met: all Sprint 3 redemption invalidation cases fail closed with registered errors.
+- Met: oversized preview fails with `preview_payload_too_large`; download still succeeds.
+- Met: Sprint 3 service-backed store coverage passes; remaining Phase 5 aggregate failure is the later Sprint 4 `I-5-04` placeholder.
 
 ## Sprint 4. Object-Storage Boundary and Cleanup/Quarantine Behavior
 
@@ -479,6 +498,6 @@ Exit criteria:
 
 - Scanner adjunct: The guide says `I-5-04` applies if deployed. Default to no scanner adjunct unless existing code/config proves one exists; still test quarantine and fail-closed access.
 - Custody events: Core 02 requires append-only custody history where custody narrative/handoff commentary is preserved. Do not invent a broad custody subsystem unless a failing Phase 5 test proves existing structured fields are insufficient.
-- Filename header: Core 01 says the header should include both ASCII `filename=` and Unicode `filename*=`. Treat sanitation and deterministic fallback as required; implement dual parameter if feasible without custom brittle header code.
+- Filename header: Resolved in Sprint 3. The evidence delivery path sanitizes filename output and emits both ASCII `filename=` and Unicode `filename*=` where possible.
 - Screenshot-only Timeline create: Keep scope to the two-step evidence path required by `E-5-02`; do not build broad import, file management, or report attachment features.
 - Discoverability update: Root-level `PHASE5_IMPLEMENTATION_PLAN.md` is sufficient. Do not touch `README.md` or normative docs for discoverability unless explicitly requested.

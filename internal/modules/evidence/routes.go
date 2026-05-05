@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"net/url"
 	"slices"
@@ -287,9 +286,11 @@ func (s *Service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 	filename := sanitizeFilename(access.FilenameSource, recordID, access.ContentType)
 	handle := HandleRecord{
 		Token: token, IncidentID: access.IncidentID, RecordID: access.RecordID, ObjectBlobID: *access.ObjectBlobID,
-		StorageKey: *access.StorageKey, SessionID: principal.Session.ID, HandleKind: kind,
+		RecordRowVersion: access.RecordRowVersion,
+		StorageKey:       *access.StorageKey, SessionID: principal.Session.ID, HandleKind: kind,
 		MediaClass: access.MediaClass, PreviewKind: access.PreviewKind, Disposition: disposition,
 		Filename: filename, ContentType: access.ContentType, SizeBytes: access.SizeBytes, SHA256: access.SHA256,
+		EvidenceLifecycleState: access.EvidenceLifecycleState, UploadState: access.UploadState,
 		ExpiresAt: expiresAt,
 	}
 	if kind == "download" {
@@ -344,11 +345,11 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if handle.SessionID != principal.Session.ID {
-		writeAPIError(w, r, evidenceAccessUnavailable("authorization_lost"))
+		writeAPIError(w, r, handleNotFoundOrRevoked())
 		return
 	}
 	if _, apiErr := s.requireIncidentMembership(r.Context(), handle.IncidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, evidenceAccessUnavailable("authorization_lost"))
+		writeAPIError(w, r, handleNotFoundOrRevoked())
 		return
 	}
 	if reasonCode, err := s.store.CheckHandleAccess(r.Context(), handle); err != nil {
@@ -382,7 +383,7 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", handle.ContentType)
-	w.Header().Set("Content-Disposition", mime.FormatMediaType(handle.Disposition, map[string]string{"filename": handle.Filename}))
+	w.Header().Set("Content-Disposition", formatContentDisposition(handle.Disposition, handle.Filename))
 	if contentRange != "" {
 		w.Header().Set("Content-Range", contentRange)
 	}

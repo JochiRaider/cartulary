@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
@@ -142,7 +143,114 @@ func TestPhase5_ExpiredSlotReplay_I_5_02(t *testing.T) {
 }
 
 func TestPhase5_HandleRedeemInvalidatesOnCurrentStateLoss_I_5_03(t *testing.T) {
-	t.Skip("Phase 5 I-5-03 pending Sprint 3 current-state handle redemption invalidation implementation")
+	harness := phase4test.StartServer(t, "phase5-handle-redeem-invalidates")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase5-i-03-incident",
+		"incident_key":  "phase5-i-03",
+		"title":         "Phase 5 handle invalidation",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	activeLogin := login
+	activeAdminID := adminID
+	activeIncidentID := incidentID
+
+	t.Run("membership loss and wrong session hide the handle", func(t *testing.T) {
+		recordID := uuid.New()
+		seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
+		attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("membership body"), "membership.txt", "text/plain", "txn-phase5-i-03-membership-blob", "txn-phase5-i-03-membership-attach")
+		handle := issueEvidenceHandle(t, harness, activeLogin, recordID, "preview-handle")
+		if _, err := harness.DB.ExecContext(context.Background(), `
+DELETE FROM incident_memberships
+ WHERE incident_id = $1
+   AND user_id = $2
+`, activeIncidentID, activeAdminID); err != nil {
+			t.Fatalf("remove incident membership: %v", err)
+		}
+		httptestx.RequireErrorEnvelope(t,
+			phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(activeLogin.SessionCookie)),
+			http.StatusNotFound,
+			"handle_not_found_or_revoked",
+		)
+
+		phase4test.SeedIncidentMembership(t, harness.DB, activeIncidentID, activeAdminID, "Bootstrap Admin", "admin", activeAdminID)
+		otherUser := phase4test.SeedLocalUserFlags(t, harness.DB, "phase5-i-03-other@example.test", "Phase5 Other", "Phase5Other1!", false, false, true)
+		phase4test.SeedIncidentMembership(t, harness.DB, activeIncidentID, otherUser.ID, "Phase5 Other", "admin", activeAdminID)
+		otherLogin := loginLocalUserNoMFA(t, harness, "phase5-i-03-other@example.test", "Phase5Other1!")
+		httptestx.RequireErrorEnvelope(t,
+			phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(otherLogin.SessionCookie)),
+			http.StatusNotFound,
+			"handle_not_found_or_revoked",
+		)
+	})
+
+	scenarios := []struct {
+		name       string
+		reasonCode string
+		mutate     func(recordID uuid.UUID, objectBlobID uuid.UUID)
+	}{
+		{name: "blob detach", reasonCode: "no_visible_blob", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			updateEvidenceBlobLink(t, harness, recordID, nil)
+		}},
+		{name: "blob replacement", reasonCode: "evidence_inconsistent", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			replacementID := linkSeededBlob(t, harness, activeIncidentID, activeAdminID, recordID, "available", "available", "phase5/i-03/replacement-"+recordID.String())
+			updateEvidenceBlobLink(t, harness, recordID, &replacementID)
+		}},
+		{name: "evidence delete", reasonCode: "evidence_inconsistent", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			updateRecordDeletedState(t, harness, recordID, true)
+		}},
+		{name: "evidence restore", reasonCode: "evidence_inconsistent", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			updateRecordDeletedState(t, harness, recordID, true)
+			updateRecordDeletedState(t, harness, recordID, false)
+		}},
+		{name: "quarantine", reasonCode: "evidence_quarantined", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			updateBlobState(t, harness, objectBlobID, "quarantined")
+		}},
+		{name: "pending transition", reasonCode: "blob_pending", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			updateBlobState(t, harness, objectBlobID, "pending")
+		}},
+		{name: "failed transition", reasonCode: "blob_failed", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			updateBlobState(t, harness, objectBlobID, "failed")
+		}},
+		{name: "object missing", reasonCode: "blob_missing", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			updateBlobStorageKey(t, harness, objectBlobID, "phase5/i-03/missing-"+recordID.String())
+		}},
+		{name: "metadata mismatch", reasonCode: "evidence_inconsistent", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
+			updateBlobObservedMetadata(t, harness, objectBlobID, int64(999), "text/plain", "")
+		}},
+	}
+
+	for _, scenario := range scenarios {
+		for _, endpoint := range []string{"preview-handle", "download-handle"} {
+			t.Run(endpoint+" "+scenario.name, func(t *testing.T) {
+				recordID := uuid.New()
+				seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
+				attachData := attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("phase5 invalidation"), "invalidate.txt", "text/plain", "txn-"+recordID.String()+"-blob", "txn-"+recordID.String()+"-attach")
+				objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+				handle := issueEvidenceHandle(t, harness, activeLogin, recordID, endpoint)
+				scenario.mutate(recordID, objectBlobID)
+				requireEvidenceAccessUnavailableReason(t,
+					phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(activeLogin.SessionCookie)),
+					scenario.reasonCode,
+				)
+			})
+		}
+	}
+
+	t.Run("logout revokes issuing session before lookup", func(t *testing.T) {
+		recordID := uuid.New()
+		seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
+		attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("logout body"), "logout.txt", "text/plain", "txn-phase5-i-03-logout-blob", "txn-phase5-i-03-logout-attach")
+		handle := issueEvidenceHandle(t, harness, activeLogin, recordID, "preview-handle")
+		logout := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/logout", map[string]any{}, authOptions(activeLogin)...)
+		httptestx.RequireSuccessEnvelope(t, logout, http.StatusOK)
+		httptestx.RequireErrorEnvelope(t,
+			phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(activeLogin.SessionCookie)),
+			http.StatusUnauthorized,
+			"session_required",
+		)
+	})
 }
 
 func TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04(t *testing.T) {
@@ -237,4 +345,45 @@ func countEvidenceBlobLinks(t testing.TB, harness *phase4test.ServerHarness, rec
 		t.Fatalf("count evidence blob links: %v", err)
 	}
 	return count
+}
+
+func loginLocalUserNoMFA(t testing.TB, harness *phase4test.ServerHarness, username string, password string) phase4test.LoginResult {
+	t.Helper()
+	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		"username": username,
+		"password": password,
+	})
+	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	var sessionCookie *http.Cookie
+	var csrfCookie *http.Cookie
+	for _, cookie := range resp.Cookies() {
+		if cookie.Name == authn.SessionCookieName {
+			sessionCookie = cookie
+		}
+		if cookie.Name == authn.CSRFCookieName {
+			csrfCookie = cookie
+		}
+	}
+	if sessionCookie == nil || csrfCookie == nil {
+		t.Fatalf("login did not set session and csrf cookies: %#v", resp.Cookies())
+	}
+	return phase4test.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
+}
+
+func updateRecordDeletedState(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID, deleted bool) {
+	t.Helper()
+	deletedAt := any(nil)
+	if deleted {
+		deletedAt = time.Now().UTC()
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE records
+   SET deleted_at = $2,
+       deleted_by_user_id = CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE created_by_user_id END,
+       row_version = row_version + 1,
+       updated_at = now()
+ WHERE record_id = $1
+`, recordID, deletedAt); err != nil {
+		t.Fatalf("update record deleted state: %v", err)
+	}
 }
