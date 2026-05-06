@@ -37,6 +37,10 @@ type PatchBehavior =
       waitForHit: Promise<PatchCall>;
     }
   | {
+      baseRowVersion: number;
+      type: "forceBaseVersion";
+    }
+  | {
       code: string;
       status: number;
       type: "error";
@@ -64,11 +68,7 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
     initial_password: "Phase6E601Remote!",
     role: "editor",
   });
-  const row = await createTimelineRow(
-    page,
-    incidentId,
-    "E-6-01 presence base",
-  );
+  const row = await createTimelineRow(page, incidentId, "E-6-01 presence base");
   const recordId = requireRecordId(row);
   const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
@@ -105,8 +105,125 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
   }
 });
 
-test("E-6-02 auto-merges different-field concurrent edits and requires explicit same-field resolution", async () => {
-  // Phase 6 placeholder: replace with concurrent edit and resolver UX assertions before Phase 6 exit.
+test("E-6-02 auto-merges different-field concurrent edits and requires explicit same-field resolution", async ({
+  browser,
+  page,
+  sessionTracker,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E602"),
+    "Phase 6 E-6-02 concurrent resolver UX",
+  );
+  const remote = await createIncidentMemberUser(page, incidentId, {
+    display_name: "Phase 6 E-6-02 Remote",
+    email: uniqueEmail("phase6-e602-remote"),
+    initial_password: "Phase6E602Remote!",
+    role: "editor",
+  });
+  const differentId = requireRecordId(
+    await createTimelineRow(page, incidentId, "E-6-02 different base"),
+  );
+  const keepId = requireRecordId(
+    await createTimelineRow(page, incidentId, "E-6-02 keep base"),
+  );
+  const useId = requireRecordId(
+    await createTimelineRow(page, incidentId, "E-6-02 use base"),
+  );
+  const mergedId = requireRecordId(
+    await createTimelineRow(page, incidentId, "E-6-02 merged base"),
+  );
+  const patchController = await installPatchController(page);
+
+  let remotePage: Page | null = null;
+  try {
+    const socketMonitor = installIncidentSocketMonitor(page, incidentId);
+    await page.goto(`/?incident_id=${incidentId}`);
+    await socketMonitor.waitForMessage("hello_ack");
+    await expect(page.getByTestId(`row-${differentId}-summary`)).toHaveValue(
+      "E-6-02 different base",
+    );
+
+    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+      createdBy: "E-6-02",
+      email: remote.email,
+      incidentId,
+      password: remote.initial_password,
+      purpose: "Phase 6 E-6-02 remote analyst",
+      userId: remote.user_id,
+    });
+    await expect(
+      remotePage.getByTestId(`row-${differentId}-summary`),
+    ).toHaveValue("E-6-02 different base");
+
+    await patchTimelineField(
+      page,
+      differentId,
+      1,
+      "timeline.summary",
+      "E-6-02 different primary",
+      "e602-different-primary-summary",
+    );
+    await patchTimelineField(
+      remotePage,
+      differentId,
+      1,
+      "timeline.details",
+      "E-6-02 different remote details",
+      "e602-different-remote-details",
+    );
+    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+    await expect(page.getByTestId(`row-${differentId}-summary`)).toHaveValue(
+      "E-6-02 different primary",
+    );
+    await expect(
+      remotePage.getByTestId(`row-${differentId}-summary`),
+    ).toHaveValue("E-6-02 different primary");
+    await expectServerTimelineCells(page, incidentId, differentId, {
+      "timeline.details": "E-6-02 different remote details",
+      "timeline.summary": "E-6-02 different primary",
+    });
+
+    await exerciseSameFieldResolver({
+      action: "keep_saved",
+      expectedPrimary: "E-6-02 keep remote",
+      localValue: "E-6-02 keep primary",
+      page,
+      incidentId,
+      patchController,
+      recordId: keepId,
+      remotePage,
+      remoteValue: "E-6-02 keep remote",
+    });
+
+    await exerciseSameFieldResolver({
+      action: "use_unsaved",
+      expectedPrimary: "E-6-02 use primary",
+      localValue: "E-6-02 use primary",
+      page,
+      incidentId,
+      patchController,
+      recordId: useId,
+      remotePage,
+      remoteValue: "E-6-02 use remote",
+    });
+
+    await exerciseSameFieldResolver({
+      action: "merged_value",
+      expectedPrimary: "E-6-02 merged final",
+      localValue: "E-6-02 merged primary",
+      mergedValue: "E-6-02 merged final",
+      page,
+      incidentId,
+      patchController,
+      recordId: mergedId,
+      remotePage,
+      remoteValue: "E-6-02 merged remote",
+    });
+  } finally {
+    await patchController.dispose();
+    await remotePage?.context().close();
+  }
 });
 
 test("E-6-03 preserves unsaved local work after socket revocation and re-authentication", async ({
@@ -232,11 +349,7 @@ test("E-6-04 keeps live updates and conflict markers anchored to record_id and f
     incidentId,
     "E-6-04 Alpha base",
   );
-  const betaRow = await createTimelineRow(
-    page,
-    incidentId,
-    "E-6-04 Beta base",
-  );
+  const betaRow = await createTimelineRow(page, incidentId, "E-6-04 Beta base");
   const alphaId = requireRecordId(alphaRow);
   const betaId = requireRecordId(betaRow);
   const patchController = await installPatchController(page);
@@ -279,9 +392,7 @@ test("E-6-04 keeps live updates and conflict markers anchored to record_id and f
       },
     );
     expect(betaPatch.ok()).toBeTruthy();
-    await expect(page.getByTestId(`row-${betaId}-row-version`)).toHaveText(
-      "3",
-    );
+    await expect(page.getByTestId(`row-${betaId}-row-version`)).toHaveText("3");
     await expect(alphaInput).toHaveValue("E-6-04 Alpha local");
 
     const alphaPatch = await page.request.patch(
@@ -517,6 +628,111 @@ async function editTimelineSummary(
   await expect(input).toHaveValue(value);
 }
 
+async function patchTimelineField(
+  page: Page,
+  recordId: string,
+  baseRowVersion: number,
+  fieldKey: string,
+  value: string,
+  txnPrefix: string,
+) {
+  const response = await page.request.patch(
+    `${apiBase}/api/v1/records/${recordId}`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        view_schema_id: timelineViewSchemaId,
+        base_row_version: baseRowVersion,
+        client_txn_id: uniqueTxn(txnPrefix),
+        changes: [
+          {
+            field_key: fieldKey,
+            value,
+          },
+        ],
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+async function exerciseSameFieldResolver({
+  action,
+  expectedPrimary,
+  incidentId,
+  localValue,
+  mergedValue,
+  page,
+  patchController,
+  recordId,
+  remotePage,
+  remoteValue,
+}: {
+  action: "keep_saved" | "merged_value" | "use_unsaved";
+  expectedPrimary: string;
+  incidentId: string;
+  localValue: string;
+  mergedValue?: string;
+  page: Page;
+  patchController: Awaited<ReturnType<typeof installPatchController>>;
+  recordId: string;
+  remotePage: Page;
+  remoteValue: string;
+}) {
+  await patchTimelineField(
+    remotePage,
+    recordId,
+    1,
+    "timeline.summary",
+    remoteValue,
+    `e602-remote-${recordId}`,
+  );
+  await expect(remotePage.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+    remoteValue,
+  );
+  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+    remoteValue,
+  );
+
+  patchController.forceNextPatchBaseVersion(1);
+  await editTimelineSummary(page, recordId, localValue);
+  await expect.poll(() => patchController.calls.at(-1)?.status ?? 0).toBe(409);
+  await expect(page.getByTestId("save-state")).toHaveText("Conflict");
+  await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+    localValue,
+  );
+  await expect(page.getByTestId("conflict-server-value")).toHaveValue(
+    remoteValue,
+  );
+  await expect(page.getByTestId("conflict-local-value")).toHaveValue(
+    localValue,
+  );
+  await expect(page.getByTestId("timeline-grid-shell")).toBeVisible();
+
+  if (action === "keep_saved") {
+    await page.getByTestId("conflict-keep-saved").click();
+  } else if (action === "use_unsaved") {
+    await page.getByTestId("conflict-use-unsaved").click();
+  } else {
+    await page.getByTestId("conflict-merged-value").fill(mergedValue ?? "");
+    await page.getByTestId("conflict-use-merged").click();
+  }
+
+  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
+  await expectServerTimelineCells(page, incidentId, recordId, {
+    "timeline.summary": expectedPrimary,
+  });
+  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+    expectedPrimary,
+  );
+  await expect(remotePage.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+    expectedPrimary,
+  );
+  await expect(page.getByTestId(`row-${recordId}-summary`)).toBeFocused();
+}
+
 function installIncidentSocketMonitor(page: Page, incidentId: string) {
   const messages: SocketMessage[] = [];
   const closes: number[] = [];
@@ -645,7 +861,16 @@ async function installPatchController(page: Page) {
       return;
     }
 
-    const response = await route.fetch();
+    if (behavior?.type === "forceBaseVersion") {
+      call.body = {
+        ...call.body,
+        base_row_version: behavior.baseRowVersion,
+      };
+    }
+    const response =
+      behavior?.type === "forceBaseVersion"
+        ? await route.fetch({ postData: JSON.stringify(call.body) })
+        : await route.fetch();
     call.status = response.status();
     calls.push(call);
     await route.fulfill({ response });
@@ -660,6 +885,9 @@ async function installPatchController(page: Page) {
     },
     failNextPatch: (status: number, code: string) => {
       behaviors.push({ code, status, type: "error" });
+    },
+    forceNextPatchBaseVersion: (baseRowVersion: number) => {
+      behaviors.push({ baseRowVersion, type: "forceBaseVersion" });
     },
     holdNextPatch: () => {
       let releaseHold!: () => void;
@@ -811,13 +1039,37 @@ async function expectServerSummaries(
     .toEqual(expected);
 }
 
+async function expectServerTimelineCells(
+  page: Page,
+  incidentId: string,
+  recordId: string,
+  expected: Record<string, string>,
+) {
+  await expect
+    .poll(async () => {
+      const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
+      const row = rows.find((candidate) => candidate.record_id === recordId);
+      if (!row) {
+        return {};
+      }
+      const values: Record<string, string> = {};
+      for (const fieldKey of Object.keys(expected)) {
+        values[fieldKey] = readTimelineCell(row, fieldKey);
+      }
+      return values;
+    })
+    .toEqual(expected);
+}
+
 function readTimelineSummary(row: Record<string, unknown>) {
+  return readTimelineCell(row, "timeline.summary");
+}
+
+function readTimelineCell(row: Record<string, unknown>, fieldKey: string) {
   const cells = row.cells;
   if (!cells || typeof cells !== "object" || Array.isArray(cells)) {
     return "";
   }
-  const summaryCell = (cells as Record<string, { value?: unknown }>)[
-    "timeline.summary"
-  ];
-  return typeof summaryCell?.value === "string" ? summaryCell.value : "";
+  const cell = (cells as Record<string, { value?: unknown }>)[fieldKey];
+  return typeof cell?.value === "string" ? cell.value : "";
 }

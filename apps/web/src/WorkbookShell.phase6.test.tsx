@@ -8,9 +8,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildRecordChangedPayload,
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
-  buildRecordChangedPayload,
   deferred,
   errorEnvelope,
   extractTimelineJSONBody,
@@ -114,9 +114,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("presence-header").textContent).toContain(
-        "OA",
-      );
+      expect(screen.getByTestId("presence-header").textContent).toContain("OA");
     });
     expect(screen.getByTestId("presence-header").textContent).not.toContain(
       "SA",
@@ -125,8 +123,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "OA",
     );
     expect(
-      screen.getByTestId("presence-cell-record-1-timeline-summary")
-        .textContent,
+      screen.getByTestId("presence-cell-record-1-timeline-summary").textContent,
     ).toContain("OA");
     expect(screen.getByTestId("save-state").textContent).toBe("Saved");
 

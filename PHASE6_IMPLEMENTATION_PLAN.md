@@ -17,7 +17,7 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 | [x]  | 2. Incident socket handshake, resume, replay, and presence hardening  | [x] passed | None. Focused socket tests, backend integration, and both Phase 6 public slice wrappers pass. | Backend `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, and `I-6-04` are implemented.                                                                                                    |
 | [x]  | 3. Frontend collaboration client, save state, and local pending queue | [x] passed | None. `E-6-03` and `E-6-05` are now real browser-functional evidence.                    | Frontend runtime, `U-6-09`, same-runtime re-auth recovery, FIFO replay, non-retryable halt, and reload-loss boundaries are implemented.                                                                                                    |
 | [x]  | 4. Browser presence indicators and live-cell anchoring                | [x] passed | None. Backend sparse `record_changed` patches, browser presence indicators, live-cell anchoring, and Phase 6 browser-functional rows pass.                                          | `E-6-01` and `E-6-04` are implemented, with focused frontend unit coverage for keyed presence state and sparse live patch anchoring.                                                                      |
-| [ ]  | 5. Two-client concurrent edit E2E and resolver UX                     | [ ] pending | Requires stable multi-context browser fixture and deterministic conflict setup.                                                                                                   | Cover `I-6-03` and `E-6-02`; verify same-surface resolver actions commit or clear exactly as specified.                                                        |
+| [x]  | 5. Two-client concurrent edit E2E and resolver UX                     | [x] passed | None. Timeline conflict tokens now resolve through the public resolver route, and deterministic backend plus two-context browser evidence passes.                                  | `I-6-03` and `E-6-02` are implemented; focused backend, frontend, browser, and Phase 6 slice validations pass.                                                  |
 | [ ]  | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup     | [ ] pending | Depends on prior sprints.                                                                                                                                                         | Regenerate ledgers/schedules/baselines after all authoritative rows are real, then run phase and check gates.                                                  |
 
 ## Global References
@@ -424,7 +424,7 @@ Exit criteria:
 
 Objective: Prove the full multi-client concurrent-edit path, including auto-merge for different fields and same-surface explicit resolver behavior for same-field conflicts.
 
-Status: Not started.
+Status: Complete for Sprint 5. Timeline conflict tokens are now accepted by the public conflict-resolution route, resolver commits use the Timeline store path with idempotency, and the two-client browser flow proves different-field convergence plus same-field `keep_saved`, `use_unsaved`, and `merged_value` behavior on the Timeline workbook surface.
 
 Relevant IDs:
 - `I-6-03`, `E-6-02`
@@ -443,9 +443,10 @@ Grep references:
 - `record_changed`
 
 Files and areas:
-- `internal/modules/collaboration/phase6_integration_test.go` or `internal/modules/timeline/phase6_integration_test.go` for real-client API/socket assertions.
-- `apps/web/e2e/phase6.collaboration.spec.ts` for two-context browser behavior.
-- Frontend resolver tests if UX behavior needs more deterministic unit coverage than browser tests can provide.
+- `internal/modules/workbook/phase6_integration_test.go` contains real `I-6-03` backend integration coverage for two authenticated incident members, stale different-field auto-rebase, same-field conflicts, resolver idempotency, attributed resolver changes, and `record_changed` publication.
+- `internal/modules/timeline/api.go`, `internal/modules/timeline/store.go`, and `internal/modules/workbook/routes.go` contain Timeline conflict-token parsing and resolver persistence behind the existing public resolver endpoint.
+- `apps/web/e2e/phase6.collaboration.spec.ts` contains real `E-6-02` two-context browser behavior on the Timeline workbook surface.
+- `apps/web/src/WorkbookShell.tsx` keeps resolver UX on the same workbook surface, applies `keep_saved` row updates, preserves focus, and blocks blur commits while a same-field conflict is active.
 
 Test-first sequence:
 1. Create one incident, one workbook row, and two authenticated analysts in separate clients.
@@ -462,10 +463,24 @@ Implementation tasks:
 - Ensure no duplicate change sets are created on idempotent replay of resolution writes.
 
 Validation commands:
-- `go test ./internal/modules/collaboration ./internal/modules/timeline -run 'TestPhase6_.*I_6_03'`
-- `make browser-e2e-webserver-backed`
+- `go test ./internal/modules/workbook -run 'TestPhase6_ConcurrentEditsResolverPath_I_6_03' -count=1`
+- `FORCE_COLOR=0 NO_COLOR=1 CARTULARY_WEB_E2E_BACKEND_PORT=8080 CARTULARY_WEB_E2E_FRONTEND_PORT=4173 CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:8080 CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:4173 tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test e2e/phase6.collaboration.spec.ts -g "E-6-02"`
 - `make frontend-unit`
+- `make frontend-typecheck`
+- `make lint-biome`
+- `make phase-slice PHASE=phase6`
+- `make service-backed-slice PHASE=phase6`
 - `git diff --check`
+
+Validation results:
+- `go test ./internal/modules/workbook -run 'TestPhase6_ConcurrentEditsResolverPath_I_6_03' -count=1` passed.
+- Focused `E-6-02` Playwright run passed with explicit local backend/frontend origins.
+- `make frontend-unit` passed with artifact root `.cartulary/test-results/20260506T010641Z-p87104/frontend-unit`.
+- `make frontend-typecheck` passed with artifact root `.cartulary/test-results/20260506T010641Z-p87103/frontend-typecheck`.
+- `make lint-biome` passed with artifact root `.cartulary/test-results/20260506T010633Z-p86773/lint-biome`.
+- `make phase-slice PHASE=phase6` passed with 5/5 work units, 18 tests, 0 failures, and artifact root `.cartulary/test-results/20260506T010707Z-p89160/phase-slice`.
+- `make service-backed-slice PHASE=phase6` passed with 3/3 work units, 12 tests, 0 failures, and artifact root `.cartulary/test-results/20260506T010736Z-p93589/service-backed-slice`.
+- `git diff --check` passed.
 
 Deliverables:
 - Real clients prove different-field auto-merge.

@@ -61,9 +61,9 @@ import {
   buildInspectorMentions,
   buildMentionPatchPayload,
   isRecordChangedMessage,
+  type RecordChangedPayload,
   readCollectionItems,
   shouldIgnoreSelfOriginatedRecordChange,
-  type RecordChangedPayload,
 } from "./workbookShellPhase4";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -860,7 +860,10 @@ function applyViewRowPatch(
   };
 }
 
-function presenceMatchesSheet(presence: PresenceRecord, sheetRef: WorkbookSheetRef) {
+function presenceMatchesSheet(
+  presence: PresenceRecord,
+  sheetRef: WorkbookSheetRef,
+) {
   return (
     presence.sheet_ref.kind === sheetRef.kind &&
     presence.sheet_ref.id === sheetRef.id
@@ -1632,6 +1635,7 @@ function DraftRowCreateButton({
 
 function TimelineScalarEditor({
   accessibleLabel,
+  blockedByConflict,
   committedValue,
   controlId,
   dataTestId,
@@ -1651,6 +1655,7 @@ function TimelineScalarEditor({
   surface,
 }: {
   readonly accessibleLabel?: string | undefined;
+  readonly blockedByConflict?: boolean | undefined;
   readonly committedValue: string;
   readonly controlId: string;
   readonly dataTestId: string;
@@ -1702,10 +1707,10 @@ function TimelineScalarEditor({
   const hasActiveEditRef = useRef(false);
 
   useEffect(() => {
-    if (!hasActiveEditRef.current) {
+    if (!hasActiveEditRef.current || draftValue === undefined) {
       setEditorValue(displayValue);
     }
-  }, [displayValue]);
+  }, [displayValue, draftValue]);
 
   const handleFocus = () => {
     hasActiveEditRef.current = true;
@@ -1724,6 +1729,9 @@ function TimelineScalarEditor({
     hasActiveEditRef.current = false;
     onEditModeChange(rowRecordId, presenceFieldKey, false);
     onDraftChange(rowKey, field, surface, event.currentTarget.value);
+    if (blockedByConflict) {
+      return;
+    }
     onBlurCommit(rowKey, field, surface, event.currentTarget.value);
   };
   const handleKeyDown = (
@@ -3511,6 +3519,16 @@ export function TimelineWorkbook({
       if (!snapshot) {
         return;
       }
+      const binding = Object.values(timelineScalarBindingIndex).find(
+        (candidate) => candidate.key === focusField,
+      );
+      if (
+        snapshot.recordId !== null &&
+        binding &&
+        conflictQueueRef.current[`${snapshot.recordId}:${binding.fieldKey}`]
+      ) {
+        return;
+      }
 
       const clientTxnId = nextClientTxnId();
       const payload =
@@ -3990,27 +4008,24 @@ export function TimelineWorkbook({
     [queueScalarSave, setScalarEditorDraftValue],
   );
 
-  const sendPresenceUpdate = useCallback(
-    (presence: typeof currentPresence) => {
-      const target = activeSocketRef.current;
-      if (
-        target === null ||
-        !socketEstablishedRef.current ||
-        !socketIsOpen(target)
-      ) {
-        return;
-      }
-      target.send(
-        JSON.stringify({
-          type: "presence_update",
-          payload: {
-            presence: workbookPresence(presence),
-          },
-        }),
-      );
-    },
-    [],
-  );
+  const sendPresenceUpdate = useCallback((presence: typeof currentPresence) => {
+    const target = activeSocketRef.current;
+    if (
+      target === null ||
+      !socketEstablishedRef.current ||
+      !socketIsOpen(target)
+    ) {
+      return;
+    }
+    target.send(
+      JSON.stringify({
+        type: "presence_update",
+        payload: {
+          presence: workbookPresence(presence),
+        },
+      }),
+    );
+  }, []);
 
   const handleSelectRow = useCallback(
     (recordId: string) => {
@@ -4301,6 +4316,7 @@ export function TimelineWorkbook({
           <TimelineScalarEditor
             key={inputFocusKey(row.key, binding.key, surface)}
             accessibleLabel={gridAccessibleLabel}
+            blockedByConflict={localConflict !== undefined}
             committedValue={row.values[binding.key]}
             controlId={controlId}
             dataTestId={dataTestId}
@@ -4339,6 +4355,7 @@ export function TimelineWorkbook({
               data-testid={`presence-cell-${sanitizeTestId(
                 `${row.recordId ?? "draft"}-${binding.fieldKey}`,
               )}`}
+              role="img"
               style={cellPresenceStyle}
             >
               {sameCellVisible.shown.map((presence) =>
@@ -4508,6 +4525,7 @@ export function TimelineWorkbook({
                     .map((presence) => presence.display_name)
                     .join(", ")} focused on this row`}
                   data-testid={`presence-row-${row.recordId ?? "draft"}`}
+                  role="img"
                   style={rowPresenceStyle}
                 >
                   {rowPresenceVisible.shown
@@ -4664,7 +4682,6 @@ export function TimelineWorkbook({
     [
       handleCreateBlankDraftRow,
       handleSelectRow,
-      presenceForRow,
       queueAction,
       replacementDrafts,
     ],
@@ -4852,17 +4869,30 @@ export function TimelineWorkbook({
             setSaveState("Conflict");
             return;
           }
-          if (resolutionKind !== "keep_saved") {
-            const envelope = readEnvelope<TimelineMutationEnvelope>(
-              result.payload,
-            );
-            applyRowMutation(conflict.conflict.record_id, envelope, {
-              viewportContinuityToken: beginViewportContinuity({
-                kind: "input",
-                focusKey: conflict.focusKey,
-              }),
-            });
+          const envelope = readEnvelope<TimelineMutationEnvelope>(
+            result.payload,
+          );
+          scalarDraftValuesRef.current.delete(conflict.focusKey);
+          const binding = timelineScalarBindingForField(
+            conflict.conflict.field_key,
+          );
+          if (binding !== null) {
+            for (const surface of timelineScalarEditorSurfaces) {
+              scalarDraftValuesRef.current.delete(
+                inputFocusKey(
+                  conflict.conflict.record_id,
+                  binding.key,
+                  surface,
+                ),
+              );
+            }
           }
+          applyRowMutation(conflict.conflict.record_id, envelope, {
+            viewportContinuityToken: beginViewportContinuity({
+              kind: "input",
+              focusKey: conflict.focusKey,
+            }),
+          });
           clearLocalConflict(conflict);
         });
     },
@@ -4935,6 +4965,7 @@ export function TimelineWorkbook({
           <div
             aria-label={`${activeSheetPresenceRecords.length} collaborators present on this sheet`}
             data-testid="presence-header"
+            role="status"
             style={headerPresenceStyle}
           >
             {headerPresence.shown.length === 0 ? (

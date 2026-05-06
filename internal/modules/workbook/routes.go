@@ -248,11 +248,25 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 	}
 	token := r.PathValue("conflict_token")
 	claims, valid := parseWorkbookConflictToken(token)
-	if !valid || claims.RecordID != recordID.String() {
-		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
+	if !valid {
+		timelineClaims, timelineValid := timeline.ParseConflictToken(token)
+		if !timelineValid || timelineClaims.RecordID != recordID.String() {
+			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
+			return
+		}
+		s.handleTimelineConflictResolve(w, r, recordID, token, timelineClaims)
 		return
 	}
 	if claims.ViewSchemaID == timeline.TimelineViewSchemaID {
+		timelineClaims, timelineValid := timeline.ParseConflictToken(token)
+		if !timelineValid || timelineClaims.RecordID != recordID.String() {
+			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
+			return
+		}
+		s.handleTimelineConflictResolve(w, r, recordID, token, timelineClaims)
+		return
+	}
+	if claims.RecordID != recordID.String() {
 		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 		return
 	}
@@ -281,6 +295,105 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 	}
 	result, err := s.store.ResolveWorkbookConflict(r.Context(), principal.User, recordID, claims, request, ConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
+}
+
+func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.Request, recordID uuid.UUID, token string, claims timeline.TimelineConflictTokenClaims) {
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := timeline.DecodeTimelineConflictResolveRequest(r.Body, token, claims)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	incidentID, err := s.store.RecordIncident(r.Context(), recordID, timeline.TimelineViewSchemaID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	result, err := s.store.timelineStore.ResolveConflict(r.Context(), principal.User, recordID, claims, request, timeline.TimelineConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	var (
+		entityConflict        *entities.ExactMatchConflictError
+		mentionTransitionErr  *entities.MentionTransitionError
+		mentionTargetErr      *entities.MentionTargetValidationError
+		timelineTransitionErr *timeline.IllegalTransitionError
+		rowConflict           *timeline.RowVersionConflictError
+		sameFieldConflict     *timeline.SameFieldConflictError
+	)
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, timeline.ErrRecordNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.As(err, &sameFieldConflict):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "same_field_conflict", Message: "same field conflict", Details: map[string]any{}, Conflict: sameFieldConflict.Conflict})
+		return
+	case errors.As(err, &rowConflict):
+		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
+		return
+	case errors.Is(err, timeline.ErrRowVersionConflict):
+		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
+		return
+	case errors.As(err, &timelineTransitionErr):
+		details := map[string]any{
+			"from_status":     timelineTransitionErr.FromStatus,
+			"to_status":       timelineTransitionErr.ToStatus,
+			"violated_guards": append([]string(nil), timelineTransitionErr.ViolatedGuards...),
+		}
+		if timelineTransitionErr.ReasonCode != "" {
+			details["reason_code"] = timelineTransitionErr.ReasonCode
+		}
+		writeAPIError(w, r, &auth.APIError{
+			Status:  http.StatusConflict,
+			Code:    "illegal_transition",
+			Message: "illegal transition",
+			Details: details,
+		})
+		return
+	case errors.As(err, &mentionTransitionErr):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
+		return
+	case errors.Is(err, timeline.ErrNoEffectiveChange):
+		writeAPIError(w, r, invalidMutationPayload("changes", "no_effective_change"))
+		return
+	case errors.As(err, &entityConflict):
+		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
+		return
+	case errors.Is(err, entities.ErrEntityMentionNotFound), errors.Is(err, entities.ErrResolvedRecordNotFound), errors.As(err, &mentionTargetErr), errors.Is(err, entities.ErrInvalidMentionResolution):
+		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if result.ChangeSetID != uuid.Nil && !result.Replayed {
+		s.publishRecordChange(MutationResult{
+			IncidentID:       incidentID,
+			RecordID:         result.RecordID,
+			ChangeSetID:      result.ChangeSetID,
+			ClientTxnID:      result.ClientTxnID,
+			RowVersion:       result.RowVersion,
+			ViewSchemaID:     timeline.TimelineViewSchemaID,
+			ChangedFieldKeys: result.ChangedFieldKeys,
+		}, principal.User.ID)
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
 func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, incidentID uuid.UUID, timing *timelineCreateTiming) {

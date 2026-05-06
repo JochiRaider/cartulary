@@ -20,14 +20,15 @@ import (
 )
 
 const (
-	TimelineViewSchemaID  = "cartulary.view.timeline.v1"
-	timelineQueryRouteKey = "timeline.query"
-	createRouteKey        = "timeline.rows.create"
-	patchRouteKey         = "timeline.records.patch"
-	reviewRouteKey        = "timeline.records.mark_reviewed"
-	supersedeRouteKey     = "timeline.records.supersede"
-	maxPatchChanges       = 32
-	maxCollectionActions  = 64
+	TimelineViewSchemaID    = "cartulary.view.timeline.v1"
+	timelineQueryRouteKey   = "timeline.query"
+	createRouteKey          = "timeline.rows.create"
+	patchRouteKey           = "timeline.records.patch"
+	conflictResolveRouteKey = "timeline.records.conflicts.resolve"
+	reviewRouteKey          = "timeline.records.mark_reviewed"
+	supersedeRouteKey       = "timeline.records.supersede"
+	maxPatchChanges         = 32
+	maxCollectionActions    = 64
 )
 
 var directWritableFieldKeys = map[string]struct{}{
@@ -56,11 +57,20 @@ type PatchRequest struct {
 	CanonicalChange []PatchChange
 }
 
+type ConflictResolveRequest struct {
+	ConflictToken  string
+	ResolutionKind string
+	ClientTxnID    string
+	ResolvedChange *PatchChange
+	CanonicalAny   any
+}
+
 type PatchChange struct {
 	FieldKey      string
 	OccurredAt    *time.Time
 	TextValue     *string
 	ActionPayload *CollectionActionPayload
+	CanonicalAny  any
 }
 
 type CollectionActionPayload struct {
@@ -232,6 +242,93 @@ func DecodeTimelinePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError)
 	return request, nil
 }
 
+func DecodeTimelineConflictResolveRequest(reader io.Reader, token string, claims TimelineConflictTokenClaims) (ConflictResolveRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
+	if apiErr != nil {
+		return ConflictResolveRequest{}, apiErr
+	}
+	allowed := map[string]struct{}{
+		"conflict_token":  {},
+		"resolution_kind": {},
+		"client_txn_id":   {},
+		"resolved_value":  {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return ConflictResolveRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+
+	request := ConflictResolveRequest{ConflictToken: token}
+	if value, ok := raw["conflict_token"]; !ok {
+		return ConflictResolveRequest{}, invalidMutationPayload("conflict_token", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ConflictToken); err != nil || request.ConflictToken != token {
+		return ConflictResolveRequest{}, invalidMutationPayload("conflict_token", "invalid_value")
+	}
+	if value, ok := raw["resolution_kind"]; !ok {
+		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ResolutionKind); err != nil {
+		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "invalid_value")
+	}
+	switch request.ResolutionKind {
+	case "keep_saved", "use_unsaved", "merged_value":
+	default:
+		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "invalid_value")
+	}
+	if value, ok := raw["client_txn_id"]; !ok {
+		return ConflictResolveRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return ConflictResolveRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	}
+
+	resolvedValue, hasResolvedValue := raw["resolved_value"]
+	if request.ResolutionKind == "keep_saved" {
+		if hasResolvedValue {
+			return ConflictResolveRequest{}, invalidMutationPayload("resolved_value", "forbidden_field")
+		}
+		return request, nil
+	}
+	if !hasResolvedValue {
+		return ConflictResolveRequest{}, invalidMutationPayload("resolved_value", "missing_required_field")
+	}
+
+	field, ok := viewschema.LookupField(TimelineViewSchemaID, claims.FieldKey)
+	if !ok || !field.Writable {
+		return ConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
+	}
+	change := PatchChange{FieldKey: claims.FieldKey}
+	if field.ConflictResolutionClass == "collection_review" {
+		payload, apiErr := decodeCollectionActionPayload(claims.FieldKey, resolvedValue, claims.FieldKey, "resolved_value.actions")
+		if apiErr != nil {
+			return ConflictResolveRequest{}, apiErr
+		}
+		change.ActionPayload = payload
+		change.CanonicalAny = canonicalCollectionActionPayload(payload)
+	} else {
+		switch claims.FieldKey {
+		case "timeline.occurred_at":
+			timestamp, ok := normalizeNullableTimestampValue(resolvedValue)
+			if !ok {
+				return ConflictResolveRequest{}, invalidMutationPayload(claims.FieldKey, "invalid_value")
+			}
+			change.OccurredAt = timestamp
+		default:
+			if _, ok := directWritableFieldKeys[claims.FieldKey]; !ok {
+				return ConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
+			}
+			textValue, ok := normalizeFieldTextValue(claims.FieldKey, resolvedValue)
+			if !ok {
+				return ConflictResolveRequest{}, invalidMutationPayload(claims.FieldKey, "invalid_value")
+			}
+			change.TextValue = textValue
+		}
+		change.CanonicalAny = canonicalChangeValue(change)
+	}
+	request.ResolvedChange = &change
+	request.CanonicalAny = change.CanonicalAny
+	return request, nil
+}
+
 func DecodeTimelineActionRequest(reader io.Reader) (ActionRequest, *auth.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
@@ -358,6 +455,19 @@ func TimelinePatchRequestHash(request PatchRequest) []byte {
 		"base_row_version": request.BaseRowVersion,
 		"client_txn_id":    request.ClientTxnID,
 		"changes":          changes,
+	})
+}
+
+func TimelineConflictResolveRequestHash(claims TimelineConflictTokenClaims, request ConflictResolveRequest) []byte {
+	return hashRequestPayload(map[string]any{
+		"conflict_token":      request.ConflictToken,
+		"resolution_kind":     request.ResolutionKind,
+		"client_txn_id":       request.ClientTxnID,
+		"record_id":           claims.RecordID,
+		"view_schema_id":      claims.ViewSchemaID,
+		"field_key":           claims.FieldKey,
+		"current_row_version": claims.CurrentRowVersion,
+		"resolved_value":      request.CanonicalAny,
 	})
 }
 
