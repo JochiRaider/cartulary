@@ -18,7 +18,7 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 | [x]  | 3. Frontend collaboration client, save state, and local pending queue | [x] passed | None. `E-6-03` and `E-6-05` are now real browser-functional evidence.                    | Frontend runtime, `U-6-09`, same-runtime re-auth recovery, FIFO replay, non-retryable halt, and reload-loss boundaries are implemented.                                                                                                    |
 | [x]  | 4. Browser presence indicators and live-cell anchoring                | [x] passed | None. Backend sparse `record_changed` patches, browser presence indicators, live-cell anchoring, and Phase 6 browser-functional rows pass.                                          | `E-6-01` and `E-6-04` are implemented, with focused frontend unit coverage for keyed presence state and sparse live patch anchoring.                                                                      |
 | [x]  | 5. Two-client concurrent edit E2E and resolver UX                     | [x] passed | None. Timeline conflict tokens now resolve through the public resolver route, and deterministic backend plus two-context browser evidence passes.                                  | `I-6-03` and `E-6-02` are implemented; focused backend, frontend, browser, and Phase 6 slice validations pass.                                                  |
-| [ ]  | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup     | [ ] pending | Depends on prior sprints.                                                                                                                                                         | Regenerate ledgers/schedules/baselines after all authoritative rows are real, then run phase and check gates.                                                  |
+| [x]  | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup     | [x] Phase 6 passed; check blocked outside Phase 6 | `make check` and browser baseline refresh are blocked by Phase 3 browser row `E-3-03`, not by Phase 6 evidence. | Phase 6 public wrappers pass, generated drift is resolved, Go baselines are refreshed from full successful Go evidence, and the remaining browser/full-gate blocker is recorded below. |
 
 ## Global References
 
@@ -499,48 +499,65 @@ Exit criteria:
 
 Objective: Close Phase 6 by replacing placeholders, refreshing generated planning artifacts, and running the authoritative phase and repository gates.
 
-Status: Not started.
+Status: Phase 6 closeout complete with one retained non-Phase-6 gate blocker. All authoritative Phase 6 rows are real and pass through the public Phase 6 wrappers. Ledger and schedule drift are clean. Go duration baselines were refreshed from successful full Go service-backed evidence and pass coverage and drift checks. Browser duration baselines were not refreshed because the required full webserver-backed browser run fails in Phase 3 row `E-3-03`, where the Timeline capture-state cell remains `enriched` instead of becoming `superseded`.
 
 Relevant IDs: all `U-6-*`, `I-6-*`, `E-6-*`; `tools/phase6_test_map.json`; `docs/testing/phase6_coverage_ledger.md`; service-backed schedule and duration baseline artifacts as applicable.
 
 Files and areas:
 - `tools/phase6_test_map.json`
 - `docs/testing/phase6_coverage_ledger.md`
-- `tools/service_backed_schedule_manifest.json` and other schedule outputs if phase schedule generation changes them.
-- Go duration baseline files and Playwright duration baseline files if service-backed/browser timing artifacts change.
-- `PHASE6_IMPLEMENTATION_PLAN.md` sprint checklist and follow-up notes.
+- `tools/check_schedule_manifest.json`
+- `tools/go_test_duration_baselines.json`
+- Generated contract artifacts refreshed by `make generate`: `internal/gen/contracts/contracts_gen.go` and `packages/protocol-ts/src/generated/contracts.ts`
+- `internal/modules/collaboration/phase6_socket_test.go`
+- `PHASE6_IMPLEMENTATION_PLAN.md`
 
 Test-first sequence:
-1. Remove all placeholder Phase 6 rows or convert them into real assertions.
-2. Run the narrow phase slice and service-backed slice before broad gates.
-3. Refresh ledgers, schedules, and baselines only from successful current artifacts.
-4. Run final repository gates and record artifact paths in this plan.
+1. Completed: scanned Phase 6 test files for active `t.Skip`, placeholder, no-op, TODO, and FIXME markers; no authoritative Phase 6 row remains a placeholder.
+2. Completed: ran the narrow phase slice and service-backed slice before broad gates.
+3. Completed: regenerated ledgers and schedules; only schedule output changed after later generated/baseline changes.
+4. Completed: refreshed Go baselines only from successful current full Go artifacts.
+5. Blocked outside Phase 6: browser baseline refresh requires a successful full browser-functional run, but that run currently fails Phase 3 `E-3-03`.
 
 Implementation tasks:
-- Update this plan's sprint checklist with validated statuses and any final caveats.
-- Run `make phase-ledgers` and `make phase-ledger-drift`.
-- Run `make phase-schedules` and `make phase-schedule-drift` when the manifest or schedule ownership changes.
-- Run `make go-test-duration-baselines RESULTS_DIR=<dir>` and/or `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>` only when successful artifacts justify baseline updates.
-- Ensure generated-code drift and migration drift are separate and explained.
+- Completed: updated this plan's sprint checklist with the final Phase 6 status and retained blocker.
+- Completed: ran `make phase-ledgers` and `make phase-ledger-drift`.
+- Completed: ran `make phase-schedules` and `make phase-schedule-drift`.
+- Completed: refreshed Go duration baselines from `.cartulary/test-results/20260506T012000Z-pfullgo2` after `backend-store`, `backend-integration`, and `backend-integration-support` passed under that root.
+- Completed: resolved generated-code drift with `make generate`, separately from schedule and baseline updates.
+- Completed: removed an unused Phase 6 test helper reported by Staticcheck.
+- Not refreshed: browser duration baselines, because both full webserver-backed browser runs failed outside Phase 6.
 
 Validation commands:
-- `make explain-phase PHASE=phase6`
-- `make phase-slice PHASE=phase6`
-- `make service-backed-slice PHASE=phase6`
-- `make phase-ledger-drift`
-- `make phase-schedule-drift`
-- `make test-fast`
-- `make check`
+- Passed: `make explain-phase PHASE=phase6`; final output reports authoritative=18 and dependencies `backend_unit`, `backend_store`, `backend_integration`, `frontend_unit`, and `browser_functional`.
+- Passed: `make phase-ledgers` (`.cartulary/test-results/20260506T011414Z-p99841/phase-ledgers`)
+- Passed: `make phase-ledger-drift` (`.cartulary/test-results/20260506T011433Z-p670/phase-ledger-drift`)
+- Passed: `make phase-schedules` (`.cartulary/test-results/20260506T012356Z-p59934/phase-schedules`)
+- Passed: `make phase-schedule-drift` (`.cartulary/test-results/20260506T012413Z-p60386/phase-schedule-drift`)
+- Passed: `make phase-slice PHASE=phase6` (`.cartulary/test-results/20260506T011447Z-p1144/phase-slice`)
+- Passed: `make service-backed-slice PHASE=phase6` (`.cartulary/test-results/20260506T011511Z-p4395/service-backed-slice`)
+- Passed: `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260506T012000Z-pfullgo2 PRUNE_OBSERVED_PACKAGES=1` (`.cartulary/test-results/20260506T012058Z-p30734/go-test-duration-baselines`)
+- Passed: `make go-test-duration-baseline-coverage` (`.cartulary/test-results/20260506T012103Z-p30883/go-test-duration-baseline-coverage`)
+- Passed: `make go-test-duration-baseline-drift RESULTS_DIR=.cartulary/test-results/20260506T012000Z-pfullgo2` (`.cartulary/test-results/20260506T012103Z-p30909/go-test-duration-baseline-drift`)
+- Blocked: `make browser-e2e-duration-baselines RESULTS_DIR=.cartulary/test-results/20260506T011447Z-p1144` rejected the narrow Phase 6 artifact root because full browser timing evidence is required (`.cartulary/test-results/20260506T011601Z-p8032/browser-e2e-duration-baselines`).
+- Blocked: full `make browser-e2e-webserver-backed` failed twice in Phase 3 row `E-3-03`: `.cartulary/test-results/20260506T011610Z-p8164/browser-e2e-webserver-backed` and `.cartulary/test-results/20260506T012113Z-p31032/browser-e2e-webserver-backed`.
+- Passed after refresh: `make generate-drift` (`.cartulary/test-results/20260506T012252Z-p41037/generate-drift`); initial drift at `.cartulary/test-results/20260506T012203Z-p34888/generate-drift` was resolved by `make generate` at `.cartulary/test-results/20260506T012249Z-p40586/generate`.
+- Passed: `make test-fast` (`.cartulary/test-results/20260506T012203Z-p34887`)
+- Failed outside Phase 6: `make check` (`.cartulary/test-results/20260506T012431Z-p60913/check`) stopped on browser product row `E-3-03` in `apps/web/e2e/phase3.spec.ts`, expecting capture state `superseded` but observing `enriched`.
 
 Deliverables:
-- Phase 6 manifest, ledger, schedules, and baselines are current.
-- Phase 6 authoritative rows pass through public phase wrappers.
-- Final gate artifact paths are recorded in the Sprint Checklist follow-up notes.
+- Delivered: Phase 6 manifest and ledger remain current.
+- Delivered: schedule outputs are current after regeneration.
+- Delivered: Go duration baselines are current for the full service-backed Go shard plan.
+- Delivered: Phase 6 authoritative rows pass through public phase wrappers.
+- Delivered: generated contract drift is resolved through `make generate`.
+- Deferred outside Phase 6: browser duration baseline refresh and full `make check` completion are blocked by Phase 3 `E-3-03`.
 
 Risks and assumptions:
-- `make check` may require local Postgres, MinIO, browser, Node, and pinned Go toolchain availability. If environment limitations block it, record exact failures and artifact paths.
-- If any Phase 6 row depends on Phase 8 sort/filter/group behavior not yet implemented, document the owner-boundary reason and keep the row's assertion faithful to current Phase 6 obligations.
+- The remaining browser/full-gate failure is not environmental: it is a product assertion failure in Phase 3 browser evidence.
+- Browser duration baselines must not be refreshed from the failed full browser runs.
+- Phase 6 browser rows ran and passed inside the final `check` browser shard before the scheduler stopped on Phase 3 `E-3-03`.
 
 Exit criteria:
-- `make phase-slice PHASE=phase6` and `make service-backed-slice PHASE=phase6` pass or report legitimate no-op only where the manifest declares no work.
-- `make check` passes, or every remaining failure is documented as an environmental limitation or a separate owner-phase blocker.
+- Met: `make phase-slice PHASE=phase6` and `make service-backed-slice PHASE=phase6` pass.
+- Met with blocker: `make check` does not pass, and the remaining failure is documented as separate Phase 3 browser row `E-3-03`.

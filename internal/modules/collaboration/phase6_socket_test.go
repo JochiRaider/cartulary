@@ -194,13 +194,6 @@ func requireErrorCode(t testing.TB, message platformws.Message, want string) {
 	}
 }
 
-func requireNoReplayMessages(t testing.TB, messages []platformws.Message) {
-	t.Helper()
-	if len(messages) != 0 {
-		t.Fatalf("expected no replayed messages, got %#v", messages)
-	}
-}
-
 func requireReplayTypes(t testing.TB, messages []platformws.Message, want ...string) {
 	t.Helper()
 	if len(messages) != len(want) {
