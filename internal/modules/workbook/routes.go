@@ -496,6 +496,8 @@ func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UU
 	}
 	changedKeys := append([]string(nil), result.ChangedFieldKeys...)
 	slices.Sort(changedKeys)
+	row, _ := result.Payload["row"].(map[string]any)
+	patchCells := platformws.BuildViewRowPatch(row, changedKeys)
 	s.hub.PublishRecordChange(platformws.RecordChange{
 		IncidentID:       result.IncidentID,
 		RecordID:         result.RecordID,
@@ -505,6 +507,7 @@ func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UU
 		ActorUserID:      actorUserID,
 		ChangedFieldKeys: changedKeys,
 		ViewSchemaID:     result.ViewSchemaID,
+		PatchCells:       patchCells,
 	})
 }
 

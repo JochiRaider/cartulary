@@ -1,11 +1,19 @@
+import {
+  applyFilterChip,
+  changeGrouping,
+  sortByHeader,
+} from "@cartulary/test-utils";
 import type { Page, Route, WebSocket } from "@playwright/test";
 
 import { revokeAllSessions } from "./authRuntime";
 import { expect, test } from "./fixtures";
 import {
+  apiBase,
   createIncident,
   createIncidentMemberUser,
   createViewRow,
+  csrfHeaders,
+  openIncidentAsTrackedUser,
   queryViewRows,
   uniqueEmail,
   uniqueIncidentKey,
@@ -40,8 +48,61 @@ type SocketMessage = {
   type: string;
 };
 
-test("E-6-01 shows two analysts each other's workbook presence within the expected interaction window", async () => {
-  // Phase 6 placeholder: replace with two-analyst presence assertions before Phase 6 exit.
+test("E-6-01 shows two analysts each other's workbook presence within the expected interaction window", async ({
+  browser,
+  page,
+  sessionTracker,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E601"),
+    "Phase 6 E-6-01 browser presence",
+  );
+  const remote = await createIncidentMemberUser(page, incidentId, {
+    display_name: "Remote Analyst",
+    email: uniqueEmail("phase6-e601-remote"),
+    initial_password: "Phase6E601Remote!",
+    role: "editor",
+  });
+  const row = await createTimelineRow(
+    page,
+    incidentId,
+    "E-6-01 presence base",
+  );
+  const recordId = requireRecordId(row);
+  const primarySocket = installIncidentSocketMonitor(page, incidentId);
+
+  let remotePage: Page | null = null;
+  try {
+    await page.goto(`/?incident_id=${incidentId}`);
+    await primarySocket.waitForMessage("hello_ack");
+    await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+      "E-6-01 presence base",
+    );
+
+    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+      createdBy: "E-6-01",
+      email: remote.email,
+      incidentId,
+      password: remote.initial_password,
+      purpose: "Phase 6 E-6-01 remote analyst",
+      userId: remote.user_id,
+    });
+    await primarySocket.waitForMessage("presence_delta");
+    await expect(page.getByTestId("presence-header")).toContainText("RA");
+
+    const remoteInput = remotePage.getByTestId(`row-${recordId}-summary`);
+    await remoteInput.focus();
+    await expect(page.getByTestId(`presence-row-${recordId}`)).toContainText(
+      "RA",
+    );
+    await expect(
+      page.getByTestId(`presence-cell-${recordId}-timeline-summary`),
+    ).toContainText("RA");
+    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  } finally {
+    await remotePage?.context().close();
+  }
 });
 
 test("E-6-02 auto-merges different-field concurrent edits and requires explicit same-field resolution", async () => {
@@ -158,8 +219,103 @@ test("E-6-03 preserves unsaved local work after socket revocation and re-authent
   }
 });
 
-test("E-6-04 keeps live updates and conflict markers anchored to record_id and field_key", async () => {
-  // Phase 6 placeholder: replace with row and cell anchoring assertions before Phase 6 exit.
+test("E-6-04 keeps live updates and conflict markers anchored to record_id and field_key", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E604"),
+    "Phase 6 E-6-04 live-cell anchoring",
+  );
+  const alphaRow = await createTimelineRow(
+    page,
+    incidentId,
+    "E-6-04 Alpha base",
+  );
+  const betaRow = await createTimelineRow(
+    page,
+    incidentId,
+    "E-6-04 Beta base",
+  );
+  const alphaId = requireRecordId(alphaRow);
+  const betaId = requireRecordId(betaRow);
+  const patchController = await installPatchController(page);
+
+  try {
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(`row-${alphaId}-summary`)).toHaveValue(
+      "E-6-04 Alpha base",
+    );
+    await page.getByTestId(`row-${betaId}-mark-reviewed`).click();
+    await expect(page.getByTestId(`row-${betaId}-capture-state`)).toHaveText(
+      "reviewed",
+    );
+    await sortByHeader(page, "timeline", "timeline.summary");
+    await applyFilterChip(page, "timeline", "timeline.has_evidence", "false");
+    await changeGrouping(page, "timeline", "timeline.capture_state");
+
+    const heldPatch = patchController.holdNextPatch();
+    const alphaInput = page.getByTestId(`row-${alphaId}-summary`);
+    await alphaInput.fill("E-6-04 Alpha local");
+    await alphaInput.press("Enter");
+    await heldPatch.waitForHit;
+    await expect(page.getByTestId("save-state")).toHaveText("Syncing");
+
+    const betaPatch = await page.request.patch(
+      `${apiBase}/api/v1/records/${betaId}`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          view_schema_id: timelineViewSchemaId,
+          base_row_version: 2,
+          client_txn_id: uniqueTxn("e604-beta-live-patch"),
+          changes: [
+            {
+              field_key: "timeline.details",
+              value: "E-6-04 remote details",
+            },
+          ],
+        },
+      },
+    );
+    expect(betaPatch.ok()).toBeTruthy();
+    await expect(page.getByTestId(`row-${betaId}-row-version`)).toHaveText(
+      "3",
+    );
+    await expect(alphaInput).toHaveValue("E-6-04 Alpha local");
+
+    const alphaPatch = await page.request.patch(
+      `${apiBase}/api/v1/records/${alphaId}`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          view_schema_id: timelineViewSchemaId,
+          base_row_version: 1,
+          client_txn_id: uniqueTxn("e604-alpha-remote-conflict"),
+          changes: [
+            {
+              field_key: "timeline.summary",
+              value: "E-6-04 Alpha remote",
+            },
+          ],
+        },
+      },
+    );
+    expect(alphaPatch.ok()).toBeTruthy();
+    await expect(alphaInput).toHaveValue("E-6-04 Alpha local");
+
+    heldPatch.release();
+    await expect(page.getByTestId("save-state")).toHaveText("Conflict");
+    await expect(
+      page.getByTestId(`conflict-marker-${alphaId}-timeline-summary`),
+    ).toBeVisible();
+    await expect(alphaInput).toHaveValue("E-6-04 Alpha local");
+    await expect(page.getByTestId(`row-${betaId}-summary`)).toHaveValue(
+      "E-6-04 Beta base",
+    );
+  } finally {
+    await patchController.dispose();
+  }
 });
 
 test("E-6-05 replays queued unsent writes after re-authentication without silent reload restore", async ({

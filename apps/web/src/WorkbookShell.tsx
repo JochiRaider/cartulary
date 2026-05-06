@@ -63,6 +63,7 @@ import {
   isRecordChangedMessage,
   readCollectionItems,
   shouldIgnoreSelfOriginatedRecordChange,
+  type RecordChangedPayload,
 } from "./workbookShellPhase4";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -380,9 +381,32 @@ type TimelineApiRow = {
   record_id: string;
   row_version: number;
   cells: Record<string, { value: unknown }>;
+  group_values?: Record<string, unknown>;
 };
 
 type EntityApiRow = TimelineApiRow;
+
+type WorkbookSheetRef = {
+  id: string;
+  kind: "saved_view" | "view_schema";
+};
+
+type WorkbookPresenceMode = "editing" | "idle" | "viewing";
+
+type WorkbookPresenceInput = {
+  sheet_ref: WorkbookSheetRef;
+  mode: WorkbookPresenceMode;
+  record_id?: string;
+  field_key?: string;
+};
+
+type PresenceRecord = WorkbookPresenceInput & {
+  connection_id: string;
+  display_name: string;
+  expires_at: string;
+  observed_at: string;
+  user_id: string;
+};
 
 type EntityRow = {
   entityType: "host" | "identity";
@@ -810,6 +834,86 @@ function rowFromApi(row: TimelineApiRow): WorkbookRow {
     pendingSignature: null,
     rawRow: row,
   };
+}
+
+function applyViewRowPatch(
+  row: TimelineApiRow,
+  patch: NonNullable<
+    RecordChangedPayload["affected_views"][number]["patch_cells"]
+  >,
+): TimelineApiRow {
+  return {
+    ...row,
+    row_version: patch.row_version,
+    cells: {
+      ...row.cells,
+      ...patch.cells,
+    },
+    ...(patch.group_values
+      ? {
+          group_values: {
+            ...(row.group_values ?? {}),
+            ...patch.group_values,
+          },
+        }
+      : {}),
+  };
+}
+
+function presenceMatchesSheet(presence: PresenceRecord, sheetRef: WorkbookSheetRef) {
+  return (
+    presence.sheet_ref.kind === sheetRef.kind &&
+    presence.sheet_ref.id === sheetRef.id
+  );
+}
+
+function displayInitials(displayName: string) {
+  const parts = displayName.trim().split(/\s+/u).filter(Boolean);
+  if (parts.length === 0) {
+    return "?";
+  }
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function visiblePresence(records: readonly PresenceRecord[], limit: number) {
+  return {
+    shown: records.slice(0, limit),
+    overflow: Math.max(0, records.length - limit),
+  };
+}
+
+function isPresenceRecord(value: unknown): value is PresenceRecord {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const sheetRef = record.sheet_ref;
+  return (
+    typeof record.connection_id === "string" &&
+    typeof record.user_id === "string" &&
+    typeof record.display_name === "string" &&
+    typeof record.mode === "string" &&
+    (record.mode === "viewing" ||
+      record.mode === "editing" ||
+      record.mode === "idle") &&
+    typeof record.observed_at === "string" &&
+    typeof record.expires_at === "string" &&
+    !!sheetRef &&
+    typeof sheetRef === "object" &&
+    !Array.isArray(sheetRef) &&
+    ((sheetRef as Record<string, unknown>).kind === "view_schema" ||
+      (sheetRef as Record<string, unknown>).kind === "saved_view") &&
+    typeof (sheetRef as Record<string, unknown>).id === "string" &&
+    (record.record_id === undefined || typeof record.record_id === "string") &&
+    (record.field_key === undefined || typeof record.field_key === "string")
+  );
+}
+
+function socketIsOpen(socket: WebSocket) {
+  return socket.readyState === WebSocket.OPEN;
 }
 
 function entityRowFromApi(
@@ -1244,14 +1348,27 @@ function tabClientInstanceId(): string {
   }
 }
 
-function workbookPresence() {
-  return {
+function workbookPresence(
+  presence: {
+    fieldKey: string | null;
+    mode: WorkbookPresenceMode;
+    recordId: string | null;
+  } = { fieldKey: null, mode: "viewing", recordId: null },
+): WorkbookPresenceInput {
+  const input: WorkbookPresenceInput = {
     sheet_ref: {
       kind: "view_schema",
       id: timelineViewSchemaId,
     },
-    mode: "viewing",
+    mode: presence.mode,
   };
+  if (presence.recordId !== null) {
+    input.record_id = presence.recordId;
+  }
+  if (presence.mode === "editing" && presence.fieldKey !== null) {
+    input.field_key = presence.fieldKey;
+  }
+  return input;
 }
 
 function sanitizeTestId(value: string) {
@@ -1523,10 +1640,12 @@ function TimelineScalarEditor({
   multiline,
   onBlurCommit,
   onDraftChange,
+  onEditModeChange,
   onFocusRecord,
   onKeyCommit,
   onPasteCommit,
   registerInput,
+  presenceFieldKey,
   rowKey,
   rowRecordId,
   surface,
@@ -1550,6 +1669,11 @@ function TimelineScalarEditor({
     surface: TimelineScalarEditorSurface,
     value: string,
   ) => void;
+  readonly onEditModeChange: (
+    recordId: string | null,
+    fieldKey: string,
+    editing: boolean,
+  ) => void;
   readonly onFocusRecord: (recordId: string) => void;
   readonly onKeyCommit: (
     event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -1568,6 +1692,7 @@ function TimelineScalarEditor({
     surface: TimelineScalarEditorSurface,
     element: HTMLInputElement | HTMLTextAreaElement | null,
   ) => void;
+  readonly presenceFieldKey: string;
   readonly rowKey: string;
   readonly rowRecordId: string | null;
   readonly surface: TimelineScalarEditorSurface;
@@ -1587,6 +1712,7 @@ function TimelineScalarEditor({
     if (rowRecordId) {
       onFocusRecord(rowRecordId);
     }
+    onEditModeChange(rowRecordId, presenceFieldKey, true);
   };
   const handleChange = (value: string) => {
     setEditorValue(value);
@@ -1596,6 +1722,7 @@ function TimelineScalarEditor({
     event: ReactFocusEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     hasActiveEditRef.current = false;
+    onEditModeChange(rowRecordId, presenceFieldKey, false);
     onDraftChange(rowKey, field, surface, event.currentTarget.value);
     onBlurCommit(rowKey, field, surface, event.currentTarget.value);
   };
@@ -1679,6 +1806,12 @@ export function TimelineWorkbook({
   const [selectedMentionRef, setSelectedMentionRef] = useState<string | null>(
     null,
   );
+  const [currentPresence, setCurrentPresence] = useState<{
+    fieldKey: string | null;
+    mode: WorkbookPresenceMode;
+    recordId: string | null;
+  }>({ fieldKey: null, mode: "viewing", recordId: null });
+  const [presenceRecords, setPresenceRecords] = useState<PresenceRecord[]>([]);
   const [selectedResolveTargetId, setSelectedResolveTargetId] = useState("");
   const [inspectorMessage, setInspectorMessage] = useState<string | null>(null);
   const [dismissedMentionsByRow, setDismissedMentionsByRow] = useState<
@@ -1722,6 +1855,11 @@ export function TimelineWorkbook({
   const appliedStreamSeqRef = useRef(new Set<number>());
   const rowsRef = useRef(rows);
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
+  const activeSocketRef = useRef<WebSocket | null>(null);
+  const socketEstablishedRef = useRef(false);
+  const socketConnectionIDRef = useRef<string | null>(null);
+  const presenceUpdateTimerRef = useRef<number | null>(null);
+  const currentPresenceRef = useRef(currentPresence);
   const hasLoadedRowsRef = useRef(false);
   const loadSequenceRef = useRef(0);
   const scalarDraftValuesRef = useRef(new Map<string, string>());
@@ -1778,6 +1916,39 @@ export function TimelineWorkbook({
     [],
   );
 
+  useEffect(() => {
+    currentPresenceRef.current = currentPresence;
+    if (
+      activeSocketRef.current === null ||
+      !socketEstablishedRef.current ||
+      !socketIsOpen(activeSocketRef.current)
+    ) {
+      return;
+    }
+    if (presenceUpdateTimerRef.current !== null) {
+      window.clearTimeout(presenceUpdateTimerRef.current);
+    }
+    presenceUpdateTimerRef.current = window.setTimeout(() => {
+      presenceUpdateTimerRef.current = null;
+      const target = activeSocketRef.current;
+      if (
+        target === null ||
+        !socketEstablishedRef.current ||
+        !socketIsOpen(target)
+      ) {
+        return;
+      }
+      target.send(
+        JSON.stringify({
+          type: "presence_update",
+          payload: {
+            presence: workbookPresence(currentPresenceRef.current),
+          },
+        }),
+      );
+    }, 150);
+  }, [currentPresence]);
+
   const publishPendingQueueState = useCallback(() => {
     const pending = pendingQueueRef.current;
     setPendingQueueSnapshot({
@@ -1808,6 +1979,10 @@ export function TimelineWorkbook({
   const changeSocketURL = useMemo(
     () => websocketPath(apiBase, `/ws/v1/incidents/${incidentId}`),
     [apiBase, incidentId],
+  );
+  const activeSheetRef = useMemo<WorkbookSheetRef>(
+    () => ({ kind: "view_schema", id: timelineViewSchemaId }),
+    [],
   );
   const nextDraftIndex = useCallback(() => {
     const value = draftCounterRef.current;
@@ -1842,6 +2017,45 @@ export function TimelineWorkbook({
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
     currentIncidentRole === "admin";
+  const activeSheetPresenceRecords = useMemo(
+    () =>
+      [...presenceRecords]
+        .filter((presence) => presenceMatchesSheet(presence, activeSheetRef))
+        .filter(
+          (presence) =>
+            presence.connection_id !== socketConnectionIDRef.current,
+        )
+        .sort((left, right) => {
+          const byName = left.display_name.localeCompare(right.display_name);
+          return byName === 0
+            ? left.connection_id.localeCompare(right.connection_id)
+            : byName;
+        }),
+    [activeSheetRef, presenceRecords],
+  );
+
+  const presenceForRow = useCallback(
+    (recordId: string | null) =>
+      recordId === null
+        ? []
+        : activeSheetPresenceRecords.filter(
+            (presence) => presence.record_id === recordId,
+          ),
+    [activeSheetPresenceRecords],
+  );
+
+  const editingPresenceForCell = useCallback(
+    (recordId: string | null, fieldKey: string) =>
+      recordId === null
+        ? []
+        : activeSheetPresenceRecords.filter(
+            (presence) =>
+              presence.record_id === recordId &&
+              presence.field_key === fieldKey &&
+              presence.mode === "editing",
+          ),
+    [activeSheetPresenceRecords],
+  );
 
   const applyQueryFilter = useCallback(() => {
     setQueryState((current) => applyFilterDraft(current, filterDraft));
@@ -2306,6 +2520,44 @@ export function TimelineWorkbook({
   );
 
   loadRowsRef.current = loadRows;
+
+  const applyRecordChangedPatch = useCallback(
+    (payload: RecordChangedPayload) => {
+      const affectedView = payload.affected_views.find(
+        (view) => view.view_schema_id === timelineViewSchemaId,
+      );
+      if (
+        affectedView?.change_kind !== "patch" ||
+        affectedView.patch_cells === undefined ||
+        affectedView.patch_cells.record_id !== payload.record_id
+      ) {
+        return false;
+      }
+
+      const patch = affectedView.patch_cells;
+      let patched = false;
+      const nextRows = rowsRef.current.map((row) => {
+        if (row.recordId !== patch.record_id || row.rawRow === null) {
+          return row;
+        }
+        patched = true;
+        const nextRawRow = applyViewRowPatch(row.rawRow, patch);
+        const committed = rowFromApi(nextRawRow);
+        return {
+          ...committed,
+          collectionDrafts: row.collectionDrafts,
+          pendingSignature: row.pendingSignature,
+        };
+      });
+      if (!patched) {
+        return false;
+      }
+      rowsRef.current = nextRows;
+      setRows(nextRows);
+      return true;
+    },
+    [],
+  );
 
   useEffect(() => {
     void loadRows({ showLoading: true });
@@ -3018,7 +3270,7 @@ export function TimelineWorkbook({
               client_instance_id: clientInstanceId,
               resume_token: resumeToken,
               last_seen_stream_seq: socketLastSeenStreamSeqRef.current,
-              presence: workbookPresence(),
+              presence: workbookPresence(currentPresenceRef.current),
             },
           }),
         );
@@ -3029,10 +3281,53 @@ export function TimelineWorkbook({
           type: "hello",
           payload: {
             client_instance_id: clientInstanceId,
-            presence: workbookPresence(),
+            presence: workbookPresence(currentPresenceRef.current),
           },
         }),
       );
+    };
+
+    const applyPresenceSnapshot = (payload: Record<string, unknown>) => {
+      const presences = Array.isArray(payload.presences)
+        ? payload.presences
+        : [];
+      setPresenceRecords(
+        presences.filter(isPresenceRecord).map((presence) => ({
+          ...presence,
+          sheet_ref: { ...presence.sheet_ref },
+        })),
+      );
+    };
+
+    const applyPresenceDelta = (payload: Record<string, unknown>) => {
+      const deltaKind = payload.delta_kind;
+      const presence = payload.presence;
+      if (!presence || typeof presence !== "object") {
+        return;
+      }
+      const candidate = presence as Record<string, unknown>;
+      const connectionID = candidate.connection_id;
+      if (typeof connectionID !== "string") {
+        return;
+      }
+      setPresenceRecords((current) => {
+        if (deltaKind === "remove") {
+          return current.filter(
+            (record) => record.connection_id !== connectionID,
+          );
+        }
+        if (deltaKind !== "upsert" || !isPresenceRecord(candidate)) {
+          return current;
+        }
+        const nextRecord = {
+          ...candidate,
+          sheet_ref: { ...candidate.sheet_ref },
+        };
+        const withoutExisting = current.filter(
+          (record) => record.connection_id !== nextRecord.connection_id,
+        );
+        return [...withoutExisting, nextRecord];
+      });
     };
 
     const handleMessage = (target: WebSocket, raw: unknown) => {
@@ -3049,6 +3344,11 @@ export function TimelineWorkbook({
         return;
       }
       if (message.type === "hello_ack" || message.type === "resume_ack") {
+        socketEstablishedRef.current = true;
+        const connectionID = message.payload?.connection_id;
+        if (typeof connectionID === "string") {
+          socketConnectionIDRef.current = connectionID;
+        }
         const resumeToken = message.payload?.resume_token;
         if (typeof resumeToken === "string") {
           socketResumeTokenRef.current = resumeToken;
@@ -3071,8 +3371,17 @@ export function TimelineWorkbook({
         schedulePendingReplay();
         return;
       }
+      if (message.type === "presence_snapshot") {
+        applyPresenceSnapshot(message.payload ?? {});
+        return;
+      }
+      if (message.type === "presence_delta") {
+        applyPresenceDelta(message.payload ?? {});
+        return;
+      }
       if (message.type === "session_revoked") {
         socketResumeTokenRef.current = null;
+        socketEstablishedRef.current = false;
         pendingQueueRef.current.authPaused = true;
         setRefreshError(
           "Authentication required before queued edits can replay.",
@@ -3116,6 +3425,10 @@ export function TimelineWorkbook({
       const viewportContinuityToken = beginViewportContinuity({
         kind: "scroll-only",
       });
+      if (applyRecordChangedPatch(message.payload as RecordChangedPayload)) {
+        advanceViewportContinuity(viewportContinuityToken);
+        return;
+      }
       void loadRowsRef.current({
         showLoading: false,
         viewportContinuityToken,
@@ -3127,6 +3440,8 @@ export function TimelineWorkbook({
         return;
       }
       socket = new WebSocket(changeSocketURL);
+      activeSocketRef.current = socket;
+      socketEstablishedRef.current = false;
       socket.onopen = () => {
         if (socket) {
           sendSessionEstablishment(socket);
@@ -3150,9 +3465,17 @@ export function TimelineWorkbook({
       if (reconnectTimer !== null) {
         window.clearTimeout(reconnectTimer);
       }
+      if (presenceUpdateTimerRef.current !== null) {
+        window.clearTimeout(presenceUpdateTimerRef.current);
+        presenceUpdateTimerRef.current = null;
+      }
+      activeSocketRef.current = null;
+      socketEstablishedRef.current = false;
       socket?.close();
     };
   }, [
+    advanceViewportContinuity,
+    applyRecordChangedPatch,
     beginViewportContinuity,
     changeSocketURL,
     incidentId,
@@ -3667,10 +3990,58 @@ export function TimelineWorkbook({
     [queueScalarSave, setScalarEditorDraftValue],
   );
 
-  const handleSelectRow = useCallback((recordId: string) => {
-    setSelectedRowId(recordId);
-    setInspectorMessage(null);
-  }, []);
+  const sendPresenceUpdate = useCallback(
+    (presence: typeof currentPresence) => {
+      const target = activeSocketRef.current;
+      if (
+        target === null ||
+        !socketEstablishedRef.current ||
+        !socketIsOpen(target)
+      ) {
+        return;
+      }
+      target.send(
+        JSON.stringify({
+          type: "presence_update",
+          payload: {
+            presence: workbookPresence(presence),
+          },
+        }),
+      );
+    },
+    [],
+  );
+
+  const handleSelectRow = useCallback(
+    (recordId: string) => {
+      setSelectedRowId(recordId);
+      setInspectorMessage(null);
+      if (currentPresenceRef.current.mode === "editing") {
+        return;
+      }
+      const next = { fieldKey: null, mode: "viewing" as const, recordId };
+      currentPresenceRef.current = next;
+      setCurrentPresence(next);
+      sendPresenceUpdate(next);
+    },
+    [sendPresenceUpdate],
+  );
+
+  const handleEditModePresence = useCallback(
+    (recordId: string | null, fieldKey: string, editing: boolean) => {
+      const next = editing
+        ? { fieldKey, mode: "editing" as const, recordId }
+        : {
+            fieldKey: null,
+            mode: "viewing" as const,
+            recordId: recordId ?? currentPresenceRef.current.recordId,
+          };
+      currentPresenceRef.current = next;
+      setCurrentPresence(next);
+      sendPresenceUpdate(next);
+    },
+    [sendPresenceUpdate],
+  );
 
   const handleSelectMention = useCallback(
     (rowRecordId: string, itemRef: string) => {
@@ -3920,6 +4291,11 @@ export function TimelineWorkbook({
         row.recordId === null ? null : `${row.recordId}:${binding.fieldKey}`;
       const localConflict =
         conflictKey === null ? undefined : conflictQueue[conflictKey];
+      const sameCellPresence = editingPresenceForCell(
+        row.recordId,
+        binding.fieldKey,
+      );
+      const sameCellVisible = visiblePresence(sameCellPresence, 1);
       return (
         <>
           <TimelineScalarEditor
@@ -3933,7 +4309,9 @@ export function TimelineWorkbook({
             )}
             field={binding.key}
             multiline={binding.multiline}
+            onEditModeChange={handleEditModePresence}
             registerInput={registerInput}
+            presenceFieldKey={binding.fieldKey}
             rowKey={row.key}
             rowRecordId={row.recordId}
             surface={surface}
@@ -3953,12 +4331,32 @@ export function TimelineWorkbook({
               Conflict
             </button>
           ) : null}
+          {sameCellPresence.length > 0 && surface === "grid" ? (
+            <span
+              aria-label={`${sameCellPresence
+                .map((presence) => presence.display_name)
+                .join(", ")} editing ${timelineBindingLabel(binding.fieldKey)}`}
+              data-testid={`presence-cell-${sanitizeTestId(
+                `${row.recordId ?? "draft"}-${binding.fieldKey}`,
+              )}`}
+              style={cellPresenceStyle}
+            >
+              {sameCellVisible.shown.map((presence) =>
+                displayInitials(presence.display_name),
+              )}
+              {sameCellVisible.overflow > 0
+                ? ` +${sameCellVisible.overflow}`
+                : ""}
+            </span>
+          ) : null}
         </>
       );
     },
     [
       conflictQueue,
+      editingPresenceForCell,
       handleBlur,
+      handleEditModePresence,
       handleKeyDown,
       handlePaste,
       handleSelectRow,
@@ -4099,17 +4497,39 @@ export function TimelineWorkbook({
         ),
         label: "State",
         width: 136,
-        renderCell: (row) => (
-          <span
-            data-testid={
-              row.recordId === null
-                ? "draft-row-capture-state"
-                : rowCellTestId(row.recordId, "capture-state")
-            }
-          >
-            {row.captureState}
-          </span>
-        ),
+        renderCell: (row) => {
+          const rowPresence = presenceForRow(row.recordId);
+          const rowPresenceVisible = visiblePresence(rowPresence, 3);
+          return (
+            <div style={stateCellStyle}>
+              {rowPresence.length > 0 ? (
+                <span
+                  aria-label={`${rowPresence
+                    .map((presence) => presence.display_name)
+                    .join(", ")} focused on this row`}
+                  data-testid={`presence-row-${row.recordId ?? "draft"}`}
+                  style={rowPresenceStyle}
+                >
+                  {rowPresenceVisible.shown
+                    .map((presence) => displayInitials(presence.display_name))
+                    .join(" ")}
+                  {rowPresenceVisible.overflow > 0
+                    ? ` +${rowPresenceVisible.overflow}`
+                    : ""}
+                </span>
+              ) : null}
+              <span
+                data-testid={
+                  row.recordId === null
+                    ? "draft-row-capture-state"
+                    : rowCellTestId(row.recordId, "capture-state")
+                }
+              >
+                {row.captureState}
+              </span>
+            </div>
+          );
+        },
         sortableFieldKey: "timeline.capture_state",
       },
       {
@@ -4165,6 +4585,7 @@ export function TimelineWorkbook({
       ),
     ],
     [
+      presenceForRow,
       renderTimelineCollectionInput,
       renderTimelineGridEditor,
       timelineBindingLabel,
@@ -4243,6 +4664,7 @@ export function TimelineWorkbook({
     [
       handleCreateBlankDraftRow,
       handleSelectRow,
+      presenceForRow,
       queueAction,
       replacementDrafts,
     ],
@@ -4473,6 +4895,8 @@ export function TimelineWorkbook({
     );
   }
 
+  const headerPresence = visiblePresence(activeSheetPresenceRecords, 5);
+
   return (
     <section style={workbookStyle}>
       <header style={headerStyle}>
@@ -4508,6 +4932,30 @@ export function TimelineWorkbook({
           >
             {saveState}
           </strong>
+          <div
+            aria-label={`${activeSheetPresenceRecords.length} collaborators present on this sheet`}
+            data-testid="presence-header"
+            style={headerPresenceStyle}
+          >
+            {headerPresence.shown.length === 0 ? (
+              <span style={presenceEmptyStyle}>Presence</span>
+            ) : (
+              headerPresence.shown.map((presence) => (
+                <span
+                  key={presence.connection_id}
+                  title={presence.display_name}
+                  style={presenceAvatarStyle}
+                >
+                  {displayInitials(presence.display_name)}
+                </span>
+              ))
+            )}
+            {headerPresence.overflow > 0 ? (
+              <span style={presenceOverflowStyle}>
+                +{headerPresence.overflow}
+              </span>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -7765,6 +8213,39 @@ const statusValueStyle = {
   fontSize: "1rem",
 };
 
+const headerPresenceStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "0.25rem",
+  minHeight: "1.5rem",
+};
+
+const presenceAvatarStyle = {
+  display: "inline-grid",
+  placeItems: "center",
+  width: "1.5rem",
+  height: "1.5rem",
+  borderRadius: "999px",
+  border: "1px solid rgb(56 126 104)",
+  background: "rgb(236 253 245)",
+  color: "rgb(20 83 45)",
+  fontSize: "0.72rem",
+  fontWeight: 700,
+};
+
+const presenceOverflowStyle = {
+  ...presenceAvatarStyle,
+  width: "auto",
+  minWidth: "1.5rem",
+  paddingInline: "0.35rem",
+};
+
+const presenceEmptyStyle = {
+  fontSize: "0.75rem",
+  color: "rgb(87 112 104)",
+};
+
 const eyebrowStyle = {
   margin: 0,
   fontSize: "0.78rem",
@@ -7799,6 +8280,26 @@ const gridShellStyle = {
   border: "1px solid rgb(199 214 207)",
   background: "rgb(255 255 255 / 0.82)",
   maxHeight: "70vh",
+};
+
+const stateCellStyle = {
+  display: "grid",
+  gap: "0.35rem",
+  alignItems: "start",
+};
+
+const rowPresenceStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  maxWidth: "100%",
+  borderRadius: "999px",
+  border: "1px solid rgb(56 126 104)",
+  background: "rgb(236 253 245)",
+  color: "rgb(20 83 45)",
+  padding: "0.15rem 0.4rem",
+  fontSize: "0.72rem",
+  fontWeight: 700,
 };
 
 const actionStackStyle = {
@@ -7874,6 +8375,19 @@ const conflictMarkerStyle = {
   background: "rgb(255 251 235)",
   padding: "0.35rem 0.6rem",
   fontSize: "0.85rem",
+};
+
+const cellPresenceStyle = {
+  display: "inline-flex",
+  width: "fit-content",
+  marginTop: "0.35rem",
+  borderRadius: "999px",
+  border: "1px solid rgb(37 99 235)",
+  background: "rgb(239 246 255)",
+  color: "rgb(30 64 175)",
+  padding: "0.2rem 0.45rem",
+  fontSize: "0.75rem",
+  fontWeight: 700,
 };
 
 const conflictResolverStyle = {

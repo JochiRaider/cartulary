@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
+  buildRecordChangedPayload,
   deferred,
   errorEnvelope,
   extractTimelineJSONBody,
@@ -37,6 +38,167 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
   afterEach(() => {
     cleanupTimelineWorkbookTestGlobals();
+  });
+
+  it("Phase 6 presence indicators render from keyed socket state without changing save-state", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Presence base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("row-record-1-summary");
+    await waitFor(() => {
+      expect(latestTimelineWebSocket()).not.toBeNull();
+    });
+    const socket = latestTimelineWebSocket();
+    await waitFor(() => {
+      expect(socket?.sentMessages.length).toBeGreaterThan(0);
+    });
+    socket?.emit({
+      type: "hello_ack",
+      payload: {
+        connection_id: "self-connection",
+        resume_token: "resume-presence",
+      },
+    });
+    socket?.emit({
+      type: "presence_snapshot",
+      payload: {
+        presences: [
+          {
+            connection_id: "self-connection",
+            user_id: "self-user",
+            display_name: "Self Analyst",
+            sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
+            record_id: "record-1",
+            mode: "editing",
+            field_key: "timeline.summary",
+            observed_at: "2026-05-05T12:00:00Z",
+            expires_at: "2026-05-05T12:01:00Z",
+          },
+          {
+            connection_id: "other-connection",
+            user_id: "other-user",
+            display_name: "Other Analyst",
+            sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
+            record_id: "record-1",
+            mode: "editing",
+            field_key: "timeline.summary",
+            observed_at: "2026-05-05T12:00:00Z",
+            expires_at: "2026-05-05T12:01:00Z",
+          },
+          {
+            connection_id: "saved-view-connection",
+            user_id: "saved-view-user",
+            display_name: "Saved View Analyst",
+            sheet_ref: { kind: "saved_view", id: timelineViewSchemaId },
+            record_id: "record-1",
+            mode: "editing",
+            field_key: "timeline.summary",
+            observed_at: "2026-05-05T12:00:00Z",
+            expires_at: "2026-05-05T12:01:00Z",
+          },
+        ],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("presence-header").textContent).toContain(
+        "OA",
+      );
+    });
+    expect(screen.getByTestId("presence-header").textContent).not.toContain(
+      "SA",
+    );
+    expect(screen.getByTestId("presence-row-record-1").textContent).toContain(
+      "OA",
+    );
+    expect(
+      screen.getByTestId("presence-cell-record-1-timeline-summary")
+        .textContent,
+    ).toContain("OA");
+    expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+
+    socket?.emit({
+      type: "presence_delta",
+      payload: {
+        delta_kind: "remove",
+        presence: { connection_id: "other-connection" },
+      },
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("presence-header").textContent).not.toContain(
+        "OA",
+      );
+    });
+  });
+
+  it("Phase 6 applies sparse live patches by record_id without moving an active cell draft", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Local base",
+            details: "Old details",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const input = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    input.focus();
+    await changeInputValue(input, "Unsaved local");
+    latestTimelineWebSocket()?.emit({
+      type: "record_changed",
+      stream_seq: 1,
+      payload: buildRecordChangedPayload({
+        recordId: "record-1",
+        rowVersion: 2,
+        clientTxnId: "remote-patch",
+        changedFieldKeys: ["timeline.details"],
+        affectedViews: [
+          {
+            view_schema_id: timelineViewSchemaId,
+            change_kind: "patch",
+            patch_cells: {
+              record_id: "record-1",
+              row_version: 2,
+              cells: {
+                "timeline.details": { value: "Remote details" },
+              },
+            },
+          },
+        ],
+      }),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+    });
+    expect(input.value).toBe("Unsaved local");
+    expect(document.activeElement).toBe(input);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("Phase 6 U-6-05 keeps the grid visible, conflict unresolved, and focus bound to the same cell", async () => {

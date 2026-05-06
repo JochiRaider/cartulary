@@ -256,6 +256,7 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 		}
 		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
 		if err := writeMessage(ctx, conn, platformws.EphemeralMessage(incidentID, "resume_ack", map[string]any{
+			"connection_id":                connectionID.String(),
 			"status":                       status,
 			"resume_token":                 resumeToken,
 			"server_high_water_stream_seq": highWater,

@@ -16,7 +16,7 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 | [x]  | 1. Patch conflict contract and explicit resolver domain               | [x] passed | None. The workbook collection auto-rebase regression was fixed as a test-fixture issue, and the workbook package plus Phase 6 public slices pass. | Backend `U-6-01..U-6-04` and frontend `U-6-05..U-6-06` are implemented. Phase 3 Timeline hot-path coverage remains support evidence.                           |
 | [x]  | 2. Incident socket handshake, resume, replay, and presence hardening  | [x] passed | None. Focused socket tests, backend integration, and both Phase 6 public slice wrappers pass. | Backend `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, and `I-6-04` are implemented.                                                                                                    |
 | [x]  | 3. Frontend collaboration client, save state, and local pending queue | [x] passed | None. `E-6-03` and `E-6-05` are now real browser-functional evidence.                    | Frontend runtime, `U-6-09`, same-runtime re-auth recovery, FIFO replay, non-retryable halt, and reload-loss boundaries are implemented.                                                                                                    |
-| [ ]  | 4. Browser presence indicators and live-cell anchoring                | [ ] pending | Presence and live patches must remain bound to `record_id` plus `field_key` through sort/filter/group/virtual scrolling or invalidation.                                          | Cover `E-6-01` and `E-6-04`, with focused frontend unit tests for row/cell key stability.                                                                      |
+| [x]  | 4. Browser presence indicators and live-cell anchoring                | [x] passed | None. Backend sparse `record_changed` patches, browser presence indicators, live-cell anchoring, and Phase 6 browser-functional rows pass.                                          | `E-6-01` and `E-6-04` are implemented, with focused frontend unit coverage for keyed presence state and sparse live patch anchoring.                                                                      |
 | [ ]  | 5. Two-client concurrent edit E2E and resolver UX                     | [ ] pending | Requires stable multi-context browser fixture and deterministic conflict setup.                                                                                                   | Cover `I-6-03` and `E-6-02`; verify same-surface resolver actions commit or clear exactly as specified.                                                        |
 | [ ]  | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup     | [ ] pending | Depends on prior sprints.                                                                                                                                                         | Regenerate ledgers/schedules/baselines after all authoritative rows are real, then run phase and check gates.                                                  |
 
@@ -347,7 +347,7 @@ Exit criteria:
 
 Objective: Make workbook-visible presence and live update state attach to durable row/cell identity through resorting, filtering, grouping, virtual scrolling, and row patches.
 
-Status: Not started.
+Status: Complete for Sprint 4. Browser presence indicators and live-cell anchoring are implemented on the Timeline workbook surface, backed by server sparse `record_changed` patch payloads and authoritative Phase 6 browser-functional coverage.
 
 Relevant IDs:
 - `E-6-01`, `E-6-04`
@@ -366,39 +366,59 @@ Grep references:
 - `view_schema_id`
 
 Files and areas:
-- `apps/web/src/WorkbookShell.tsx`
-- Any extracted row-grid, virtualization, or collaboration indicator components.
-- `apps/web/src/WorkbookShell.phase6.test.tsx`
-- `apps/web/e2e/phase6.collaboration.spec.ts`
+- `internal/platform/ws/ws.go` now supports `RecordChange.PatchCells`, `RecordChangePayload` emits `change_kind='patch'` when safe, and `BuildViewRowPatch` constructs sparse `view_row_patch_v1` payloads with changed cells and grouping scalars.
+- `internal/modules/timeline/routes.go` and `internal/modules/workbook/routes.go` publish sparse patch payloads from mutation results while retaining the existing invalidate fallback when a patch cannot be safely built.
+- `internal/modules/collaboration/routes.go` includes `connection_id` on `resume_ack` so the browser can keep self-presence filtering stable after reconnect.
+- `apps/web/src/WorkbookShell.tsx` maintains browser presence by exact `connection_id`, filters by exact `sheet_ref`, ignores the current socket connection, renders header/row/same-cell indicators, sends presence updates from durable row/field state, and applies live sparse patches by `record_id`.
+- `apps/web/src/workbookShellPhase4.ts` and `apps/web/src/timelineWorkbookTestSupport.ts` now understand `affected_views[].patch_cells` for frontend unit tests.
+- `apps/web/src/WorkbookShell.phase6.test.tsx` contains focused unit coverage for keyed presence snapshot/delta handling, save-state independence, and sparse live patch anchoring.
+- `apps/web/e2e/phase6.collaboration.spec.ts` replaces the `E-6-01` and `E-6-04` placeholders with real browser-functional tests.
 
-Test-first sequence:
-1. Add browser test with two analysts connected to the same incident and same workbook surface.
-2. Assert presence appears within the expected interaction window with row-gutter and same-cell editing hints where available.
-3. Assert live row patches, invalidations, sort changes, filters, grouping transitions, and virtual-scroll movement do not retarget pending local edits.
-4. Assert conflict markers and presence markers stay attached to the intended `record_id` plus `field_key`, not row index.
+Completed test-first sequence:
+1. `E-6-01` now creates two analysts on one incident, verifies header presence, row presence, and same-cell editing presence through the real incident socket path, and confirms ambient presence does not change save state.
+2. `E-6-04` now holds a local pending edit, exercises sort/filter/group state, applies remote live changes, and verifies the local draft plus conflict marker stay anchored to the original `record_id` and `field_key`.
+3. Frontend unit coverage proves `presence_snapshot` and `presence_delta` are treated as keyed state, self-presence and saved-view mismatches are excluded, and removing a presence clears indicators without touching save state.
+4. Frontend unit coverage proves sparse live row patches update the intended row version/cells by `record_id` without forcing an HTTP re-query or moving the active local draft.
 
-Implementation tasks:
-- Normalize all collaboration UI state around `record_id`, `field_key`, and `view_schema_id`.
-- Make visible row rendering derive indicators from durable keys after every query refresh or live update.
-- Add data-testid or accessibility labels only as stable test affordances, not as alternate behavior.
-- Ensure presence expiration/removal clears markers without disturbing local drafts.
+Completed implementation tasks:
+- Normalized collaboration UI state around `sheet_ref`, `record_id`, `field_key`, and `connection_id`.
+- Added workbook-header presence, row presence, and same-cell editing indicators with bounded visible counts and overflow behavior.
+- Added immediate and coalesced presence publication from selection/editing state while keeping presence display-only.
+- Added sparse live patch application for `record_changed.payload.affected_views[]` entries keyed by exact `view_schema_id`; existing HTTP query refresh remains the fallback for invalidate, stream gaps, reset-required resumes, and unsafe patch cases.
+- Preserved pending edit, conflict queue, and save-state semantics during presence updates and live patches.
+- Kept generated protocol artifacts untouched.
 
 Validation commands:
+- `go test ./internal/platform/ws ./internal/modules/collaboration`
+- `go test ./internal/modules/timeline ./internal/modules/workbook`
 - `make frontend-unit`
-- `make browser-e2e-webserver-backed`
 - `make frontend-typecheck`
+- `make service-backed-slice PHASE=phase6`
 - `git diff --check`
 
+Validation results:
+- `go test ./internal/platform/ws ./internal/modules/collaboration` passed.
+- `go test ./internal/modules/timeline ./internal/modules/workbook` passed.
+- `make frontend-typecheck` passed with artifact root `.cartulary/test-results/20260506T002436Z-p45580/frontend-typecheck`.
+- `make frontend-unit` passed with artifact root `.cartulary/test-results/20260506T002436Z-p45629/frontend-unit`.
+- `make service-backed-slice PHASE=phase6` passed with 3/3 work units, 12 tests, 0 failures, and artifact root `.cartulary/test-results/20260506T002452Z-p46572/service-backed-slice`.
+- `git diff --check` passed.
+
 Deliverables:
-- Two analysts see workbook-native presence indicators.
-- Pending edits, conflict markers, and presence markers remain bound to the intended cell through view changes.
+- Two analysts see workbook-native presence indicators on the same Timeline workbook surface.
+- Header, row, and same-cell presence indicators are keyed from socket presence records rather than visible row or column positions.
+- Backend live updates can publish sparse row patches with changed field-keyed cells and grouping scalars.
+- Pending edits, conflict markers, and presence markers remain bound to the intended cell through view changes covered by Phase 6 evidence.
 
 Risks and assumptions:
-- If virtual scrolling is not fully implemented yet, the row should document the strongest current equivalent and leave a manifest `out_of_scope` note only when owner text permits phased evidence.
-- Avoid implementing new saved-view semantics here; Phase 8 owns deeper sort/filter/group/query behavior.
+- The current grid adapter has virtualization disabled in the existing implementation; Sprint 4 covers the strongest current equivalent through stable row/cell anchors across live patch, refresh fallback, sort, filter, and grouping controls.
+- Saved-view semantics were not expanded. The browser preserves the required distinction by exact `sheet_ref.kind` and `sheet_ref.id` when filtering presence state.
+- Presence remains ambient display state only. It does not affect mutation authorization, pending queue membership, conflict state, or save-state labels.
+- Phase 8 still owns deeper saved-view/query behavior.
 
 Exit criteria:
-- Browser evidence proves the user-visible collaboration markers satisfy Phase 6 without relying on internal state inspection alone.
+- Browser evidence proves the user-visible collaboration markers satisfy Phase 6 without relying on internal state inspection alone. Done.
+- Sparse live patches and invalidate fallback remain covered by backend and frontend evidence. Done.
 
 ## Sprint 5. Two-Client Concurrent Edit E2E and Resolver UX
 

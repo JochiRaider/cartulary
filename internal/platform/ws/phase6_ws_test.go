@@ -157,6 +157,77 @@ func TestPhase6_PresenceHeartbeatRevocation_U_6_08(t *testing.T) {
 		hub.RevokeIncidentSession(incidentID, sessionID, "incident_access_revoked")
 		requirePhase6Reason(t, incidentRevocations, "incident_access_revoked")
 	})
+
+	t.Run("record changes emit canonical patch cells with invalidate fallback", func(t *testing.T) {
+		incidentID := uuid.New()
+		recordID := uuid.New()
+		changeSetID := uuid.New()
+		actorUserID := uuid.New()
+		row := map[string]any{
+			"record_id":   recordID.String(),
+			"row_version": int64(7),
+			"cells": map[string]any{
+				"timeline.summary":       map[string]any{"value": "Patched"},
+				"timeline.capture_state": map[string]any{"value": "enriched"},
+				"timeline.details":       map[string]any{"value": "Omitted"},
+			},
+			"group_values": map[string]any{
+				"timeline.capture_state": "enriched",
+				"timeline.details":       "not-a-group-key",
+			},
+		}
+		patch := BuildViewRowPatch(row, []string{
+			"timeline.summary",
+			"timeline.capture_state",
+		})
+		payload := RecordChangePayload(RecordChange{
+			IncidentID:       incidentID,
+			RecordID:         recordID,
+			RowVersion:       7,
+			ChangeSetID:      changeSetID,
+			ClientTxnID:      "txn-phase6-patch",
+			ActorUserID:      actorUserID,
+			ChangedFieldKeys: []string{"timeline.summary", "timeline.capture_state"},
+			ViewSchemaID:     "cartulary.view.timeline.v1",
+			PatchCells:       patch,
+		})
+
+		changedKeys, _ := payload["changed_field_keys"].([]string)
+		if want := []string{"timeline.capture_state", "timeline.summary"}; !reflect.DeepEqual(changedKeys, want) {
+			t.Fatalf("changed_field_keys = %#v want %#v", changedKeys, want)
+		}
+		affectedViews, _ := payload["affected_views"].([]map[string]any)
+		if len(affectedViews) != 1 || affectedViews[0]["change_kind"] != "patch" {
+			t.Fatalf("expected one patch affected view, got %#v", payload["affected_views"])
+		}
+		patchCells, _ := affectedViews[0]["patch_cells"].(map[string]any)
+		cells, _ := patchCells["cells"].(map[string]any)
+		if _, ok := cells["timeline.details"]; ok {
+			t.Fatalf("patch_cells must omit unchanged cells, got %#v", cells)
+		}
+		if len(cells) != 2 {
+			t.Fatalf("patch_cells cells length = %d want 2: %#v", len(cells), cells)
+		}
+		groupValues, _ := patchCells["group_values"].(map[string]any)
+		if !reflect.DeepEqual(groupValues, map[string]any{"timeline.capture_state": "enriched"}) {
+			t.Fatalf("patch group_values = %#v", groupValues)
+		}
+
+		fallback := RecordChangePayload(RecordChange{
+			IncidentID:       incidentID,
+			RecordID:         recordID,
+			RowVersion:       8,
+			ChangeSetID:      changeSetID,
+			ClientTxnID:      "txn-phase6-invalidate",
+			ActorUserID:      actorUserID,
+			ChangedFieldKeys: []string{"timeline.summary"},
+			ViewSchemaID:     "cartulary.view.timeline.v1",
+		})
+		fallbackViews, _ := fallback["affected_views"].([]map[string]any)
+		if len(fallbackViews) != 1 || fallbackViews[0]["change_kind"] != "invalidate" {
+			t.Fatalf("expected invalidate fallback, got %#v", fallback["affected_views"])
+		}
+	})
 }
 
 func replayMessage(messageType string, incidentID uuid.UUID, streamSeq int64) Message {

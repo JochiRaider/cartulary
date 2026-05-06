@@ -55,6 +55,12 @@ export type RecordChangedPayload = {
   actor_user_id: string;
   changed_field_keys: string[];
   affected_views: Array<{
+    patch_cells?: {
+      record_id: string;
+      row_version: number;
+      cells: Record<string, { value: unknown }>;
+      group_values?: Record<string, unknown>;
+    };
     view_schema_id: string;
     change_kind: string;
   }>;

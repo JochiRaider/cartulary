@@ -118,6 +118,7 @@ type RecordChange struct {
 	ActorUserID      uuid.UUID
 	ChangedFieldKeys []string
 	ViewSchemaID     string
+	PatchCells       map[string]any
 	StreamSeq        int64
 	EventID          uuid.UUID
 	EmittedAt        time.Time
@@ -683,6 +684,17 @@ func recordChangedMessage(change RecordChange) Message {
 func RecordChangePayload(change RecordChange) map[string]any {
 	changedKeys := append([]string(nil), change.ChangedFieldKeys...)
 	slices.Sort(changedKeys)
+	affectedView := map[string]any{
+		"view_schema_id": change.ViewSchemaID,
+		"change_kind":    "invalidate",
+	}
+	if change.PatchCells != nil {
+		affectedView = map[string]any{
+			"view_schema_id": change.ViewSchemaID,
+			"change_kind":    "patch",
+			"patch_cells":    change.PatchCells,
+		}
+	}
 	return map[string]any{
 		"record_id":          change.RecordID.String(),
 		"row_version":        change.RowVersion,
@@ -690,13 +702,59 @@ func RecordChangePayload(change RecordChange) map[string]any {
 		"client_txn_id":      change.ClientTxnID,
 		"actor_user_id":      change.ActorUserID.String(),
 		"changed_field_keys": changedKeys,
-		"affected_views": []map[string]any{
-			{
-				"view_schema_id": change.ViewSchemaID,
-				"change_kind":    "invalidate",
-			},
-		},
+		"affected_views":     []map[string]any{affectedView},
 	}
+}
+
+func BuildViewRowPatch(row map[string]any, changedFieldKeys []string) map[string]any {
+	if row == nil {
+		return nil
+	}
+	recordID, ok := row["record_id"]
+	if !ok {
+		return nil
+	}
+	rowVersion, ok := row["row_version"]
+	if !ok {
+		return nil
+	}
+	cells, ok := row["cells"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	changed := make(map[string]struct{}, len(changedFieldKeys))
+	for _, fieldKey := range changedFieldKeys {
+		changed[fieldKey] = struct{}{}
+	}
+
+	patchCells := make(map[string]any, len(changed))
+	for fieldKey := range changed {
+		if cell, ok := cells[fieldKey]; ok {
+			patchCells[fieldKey] = cell
+		}
+	}
+	if len(patchCells) == 0 {
+		return nil
+	}
+
+	patch := map[string]any{
+		"record_id":   recordID,
+		"row_version": rowVersion,
+		"cells":       patchCells,
+	}
+	if groupValues, ok := row["group_values"].(map[string]any); ok {
+		patchGroupValues := make(map[string]any)
+		for fieldKey := range changed {
+			if value, ok := groupValues[fieldKey]; ok {
+				patchGroupValues[fieldKey] = value
+			}
+		}
+		if len(patchGroupValues) > 0 {
+			patch["group_values"] = patchGroupValues
+		}
+	}
+	return patch
 }
 
 func NewIncidentJobProgressPayload(jobID string, incidentID uuid.UUID, status string, progress JobProgress, updatedAt time.Time) JobProgressPayload {

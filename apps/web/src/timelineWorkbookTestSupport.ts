@@ -31,6 +31,7 @@ export type TimelineWebSocketMock = {
   onerror: ((event: Event) => void) | null;
   onmessage: ((event: MessageEvent) => void) | null;
   onopen: ((event: Event) => void) | null;
+  readyState: number;
   send: (message: string) => void;
   sentMessages: string[];
 };
@@ -61,6 +62,12 @@ type RecordChangedPayloadOptions = {
   actorUserId?: string;
   changedFieldKeys?: string[];
   affectedViews?: Array<{
+    patch_cells?: {
+      record_id: string;
+      row_version: number;
+      cells: Record<string, { value: unknown }>;
+      group_values?: Record<string, unknown>;
+    };
     view_schema_id: string;
     change_kind: string;
   }>;
@@ -85,10 +92,12 @@ export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock 
   vi.stubGlobal(
     "WebSocket",
     class {
+      static readonly OPEN = 1;
       onclose: ((event: CloseEvent) => void) | null = null;
       onerror: ((event: Event) => void) | null = null;
       onmessage: ((event: MessageEvent) => void) | null = null;
       onopen: ((event: Event) => void) | null = null;
+      readyState = 1;
       sentMessages: string[] = [];
 
       constructor() {
@@ -99,6 +108,7 @@ export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock 
       }
 
       close() {
+        this.readyState = 3;
         this.onclose?.(new CloseEvent("close"));
       }
 
