@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
@@ -23,7 +24,10 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 		}{
 			{name: "array", body: `[]`},
 			{name: "missing object_blob_id", body: `{"base_row_version":1,"client_txn_id":"txn"}`},
+			{name: "missing base_row_version", body: `{"object_blob_id":"` + uuid.NewString() + `","client_txn_id":"txn"}`},
 			{name: "null base_row_version", body: `{"object_blob_id":"` + uuid.NewString() + `","base_row_version":null,"client_txn_id":"txn"}`},
+			{name: "missing client_txn_id", body: `{"object_blob_id":"` + uuid.NewString() + `","base_row_version":1}`},
+			{name: "null client_txn_id", body: `{"object_blob_id":"` + uuid.NewString() + `","base_row_version":1,"client_txn_id":null}`},
 			{name: "unknown member", body: `{"object_blob_id":"` + uuid.NewString() + `","base_row_version":1,"client_txn_id":"txn","extra":true}`},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
@@ -65,6 +69,31 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 			t.Fatalf("replay did not return original payload: %#v want change_set_id %#v", replay, changeSet)
 		}
 		requirePhase5ChangeSetCount(t, harness.DB, recordID, 1)
+	})
+
+	t.Run("divergent replay is rejected without durable side effects", func(t *testing.T) {
+		recordID := seedPhase5EvidenceRecord(t, harness.DB, incident.ID, actor.ID, "received")
+		blobID := seedPhase5Blob(t, harness.DB, incident.ID, actor.ID, "available", phase5BlobOptions{
+			ByteSize: 4, ObservedSize: ptrInt64(4), ObservedSHA: ptrString(strings.Repeat("a", 64)), ObservedContentType: ptrString("text/plain"),
+		})
+		request := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-attach-divergent"}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-divergent-first", time.Now().UTC()); err != nil {
+			t.Fatalf("attach available blob: %v", err)
+		}
+		before := phase5DurableAttachCounts(t, harness.DB, recordID)
+
+		otherBlobID := seedPhase5Blob(t, harness.DB, incident.ID, actor.ID, "available", phase5BlobOptions{
+			ByteSize: 4, ObservedSize: ptrInt64(4), ObservedSHA: ptrString(strings.Repeat("b", 64)), ObservedContentType: ptrString("text/plain"),
+		})
+		divergent := evidence.AttachBlobRequest{ObjectBlobID: otherBlobID, BaseRowVersion: 2, ClientTxnID: request.ClientTxnID}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, divergent, evidence.AttachBlobRequestHash(divergent), nil, "req-divergent-second", time.Now().UTC()); !errors.Is(err, authn.ErrClientTxnConflict) {
+			t.Fatalf("divergent replay got %v want authn.ErrClientTxnConflict", err)
+		}
+		after := phase5DurableAttachCounts(t, harness.DB, recordID)
+		if after != before {
+			t.Fatalf("divergent replay changed durable counts: before=%+v after=%+v", before, after)
+		}
+		requirePhase5EvidenceState(t, harness.DB, recordID, "available", "available", blobID)
 	})
 
 	t.Run("conflict and lifecycle failures leave evidence unchanged", func(t *testing.T) {
@@ -288,6 +317,28 @@ SELECT COUNT(*)
 	if count != want {
 		t.Fatalf("record revision count got %d want %d", count, want)
 	}
+}
+
+type phase5DurableCounts struct {
+	ChangeSets int
+	Mutations  int
+	Revisions  int
+	BlobLinks  int
+}
+
+func phase5DurableAttachCounts(t testing.TB, db postgres.DB, recordID uuid.UUID) phase5DurableCounts {
+	t.Helper()
+	var counts phase5DurableCounts
+	if err := db.QueryRow(context.Background(), `
+SELECT
+    (SELECT COUNT(*) FROM change_sets cs JOIN record_revisions rr ON rr.change_set_id = cs.change_set_id WHERE rr.record_id = $1),
+    (SELECT COUNT(*) FROM change_set_mutations m JOIN record_revisions rr ON rr.change_set_id = m.change_set_id WHERE rr.record_id = $1),
+    (SELECT COUNT(*) FROM record_revisions WHERE record_id = $1),
+    (SELECT COUNT(*) FROM evidence WHERE record_id = $1 AND object_blob_id IS NOT NULL)
+`, recordID).Scan(&counts.ChangeSets, &counts.Mutations, &counts.Revisions, &counts.BlobLinks); err != nil {
+		t.Fatalf("count durable attach state: %v", err)
+	}
+	return counts
 }
 
 func ptrString(value string) *string { return &value }

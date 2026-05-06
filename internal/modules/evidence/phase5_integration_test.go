@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
@@ -84,6 +85,185 @@ INSERT INTO record_links (
 	}
 	if got := countEvidenceBlobLinks(t, harness, evidenceRecordID); got != 1 {
 		t.Fatalf("evidence row has duplicate or missing blob link: got %d want 1", got)
+	}
+}
+
+func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase5-attach-route-contract")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase5-attach-route-incident",
+		"incident_key":  "phase5-attach-route",
+		"title":         "Phase 5 attach route contract",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	otherIncident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase5-attach-route-other",
+		"incident_key":  "phase5-attach-route-other",
+		"title":         "Phase 5 attach route other",
+	})
+	otherIncidentID := phase4test.MustUUID(t, otherIncident["incident_id"].(string))
+
+	recordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+	availableBlobID := insertPhase5RouteBlob(t, harness, incidentID, adminID, "available")
+	attachURL := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + recordID.String() + "/attach-blob"
+
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{name: "array", body: `[]`},
+		{name: "missing object_blob_id", body: `{"base_row_version":1,"client_txn_id":"txn-route-shape"}`},
+		{name: "missing base_row_version", body: `{"object_blob_id":"` + availableBlobID.String() + `","client_txn_id":"txn-route-shape"}`},
+		{name: "missing client_txn_id", body: `{"object_blob_id":"` + availableBlobID.String() + `","base_row_version":1}`},
+		{name: "null client_txn_id", body: `{"object_blob_id":"` + availableBlobID.String() + `","base_row_version":1,"client_txn_id":null}`},
+		{name: "unknown member", body: `{"object_blob_id":"` + availableBlobID.String() + `","base_row_version":1,"client_txn_id":"txn-route-shape","extra":true}`},
+	} {
+		t.Run("shape "+tc.name, func(t *testing.T) {
+			httptestx.RequireErrorEnvelope(t, doRawJSON(t, http.MethodPost, attachURL, tc.body, authOptions(login)...), http.StatusBadRequest, "invalid_mutation_payload")
+		})
+	}
+
+	t.Run("viewer cannot attach", func(t *testing.T) {
+		viewer := phase4test.SeedLocalUserFlags(t, harness.DB, "phase5-attach-viewer@example.test", "Phase5 Attach Viewer", "Phase5AttachViewer1!", false, false, true)
+		phase4test.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "Phase5 Attach Viewer", "viewer", adminID)
+		viewerLogin := loginLocalUserNoMFA(t, harness, "phase5-attach-viewer@example.test", "Phase5AttachViewer1!")
+		resp := phase4test.DoJSON(t, http.MethodPost, attachURL, map[string]any{
+			"object_blob_id":   availableBlobID.String(),
+			"base_row_version": 1,
+			"client_txn_id":    "txn-phase5-viewer-denied",
+		}, authOptions(viewerLogin)...)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusForbidden, "authorization_denied")
+		requireEvidenceStates(t, harness, recordID, "received", "pending")
+	})
+
+	t.Run("route-owned failures use canonical envelopes", func(t *testing.T) {
+		cases := []struct {
+			name       string
+			blobID     uuid.UUID
+			base       int
+			wantStatus int
+			wantCode   string
+			wantReason string
+		}{
+			{name: "row version conflict", blobID: availableBlobID, base: 9, wantStatus: http.StatusConflict, wantCode: "row_version_conflict"},
+			{name: "missing blob", blobID: uuid.New(), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "blob_missing"},
+			{name: "foreign blob", blobID: insertPhase5RouteBlob(t, harness, otherIncidentID, adminID, "available"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "incident_mismatch"},
+			{name: "pending blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "pending"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "blob_not_attachable"},
+			{name: "failed blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "failed"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "blob_not_attachable"},
+			{name: "quarantined blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "quarantined"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "evidence_quarantined"},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				resp := phase4test.DoJSON(t, http.MethodPost, attachURL, map[string]any{
+					"object_blob_id":   tc.blobID.String(),
+					"base_row_version": tc.base,
+					"client_txn_id":    "txn-phase5-route-" + strings.ReplaceAll(tc.name, " ", "-"),
+				}, authOptions(login)...)
+				body := httptestx.RequireErrorEnvelope(t, resp, tc.wantStatus, tc.wantCode)
+				if tc.wantReason != "" {
+					details := body["error"].(map[string]any)["details"].(map[string]any)
+					if got := details["reason_code"]; got != tc.wantReason {
+						t.Fatalf("reason_code got %v want %s", got, tc.wantReason)
+					}
+				}
+				requireEvidenceStates(t, harness, recordID, "received", "pending")
+			})
+		}
+	})
+
+	t.Run("divergent replay is rejected through HTTP", func(t *testing.T) {
+		replayRecordID := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, adminID, replayRecordID)
+		firstBlobID := insertPhase5RouteBlob(t, harness, incidentID, adminID, "available")
+		replayURL := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + replayRecordID.String() + "/attach-blob"
+		body := map[string]any{"object_blob_id": firstBlobID.String(), "base_row_version": 1, "client_txn_id": "txn-phase5-route-divergent"}
+		first := httptestx.RequireSuccessEnvelope(t, phase4test.DoJSON(t, http.MethodPost, replayURL, body, authOptions(login)...), http.StatusOK)["data"].(map[string]any)
+		beforeRevisions := countEvidenceRevisions(t, harness, replayRecordID)
+		secondBlobID := insertPhase5RouteBlob(t, harness, incidentID, adminID, "available")
+		resp := phase4test.DoJSON(t, http.MethodPost, replayURL, map[string]any{
+			"object_blob_id":   secondBlobID.String(),
+			"base_row_version": 2,
+			"client_txn_id":    "txn-phase5-route-divergent",
+		}, authOptions(login)...)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "client_txn_conflict")
+		if got := countEvidenceRevisions(t, harness, replayRecordID); got != beforeRevisions {
+			t.Fatalf("divergent replay changed revision count: got %d want %d", got, beforeRevisions)
+		}
+		if got := countEvidenceBlobLinks(t, harness, replayRecordID); got != 1 {
+			t.Fatalf("divergent replay changed blob link count: got %d want 1", got)
+		}
+		if first["object_blob_id"] != firstBlobID.String() {
+			t.Fatalf("first attach object_blob_id got %#v want %s", first["object_blob_id"], firstBlobID)
+		}
+	})
+}
+
+func TestPhase5_AttachedEvidenceProjectionRebuild_I_5_06(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase5-projection-rebuild")
+	login, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase5-projection-incident",
+		"incident_key":  "phase5-projection",
+		"title":         "Phase 5 projection rebuild",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v1", map[string]any{
+		"client_txn_id":    "txn-phase5-projection-timeline",
+		"timeline.summary": "Projection rebuild row",
+	})
+	timelineRow := timelineData["row"].(map[string]any)
+	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
+	timelineRowVersion := int(timelineRow["row_version"].(float64))
+
+	evidenceData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
+		"client_txn_id":  "txn-phase5-projection-evidence",
+		"evidence.title": "Projection evidence",
+	})
+	evidenceRecordID := phase4test.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("phase5 projection rebuild"), "projection.txt", "text/plain", "txn-phase5-projection-blob", "txn-phase5-projection-attach")
+
+	requirePhase5HTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.timeline.v1",
+		"base_row_version": timelineRowVersion,
+		"client_txn_id":    "txn-phase5-projection-link",
+		"changes": []map[string]any{{
+			"field_key": "timeline.attached_evidence_ids",
+			"action_payload": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{{
+					"op":               "add_record_ref",
+					"linked_record_id": evidenceRecordID.String(),
+				}},
+			},
+		}},
+	})
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
+
+	sourceBefore := phase5ProcessCounts(t, harness, incidentID, timelineRecordID)
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE timeline_grid_projection
+   SET evidence_count = 0,
+       has_evidence = false
+ WHERE record_id = $1
+`, timelineRecordID); err != nil {
+		t.Fatalf("corrupt timeline projection: %v", err)
+	}
+	requireTimelineProjectionStorage(t, harness, timelineRecordID, 0, false)
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
+
+	if err := projections.NewStore(harness.Server.Runtime.Postgres).RebuildIncidentTimeline(context.Background(), incidentID); err != nil {
+		t.Fatalf("rebuild timeline projection: %v", err)
+	}
+	requireTimelineProjectionStorage(t, harness, timelineRecordID, 1, true)
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
+	if sourceAfter := phase5ProcessCounts(t, harness, incidentID, timelineRecordID); sourceAfter != sourceBefore {
+		t.Fatalf("projection rebuild mutated source/history state: before=%+v after=%+v", sourceBefore, sourceAfter)
+	}
+	if got := countEvidenceBlobLinks(t, harness, evidenceRecordID); got != 1 {
+		t.Fatalf("projection rebuild changed evidence blob link count: got %d want 1", got)
 	}
 }
 
@@ -499,6 +679,12 @@ func requirePhase5HTTPWorkbookCreate(t testing.TB, harness *phase4test.ServerHar
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
+func requirePhase5HTTPWorkbookPatch(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+	t.Helper()
+	resp := phase4test.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, authOptions(login)...)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+}
+
 func requireTimelineEvidenceProjection(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
 	t.Helper()
 	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.timeline.v1/query", map[string]any{}, authOptions(login)...)
@@ -520,6 +706,46 @@ func requireTimelineEvidenceProjection(t testing.TB, harness *phase4test.ServerH
 	t.Fatalf("timeline row %s not found in query %#v", recordID, data["rows"])
 }
 
+type phase5SourceHistoryCounts struct {
+	ChangeSets   int
+	Mutations    int
+	Revisions    int
+	RecordLinks  int
+	TimelineRows int
+}
+
+func phase5ProcessCounts(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, recordID uuid.UUID) phase5SourceHistoryCounts {
+	t.Helper()
+	var counts phase5SourceHistoryCounts
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT
+    (SELECT COUNT(*) FROM change_sets WHERE incident_id = $1),
+    (SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets cs ON cs.change_set_id = m.change_set_id WHERE cs.incident_id = $1),
+    (SELECT COUNT(*) FROM record_revisions WHERE record_id = $2),
+    (SELECT COUNT(*) FROM record_links WHERE incident_id = $1 AND deleted_at IS NULL),
+    (SELECT COUNT(*) FROM timeline_events WHERE incident_id = $1)
+`, incidentID, recordID).Scan(&counts.ChangeSets, &counts.Mutations, &counts.Revisions, &counts.RecordLinks, &counts.TimelineRows); err != nil {
+		t.Fatalf("count phase5 source/history state: %v", err)
+	}
+	return counts
+}
+
+func requireTimelineProjectionStorage(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
+	t.Helper()
+	var count int
+	var hasEvidence bool
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT evidence_count, has_evidence
+  FROM timeline_grid_projection
+ WHERE record_id = $1
+`, recordID).Scan(&count, &hasEvidence); err != nil {
+		t.Fatalf("load timeline projection storage: %v", err)
+	}
+	if count != wantCount || hasEvidence != wantHasEvidence {
+		t.Fatalf("timeline projection storage got count=%d has_evidence=%v want count=%d has_evidence=%v", count, hasEvidence, wantCount, wantHasEvidence)
+	}
+}
+
 func countEvidenceRevisions(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID) int {
 	t.Helper()
 	var count int
@@ -536,6 +762,46 @@ func countEvidenceBlobLinks(t testing.TB, harness *phase4test.ServerHarness, rec
 		t.Fatalf("count evidence blob links: %v", err)
 	}
 	return count
+}
+
+func insertPhase5RouteBlob(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, uploadState string) uuid.UUID {
+	t.Helper()
+	objectBlobID := uuid.New()
+	now := time.Now().UTC()
+	var finalizedAt any
+	var terminalReason any
+	var failedAt any
+	if uploadState == "available" || uploadState == "quarantined" {
+		finalizedAt = now
+	}
+	if uploadState == "failed" {
+		terminalReason = "pending_timeout"
+		failedAt = now
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, filename_hint, content_type_hint, observed_size, observed_content_type,
+    observed_sha256_hex, target_expires_at, pending_expires_at, finalized_at,
+    terminal_reason, failed_at, cleanup_due_at, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5,
+    11, 'route.txt', 'text/plain', 11, 'text/plain',
+    '0000000000000000000000000000000000000000000000000000000000000000',
+    $6, $7, $8, $9, $10, $11, $12, $12
+)
+`, objectBlobID, incidentID, actorID, "phase5/route/"+objectBlobID.String(), uploadState,
+		now.Add(time.Hour), now.Add(24*time.Hour), finalizedAt, terminalReason, failedAt, nullableCleanupDue(uploadState, now), now); err != nil {
+		t.Fatalf("insert phase5 route blob: %v", err)
+	}
+	return objectBlobID
+}
+
+func nullableCleanupDue(uploadState string, now time.Time) any {
+	if uploadState == "failed" {
+		return now.Add(time.Hour)
+	}
+	return nil
 }
 
 func loginLocalUserNoMFA(t testing.TB, harness *phase4test.ServerHarness, username string, password string) phase4test.LoginResult {

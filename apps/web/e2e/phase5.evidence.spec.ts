@@ -69,6 +69,11 @@ test("E-5-01 attaches a screenshot to a selected Timeline row without leaving th
       rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
     ),
   ).toHaveText("1");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
+    ),
+  ).toHaveText("true");
 });
 
 test("E-5-02 persists a screenshot-only Timeline row through the two-step evidence path", async ({
@@ -190,51 +195,14 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
     ),
   ).toHaveText("pending");
 
-  const payload = Buffer.from("phase5 requested evidence payload", "utf8");
-  const digest = await crypto.subtle.digest("SHA-256", payload);
-  const sha256Hex = [...new Uint8Array(digest)]
-    .map((value) => value.toString(16).padStart(2, "0"))
-    .join("");
-  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
-    headers: await csrfHeaders(page),
-    data: {
-      incident_id: incidentId,
-      client_txn_id: uniqueTxn("e5-blob"),
-      byte_size: payload.byteLength,
-      filename_hint: "requested.txt",
-      content_type_hint: "text/plain",
-      sha256_hex: sha256Hex,
-    },
-  });
-  expect(createBlob.ok()).toBeTruthy();
-  const blobData = (
-    (await createBlob.json()) as {
-      data: { object_blob_id: string; upload_target: { href: string } };
-    }
-  ).data;
-  const uploadTarget = blobData.upload_target;
-  const upload = await page.request.put(uploadTarget.href, {
-    data: payload,
-    headers: { "Content-Type": "text/plain" },
-  });
-  expect(upload.ok()).toBeTruthy();
+  await page
+    .getByTestId(`evidence-attach-file-${requested.record_id}`)
+    .setInputFiles({
+      name: "requested.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("phase5 requested evidence payload", "utf8"),
+    });
 
-  const attach = await page.request.post(
-    `${apiBase}/api/v1/evidence-records/${requested.record_id}/attach-blob`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        object_blob_id: blobData.object_blob_id,
-        base_row_version: requested.row_version,
-        client_txn_id: uniqueTxn("e5-attach"),
-      },
-    },
-  );
-  if (!attach.ok()) {
-    throw new Error(`attach failed ${attach.status()}: ${await attach.text()}`);
-  }
-
-  await openEvidenceSurface(page, incidentId);
   const advanced = await waitForEvidenceRow(
     page,
     incidentId,

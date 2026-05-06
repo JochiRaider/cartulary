@@ -85,7 +85,12 @@ if ! "$NODE_HELPER" - "$json_a" <<'EOF'
 const fs = require("node:fs");
 const rows = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const storeRows = rows.filter((row) => row.target === "backend-store");
-if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "transaction")) {
+const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch", "transaction", "group_clone"]);
+if (storeRows.length === 0 || !storeRows.every((row) => validPolicies.has(row.fixture_policy?.postgres))) {
+  process.exit(1);
+}
+const storeTemplateCloneRows = storeRows.filter((row) => row.fixture_policy?.postgres === "template_clone");
+if (!storeTemplateCloneRows.every((row) => Number.isInteger(row.fixture_budget?.postgres?.max_template_clones))) {
   process.exit(1);
 }
 const rawPgtest = rows.find((row) => row.target === "backend-integration" && row.execution_family === "backend-integration-testutil");
@@ -93,7 +98,6 @@ if (!rawPgtest || rawPgtest.fixture_policy?.postgres !== "template_clone" || !Nu
   process.exit(1);
 }
 const serviceBackedGoRows = rows.filter((row) => row.service_backed && row.runner_family === "go_test");
-const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch", "transaction", "group_clone"]);
 if (serviceBackedGoRows.length === 0 || !serviceBackedGoRows.every((row) => validPolicies.has(row.fixture_policy?.postgres))) {
   process.exit(1);
 }
@@ -189,12 +193,21 @@ if (!plan.targets.includes("backend-store") || plan.shards.length === 0) {
   process.exit(1);
 }
 const items = plan.shards.flatMap((shard) => shard.items);
-if (items.length === 0 || !items.every((item) => item.kind === "authoritative" && item.postgres_fixture_policy === "transaction")) {
+const validPolicies = new Set(["template_clone", "transaction"]);
+if (items.length === 0 || !items.every((item) => item.kind === "authoritative" && validPolicies.has(item.postgres_fixture_policy))) {
+  process.exit(1);
+}
+const transactionItems = items.filter((item) => item.postgres_fixture_policy === "transaction");
+if (!transactionItems.every((item) => Number.isInteger(item.postgres_fixture_budget?.max_transactions))) {
+  process.exit(1);
+}
+const templateCloneItems = items.filter((item) => item.postgres_fixture_policy === "template_clone");
+if (!templateCloneItems.every((item) => Number.isInteger(item.postgres_fixture_budget?.max_template_clones))) {
   process.exit(1);
 }
 EOF
 then
-  fail "backend-store go shard plan must expose authoritative transaction fixture planning"
+  fail "backend-store go shard plan must expose authoritative fixture planning"
 fi
 
 backend_store_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --target backend-store)"

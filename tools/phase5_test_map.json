@@ -12,15 +12,18 @@
       "`backend-store` selects service-backed Phase 5 unit rows that need Postgres or object-store fixtures through manifest-owned store-domain selection.",
       "`frontend-unit` selects Phase 5 workbook component rows through the Phase 5 manifest for `frontend_unit`.",
       "`backend-integration` selects Phase 5 real-runtime HTTP and object-store rows through the Phase 5 manifest and `backend_integration` execution dependency.",
-      "`browser-e2e-webserver-backed` carries authoritative `E-5-*` rows through duration-balanced Playwright manifest-entry shards under `browser_functional`."
+      "`browser-e2e-webserver-backed` carries authoritative `E-5-*` rows through duration-balanced Playwright manifest-entry shards under `browser_functional`.",
+      "`browser-e2e-visual` carries authoritative `V-5-*` visual rows through `browser_visual`."
     ],
     "support_execution_extras": [
-      "Existing Phase 4 object-blob and handle route smoke tests remain Phase 4-owned carryover evidence and must not claim Phase 5 IDs."
+      "Existing Phase 4 object-blob and handle route smoke tests remain Phase 4-owned carryover evidence and must not claim Phase 5 IDs.",
+      "`backend-process` carries supplemental standalone-process Phase 5 smoke evidence only; store, integration, browser, and visual rows remain authoritative for Phase 5 behavior."
     ],
     "sections": {
       "unit": "Unit",
       "integration": "Integration",
-      "e2e": "Browser E2E"
+      "e2e": "Browser E2E",
+      "visual": "Visual Regression"
     },
     "shared_harness": [
       "| Harness | Phase 5 evidence |",
@@ -48,10 +51,14 @@
     "I-5-02",
     "I-5-03",
     "I-5-04",
+    "I-5-05",
+    "I-5-06",
     "E-5-01",
     "E-5-02",
     "E-5-03",
-    "E-5-04"
+    "E-5-04",
+    "V-5-GRID-01",
+    "V-5-GRID-02"
   ],
   "forbidden_id_files": [
     "internal/modules/evidence/evidence_integration_test.go",
@@ -96,7 +103,7 @@
       "symbol": "TestPhase5_AttachBlobValidation_U_5_03",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "`POST /api/v1/evidence-records/{record_id}/attach-blob` requires `object_blob_id`, `base_row_version`, and `client_txn_id` and fails closed for pending, failed, missing, expired, incident-mismatched, or contract-mismatched blobs.",
+      "claim": "`POST /api/v1/evidence-records/{record_id}/attach-blob` requires `object_blob_id`, `base_row_version`, and `client_txn_id`; the store rejects divergent attach replay and fails closed for pending, failed, missing, expired, incident-mismatched, or contract-mismatched blobs.",
       "out_of_scope": "End-to-end object upload and workbook query readback are covered by integration and browser rows.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase5 authoritative"
@@ -147,7 +154,7 @@
       "symbol": "TestPhase5_HandleRedemptionRechecksCurrentState_U_5_06",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Handle redemption re-derives current session validity, incident membership, and evidence/blob state, and preview blocks explicitly for unsupported or unsafe preview conditions.",
+      "claim": "Handle access revalidates current evidence/blob state at the store layer, and preview blocks explicitly for unsupported or unsafe preview conditions.",
       "out_of_scope": "Browser rendering of preview outcomes is covered by `E-5-03`.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase5 authoritative"
@@ -272,6 +279,34 @@
       "out_of_scope": "Implementing a generalized scanner adjunct is outside the base Phase 5 row.",
       "execution_family": "backend-integration-evidence",
       "execution_label": "backend-integration phase5 evidence"
+    },
+    {
+      "id": "I-5-05",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/evidence",
+      "file": "internal/modules/evidence/phase5_integration_test.go",
+      "symbol": "TestPhase5_AttachRouteContract_I_5_05",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Attach route validation, authorization, route-owned error envelopes, and divergent replay rejection occur through the real HTTP surface before object observation mutates state.",
+      "out_of_scope": "Store-domain blob lifecycle retry counters remain `U-5-03` evidence.",
+      "execution_family": "backend-integration-evidence",
+      "execution_label": "backend-integration phase5 evidence"
+    },
+    {
+      "id": "I-5-06",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/evidence",
+      "file": "internal/modules/evidence/phase5_integration_test.go",
+      "symbol": "TestPhase5_AttachedEvidenceProjectionRebuild_I_5_06",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Attached-evidence projection storage can be corrupted and deterministically rebuilt from source without mutating source rows, links, or history, while the public workbook surface preserves correct evidence state.",
+      "out_of_scope": "Introducing a dedicated `evidence_grid_projection` is tracked separately as broader Core 01 projection-substrate work.",
+      "execution_family": "backend-integration-evidence",
+      "execution_label": "backend-integration phase5 evidence"
     }
   ],
   "e2e": [
@@ -318,7 +353,44 @@
       "evidence_layer": "browser",
       "claim": "Requested evidence can be tracked before the blob exists and later advanced to an available state without breaking workbook pivots or counts.",
       "out_of_scope": "A generalized custody or collection workflow is outside this row."
+    },
+    {
+      "id": "E-5-SMOKE-01",
+      "coverage": "supplemental",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase5_smoke_test.go",
+      "symbol": "TestPhase5_EvidenceUploadAttachProjection_E_5_SMOKE_01_ProcessSmoke",
+      "execution_dependency": "backend_process",
+      "evidence_layer": "process_smoke",
+      "claim": "The standalone server process can create evidence, create and upload an object blob, attach it, read workbook projection consequences, and fail closed for requested evidence with no blob.",
+      "out_of_scope": "Authoritative Phase 5 behavior remains owned by store, integration, browser, and visual rows.",
+      "execution_family": "backend-process",
+      "execution_label": "backend-process phase5 process smoke"
     }
   ],
-  "visual": []
+  "visual": [
+    {
+      "id": "V-5-GRID-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/workbook.visual.spec.ts",
+      "title": "V-5-GRID-01 captures requested and available Evidence states on the required Evidence surface",
+      "execution_dependency": "browser_visual",
+      "evidence_layer": "browser_visual",
+      "claim": "The visual harness captures requested evidence and the same row after workbook-surface attach advances it to available.",
+      "out_of_scope": "Low-level object upload and attach validation remain backend evidence."
+    },
+    {
+      "id": "V-5-GRID-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/workbook.visual.spec.ts",
+      "title": "V-5-GRID-02 captures blocked preview feedback and Timeline evidence badges",
+      "execution_dependency": "browser_visual",
+      "evidence_layer": "browser_visual",
+      "claim": "The visual harness captures blocked evidence access feedback plus Timeline evidence-count and has-evidence badge presentation after browser attach.",
+      "out_of_scope": "Preview-handle issuance and redemption contracts remain backend and functional browser evidence."
+    }
+  ]
 }

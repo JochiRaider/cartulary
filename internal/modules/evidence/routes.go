@@ -168,6 +168,19 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	access, err := s.store.LoadEvidenceAccess(r.Context(), recordID)
+	if errors.Is(err, ErrEvidenceNotFound) {
+		writeAPIError(w, r, evidenceRecordNotFound())
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), access.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	blob, err := s.store.GetBlob(r.Context(), request.ObjectBlobID)
 	if err != nil && !errors.Is(err, ErrBlobNotFound) {
 		writeAPIError(w, r, internalAPIError(err))

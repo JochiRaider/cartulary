@@ -9,8 +9,8 @@
       "Phase 3 remains owner for server-side field-level patch rebase, same-field conflict transport, and collection conflict values. Phase 6 owns resolver, concurrent-client, and local pending-queue behavior."
     ],
     "authoritative_execution": [
-      "`backend-unit` selects pure Phase 6 socket, conflict, and resolver-contract rows through the Phase 6 manifest and `backend_unit` execution dependency.",
-      "`backend-store` selects service-backed Phase 6 workbook mutation rows through manifest-owned store-domain selection.",
+      "`backend-unit` selects pure Phase 6 conflict, resolver-contract, and transport-domain rows through the Phase 6 manifest and `backend_unit` execution dependency.",
+      "`backend-store` selects service-backed Phase 6 workbook mutation and focused socket route-contract rows through manifest-owned service-backed selection.",
       "`frontend-unit` selects Phase 6 workbook resolver, save-state, and pending-queue component rows through the Phase 6 manifest for `frontend_unit`.",
       "`backend-integration` selects Phase 6 real-runtime WebSocket and concurrent-edit rows through the Phase 6 manifest and `backend_integration` execution dependency.",
       "`browser-e2e-webserver-backed` carries authoritative `E-6-*` rows through duration-balanced Playwright manifest-entry shards under `browser_functional`."
@@ -150,12 +150,21 @@
       "package": "./internal/modules/collaboration",
       "file": "internal/modules/collaboration/phase6_socket_test.go",
       "symbol": "TestPhase6_IncidentSocketHandshakeResume_U_6_07",
-      "execution_dependency": "backend_unit",
+      "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
       "claim": "The first application message on the incident socket is exactly one of `hello` or `resume`, and resume outside the replay window yields reset behavior rather than partial replay.",
       "out_of_scope": "Presence snapshot and revocation close behavior are owned by `U-6-08` and integration rows.",
-      "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase6 authoritative"
+      "execution_family": "backend-store-collaboration",
+      "execution_label": "backend-store phase6 collaboration",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "The socket route-contract row starts real HTTP server runtimes through phase3test.StartRuntime and uses PreparePackageDatabaseT, which is incompatible with transaction fixtures."
     },
     {
       "id": "U-6-08",

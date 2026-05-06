@@ -518,6 +518,8 @@ This phase completes the binary-evidence path:
 | I-5-02 | Expired-slot replay returns the same expired slot. A fresh upload target requires a new `client_txn_id`.                                                                              | REQ-01-243..REQ-01-247                                                 | AC-128, AC-154, AC-155                 |
 | I-5-03 | A redeemed preview or download handle fails closed after logout, membership removal, or evidence/blob state invalidation.                                                             | REQ-01-463..REQ-01-465, REQ-04-023, REQ-04-053                         | AC-252..AC-255                         |
 | I-5-04 | If the deployment uses an upload-scanning adjunct service, the two-step attach semantics remain intact and preview never bypasses the scanning or quarantine boundary.                | REQ-04-048, REQ-04-053                                                 | AC-053                                 |
+| I-5-05 | Attach route validation, authorization, route-owned error envelopes, and divergent replay rejection occur through the real HTTP surface before object observation mutates state.       | REQ-01-245..REQ-01-247, REQ-04-023                                     | AC-102, AC-103, AC-128                 |
+| I-5-06 | Attached-evidence projection storage can be corrupted and deterministically rebuilt from source without mutating source rows, links, or mutation history.                             | REQ-03-116..REQ-03-126, REQ-03-242..REQ-03-246                         | AC-015, AC-016                         |
 
 ### 7.5.5 E2E tests
 
@@ -527,6 +529,13 @@ This phase completes the binary-evidence path:
 | E-5-02 | A screenshot-only Timeline row can be persisted through the two-step evidence path.                                                                                       | REQ-03-102, REQ-03-116..REQ-03-126             | AC-002, AC-102, AC-103 |
 | E-5-03 | An inline-safe type receives a preview handle and renders through the same-origin redeem path. An unsupported or unsafe type returns an explicit blocked-preview outcome. | REQ-01-458..REQ-01-465, REQ-04-053             | AC-252..AC-255         |
 | E-5-04 | Requested evidence can be tracked before the blob exists and later advanced to an available state without breaking workbook pivots or counts.                             | REQ-02-186..REQ-02-201, REQ-03-242..REQ-03-246 | AC-015, AC-154, AC-155 |
+
+### 7.5.6 Visual regression tests
+
+| ID          | Test                                                                                                                                | Exact REQs                                     | Exact ACs              |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------- |
+| V-5-GRID-01 | Requested Evidence surface state and the same row after workbook-surface attach render deterministically through the visual harness. | REQ-02-186..REQ-02-201, REQ-03-242..REQ-03-246 | AC-015, AC-154, AC-155 |
+| V-5-GRID-02 | Blocked preview feedback and Timeline evidence-count plus `has_evidence` badge presentation render through the visual harness.      | REQ-01-458..REQ-01-465, REQ-03-116..REQ-03-126 | AC-015, AC-016, AC-252 |
 
 ---
 

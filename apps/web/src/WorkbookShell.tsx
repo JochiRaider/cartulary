@@ -2448,6 +2448,32 @@ export function TimelineWorkbook({
     [advanceViewportContinuity, nextDraftIndex, selectedRowId],
   );
 
+  const currentCommittedTimelineRow = useCallback((recordId: string) => {
+    const row = rowsRef.current.find(
+      (candidate) => candidate.recordId === recordId,
+    );
+    return row && row.rowVersion !== null ? row : null;
+  }, []);
+
+  const waitForPendingReplayForRecord = useCallback(
+    async (recordId: string) => {
+      for (;;) {
+        const pending = pendingQueueRef.current;
+        const hasPendingRecordWork = pending.units.some(
+          (unit) => unit.recordId === recordId,
+        );
+        if (!hasPendingRecordWork) {
+          return true;
+        }
+        if (pending.authPaused || pending.haltedMessage !== null) {
+          return false;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 16));
+      }
+    },
+    [],
+  );
+
   const loadRows = useCallback(
     async (options: LoadRowsOptions) => {
       const requestSequence = loadSequenceRef.current + 1;
@@ -2893,16 +2919,14 @@ export function TimelineWorkbook({
       ) {
         pendingSignaturesRef.current.delete(unit.rowKey);
       }
-      setRows((current) => {
-        const nextRows = current.map((row) =>
-          row.key === unit.rowKey &&
-          row.pendingSignature === unit.mutationSignature
-            ? { ...row, pendingSignature: null }
-            : row,
-        );
-        rowsRef.current = nextRows;
-        return nextRows;
-      });
+      const nextRows = rowsRef.current.map((row) =>
+        row.key === unit.rowKey &&
+        row.pendingSignature === unit.mutationSignature
+          ? { ...row, pendingSignature: null }
+          : row,
+      );
+      rowsRef.current = nextRows;
+      setRows(nextRows);
     },
     [],
   );
@@ -3730,43 +3754,56 @@ export function TimelineWorkbook({
       const snapshot = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
       );
+      const replacementRecordId =
+        action === "supersede"
+          ? normalizeValue(replacementDrafts[rowKey] ?? "")
+          : null;
       if (
         !snapshot ||
         snapshot.recordId === null ||
         snapshot.rowVersion === null ||
-        (action === "supersede" &&
-          normalizeValue(replacementDrafts[rowKey] ?? "") === "")
+        (action === "supersede" && replacementRecordId === "")
       ) {
         return;
       }
 
+      const recordId = snapshot.recordId;
       const clientTxnId = nextClientTxnId();
       const viewportContinuityToken = beginViewportContinuity({
         kind: "row-inspect",
-        recordId: snapshot.recordId,
+        recordId,
       });
       beginSave();
       saveQueueRef.current = saveQueueRef.current
         .catch(() => undefined)
         .then(async () => {
+          if (!(await waitForPendingReplayForRecord(recordId))) {
+            clearViewportContinuity(viewportContinuityToken);
+            finishSave("Conflict");
+            return;
+          }
+          const currentRow = currentCommittedTimelineRow(recordId);
+          if (currentRow === null) {
+            clearViewportContinuity(viewportContinuityToken);
+            finishSave("Conflict");
+            return;
+          }
           const body =
             action === "mark-reviewed"
               ? {
-                  base_row_version: snapshot.rowVersion,
+                  base_row_version: currentRow.rowVersion,
                   client_txn_id: clientTxnId,
                   reason: "Reviewed from workbook",
                 }
               : {
-                  base_row_version: snapshot.rowVersion,
+                  base_row_version: currentRow.rowVersion,
                   client_txn_id: clientTxnId,
                   reason: "Superseded from workbook",
-                  replacement_record_id: normalizeValue(
-                    replacementDrafts[rowKey] ?? "",
-                  ),
+                  replacement_record_id: replacementRecordId,
                 };
           trackPendingSocketTxn(clientTxnId);
           const result = await fetchJSON<TimelineActionEnvelope>(
-            apiPath(apiBase, `/api/v1/records/${snapshot.recordId}/${action}`),
+            apiPath(apiBase, `/api/v1/records/${recordId}/${action}`),
             {
               method: "POST",
               body: JSON.stringify(body),
@@ -3791,11 +3828,13 @@ export function TimelineWorkbook({
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
+      currentCommittedTimelineRow,
       finishSave,
       nextClientTxnId,
       replacementDrafts,
       resolvePendingSocketTxn,
       trackPendingSocketTxn,
+      waitForPendingReplayForRecord,
     ],
   );
 
@@ -3811,22 +3850,12 @@ export function TimelineWorkbook({
       return;
     }
 
+    const recordId = snapshot.recordId;
     const clientTxnId = nextClientTxnId();
-    const payload = buildMentionPatchPayload(
-      snapshot,
-      mention,
-      action,
-      clientTxnId,
-      resolvedRecordId,
-    );
-    if (payload === null) {
-      return;
-    }
-
     const viewportContinuityToken = beginViewportContinuity(
       {
         kind: "row-inspect",
-        recordId: snapshot.recordId,
+        recordId,
       },
       {
         followup:
@@ -3840,9 +3869,30 @@ export function TimelineWorkbook({
     saveQueueRef.current = saveQueueRef.current
       .catch(() => undefined)
       .then(async () => {
+        if (!(await waitForPendingReplayForRecord(recordId))) {
+          clearViewportContinuity(viewportContinuityToken);
+          finishSave("Conflict");
+          return;
+        }
+        const currentRow = currentCommittedTimelineRow(recordId);
+        const payload =
+          currentRow === null
+            ? null
+            : buildMentionPatchPayload(
+                currentRow,
+                mention,
+                action,
+                clientTxnId,
+                resolvedRecordId,
+              );
+        if (currentRow === null || payload === null) {
+          clearViewportContinuity(viewportContinuityToken);
+          finishSave("Conflict");
+          return;
+        }
         trackPendingSocketTxn(clientTxnId);
         const result = await fetchJSON<TimelineMutationEnvelope>(
-          apiPath(apiBase, `/api/v1/records/${snapshot.recordId}`),
+          apiPath(apiBase, `/api/v1/records/${recordId}`),
           {
             method: "PATCH",
             body: JSON.stringify(payload),
@@ -3858,15 +3908,15 @@ export function TimelineWorkbook({
 
         if (action === "dismiss_item") {
           setDismissedMentionsByRow((current) => {
-            const rowMentions = current[snapshot.recordId ?? ""] ?? [];
+            const rowMentions = current[recordId] ?? [];
             return {
               ...current,
-              [snapshot.recordId ?? ""]: [
+              [recordId]: [
                 ...rowMentions.filter(
                   (item) => item.itemRef !== mention.itemRef,
                 ),
                 {
-                  rowRecordId: snapshot.recordId ?? "",
+                  rowRecordId: recordId,
                   fieldKey: mention.fieldKey,
                   entityType: mention.entityType,
                   itemRef: mention.itemRef,
@@ -3881,26 +3931,23 @@ export function TimelineWorkbook({
         }
         if (action === "revert_to_unresolved") {
           setDismissedMentionsByRow((current) => {
-            if (!snapshot.recordId) {
-              return current;
-            }
-            const rowMentions = (current[snapshot.recordId] ?? []).filter(
+            const rowMentions = (current[recordId] ?? []).filter(
               (item) => item.itemRef !== mention.itemRef,
             );
             if (rowMentions.length < 1) {
               const next = { ...current };
-              delete next[snapshot.recordId];
+              delete next[recordId];
               return next;
             }
             return {
               ...current,
-              [snapshot.recordId]: rowMentions,
+              [recordId]: rowMentions,
             };
           });
         }
 
         const envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
-        applyRowMutation(snapshot.key, envelope, {
+        applyRowMutation(currentRow.key, envelope, {
           detectAutoResolution: false,
           viewportContinuityToken,
         });
@@ -4579,6 +4626,47 @@ export function TimelineWorkbook({
             if (binding.kind === "collection") {
               return renderTimelineCollectionInput(row, binding);
             }
+            if (binding.fieldKey === "timeline.evidence_count") {
+              const count = stringifyGridValue(
+                readCellValue(row.rawRow, binding.fieldKey),
+              );
+              const hasEvidence = Boolean(
+                readCellValue(row.rawRow, "timeline.has_evidence"),
+              );
+              return (
+                <span style={timelineEvidenceCellStyle}>
+                  <span
+                    data-testid={
+                      row.recordId === null
+                        ? undefined
+                        : rowCellTestId(row.recordId, binding.fieldKey)
+                    }
+                  >
+                    {count === "" ? "0" : count}
+                  </span>
+                  {row.recordId === null ? null : (
+                    <span
+                      data-testid={rowCellTestId(
+                        row.recordId,
+                        "timeline.has_evidence",
+                      )}
+                      style={
+                        hasEvidence
+                          ? timelineEvidenceFlagOnStyle
+                          : timelineEvidenceFlagOffStyle
+                      }
+                      title={
+                        hasEvidence
+                          ? "Timeline row has evidence"
+                          : "Timeline row has no evidence"
+                      }
+                    >
+                      {String(hasEvidence)}
+                    </span>
+                  )}
+                </span>
+              );
+            }
             const text = stringifyGridValue(
               readCellValue(row.rawRow, binding.fieldKey),
             );
@@ -5018,13 +5106,39 @@ export function TimelineWorkbook({
                   style={secondaryActionButtonStyle}
                   type="button"
                   onClick={() => {
-                    const mention = buildInspectorMentions(
-                      rows.find((row) => row.recordId === notice.rowRecordId) ??
-                        undefined,
-                      dismissedMentionsByRow[notice.rowRecordId] ?? [],
-                    ).find((item) => item.itemRef === notice.itemRef);
-                    if (mention) {
-                      submitMentionAction(mention, "revert_to_unresolved");
+                    const row = rowsRef.current.find(
+                      (candidate) => candidate.recordId === notice.rowRecordId,
+                    );
+                    const activeItem =
+                      row === undefined
+                        ? undefined
+                        : [
+                            ...row.collectionValues.hostRefs,
+                            ...row.collectionValues.identityRefs,
+                          ].find(
+                            (item) =>
+                              item.itemRef === notice.itemRef &&
+                              item.itemKind === "resolved_ref",
+                          );
+                    if (activeItem && row?.recordId) {
+                      submitMentionAction(
+                        {
+                          rowRecordId: row.recordId,
+                          fieldKey: notice.fieldKey,
+                          entityType: activeItem.entityType,
+                          itemRef: activeItem.itemRef,
+                          rawText: activeItem.rawText,
+                          resolvedRecordId: activeItem.resolvedRecordId,
+                          resolutionMethod: activeItem.resolutionMethod,
+                          autoResolved: activeItem.autoResolved,
+                          status: "resolved",
+                          displayText: activeItem.displayText,
+                          provenance: activeItem.provenance,
+                          confidence: activeItem.confidence,
+                          matchedAliasText: activeItem.matchedAliasText,
+                        },
+                        "revert_to_unresolved",
+                      );
                     }
                     setAutoResolutionNotices((current) =>
                       current.filter((item) => item.itemRef !== notice.itemRef),
@@ -6562,6 +6676,80 @@ function GenericWorkbookSurface({
     [apiBase, setEvidenceMessage],
   );
 
+  const attachEvidenceFile = useCallback(
+    async (row: EntityApiRow, file: File) => {
+      if (file.size <= 0) {
+        setEvidenceMessage(row.record_id, "Evidence attach failed.");
+        return;
+      }
+      setEvidenceMessage(row.record_id, "Uploading evidence.");
+      setMutationState("Syncing");
+      try {
+        const createBlob = await fetchJSON<ObjectBlobCreateEnvelope>(
+          apiPath(apiBase, "/api/v1/object-blobs"),
+          {
+            method: "POST",
+            body: JSON.stringify({
+              incident_id: incidentId,
+              client_txn_id: `evidence-blob-${Date.now()}`,
+              byte_size: file.size,
+              filename_hint: file.name || null,
+              content_type_hint: file.type || null,
+            }),
+          },
+        );
+        if (!createBlob.ok) {
+          throw new Error(parseErrorMessage(createBlob.payload));
+        }
+        const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
+          createBlob.payload,
+        );
+        const uploadHref =
+          blobEnvelope.data.upload_target.href.startsWith("/") && apiBase
+            ? apiPath(apiBase, blobEnvelope.data.upload_target.href)
+            : blobEnvelope.data.upload_target.href;
+        const upload = await fetch(uploadHref, {
+          method: blobEnvelope.data.upload_target.method ?? "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: file,
+        });
+        if (!upload.ok) {
+          throw new Error(`upload_failed_${upload.status}`);
+        }
+        const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
+          apiPath(
+            apiBase,
+            `/api/v1/evidence-records/${row.record_id}/attach-blob`,
+          ),
+          {
+            method: "POST",
+            body: JSON.stringify({
+              object_blob_id: blobEnvelope.data.object_blob_id,
+              base_row_version: row.row_version,
+              client_txn_id: `evidence-attach-${Date.now()}`,
+            }),
+          },
+        );
+        if (!attach.ok) {
+          throw new Error(parseErrorMessage(attach.payload));
+        }
+        setEvidenceMessage(row.record_id, "Evidence attached.");
+        setMutationState("Saved");
+        await onRefresh();
+      } catch (error) {
+        setEvidenceMessage(
+          row.record_id,
+          error instanceof Error ? error.message : "Evidence attach failed.",
+        );
+        setMutationState("Conflict");
+      }
+    },
+    [apiBase, incidentId, onRefresh, setEvidenceMessage],
+  );
+
   const columns: readonly GridColumn<EntityApiRow>[] = visibleFields(
     contract,
   ).map((field) => ({
@@ -6624,6 +6812,22 @@ function GenericWorkbookSurface({
                 Download
               </button>
             </div>
+            <label style={labelStyle}>
+              Attach file
+              <input
+                data-testid={`evidence-attach-file-${row.record_id}`}
+                style={inputStyle}
+                type="file"
+                accept="image/*,.txt,.pdf,text/plain,application/pdf"
+                onChange={(event) => {
+                  const [file] = Array.from(event.currentTarget.files ?? []);
+                  event.currentTarget.value = "";
+                  if (file) {
+                    void attachEvidenceFile(row, file);
+                  }
+                }}
+              />
+            </label>
             {message ? (
               <span
                 data-testid={`evidence-access-message-${row.record_id}`}
@@ -6636,7 +6840,12 @@ function GenericWorkbookSurface({
         );
       },
     };
-  }, [evidenceMessageByRecordID, isEvidenceSurface, issueEvidenceHandle]);
+  }, [
+    attachEvidenceFile,
+    evidenceMessageByRecordID,
+    isEvidenceSurface,
+    issueEvidenceHandle,
+  ]);
   const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
     key: row.record_id,
     recordId: row.record_id,
@@ -8445,6 +8654,34 @@ const evidenceAccessMessageStyle = {
   margin: 0,
   fontSize: "0.85rem",
   color: "rgb(87 109 103)",
+};
+
+const timelineEvidenceCellStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.45rem",
+  minWidth: 0,
+};
+
+const timelineEvidenceFlagBaseStyle = {
+  borderRadius: "999px",
+  padding: "0.15rem 0.42rem",
+  fontSize: "0.72rem",
+  lineHeight: 1.2,
+};
+
+const timelineEvidenceFlagOnStyle = {
+  ...timelineEvidenceFlagBaseStyle,
+  border: "1px solid rgb(73 143 108)",
+  background: "rgb(225 245 233)",
+  color: "rgb(29 90 59)",
+};
+
+const timelineEvidenceFlagOffStyle = {
+  ...timelineEvidenceFlagBaseStyle,
+  border: "1px solid rgb(178 191 184)",
+  background: "rgb(242 246 243)",
+  color: "rgb(54 74 67)",
 };
 
 const evidencePreviewPanelStyle = {

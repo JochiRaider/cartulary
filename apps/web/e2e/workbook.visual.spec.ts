@@ -1,8 +1,10 @@
+import { Buffer } from "node:buffer";
 import { changeGrouping } from "@cartulary/test-utils";
 import {
   gridGroupRowTestId,
   gridShellTestId,
   rowCellTestId,
+  rowInspectButtonTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -384,6 +386,152 @@ test.describe("Phase 4 workbook visual evidence", () => {
   });
 });
 
+test.describe("Phase 5 workbook visual evidence", () => {
+  test("V-5-GRID-01 captures requested and available Evidence states on the required Evidence surface", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V5GRID01"),
+      "Phase 5 visual evidence states",
+    );
+    const evidenceRow = (await createViewRow(
+      page,
+      incidentId,
+      evidenceViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V5GRID01-EVIDENCE"),
+        "evidence.title": "Requested visual package",
+        "evidence.storage_ref": "ticket://visual-request",
+      },
+    )) as ViewRow;
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        evidenceViewSchemaId,
+      )}`,
+    );
+    await maskIncidentIdentity(page, incidentId);
+    await expect(
+      page.getByTestId(
+        rowCellTestId(evidenceRow.record_id, "evidence.lifecycle_state"),
+      ),
+    ).toHaveText("requested");
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-5-grid-01-requested-evidence",
+      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+    );
+
+    await page
+      .getByTestId(`evidence-attach-file-${evidenceRow.record_id}`)
+      .setInputFiles({
+        name: "visual-request.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("phase5 visual evidence", "utf8"),
+      });
+    await expect(
+      page.getByTestId(
+        rowCellTestId(evidenceRow.record_id, "evidence.lifecycle_state"),
+      ),
+    ).toHaveText("available");
+    await expect(
+      page.getByTestId(
+        rowCellTestId(evidenceRow.record_id, "evidence.upload_state"),
+      ),
+    ).toHaveText("available");
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-5-grid-01-available-evidence",
+      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+    );
+  });
+
+  test("V-5-GRID-02 captures blocked preview feedback and Timeline evidence badges", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V5GRID02"),
+      "Phase 5 visual evidence badges",
+    );
+    const blocked = (await createViewRow(
+      page,
+      incidentId,
+      evidenceViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V5GRID02-BLOCKED"),
+        "evidence.title": "Blocked visual package",
+        "evidence.storage_ref": "ticket://visual-blocked",
+      },
+    )) as ViewRow;
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V5GRID02-TIMELINE"),
+        "timeline.summary": "Visual evidence badge row",
+      },
+    )) as ViewRow;
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        evidenceViewSchemaId,
+      )}`,
+    );
+    await maskIncidentIdentity(page, incidentId);
+    await expect(
+      page.getByTestId(`evidence-access-message-${blocked.record_id}`),
+    ).toContainText("Blocked");
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-5-grid-02-blocked-preview",
+      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+    );
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        timelineApiViewSchemaId,
+      )}`,
+    );
+    await expect(
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await page
+      .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
+      .click();
+    await page
+      .getByTestId(`timeline-evidence-file-${timelineRow.record_id}`)
+      .setInputFiles({
+        name: "visual-badge.png",
+        mimeType: "image/png",
+        buffer: tinyPNG(),
+      });
+    await expect(
+      page.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
+      ),
+    ).toHaveText("1");
+    await expect(
+      page.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
+      ),
+    ).toHaveText("true");
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-5-grid-02-timeline-evidence-badge",
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    );
+  });
+});
+
 async function captureScreenshot(
   page: Page,
   testInfo: TestInfo,
@@ -412,4 +560,11 @@ async function maskIncidentIdentity(page: Page, incidentId: string) {
       }
     }
   }, incidentId);
+}
+
+function tinyPNG() {
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    "base64",
+  );
 }

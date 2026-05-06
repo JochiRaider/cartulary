@@ -8,12 +8,14 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildRecordChangedPayload,
   emitRecordChanged,
+  extractTimelineJSONBody,
   successEnvelope,
   timelineRow,
   timelineViewSchemaId,
@@ -698,6 +700,108 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     expect(
       await screen.findByTestId("auto-resolution-notice-mention-host-auto"),
     ).toBeTruthy();
+  });
+
+  it("sends auto-resolution Undo with the current post-resolution row version", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "reviewed",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-auto-resolve",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            resolvedItem({
+              itemRef: "mention-host-auto",
+              entityType: "host",
+              rawText: " vpn   gateway ",
+              displayText: "Gateway node",
+              resolvedRecordId: "host-1",
+              resolutionMethod: "auto_match",
+              autoResolved: true,
+              provenance: "auto_match",
+              confidence: 100,
+            }),
+          ],
+        }),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-auto-undo",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 3,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            unresolvedItem({
+              itemRef: "mention-host-auto",
+              entityType: "host",
+              rawText: " vpn   gateway ",
+            }),
+          ],
+        }),
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    const relationshipInput = (await screen.findByTestId(
+      "row-record-1-hostRefs-input",
+    )) as HTMLInputElement;
+    fireEvent.change(relationshipInput, {
+      target: { value: " vpn   gateway " },
+    });
+    fireEvent.keyDown(relationshipInput, { key: "Enter" });
+
+    const notice = await screen.findByTestId(
+      "auto-resolution-notice-mention-host-auto",
+    );
+    fireEvent.click(within(notice).getByRole("button", { name: "Undo" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(
+      screen.queryByTestId("auto-resolution-notice-mention-host-auto"),
+    ).toBeNull();
+    expect(extractTimelineJSONBody(fetchMock, 2)).toMatchObject({
+      base_row_version: 2,
+      changes: [
+        {
+          field_key: "timeline.host_refs",
+          action_payload: {
+            kind: "collection_actions_v1",
+            actions: [
+              {
+                op: "revert_to_unresolved",
+                item_ref: "mention-host-auto",
+              },
+            ],
+          },
+        },
+      ],
+    });
   });
 
   it("keeps the workbook mounted after committing a relationship-cell edit", async () => {

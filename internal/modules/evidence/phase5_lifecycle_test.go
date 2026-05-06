@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -75,6 +76,8 @@ func TestPhase5_EvidenceLifecycleSeparateFromBlob_U_5_04(t *testing.T) {
 		"evidence.source_party_text":"Endpoint owner"
 	}`)
 	attachRecordID := mustPhase5RowID(t, attachTarget.Payload["row"].(map[string]any))
+	unrelatedHistoryBefore := phase5DurableAttachCounts(t, harness.DB, recordID)
+	attachHistoryBefore := phase5DurableAttachCounts(t, harness.DB, attachRecordID)
 	blobID := seedPhase5Blob(t, harness.DB, incident.ID, actor.ID, "available", phase5BlobOptions{
 		ByteSize: 4, ObservedSize: ptrInt64(4), ObservedSHA: ptrString(strings.Repeat("b", 64)), ObservedContentType: ptrString("text/plain"),
 	})
@@ -89,6 +92,17 @@ func TestPhase5_EvidenceLifecycleSeparateFromBlob_U_5_04(t *testing.T) {
 	requirePhase5RowCellValue(t, attachedRow, "evidence.collector_party_text", "IR collector")
 	requirePhase5RowCellValue(t, attachedRow, "evidence.source_party_text", "Endpoint owner")
 	requirePhase5RowCellNonEmpty(t, attachedRow, "evidence.received_at")
+	if after := phase5DurableAttachCounts(t, harness.DB, recordID); after != unrelatedHistoryBefore {
+		t.Fatalf("later attach mutated unrelated custody history: before=%+v after=%+v", unrelatedHistoryBefore, after)
+	}
+	attachHistoryAfter := phase5DurableAttachCounts(t, harness.DB, attachRecordID)
+	if attachHistoryAfter.ChangeSets != attachHistoryBefore.ChangeSets+1 ||
+		attachHistoryAfter.Mutations != attachHistoryBefore.Mutations+1 ||
+		attachHistoryAfter.Revisions != attachHistoryBefore.Revisions+1 ||
+		attachHistoryAfter.BlobLinks != 1 {
+		t.Fatalf("attach history got before=%+v after=%+v, want exactly one attach mutation and one blob link", attachHistoryBefore, attachHistoryAfter)
+	}
+	requirePhase5ChangeSetAttribution(t, harness.DB, attached.Payload["change_set_id"].(string), actor.ID, "evidence.attach_blob", attachRequest.ClientTxnID)
 
 	quarantined := createPhase5EvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
 		"client_txn_id":"txn-phase5-lifecycle-quarantined",
@@ -144,6 +158,27 @@ func requirePhase5IllegalLifecyclePatch(t testing.TB, store *workbook.Store, act
 	if !errors.As(err, &lifecycleErr) {
 		t.Fatalf("illegal evidence lifecycle patch got %v want LifecycleValidationError", err)
 	}
+}
+
+func requirePhase5ChangeSetAttribution(t testing.TB, db phase5Queryer, changeSetID string, actorID uuid.UUID, wantSource string, wantClientTxnID string) {
+	t.Helper()
+	var gotActor uuid.UUID
+	var source string
+	var clientTxnID string
+	if err := db.QueryRow(context.Background(), `
+SELECT actor_user_id, source, client_txn_id
+  FROM change_sets
+ WHERE change_set_id = $1
+`, changeSetID).Scan(&gotActor, &source, &clientTxnID); err != nil {
+		t.Fatalf("load change set attribution: %v", err)
+	}
+	if gotActor != actorID || source != wantSource || clientTxnID != wantClientTxnID {
+		t.Fatalf("change set attribution got actor=%s source=%s client_txn_id=%s want actor=%s source=%s client_txn_id=%s", gotActor, source, clientTxnID, actorID, wantSource, wantClientTxnID)
+	}
+}
+
+type phase5Queryer interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 func mustPhase5RowID(t testing.TB, row map[string]any) uuid.UUID {
