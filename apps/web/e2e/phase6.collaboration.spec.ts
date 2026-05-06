@@ -1,4 +1,44 @@
-import { test } from "./fixtures";
+import type { Page, Route, WebSocket } from "@playwright/test";
+
+import { revokeAllSessions } from "./authRuntime";
+import { expect, test } from "./fixtures";
+import {
+  createIncident,
+  createIncidentMemberUser,
+  createViewRow,
+  queryViewRows,
+  uniqueEmail,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./helpers";
+
+const timelineViewSchemaId = "cartulary.view.timeline.v1";
+
+type PatchCall = {
+  body: Record<string, unknown>;
+  recordId: string;
+  status: number;
+};
+
+type PatchBehavior =
+  | {
+      hold: Promise<void>;
+      release: () => void;
+      resolveHit: (call: PatchCall) => void;
+      type: "hold";
+      waitForHit: Promise<PatchCall>;
+    }
+  | {
+      code: string;
+      status: number;
+      type: "error";
+    };
+
+type SocketMessage = {
+  payload: Record<string, unknown>;
+  socketIndex: number;
+  type: string;
+};
 
 test("E-6-01 shows two analysts each other's workbook presence within the expected interaction window", async () => {
   // Phase 6 placeholder: replace with two-analyst presence assertions before Phase 6 exit.
@@ -8,14 +48,620 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
   // Phase 6 placeholder: replace with concurrent edit and resolver UX assertions before Phase 6 exit.
 });
 
-test("E-6-03 preserves unsaved local work after socket revocation and re-authentication", async () => {
-  // Phase 6 placeholder: replace with revocation and recovery assertions before Phase 6 exit.
+test("E-6-03 preserves unsaved local work after socket revocation and re-authentication", async ({
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E603"),
+    "Phase 6 E-6-03 revocation recovery",
+  );
+  const member = await createIncidentMemberUser(page, incidentId, {
+    display_name: "Phase 6 E-6-03 Analyst",
+    email: uniqueEmail("phase6-e603-analyst"),
+    initial_password: "Phase6E603Analyst!",
+    role: "editor",
+  });
+  const firstRow = await createTimelineRow(
+    page,
+    incidentId,
+    "E-6-03 first base",
+  );
+  const secondRow = await createTimelineRow(
+    page,
+    incidentId,
+    "E-6-03 second base",
+  );
+  const firstRecordId = requireRecordId(firstRow);
+  const secondRecordId = requireRecordId(secondRow);
+  const patchController = await installPatchController(page);
+
+  try {
+    await sessionTracker.loginTrackedUser(page, {
+      createdBy: "E-6-03",
+      email: member.email,
+      password: member.initial_password,
+      purpose: "Phase 6 E-6-03 analyst runtime",
+      userId: member.user_id,
+    });
+
+    const socketMonitor = installIncidentSocketMonitor(page, incidentId);
+    await page.goto(`/?incident_id=${incidentId}`);
+    await socketMonitor.waitForMessage("hello_ack");
+    await expect(page.getByTestId(`row-${firstRecordId}-summary`)).toHaveValue(
+      "E-6-03 first base",
+    );
+    await expect(page.getByText("Current incident role: editor")).toBeVisible();
+
+    const heldPatch = patchController.holdNextPatch();
+    await editTimelineSummary(page, firstRecordId, "E-6-03 first local");
+    await heldPatch.waitForHit;
+    await expect(page.getByTestId("save-state")).toHaveText("Syncing");
+
+    await revokeAllSessions(
+      workerAdminRequest,
+      member.user_id,
+      "Phase 6 E-6-03 browser revocation",
+    );
+    await socketMonitor.waitForMessage("session_revoked");
+    await socketMonitor.waitForClose(0);
+
+    heldPatch.release();
+    await expect(page.getByTestId("pending-queue-notice")).toBeVisible();
+
+    await editTimelineSummary(page, secondRecordId, "E-6-03 second local");
+    await expect(page.getByTestId(`row-${firstRecordId}-summary`)).toHaveValue(
+      "E-6-03 first local",
+    );
+    await expect(page.getByTestId(`row-${secondRecordId}-summary`)).toHaveValue(
+      "E-6-03 second local",
+    );
+    await expect(page.getByTestId("pending-queue-count")).toContainText("2");
+
+    const messageStart = socketMonitor.messageCount();
+    await sessionTracker.loginTrackedUser(page, {
+      createdBy: "E-6-03",
+      email: member.email,
+      password: member.initial_password,
+      purpose: "Phase 6 E-6-03 analyst re-authentication",
+      userId: member.user_id,
+    });
+    await socketMonitor.waitForMessage("hello_ack", {
+      startAt: messageStart,
+    });
+
+    await expect
+      .poll(() => successfulPatchCalls(patchController.calls).length)
+      .toBeGreaterThanOrEqual(2);
+    const replayed = successfulPatchCalls(patchController.calls).slice(-2);
+    expect(replayed.map((call) => call.recordId)).toEqual([
+      firstRecordId,
+      secondRecordId,
+    ]);
+    const [firstReplay, secondReplay] = replayed;
+    if (!firstReplay || !secondReplay) {
+      throw new Error("missing replayed E-6-03 patch calls");
+    }
+    expect(summaryPatchValue(firstReplay.body)).toBe("E-6-03 first local");
+    expect(summaryPatchValue(secondReplay.body)).toBe("E-6-03 second local");
+
+    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+    await expect(page.getByTestId("pending-queue-notice")).toHaveCount(0);
+    await expectServerSummaries(page, incidentId, {
+      [firstRecordId]: "E-6-03 first local",
+      [secondRecordId]: "E-6-03 second local",
+    });
+  } finally {
+    await patchController.dispose();
+  }
 });
 
 test("E-6-04 keeps live updates and conflict markers anchored to record_id and field_key", async () => {
   // Phase 6 placeholder: replace with row and cell anchoring assertions before Phase 6 exit.
 });
 
-test("E-6-05 replays queued unsent writes after re-authentication without silent reload restore", async () => {
-  // Phase 6 placeholder: replace with pending-queue replay assertions before Phase 6 exit.
+test("E-6-05 replays queued unsent writes after re-authentication without silent reload restore", async ({
+  page,
+}) => {
+  await test.step("replays blocked writes in FIFO order after auth recovery", async () => {
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("E605FIFO"),
+      "Phase 6 E-6-05 FIFO recovery",
+    );
+    const firstId = requireRecordId(
+      await createTimelineRow(page, incidentId, "E-6-05 FIFO A base"),
+    );
+    const secondId = requireRecordId(
+      await createTimelineRow(page, incidentId, "E-6-05 FIFO B base"),
+    );
+    const thirdId = requireRecordId(
+      await createTimelineRow(page, incidentId, "E-6-05 FIFO C base"),
+    );
+    const patchController = await installPatchController(page);
+    const sessionGate = await installAuthSessionGate(page);
+
+    try {
+      patchController.failNextPatch(401, "session_required");
+      await page.goto(`/?incident_id=${incidentId}`);
+      await expect(page.getByTestId(`row-${firstId}-summary`)).toHaveValue(
+        "E-6-05 FIFO A base",
+      );
+      await expect(
+        page.getByText("Current incident role: admin"),
+      ).toBeVisible();
+      sessionGate.close();
+
+      await editTimelineSummary(page, firstId, "E-6-05 FIFO A local");
+      await expect(page.getByTestId("pending-queue-notice")).toBeVisible();
+      await editTimelineSummary(page, secondId, "E-6-05 FIFO B local");
+      await editTimelineSummary(page, thirdId, "E-6-05 FIFO C local");
+
+      await expect(page.getByTestId("pending-queue-count")).toContainText("3");
+      expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
+
+      sessionGate.open();
+      await expect
+        .poll(() => successfulPatchCalls(patchController.calls).length)
+        .toBe(3);
+      const replayed = successfulPatchCalls(patchController.calls);
+      expect(replayed.map((call) => call.recordId)).toEqual([
+        firstId,
+        secondId,
+        thirdId,
+      ]);
+      expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual([
+        "E-6-05 FIFO A local",
+        "E-6-05 FIFO B local",
+        "E-6-05 FIFO C local",
+      ]);
+      await expect(page.getByTestId("save-state")).toHaveText("Saved");
+      await expectServerSummaries(page, incidentId, {
+        [firstId]: "E-6-05 FIFO A local",
+        [secondId]: "E-6-05 FIFO B local",
+        [thirdId]: "E-6-05 FIFO C local",
+      });
+    } finally {
+      await patchController.dispose();
+      await sessionGate.dispose();
+    }
+  });
+
+  await test.step("halts on the first blocking non-retryable failure", async () => {
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("E605HALT"),
+      "Phase 6 E-6-05 non-retryable halt",
+    );
+    const firstId = requireRecordId(
+      await createTimelineRow(page, incidentId, "E-6-05 halt A base"),
+    );
+    const secondId = requireRecordId(
+      await createTimelineRow(page, incidentId, "E-6-05 halt B base"),
+    );
+    const thirdId = requireRecordId(
+      await createTimelineRow(page, incidentId, "E-6-05 halt C base"),
+    );
+    const patchController = await installPatchController(page);
+    const sessionGate = await installAuthSessionGate(page);
+
+    try {
+      patchController.failNextPatch(401, "session_required");
+      patchController.failNextPatch(400, "invalid_mutation_payload");
+      await page.goto(`/?incident_id=${incidentId}`);
+      await expect(page.getByTestId(`row-${firstId}-summary`)).toHaveValue(
+        "E-6-05 halt A base",
+      );
+      await expect(
+        page.getByText("Current incident role: admin"),
+      ).toBeVisible();
+      sessionGate.close();
+
+      await editTimelineSummary(page, firstId, "E-6-05 halt A local");
+      await expect(page.getByTestId("pending-queue-notice")).toBeVisible();
+      await editTimelineSummary(page, secondId, "E-6-05 halt B local");
+      await editTimelineSummary(page, thirdId, "E-6-05 halt C local");
+      await expect(page.getByTestId("pending-queue-count")).toContainText("3");
+
+      sessionGate.open();
+      await expect.poll(() => patchController.calls.length).toBe(2);
+      expect(patchController.calls.map((call) => call.recordId)).toEqual([
+        firstId,
+        firstId,
+      ]);
+      expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
+      await expect(page.getByTestId("save-state")).toHaveText("Conflict");
+      await expect(page.getByTestId("pending-queue-notice")).toContainText(
+        "invalid_mutation_payload",
+      );
+      await expect(page.getByTestId("pending-queue-count")).toContainText("3");
+      await expectServerSummaries(page, incidentId, {
+        [firstId]: "E-6-05 halt A base",
+        [secondId]: "E-6-05 halt B base",
+        [thirdId]: "E-6-05 halt C base",
+      });
+    } finally {
+      await patchController.dispose();
+      await sessionGate.dispose();
+    }
+  });
+
+  await test.step("does not restore the in-memory queue after a full reload", async () => {
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("E605RELOAD"),
+      "Phase 6 E-6-05 reload boundary",
+    );
+    const recordId = requireRecordId(
+      await createTimelineRow(page, incidentId, "E-6-05 reload base"),
+    );
+    const patchController = await installPatchController(page);
+    const sessionGate = await installAuthSessionGate(page);
+
+    try {
+      patchController.failNextPatch(401, "session_required");
+      await page.goto(`/?incident_id=${incidentId}`);
+      await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+        "E-6-05 reload base",
+      );
+      await expect(
+        page.getByText("Current incident role: admin"),
+      ).toBeVisible();
+      sessionGate.close();
+
+      await editTimelineSummary(page, recordId, "E-6-05 reload local");
+      await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+        "E-6-05 reload local",
+      );
+      await expect(page.getByTestId("pending-queue-count")).toContainText("1");
+
+      sessionGate.open();
+      page.once("dialog", async (dialog) => {
+        await dialog.accept();
+      });
+      await page.reload();
+
+      await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+        "E-6-05 reload base",
+      );
+      await expect(page.getByTestId("save-state")).toHaveText("Saved");
+      await expect(page.getByTestId("pending-queue-notice")).toHaveCount(0);
+      expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
+      await expectServerSummaries(page, incidentId, {
+        [recordId]: "E-6-05 reload base",
+      });
+    } finally {
+      await patchController.dispose();
+      await sessionGate.dispose();
+    }
+  });
 });
+
+async function createTimelineRow(
+  page: Page,
+  incidentId: string,
+  summary: string,
+) {
+  return createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("phase6-timeline-row"),
+    "timeline.summary": summary,
+  });
+}
+
+async function editTimelineSummary(
+  page: Page,
+  recordId: string,
+  value: string,
+) {
+  const input = page.getByTestId(`row-${recordId}-summary`);
+  await input.fill(value);
+  await input.press("Enter");
+  await expect(input).toHaveValue(value);
+}
+
+function installIncidentSocketMonitor(page: Page, incidentId: string) {
+  const messages: SocketMessage[] = [];
+  const closes: number[] = [];
+  const sockets: WebSocket[] = [];
+  const messageWaiters: Array<{
+    matches: (message: SocketMessage) => boolean;
+    reject: (error: Error) => void;
+    resolve: (message: SocketMessage) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }> = [];
+  const closeWaiters: Array<{
+    matches: (socketIndex: number) => boolean;
+    reject: (error: Error) => void;
+    resolve: (socketIndex: number) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }> = [];
+
+  page.on("websocket", (socket) => {
+    if (!socket.url().includes(`/ws/v1/incidents/${incidentId}`)) {
+      return;
+    }
+    const socketIndex = sockets.length;
+    sockets.push(socket);
+    socket.on("framereceived", ({ payload }) => {
+      const message = parseSocketPayload(payload, socketIndex);
+      if (!message) {
+        return;
+      }
+      messages.push(message);
+      for (const waiter of [...messageWaiters]) {
+        if (!waiter.matches(message)) {
+          continue;
+        }
+        clearTimeout(waiter.timeout);
+        messageWaiters.splice(messageWaiters.indexOf(waiter), 1);
+        waiter.resolve(message);
+      }
+    });
+    socket.on("close", () => {
+      closes.push(socketIndex);
+      for (const waiter of [...closeWaiters]) {
+        if (!waiter.matches(socketIndex)) {
+          continue;
+        }
+        clearTimeout(waiter.timeout);
+        closeWaiters.splice(closeWaiters.indexOf(waiter), 1);
+        waiter.resolve(socketIndex);
+      }
+    });
+  });
+
+  return {
+    messageCount: () => messages.length,
+    waitForClose: (socketIndex: number, timeoutMs = 10_000) => {
+      if (closes.includes(socketIndex)) {
+        return Promise.resolve(socketIndex);
+      }
+      return new Promise<number>((resolve, reject) => {
+        const waiter = {
+          matches: (candidate: number) => candidate === socketIndex,
+          reject,
+          resolve,
+          timeout: setTimeout(() => {
+            closeWaiters.splice(closeWaiters.indexOf(waiter), 1);
+            reject(
+              new Error(`timed out waiting for socket ${socketIndex} close`),
+            );
+          }, timeoutMs),
+        };
+        closeWaiters.push(waiter);
+      });
+    },
+    waitForMessage: (
+      type: string,
+      options: { startAt?: number; timeoutMs?: number } = {},
+    ) => {
+      const startAt = options.startAt ?? 0;
+      const existing = messages
+        .slice(startAt)
+        .find((message) => message.type === type);
+      if (existing) {
+        return Promise.resolve(existing);
+      }
+      return new Promise<SocketMessage>((resolve, reject) => {
+        const waiter = {
+          matches: (message: SocketMessage) =>
+            messages.indexOf(message) >= startAt && message.type === type,
+          reject,
+          resolve,
+          timeout: setTimeout(() => {
+            messageWaiters.splice(messageWaiters.indexOf(waiter), 1);
+            reject(new Error(`timed out waiting for socket message ${type}`));
+          }, options.timeoutMs ?? 10_000),
+        };
+        messageWaiters.push(waiter);
+      });
+    },
+  };
+}
+
+async function installPatchController(page: Page) {
+  const calls: PatchCall[] = [];
+  const behaviors: PatchBehavior[] = [];
+  const routePattern = "**/api/v1/records/*";
+  const handler = async (route: Route) => {
+    const request = route.request();
+    if (request.method().toUpperCase() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    const call: PatchCall = {
+      body: parseRequestBody(request.postData()),
+      recordId: recordIdFromURL(request.url()),
+      status: 0,
+    };
+    const behavior = behaviors.shift() ?? null;
+    if (behavior?.type === "hold") {
+      behavior.resolveHit(call);
+      await behavior.hold;
+    }
+    if (behavior?.type === "error") {
+      call.status = behavior.status;
+      calls.push(call);
+      await fulfillJSONError(route, behavior.status, behavior.code);
+      return;
+    }
+
+    const response = await route.fetch();
+    call.status = response.status();
+    calls.push(call);
+    await route.fulfill({ response });
+  };
+
+  await page.route(routePattern, handler);
+
+  return {
+    calls,
+    dispose: async () => {
+      await page.unroute(routePattern, handler);
+    },
+    failNextPatch: (status: number, code: string) => {
+      behaviors.push({ code, status, type: "error" });
+    },
+    holdNextPatch: () => {
+      let releaseHold!: () => void;
+      let resolveHit!: (call: PatchCall) => void;
+      const waitForHit = new Promise<PatchCall>((resolve) => {
+        resolveHit = resolve;
+      });
+      const hold = new Promise<void>((resolve) => {
+        releaseHold = resolve;
+      });
+      const behavior = {
+        hold,
+        release: releaseHold,
+        resolveHit,
+        type: "hold" as const,
+        waitForHit,
+      };
+      behaviors.push(behavior);
+      return {
+        release: releaseHold,
+        waitForHit,
+      };
+    },
+  };
+}
+
+async function installAuthSessionGate(page: Page) {
+  let open = true;
+  const routePattern = "**/api/v1/auth/session";
+  const handler = async (route: Route) => {
+    if (route.request().method().toUpperCase() !== "GET" || open) {
+      await route.fallback();
+      return;
+    }
+    await fulfillJSONError(route, 401, "session_required");
+  };
+  await page.route(routePattern, handler);
+  return {
+    close: () => {
+      open = false;
+    },
+    dispose: async () => {
+      await page.unroute(routePattern, handler);
+    },
+    open: () => {
+      open = true;
+    },
+  };
+}
+
+async function fulfillJSONError(route: Route, status: number, code: string) {
+  await route.fulfill({
+    body: JSON.stringify({
+      error: {
+        code,
+        details: {},
+        message: code,
+        request_id: `phase6-e2e-${code}`,
+        retryable: false,
+        status,
+      },
+    }),
+    contentType: "application/json",
+    status,
+  });
+}
+
+function parseSocketPayload(
+  payload: string | Buffer,
+  socketIndex: number,
+): SocketMessage | null {
+  const text = Buffer.isBuffer(payload) ? payload.toString("utf8") : payload;
+  try {
+    const parsed = JSON.parse(text) as {
+      payload?: Record<string, unknown>;
+      type?: unknown;
+    };
+    if (typeof parsed.type !== "string") {
+      return null;
+    }
+    return {
+      payload: parsed.payload ?? {},
+      socketIndex,
+      type: parsed.type,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseRequestBody(postData: string | null): Record<string, unknown> {
+  if (!postData) {
+    return {};
+  }
+  return JSON.parse(postData) as Record<string, unknown>;
+}
+
+function recordIdFromURL(url: string) {
+  const parsed = new URL(url);
+  const prefix = "/api/v1/records/";
+  if (!parsed.pathname.startsWith(prefix)) {
+    throw new Error(`unexpected record patch URL: ${url}`);
+  }
+  return parsed.pathname.slice(prefix.length);
+}
+
+function successfulPatchCalls(calls: PatchCall[]) {
+  return calls.filter((call) => call.status >= 200 && call.status < 300);
+}
+
+function summaryPatchValue(body: Record<string, unknown>) {
+  const changes = Array.isArray(body.changes) ? body.changes : [];
+  const summaryChange = changes.find(
+    (change): change is { field_key: string; value: unknown } =>
+      typeof change === "object" &&
+      change !== null &&
+      "field_key" in change &&
+      change.field_key === "timeline.summary",
+  );
+  return summaryChange?.value;
+}
+
+function requireRecordId(row: Record<string, unknown>) {
+  if (typeof row.record_id !== "string") {
+    throw new Error(`missing record_id in row ${JSON.stringify(row)}`);
+  }
+  return row.record_id;
+}
+
+async function expectServerSummaries(
+  page: Page,
+  incidentId: string,
+  expected: Record<string, string>,
+) {
+  await expect
+    .poll(async () => {
+      const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
+      const summaries: Record<string, string> = {};
+      for (const row of rows) {
+        const recordId =
+          typeof row.record_id === "string" ? row.record_id : undefined;
+        if (!recordId || !(recordId in expected)) {
+          continue;
+        }
+        summaries[recordId] = readTimelineSummary(row);
+      }
+      return summaries;
+    })
+    .toEqual(expected);
+}
+
+function readTimelineSummary(row: Record<string, unknown>) {
+  const cells = row.cells;
+  if (!cells || typeof cells !== "object" || Array.isArray(cells)) {
+    return "";
+  }
+  const summaryCell = (cells as Record<string, { value?: unknown }>)[
+    "timeline.summary"
+  ];
+  return typeof summaryCell?.value === "string" ? summaryCell.value : "";
+}

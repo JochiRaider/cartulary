@@ -15,7 +15,7 @@ This planning artifact does not implement Phase 6 behavior. It is intentionally 
 | [x]  | 0. Phase 6 ownership manifest and harness setup                       | [x] passed                         | None. Docker is reachable and both Phase 6 public slice wrappers pass.                                                                                                            | `phase-slice` artifact root: `.cartulary/test-results/20260505T222643Z-p41927/phase-slice`; `service-backed-slice` artifact root: `.cartulary/test-results/20260505T222657Z-p45629/service-backed-slice`. |
 | [x]  | 1. Patch conflict contract and explicit resolver domain               | [x] passed | None. The workbook collection auto-rebase regression was fixed as a test-fixture issue, and the workbook package plus Phase 6 public slices pass. | Backend `U-6-01..U-6-04` and frontend `U-6-05..U-6-06` are implemented. Phase 3 Timeline hot-path coverage remains support evidence.                           |
 | [x]  | 2. Incident socket handshake, resume, replay, and presence hardening  | [x] passed | None. Focused socket tests, backend integration, and both Phase 6 public slice wrappers pass. | Backend `U-6-07`, `U-6-08`, `I-6-01`, `I-6-02`, and `I-6-04` are implemented.                                                                                                    |
-| [ ]  | 3. Frontend collaboration client, save state, and local pending queue | [ ] pending | Workbook UI currently has surface flows, but Phase 6 needs a durable browser-runtime queue, save labels, conflict queue state, and reconnect/re-auth behavior.                    | Cover `U-6-05`, `U-6-06`, `U-6-09`, `E-6-03`, and `E-6-05`.                                                                                                    |
+| [x]  | 3. Frontend collaboration client, save state, and local pending queue | [x] passed | None. `E-6-03` and `E-6-05` are now real browser-functional evidence.                    | Frontend runtime, `U-6-09`, same-runtime re-auth recovery, FIFO replay, non-retryable halt, and reload-loss boundaries are implemented.                                                                                                    |
 | [ ]  | 4. Browser presence indicators and live-cell anchoring                | [ ] pending | Presence and live patches must remain bound to `record_id` plus `field_key` through sort/filter/group/virtual scrolling or invalidation.                                          | Cover `E-6-01` and `E-6-04`, with focused frontend unit tests for row/cell key stability.                                                                      |
 | [ ]  | 5. Two-client concurrent edit E2E and resolver UX                     | [ ] pending | Requires stable multi-context browser fixture and deterministic conflict setup.                                                                                                   | Cover `I-6-03` and `E-6-02`; verify same-surface resolver actions commit or clear exactly as specified.                                                        |
 | [ ]  | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup     | [ ] pending | Depends on prior sprints.                                                                                                                                                         | Regenerate ledgers/schedules/baselines after all authoritative rows are real, then run phase and check gates.                                                  |
@@ -267,7 +267,7 @@ Exit criteria:
 
 Objective: Add the browser-runtime client machinery for save-state labels, unsent-write queueing, replay, conflict halt, and re-auth recovery boundaries.
 
-Status: Not started.
+Status: Complete for Sprint 3. The Timeline workbook frontend runtime, `U-6-09` unit evidence, and browser E2E rows `E-6-03` and `E-6-05` are implemented and validated.
 
 Relevant IDs:
 - `U-6-09`, support for `U-6-05` and `U-6-06`
@@ -286,43 +286,62 @@ Grep references:
 - `logout`
 
 Files and areas:
-- `apps/web/src/WorkbookShell.tsx`
-- New frontend helpers such as `apps/web/src/collaborationClient.ts`, `apps/web/src/pendingQueue.ts`, or equivalent if extraction improves testability.
-- `apps/web/src/WorkbookShell.phase6.test.tsx`
-- Browser specs in `apps/web/e2e/phase6.collaboration.spec.ts`
+- `apps/web/src/WorkbookShell.tsx` now owns the in-memory pending replay runtime for Timeline workbook hot-path autosave writes.
+- `apps/web/src/WorkbookShell.phase6.test.tsx` contains real `U-6-09` assertions alongside the existing `U-6-05` and `U-6-06` resolver assertions.
+- `apps/web/src/timelineWorkbookTestSupport.ts` now provides a controllable WebSocket mock for frontend collaboration tests.
+- `apps/web/e2e/phase6.collaboration.spec.ts` contains real `E-6-03` and `E-6-05` browser assertions plus local route and socket helpers for the pending replay scenarios.
 
-Test-first sequence:
-1. Add unit tests for save-state labels: only `Syncing`, `Saved`, and `Conflict` are emitted.
-2. Add unit tests for a FIFO queue bounded to 64 non-coalescible units.
-3. Add unit tests for contiguous same-record coalescing and no cross-record reorder.
-4. Add unit tests proving retryable transient disconnect and `session_revoked` preserve queued unsent writes in the same browser runtime.
-5. Add unit tests proving non-retryable failures and same-field conflicts halt replay on the blocking item without silent eviction.
-6. Add browser tests proving re-auth can explicitly recover unsaved local work, while a full reload does not silently restore old unsent writes.
+Completed test-first sequence:
+1. Replaced the `U-6-09` placeholder with frontend unit assertions for exact save-state vocabulary, FIFO replay, contiguous same-record coalescing, fixed 64-unit capacity, session-revocation pause/resume, and same-field conflict halt.
+2. Extended the frontend test WebSocket harness so unit tests can emit `hello_ack`, `resume_ack`, `record_changed`, `ping`, and `session_revoked` messages.
+3. Preserved existing `U-6-05` and `U-6-06` resolver tests while routing hot-path autosave writes through the new queue.
+4. Replaced the `E-6-03` and `E-6-05` browser placeholders with real Playwright flows for socket revocation, same-runtime re-authentication replay, FIFO queue order, non-retryable replay halt, and full-reload queue loss.
 
-Implementation tasks:
-- Implement queue storage in browser runtime memory, not durable local storage, unless a later owner document changes the persistence boundary.
-- Bind every queued write to `record_id`, `field_key`, `base_row_version`, normalized payload, and `client_txn_id`.
-- Ensure queued writes replay FIFO after re-auth and stop at first blocking non-retryable failure.
-- Surface conflict state through the same resolver path rather than an alert-only or route-changing workflow.
+Completed implementation tasks:
+- Added `PendingReplayUnit`, pending queue runtime state, and collaboration replay state inside the Timeline workbook client.
+- Routed autosave-originated Timeline row creates and patches through an incident/client-instance memory-local queue.
+- Kept queue capacity fixed at exactly `64` replay units in production.
+- Implemented FIFO replay, contiguous same-record coalescing, retryable transport retry, `401`/`403` auth pause, `session_revoked` pause, reset-required HTTP re-query pause, and same-field conflict halt.
+- Kept later queued items blocked behind a same-field conflict until explicit conflict resolution or clear.
+- Derived `Syncing`, `Saved`, and `Conflict` from queue/conflict/runtime state and added a same-surface queued-edit notice.
+- Added `beforeunload` warning while queued writes or unresolved local conflicts exist.
+- Did not persist replay units to `localStorage`, `sessionStorage`, IndexedDB, or server state.
+- Added browser-only route controls in `phase6.collaboration.spec.ts` for held patches, synthetic auth failures, non-retryable failures, auth-session recovery gates, and WebSocket frame observation.
 
 Validation commands:
-- `make frontend-unit`
+- `tmp/node-runtime/bin/pnpm --dir apps/web exec vitest run src/WorkbookShell.phase6.test.tsx --reporter=verbose --testTimeout=10000`
+- `make frontend-unit CARTULARY_MANIFEST_PHASE=phase6`
 - `make frontend-typecheck`
-- `make browser-e2e-webserver-backed`
+- `make lint-biome`
+- `FORCE_COLOR=0 NO_COLOR=1 CARTULARY_WEB_E2E_BACKEND_PORT=8080 CARTULARY_WEB_E2E_FRONTEND_PORT=4173 CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:8080 CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:4173 tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test e2e/phase6.collaboration.spec.ts -g "E-6-0(3|5)"`
+- `make phase-slice PHASE=phase6`
 - `git diff --check`
 
+Validation results:
+- Focused Phase 6 frontend unit file passed with 6 tests.
+- `make frontend-unit CARTULARY_MANIFEST_PHASE=phase6` passed with artifact root `.cartulary/test-results/20260505T233137Z-p2374/frontend-unit`.
+- `make frontend-typecheck` passed with artifact root `.cartulary/test-results/20260505T235838Z-p26805/frontend-typecheck`.
+- `make lint-biome` passed with artifact root `.cartulary/test-results/20260505T235838Z-p26767/lint-biome`.
+- Focused `E-6-03` and `E-6-05` Playwright run passed with 2 tests.
+- `make phase-slice PHASE=phase6` passed with 5/5 work units, 18 tests, 0 failures, and artifact root `.cartulary/test-results/20260505T235715Z-p22491/phase-slice`.
+- `git diff --check` passed.
+
 Deliverables:
-- Local pending queue behavior is deterministic and bounded.
-- Save-state labels conform exactly to the normative vocabulary.
-- Browser runtime can recover unsent writes after re-auth without silently restoring them after full reload.
+- Timeline hot-path local pending queue behavior is deterministic, bounded, and memory-local.
+- Save-state labels conform exactly to the normative vocabulary for the covered frontend runtime paths.
+- Session revocation preserves unsent queued writes in the same browser runtime and resumes after an accepted socket/session establishment message.
+- Same-field conflicts move the blocking unit out of the pending queue and into the existing client-local conflict queue.
+- Browser evidence proves real socket `session_revoked` handling, re-authenticated FIFO replay, first non-retryable failure halt, and no silent full-reload queue restore.
 
 Risks and assumptions:
-- Browser runtime recovery may require Playwright multi-context plus controlled route failure hooks; add test-only hooks under existing test boundaries, not production-only shortcuts.
-- Queue coalescing must not obscure audit attribution or idempotency semantics.
+- Evidence upload, mention resolution, lifecycle actions, and other non-hot-path operations remain outside the local pending queue.
+- The frontend unit test proves the production capacity constant is `64`; it does not enqueue 64 rendered rows because that made the component test impractically heavy.
+- Queue replay updates stale patch `base_row_version` from the current visible row before replay; backend row-version and same-field conflict checks remain authoritative.
 
 Exit criteria:
-- `U-6-09`, `E-6-03`, and `E-6-05` are real assertions, not placeholders.
-- A same-field conflict leaves later queued items blocked until explicit resolution or clear.
+- `U-6-09` is real frontend unit evidence. Done.
+- A same-field conflict leaves later queued items blocked until explicit resolution or clear. Done in frontend unit evidence.
+- `E-6-03` and `E-6-05` are real browser-functional assertions. Done.
 
 ## Sprint 4. Browser Presence Indicators and Live-Cell Anchoring
 

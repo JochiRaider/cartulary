@@ -10,15 +10,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
+  deferred,
   errorEnvelope,
   extractTimelineJSONBody,
+  extractTimelinePatchBody,
   installTimelineWorkbookTestGlobals,
+  latestTimelineWebSocket,
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRow,
   timelineViewSchemaId,
 } from "./timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "./WorkbookShell";
+import { pendingReplayCapacity, TimelineWorkbook } from "./WorkbookShell";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -239,8 +242,228 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
   });
 
-  it("Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit", () => {
-    // Phase 6 placeholder: replace with save-state and pending-queue assertions before Phase 6 exit.
-    expect(true).toBe(true);
+  it("Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit", async () => {
+    const firstPendingPatch = deferred<Response>();
+    const secondPendingPatch = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "One",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Two",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(firstPendingPatch.promise);
+    fetchMock.mockReturnValueOnce(secondPendingPatch.promise);
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+
+    const firstInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    const secondInput = (await screen.findByTestId(
+      "row-record-2-summary",
+    )) as HTMLInputElement;
+
+    await changeInputValue(firstInput, "One in flight");
+    fireEvent.blur(firstInput);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+    });
+
+    await changeInputValue(secondInput, "Two queued first");
+    fireEvent.blur(secondInput);
+    await changeInputValue(secondInput, "Two queued final");
+    fireEvent.blur(secondInput);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    firstPendingPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-2",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "One in flight",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(extractTimelinePatchBody(fetchMock, 2).changes).toEqual([
+      {
+        field_key: "timeline.summary",
+        value: "Two queued final",
+      },
+    ]);
+
+    secondPendingPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-3",
+        row: timelineRow({
+          recordId: "record-2",
+          rowVersion: 2,
+          summary: "Two queued final",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    });
+  });
+
+  it("Phase 6 U-6-09 fixes the browser-runtime pending queue capacity at exactly 64 replay units", () => {
+    expect(pendingReplayCapacity).toBe(64);
+  });
+
+  it("Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Auth base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-auth",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Auth replay",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const input = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    await waitFor(() => {
+      expect(latestTimelineWebSocket()).not.toBeNull();
+    });
+    latestTimelineWebSocket()?.emit({
+      type: "session_revoked",
+      payload: { reason_code: "session_revoked" },
+    });
+
+    await changeInputValue(input, "Auth replay");
+    fireEvent.blur(input);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+    expect(screen.getByTestId("pending-queue-notice")).toBeTruthy();
+    expect(input.value).toBe("Auth replay");
+
+    latestTimelineWebSocket()?.emit({
+      type: "hello_ack",
+      payload: {
+        resume_token: "resume-after-auth",
+      },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(extractTimelinePatchBody(fetchMock, 1).changes).toEqual([
+      {
+        field_key: "timeline.summary",
+        value: "Auth replay",
+      },
+    ]);
+    await waitFor(() => {
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    });
+  });
+
+  it("Phase 6 U-6-09 moves the blocking same-field conflict out of the pending queue and keeps later writes queued", async () => {
+    const firstPendingPatch = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "One",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Two",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(firstPendingPatch.promise);
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const firstInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    const secondInput = (await screen.findByTestId(
+      "row-record-2-summary",
+    )) as HTMLInputElement;
+
+    await changeInputValue(firstInput, "Conflict local");
+    fireEvent.blur(firstInput);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await changeInputValue(secondInput, "Still queued");
+    fireEvent.blur(secondInput);
+
+    firstPendingPatch.resolve(
+      errorEnvelope("same_field_conflict", 409, {
+        conflict_token: "conflict-token-queued",
+        record_id: "record-1",
+        field_key: "timeline.summary",
+        conflict_resolution_class: "text_compare_merge",
+        base_row_version: 1,
+        current_row_version: 2,
+        base_value: "One",
+        server_value: "Server",
+        client_value: "Conflict local",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+      expect(screen.getByTestId("conflict-resolver")).toBeTruthy();
+      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
+        "1",
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

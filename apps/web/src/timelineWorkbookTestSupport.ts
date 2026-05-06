@@ -24,6 +24,18 @@ type WebSocketLike = {
 };
 
 export type TimelineWorkbookFetchMock = ReturnType<typeof vi.fn>;
+export type TimelineWebSocketMock = {
+  close: () => void;
+  emit: (message: Record<string, unknown>) => void;
+  onclose: ((event: CloseEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onmessage: ((event: MessageEvent) => void) | null;
+  onopen: ((event: Event) => void) | null;
+  send: (message: string) => void;
+  sentMessages: string[];
+};
+
+const timelineWebSockets: TimelineWebSocketMock[] = [];
 
 type TimelineRowOptions = {
   recordId: string;
@@ -68,13 +80,39 @@ export function deferred<T>() {
 
 export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock {
   const fetchMock = vi.fn();
+  timelineWebSockets.splice(0);
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal(
     "WebSocket",
     class {
+      onclose: ((event: CloseEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
       onmessage: ((event: MessageEvent) => void) | null = null;
+      onopen: ((event: Event) => void) | null = null;
+      sentMessages: string[] = [];
 
-      close() {}
+      constructor() {
+        timelineWebSockets.push(this as TimelineWebSocketMock);
+        window.setTimeout(() => {
+          this.onopen?.(new Event("open"));
+        }, 0);
+      }
+
+      close() {
+        this.onclose?.(new CloseEvent("close"));
+      }
+
+      emit(message: Record<string, unknown>) {
+        this.onmessage?.(
+          new MessageEvent("message", {
+            data: JSON.stringify(message),
+          }),
+        );
+      }
+
+      send(message: string) {
+        this.sentMessages.push(message);
+      }
     } as unknown as typeof WebSocket,
   );
   return fetchMock;
@@ -82,7 +120,12 @@ export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock 
 
 export function cleanupTimelineWorkbookTestGlobals() {
   cleanup();
+  timelineWebSockets.splice(0);
   vi.unstubAllGlobals();
+}
+
+export function latestTimelineWebSocket(): TimelineWebSocketMock | null {
+  return timelineWebSockets[timelineWebSockets.length - 1] ?? null;
 }
 
 export function successEnvelope(data: unknown, status = 200) {
