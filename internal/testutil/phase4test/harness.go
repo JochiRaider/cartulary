@@ -14,6 +14,8 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -34,6 +36,12 @@ func StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
 	return StartRuntime(t).StartServer(t, prefix)
+}
+
+func StartServerWithConfig(t testing.TB, prefix string, mutate func(*config.Config)) *ServerHarness {
+	t.Helper()
+
+	return StartRuntime(t).StartServerWithConfig(t, prefix, mutate)
 }
 
 func StartRuntime(t testing.TB) *RuntimeHarness {
@@ -59,6 +67,47 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env})
+	db, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	return &ServerHarness{
+		Server: server,
+		DB:     db,
+	}
+}
+
+func (h *RuntimeHarness) StartServerWithConfig(t testing.TB, prefix string, mutate func(*config.Config)) *ServerHarness {
+	t.Helper()
+
+	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
+
+	bucket := h.S3.PreparePackageBucketT(t, prefix)
+
+	env := testDB.Env()
+	for key, value := range h.S3.Env(bucket) {
+		env[key] = value
+	}
+	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+
+	tempRoots := configtest.SetupTempRoots(t)
+	for key, value := range tempRoots.Paths {
+		if _, exists := env[key]; !exists {
+			env[key] = value
+		}
+	}
+	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env)
+
+	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, env)
+	if mutate != nil {
+		mutate(&cfg)
+	}
+
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Config: cfg, Env: env})
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open sql db: %v", err)

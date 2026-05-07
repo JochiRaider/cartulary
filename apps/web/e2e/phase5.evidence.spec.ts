@@ -13,11 +13,13 @@ import {
   createIncident,
   createViewRow,
   csrfHeaders,
+  patchTimelineRecord,
   queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
 import {
+  collectionItems,
   evidenceViewSchemaId,
   timelineViewSchemaId,
   type ViewRow,
@@ -168,6 +170,15 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
     uniqueIncidentKey("E5EVIDENCE"),
     "Phase 5 requested evidence",
   );
+  const timelineRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e5-requested-timeline"),
+      "timeline.summary": "Requested package tracking",
+    },
+  )) as unknown as ViewRow;
 
   await openEvidenceSurface(page, incidentId);
   await setGenericCreateField(page, "evidence.title", "Requested package");
@@ -195,6 +206,66 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
     ),
   ).toHaveText("pending");
 
+  const linkedTimeline = (await patchTimelineRecord(
+    page,
+    timelineRow.record_id,
+    {
+      view_schema_id: timelineViewSchemaId,
+      base_row_version: timelineRow.row_version,
+      client_txn_id: uniqueTxn("e5-requested-link"),
+      changes: [
+        {
+          field_key: "timeline.attached_evidence_ids",
+          action_payload: {
+            kind: "collection_actions_v1",
+            actions: [
+              {
+                op: "add_record_ref",
+                linked_record_id: requested.record_id,
+              },
+            ],
+          },
+        },
+      ],
+    },
+  )) as unknown as ViewRow;
+  expect(
+    collectionItems(linkedTimeline, "timeline.attached_evidence_ids").some(
+      (item) => item.linked_record_id === requested.record_id,
+    ),
+  ).toBe(true);
+  expect(linkedTimeline.cells["timeline.evidence_count"]?.value).toBe(0);
+  expect(linkedTimeline.cells["timeline.has_evidence"]?.value).toBe(false);
+  await expect
+    .poll(async () => {
+      const rows = (await queryViewRows(
+        page,
+        incidentId,
+        timelineViewSchemaId,
+      )) as unknown as ViewRow[];
+      const row = rows.find(
+        (candidate) => candidate.record_id === timelineRow.record_id,
+      );
+      return [
+        row?.cells["timeline.evidence_count"]?.value,
+        row?.cells["timeline.has_evidence"]?.value,
+      ];
+    })
+    .toEqual([0, false]);
+
+  await openTimelineSurface(page, incidentId);
+  await expect(
+    page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
+    ),
+  ).toHaveText("0");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
+    ),
+  ).toHaveText("false");
+
+  await openEvidenceSurface(page, incidentId);
   await page
     .getByTestId(`evidence-attach-file-${requested.record_id}`)
     .setInputFiles({
@@ -222,6 +293,42 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
     (await queryViewRows(page, incidentId, evidenceViewSchemaId)).filter(
       (row) => row.record_id === requested.record_id,
     ),
+  ).toHaveLength(1);
+  await expect
+    .poll(async () => {
+      const rows = (await queryViewRows(
+        page,
+        incidentId,
+        timelineViewSchemaId,
+      )) as unknown as ViewRow[];
+      const row = rows.find(
+        (candidate) => candidate.record_id === timelineRow.record_id,
+      );
+      return [
+        row?.cells["timeline.evidence_count"]?.value,
+        row?.cells["timeline.has_evidence"]?.value,
+      ];
+    })
+    .toEqual([1, true]);
+  await openTimelineSurface(page, incidentId);
+  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+  await expect(
+    page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
+    ),
+  ).toHaveText("1");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
+    ),
+  ).toHaveText("true");
+  const timelineRows = (await queryViewRows(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  )) as unknown as ViewRow[];
+  expect(
+    timelineRows.filter((row) => row.record_id === timelineRow.record_id),
   ).toHaveLength(1);
 });
 

@@ -426,7 +426,7 @@ assertArgs("target-plan", { PHASE: "phase4", TARGET: "backend-store", RESULTS_DI
 assertUsage("explain-run", {}, "make explain-run RESULTS_DIR=<root|run-dir>");
 assertUsage("phase-slice", {}, "make phase-slice PHASE=<phaseN>");
 assertUsage("service-backed-slice", {}, "make service-backed-slice PHASE=<phaseN>");
-assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines RESULTS_DIR=<successful test results dir>");
+assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines RESULTS_DIR=<successful results dir> [PRUNE_OBSERVED_PACKAGES=1 requires full service-backed]");
 assertUsage("browser-e2e-duration-baselines", {}, "make browser-e2e-duration-baselines RESULTS_DIR=<successful browser results dir>");
 assertUsage("harness-smoke-duration-baselines", {}, "make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>");
 assertUsage("scheduler-event-order-drift", { CARTULARY_TEST_RESULTS_DIR: "/tmp/results" }, "make scheduler-event-order-drift");

@@ -12,24 +12,41 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
 func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
-	incidentID := uuid.New()
+	harness := phase4test.StartServer(t, "phase5-blob-create-route")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase5-blob-create-incident",
+		"incident_key":  "phase5-blob-create",
+		"title":         "Phase 5 blob create",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	issuedAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
+	httptestx.SetClockFixed(t, harness.Server, issuedAt)
 	validSHA := fmt.Sprintf("%x", sha256.Sum256([]byte("phase5")))
 
+	createURL := harness.Server.HTTP.URL + "/api/v1/object-blobs"
+	beforeInvalid := countObjectBlobs(t, harness, incidentID)
 	for _, tc := range []struct {
 		name       string
 		body       string
+		txn        string
 		field      string
 		reasonCode string
 	}{
+		{
+			name:       "malformed body",
+			body:       `{`,
+			reasonCode: "request_not_object",
+		},
 		{
 			name:       "array body",
 			body:       `[]`,
@@ -48,6 +65,7 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 		{
 			name:       "missing incident_id",
 			body:       `{"client_txn_id":"txn","byte_size":1}`,
+			txn:        "txn",
 			field:      "incident_id",
 			reasonCode: "missing_required_field",
 		},
@@ -65,13 +83,15 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 		},
 		{
 			name:       "unknown field",
-			body:       fmt.Sprintf(`{"incident_id":%q,"client_txn_id":"txn","byte_size":1,"unexpected":true}`, incidentID.String()),
+			body:       fmt.Sprintf(`{"incident_id":%q,"client_txn_id":"txn-unknown","byte_size":1,"unexpected":true}`, incidentID.String()),
+			txn:        "txn-unknown",
 			field:      "unexpected",
 			reasonCode: "unknown_field",
 		},
 		{
 			name:       "server managed field",
-			body:       fmt.Sprintf(`{"incident_id":%q,"client_txn_id":"txn","byte_size":1,"object_blob_id":%q}`, incidentID.String(), uuid.NewString()),
+			body:       fmt.Sprintf(`{"incident_id":%q,"client_txn_id":"txn-managed","byte_size":1,"object_blob_id":%q}`, incidentID.String(), uuid.NewString()),
+			txn:        "txn-managed",
 			field:      "object_blob_id",
 			reasonCode: "server_managed_field",
 		},
@@ -95,40 +115,80 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, apiErr := evidence.DecodeBlobCreateRequest(strings.NewReader(tc.body), 10)
-			requireBlobCreateReason(t, apiErr, tc.field, tc.reasonCode)
+			resp := doRawJSON(t, http.MethodPost, createURL, tc.body, authOptions(login)...)
+			requireBlobCreateHTTPReason(t, resp, tc.field, tc.reasonCode)
+			if got := countObjectBlobs(t, harness, incidentID); got != beforeInvalid {
+				t.Fatalf("invalid request wrote object_blobs: got %d want %d", got, beforeInvalid)
+			}
+			if tc.txn != "" {
+				if got := countBlobCreateIdempotency(t, harness, adminID, incidentID, tc.txn); got != 0 {
+					t.Fatalf("invalid request wrote idempotency state for %s: got %d want 0", tc.txn, got)
+				}
+			}
 		})
 	}
 
-	request, apiErr := evidence.DecodeBlobCreateRequest(strings.NewReader(fmt.Sprintf(
-		`{"incident_id":%q,"client_txn_id":" txn-normalized ","byte_size":42,"filename_hint":"  proof.txt  ","content_type_hint":" text/plain ","sha256_hex":%q}`,
-		incidentID.String(),
-		validSHA,
-	)), 100)
-	if apiErr != nil {
-		t.Fatalf("decode valid blob create request: %v", apiErr)
+	unauthenticated := phase4test.DoJSON(t, http.MethodPost, createURL, map[string]any{
+		"incident_id":   incidentID.String(),
+		"client_txn_id": "txn-unauthenticated",
+		"byte_size":     1,
+	})
+	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
+	if got := countObjectBlobs(t, harness, incidentID); got != beforeInvalid {
+		t.Fatalf("unauthenticated request wrote object_blobs: got %d want %d", got, beforeInvalid)
 	}
-	if request.ClientTxnID != "txn-normalized" {
-		t.Fatalf("client_txn_id got %q want txn-normalized", request.ClientTxnID)
+
+	viewer := phase4test.SeedLocalUserFlags(t, harness.DB, "phase5-blob-viewer@example.test", "Phase5 Blob Viewer", "Phase5BlobViewer1!", false, false, true)
+	phase4test.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "Phase5 Blob Viewer", "viewer", adminID)
+	viewerLogin := loginLocalUserNoMFA(t, harness, "phase5-blob-viewer@example.test", "Phase5BlobViewer1!")
+	denied := phase4test.DoJSON(t, http.MethodPost, createURL, map[string]any{
+		"incident_id":   incidentID.String(),
+		"client_txn_id": "txn-viewer-denied",
+		"byte_size":     1,
+	}, authOptions(viewerLogin)...)
+	httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
+	if got := countObjectBlobs(t, harness, incidentID); got != beforeInvalid {
+		t.Fatalf("viewer-denied request wrote object_blobs: got %d want %d", got, beforeInvalid)
 	}
-	requireAcceptedContract(t, request.AcceptedContract, map[string]any{
+	if got := countBlobCreateIdempotency(t, harness, viewer.ID, incidentID, "txn-viewer-denied"); got != 0 {
+		t.Fatalf("viewer-denied request wrote idempotency state: got %d want 0", got)
+	}
+
+	createResp := phase4test.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":       incidentID.String(),
-		"byte_size":         int64(42),
+		"client_txn_id":     " txn-normalized ",
+		"byte_size":         42,
+		"filename_hint":     "  proof.txt  ",
+		"content_type_hint": " text/plain ",
+		"sha256_hex":        validSHA,
+	}, authOptions(login)...)
+	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	if createData["incident_id"] != incidentID.String() || createData["upload_state"] != "pending" || createData["object_blob_id"] == "" {
+		t.Fatalf("unexpected blob create payload: %#v", createData)
+	}
+	requireCreateExpiry(t, createData, "target_expires_at", issuedAt.Add(60*time.Minute))
+	requireCreateExpiry(t, createData, "pending_expires_at", issuedAt.Add(24*time.Hour))
+	uploadTarget := createData["upload_target"].(map[string]any)
+	if uploadTarget["method"] != "PUT" || uploadTarget["href"] == "" {
+		t.Fatalf("unexpected upload_target: %#v", uploadTarget)
+	}
+	requireAcceptedContract(t, createData["accepted_contract"].(map[string]any), map[string]any{
+		"incident_id":       incidentID.String(),
+		"byte_size":         float64(42),
 		"filename_hint":     "proof.txt",
 		"content_type_hint": "text/plain",
 		"sha256_hex":        validSHA,
 	})
 
-	nullableRequest, apiErr := evidence.DecodeBlobCreateRequest(strings.NewReader(fmt.Sprintf(
-		`{"incident_id":%q,"client_txn_id":"txn-nullable","byte_size":0,"filename_hint":null,"content_type_hint":"   ","sha256_hex":null}`,
-		incidentID.String(),
-	)), 100)
-	if apiErr != nil {
-		t.Fatalf("decode nullable blob create request: %v", apiErr)
-	}
-	requireAcceptedContract(t, nullableRequest.AcceptedContract, map[string]any{
+	nullableResp := phase4test.DoJSON(t, http.MethodPost, createURL, map[string]any{
+		"incident_id":   incidentID.String(),
+		"client_txn_id": "txn-nullable",
+		"byte_size":     0,
+	}, authOptions(login)...)
+	nullableData := httptestx.RequireSuccessEnvelope(t, nullableResp, http.StatusCreated)["data"].(map[string]any)
+	requireAcceptedContract(t, nullableData["accepted_contract"].(map[string]any), map[string]any{
 		"incident_id":       incidentID.String(),
-		"byte_size":         int64(0),
+		"byte_size":         float64(0),
 		"filename_hint":     nil,
 		"content_type_hint": nil,
 		"sha256_hex":        nil,
@@ -234,7 +294,14 @@ func TestPhase5_BlobCreateSizeCeiling_U_5_09(t *testing.T) {
 }
 
 func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-preview-size")
+	const (
+		maxPreviewBytes = int64(64)
+		maxTextBytes    = int64(32)
+	)
+	harness := phase4test.StartServerWithConfig(t, "phase5-preview-size", func(cfg *config.Config) {
+		cfg.Limits.Previews.MaxPreviewablePayloadBytes = maxPreviewBytes
+		cfg.Limits.Previews.MaxTextInlineBytes = maxTextBytes
+	})
 	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-preview-size-incident",
@@ -245,8 +312,7 @@ func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
 
 	atLimitRecordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, atLimitRecordID)
-	atLimitBlob := attachUploadedBlobWithMetadata(t, harness, login, incidentID, atLimitRecordID, []byte("image at limit"), "limit.png", "image/png", "txn-phase5-preview-limit-blob", "txn-phase5-preview-limit-attach")
-	updateBlobObservedMetadata(t, harness, phase4test.MustUUID(t, atLimitBlob["object_blob_id"].(string)), int64(33554432), "image/png", "")
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, atLimitRecordID, []byte(strings.Repeat("i", int(maxPreviewBytes))), "limit.png", "image/png", "txn-phase5-preview-limit-blob", "txn-phase5-preview-limit-attach")
 	preview := issueEvidenceHandle(t, harness, login, atLimitRecordID, "preview-handle")
 	if preview["handle_kind"] != "preview" || preview["preview_kind"] != "image_inline" {
 		t.Fatalf("preview at limit failed to issue image_inline handle: %#v", preview)
@@ -254,8 +320,7 @@ func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
 
 	oversizeRecordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, oversizeRecordID)
-	oversizeBlob := attachUploadedBlobWithMetadata(t, harness, login, incidentID, oversizeRecordID, []byte("image too large"), "oversize.png", "image/png", "txn-phase5-preview-oversize-blob", "txn-phase5-preview-oversize-attach")
-	updateBlobObservedMetadata(t, harness, phase4test.MustUUID(t, oversizeBlob["object_blob_id"].(string)), int64(33554433), "image/png", "")
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, oversizeRecordID, []byte(strings.Repeat("i", int(maxPreviewBytes+1))), "oversize.png", "image/png", "txn-phase5-preview-oversize-blob", "txn-phase5-preview-oversize-attach")
 	requireEvidenceAccessUnavailableReason(t,
 		phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+oversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
 		"preview_payload_too_large",
@@ -264,18 +329,32 @@ func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
 	if download["handle_kind"] != "download" {
 		t.Fatalf("oversize preview should not block download issuance: %#v", download)
 	}
+
+	textAtLimitRecordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, textAtLimitRecordID)
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, textAtLimitRecordID, []byte(strings.Repeat("t", int(maxTextBytes))), "limit.txt", "text/plain", "txn-phase5-preview-text-limit-blob", "txn-phase5-preview-text-limit-attach")
+	textPreview := issueEvidenceHandle(t, harness, login, textAtLimitRecordID, "preview-handle")
+	if textPreview["handle_kind"] != "preview" || textPreview["preview_kind"] != "text_inline" || textPreview["size_bytes"] != float64(maxTextBytes) {
+		t.Fatalf("text_inline preview at text limit failed: %#v", textPreview)
+	}
+
+	textOversizeRecordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, textOversizeRecordID)
+	attachUploadedBlobWithMetadata(t, harness, login, incidentID, textOversizeRecordID, []byte(strings.Repeat("t", int(maxTextBytes+1))), "oversize.txt", "text/plain", "txn-phase5-preview-text-oversize-blob", "txn-phase5-preview-text-oversize-attach")
+	requireEvidenceAccessUnavailableReason(t,
+		phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+textOversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+		"preview_payload_too_large",
+	)
+	textDownload := issueEvidenceHandle(t, harness, login, textOversizeRecordID, "download-handle")
+	if textDownload["handle_kind"] != "download" || textDownload["size_bytes"] != float64(maxTextBytes+1) {
+		t.Fatalf("text_inline preview-size block should leave download issuance legal: %#v", textDownload)
+	}
 }
 
-func requireBlobCreateReason(t testing.TB, apiErr *auth.APIError, field string, reasonCode string) {
+func requireBlobCreateHTTPReason(t testing.TB, resp *http.Response, field string, reasonCode string) {
 	t.Helper()
-	if apiErr == nil {
-		t.Fatal("expected blob-create error, got nil")
-		return
-	}
-	if apiErr.Code != "invalid_blob_create_request" || apiErr.Status != http.StatusBadRequest {
-		t.Fatalf("unexpected blob-create error: status=%d code=%s details=%#v", apiErr.Status, apiErr.Code, apiErr.Details)
-	}
-	details := apiErr.Details
+	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_blob_create_request")
+	details := body["error"].(map[string]any)["details"].(map[string]any)
 	if field != "" && details["field"] != field {
 		t.Fatalf("field got %#v want %q in %#v", details["field"], field, details)
 	}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -28,8 +29,12 @@ func TestPhase5_HandleIssueEmptyBodyNonIdempotent_U_5_05(t *testing.T) {
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
-	attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, []byte("phase5 handle issue"), "issue.txt", "text/plain", "txn-phase5-handle-issue-blob", "txn-phase5-handle-issue-attach")
+	payload := []byte("phase5 handle issue")
+	expectedSHA := fmt.Sprintf("%x", sha256Sum(payload))
+	attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, payload, "issue.txt", "text/plain", "txn-phase5-handle-issue-blob", "txn-phase5-handle-issue-attach")
+	objectBlobID := attachData["object_blob_id"].(string)
 
+	beforeInvalid := countAccessHandles(t, harness, incidentID)
 	for _, endpoint := range []string{"preview-handle", "download-handle"} {
 		for name, body := range map[string]string{
 			"empty body":    "",
@@ -44,12 +49,28 @@ func TestPhase5_HandleIssueEmptyBodyNonIdempotent_U_5_05(t *testing.T) {
 			})
 		}
 	}
+	if got := countAccessHandles(t, harness, incidentID); got != beforeInvalid {
+		t.Fatalf("invalid handle issuance requests wrote %d handles, want %d", got, beforeInvalid)
+	}
 
-	before := countAccessHandles(t, harness, incidentID)
+	issuedAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
+	httptestx.SetClockFixed(t, harness.Server, issuedAt)
 	firstPreview := issueEvidenceHandle(t, harness, login, recordID, "preview-handle")
 	secondPreview := issueEvidenceHandle(t, harness, login, recordID, "preview-handle")
 	firstDownload := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 	secondDownload := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
+	requireEvidenceHandleContract(t, firstPreview, evidenceHandleContract{
+		IncidentID: incidentID.String(), RecordID: recordID.String(), ObjectBlobID: objectBlobID,
+		Kind: "preview", ExpiresAt: issuedAt.Add(5 * time.Minute), SingleUse: false,
+		MediaClass: "text", Disposition: "inline", PreviewKind: "text_inline", Filename: "issue.txt",
+		ContentType: "text/plain", SizeBytes: int64(len(payload)), SHA256: expectedSHA,
+	})
+	requireEvidenceHandleContract(t, firstDownload, evidenceHandleContract{
+		IncidentID: incidentID.String(), RecordID: recordID.String(), ObjectBlobID: objectBlobID,
+		Kind: "download", ExpiresAt: issuedAt.Add(2 * time.Minute), SingleUse: true,
+		MediaClass: "text", Disposition: "attachment", PreviewKind: "", Filename: "issue.txt",
+		ContentType: "text/plain", SizeBytes: int64(len(payload)), SHA256: expectedSHA,
+	})
 	for name, pair := range map[string][2]map[string]any{
 		"preview":  {firstPreview, secondPreview},
 		"download": {firstDownload, secondDownload},
@@ -58,8 +79,8 @@ func TestPhase5_HandleIssueEmptyBodyNonIdempotent_U_5_05(t *testing.T) {
 			t.Fatalf("%s issuance reused href: first=%#v second=%#v", name, pair[0], pair[1])
 		}
 	}
-	if got := countAccessHandles(t, harness, incidentID); got != before+4 {
-		t.Fatalf("successful issuances wrote %d handles, want %d", got, before+4)
+	if got := countAccessHandles(t, harness, incidentID); got != beforeInvalid+4 {
+		t.Fatalf("successful issuances wrote %d handles, want %d", got, beforeInvalid+4)
 	}
 }
 
@@ -219,6 +240,69 @@ func issueEvidenceHandle(t testing.TB, harness *phase4test.ServerHarness, login 
 	t.Helper()
 	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+}
+
+type evidenceHandleContract struct {
+	IncidentID   string
+	RecordID     string
+	ObjectBlobID string
+	Kind         string
+	ExpiresAt    time.Time
+	SingleUse    bool
+	MediaClass   string
+	Disposition  string
+	PreviewKind  string
+	Filename     string
+	ContentType  string
+	SizeBytes    int64
+	SHA256       string
+}
+
+func requireEvidenceHandleContract(t testing.TB, data map[string]any, want evidenceHandleContract) {
+	t.Helper()
+	for key, wantValue := range map[string]any{
+		"incident_id":              want.IncidentID,
+		"record_id":                want.RecordID,
+		"object_blob_id":           want.ObjectBlobID,
+		"handle_kind":              want.Kind,
+		"method":                   "GET",
+		"single_use":               want.SingleUse,
+		"media_class":              want.MediaClass,
+		"disposition":              want.Disposition,
+		"filename":                 want.Filename,
+		"content_type":             want.ContentType,
+		"size_bytes":               float64(want.SizeBytes),
+		"sha256":                   want.SHA256,
+		"evidence_lifecycle_state": "available",
+		"upload_state":             "available",
+	} {
+		if got := data[key]; got != wantValue {
+			t.Fatalf("handle[%s] got %#v want %#v in %#v", key, got, wantValue, data)
+		}
+	}
+	href, ok := data["href"].(string)
+	if !ok || !strings.HasPrefix(href, "/api/v1/evidence-handles/hdl_") {
+		t.Fatalf("handle href is not an opaque same-origin handle: %#v in %#v", data["href"], data)
+	}
+	if strings.Contains(href, want.RecordID) || strings.Contains(href, want.ObjectBlobID) {
+		t.Fatalf("handle href leaks stable record/blob identity: %q", href)
+	}
+	expiresAt, ok := data["expires_at"].(string)
+	if !ok {
+		t.Fatalf("handle expires_at got %T in %#v", data["expires_at"], data)
+	}
+	if got := mustParseTime(t, expiresAt); !got.Equal(want.ExpiresAt.UTC()) {
+		t.Fatalf("handle expires_at got %s want %s", got, want.ExpiresAt.UTC())
+	}
+	if want.PreviewKind == "" {
+		if _, exists := data["preview_kind"]; exists {
+			t.Fatalf("download handle must omit preview_kind: %#v", data)
+		}
+		return
+	}
+	if got := data["preview_kind"]; got != want.PreviewKind {
+		t.Fatalf("handle preview_kind got %#v want %q in %#v", got, want.PreviewKind, data)
+	}
 }
 
 func attachUploadedBlobWithMetadata(t *testing.T, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {

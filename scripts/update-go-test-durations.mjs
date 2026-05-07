@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,10 +26,11 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const suspiciousCommandOverheadDecreaseRatio = 0.75;
 const suspiciousCommandOverheadDecreaseDeltaMs = 500;
+const fullServiceBackedTargets = new Set(["test-service-backed", "check-service-backed"]);
 
 function usage() {
   process.stderr.write(
-    "usage: update-go-test-durations.mjs [--prune-observed-packages] [--allow-command-overhead-decrease] [--baseline-file <path>] <results-dir>\n",
+    "usage: update-go-test-durations.mjs [--prune-observed-packages] [--allow-command-overhead-decrease] [--baseline-file <path>] <successful-results-dir>\n",
   );
   process.exit(2);
 }
@@ -84,6 +85,81 @@ function isSuspiciousCommandOverheadDecrease(existingMs, observedMs) {
   );
 }
 
+function walkFiles(root) {
+  const files = [];
+  const stack = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (entry.isFile()) {
+        files.push(next);
+      }
+    }
+  }
+  return files.sort();
+}
+
+function readJSONIfPossible(file) {
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function hasPassingFullServiceBackedSchedulerSummary(resultsDir) {
+  const absoluteResultsDir = path.resolve(resultsDir);
+  if (!existsSync(absoluteResultsDir) || !statSync(absoluteResultsDir).isDirectory()) {
+    return false;
+  }
+  for (const file of walkFiles(absoluteResultsDir)) {
+    if (path.basename(file) !== "scheduler-summary.json") {
+      continue;
+    }
+    const summary = readJSONIfPossible(file);
+    if (
+      summary &&
+      fullServiceBackedTargets.has(summary.target) &&
+      summary.status === "pass" &&
+      summary.scheduler_kind === "service-backed"
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function assertPruneInputIsFullServiceBackedRun(options) {
+  if (!options.pruneObservedPackages) {
+    return;
+  }
+  if (hasPassingFullServiceBackedSchedulerSummary(options.resultsDir)) {
+    return;
+  }
+  process.stderr.write(
+    "Refusing to prune Go test duration baselines from partial service-backed timing evidence.\n",
+  );
+  process.stderr.write(
+    "Prune mode requires a successful full service-backed scheduler summary for test-service-backed or check-service-backed.\n",
+  );
+  process.stderr.write("Run full service-backed evidence with: make test-service-backed\n");
+  process.stderr.write(
+    `Then refresh with: make go-test-duration-baselines RESULTS_DIR=${options.resultsDir} PRUNE_OBSERVED_PACKAGES=1\n`,
+  );
+  process.exit(1);
+}
+
 function main(argv) {
   const options = parseArgs(argv);
   const baselineFile = resolveGoDurationBaselineFile(repoRoot, options.baselineFile);
@@ -95,6 +171,7 @@ function main(argv) {
     process.stderr.write("Rerun check-shaped evidence with: make check\n");
     process.exit(1);
   }
+  assertPruneInputIsFullServiceBackedRun(options);
   const artifacts = withGoDurationBaselineFile(repoRoot, baselineFile, () =>
     collectObservedGoShardArtifacts(repoRoot, options.resultsDir),
   );

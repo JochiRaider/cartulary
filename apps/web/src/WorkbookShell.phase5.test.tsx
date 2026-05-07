@@ -1,3 +1,4 @@
+import { gridShellTestId, rowCellTestId } from "@cartulary/ui-contracts";
 import {
   cleanup,
   render,
@@ -108,14 +109,27 @@ describe("Phase 5 workbook evidence coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    const committedRow = visibleGridRows(container).find(
-      (row) => row.getAttribute("data-grid-record-id") === "timeline-1",
-    );
-    expect(committedRow).toBeTruthy();
-    expect(
-      within(committedRow as HTMLElement).getByDisplayValue(
-        "Endpoint screenshot",
-      ),
-    ).toBeTruthy();
+    expect(screen.getByTestId(gridShellTestId("timeline"))).toBeTruthy();
+    await waitFor(() => {
+      const committedRow = visibleGridRows(container).find(
+        (row) => row.getAttribute("data-grid-record-id") === "timeline-1",
+      );
+      expect(committedRow).toBeTruthy();
+      expect(
+        within(committedRow as HTMLElement).getByDisplayValue(
+          "Endpoint screenshot",
+        ),
+      ).toBeTruthy();
+      expect(
+        within(committedRow as HTMLElement).getByTestId(
+          rowCellTestId("timeline-1", "timeline.evidence_count"),
+        ).textContent,
+      ).toBe("1");
+      expect(
+        within(committedRow as HTMLElement).getByTestId(
+          rowCellTestId("timeline-1", "timeline.has_evidence"),
+        ).textContent,
+      ).toBe("true");
+    });
   });
 });

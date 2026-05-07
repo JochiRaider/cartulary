@@ -25,7 +25,7 @@ import (
 
 func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase5-upload-attach-projection")
-	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	login, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-i-01-incident",
 		"incident_key":  "phase5-i-01",
@@ -37,21 +37,16 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 		"client_txn_id":    "txn-phase5-i-01-timeline",
 		"timeline.summary": "Endpoint screenshot received",
 	})
-	timelineRecordID := phase4test.MustUUID(t, timelineData["row"].(map[string]any)["record_id"].(string))
+	timelineRow := timelineData["row"].(map[string]any)
+	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
+	timelineRowVersion := int(timelineRow["row_version"].(float64))
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 	evidenceData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":                 "txn-phase5-i-01-evidence",
 		"evidence.title":                "Endpoint screenshot",
 		"evidence.collector_party_text": "IR collector",
 	})
 	evidenceRecordID := phase4test.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
-	if _, err := harness.DB.ExecContext(context.Background(), `
-INSERT INTO record_links (
-    incident_id, src_record_id, dst_record_id, link_type, field_key,
-    provenance, owner_user_id, created_by_user_id, decided_at, created_at
-) VALUES ($1, $2, $3, 'attached_evidence', 'timeline.attached_evidence_ids', 'manual', $4, $4, now(), now())
-`, incidentID, timelineRecordID, evidenceRecordID, adminID); err != nil {
-		t.Fatalf("insert timeline attached evidence link: %v", err)
-	}
 
 	payload := []byte("phase5 projection object")
 	sum := sha256.Sum256(payload)
@@ -76,7 +71,27 @@ INSERT INTO record_links (
 	if attachData["object_blob_id"] != createData["object_blob_id"] {
 		t.Fatalf("attach object_blob_id got %#v want %#v", attachData["object_blob_id"], createData["object_blob_id"])
 	}
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
+
+	requirePhase5HTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.timeline.v1",
+		"base_row_version": timelineRowVersion,
+		"client_txn_id":    "txn-phase5-i-01-link-evidence",
+		"changes": []map[string]any{{
+			"field_key": "timeline.attached_evidence_ids",
+			"action_payload": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{{
+					"op":               "add_record_ref",
+					"linked_record_id": evidenceRecordID.String(),
+				}},
+			},
+		}},
+	})
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
+	if got := countAttachedEvidenceLinks(t, harness, incidentID, timelineRecordID, evidenceRecordID); got != 1 {
+		t.Fatalf("workbook patch wrote attached evidence links: got %d want 1", got)
+	}
 
 	replayResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
@@ -893,6 +908,24 @@ func countEvidenceBlobLinks(t testing.TB, harness *phase4test.ServerHarness, rec
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM evidence WHERE record_id = $1 AND object_blob_id IS NOT NULL`, recordID).Scan(&count); err != nil {
 		t.Fatalf("count evidence blob links: %v", err)
+	}
+	return count
+}
+
+func countAttachedEvidenceLinks(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID) int {
+	t.Helper()
+	var count int
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND dst_record_id = $3
+   AND link_type = 'attached_evidence'
+   AND field_key = 'timeline.attached_evidence_ids'
+   AND deleted_at IS NULL
+`, incidentID, srcRecordID, dstRecordID).Scan(&count); err != nil {
+		t.Fatalf("count attached evidence links: %v", err)
 	}
 	return count
 }

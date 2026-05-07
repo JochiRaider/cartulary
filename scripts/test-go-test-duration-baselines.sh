@@ -114,6 +114,29 @@ update_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/baseline
 assert_contains "$update_output" "skipped contaminated Go shard timing artifacts" "contaminated refresh skip output"
 assert_contains "$update_output" "shard=backend-integration-auth-shard-02 go_module_downloads=2" "contaminated refresh skip shard"
 
+write_empty_baseline "$tmp_dir/prune-partial.json"
+set +e
+partial_prune_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --prune-observed-packages --baseline-file "$tmp_dir/prune-partial.json" "$results_dir" 2>&1)"
+partial_prune_status=$?
+set -e
+if [[ "$partial_prune_status" -eq 0 ]]; then
+  fail "prune refresh from partial service-backed evidence should fail"
+fi
+assert_contains "$partial_prune_output" "Refusing to prune Go test duration baselines from partial service-backed timing evidence" "partial prune guard output"
+assert_contains "$partial_prune_output" "make test-service-backed" "partial prune guard rerun guidance"
+
+mkdir -p "$results_dir/test-service-backed"
+cat >"$results_dir/test-service-backed/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_scheduler_summary.v9",
+  "target": "test-service-backed",
+  "status": "pass",
+  "scheduler_kind": "service-backed",
+  "total_work_units": 4,
+  "completed_work_units": 4
+}
+JSON
+
 write_empty_baseline "$tmp_dir/make-baseline.json"
 make_update_output="$(
   RESULTS_DIR="$results_dir" \

@@ -224,7 +224,7 @@ export const makeNodeTools = {
     inputs: ["PRUNE_OBSERVED_PACKAGES", "ALLOW_COMMAND_OVERHEAD_DECREASE", "GO_TEST_DURATION_BASELINE"],
     script: "./scripts/update-go-test-durations.mjs",
     resultDir: { mode: "required", positional: true },
-    usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful test results dir>",
+    usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful results dir> [PRUNE_OBSERVED_PACKAGES=1 requires full service-backed]",
     buildArgs(env) {
       const args = [];
       if (value(env, "PRUNE_OBSERVED_PACKAGES") === "1") {
