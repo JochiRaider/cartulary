@@ -69,7 +69,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 81667,
+          "weight": 84428,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -94,24 +94,25 @@
                 "phase2",
                 "phase3",
                 "phase4",
-                "phase5"
+                "phase5",
+                "phase6"
               ],
               "entry_ids": [
-                "E-1-01",
                 "E-1-06",
                 "E-1-08",
-                "E-2-02",
+                "E-2-01",
                 "E-3-01",
                 "E-3-03",
-                "E-4-02",
-                "E-4-01",
-                "E-4-03",
-                "E-4-05",
+                "E-4-04",
                 "E-4-06",
-                "E-5-03",
-                "E-5-04"
+                "E-5-02",
+                "E-5-04",
+                "E-5-05",
+                "E-6-01",
+                "E-6-03",
+                "E-6-04"
               ],
-              "weight": 35767,
+              "weight": 37113,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -137,22 +138,23 @@
                 "phase6"
               ],
               "entry_ids": [
+                "E-1-01",
                 "E-1-02",
                 "E-1-03",
                 "E-1-07",
-                "E-2-01",
+                "E-2-02",
                 "E-2-03",
                 "E-3-04",
-                "E-4-04",
+                "E-4-02",
+                "E-4-01",
+                "E-4-03",
+                "E-4-05",
                 "E-5-01",
-                "E-5-02",
-                "E-6-01",
+                "E-5-03",
                 "E-6-02",
-                "E-6-03",
-                "E-6-04",
                 "E-6-05"
               ],
-              "weight": 35900,
+              "weight": 37315,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -393,7 +395,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 81667,
+          "weight": 84428,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -418,24 +420,25 @@
                 "phase2",
                 "phase3",
                 "phase4",
-                "phase5"
+                "phase5",
+                "phase6"
               ],
               "entry_ids": [
-                "E-1-01",
                 "E-1-06",
                 "E-1-08",
-                "E-2-02",
+                "E-2-01",
                 "E-3-01",
                 "E-3-03",
-                "E-4-02",
-                "E-4-01",
-                "E-4-03",
-                "E-4-05",
+                "E-4-04",
                 "E-4-06",
-                "E-5-03",
-                "E-5-04"
+                "E-5-02",
+                "E-5-04",
+                "E-5-05",
+                "E-6-01",
+                "E-6-03",
+                "E-6-04"
               ],
-              "weight": 35767,
+              "weight": 37113,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -461,22 +464,23 @@
                 "phase6"
               ],
               "entry_ids": [
+                "E-1-01",
                 "E-1-02",
                 "E-1-03",
                 "E-1-07",
-                "E-2-01",
+                "E-2-02",
                 "E-2-03",
                 "E-3-04",
-                "E-4-04",
+                "E-4-02",
+                "E-4-01",
+                "E-4-03",
+                "E-4-05",
                 "E-5-01",
-                "E-5-02",
-                "E-6-01",
+                "E-5-03",
                 "E-6-02",
-                "E-6-03",
-                "E-6-04",
                 "E-6-05"
               ],
-              "weight": 35900,
+              "weight": 37315,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1

@@ -30,6 +30,32 @@ var (
 	ErrIllegalBlobTransition = errors.New("evidence: illegal blob transition")
 )
 
+const (
+	AttachReasonBlobNotVisible           = "blob_not_visible"
+	AttachReasonBlobPending              = "blob_pending"
+	AttachReasonBlobFailed               = "blob_failed"
+	AttachReasonBlobQuarantined          = "blob_quarantined"
+	AttachReasonAcceptedContractMismatch = "accepted_contract_mismatch"
+	AttachReasonEvidenceQuarantined      = "evidence_quarantined"
+	AttachReasonEvidenceInconsistent     = "evidence_inconsistent"
+)
+
+type AttachRejectedError struct {
+	ReasonCode string
+	Cause      error
+}
+
+func (e AttachRejectedError) Error() string {
+	if e.Cause != nil {
+		return e.Cause.Error()
+	}
+	return ErrBlobNotAttachable.Error()
+}
+
+func (e AttachRejectedError) Unwrap() error {
+	return e.Cause
+}
+
 type Store struct {
 	pool          postgres.DB
 	authStore     *authn.Store
@@ -276,20 +302,20 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 		return AttachBlobResult{}, err
 	}
 	if evidenceRowCellValue(beforeRow, "evidence.lifecycle_state") == "quarantined" {
-		return AttachBlobResult{}, quarantinedError{}
+		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceQuarantined, Cause: ErrEvidenceQuarantined}
 	}
 	blob, err := loadBlobForUpdateTx(ctx, tx, request.ObjectBlobID)
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
 	if blob.IncidentID != meta.IncidentID {
-		return AttachBlobResult{}, ErrIncidentMismatch
+		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrIncidentMismatch}
 	}
 	if blob.UploadState == "quarantined" {
-		return AttachBlobResult{}, quarantinedError{}
+		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobQuarantined, Cause: ErrBlobNotAttachable}
 	}
 	if blob.UploadState == "failed" {
-		return AttachBlobResult{}, ErrBlobNotAttachable
+		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
 	}
 	if blob.UploadState == "pending" {
 		if now.After(blob.PendingExpiresAt) {
@@ -299,16 +325,21 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 			if err := tx.Commit(ctx); err != nil {
 				return AttachBlobResult{}, err
 			}
-			return AttachBlobResult{}, ErrBlobNotAttachable
+			return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
 		}
 		if observed == nil {
-			if err := recordNonTerminalFinalizeFailureTx(ctx, tx, request.ObjectBlobID, now); err != nil {
+			failed, err := recordNonTerminalFinalizeFailureTx(ctx, tx, request.ObjectBlobID, now)
+			if err != nil {
 				return AttachBlobResult{}, err
 			}
 			if err := tx.Commit(ctx); err != nil {
 				return AttachBlobResult{}, err
 			}
-			return AttachBlobResult{}, ErrBlobNotAttachable
+			reason := AttachReasonBlobPending
+			if failed {
+				reason = AttachReasonBlobFailed
+			}
+			return AttachBlobResult{}, AttachRejectedError{ReasonCode: reason, Cause: ErrBlobNotAttachable}
 		}
 		if observed.Size != blob.ByteSize {
 			if err := failBlobTx(ctx, tx, request.ObjectBlobID, "declared_size_mismatch", now); err != nil {
@@ -317,7 +348,7 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 			if err := tx.Commit(ctx); err != nil {
 				return AttachBlobResult{}, err
 			}
-			return AttachBlobResult{}, ErrBlobNotAttachable
+			return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
 		}
 		if blob.ExpectedSHA256Hex != nil && observed.SHA256Hex != *blob.ExpectedSHA256Hex {
 			if err := failBlobTx(ctx, tx, request.ObjectBlobID, "expected_sha256_mismatch", now); err != nil {
@@ -326,7 +357,7 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 			if err := tx.Commit(ctx); err != nil {
 				return AttachBlobResult{}, err
 			}
-			return AttachBlobResult{}, ErrBlobNotAttachable
+			return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
 		}
 		if err := markBlobAvailableTx(ctx, tx, request.ObjectBlobID, observed, now); err != nil {
 			return AttachBlobResult{}, err
@@ -337,7 +368,7 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 		blob.ObservedSHA256Hex = &observed.SHA256Hex
 	}
 	if blob.UploadState != "available" {
-		return AttachBlobResult{}, ErrBlobNotAttachable
+		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
 	}
 	sha := blob.ObservedSHA256Hex
 	if sha == nil && observed != nil {
@@ -826,8 +857,9 @@ UPDATE object_blobs
 	return err
 }
 
-func recordNonTerminalFinalizeFailureTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, now time.Time) error {
-	_, err := tx.Exec(ctx, `
+func recordNonTerminalFinalizeFailureTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, now time.Time) (bool, error) {
+	var uploadState string
+	err := tx.QueryRow(ctx, `
 UPDATE object_blobs
    SET finalize_attempt_count = finalize_attempt_count + 1,
        upload_state = CASE WHEN finalize_attempt_count + 1 >= 4 THEN 'failed' ELSE upload_state END,
@@ -837,8 +869,9 @@ UPDATE object_blobs
        updated_at = $2
  WHERE object_blob_id = $1
    AND upload_state = 'pending'
-`, objectBlobID, now.UTC())
-	return err
+ RETURNING upload_state
+`, objectBlobID, now.UTC()).Scan(&uploadState)
+	return uploadState == "failed", err
 }
 
 func markBlobAvailableTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, observed *ObservedObject, now time.Time) error {
@@ -1031,16 +1064,6 @@ func int64FromAny(value any) int64 {
 	}
 }
 
-type quarantinedError struct{}
-
-func (quarantinedError) Error() string {
-	return ErrEvidenceQuarantined.Error()
-}
-
-func (quarantinedError) Is(target error) bool {
-	return target == ErrEvidenceQuarantined || target == ErrBlobNotAttachable
-}
-
 func uuidFromDBValue(value any) (uuid.UUID, error) {
 	switch typed := value.(type) {
 	case uuid.UUID:
@@ -1143,7 +1166,7 @@ SELECT r.record_id, r.row_version, r.record_type
 		switch recordType {
 		case "timeline_event":
 			change.ViewSchemaID = "cartulary.view.timeline.v1"
-			change.ChangedFieldKeys = []string{"timeline.evidence_count", "timeline.has_evidence"}
+			change.ChangedFieldKeys = []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"}
 		case "host":
 			change.ViewSchemaID = "cartulary.view.hosts.v1"
 			change.ChangedFieldKeys = []string{"host.evidence_count"}

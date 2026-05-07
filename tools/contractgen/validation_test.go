@@ -35,6 +35,34 @@ func TestValidateErrorRegistryRejectsDuplicateCodes(t *testing.T) {
 	requireErrorContains(t, err, "duplicate error code cartulary.test.duplicate")
 }
 
+func TestValidateErrorRegistryRejectsInvalidReasonRegistries(t *testing.T) {
+	t.Run("unknown error code", func(t *testing.T) {
+		registry := validErrorRegistry()
+		registry["reason_registries"] = []any{
+			validReasonRegistry("cartulary.test.missing", "reason"),
+		}
+
+		err := validateErrorRegistry(registry)
+		requireErrorContains(t, err, "references unknown error code cartulary.test.missing")
+	})
+
+	t.Run("duplicate reason code", func(t *testing.T) {
+		registry := validErrorRegistry()
+		registry["reason_registries"] = []any{
+			map[string]any{
+				"error_code": "cartulary.test.conflict",
+				"reason_codes": []any{
+					validReasonCode("duplicate"),
+					validReasonCode("duplicate"),
+				},
+			},
+		}
+
+		err := validateErrorRegistry(registry)
+		requireErrorContains(t, err, "contains duplicate reason code duplicate")
+	})
+}
+
 func TestValidateViewSchemaRejectsDuplicateFieldKeys(t *testing.T) {
 	schema := validViewSchema("cartulary.view.test.v1")
 	schema["fields"] = []any{
@@ -137,6 +165,24 @@ func validErrorRegistry() map[string]any {
 		"errors": []any{
 			validErrorEntry("cartulary.test.conflict", "409"),
 		},
+	}
+}
+
+func validReasonRegistry(errorCode string, reasonCodes ...string) map[string]any {
+	entries := make([]any, 0, len(reasonCodes))
+	for _, reasonCode := range reasonCodes {
+		entries = append(entries, validReasonCode(reasonCode))
+	}
+	return map[string]any{
+		"error_code":   errorCode,
+		"reason_codes": entries,
+	}
+}
+
+func validReasonCode(code string) map[string]any {
+	return map[string]any{
+		"code":    code,
+		"summary": "test reason",
 	}
 }
 

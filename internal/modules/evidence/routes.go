@@ -195,6 +195,7 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := s.store.AttachBlob(r.Context(), principal.User, recordID, request, AttachBlobRequestHash(request), observed, httpapi.RequestIDFromContext(r.Context()), s.now().UTC())
 	var rowConflict *rowVersionConflictError
+	var attachRejected AttachRejectedError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
@@ -205,17 +206,20 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrEvidenceNotFound):
 		writeAPIError(w, r, evidenceRecordNotFound())
 		return
+	case errors.As(err, &attachRejected):
+		writeAPIError(w, r, evidenceAttachRejected(attachRejected.ReasonCode))
+		return
 	case errors.Is(err, ErrBlobNotFound):
-		writeAPIError(w, r, evidenceAccessUnavailable("blob_missing"))
+		writeAPIError(w, r, evidenceAttachRejected(AttachReasonBlobNotVisible))
 		return
 	case errors.Is(err, ErrIncidentMismatch):
-		writeAPIError(w, r, evidenceAccessUnavailable("incident_mismatch"))
+		writeAPIError(w, r, evidenceAttachRejected(AttachReasonBlobNotVisible))
 		return
 	case errors.Is(err, ErrEvidenceQuarantined):
-		writeAPIError(w, r, evidenceAccessUnavailable("evidence_quarantined"))
+		writeAPIError(w, r, evidenceAttachRejected(AttachReasonEvidenceQuarantined))
 		return
 	case errors.Is(err, ErrBlobNotAttachable):
-		writeAPIError(w, r, evidenceAccessUnavailable("blob_not_attachable"))
+		writeAPIError(w, r, evidenceAttachRejected(AttachReasonEvidenceInconsistent))
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))

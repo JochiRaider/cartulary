@@ -509,6 +509,8 @@ This phase completes the binary-evidence path:
 | U-5-07 | Download responses use authoritative metadata for filename disposition and apply deterministic fallback naming when authoritative names are absent.                                                                                        | REQ-01-459..REQ-01-465                                                             | AC-251, AC-253                 |
 | U-5-08 | Evidence attachment updates workbook-visible evidence counts and `has_evidence`-style derived flags without forcing navigation away from the current surface.                                                                              | REQ-03-116..REQ-03-126, REQ-03-242..REQ-03-246                                     | AC-004, AC-015, AC-016         |
 | U-5-09 | Blob-create size ceilings reject oversize `byte_size` before slot creation, and preview-handle issuance fails with the route-owned oversized-preview reason while leaving download behavior available when the payload is otherwise legal. | REQ-01-238, REQ-01-243..REQ-01-245, REQ-01-461, REQ-01-465, REQ-04-079..REQ-04-080 | AC-321, AC-322                 |
+| U-5-10 | Evidence create, attach, preview issuance, and redemption use closed public error and reason-code registries. Attach failures use `evidence_attach_rejected` without legacy unregistered reasons.                                         | REQ-01-245..REQ-01-247, REQ-01-458..REQ-01-465                                     | AC-128, AC-252..AC-255         |
+| U-5-11 | Evidence and Timeline evidence-derived field keys are closed over the derived view-schema registry and reject label, storage-name, or non-canonical key fallbacks.                                                                         | REQ-03-116..REQ-03-126, REQ-03-242..REQ-03-246                                     | AC-015, AC-016                 |
 
 ### 7.5.4 Integration tests
 
@@ -520,6 +522,7 @@ This phase completes the binary-evidence path:
 | I-5-04 | If the deployment uses an upload-scanning adjunct service, the two-step attach semantics remain intact and preview never bypasses the scanning or quarantine boundary.                | REQ-04-048, REQ-04-053                                                 | AC-053                                 |
 | I-5-05 | Attach route validation, authorization, route-owned error envelopes, and divergent replay rejection occur through the real HTTP surface before object observation mutates state.       | REQ-01-245..REQ-01-247, REQ-04-023                                     | AC-102, AC-103, AC-128                 |
 | I-5-06 | Attached-evidence projection storage can be corrupted and deterministically rebuilt from source without mutating source rows, links, or mutation history.                             | REQ-03-116..REQ-03-126, REQ-03-242..REQ-03-246                         | AC-015, AC-016                         |
+| I-5-07 | A successful evidence attach publishes canonical `record_changed` messages for the Evidence row and affected Timeline evidence projection through the real incident WebSocket emitter. | REQ-03-116..REQ-03-126, REQ-03-242..REQ-03-246                         | AC-015, AC-016                         |
 
 ### 7.5.5 E2E tests
 
@@ -529,6 +532,7 @@ This phase completes the binary-evidence path:
 | E-5-02 | A screenshot-only Timeline row can be persisted through the two-step evidence path.                                                                                       | REQ-03-102, REQ-03-116..REQ-03-126             | AC-002, AC-102, AC-103 |
 | E-5-03 | An inline-safe type receives a preview handle and renders through the same-origin redeem path. An unsupported or unsafe type returns an explicit blocked-preview outcome. | REQ-01-458..REQ-01-465, REQ-04-053             | AC-252..AC-255         |
 | E-5-04 | Requested evidence can be tracked before the blob exists and later advanced to an available state without breaking workbook pivots or counts.                             | REQ-02-186..REQ-02-201, REQ-03-242..REQ-03-246 | AC-015, AC-154, AC-155 |
+| E-5-05 | A second live workbook session receives the real evidence attach WebSocket event and refreshes Timeline evidence count and flags without navigation.                     | REQ-03-116..REQ-03-126, REQ-03-242..REQ-03-246 | AC-015, AC-016         |
 
 ### 7.5.6 Visual regression tests
 

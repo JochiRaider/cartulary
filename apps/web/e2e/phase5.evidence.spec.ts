@@ -225,6 +225,72 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
   ).toHaveLength(1);
 });
 
+test("E-5-05 refreshes a second live workbook from the real evidence attach stream", async ({
+  browser,
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E5SOCKET"),
+    "Phase 5 socket evidence refresh",
+  );
+  const timelineRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e5-socket-timeline"),
+      "timeline.summary": "Second workbook evidence refresh",
+    },
+  )) as unknown as ViewRow;
+
+  const listenerContext = await browser.newContext({
+    storageState: await page.context().storageState(),
+  });
+  const listener = await listenerContext.newPage();
+  try {
+    const socketMonitor = installPhase5IncidentSocketMonitor(
+      listener,
+      incidentId,
+    );
+    await openTimelineSurface(listener, incidentId);
+    await socketMonitor.waitForMessage("hello_ack");
+    const listenerURL = listener.url();
+    await expect(
+      listener.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
+      ),
+    ).toHaveText("0");
+
+    await openTimelineSurface(page, incidentId);
+    await page
+      .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
+      .click();
+    await page
+      .getByTestId(`timeline-evidence-file-${timelineRow.record_id}`)
+      .setInputFiles({
+        name: "socket-refresh.png",
+        mimeType: "image/png",
+        buffer: tinyPNG(),
+      });
+
+    await socketMonitor.waitForRecordChanged(timelineRow.record_id);
+    await expect(
+      listener.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
+      ),
+    ).toHaveText("1");
+    await expect(
+      listener.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
+      ),
+    ).toHaveText("true");
+    expect(listener.url()).toBe(listenerURL);
+  } finally {
+    await listenerContext.close();
+  }
+});
+
 async function openEvidenceSurface(page: Page, incidentId: string) {
   await page.goto(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -274,6 +340,102 @@ function tinyPNG() {
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
     "base64",
   );
+}
+
+type Phase5SocketMessage = {
+  type: string;
+  payload: Record<string, unknown>;
+};
+
+function installPhase5IncidentSocketMonitor(page: Page, incidentId: string) {
+  const messages: Phase5SocketMessage[] = [];
+  const waiters: Array<{
+    matches: (message: Phase5SocketMessage) => boolean;
+    reject: (error: Error) => void;
+    resolve: (message: Phase5SocketMessage) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }> = [];
+
+  page.on("websocket", (socket) => {
+    if (!socket.url().includes(`/ws/v1/incidents/${incidentId}`)) {
+      return;
+    }
+    socket.on("framereceived", ({ payload }) => {
+      const message = parsePhase5SocketPayload(payload);
+      if (!message) {
+        return;
+      }
+      messages.push(message);
+      for (const waiter of [...waiters]) {
+        if (!waiter.matches(message)) {
+          continue;
+        }
+        clearTimeout(waiter.timeout);
+        waiters.splice(waiters.indexOf(waiter), 1);
+        waiter.resolve(message);
+      }
+    });
+  });
+
+  const waitFor = (
+    matches: (message: Phase5SocketMessage) => boolean,
+    label: string,
+  ) => {
+    const existing = messages.find(matches);
+    if (existing) {
+      return Promise.resolve(existing);
+    }
+    return new Promise<Phase5SocketMessage>((resolve, reject) => {
+      const waiter = {
+        matches,
+        reject,
+        resolve,
+        timeout: setTimeout(() => {
+          waiters.splice(waiters.indexOf(waiter), 1);
+          reject(new Error(`timed out waiting for ${label}`));
+        }, 10_000),
+      };
+      waiters.push(waiter);
+    });
+  };
+
+  return {
+    waitForMessage: (type: string) =>
+      waitFor((message) => message.type === type, `socket message ${type}`),
+    waitForRecordChanged: (recordId: string) =>
+      waitFor(
+        (message) =>
+          message.type === "record_changed" &&
+          message.payload.record_id === recordId,
+        `record_changed for ${recordId}`,
+      ),
+  };
+}
+
+function parsePhase5SocketPayload(
+  payload: string | Buffer,
+): Phase5SocketMessage | null {
+  const text = typeof payload === "string" ? payload : payload.toString("utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const candidate = parsed as { payload?: unknown; type?: unknown };
+  if (typeof candidate.type !== "string") {
+    return null;
+  }
+  return {
+    type: candidate.type,
+    payload:
+      candidate.payload && typeof candidate.payload === "object"
+        ? (candidate.payload as Record<string, unknown>)
+        : {},
+  };
 }
 
 async function createUploadedEvidence(

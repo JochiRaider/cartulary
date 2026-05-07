@@ -10,6 +10,27 @@ import {
 
 export type ContractArtifact = Artifact;
 
+export type ErrorCodeEntry = {
+  readonly code: string;
+  readonly http_status: number;
+  readonly summary: string;
+};
+
+export type ReasonCodeEntry = {
+  readonly code: string;
+  readonly summary: string;
+};
+
+export type ReasonCodeRegistry = {
+  readonly error_code: string;
+  readonly reason_codes: readonly ReasonCodeEntry[];
+};
+
+export type ErrorRegistryContract = {
+  readonly errors: readonly ErrorCodeEntry[];
+  readonly reason_registries?: readonly ReasonCodeRegistry[];
+};
+
 const openAPIArtifactList = Object.freeze([...openAPIArtifacts]);
 const wsArtifactList = Object.freeze([...wsArtifacts]);
 const viewSchemaArtifactList = Object.freeze([...viewSchemaArtifacts]);
@@ -75,4 +96,34 @@ export function requireContractArtifactJSON(artifactPath: string): string {
 
 export function parseContractArtifact<T>(artifactPath: string): T {
   return JSON.parse(requireContractArtifactJSON(artifactPath)) as T;
+}
+
+export function getErrorRegistryContract(): ErrorRegistryContract {
+  return parseContractArtifact<ErrorRegistryContract>(
+    "contracts/errors/index.json",
+  );
+}
+
+export function listReasonCodeRegistries(): readonly ReasonCodeRegistry[] {
+  return Object.freeze([
+    ...(getErrorRegistryContract().reason_registries ?? []),
+  ]);
+}
+
+export function getReasonCodeRegistry(
+  errorCode: string,
+): ReasonCodeRegistry | undefined {
+  return listReasonCodeRegistries().find(
+    (registry) => registry.error_code === errorCode,
+  );
+}
+
+export function requireReasonCodeRegistry(
+  errorCode: string,
+): ReasonCodeRegistry {
+  const registry = getReasonCodeRegistry(errorCode);
+  if (!registry) {
+    throw new Error(`missing reason-code registry for ${errorCode}`);
+  }
+  return registry;
 }

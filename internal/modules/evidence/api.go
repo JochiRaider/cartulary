@@ -386,6 +386,10 @@ func evidenceAccessUnavailable(reasonCode string) *auth.APIError {
 	return &auth.APIError{Status: http.StatusConflict, Code: "evidence_access_unavailable", Details: map[string]any{"reason_code": reasonCode}}
 }
 
+func evidenceAttachRejected(reasonCode string) *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "evidence_attach_rejected", Details: map[string]any{"reason_code": reasonCode}}
+}
+
 func handleNotFoundOrRevoked() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "handle_not_found_or_revoked", Details: map[string]any{}}
 }

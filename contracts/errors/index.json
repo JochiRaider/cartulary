@@ -184,6 +184,11 @@
       "summary": "The requested evidence record is not visible to the current authenticated user."
     },
     {
+      "code": "evidence_attach_rejected",
+      "http_status": 409,
+      "summary": "An evidence attach request cannot commit because the blob or evidence state is not attachable."
+    },
+    {
       "code": "invalid_evidence_handle_request",
       "http_status": 400,
       "summary": "The evidence preview-handle or download-handle issuance request body failed route-owned validation."
@@ -217,6 +222,170 @@
       "code": "internal_error",
       "http_status": 500,
       "summary": "The server could not complete the request."
+    }
+  ],
+  "reason_registries": [
+    {
+      "error_code": "invalid_blob_create_request",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The request body is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required blob-create field is absent."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a non-nullable blob-create field."
+        },
+        {
+          "code": "field_empty_after_normalization",
+          "summary": "A required string field is empty after required normalization and trimming."
+        },
+        {
+          "code": "invalid_byte_size",
+          "summary": "byte_size is not a non-negative integer."
+        },
+        {
+          "code": "invalid_sha256_hex",
+          "summary": "sha256_hex is not exactly 64 lowercase hexadecimal characters."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the blob-create contract."
+        },
+        {
+          "code": "server_managed_field",
+          "summary": "The request attempted to set server-managed blob-slot state."
+        }
+      ]
+    },
+    {
+      "error_code": "blob_create_rejected",
+      "reason_codes": [
+        {
+          "code": "byte_size_exceeds_limit",
+          "summary": "The declared byte_size exceeds the configured object-blob limit."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_mutation_payload",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The request body is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required mutation field is absent."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a non-nullable mutation field."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a member not declared by the addressed mutation contract."
+        },
+        {
+          "code": "invalid_value",
+          "summary": "A mutation field value has the wrong shape or scalar type."
+        },
+        {
+          "code": "unsupported_field_key",
+          "summary": "The request targets a field key not writable through the addressed mutation contract."
+        },
+        {
+          "code": "duplicate_field_key",
+          "summary": "The request contains duplicate normalized field keys."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_evidence_handle_request",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The request body is not a JSON object."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the handle-issuance contract."
+        }
+      ]
+    },
+    {
+      "error_code": "evidence_attach_rejected",
+      "reason_codes": [
+        {
+          "code": "blob_not_visible",
+          "summary": "The supplied object_blob_id is missing or is not visible in the evidence record's incident."
+        },
+        {
+          "code": "blob_pending",
+          "summary": "The supplied blob is still pending and cannot be attached yet."
+        },
+        {
+          "code": "blob_failed",
+          "summary": "The supplied blob is in terminal failed state."
+        },
+        {
+          "code": "blob_quarantined",
+          "summary": "The supplied blob is quarantined and cannot be attached."
+        },
+        {
+          "code": "accepted_contract_mismatch",
+          "summary": "Observed uploaded bytes do not match the accepted blob contract."
+        },
+        {
+          "code": "evidence_quarantined",
+          "summary": "The target evidence record is quarantined and cannot accept an attach."
+        },
+        {
+          "code": "evidence_inconsistent",
+          "summary": "The target evidence or blob state is inconsistent and must fail closed."
+        }
+      ]
+    },
+    {
+      "error_code": "evidence_access_unavailable",
+      "reason_codes": [
+        {
+          "code": "no_visible_blob",
+          "summary": "The evidence record has no linked blob currently available for preview or download."
+        },
+        {
+          "code": "blob_pending",
+          "summary": "The linked blob slot exists but is still pending."
+        },
+        {
+          "code": "blob_failed",
+          "summary": "The linked blob slot reached terminal failed state."
+        },
+        {
+          "code": "blob_missing",
+          "summary": "The linked blob content cannot currently be located or opened."
+        },
+        {
+          "code": "evidence_quarantined",
+          "summary": "The evidence lifecycle or linked blob state blocks ordinary access."
+        },
+        {
+          "code": "evidence_inconsistent",
+          "summary": "Evidence lifecycle state and linked blob state disagree and fail closed."
+        },
+        {
+          "code": "unsupported_preview",
+          "summary": "The evidence is otherwise downloadable but cannot be safely previewed."
+        },
+        {
+          "code": "preview_payload_too_large",
+          "summary": "The payload exceeds the configured preview-size ceiling."
+        }
+      ]
     }
   ]
 }

@@ -47,16 +47,20 @@
     "U-5-07",
     "U-5-08",
     "U-5-09",
+    "U-5-10",
+    "U-5-11",
     "I-5-01",
     "I-5-02",
     "I-5-03",
     "I-5-04",
     "I-5-05",
     "I-5-06",
+    "I-5-07",
     "E-5-01",
     "E-5-02",
     "E-5-03",
     "E-5-04",
+    "E-5-05",
     "V-5-GRID-01",
     "V-5-GRID-02"
   ],
@@ -221,6 +225,34 @@
         }
       },
       "template_clone_reason": "Blob and preview size route coverage starts the real runtime harness through phase4test.StartServer."
+    },
+    {
+      "id": "U-5-10",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/evidence",
+      "file": "internal/modules/evidence/phase5_conformance_test.go",
+      "symbol": "TestPhase5_ReasonCodeRegistryConformance_U_5_10",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "contract_conformance",
+      "claim": "Evidence create, attach, preview issuance, and redemption use closed public error and reason-code registries, with attach failures owned by `evidence_attach_rejected` and no legacy unregistered attach reasons.",
+      "out_of_scope": "General non-evidence reason-code registry expansion is outside this Phase 5 row.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase5 authoritative"
+    },
+    {
+      "id": "U-5-11",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/evidence",
+      "file": "internal/modules/evidence/phase5_conformance_test.go",
+      "symbol": "TestPhase5_EvidenceFieldKeyRegistryClosure_U_5_11",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "view_schema_contract",
+      "claim": "Evidence and Timeline evidence-derived field keys are closed over the derived view-schema registry and reject label, storage-name, or non-canonical key fallbacks.",
+      "out_of_scope": "Whole-repository view-schema registry conformance beyond evidence-owned Phase 5 fields remains broader contract hygiene.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase5 authoritative"
     }
   ],
   "integration": [
@@ -307,6 +339,20 @@
       "out_of_scope": "Introducing a dedicated `evidence_grid_projection` is tracked separately as broader Core 01 projection-substrate work.",
       "execution_family": "backend-integration-evidence",
       "execution_label": "backend-integration phase5 evidence"
+    },
+    {
+      "id": "I-5-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/evidence",
+      "file": "internal/modules/evidence/phase5_integration_test.go",
+      "symbol": "TestPhase5_AttachPublishesWorkbookWebSocketRefresh_I_5_07",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime_websocket",
+      "claim": "A successful evidence attach publishes canonical `record_changed` messages for the Evidence row and affected Timeline evidence projection through the real incident WebSocket emitter.",
+      "out_of_scope": "Phase 6 continues to own general WebSocket resume, replay windows, presence, and revocation semantics.",
+      "execution_family": "backend-integration-evidence",
+      "execution_label": "backend-integration phase5 evidence"
     }
   ],
   "e2e": [
@@ -353,6 +399,17 @@
       "evidence_layer": "browser",
       "claim": "Requested evidence can be tracked before the blob exists and later advanced to an available state without breaking workbook pivots or counts.",
       "out_of_scope": "A generalized custody or collection workflow is outside this row."
+    },
+    {
+      "id": "E-5-05",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase5.evidence.spec.ts",
+      "title": "E-5-05 refreshes a second live workbook from the real evidence attach stream",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "A second live workbook session receives the real `/ws/v1/incidents/{incident_id}` evidence attach event and refreshes Timeline evidence count and flags without navigation.",
+      "out_of_scope": "General collaboration socket lifecycle semantics remain Phase 6 ownership."
     },
     {
       "id": "E-5-SMOKE-01",

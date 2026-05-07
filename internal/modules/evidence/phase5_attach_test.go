@@ -115,6 +115,8 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 		foreign := evidence.AttachBlobRequest{ObjectBlobID: foreignBlob, BaseRowVersion: 1, ClientTxnID: "txn-foreign"}
 		if _, err := store.AttachBlob(context.Background(), actor, recordID, foreign, evidence.AttachBlobRequestHash(foreign), nil, "req-foreign", time.Now().UTC()); !errors.Is(err, evidence.ErrIncidentMismatch) {
 			t.Fatalf("incident mismatch got %v", err)
+		} else {
+			requirePhase5AttachRejectedReason(t, err, evidence.AttachReasonBlobNotVisible)
 		}
 		requirePhase5EvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
 
@@ -123,6 +125,12 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 			blocked := evidence.AttachBlobRequest{ObjectBlobID: blockedBlob, BaseRowVersion: 1, ClientTxnID: "txn-" + state}
 			if _, err := store.AttachBlob(context.Background(), actor, recordID, blocked, evidence.AttachBlobRequestHash(blocked), nil, "req-"+state, time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
 				t.Fatalf("%s blob got %v", state, err)
+			} else {
+				wantReason := evidence.AttachReasonBlobFailed
+				if state == "quarantined" {
+					wantReason = evidence.AttachReasonBlobQuarantined
+				}
+				requirePhase5AttachRejectedReason(t, err, wantReason)
 			}
 			requirePhase5EvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
 		}
@@ -134,6 +142,8 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 		expired := evidence.AttachBlobRequest{ObjectBlobID: expiredBlob, BaseRowVersion: 1, ClientTxnID: "txn-expired"}
 		if _, err := store.AttachBlob(context.Background(), actor, recordID, expired, evidence.AttachBlobRequestHash(expired), nil, "req-expired", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
 			t.Fatalf("expired blob got %v", err)
+		} else {
+			requirePhase5AttachRejectedReason(t, err, evidence.AttachReasonBlobFailed)
 		}
 		requirePhase5BlobFailure(t, harness.DB, expiredBlob, "pending_timeout", 0)
 
@@ -141,6 +151,8 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 		sizeMismatch := evidence.AttachBlobRequest{ObjectBlobID: sizeBlob, BaseRowVersion: 1, ClientTxnID: "txn-size"}
 		if _, err := store.AttachBlob(context.Background(), actor, recordID, sizeMismatch, evidence.AttachBlobRequestHash(sizeMismatch), &evidence.ObservedObject{Size: 4, ContentType: "text/plain", SHA256Hex: "size"}, "req-size", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
 			t.Fatalf("size mismatch got %v", err)
+		} else {
+			requirePhase5AttachRejectedReason(t, err, evidence.AttachReasonAcceptedContractMismatch)
 		}
 		requirePhase5BlobFailure(t, harness.DB, sizeBlob, "declared_size_mismatch", 0)
 
@@ -148,6 +160,8 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 		hashMismatch := evidence.AttachBlobRequest{ObjectBlobID: hashBlob, BaseRowVersion: 1, ClientTxnID: "txn-hash"}
 		if _, err := store.AttachBlob(context.Background(), actor, recordID, hashMismatch, evidence.AttachBlobRequestHash(hashMismatch), &evidence.ObservedObject{Size: 4, ContentType: "text/plain", SHA256Hex: strings.Repeat("a", 64)}, "req-hash", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
 			t.Fatalf("hash mismatch got %v", err)
+		} else {
+			requirePhase5AttachRejectedReason(t, err, evidence.AttachReasonAcceptedContractMismatch)
 		}
 		requirePhase5BlobFailure(t, harness.DB, hashBlob, "expected_sha256_mismatch", 0)
 		requirePhase5EvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
@@ -160,6 +174,10 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 			request := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-retry"}
 			if _, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-retry", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
 				t.Fatalf("attempt %d got %v", attempt, err)
+			} else if attempt < 4 {
+				requirePhase5AttachRejectedReason(t, err, evidence.AttachReasonBlobPending)
+			} else {
+				requirePhase5AttachRejectedReason(t, err, evidence.AttachReasonBlobFailed)
 			}
 			if attempt < 4 {
 				requirePhase5PendingAttemptCount(t, harness.DB, blobID, attempt)
@@ -301,6 +319,17 @@ SELECT upload_state, terminal_reason, finalize_attempt_count
 	}
 	if uploadState != "pending" || terminalReason != nil || attempts != wantAttempts {
 		t.Fatalf("pending retry got state=%s reason=%v attempts=%d want attempts=%d", uploadState, terminalReason, attempts, wantAttempts)
+	}
+}
+
+func requirePhase5AttachRejectedReason(t testing.TB, err error, want string) {
+	t.Helper()
+	var rejected evidence.AttachRejectedError
+	if !errors.As(err, &rejected) {
+		t.Fatalf("attach error %v does not expose AttachRejectedError", err)
+	}
+	if rejected.ReasonCode != want {
+		t.Fatalf("attach rejected reason got %s want %s", rejected.ReasonCode, want)
 	}
 }
 

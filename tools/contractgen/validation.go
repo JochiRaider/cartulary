@@ -56,8 +56,10 @@ var (
 	viewSchemaIndexKeys      = stringSet("$schema", "registry_id", "note", "view_schemas")
 	viewSchemaIndexEntryKeys = stringSet("view_schema_id", "title", "surface_kind", "source_record_types", "artifact_path")
 	syntheticPredicateKeys   = stringSet("field_key", "label", "filter_ops")
-	errorRegistryKeys        = stringSet("$schema", "registry_id", "note", "errors")
+	errorRegistryKeys        = stringSet("$schema", "registry_id", "note", "errors", "reason_registries")
 	errorEntryKeys           = stringSet("code", "http_status", "summary")
+	reasonRegistryEntryKeys  = stringSet("error_code", "reason_codes")
+	reasonCodeEntryKeys      = stringSet("code", "summary")
 	extensionRegistryKeys    = stringSet("$schema", "registry_id", "note", "profiles")
 	extensionProfileKeys     = stringSet("profile_id", "route_families")
 	wsIndexKeys              = stringSet("$schema", "$id", "title", "description", "type", "additionalProperties", "properties", "required")
@@ -533,6 +535,54 @@ func validateErrorRegistry(value any) error {
 		}
 		if _, err := requiredString(entry, "summary", label); err != nil {
 			return err
+		}
+	}
+	reasonRegistriesValue, ok := object["reason_registries"]
+	if !ok {
+		return nil
+	}
+	reasonRegistries, err := objectArray(reasonRegistriesValue, "reason_registries")
+	if err != nil {
+		return err
+	}
+	seenReasonRegistries := map[string]struct{}{}
+	for index, entry := range reasonRegistries {
+		label := fmt.Sprintf("reason_registries[%d]", index+1)
+		if err := requireAllowedKeys(entry, reasonRegistryEntryKeys, label); err != nil {
+			return err
+		}
+		errorCode, err := requiredString(entry, "error_code", label)
+		if err != nil {
+			return err
+		}
+		if _, ok := seen[errorCode]; !ok {
+			return fmt.Errorf("%s.error_code references unknown error code %s", label, errorCode)
+		}
+		if _, exists := seenReasonRegistries[errorCode]; exists {
+			return fmt.Errorf("duplicate reason registry for error code %s", errorCode)
+		}
+		seenReasonRegistries[errorCode] = struct{}{}
+		reasonCodes, err := objectArray(entry["reason_codes"], label+".reason_codes")
+		if err != nil {
+			return err
+		}
+		seenReasons := map[string]struct{}{}
+		for reasonIndex, reasonEntry := range reasonCodes {
+			reasonLabel := fmt.Sprintf("%s.reason_codes[%d]", label, reasonIndex+1)
+			if err := requireAllowedKeys(reasonEntry, reasonCodeEntryKeys, reasonLabel); err != nil {
+				return err
+			}
+			reasonCode, err := requiredString(reasonEntry, "code", reasonLabel)
+			if err != nil {
+				return err
+			}
+			if _, exists := seenReasons[reasonCode]; exists {
+				return fmt.Errorf("%s contains duplicate reason code %s", label, reasonCode)
+			}
+			seenReasons[reasonCode] = struct{}{}
+			if _, err := requiredString(reasonEntry, "summary", reasonLabel); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

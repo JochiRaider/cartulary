@@ -2564,6 +2564,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `record_already_deleted` | `409` | `false` | The caller attempted to soft-delete an already soft-deleted record outside an idempotent replay of the original delete. |  |  |  |
 | `record_not_deleted` | `409` | `false` | The caller attempted to restore a record that is not currently soft-deleted. |  |  |  |
 | `record_locked` | `409` | `true` | An overlapping in-flight destructive operation already holds one or more required protected-set locks for the requested restore, rollback, or merge. |  |  |  |
+| `evidence_attach_rejected` | `409` | `false` | An evidence attach request cannot commit because the supplied blob is not visible or is not attachable, the target evidence row is quarantined or inconsistent, or observed upload bytes violate the accepted blob contract. `error.details.reason_code` MUST use the `evidence_attach_rejected` registry in §3.3.6.2. |  |  |  |
 | `evidence_access_unavailable` | `409` | `false` | Preview or download cannot currently proceed because the visible evidence or linked blob is unavailable, pending, failed, missing, quarantined, inconsistent, or not previewable for the requested preview contract or preview-size ceiling. |  |  |  |
 | `entity_mention_not_found` | `404` | `false` | An entity-mention action route targeted no visible current entity-mention row for the supplied `entity_mention_id`. |  |  |  |
 | `resolved_record_not_found` | `404` | `false` | A mention-resolve request supplied `resolved_record_id` that does not identify a visible active target record. |  |  |  |
@@ -2649,6 +2650,19 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `reason_code` | Canonical meaning |
 | --- | --- |
 | `byte_size_exceeds_limit` | The declared `byte_size` exceeds `limits.object_blobs.max_declared_byte_size` for the current deployment. |
+
+
+`evidence_attach_rejected` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `blob_not_visible` | The supplied `object_blob_id` is missing or is not visible in the target evidence record's incident. Cross-incident blob identifiers MUST use this reason rather than revealing the foreign blob. |
+| `blob_pending` | The supplied blob is still pending and cannot be attached yet without a successful observed upload. |
+| `blob_failed` | The supplied blob is in terminal `failed` state and cannot be attached. |
+| `blob_quarantined` | The supplied blob is quarantined and cannot be attached. |
+| `accepted_contract_mismatch` | Observed uploaded bytes do not match the accepted blob contract, including declared size or expected SHA-256 mismatch. |
+| `evidence_quarantined` | The target evidence record is quarantined and cannot accept a new blob attachment. |
+| `evidence_inconsistent` | The target evidence or blob state is inconsistent and must fail closed until repaired. |
 
 
 `invalid_enterprise_auth_request` `error.details.reason_code` values:
@@ -3084,7 +3098,7 @@ When finalization targets an existing evidence record through `POST /api/v1/evid
 
 Attach idempotency for this route MUST be keyed by `(actor_user_id, record_id, client_txn_id)`. Normalized request comparison for this route MUST include exact `object_blob_id` and exact `base_row_version`. Because the base profile defines no nullable request members for this route, omission-versus-`null` equivalence does not apply. A first-time successful attach MUST return `200 OK`. If the same authenticated actor replays the same normalized attach request with the same key, the server MUST return `200 OK` with the original committed attach result and MUST create no second attach or replacement transition. If the same actor reuses that key with a different normalized attach request, the server MUST fail with `409` and `error.code = client_txn_conflict`. If the current evidence-row version differs from `base_row_version`, the route MUST fail with `409` and `error.code = row_version_conflict`.
 
-Fresh attach requests with a new `client_txn_id` MUST still enforce the blob and evidence lifecycle bridge owned by Core 02 §13 and Core 03 §8. A pending, failed, missing, incident-mismatched, or otherwise non-attachable blob MUST fail closed rather than partially mutating evidence state. A successful attach response MUST use the common success envelope and return `data.view_schema_id='cartulary.view.evidence.v1'`, `data.change_set_id`, `data.object_blob_id`, and `data.row`, where `data.row` is exactly `view_row_v1` for the addressed evidence row. Dependent Timeline, Host, Identity, or other rows affected by that attach MUST refresh only through ordinary replayable `record_changed` `patch` or `invalidate` messages rather than extra inline row payloads on this route.
+Fresh attach requests with a new `client_txn_id` MUST still enforce the blob and evidence lifecycle bridge owned by Core 02 §13 and Core 03 §8. A pending, failed, missing, quarantined, cross-incident, contract-mismatched, or otherwise non-attachable blob MUST fail closed with `error.code='evidence_attach_rejected'` and a reason from §3.3.6.2 rather than partially mutating evidence state. Cross-incident or missing blob identifiers MUST use `reason_code='blob_not_visible'`. A successful attach response MUST use the common success envelope and return `data.view_schema_id='cartulary.view.evidence.v1'`, `data.change_set_id`, `data.object_blob_id`, and `data.row`, where `data.row` is exactly `view_row_v1` for the addressed evidence row. Dependent Timeline, Host, Identity, or other rows affected by that attach MUST refresh only through ordinary replayable `record_changed` `patch` or `invalidate` messages rather than extra inline row payloads on this route.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-321
 

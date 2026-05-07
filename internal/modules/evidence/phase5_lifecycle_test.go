@@ -114,8 +114,10 @@ func TestPhase5_EvidenceLifecycleSeparateFromBlob_U_5_04(t *testing.T) {
 	}
 	quarantinedBlobID := seedPhase5Blob(t, harness.DB, incident.ID, actor.ID, "available", phase5BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
 	quarantinedAttach := evidence.AttachBlobRequest{ObjectBlobID: quarantinedBlobID, BaseRowVersion: 1, ClientTxnID: "txn-phase5-quarantined-attach"}
-	if _, err := evidenceStore.AttachBlob(context.Background(), actor, quarantinedRecordID, quarantinedAttach, evidence.AttachBlobRequestHash(quarantinedAttach), nil, "req-quarantined-attach", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
-		t.Fatalf("quarantined evidence attach got %v want ErrBlobNotAttachable", err)
+	if _, err := evidenceStore.AttachBlob(context.Background(), actor, quarantinedRecordID, quarantinedAttach, evidence.AttachBlobRequestHash(quarantinedAttach), nil, "req-quarantined-attach", time.Now().UTC()); !errors.Is(err, evidence.ErrEvidenceQuarantined) {
+		t.Fatalf("quarantined evidence attach got %v want ErrEvidenceQuarantined", err)
+	} else {
+		requirePhase5AttachRejectedReason(t, err, evidence.AttachReasonEvidenceQuarantined)
 	}
 
 	requirePhase5EvidenceState(t, harness.DB, attachRecordID, "available", "available", blobID)

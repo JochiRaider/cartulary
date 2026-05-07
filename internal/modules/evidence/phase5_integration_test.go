@@ -3,6 +3,7 @@ package evidence_test
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,12 +11,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
@@ -148,11 +152,11 @@ func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
 			wantReason string
 		}{
 			{name: "row version conflict", blobID: availableBlobID, base: 9, wantStatus: http.StatusConflict, wantCode: "row_version_conflict"},
-			{name: "missing blob", blobID: uuid.New(), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "blob_missing"},
-			{name: "foreign blob", blobID: insertPhase5RouteBlob(t, harness, otherIncidentID, adminID, "available"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "incident_mismatch"},
-			{name: "pending blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "pending"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "blob_not_attachable"},
-			{name: "failed blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "failed"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "blob_not_attachable"},
-			{name: "quarantined blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "quarantined"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_access_unavailable", wantReason: "evidence_quarantined"},
+			{name: "missing blob", blobID: uuid.New(), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobNotVisible},
+			{name: "foreign blob", blobID: insertPhase5RouteBlob(t, harness, otherIncidentID, adminID, "available"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobNotVisible},
+			{name: "pending blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "pending"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobPending},
+			{name: "failed blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "failed"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobFailed},
+			{name: "quarantined blob", blobID: insertPhase5RouteBlob(t, harness, incidentID, adminID, "quarantined"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobQuarantined},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -265,6 +269,130 @@ UPDATE timeline_grid_projection
 	if got := countEvidenceBlobLinks(t, harness, evidenceRecordID); got != 1 {
 		t.Fatalf("projection rebuild changed evidence blob link count: got %d want 1", got)
 	}
+}
+
+func TestPhase5_AttachPublishesWorkbookWebSocketRefresh_I_5_07(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase5-attach-websocket-refresh")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase5-i-07-incident",
+		"incident_key":  "phase5-i-07",
+		"title":         "Phase 5 attach websocket refresh",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v1", map[string]any{
+		"client_txn_id":    "txn-phase5-i-07-timeline",
+		"timeline.summary": "WebSocket evidence count target",
+	})
+	timelineRow := timelineData["row"].(map[string]any)
+	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
+	timelineRowVersion := int64(timelineRow["row_version"].(float64))
+	evidenceData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
+		"client_txn_id":  "txn-phase5-i-07-evidence",
+		"evidence.title": "WebSocket evidence",
+	})
+	evidenceRecordID := phase4test.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
+	if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO record_links (
+    incident_id, src_record_id, dst_record_id, link_type, field_key,
+    provenance, owner_user_id, created_by_user_id, decided_at, created_at
+) VALUES ($1, $2, $3, 'attached_evidence', 'timeline.attached_evidence_ids', 'manual', $4, $4, now(), now())
+`, incidentID, timelineRecordID, evidenceRecordID, adminID); err != nil {
+		t.Fatalf("insert attached evidence link: %v", err)
+	}
+
+	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID.String(), incidentwstest.ConnectOptions{
+		SessionToken:     login.SessionCookie.Value,
+		ClientInstanceID: "phase5-i-07-record-change-listener",
+		Presence: platformws.PresenceInput{
+			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v1"},
+			Mode:     "viewing",
+		},
+	})
+	defer socket.Close(websocket.StatusNormalClosure, "test_complete")
+
+	attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("phase5 websocket attach"), "websocket.txt", "text/plain", "txn-phase5-i-07-blob", "txn-phase5-i-07-attach")
+	rowVersion := int64(attachData["row"].(map[string]any)["row_version"].(float64))
+
+	evidenceChange := phase5AwaitRecordChanged(t, socket, evidenceRecordID, rowVersion)
+	phase5RequireAffectedView(t, evidenceChange, "cartulary.view.evidence.v1")
+	if !containsString(phase5ChangedFieldKeys(t, evidenceChange), "evidence.upload_state") {
+		t.Fatalf("evidence attach changed keys missing evidence.upload_state: %#v", evidenceChange)
+	}
+	timelineChange := phase5AwaitRecordChanged(t, socket, timelineRecordID, timelineRowVersion)
+	phase5RequireAffectedView(t, timelineChange, "cartulary.view.timeline.v1")
+	changedKeys := phase5ChangedFieldKeys(t, timelineChange)
+	for _, key := range []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"} {
+		if !containsString(changedKeys, key) {
+			t.Fatalf("timeline websocket changed keys missing %s: %#v", key, timelineChange)
+		}
+	}
+}
+
+func phase5AwaitRecordChanged(t testing.TB, client *incidentwstest.Client, recordID uuid.UUID, rowVersion int64) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		message, err := client.AwaitNextMessage(time.Until(deadline))
+		if err != nil {
+			t.Fatalf("wait for record_changed for %s: %v", recordID, err)
+		}
+		if message.Type != "record_changed" {
+			continue
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(message.Payload, &payload); err != nil {
+			t.Fatalf("decode record_changed payload: %v", err)
+		}
+		payloadRowVersion, ok := payload["row_version"].(float64)
+		if !ok {
+			t.Fatalf("record_changed payload missing numeric row_version: %#v", payload)
+		}
+		if payload["record_id"] == recordID.String() && int64(payloadRowVersion) == rowVersion {
+			return payload
+		}
+	}
+	t.Fatalf("timed out waiting for record_changed for %s version %d", recordID, rowVersion)
+	return nil
+}
+
+func phase5RequireAffectedView(t testing.TB, payload map[string]any, viewSchemaID string) {
+	t.Helper()
+	affectedViews, ok := payload["affected_views"].([]any)
+	if !ok {
+		t.Fatalf("record_changed payload missing affected_views: %#v", payload)
+	}
+	for _, rawView := range affectedViews {
+		view, ok := rawView.(map[string]any)
+		if !ok {
+			t.Fatalf("record_changed affected view has invalid shape: %#v", rawView)
+		}
+		if view["view_schema_id"] == viewSchemaID {
+			if view["change_kind"] == "" {
+				t.Fatalf("affected view missing change_kind: %#v", view)
+			}
+			return
+		}
+	}
+	t.Fatalf("record_changed payload missing affected view %s: %#v", viewSchemaID, payload)
+}
+
+func phase5ChangedFieldKeys(t testing.TB, payload map[string]any) []string {
+	t.Helper()
+	rawKeys, ok := payload["changed_field_keys"].([]any)
+	if !ok {
+		t.Fatalf("record_changed payload missing changed_field_keys: %#v", payload)
+	}
+	keys := make([]string, 0, len(rawKeys))
+	for _, rawKey := range rawKeys {
+		key, ok := rawKey.(string)
+		if !ok {
+			t.Fatalf("record_changed changed field key is not a string: %#v", rawKey)
+		}
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 func TestPhase5_ExpiredSlotReplay_I_5_02(t *testing.T) {
@@ -574,14 +702,19 @@ func TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04(t *testing.T) {
 		}
 		secondRecordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, adminID, secondRecordID)
-		requireEvidenceAccessUnavailableReason(t,
+		attachBlocked := httptestx.RequireErrorEnvelope(t,
 			phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+secondRecordID.String()+"/attach-blob", map[string]any{
 				"object_blob_id":   objectBlobID.String(),
 				"base_row_version": 1,
 				"client_txn_id":    "txn-phase5-i-04-quarantine-attach-blocked",
 			}, authOptions(login)...),
-			"evidence_quarantined",
+			http.StatusConflict,
+			"evidence_attach_rejected",
 		)
+		attachDetails := attachBlocked["error"].(map[string]any)["details"].(map[string]any)
+		if got := attachDetails["reason_code"]; got != evidence.AttachReasonBlobQuarantined {
+			t.Fatalf("quarantined attach reason got %v want %s", got, evidence.AttachReasonBlobQuarantined)
+		}
 
 		pendingID := uuid.New()
 		insertExpiredPendingBlob(t, harness, incidentID, adminID, pendingID, "phase5/i-04/pending-quarantine/"+pendingID.String(), time.Now().UTC().Add(2*time.Hour))
