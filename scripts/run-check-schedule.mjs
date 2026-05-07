@@ -13,6 +13,8 @@ import {
 import {
   assertKnownResource,
   estimateBrowserStackAutoLimit,
+  estimateCheckHostCPULimit,
+  estimateCheckHostIOLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   provisionalResourceLimitsForClaims,
@@ -415,6 +417,9 @@ function findSchedule(manifest, target, overrides) {
     normalizedLimits.sources,
     `check schedule ${target}`,
     {
+      check_host_cpu: () => estimateCheckHostCPULimit(),
+      check_host_io: ({ resourceLimits: currentLimits }) =>
+        estimateCheckHostIOLimit(currentLimits),
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
         estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, { cpuResources: ["host_cpu"] }),
     },

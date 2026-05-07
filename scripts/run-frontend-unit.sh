@@ -88,7 +88,7 @@ unset CARTULARY_MANIFEST_COVERAGE || true
 unset CARTULARY_MANIFEST_EXECUTION_DEPENDENCY || true
 unset CARTULARY_PHASE_ACCOUNTING_MODE || true
 export CARTULARY_PHASE_COUNTING_MODE=none
-emit_report_phase_summary vitest-phase "frontend-unit" "${command_text}" "${start_time}" "${end_time}" "${duration_ms}" "${duration_ms}" "${run_status}" || status=$?
+emit_report_phase_summary vitest-phase "frontend-unit vitest" "${command_text}" "${start_time}" "${end_time}" "${duration_ms}" "${duration_ms}" "${run_status}" || status=$?
 unset CARTULARY_PHASE_COUNTING_MODE || true
 
 if [[ ! -f "${run_report}" ]]; then

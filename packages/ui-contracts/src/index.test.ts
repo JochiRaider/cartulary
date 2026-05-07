@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cellPresenceMarkerTestId,
+  conflictMarkerTestId,
   gridDraftRowSelector,
   gridSavedRowsSelector,
   gridShellTestId,
+  pendingQueueCountTestId,
+  pendingQueueNoticeTestId,
   rowInspectorFieldTestId,
+  rowPresenceMarkerTestId,
+  saveStateTestId,
 } from "./index";
 
 describe("@cartulary/ui-contracts workbook row selectors", () => {
@@ -20,5 +26,18 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
     );
     expect(gridDraftRowSelector()).toBe('[role="row"][data-grid-record-id=""]');
+  });
+
+  it("derives stable Phase 6 collaboration and status selectors", () => {
+    expect(conflictMarkerTestId("record-1", "timeline.summary")).toBe(
+      "conflict-marker-record-1-timeline-summary",
+    );
+    expect(rowPresenceMarkerTestId("record-1")).toBe("presence-row-record-1");
+    expect(cellPresenceMarkerTestId("record-1", "timeline.summary")).toBe(
+      "presence-cell-record-1-timeline-summary",
+    );
+    expect(saveStateTestId()).toBe("save-state");
+    expect(pendingQueueNoticeTestId()).toBe("pending-queue-notice");
+    expect(pendingQueueCountTestId()).toBe("pending-queue-count");
   });
 });

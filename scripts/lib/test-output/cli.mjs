@@ -2891,6 +2891,7 @@ function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
     "";
   const logArtifact = firstArtifactPath(
     targetSummary.failures?.find((failure) => failure.artifact)?.artifact ??
+      targetSummary.failures?.find((failure) => failure.raw)?.raw ??
       summary.log_artifacts?.find((artifact) => artifact.role === "scheduler_progress")?.path ??
       summary.log_artifacts?.[0]?.path,
   );
@@ -3712,7 +3713,8 @@ function writeRunFailure(stream, runSummary, summaryJsonPath) {
     runSummary.failures?.[0]?.target ||
     "";
   const logArtifact = firstArtifactPath(
-    runSummary.failures?.find((failure) => failure.artifact)?.artifact,
+    runSummary.failures?.find((failure) => failure.artifact)?.artifact ??
+      runSummary.failures?.find((failure) => failure.raw)?.raw,
   );
   stream.write(
     `[FAIL] target=${summary.target} exit_code=${summary.exit_code} failure_class=${failureClass} failure_origin=${summary.failure_origin ?? "helper"} work_unit=${abortedAfter || "-"} child_target=${failedTarget || "-"} duration_ms=${summary.duration_ms} headline="${headline}"\n`,

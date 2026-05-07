@@ -1,10 +1,12 @@
+// @vitest-environment jsdom
+
 import {
   gridShellTestId,
   rowInspectButtonTestId,
 } from "@cartulary/ui-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { assertGridFocusContinuity } from "./index";
+import { assertGridFocusContinuity, scrollGridTargetIntoView } from "./index";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -82,7 +84,7 @@ describe("@cartulary/test-utils grid continuity", () => {
         preservedScroll: { left: 18, top: 240 },
         requireExactVerticalScroll: true,
         surface: "timeline",
-        timeoutMs: 10,
+        timeoutMs: 250,
       }),
     ).resolves.toBeUndefined();
 
@@ -107,6 +109,97 @@ describe("@cartulary/test-utils grid continuity", () => {
         timeoutMs: 10,
       }),
     ).rejects.toThrow("Expected timeline horizontal scroll 18, received 10");
+  });
+});
+
+describe("@cartulary/test-utils virtualized grid targeting", () => {
+  it("returns the existing scroll position when the target is already visible", async () => {
+    const { grid, page, scrollIntoViewCalls, targetTestId } =
+      installGridTargetFixture({
+        currentScroll: { left: 8, top: 120 },
+        isTargetVisible: () => true,
+      });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId,
+        timeoutMs: 50,
+      }),
+    ).resolves.toEqual({ left: 8, top: 120 });
+
+    expect(grid.scrollTop).toBe(120);
+    expect(scrollIntoViewCalls).toEqual([]);
+  });
+
+  it("scans grid offsets until a virtualized target is mounted", async () => {
+    const { grid, page, scrollIntoViewCalls, targetTestId } =
+      installGridTargetFixture({
+        clientHeight: 200,
+        currentScroll: { left: 0, top: 0 },
+        isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 400,
+        onTargetScrollIntoView: (candidateGrid) => {
+          candidateGrid.scrollTop = 520;
+        },
+        scrollHeight: 900,
+      });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId,
+        timeoutMs: 1_000,
+      }),
+    ).resolves.toEqual({ left: 0, top: 520 });
+
+    expect(grid.scrollTop).toBe(520);
+    expect(scrollIntoViewCalls).toEqual([targetTestId]);
+  });
+
+  it("throws diagnostics when the target never becomes visible", async () => {
+    const { page } = installGridTargetFixture({
+      includeTarget: false,
+      mountedRowIds: ["record-a", "record-b"],
+    });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId: "missing-target",
+        timeoutMs: 50,
+      }),
+    ).rejects.toThrow(
+      /missing-target.*timeline.*scrollHeight=900.*mountedRowIds=record-a,record-b/,
+    );
+  });
+
+  it("returns the final scroll snapshot after target alignment", async () => {
+    const { page, targetTestId } = installGridTargetFixture({
+      clientHeight: 200,
+      currentScroll: { left: 3, top: 0 },
+      isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 200,
+      onTargetScrollIntoView: (candidateGrid) => {
+        candidateGrid.scrollLeft = 21;
+        candidateGrid.scrollTop = 333;
+      },
+      scrollHeight: 900,
+    });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId,
+        timeoutMs: 1_000,
+      }),
+    ).resolves.toEqual({ left: 21, top: 333 });
   });
 });
 
@@ -166,29 +259,158 @@ function installGridContinuityFixture(
   };
 }
 
-function createBrowserPage(
-  elements: Record<string, Element>,
+function installGridTargetFixture(
   options: {
-    onEvaluate?: (testId: string, element: Element) => void;
+    clientHeight?: number;
+    currentScroll?: { left: number; top: number };
+    includeTarget?: boolean;
+    isTargetVisible?: (grid: HTMLDivElement) => boolean;
+    mountedRowIds?: string[];
+    onTargetScrollIntoView?: (grid: HTMLDivElement) => void;
+    scrollHeight?: number;
+    targetTestId?: string;
   } = {},
 ) {
+  const gridTestId = gridShellTestId("timeline");
+  const targetTestId = options.targetTestId ?? "target-control";
+  const mountedRows = (options.mountedRowIds ?? ["record-1"])
+    .map(
+      (recordId) => `<div role="row" data-grid-record-id="${recordId}"></div>`,
+    )
+    .join("");
+  document.body.innerHTML = `
+    <div data-testid="${gridTestId}">
+      ${mountedRows}
+      ${
+        options.includeTarget === false
+          ? ""
+          : `<input data-testid="${targetTestId}" />`
+      }
+    </div>
+  `;
+
+  const grid = document.querySelector(`[data-testid="${gridTestId}"]`);
+  const target = document.querySelector(`[data-testid="${targetTestId}"]`);
+  if (!(grid instanceof HTMLDivElement)) {
+    throw new Error("Expected grid targeting fixture grid to exist");
+  }
+  if (
+    options.includeTarget !== false &&
+    !(target instanceof HTMLInputElement)
+  ) {
+    throw new Error("Expected grid targeting fixture target to exist");
+  }
+
+  Object.defineProperties(grid, {
+    clientHeight: {
+      configurable: true,
+      value: options.clientHeight ?? 200,
+    },
+    clientWidth: {
+      configurable: true,
+      value: 400,
+    },
+    scrollHeight: {
+      configurable: true,
+      value: options.scrollHeight ?? 900,
+    },
+    scrollWidth: {
+      configurable: true,
+      value: 400,
+    },
+  });
+  grid.scrollLeft = options.currentScroll?.left ?? 0;
+  grid.scrollTop = options.currentScroll?.top ?? 0;
+
+  const scrollIntoViewCalls: string[] = [];
+  return {
+    grid,
+    page: createBrowserPage(
+      () => {
+        const elements: Record<string, Element | undefined> = {
+          [gridTestId]: grid,
+        };
+        if (target instanceof HTMLInputElement) {
+          elements[targetTestId] = target;
+        }
+        return elements;
+      },
+      {
+        isVisible(testId, element) {
+          if (testId === targetTestId && element === target) {
+            return options.isTargetVisible?.(grid) ?? true;
+          }
+          return element.isConnected;
+        },
+        onScrollIntoViewIfNeeded(testId) {
+          scrollIntoViewCalls.push(testId);
+          if (testId === targetTestId) {
+            options.onTargetScrollIntoView?.(grid);
+          }
+        },
+      },
+    ),
+    scrollIntoViewCalls,
+    targetTestId,
+  };
+}
+
+function createBrowserPage(
+  elements:
+    | Record<string, Element | undefined>
+    | (() => Record<string, Element | undefined>),
+  options: {
+    isVisible?: (
+      testId: string,
+      element: Element,
+    ) => boolean | Promise<boolean>;
+    onEvaluate?: (testId: string, element: Element) => void;
+    onScrollIntoViewIfNeeded?: (testId: string, element: Element) => void;
+  } = {},
+) {
+  const resolveElement = (value: string) => {
+    const resolvedElements =
+      typeof elements === "function" ? elements() : elements;
+    return resolvedElements[value];
+  };
   return {
     getByTestId(value: string) {
-      const element = elements[value];
-      if (element === undefined) {
-        throw new Error(`Unknown test id ${value}`);
-      }
       return {
         click: async () => {
+          const element = resolveElement(value);
+          if (element === undefined) {
+            throw new Error(`Unknown test id ${value}`);
+          }
           if (element instanceof HTMLElement) {
             element.click();
           }
         },
-        evaluate: async (pageFunction: (element: Element) => unknown) => {
+        evaluate: async (
+          pageFunction: (element: Element, arg?: unknown) => unknown,
+          arg?: unknown,
+        ) => {
+          const element = resolveElement(value);
+          if (element === undefined) {
+            throw new Error(`Unknown test id ${value}`);
+          }
           options.onEvaluate?.(value, element);
-          return pageFunction(element);
+          return pageFunction(element, arg);
         },
         fill: async () => undefined,
+        isVisible: async () => {
+          const element = resolveElement(value);
+          if (element === undefined) {
+            return false;
+          }
+          return options.isVisible?.(value, element) ?? element.isConnected;
+        },
+        scrollIntoViewIfNeeded: async () => {
+          const element = resolveElement(value);
+          if (element === undefined) {
+            throw new Error(`Unknown test id ${value}`);
+          }
+          options.onScrollIntoViewIfNeeded?.(value, element);
+        },
       };
     },
   };

@@ -462,7 +462,7 @@ function normalizeCheckScheduleRoot(topology, taskTargets) {
     const capacityProfile = requireString(schedule.capacity_profile, `${label}.capacity_profile`);
     const profileLimits = resourceLimitsForCapacityProfile(capacityProfile, label, {
       scheduler: "check",
-      allowAuto: false,
+      allowAuto: true,
     });
     normalizedSchedules.push({
       target,
@@ -578,6 +578,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
     const resourceLimits = normalizeResourceLimits(schedule.resourceLimits, label, {
       scheduler: "check",
       capacityProfile: schedule.capacityProfile,
+      allowAuto: true,
     }).limits;
     const usedTargets = new Set();
     const usedOrders = new Map();

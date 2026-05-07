@@ -46,9 +46,12 @@ describe("grid-adapter", () => {
         unobserve() {}
       },
     );
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(720);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1280);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 

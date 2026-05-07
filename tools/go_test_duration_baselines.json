@@ -77,6 +77,7 @@
     "github.com/JochiRaider/cartulary/internal/modules/auth::TestSupportPhase1_UserListUsesSnapshotStablePagination": 1190,
     "github.com/JochiRaider/cartulary/internal/modules/collaboration::TestPhase6_CookieSocketRejectsUntrustedOrigin_I_6_04": 440,
     "github.com/JochiRaider/cartulary/internal/modules/collaboration::TestPhase6_IncidentSocketHandshakeResume_U_6_07": 2170,
+    "github.com/JochiRaider/cartulary/internal/modules/collaboration::TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08": 1670,
     "github.com/JochiRaider/cartulary/internal/modules/collaboration::TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02": 800,
     "github.com/JochiRaider/cartulary/internal/modules/collaboration::TestPhase6_TwoClientsPresenceReplay_I_6_01": 3450,
     "github.com/JochiRaider/cartulary/internal/modules/entities::TestPhase4_CreateFromMention_U_4_03": 960,

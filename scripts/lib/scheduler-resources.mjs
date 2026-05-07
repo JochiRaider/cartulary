@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -521,6 +522,11 @@ export function normalizeResourceLimits(value, label, { scheduler, capacityProfi
       const normalizedResource = assertKnownResource(resource.trim(), `${label} resource_limits.${resource}`, { scheduler });
       const limit = validateRawLimit(rawLimit, label, normalizedResource, { allowAuto });
       if (sources.get(normalizedResource)?.startsWith("registry:")) {
+        if (limits.get(normalizedResource) === "auto" && limit !== "auto") {
+          limits.set(normalizedResource, limit);
+          sources.set(normalizedResource, "manifest");
+          continue;
+        }
         if (limits.get(normalizedResource) !== limit) {
           throw new Error(`${label} resource_limits.${normalizedResource} must match ${sources.get(normalizedResource)}`);
         }
@@ -588,6 +594,21 @@ export function resolveAutoResourceLimits(resourceLimits, resourceLimitSources, 
 
 function positiveIntegerLimit(value) {
   return Number.isInteger(value) && value >= 1 ? value : null;
+}
+
+function availableParallelism() {
+  if (typeof os.availableParallelism === "function") {
+    return Math.max(1, os.availableParallelism());
+  }
+  return Math.max(1, os.cpus().length);
+}
+
+export function estimateCheckHostCPULimit() {
+  return Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2)));
+}
+
+export function estimateCheckHostIOLimit(resourceLimits = new Map()) {
+  return positiveIntegerLimit(resourceLimits.get("host_cpu")) ?? estimateCheckHostCPULimit();
 }
 
 export function browserStageLaneCount(workUnits) {

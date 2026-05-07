@@ -13,7 +13,8 @@
       "`backend-store` selects service-backed Phase 6 workbook mutation and focused socket route-contract rows through manifest-owned service-backed selection.",
       "`frontend-unit` selects Phase 6 workbook resolver, save-state, and pending-queue component rows through the Phase 6 manifest for `frontend_unit`.",
       "`backend-integration` selects Phase 6 real-runtime WebSocket and concurrent-edit rows through the Phase 6 manifest and `backend_integration` execution dependency.",
-      "`browser-e2e-webserver-backed` carries authoritative `E-6-*` rows through duration-balanced Playwright manifest-entry shards under `browser_functional`."
+      "`browser-e2e-webserver-backed` carries authoritative `E-6-*` rows through duration-balanced Playwright manifest-entry shards under `browser_functional`.",
+      "`browser-e2e-visual` carries authoritative `V-6-*` visual rows through `browser_visual`."
     ],
     "support_execution_extras": [
       "Existing Phase 1 and Phase 3 socket, revocation, autosave, and same-field conflict tests remain carryover support evidence and must not claim Phase 6 IDs."
@@ -21,7 +22,8 @@
     "sections": {
       "unit": "Unit",
       "integration": "Integration",
-      "e2e": "Browser E2E"
+      "e2e": "Browser E2E",
+      "visual": "Visual Regression"
     },
     "shared_harness": [
       "| Harness | Phase 6 evidence |",
@@ -55,7 +57,10 @@
     "E-6-02",
     "E-6-03",
     "E-6-04",
-    "E-6-05"
+    "E-6-05",
+    "V-6-GRID-01",
+    "V-6-GRID-02",
+    "V-6-GRID-03"
   ],
   "forbidden_id_files": [
     "internal/modules/auth/phase1_integration_test.go",
@@ -170,15 +175,24 @@
       "id": "U-6-08",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/platform/ws",
-      "file": "internal/platform/ws/phase6_ws_test.go",
-      "symbol": "TestPhase6_PresenceHeartbeatRevocation_U_6_08",
-      "execution_dependency": "backend_unit",
-      "evidence_layer": "transport_domain",
+      "package": "./internal/modules/collaboration",
+      "file": "internal/modules/collaboration/phase6_socket_test.go",
+      "symbol": "TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "route_contract",
       "claim": "Presence payloads are incident-scoped and ephemeral; heartbeats do not extend idle expiry; `session_revoked` closes the socket with the route-owned reason code set.",
-      "out_of_scope": "Real browser-origin rejection and two-client resume behavior remain integration evidence.",
-      "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase6 authoritative"
+      "out_of_scope": "Pure replay filtering, presence sorting, and reason-code helpers remain support evidence in `internal/platform/ws`.",
+      "execution_family": "backend-store-collaboration",
+      "execution_label": "backend-store phase6 collaboration",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "The socket route-contract row starts a real HTTP server runtime and verifies persisted session timing, which is incompatible with transaction fixtures."
     },
     {
       "id": "U-6-09",
@@ -289,10 +303,10 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase6.collaboration.spec.ts",
-      "title": "E-6-04 keeps live updates and conflict markers anchored to record_id and field_key",
+      "title": "E-6-04 keeps live updates conflict markers and presence markers anchored to record_id and field_key",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Live updates never retarget a pending local edit away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
+      "claim": "Live updates never retarget a pending local edit, same-field conflict marker, row-gutter presence marker, or same-cell presence marker away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
       "out_of_scope": "Low-level grid adapter identity helpers may receive separate frontend unit coverage."
     },
     {
@@ -307,5 +321,39 @@
       "out_of_scope": "Queue size and coalescing unit semantics remain frontend-unit evidence."
     }
   ],
-  "visual": []
+  "visual": [
+    {
+      "id": "V-6-GRID-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/workbook.visual.spec.ts",
+      "title": "V-6-GRID-01 captures Phase 6 row-gutter and same-cell presence markers",
+      "execution_dependency": "browser_visual",
+      "evidence_layer": "browser_visual",
+      "claim": "The visual harness captures deterministic Timeline row-gutter and same-cell presence markers keyed by `record_id` and `field_key`.",
+      "out_of_scope": "Socket payload canonicalization and timing remain backend and functional browser evidence."
+    },
+    {
+      "id": "V-6-GRID-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/workbook.visual.spec.ts",
+      "title": "V-6-GRID-02 captures Phase 6 same-field conflict marker resolver and Conflict strip",
+      "execution_dependency": "browser_visual",
+      "evidence_layer": "browser_visual",
+      "claim": "The visual harness captures the same-field conflict marker, same-surface resolver, and `Conflict` save-state strip on the Timeline grid.",
+      "out_of_scope": "Resolver mutation semantics remain frontend-unit and functional browser evidence."
+    },
+    {
+      "id": "V-6-GRID-03",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/workbook.visual.spec.ts",
+      "title": "V-6-GRID-03 captures Phase 6 pending-queue save-state transitions",
+      "execution_dependency": "browser_visual",
+      "evidence_layer": "browser_visual",
+      "claim": "The visual harness captures pending-queue `Syncing`, blocked `Conflict`, and recovered `Saved` save-state presentations.",
+      "out_of_scope": "Pending-queue FIFO, boundedness, and replay semantics remain frontend-unit and functional browser evidence."
+    }
+  ]
 }

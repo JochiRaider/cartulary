@@ -7,13 +7,19 @@ import {
   reconcileRecordRows,
 } from "@cartulary/grid-adapter";
 import {
+  cellPresenceMarkerTestId,
+  conflictMarkerTestId,
   draftCellTestId,
   gridGroupRowTestId,
   gridShellTestId,
   gridSortHeaderTestId,
+  pendingQueueCountTestId,
+  pendingQueueNoticeTestId,
   relationshipItemsTestId,
   rowCellTestId,
   rowInspectButtonTestId,
+  rowPresenceMarkerTestId,
+  saveStateTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import {
@@ -888,6 +894,28 @@ function visiblePresence(records: readonly PresenceRecord[], limit: number) {
   };
 }
 
+function resolveGridScrollElement(element: HTMLElement): HTMLElement {
+  if (isVerticallyScrollableElement(element)) {
+    return element;
+  }
+  return (
+    Array.from(element.querySelectorAll<HTMLElement>("*")).find(
+      isScrollableElement,
+    ) ?? element
+  );
+}
+
+function isVerticallyScrollableElement(element: HTMLElement): boolean {
+  return element.scrollHeight > element.clientHeight + 1;
+}
+
+function isScrollableElement(element: HTMLElement): boolean {
+  return (
+    element.scrollHeight > element.clientHeight + 1 ||
+    element.scrollWidth > element.clientWidth + 1
+  );
+}
+
 function isPresenceRecord(value: unknown): value is PresenceRecord {
   if (!value || typeof value !== "object") {
     return false;
@@ -1374,16 +1402,16 @@ function workbookPresence(
   return input;
 }
 
-function sanitizeTestId(value: string) {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
-}
-
 function inputFocusKey(
   rowKey: string,
   field: FocusFieldKey,
   surface: TimelineScalarEditorSurface = "grid",
 ) {
   return `${rowKey}:${field}:${surface}`;
+}
+
+function sanitizeTestId(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }
 
 function focusTestIdForKey(focusKey: string) {
@@ -2091,9 +2119,10 @@ export function TimelineWorkbook({
     if (!element) {
       return null;
     }
+    const scrollElement = resolveGridScrollElement(element);
     return {
-      top: element.scrollTop,
-      left: element.scrollLeft,
+      top: scrollElement.scrollTop,
+      left: scrollElement.scrollLeft,
     };
   }, []);
 
@@ -2110,7 +2139,7 @@ export function TimelineWorkbook({
           target === null
             ? null
             : captureViewportAnchor(
-                gridShell.getBoundingClientRect(),
+                resolveGridScrollElement(gridShell).getBoundingClientRect(),
                 target.getBoundingClientRect(),
               ),
       };
@@ -2154,15 +2183,17 @@ export function TimelineWorkbook({
       if (gridShell === null || preservedScroll === null) {
         return;
       }
-      gridShell.scrollTop = preservedScroll.top;
-      gridShell.scrollLeft = preservedScroll.left;
+      const scrollElement = resolveGridScrollElement(gridShell);
+      scrollElement.scrollTop = preservedScroll.top;
+      scrollElement.scrollLeft = preservedScroll.left;
       window.requestAnimationFrame(() => {
         const currentGridShell = gridShellRef.current;
         if (currentGridShell === null) {
           return;
         }
-        currentGridShell.scrollTop = preservedScroll.top;
-        currentGridShell.scrollLeft = preservedScroll.left;
+        const currentScrollElement = resolveGridScrollElement(currentGridShell);
+        currentScrollElement.scrollTop = preservedScroll.top;
+        currentScrollElement.scrollLeft = preservedScroll.left;
       });
     },
     [],
@@ -2204,14 +2235,15 @@ export function TimelineWorkbook({
         ) {
           return false;
         }
+        const scrollElement = resolveGridScrollElement(currentGridShell);
         const restoredScroll = computeRestoredViewportScroll({
           preservedScroll,
           currentScroll: {
-            top: currentGridShell.scrollTop,
-            left: currentGridShell.scrollLeft,
+            top: scrollElement.scrollTop,
+            left: scrollElement.scrollLeft,
           },
           preservedAnchor: currentViewport.anchor,
-          containerRect: currentGridShell.getBoundingClientRect(),
+          containerRect: scrollElement.getBoundingClientRect(),
           elementRect: currentElement.getBoundingClientRect(),
         });
         restoreGridScroll(restoredScroll);
@@ -2225,7 +2257,7 @@ export function TimelineWorkbook({
           return false;
         }
         return isRectFullyVisibleWithinContainer(
-          updatedGridShell.getBoundingClientRect(),
+          resolveGridScrollElement(updatedGridShell).getBoundingClientRect(),
           updatedElement.getBoundingClientRect(),
         );
       };
@@ -4387,7 +4419,10 @@ export function TimelineWorkbook({
           {localConflict && surface === "grid" ? (
             <button
               type="button"
-              data-testid={`conflict-marker-${sanitizeTestId(localConflict.key)}`}
+              data-testid={conflictMarkerTestId(
+                row.recordId ?? "draft",
+                binding.fieldKey,
+              )}
               style={conflictMarkerStyle}
               onClick={() => setActiveConflictKey(localConflict.key)}
             >
@@ -4399,9 +4434,10 @@ export function TimelineWorkbook({
               aria-label={`${sameCellPresence
                 .map((presence) => presence.display_name)
                 .join(", ")} editing ${timelineBindingLabel(binding.fieldKey)}`}
-              data-testid={`presence-cell-${sanitizeTestId(
-                `${row.recordId ?? "draft"}-${binding.fieldKey}`,
-              )}`}
+              data-testid={cellPresenceMarkerTestId(
+                row.recordId ?? "draft",
+                binding.fieldKey,
+              )}
               role="img"
               style={cellPresenceStyle}
             >
@@ -4571,7 +4607,7 @@ export function TimelineWorkbook({
                   aria-label={`${rowPresence
                     .map((presence) => presence.display_name)
                     .join(", ")} focused on this row`}
-                  data-testid={`presence-row-${row.recordId ?? "draft"}`}
+                  data-testid={rowPresenceMarkerTestId(row.recordId ?? "draft")}
                   role="img"
                   style={rowPresenceStyle}
                 >
@@ -5037,7 +5073,7 @@ export function TimelineWorkbook({
           <span style={statusLabelStyle}>Save State</span>
           <strong
             aria-live="polite"
-            data-testid="save-state"
+            data-testid={saveStateTestId()}
             style={{
               ...statusValueStyle,
               color:
@@ -5171,7 +5207,7 @@ export function TimelineWorkbook({
       pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount >
         0 ? (
         <aside
-          data-testid="pending-queue-notice"
+          data-testid={pendingQueueNoticeTestId()}
           role="status"
           style={noticeCardStyle}
         >
@@ -5183,7 +5219,7 @@ export function TimelineWorkbook({
                 ? "Authentication is required before queued edits can replay."
                 : "Queued edits are waiting to replay.")}
           </p>
-          <p data-testid="pending-queue-count" style={bodyStyle}>
+          <p data-testid={pendingQueueCountTestId()} style={bodyStyle}>
             Pending units:{" "}
             {pendingQueueSnapshot.queuedCount +
               pendingQueueSnapshot.inFlightCount}
@@ -8514,12 +8550,13 @@ const splitShellStyle = {
 };
 
 const gridShellStyle = {
-  overflow: "auto",
+  overflow: "hidden",
   overflowAnchor: "none" as const,
   borderRadius: "1rem",
   border: "1px solid rgb(199 214 207)",
   background: "rgb(255 255 255 / 0.82)",
-  maxHeight: "70vh",
+  blockSize: "min(70vh, 46rem)",
+  minBlockSize: "18rem",
 };
 
 const stateCellStyle = {

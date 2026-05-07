@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestPhase6_PresenceHeartbeatRevocation_U_6_08(t *testing.T) {
+func TestSupportPhase6_PresenceReplayRevocationTransport(t *testing.T) {
 	t.Run("resume replay filters to replayable incident messages", func(t *testing.T) {
 		hub := NewHub()
 		incidentID := uuid.New()

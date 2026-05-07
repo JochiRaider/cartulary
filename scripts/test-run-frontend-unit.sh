@@ -111,18 +111,25 @@ const path = require("node:path");
 
 const [outputFile, mode] = process.argv.slice(2);
 const root = process.cwd();
-const phaseFiles = ["phase1", "phase2", "phase3", "phase4"];
+const phaseRegistry = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase_registry.json"), "utf8"));
+const phaseFiles = (phaseRegistry.phases ?? [])
+  .filter((entry) => entry.status === "active")
+  .sort((left, right) => left.order - right.order || left.phase.localeCompare(right.phase))
+  .map((entry) => entry.manifest_path);
+const manifestSections = ["unit", "integration", "e2e", "visual"];
 const authoritative = [];
 
-for (const phase of phaseFiles) {
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"));
-  for (const row of manifest.unit ?? []) {
-    if (
-      row.runner === "vitest" &&
-      row.coverage === "authoritative" &&
-      row.execution_dependency === "frontend_unit"
-    ) {
-      authoritative.push(row);
+for (const manifestPath of phaseFiles) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, manifestPath), "utf8"));
+  for (const section of manifestSections) {
+    for (const row of manifest[section] ?? []) {
+      if (
+        row.runner === "vitest" &&
+        row.coverage === "authoritative" &&
+        row.execution_dependency === "frontend_unit"
+      ) {
+        authoritative.push(row);
+      }
     }
   }
 }
@@ -234,13 +241,45 @@ run_case() {
 }
 
 success_summary="$(run_case success success pass)"
-assert_equals "$(json_field "$success_summary" "own.counts.tests")" "20" "success total tests"
-assert_equals "$(json_field "$success_summary" "own.counts.authoritative")" "18" "success authoritative count"
+frontend_counts="$("${NODE:-node}" - "$ROOT_DIR" <<'EOF'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const [root] = process.argv.slice(2);
+const registry = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase_registry.json"), "utf8"));
+const sections = ["unit", "integration", "e2e", "visual"];
+let authoritative = 0;
+const phases = new Set();
+for (const entry of (registry.phases ?? [])
+  .filter((phase) => phase.status === "active")
+  .sort((left, right) => left.order - right.order || left.phase.localeCompare(right.phase))) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, entry.manifest_path), "utf8"));
+  for (const section of sections) {
+    for (const row of manifest[section] ?? []) {
+      if (
+        row.runner === "vitest" &&
+        row.coverage === "authoritative" &&
+        row.execution_dependency === "frontend_unit"
+      ) {
+        authoritative += 1;
+        phases.add(entry.phase);
+      }
+    }
+  }
+}
+process.stdout.write(`${authoritative},${phases.size}`);
+EOF
+)"
+expected_authoritative="${frontend_counts%,*}"
+expected_derived="$(( ${frontend_counts#*,} + 1 ))"
+expected_total="$(( expected_authoritative + 2 ))"
+assert_equals "$(json_field "$success_summary" "own.counts.tests")" "$expected_total" "success total tests"
+assert_equals "$(json_field "$success_summary" "own.counts.authoritative")" "$expected_authoritative" "success authoritative count"
 assert_equals "$(json_field "$success_summary" "own.counts.support")" "1" "success support count"
 assert_equals "$(json_field "$success_summary" "own.counts.unowned_regression")" "1" "success unowned regression count"
 assert_equals "$(json_field "$success_summary" "own.counts.unmapped")" "0" "success unmapped count"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.actual")" "1" "success raw actual phase"
-assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "5" "success derived slices"
+assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "$expected_derived" "success derived slices"
 
 residual_summary="$(run_case residual residual-failure fail)"
 assert_equals "$(json_field "$residual_summary" "own.counts.failed")" "1" "residual failure count"
@@ -257,7 +296,7 @@ authoritative_summary="$(run_case authoritative authoritative-failure fail)"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.failed")" "1" "authoritative failure count"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.authoritative_failed")" "1" "authoritative authoritative failure count"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.unmapped_failed")" "0" "authoritative unmapped failure count"
-authoritative_phase_summary="${authoritative_summary%/target-summary.json}/frontend-unit/phase-summary.json"
+authoritative_phase_summary="${authoritative_summary%/target-summary.json}/frontend-unit-vitest/phase-summary.json"
 runner_json="$(json_field "$authoritative_phase_summary" "artifacts.runner_json")"
 stdout_log="$(json_field "$authoritative_phase_summary" "artifacts.stdout_log")"
 stderr_log="$(json_field "$authoritative_phase_summary" "artifacts.stderr_log")"

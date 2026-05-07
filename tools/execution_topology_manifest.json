@@ -3994,9 +3994,12 @@
           "schedules": [
             "check"
           ],
-          "profile": "after_setup_cpu",
+          "profile": "frontend_unit_vitest",
           "priority_band": "harness_evidence",
           "order": 0,
+          "env": {
+            "VITEST_MAX_WORKERS": "1"
+          },
           "produces_summary_targets": [
             "frontend-unit"
           ],
@@ -5731,6 +5734,12 @@
           "make_jobs": "host_cpu"
         },
         "after_setup_cpu": {
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        "frontend_unit_vitest": {
           "resource_claims": {
             "host_cpu": 1
           },

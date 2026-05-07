@@ -13,6 +13,7 @@ import {
   collectionActionsPayload,
   collectionItems,
   createTimelineFillers,
+  ensureTimelineGridTargetVisible,
   expectTimelineContinuity,
   findRow,
   hostRefsFieldKey,
@@ -71,9 +72,11 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
-  await expect(
-    page.getByTestId(`row-${mainRow.record_id}-summary`),
-  ).toHaveValue("E-4-01 workbook row");
+  const mainSummaryTestId = `row-${mainRow.record_id}-summary`;
+  await ensureTimelineGridTargetVisible(page, mainSummaryTestId);
+  await expect(page.getByTestId(mainSummaryTestId)).toHaveValue(
+    "E-4-01 workbook row",
+  );
 
   const hostAddEnvelope = await addRelationshipTokenViaUI(
     page,

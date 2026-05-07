@@ -137,6 +137,13 @@ for (const target of ["frontend-typecheck", "frontend-unit", "frontend-import-bo
     throw new Error(`${target} must depend on check-frontend-install`);
   }
 }
+const frontendUnit = unitByTarget.get("frontend-unit");
+if (frontendUnit?.env?.VITEST_MAX_WORKERS !== "1") {
+  throw new Error("scheduled frontend-unit must set VITEST_MAX_WORKERS=1");
+}
+if (JSON.stringify(frontendUnit?.resource_claims ?? {}) !== JSON.stringify({ host_cpu: 1 })) {
+  throw new Error("scheduled frontend-unit must claim exactly host_cpu=1");
+}
 if ((unitByTarget.get("check-frontend-install")?.needs ?? []).join(",") !== "toolchain-drift") {
   throw new Error("check-frontend-install must depend on toolchain-drift");
 }

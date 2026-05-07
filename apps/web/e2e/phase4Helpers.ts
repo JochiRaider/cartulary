@@ -1,4 +1,7 @@
-import { assertGridFocusContinuity } from "@cartulary/test-utils";
+import {
+  assertGridFocusContinuity,
+  scrollGridTargetIntoView,
+} from "@cartulary/test-utils";
 import {
   gridSavedRowsSelector,
   gridShellTestId,
@@ -226,21 +229,37 @@ export async function waitForSaveState(
   await expect(page.getByTestId("save-state")).toHaveText(value);
 }
 
+export async function ensureTimelineGridTargetVisible(
+  page: Page,
+  targetTestId: string,
+) {
+  return scrollGridTargetIntoView({
+    page,
+    surface: "timeline",
+    targetTestId,
+  });
+}
+
 export async function addRelationshipTokenViaUI(
   page: Page,
   recordId: string,
   draftKey: "hostRefs" | "identityRefs",
   rawText: string,
 ) {
+  const inputTestId = `row-${recordId}-${draftKey}-input`;
+  await ensureTimelineGridTargetVisible(page, inputTestId);
+  const input = page.getByTestId(inputTestId);
   const responsePromise = waitForTimelinePatch(page, recordId);
-  await page.getByTestId(`row-${recordId}-${draftKey}-input`).fill(rawText);
-  await page.getByTestId(`row-${recordId}-${draftKey}-input`).press("Enter");
+  await input.fill(rawText);
+  await input.press("Enter");
   await waitForSaveState(page, "Saved");
   return readTimelineMutation(await responsePromise);
 }
 
 export async function openTimelineInspector(page: Page, recordId: string) {
-  await page.getByTestId(rowInspectButtonTestId(recordId)).click();
+  const inspectButtonTestId = rowInspectButtonTestId(recordId);
+  await ensureTimelineGridTargetVisible(page, inspectButtonTestId);
+  await page.getByTestId(inspectButtonTestId).click();
   await expect(page.getByTestId("timeline-inspector")).toContainText(recordId);
 }
 

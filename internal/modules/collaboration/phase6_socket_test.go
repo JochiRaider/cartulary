@@ -2,6 +2,7 @@ package collaboration_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -159,6 +160,48 @@ func TestPhase6_IncidentSocketHandshakeResume_U_6_07(t *testing.T) {
 	})
 }
 
+func TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	harness, admin, adminID, incidentID := setupPhase6SocketIncidentWithAdminID(t, runtime, "phase6-u-6-08-heartbeat-idle")
+	sessionID := sessionIDForCookie(t, harness, adminID.String())
+	before := queryPhase6SessionTiming(t, harness, sessionID)
+
+	client := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+		SessionToken:     admin.SessionCookie.Value,
+		ClientInstanceID: "phase6-u-6-08-heartbeat",
+		Presence:         timelinePresence(),
+	})
+	defer client.Close(websocket.StatusNormalClosure, "test_complete")
+
+	harness.Server.Clock.Advance(5 * time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := client.Send(ctx, platformws.Message{
+		Type:    "pong",
+		Payload: platformws.RawPayload(map[string]any{}),
+	}); err != nil {
+		t.Fatalf("send heartbeat pong: %v", err)
+	}
+
+	afterHeartbeat := queryPhase6SessionTiming(t, harness, sessionID)
+	if !afterHeartbeat.LastQualifyingActivityAt.Equal(before.LastQualifyingActivityAt) {
+		t.Fatalf("heartbeat must not slide last_qualifying_activity_at: before=%s after=%s", before.LastQualifyingActivityAt, afterHeartbeat.LastQualifyingActivityAt)
+	}
+	if !afterHeartbeat.IdleExpiresAt.Equal(before.IdleExpiresAt) {
+		t.Fatalf("heartbeat must not slide idle_expires_at: before=%s after=%s", before.IdleExpiresAt, afterHeartbeat.IdleExpiresAt)
+	}
+	if !afterHeartbeat.SessionExpiresAt.Equal(before.SessionExpiresAt) {
+		t.Fatalf("heartbeat must not slide session_expires_at: before=%s after=%s", before.SessionExpiresAt, afterHeartbeat.SessionExpiresAt)
+	}
+
+	harness.Server.Clock.Advance(26*time.Minute + time.Second)
+	incidentwstest.ExpectSessionRevoked(t, client, "session_expired")
+	afterExpiry := queryPhase6SessionTiming(t, harness, sessionID)
+	if afterExpiry.RevokeReasonCode != "session_expired" {
+		t.Fatalf("socket idle expiry revoke_reason_code = %q want session_expired", afterExpiry.RevokeReasonCode)
+	}
+}
+
 func setupPhase6SocketIncident(t testing.TB, runtime *phase3test.RuntimeHarness, prefix string) (*phase3test.ServerHarness, phase3test.LoginResult, string) {
 	t.Helper()
 
@@ -252,4 +295,37 @@ SELECT id::text
 		t.Fatalf("query active session id: %v", err)
 	}
 	return sessionID
+}
+
+type phase6SessionTiming struct {
+	LastQualifyingActivityAt time.Time
+	IdleExpiresAt            time.Time
+	SessionExpiresAt         time.Time
+	RevokeReasonCode         string
+}
+
+func queryPhase6SessionTiming(t testing.TB, harness *phase3test.ServerHarness, sessionID string) phase6SessionTiming {
+	t.Helper()
+
+	var timing phase6SessionTiming
+	var revokeReasonCode sql.NullString
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT last_qualifying_activity_at,
+       idle_expires_at,
+       session_expires_at,
+       revoke_reason_code
+  FROM user_sessions
+ WHERE id = $1::uuid
+`, sessionID).Scan(
+		&timing.LastQualifyingActivityAt,
+		&timing.IdleExpiresAt,
+		&timing.SessionExpiresAt,
+		&revokeReasonCode,
+	); err != nil {
+		t.Fatalf("query session timing: %v", err)
+	}
+	if revokeReasonCode.Valid {
+		timing.RevokeReasonCode = revokeReasonCode.String
+	}
+	return timing
 }

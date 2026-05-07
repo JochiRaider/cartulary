@@ -602,6 +602,14 @@ This phase completes the live multi-user path:
 | E-6-04 | Live updates never retarget a pending local edit away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch; same-field conflict markers, row-gutter presence markers, and same-cell editing hints where available remain attached to the intended cell. | REQ-01-015..REQ-01-017, REQ-03-086, REQ-03-090..REQ-03-098, REQ-03-223..REQ-03-235 | AC-008, AC-047, AC-132, AC-133         |
 | E-6-05 | Within one browser runtime, queued unsent writes survive transient disconnect or session revocation, replay in FIFO order after re-authentication, halt on the first blocking non-retryable failure, and are never silently restored after a full reload.                                                               | REQ-01-250..REQ-01-277, REQ-03-099..REQ-03-100                                     | AC-377..AC-382                         |
 
+### 8.6.6 Visual regression tests
+
+| ID          | Test                                                                                                                          | Exact REQs                                                                         | Exact ACs                      |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------ |
+| V-6-GRID-01 | Row-gutter presence markers and same-cell editing hints render deterministically on the Timeline grid from record and field identity. | REQ-03-090..REQ-03-098                                                             | AC-008, AC-132, AC-133         |
+| V-6-GRID-02 | Same-field conflict marker, same-surface resolver, and `Conflict` save-state strip render deterministically on the Timeline grid.     | REQ-03-033..REQ-03-082, REQ-03-099..REQ-03-100                                     | AC-037..AC-042, AC-376         |
+| V-6-GRID-03 | Pending-queue save-state presentations cover `Syncing`, blocked `Conflict`, and recovery to `Saved` through the visual harness.       | REQ-03-072, REQ-03-089, REQ-03-095, REQ-03-099..REQ-03-100                         | AC-376..AC-382                 |
+
 ---
 
 ## 9. Phase 7 — Reviewer-facing history, delete or restore, and rollback

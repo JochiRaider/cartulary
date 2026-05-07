@@ -14,6 +14,7 @@ import {
   collectionActionsPayload,
   collectionItems,
   createTimelineFillers,
+  ensureTimelineGridTargetVisible,
   expectTimelineContinuity,
   findRow,
   hostRefsFieldKey,
@@ -75,15 +76,17 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
-  const eligibleHostRefsInput = page.getByTestId(
-    `row-${eligibleRow.record_id}-hostRefs-input`,
+  const eligibleHostRefsInputTestId = `row-${eligibleRow.record_id}-hostRefs-input`;
+  const autoScroll = await ensureTimelineGridTargetVisible(
+    page,
+    eligibleHostRefsInputTestId,
   );
+  expect(autoScroll.top).toBeGreaterThan(0);
+  const eligibleHostRefsInput = page.getByTestId(eligibleHostRefsInputTestId);
   // Capture continuity baselines only after the specific row control exists;
   // the shell can render before this hydrated input is ready.
   await expect(eligibleHostRefsInput).toBeVisible();
 
-  const autoScroll = await scrollGridToBottom(page, "timeline");
-  expect(autoScroll.top).toBeGreaterThan(0);
   const eligibleResponsePromise = waitForTimelinePatch(
     page,
     eligibleRow.record_id,

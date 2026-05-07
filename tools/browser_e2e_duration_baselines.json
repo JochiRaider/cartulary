@@ -136,7 +136,7 @@
     },
     "E-6-04": {
       "file": "apps/web/e2e/phase6.collaboration.spec.ts",
-      "title": "E-6-04 keeps live updates and conflict markers anchored to record_id and field_key",
+      "title": "E-6-04 keeps live updates conflict markers and presence markers anchored to record_id and field_key",
       "weight_ms": 2594
     },
     "E-6-05": {

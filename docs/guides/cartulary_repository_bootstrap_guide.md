@@ -33,7 +33,7 @@ Start in an empty folder and create the control files first. For Cartulary, the 
 ```text
 Repository remote: https://github.com/JochiRaider/cartulary.git
 Go module path: github.com/JochiRaider/cartulary
-Supported toolchains: Go 1.26 with toolchain go1.26.2; Node 24.15.0; pnpm 10.33.0; Staticcheck v0.7.0; Gosec v2.26.1
+Supported toolchains: Go 1.26 with toolchain go1.26.3; Node 24.15.0; pnpm 10.33.0; Staticcheck v0.7.0; Gosec v2.26.1
 ```
 
 Create these root files immediately:

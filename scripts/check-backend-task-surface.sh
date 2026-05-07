@@ -552,12 +552,12 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
 }
 const limits = schedule.resource_limits ?? {};
 if (
-  limits.host_cpu !== 12 ||
-  limits.host_io !== 12 ||
+  limits.host_cpu !== "auto" ||
+  limits.host_io !== "auto" ||
   limits.suite_service_stack !== 1 ||
   limits.migration_scratch_postgres !== 1
 ) {
-  throw new Error("check schedule must declare host_cpu, host_io, suite_service_stack, and migration_scratch_postgres limits");
+  throw new Error("check schedule must declare auto host_cpu, auto host_io, suite_service_stack, and migration_scratch_postgres limits");
 }
 const lintShell = (schedule.work_units ?? []).find((entry) => entry.target === "lint-shell");
 if (lintShell?.env?.LINT_SHELL_STRICT !== "1") {

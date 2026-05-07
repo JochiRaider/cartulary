@@ -1,17 +1,25 @@
 import { Buffer } from "node:buffer";
 import { changeGrouping } from "@cartulary/test-utils";
 import {
+  cellPresenceMarkerTestId,
+  conflictMarkerTestId,
   gridGroupRowTestId,
   gridShellTestId,
+  pendingQueueNoticeTestId,
   rowCellTestId,
   rowInspectButtonTestId,
+  rowPresenceMarkerTestId,
+  saveStateTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   createIncident,
+  createIncidentMemberUser,
   createViewRow,
   holdBrowserApiRequest,
+  openIncidentAsTrackedUser,
+  uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
@@ -528,6 +536,256 @@ test.describe("Phase 5 workbook visual evidence", () => {
       testInfo,
       "v-5-grid-02-timeline-evidence-badge",
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    );
+  });
+});
+
+test.describe("Phase 6 workbook visual evidence", () => {
+  test("V-6-GRID-01 captures Phase 6 row-gutter and same-cell presence markers", async ({
+    browser,
+    page,
+    sessionTracker,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V6GRID01"),
+      "Phase 6 visual presence markers",
+    );
+    const remote = await createIncidentMemberUser(page, incidentId, {
+      display_name: "Visual Analyst",
+      email: uniqueEmail("phase6-v6grid01-remote"),
+      initial_password: "Phase6V6Grid01!",
+      role: "editor",
+    });
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V6GRID01-ROW"),
+        "timeline.summary": "Presence visual row",
+      },
+    )) as ViewRow;
+
+    let remotePage: Page | null = null;
+    try {
+      await page.goto(`/?incident_id=${incidentId}`);
+      await maskIncidentIdentity(page, incidentId);
+      await expect(
+        page.getByTestId(`row-${timelineRow.record_id}-summary`),
+      ).toHaveValue("Presence visual row");
+
+      remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+        createdBy: "V-6-GRID-01",
+        email: remote.email,
+        incidentId,
+        password: remote.initial_password,
+        purpose: "Phase 6 visual presence analyst",
+        userId: remote.user_id,
+      });
+      await remotePage
+        .getByTestId(`row-${timelineRow.record_id}-summary`)
+        .focus();
+      await expect(
+        page.getByTestId(rowPresenceMarkerTestId(timelineRow.record_id)),
+      ).toContainText("VA");
+      await expect(
+        page.getByTestId(
+          cellPresenceMarkerTestId(timelineRow.record_id, "timeline.summary"),
+        ),
+      ).toContainText("VA");
+
+      await captureScreenshot(
+        page,
+        testInfo,
+        "v-6-grid-01-presence-markers",
+        page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+      );
+    } finally {
+      await remotePage?.context().close();
+    }
+  });
+
+  test("V-6-GRID-02 captures Phase 6 same-field conflict marker resolver and Conflict strip", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V6GRID02"),
+      "Phase 6 visual conflict resolver",
+    );
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V6GRID02-ROW"),
+        "timeline.summary": "Conflict visual base",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+    const conflictHandler = async (route: Route) => {
+      if (route.request().method().toUpperCase() !== "PATCH") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            status: 409,
+            code: "same_field_conflict",
+            message: "same-field conflict",
+            request_id: "visual-phase6-conflict",
+            retryable: false,
+            details: {},
+            conflict: {
+              conflict_token: "visual-phase6-conflict-token",
+              record_id: timelineRow.record_id,
+              field_key: "timeline.summary",
+              base_row_version: timelineRow.row_version,
+              current_row_version: timelineRow.row_version + 1,
+              conflict_resolution_class: "text_compare_merge",
+              base_value: "Conflict visual base",
+              server_value: "Conflict visual server",
+              client_value: "Conflict visual local",
+            },
+          },
+        }),
+      });
+    };
+
+    const patchUrl = `**/api/v1/records/${timelineRow.record_id}`;
+    await page.route(patchUrl, conflictHandler);
+    try {
+      const summaryInput = page.getByTestId(
+        `row-${timelineRow.record_id}-summary`,
+      );
+      await summaryInput.fill("Conflict visual local");
+      await summaryInput.press("Enter");
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+      await expect(
+        page.getByTestId(
+          conflictMarkerTestId(timelineRow.record_id, "timeline.summary"),
+        ),
+      ).toBeVisible();
+      await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+
+      await captureScreenshot(
+        page,
+        testInfo,
+        "v-6-grid-02-conflict-resolver",
+        page.getByRole("main"),
+      );
+    } finally {
+      await page.unroute(patchUrl, conflictHandler);
+    }
+  });
+
+  test("V-6-GRID-03 captures Phase 6 pending-queue save-state transitions", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("V6GRID03"),
+      "Phase 6 visual pending queue",
+    );
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V6GRID03-ROW"),
+        "timeline.summary": "Pending visual base",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+    const summaryInput = page.getByTestId(
+      `row-${timelineRow.record_id}-summary`,
+    );
+    const saveState = page.getByTestId(saveStateTestId());
+    const saveStateStrip = saveState.locator("..");
+    const hold = await holdBrowserApiRequest(page, {
+      method: "PATCH",
+      path: `/api/v1/records/${timelineRow.record_id}`,
+    });
+
+    try {
+      await summaryInput.fill("Pending visual syncing");
+      await summaryInput.press("Enter");
+      await hold.waitForHit;
+      await expect(saveState).toHaveText("Syncing");
+      await captureScreenshot(
+        page,
+        testInfo,
+        "v-6-grid-03-syncing-strip",
+        saveStateStrip,
+      );
+      await hold.release();
+      await expect(saveState).toHaveText("Saved");
+      await captureScreenshot(
+        page,
+        testInfo,
+        "v-6-grid-03-saved-strip",
+        saveStateStrip,
+      );
+    } finally {
+      await hold.dispose();
+    }
+
+    const blockingHandler = async (route: Route) => {
+      if (route.request().method().toUpperCase() !== "PATCH") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            status: 400,
+            code: "invalid_mutation_payload",
+            message: "invalid mutation payload",
+            request_id: "visual-phase6-pending-blocked",
+            retryable: false,
+            details: {},
+          },
+        }),
+      });
+    };
+    const patchUrl = `**/api/v1/records/${timelineRow.record_id}`;
+    await page.route(patchUrl, blockingHandler);
+    try {
+      await summaryInput.fill("Pending visual blocked");
+      await summaryInput.press("Enter");
+      await expect(saveState).toHaveText("Conflict");
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+      await captureScreenshot(
+        page,
+        testInfo,
+        "v-6-grid-03-blocked-conflict",
+        page.getByRole("main"),
+      );
+    } finally {
+      await page.unroute(patchUrl, blockingHandler);
+    }
+
+    await page.reload();
+    await expect(saveState).toHaveText("Saved");
+    await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+    await captureScreenshot(
+      page,
+      testInfo,
+      "v-6-grid-03-recovered-saved-strip",
+      saveStateStrip,
     );
   });
 });

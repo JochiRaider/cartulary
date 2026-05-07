@@ -4,7 +4,7 @@ import path from "node:path";
 const expected = {
   modulePath: "github.com/JochiRaider/cartulary",
   goVersion: "1.26",
-  goToolchain: "go1.26.2",
+  goToolchain: "go1.26.3",
   nodeVersion: "24.15.0",
   pnpmVersion: "10.33.0",
   sqlcTool: "github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0",

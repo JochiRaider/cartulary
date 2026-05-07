@@ -20,6 +20,36 @@ export function gridDraftRowSelector(): string {
   return '[role="row"][data-grid-record-id=""]';
 }
 
+export function conflictMarkerTestId(
+  recordId: string,
+  fieldKey: string,
+): string {
+  return `conflict-marker-${sanitizeToken(`${recordId}:${fieldKey}`)}`;
+}
+
+export function rowPresenceMarkerTestId(recordId: string): string {
+  return `presence-row-${sanitizeToken(recordId)}`;
+}
+
+export function cellPresenceMarkerTestId(
+  recordId: string,
+  fieldKey: string,
+): string {
+  return `presence-cell-${sanitizeToken(`${recordId}:${fieldKey}`)}`;
+}
+
+export function saveStateTestId(): string {
+  return "save-state";
+}
+
+export function pendingQueueNoticeTestId(): string {
+  return "pending-queue-notice";
+}
+
+export function pendingQueueCountTestId(): string {
+  return "pending-queue-count";
+}
+
 export function gridSortHeaderTestId(
   surface: WorkbookSurface,
   fieldKey: string,

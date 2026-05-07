@@ -18,8 +18,12 @@ export function pasteMatrixText(
 
 type BrowserLocator = {
   click: () => Promise<void>;
-  evaluate?: (pageFunction: (element: Element) => unknown) => Promise<unknown>;
+  evaluate?: (
+    pageFunction: (element: Element, arg?: unknown) => unknown,
+    arg?: unknown,
+  ) => Promise<unknown>;
   fill: (value: string) => Promise<void>;
+  isVisible?: () => Promise<boolean>;
   press?: (value: string) => Promise<void>;
   scrollIntoViewIfNeeded?: () => Promise<void>;
   selectOption?: (value: string | readonly string[]) => Promise<unknown>;
@@ -96,13 +100,7 @@ export async function readGridScroll(
     grid,
     `readGridScroll(${surface}) requires locator.evaluate() support`,
   );
-  return evaluate((element) => {
-    const gridShell = element as HTMLDivElement;
-    return {
-      left: gridShell.scrollLeft,
-      top: gridShell.scrollTop,
-    };
-  }) as Promise<{ left: number; top: number }>;
+  return readScrollSnapshot(evaluate);
 }
 
 export async function scrollGridToBottom(
@@ -114,14 +112,128 @@ export async function scrollGridToBottom(
     grid,
     `scrollGridToBottom(${surface}) requires locator.evaluate() support`,
   );
-  return evaluate((element) => {
-    const gridShell = element as HTMLDivElement;
-    gridShell.scrollTop = gridShell.scrollHeight;
-    return {
-      left: gridShell.scrollLeft,
-      top: gridShell.scrollTop,
-    };
-  }) as Promise<{ left: number; top: number }>;
+  return readScrollSnapshot(evaluate, { kind: "bottom" });
+}
+
+export async function scrollGridToOffset(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  top: number,
+) {
+  const grid = page.getByTestId(gridShellTestId(surface));
+  const evaluate = requireEvaluate(
+    grid,
+    `scrollGridToOffset(${surface}) requires locator.evaluate() support`,
+  );
+  return readScrollSnapshot(evaluate, { kind: "offset", top });
+}
+
+export async function scrollGridTargetIntoView(options: {
+  intervalMs?: number;
+  page: BrowserPageLike;
+  surface: WorkbookSurface;
+  targetTestId: string;
+  timeoutMs?: number;
+}) {
+  const {
+    intervalMs = 50,
+    page,
+    surface,
+    targetTestId,
+    timeoutMs = 3_000,
+  } = options;
+  const target = page.getByTestId(targetTestId);
+  if (await isLocatorVisible(target)) {
+    return readGridScroll(page, surface);
+  }
+
+  const retryIntervalMs = Math.max(intervalMs, 0);
+  const deadline = Date.now() + Math.max(timeoutMs, 0);
+  const initialState = await readGridScrollDiagnostics(page, surface);
+  const scanOffsets = buildGridScanOffsets(initialState);
+
+  for (const top of scanOffsets) {
+    await scrollGridToOffset(page, surface, top);
+    if (await isLocatorVisible(target)) {
+      await target.scrollIntoViewIfNeeded?.();
+      return readGridScroll(page, surface);
+    }
+    if (retryIntervalMs > 0) {
+      await delay(retryIntervalMs);
+      if (await isLocatorVisible(target)) {
+        await target.scrollIntoViewIfNeeded?.();
+        return readGridScroll(page, surface);
+      }
+    }
+    if (Date.now() > deadline) {
+      break;
+    }
+  }
+
+  const finalState = await readGridScrollDiagnostics(page, surface);
+  throw new Error(
+    [
+      `Expected ${targetTestId} to become visible in the ${surface} grid viewport after scanning virtualized rows.`,
+      `scrollTop=${finalState.top}`,
+      `scrollLeft=${finalState.left}`,
+      `clientHeight=${finalState.clientHeight}`,
+      `scrollHeight=${finalState.scrollHeight}`,
+      `maxTop=${finalState.maxTop}`,
+      `mountedRowIds=${finalState.mountedRowIds.join(",") || "(none)"}`,
+    ].join(" "),
+  );
+}
+
+export async function assertMountedGridRowCountAtMost(options: {
+  maxRows: number;
+  page: BrowserPageLike;
+  surface: WorkbookSurface;
+}) {
+  const { maxRows, page, surface } = options;
+  const grid = page.getByTestId(gridShellTestId(surface));
+  const evaluate = requireEvaluate(
+    grid,
+    `assertMountedGridRowCountAtMost(${surface}) requires locator.evaluate() support`,
+  );
+  const mountedRows = (await evaluate((element) => {
+    return element.querySelectorAll(
+      '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
+    ).length;
+  })) as number;
+  if (mountedRows > maxRows) {
+    throw new Error(
+      `Expected ${surface} to mount at most ${maxRows} saved rows, received ${mountedRows}`,
+    );
+  }
+}
+
+export async function assertMarkerAnchoredToGridTarget(options: {
+  markerTestId: string;
+  page: BrowserPageLike;
+  surface: WorkbookSurface;
+  targetTestId: string;
+}) {
+  const { markerTestId, page, surface, targetTestId } = options;
+  const markerVisible = await isTestIdVisibleWithinGridViewport(
+    page,
+    surface,
+    markerTestId,
+  );
+  if (!markerVisible) {
+    throw new Error(
+      `Expected marker ${markerTestId} to be visible in the ${surface} grid viewport`,
+    );
+  }
+  const targetVisible = await isTestIdVisibleWithinGridViewport(
+    page,
+    surface,
+    targetTestId,
+  );
+  if (!targetVisible) {
+    throw new Error(
+      `Expected target ${targetTestId} to be visible in the ${surface} grid viewport`,
+    );
+  }
 }
 
 export async function isTestIdVisibleWithinGridViewport(
@@ -154,7 +266,19 @@ async function readTestIdGridViewportState(
     `isTestIdVisibleWithinGridViewport(${surface}, ${testId}) requires locator.evaluate() support`,
   );
   const containerRect = (await evaluateGrid((element) => {
-    const rect = element.getBoundingClientRect();
+    const isScrollableElement = (candidate: Element) =>
+      candidate instanceof HTMLElement &&
+      (candidate.scrollHeight > candidate.clientHeight + 1 ||
+        candidate.scrollWidth > candidate.clientWidth + 1);
+    const isVerticallyScrollableElement = (candidate: Element) =>
+      candidate instanceof HTMLElement &&
+      candidate.scrollHeight > candidate.clientHeight + 1;
+    const gridShell = isVerticallyScrollableElement(element)
+      ? element
+      : (Array.from(element.querySelectorAll<HTMLElement>("*")).find(
+          isScrollableElement,
+        ) ?? (element as HTMLElement));
+    const rect = gridShell.getBoundingClientRect();
     return {
       bottom: rect.bottom,
       height: rect.height,
@@ -334,14 +458,150 @@ function waitForGridContinuityRetry(intervalMs: number) {
   return delay(intervalMs);
 }
 
+type BrowserEvaluate = NonNullable<BrowserLocator["evaluate"]>;
+
+type GridScrollAction =
+  | { kind: "bottom" }
+  | { kind: "none" }
+  | { kind: "offset"; top: number };
+
+type GridScrollDiagnostics = {
+  readonly clientHeight: number;
+  readonly clientWidth: number;
+  readonly left: number;
+  readonly maxTop: number;
+  readonly mountedRowIds: readonly string[];
+  readonly scrollHeight: number;
+  readonly scrollWidth: number;
+  readonly top: number;
+};
+
+async function readScrollSnapshot(
+  evaluate: BrowserEvaluate,
+  action: GridScrollAction = { kind: "none" },
+) {
+  const state = (await evaluate(
+    readGridScrollState,
+    action,
+  )) as GridScrollDiagnostics;
+  return {
+    left: state.left,
+    top: state.top,
+  };
+}
+
+async function readGridScrollDiagnostics(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+) {
+  const grid = page.getByTestId(gridShellTestId(surface));
+  const evaluate = requireEvaluate(
+    grid,
+    `readGridScrollDiagnostics(${surface}) requires locator.evaluate() support`,
+  );
+  return (await evaluate(readGridScrollState, {
+    kind: "none",
+  })) as GridScrollDiagnostics;
+}
+
+function readGridScrollState(
+  element: Element,
+  rawAction?: unknown,
+): GridScrollDiagnostics {
+  const isScrollableElement = (candidate: Element) =>
+    candidate instanceof HTMLElement &&
+    (candidate.scrollHeight > candidate.clientHeight + 1 ||
+      candidate.scrollWidth > candidate.clientWidth + 1);
+  const isVerticallyScrollableElement = (candidate: Element) =>
+    candidate instanceof HTMLElement &&
+    candidate.scrollHeight > candidate.clientHeight + 1;
+  const gridShell = isVerticallyScrollableElement(element)
+    ? element
+    : (Array.from(element.querySelectorAll<HTMLElement>("*")).find(
+        isScrollableElement,
+      ) ?? (element as HTMLElement));
+
+  const action =
+    typeof rawAction === "object" && rawAction !== null
+      ? (rawAction as { kind?: unknown; top?: unknown })
+      : { kind: "none" };
+  if (action.kind === "bottom") {
+    gridShell.scrollTop = gridShell.scrollHeight;
+  }
+  if (action.kind === "offset") {
+    const nextTop =
+      typeof action.top === "number" && Number.isFinite(action.top)
+        ? action.top
+        : 0;
+    gridShell.scrollTop = nextTop;
+  }
+
+  const scrollHeight = gridShell.scrollHeight;
+  const clientHeight = gridShell.clientHeight;
+  return {
+    clientHeight,
+    clientWidth: gridShell.clientWidth,
+    left: gridShell.scrollLeft,
+    maxTop: Math.max(0, scrollHeight - clientHeight),
+    mountedRowIds: Array.from(
+      element.querySelectorAll<HTMLElement>(
+        '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
+      ),
+    ).map((row) => row.getAttribute("data-grid-record-id") ?? ""),
+    scrollHeight,
+    scrollWidth: gridShell.scrollWidth,
+    top: gridShell.scrollTop,
+  };
+}
+
+function buildGridScanOffsets(state: GridScrollDiagnostics) {
+  const maxTop = Math.max(0, state.maxTop);
+  if (maxTop === 0) {
+    return [0];
+  }
+  const step = Math.max(1, Math.floor(Math.max(state.clientHeight, 1) / 2));
+  const offsets = [0];
+  for (let top = step; top < maxTop; top += step) {
+    offsets.push(top);
+  }
+  offsets.push(maxTop);
+  return Array.from(new Set(offsets));
+}
+
+async function isLocatorVisible(locator: BrowserLocator) {
+  if (typeof locator.isVisible === "function") {
+    return locator.isVisible();
+  }
+  try {
+    const evaluate = requireEvaluate(
+      locator,
+      "isLocatorVisible requires locator.evaluate() support",
+    );
+    return Boolean(
+      await evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return (
+          element.isConnected &&
+          rect.width > 0 &&
+          rect.height > 0 &&
+          getComputedStyle(element).visibility !== "hidden"
+        );
+      }),
+    );
+  } catch {
+    return false;
+  }
+}
+
 const viewportVisibilityTolerancePx = 1;
 
 function requireEvaluate(
   locator: BrowserLocator,
   message: string,
-): (pageFunction: (element: Element) => unknown) => Promise<unknown> {
+): BrowserEvaluate {
   if (typeof locator.evaluate !== "function") {
     throw new Error(message);
   }
-  return (pageFunction) => locator.evaluate?.(pageFunction) as Promise<unknown>;
+  return (pageFunction, arg) =>
+    locator.evaluate?.(pageFunction, arg) as Promise<unknown>;
 }

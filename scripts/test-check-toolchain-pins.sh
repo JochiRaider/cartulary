@@ -173,7 +173,7 @@ mutate_package_manager() {
 }
 
 mutate_go_toolchain() {
-  replace_text "$1/go.mod" 'toolchain go1.26.2' 'toolchain go1.26.3'
+  replace_text "$1/go.mod" 'toolchain go1.26.3' 'toolchain go1.26.4'
 }
 
 mutate_go_testcontainers() {
@@ -244,7 +244,7 @@ expect_drift "package-manager" \
   mutate_package_manager
 
 expect_drift "go-toolchain" \
-  "go.mod: toolchain mismatch: expected go1.26.2, got go1.26.3" \
+  "go.mod: toolchain mismatch: expected go1.26.3, got go1.26.4" \
   mutate_go_toolchain
 
 expect_drift "go-testcontainers" \

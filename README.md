@@ -14,7 +14,7 @@ This is still bootstrap infrastructure, not product behavior. Domain routes, wor
 
 Pinned repo-control toolchain and Go tool versions for the current bootstrap baseline are:
 
-- Go `1.26` with toolchain `go1.26.2`
+- Go `1.26` with toolchain `go1.26.3`
 - Node.js `24.15.0`
 - pnpm `10.33.0`
 - Staticcheck `v0.7.0`

@@ -82,16 +82,19 @@ function configuredLayoutSize(element: HTMLElement, axis: "height" | "width") {
     if (minWidth !== null) {
       return minWidth;
     }
-    if (element.getAttribute("role") === "grid") {
-      return 1;
-    }
     const gridWidth = sumGridTemplatePixels(inlineStyle.gridTemplateColumns);
     if (gridWidth !== null) {
       return gridWidth;
     }
+    if (element.getAttribute("role") === "grid") {
+      return 1280;
+    }
     return 224;
   }
 
+  if (element.getAttribute("role") === "grid") {
+    return 720;
+  }
   return element.getAttribute("role") === "row" ? 48 : 40;
 }
 

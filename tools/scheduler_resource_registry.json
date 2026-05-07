@@ -7,7 +7,7 @@
       "schedulers": ["check"],
       "display_order": 10,
       "capacity": {
-        "default_limit": 12,
+        "auto_policy": "check_host_cpu",
         "override_env": "CHECK_HOST_CPU_JOBS"
       }
     },
@@ -17,7 +17,7 @@
       "schedulers": ["check"],
       "display_order": 20,
       "capacity": {
-        "default_limit": 12,
+        "auto_policy": "check_host_io",
         "override_env": "CHECK_HOST_IO_JOBS"
       }
     },

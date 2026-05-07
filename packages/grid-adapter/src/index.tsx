@@ -201,7 +201,7 @@ export function GridTable<Row>({
   return (
     <DataGrid<AdapterGridRow<Row>, unknown>
       columns={rdgColumns}
-      enableVirtualization={false}
+      enableVirtualization
       renderers={renderers}
       rowHeight={gridRowHeight}
       rowKeyGetter={gridRowKeyGetter}
@@ -440,16 +440,17 @@ function headerContentStyle(
 }
 
 const viewportStyle = {
-  overflow: "auto",
+  overflow: "hidden",
   overflowAnchor: "none" as const,
   borderRadius: "1rem",
   border: "1px solid rgb(199 214 207)",
   background: "rgb(255 255 255 / 0.82)",
-  maxHeight: "70vh",
+  blockSize: "min(70vh, 46rem)",
+  minBlockSize: "18rem",
 };
 
 const gridStyle = {
-  blockSize: "auto",
+  blockSize: "100%",
   minWidth: "78rem",
   width: "max-content",
   "--rdg-background-color": "rgb(255 255 255 / 0.82)",

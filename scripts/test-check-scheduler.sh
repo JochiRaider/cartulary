@@ -721,6 +721,8 @@ import os from "node:os";
 import path from "node:path";
 import {
   browserStageResource,
+  estimateCheckHostCPULimit,
+  estimateCheckHostIOLimit,
   isAutoLimitResource,
   loadSchedulerResourceRegistry,
   normalizeResourceClaims,
@@ -778,17 +780,25 @@ if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_
 if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLimitResource("browser_stack")) {
   fail("service-backed auto-limit resources are incomplete");
 }
-if (isAutoLimitResource("host_cpu")) {
-  fail("host_cpu must not be an auto-limit resource");
+if (!isAutoLimitResource("host_cpu") || !isAutoLimitResource("host_io")) {
+  fail("check host resources must be auto-limit resources");
 }
-const checkProfile = resourceLimitsForCapacityProfile("check_default", "registry test", { scheduler: "check" });
+const checkProfile = resourceLimitsForCapacityProfile("check_default", "registry test", {
+  scheduler: "check",
+  allowAuto: true,
+});
 if (
-  checkProfile.limits.get("host_cpu") !== 12 ||
-  checkProfile.limits.get("host_io") !== 12 ||
+  checkProfile.limits.get("host_cpu") !== "auto" ||
+  checkProfile.limits.get("host_io") !== "auto" ||
   checkProfile.limits.get("suite_service_stack") !== 1 ||
   checkProfile.limits.get("migration_scratch_postgres") !== 1
 ) {
   fail("check_default capacity profile changed");
+}
+const expectedCheckCPU = estimateCheckHostCPULimit();
+const expectedCheckIO = estimateCheckHostIOLimit(new Map([["host_cpu", expectedCheckCPU]]));
+if (expectedCheckCPU < 1 || expectedCheckCPU > 4 || expectedCheckIO !== expectedCheckCPU) {
+  fail("check host auto-limit estimates changed");
 }
 if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
   fail(`check_default source got ${checkProfile.sources.get("host_cpu")}`);
@@ -801,11 +811,12 @@ if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get(
   fail("service_backed_full auto limits changed");
 }
 const envResolved = normalizeResourceLimits(
-  { host_cpu: 12, host_io: 12, suite_service_stack: 1, migration_scratch_postgres: 1 },
+  { host_cpu: "auto", host_io: "auto", suite_service_stack: 1, migration_scratch_postgres: 1 },
   "registry env test",
   {
     scheduler: "check",
     capacityProfile: "check_default",
+    allowAuto: true,
     env: { CHECK_HOST_CPU_JOBS: "5" },
   },
 );
@@ -813,11 +824,12 @@ if (envResolved.limits.get("host_cpu") !== 5 || envResolved.sources.get("host_cp
   fail("check host_cpu env override did not resolve from the registry");
 }
 const cliResolved = normalizeResourceLimits(
-  { host_cpu: 12, host_io: 12, suite_service_stack: 1, migration_scratch_postgres: 1 },
+  { host_cpu: "auto", host_io: "auto", suite_service_stack: 1, migration_scratch_postgres: 1 },
   "registry cli test",
   {
     scheduler: "check",
     capacityProfile: "check_default",
+    allowAuto: true,
     env: { CHECK_HOST_CPU_JOBS: "5" },
     overrides: new Map([["host_cpu", 4]]),
   },
@@ -1214,6 +1226,21 @@ success_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-success.XXXXXX")"
 cleanup_paths+=("$success_dir")
 write_fake_make "$success_dir"
 success_manifest="${success_dir}/manifest.json"
+check_auto_capacity="$(
+  cd "$ROOT_DIR" &&
+    "$NODE_BIN" --input-type=module - <<'EOF'
+import {
+  estimateCheckHostCPULimit,
+  estimateCheckHostIOLimit,
+} from "./scripts/lib/scheduler-resources.mjs";
+
+const hostCPU = estimateCheckHostCPULimit();
+const hostIO = estimateCheckHostIOLimit(new Map([["host_cpu", hostCPU]]));
+process.stdout.write(`${hostCPU},${hostIO}`);
+EOF
+)"
+check_auto_cpu="${check_auto_capacity%,*}"
+check_auto_io="${check_auto_capacity#*,}"
 cat >"$success_manifest" <<'JSON'
 {
   "schema_id": "cartulary.check_schedule.v10",
@@ -1221,7 +1248,7 @@ cat >"$success_manifest" <<'JSON'
     {
       "target": "check",
       "capacity_profile": "check_default",
-      "resource_limits": { "host_cpu": 12, "host_io": 12, "suite_service_stack": 1, "migration_scratch_postgres": 1 },
+      "resource_limits": { "host_cpu": "auto", "host_io": "auto", "suite_service_stack": 1, "migration_scratch_postgres": 1 },
       "summary_groups": [
         { "name": "check-work", "summary_targets": ["local", "service", "meta"] }
       ],
@@ -1248,15 +1275,15 @@ cat >"$success_manifest" <<'JSON'
 }
 JSON
 default_capacity_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 FAKE_SLEEP_SERVICE=0.01 run_scheduler "$success_dir" "$success_manifest" default-capacity 2>&1)"
-assert_contains "$default_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:12,host_io:12,suite_service_stack:1,migration_scratch_postgres:1}" "default capacity comes from registry"
+assert_contains "$default_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:${check_auto_cpu},host_io:${check_auto_io},suite_service_stack:1,migration_scratch_postgres:1}" "default capacity comes from registry"
 "$NODE_BIN" - "${success_dir}/results/default-capacity/check/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
-if (summary.resource_limit_sources?.host_cpu !== "registry:check_default") {
+if (summary.resource_limit_sources?.host_cpu !== "auto:check_host_cpu") {
   throw new Error(`default host_cpu source got ${summary.resource_limit_sources?.host_cpu}`);
 }
-if (summary.resource_limit_sources?.host_io !== "registry:check_default") {
+if (summary.resource_limit_sources?.host_io !== "auto:check_host_io") {
   throw new Error(`default host_io source got ${summary.resource_limit_sources?.host_io}`);
 }
 EOF
