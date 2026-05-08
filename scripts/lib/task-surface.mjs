@@ -1470,8 +1470,9 @@ function renderPhaseCommandRecipe(recipe, entry = null) {
   if (recipe.mode === "command") {
     if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v1") {
       const childPrefix = env.length > 0 ? `env ${env.join(" ")} ` : "";
+      const testTarget = `CARTULARY_TEST_TARGET="$\${CARTULARY_TEST_TARGET:-${recipe.target}}"`;
       return [
-        `\t$(Q)CARTULARY_TEST_TARGET=${recipe.target} $(RUN_PHASE_SCRIPT) "${recipe.target}" -- ${childPrefix}${recipe.command.join(" ")}${argsSuffix}`,
+        `\t$(Q)${testTarget} $(RUN_PHASE_SCRIPT) "${recipe.target}" -- ${childPrefix}${recipe.command.join(" ")}${argsSuffix}`,
       ];
     }
     return [`\t$(Q)${envPrefix}${recipe.command.join(" ")}${argsSuffix}`];

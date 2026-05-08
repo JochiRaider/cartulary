@@ -693,6 +693,65 @@ explain_helper_logs="$(
 assert_contains "$explain_helper_logs" "helper stdout" "explain-run helper stdout log"
 assert_contains "$explain_helper_logs" "helper stderr" "explain-run helper stderr log"
 
+nested_artifacts_results="$(mktemp -d "$ROOT_DIR/tmp/nested-phase-artifacts.XXXXXX")"
+cleanup_paths+=("$nested_artifacts_results")
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$nested_artifacts_results" \
+CARTULARY_TEST_RUN_ID="nested-artifacts" \
+CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+  "$HELPER" "frontend-toolchain" -- bash -lc ':' >/dev/null &
+nested_pid_a=$!
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$nested_artifacts_results" \
+CARTULARY_TEST_RUN_ID="nested-artifacts" \
+CARTULARY_TEST_TARGET="browser-e2e-visual" \
+  "$HELPER" "frontend-toolchain" -- bash -lc ':' >/dev/null &
+nested_pid_b=$!
+if ! wait "$nested_pid_a"; then
+  fail "nested phase artifact owner a failed"
+fi
+if ! wait "$nested_pid_b"; then
+  fail "nested phase artifact owner b failed"
+fi
+[[ -f "$nested_artifacts_results/nested-artifacts/browser-e2e-webserver-backed/frontend-toolchain/phase-summary.json" ]] || fail "nested phase artifacts missing webserver-backed owner"
+[[ -f "$nested_artifacts_results/nested-artifacts/browser-e2e-visual/frontend-toolchain/phase-summary.json" ]] || fail "nested phase artifacts missing visual owner"
+[[ ! -d "$nested_artifacts_results/nested-artifacts/frontend-toolchain" ]] || fail "nested phase artifacts must not use child target as owner"
+
+empty_log_race_results="$(mktemp -d "$ROOT_DIR/tmp/empty-log-race.XXXXXX")"
+cleanup_paths+=("$empty_log_race_results")
+shared_stdout="$empty_log_race_results/stdout.log"
+shared_stderr="$empty_log_race_results/stderr.log"
+: >"$shared_stdout"
+: >"$shared_stderr"
+empty_log_race_pids=()
+for phase_owner in phase-a phase-b; do
+  phase_dir="$empty_log_race_results/${phase_owner}"
+  mkdir -p "$phase_dir"
+  CARTULARY_TEST_TARGET="$phase_owner" \
+  CARTULARY_PHASE_LABEL="empty log race ${phase_owner}" \
+  CARTULARY_PHASE_DIR="$phase_dir" \
+  CARTULARY_PHASE_COMMAND=":" \
+  CARTULARY_PHASE_COMMAND_ARGV='[":"]' \
+  CARTULARY_PHASE_START_TIME="2026-01-01T00:00:00.000Z" \
+  CARTULARY_PHASE_END_TIME="2026-01-01T00:00:00.001Z" \
+  CARTULARY_PHASE_DURATION_MS="1" \
+  CARTULARY_PHASE_WALL_DURATION_MS="1" \
+  CARTULARY_PHASE_EXIT_STATUS="0" \
+  CARTULARY_PHASE_STDOUT_LOG="$shared_stdout" \
+  CARTULARY_PHASE_STDERR_LOG="$shared_stderr" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" shell-phase >/dev/null &
+  empty_log_race_pids+=("$!")
+done
+for pid in "${empty_log_race_pids[@]}"; do
+  if ! wait "$pid"; then
+    fail "empty log race helper failed"
+  fi
+done
+[[ -f "$empty_log_race_results/phase-a/phase-summary.json" ]] || fail "empty log race missing phase-a summary"
+[[ -f "$empty_log_race_results/phase-b/phase-summary.json" ]] || fail "empty log race missing phase-b summary"
+assert_json_field_absent "$empty_log_race_results/phase-a/phase-summary.json" "artifacts.stdout_log" "empty log race phase-a stdout artifact"
+assert_json_field_absent "$empty_log_race_results/phase-b/phase-summary.json" "artifacts.stdout_log" "empty log race phase-b stdout artifact"
+
 fixture_results="$(mktemp -d "$ROOT_DIR/tmp/fixture-reporting.XXXXXX")"
 cleanup_paths+=("$fixture_results")
 write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "01" "postgres-db-reset" "fixture-target" 20000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowB"

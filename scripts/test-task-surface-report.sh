@@ -153,6 +153,16 @@ assert.equal(
 );
 const renderedMake = renderTaskSurfaceMake(manifest);
 assert.match(
+  renderedMake,
+  /CARTULARY_TEST_TARGET="\$\$\{CARTULARY_TEST_TARGET:-frontend-toolchain\}" \$\(RUN_PHASE_SCRIPT\) "frontend-toolchain"/,
+  "phase command summaries must preserve an inherited test target and default only when unset",
+);
+assert.doesNotMatch(
+  renderedMake,
+  /CARTULARY_TEST_TARGET=frontend-toolchain \$\(RUN_PHASE_SCRIPT\) "frontend-toolchain"/,
+  "phase command summaries must not force nested artifacts into the child target",
+);
+assert.match(
   helpAllLines(manifest).join("\n"),
   /phase -> target -> scheduler work unit -> artifact/,
   "help-all must explain the task evidence concept hierarchy",

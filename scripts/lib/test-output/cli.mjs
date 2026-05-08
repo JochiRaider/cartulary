@@ -600,10 +600,19 @@ function splitLogLines(file) {
 }
 
 function removeEmptyArtifact(file) {
-  if (!file || !existsSync(file)) {
+  if (!file) {
     return;
   }
-  if (statSync(file).size === 0) {
+  let stat;
+  try {
+    stat = statSync(file);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return;
+    }
+    throw error;
+  }
+  if (stat.size === 0) {
     rmSync(file, { force: true });
   }
 }

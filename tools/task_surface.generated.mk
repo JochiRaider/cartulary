@@ -154,11 +154,11 @@ help-all:
 	$(Q)printf '%s\n' $(TASK_SURFACE_HELP_ALL_LINES)
 
 doctor:
-	$(Q)CARTULARY_TEST_TARGET=doctor $(RUN_PHASE_SCRIPT) "doctor" -- env GO="$(GO)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM="$(PNPM)" PNPM_VERSION="$(PNPM_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" bash ./scripts/check-doctor.sh
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-doctor}" $(RUN_PHASE_SCRIPT) "doctor" -- env GO="$(GO)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM="$(PNPM)" PNPM_VERSION="$(PNPM_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" bash ./scripts/check-doctor.sh
 
 bootstrap:
 	$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) $(SHELLCHECK_BIN) frontend-install playwright-install
-	$(Q)CARTULARY_TEST_TARGET=bootstrap $(RUN_PHASE_SCRIPT) "bootstrap" -- mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-bootstrap}" $(RUN_PHASE_SCRIPT) "bootstrap" -- mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 
 bootstrap-node-runtime:
 	$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN)
@@ -166,7 +166,7 @@ bootstrap-node-runtime:
 
 frontend-toolchain:
 	$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_TOOLCHAIN_STAMP)
-	$(Q)CARTULARY_TEST_TARGET=frontend-toolchain $(RUN_PHASE_SCRIPT) "frontend-toolchain" -- env FRONTEND_TOOLCHAIN_STAMP="$(FRONTEND_TOOLCHAIN_STAMP)" CARTULARY_FRONTEND_TOOLCHAIN_QUIET="$(CARTULARY_FRONTEND_TOOLCHAIN_QUIET)" bash ./scripts/print-frontend-toolchain.sh
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-frontend-toolchain}" $(RUN_PHASE_SCRIPT) "frontend-toolchain" -- env FRONTEND_TOOLCHAIN_STAMP="$(FRONTEND_TOOLCHAIN_STAMP)" CARTULARY_FRONTEND_TOOLCHAIN_QUIET="$(CARTULARY_FRONTEND_TOOLCHAIN_QUIET)" bash ./scripts/print-frontend-toolchain.sh
 
 frontend-install: export CARTULARY_TEST_TARGET ?= frontend-install
 frontend-install:
@@ -183,13 +183,13 @@ playwright-install:
 	$(call RUN_TARGET_SUMMARY,playwright-install,pass)
 
 db-up:
-	$(Q)CARTULARY_TEST_TARGET=db-up $(RUN_PHASE_SCRIPT) "db-up" -- bash ./scripts/dev-services.sh db-up
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-up}" $(RUN_PHASE_SCRIPT) "db-up" -- bash ./scripts/dev-services.sh db-up
 
 db-reset:
-	$(Q)CARTULARY_TEST_TARGET=db-reset $(RUN_PHASE_SCRIPT) "db-reset" -- env GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" bash ./scripts/dev-services.sh db-reset
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-reset}" $(RUN_PHASE_SCRIPT) "db-reset" -- env GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" bash ./scripts/dev-services.sh db-reset
 
 services-up:
-	$(Q)CARTULARY_TEST_TARGET=services-up $(RUN_PHASE_SCRIPT) "services-up" -- bash ./scripts/dev-services.sh up
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-services-up}" $(RUN_PHASE_SCRIPT) "services-up" -- bash ./scripts/dev-services.sh up
 
 services-wait: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 services-wait: postgres-wait minio-wait
@@ -204,7 +204,7 @@ minio-wait:
 
 minio-init:
 	$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory services-wait
-	$(Q)CARTULARY_TEST_TARGET=minio-init $(RUN_PHASE_SCRIPT) "minio-init" -- env MINIO_BUCKET="$(MINIO_BUCKET)" bash ./scripts/dev-services.sh init-minio
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-minio-init}" $(RUN_PHASE_SCRIPT) "minio-init" -- env MINIO_BUCKET="$(MINIO_BUCKET)" bash ./scripts/dev-services.sh init-minio
 
 dev: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" bash ./scripts/dev-stack.sh
@@ -235,7 +235,7 @@ shell-lint-toolchain: $(SHELLCHECK_BIN)
 
 generate:
 	$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory codegen-toolchain
-	$(Q)CARTULARY_TEST_TARGET=generate $(RUN_PHASE_SCRIPT) "generate" -- $(MAKE) --no-print-directory generate-artifacts
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-generate}" $(RUN_PHASE_SCRIPT) "generate" -- $(MAKE) --no-print-directory generate-artifacts
 
 generate-artifacts: export CARTULARY_TEST_TARGET ?= generate-artifacts
 generate-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
@@ -259,7 +259,7 @@ json-shape-check:
 
 toolchain-drift:
 	$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN)
-	$(Q)CARTULARY_TEST_TARGET=toolchain-drift $(RUN_PHASE_SCRIPT) "toolchain-drift" -- $(NODE_BIN) ./scripts/check-toolchain-pins.mjs
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-toolchain-drift}" $(RUN_PHASE_SCRIPT) "toolchain-drift" -- $(NODE_BIN) ./scripts/check-toolchain-pins.mjs
 
 migration-drift: export CARTULARY_TEST_TARGET ?= migration-drift
 migration-drift:
@@ -444,7 +444,7 @@ frontend-typecheck:
 frontend-unit: export CARTULARY_TEST_TARGET ?= frontend-unit
 frontend-unit:
 	$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)CARTULARY_TEST_TARGET=frontend-unit $(RUN_PHASE_SCRIPT) "frontend-unit" -- env PNPM="$(PNPM)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" ./scripts/run-frontend-unit.sh
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-frontend-unit}" $(RUN_PHASE_SCRIPT) "frontend-unit" -- env PNPM="$(PNPM)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" ./scripts/run-frontend-unit.sh
 
 frontend-task-surface-check: export CARTULARY_TEST_TARGET ?= frontend-task-surface-check
 frontend-task-surface-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
