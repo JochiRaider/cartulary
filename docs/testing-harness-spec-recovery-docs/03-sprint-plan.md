@@ -27,7 +27,7 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 
 | Sprint | Status | Blocker | Primary output |
 |---|---|---|---|
-| S0. Charter and setup | `not_started` | `TODO:` | `TODO: recovery_charter_path` |
+| S0. Charter and setup | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/recovery-charter.md` |
 | S1. Inventory and boundary | `not_started` | `TODO:` | `TODO: harness_inventory` |
 | S2. Entrypoints and commands | `not_started` | `TODO:` | `TODO: entrypoint_command_map` |
 | S3. Fixtures, artifacts, and cleanup | `not_started` | `TODO:` | `TODO: artifact_ownership_matrix` |
@@ -53,20 +53,20 @@ Establish the recovery boundary, allowed writes, evidence labels, repository sta
 
 ### Concrete tasks
 
-- [ ] Record repository revision, branch, dirty state, runtime platform, package manager, and current date.
-- [ ] Create `TODO: recovery_charter_path`.
-- [ ] Define candidate harness boundary.
-- [ ] Define evidence labels.
-- [ ] Record permitted recovery-doc paths.
-- [ ] Record prohibited implementation edits.
-- [ ] Initialize `TODO: source_limit_log`.
-- [ ] Initialize this sprint plan status fields.
+- [x] Record repository revision, branch, dirty state, runtime platform, package manager, and current date.
+- [x] Create `docs/testing-harness-spec-recovery-docs/recovery-charter.md`.
+- [x] Define candidate harness boundary.
+- [x] Define evidence labels.
+- [x] Record permitted recovery-doc paths.
+- [x] Record prohibited implementation edits.
+- [x] Initialize `docs/testing-harness-spec-recovery-docs/source-limit-log.md`.
+- [x] Initialize this sprint plan status fields.
 
 ### Expected outputs
 
-- `TODO: recovery_charter_path`
-- `TODO: source_limit_log`
-- `TODO: harness_boundary_candidate_list`
+- `docs/testing-harness-spec-recovery-docs/recovery-charter.md`
+- `docs/testing-harness-spec-recovery-docs/source-limit-log.md`
+- `docs/testing-harness-spec-recovery-docs/recovery-charter.md#provisional-harness-boundary-candidate-list`
 - Updated `03-sprint-plan.md`
 
 ### Validation criteria
@@ -78,27 +78,27 @@ Establish the recovery boundary, allowed writes, evidence labels, repository sta
 
 ### Exit criteria
 
-- [ ] Charter exists.
-- [ ] Source limits initialized.
-- [ ] Recovery write locations established.
-- [ ] Harness implementation rewrite prohibition recorded.
-- [ ] S1 can begin without relying on transcript memory.
+- [x] Charter exists.
+- [x] Source limits initialized.
+- [x] Recovery write locations established.
+- [x] Harness implementation rewrite prohibition recorded.
+- [x] S1 can begin without relying on transcript memory.
 
 ### Status field
 
-`not_started`
+`complete`
 
 ### Blocker field
 
-`TODO:`
+`none`
 
 ### Issues or concerns field
 
-`TODO:`
+CI workflow configuration under `.github/**` was unavailable because `.github/` was absent in the working tree. This is recorded as source limit `SL-0001` and does not block S1 inventory.
 
 ### Findings or handoff notes for future sprints
 
-`TODO:`
+S0 created `docs/testing-harness-spec-recovery-docs/recovery-charter.md`, initialized `docs/testing-harness-spec-recovery-docs/source-limit-log.md`, and added handoff `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s0-charter-and-setup.md`. S1 should use the charter boundary list as a discovery seed, keep writes under `docs/testing-harness-spec-recovery-docs/**`, and avoid implementation, fixture, CI, cleanup, generated-code, or lockfile edits.
 
 ## S1: Inventory and boundary
 
