@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
   "note": "Scheduler work-unit duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.",
-  "updated_at": "2026-05-08T03:46:03.933Z",
+  "updated_at": "2026-05-08T23:02:27.929Z",
   "default_work_unit_weight_ms": 10000,
   "work_units": {
     "check|check|backend-task-surface-check|backend-task-surface-check": {

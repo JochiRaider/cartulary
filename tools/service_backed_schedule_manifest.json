@@ -70,7 +70,7 @@
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
           "scheduler_priority": 100,
-          "weight": 84428,
+          "weight": 71101,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -92,18 +92,19 @@
               "shard_count": 4,
               "phases": [
                 "phase1",
-                "phase4",
-                "phase5"
+                "phase3",
+                "phase5",
+                "phase6"
               ],
               "entry_ids": [
-                "E-1-02",
-                "E-1-06",
-                "E-4-06",
-                "E-5-01",
-                "E-5-02"
+                "E-1-08",
+                "E-3-03",
+                "E-5-02",
+                "E-5-03",
+                "E-6-05"
               ],
               "scheduler_priority": 100,
-              "weight": 18247,
+              "weight": 15493,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -123,21 +124,22 @@
               "phases": [
                 "phase1",
                 "phase2",
+                "phase3",
                 "phase4",
                 "phase5",
                 "phase6"
               ],
               "entry_ids": [
-                "E-1-08",
-                "E-2-01",
-                "E-2-02",
+                "E-1-01",
+                "E-1-06",
                 "E-2-03",
-                "E-4-02",
-                "E-5-05",
-                "E-6-05"
+                "E-3-01",
+                "E-4-06",
+                "E-5-01",
+                "E-6-01"
               ],
               "scheduler_priority": 100,
-              "weight": 18810,
+              "weight": 15272,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -156,23 +158,24 @@
               "shard_count": 4,
               "phases": [
                 "phase1",
+                "phase2",
                 "phase3",
                 "phase4",
                 "phase5",
                 "phase6"
               ],
               "entry_ids": [
-                "E-1-01",
-                "E-3-03",
+                "E-1-02",
+                "E-1-03",
+                "E-2-02",
                 "E-3-04",
-                "E-4-03",
                 "E-4-05",
-                "E-5-03",
                 "E-5-04",
-                "E-6-02"
+                "E-5-05",
+                "E-6-04"
               ],
               "scheduler_priority": 100,
-              "weight": 18735,
+              "weight": 15268,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -191,22 +194,21 @@
               "shard_count": 4,
               "phases": [
                 "phase1",
-                "phase3",
+                "phase2",
                 "phase4",
                 "phase6"
               ],
               "entry_ids": [
-                "E-1-03",
                 "E-1-07",
-                "E-3-01",
+                "E-2-01",
                 "E-4-04",
+                "E-4-02",
                 "E-4-01",
-                "E-6-01",
-                "E-6-03",
-                "E-6-04"
+                "E-4-03",
+                "E-6-02"
               ],
               "scheduler_priority": 100,
-              "weight": 18636,
+              "weight": 15068,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -451,7 +453,7 @@
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
           "scheduler_priority": 100,
-          "weight": 83566,
+          "weight": 70239,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -473,18 +475,19 @@
               "shard_count": 4,
               "phases": [
                 "phase1",
-                "phase4",
-                "phase5"
+                "phase3",
+                "phase5",
+                "phase6"
               ],
               "entry_ids": [
-                "E-1-02",
-                "E-1-06",
-                "E-4-06",
-                "E-5-01",
-                "E-5-02"
+                "E-1-08",
+                "E-3-03",
+                "E-5-02",
+                "E-5-03",
+                "E-6-05"
               ],
               "scheduler_priority": 100,
-              "weight": 18247,
+              "weight": 15493,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -504,21 +507,22 @@
               "phases": [
                 "phase1",
                 "phase2",
+                "phase3",
                 "phase4",
                 "phase5",
                 "phase6"
               ],
               "entry_ids": [
-                "E-1-08",
-                "E-2-01",
-                "E-2-02",
+                "E-1-01",
+                "E-1-06",
                 "E-2-03",
-                "E-4-02",
-                "E-5-05",
-                "E-6-05"
+                "E-3-01",
+                "E-4-06",
+                "E-5-01",
+                "E-6-01"
               ],
               "scheduler_priority": 100,
-              "weight": 18810,
+              "weight": 15272,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -537,23 +541,24 @@
               "shard_count": 4,
               "phases": [
                 "phase1",
+                "phase2",
                 "phase3",
                 "phase4",
                 "phase5",
                 "phase6"
               ],
               "entry_ids": [
-                "E-1-01",
-                "E-3-03",
+                "E-1-02",
+                "E-1-03",
+                "E-2-02",
                 "E-3-04",
-                "E-4-03",
                 "E-4-05",
-                "E-5-03",
                 "E-5-04",
-                "E-6-02"
+                "E-5-05",
+                "E-6-04"
               ],
               "scheduler_priority": 100,
-              "weight": 18735,
+              "weight": 15268,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -572,22 +577,21 @@
               "shard_count": 4,
               "phases": [
                 "phase1",
-                "phase3",
+                "phase2",
                 "phase4",
                 "phase6"
               ],
               "entry_ids": [
-                "E-1-03",
                 "E-1-07",
-                "E-3-01",
+                "E-2-01",
                 "E-4-04",
+                "E-4-02",
                 "E-4-01",
-                "E-6-01",
-                "E-6-03",
-                "E-6-04"
+                "E-4-03",
+                "E-6-02"
               ],
               "scheduler_priority": 100,
-              "weight": 18636,
+              "weight": 15068,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1

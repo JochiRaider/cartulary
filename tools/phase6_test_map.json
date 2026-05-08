@@ -13,7 +13,7 @@
       "`backend-store` selects service-backed Phase 6 workbook mutation and focused socket route-contract rows through manifest-owned service-backed selection.",
       "`frontend-unit` selects Phase 6 workbook resolver, save-state, and pending-queue component rows through the Phase 6 manifest for `frontend_unit`.",
       "`backend-integration` selects Phase 6 real-runtime WebSocket and concurrent-edit rows through the Phase 6 manifest and `backend_integration` execution dependency.",
-      "`browser-e2e-webserver-backed` carries authoritative `E-6-*` rows through duration-balanced Playwright manifest-entry shards under `browser_functional`.",
+      "`browser-e2e-webserver-backed` carries authoritative functional `E-6-*` rows through duration-balanced Playwright manifest-entry shards under `browser_functional`; `browser-e2e-stateful` carries shared-clock session-expiry `E-6-*` rows under `browser_stateful`.",
       "`browser-e2e-visual` carries authoritative `V-6-*` visual rows through `browser_visual`."
     ],
     "support_execution_extras": [
@@ -477,12 +477,12 @@
       "id": "E-6-03",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase6.collaboration.spec.ts",
+      "file": "apps/web/e2e/phase6.session-recovery.spec.ts",
       "title": "E-6-03 preserves unsaved local work after socket revocation and re-authentication",
-      "execution_dependency": "browser_functional",
+      "execution_dependency": "browser_stateful",
       "evidence_layer": "browser",
-      "claim": "Representative route-owned browser revocation sources, including admin revoke-all, current-session logout, and concurrency-limit eviction, emit `session_revoked`, close the socket, and preserve unsaved local work for explicit recovery and replay after re-authentication.",
-      "out_of_scope": "Browser evidence proves UI preservation and replay after representative route-owned revocation sources. Clock-driven expiry mechanics and low-level revocation-source correctness remain backend and integration evidence."
+      "claim": "Representative route-owned browser revocation sources, including admin revoke-all, current-session logout, concurrency-limit eviction, and shared-clock idle expiry, emit `session_revoked`, close the socket, and preserve unsaved local work for explicit recovery and FIFO replay after re-authentication.",
+      "out_of_scope": "Browser evidence proves UI preservation and replay after representative route-owned revocation sources. Low-level revocation-source correctness remains backend and integration evidence."
     },
     {
       "id": "E-6-04",
@@ -492,8 +492,8 @@
       "title": "E-6-04 keeps live updates conflict markers and presence markers anchored to record_id and field_key",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Live updates never retarget a pending local edit, same-field conflict marker, row-gutter presence marker, or same-cell presence marker away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
-      "out_of_scope": "Current-product single-cell paste completion is covered here. Multi-cell paste-matrix anchoring remains Phase 9 grid/paste evidence under `I-9-GRID-01` and shared `I-GRID-03` unless product scope moves earlier."
+      "claim": "Live updates never retarget pending local edits from implemented browser command surfaces, same-field conflict markers, row-gutter presence markers, or same-cell presence markers away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
+      "out_of_scope": "Current-product Enter, Tab, blur, and single-cell paste completion are covered here. Multi-cell paste-matrix anchoring, fill-down, multi-row tag assignment, and broader future grid-command translation remain Phase 9 grid/paste evidence under `I-9-GRID-01` and shared `I-GRID-03` unless product scope moves earlier."
     },
     {
       "id": "E-6-05",
@@ -503,7 +503,7 @@
       "title": "E-6-05 replays queued unsent writes after re-authentication without silent reload restore",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Within one browser runtime, queued unsent writes survive transient disconnect or session revocation, replay in FIFO order after re-authentication, halt on the first blocking non-retryable failure, and are never silently restored after a full reload.",
+      "claim": "Within one browser runtime, queued unsent writes survive transient transport loss, real HTTP auth failure, or session revocation; replay in FIFO order after recovery or re-authentication; halt on the first real same-field conflict without applying later queued writes; and are never silently restored after a full reload.",
       "out_of_scope": "Queue size and coalescing unit semantics remain frontend-unit evidence."
     }
   ],
