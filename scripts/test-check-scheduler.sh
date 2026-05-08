@@ -798,7 +798,7 @@ if (
 }
 const expectedCheckCPU = estimateCheckHostCPULimit();
 const expectedCheckIO = estimateCheckHostIOLimit(new Map([["host_cpu", expectedCheckCPU]]));
-if (expectedCheckCPU < 1 || expectedCheckCPU > 6 || expectedCheckIO !== expectedCheckCPU) {
+if (expectedCheckCPU < 1 || expectedCheckCPU > 10 || expectedCheckIO !== expectedCheckCPU) {
   fail("check host auto-limit estimates changed");
 }
 if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
