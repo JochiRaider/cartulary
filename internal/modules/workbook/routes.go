@@ -644,6 +644,14 @@ func (t *timelineCreateTiming) MarkTimelineCreateTiming(name string) {
 	t.mark(name)
 }
 
+func (t *timelineCreateTiming) AddTimelineCreateTiming(name string, duration time.Duration) {
+	if t == nil || !t.enabled {
+		return
+	}
+	t.parts = append(t.parts, fmt.Sprintf("%s;dur=%.3f", name, float64(duration.Microseconds())/1000))
+	t.last = time.Now()
+}
+
 func (t *timelineCreateTiming) mark(name string) {
 	if t == nil || !t.enabled {
 		return

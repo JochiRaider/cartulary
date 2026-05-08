@@ -1330,7 +1330,7 @@ cat >"$browser_auto_manifest" <<'JSON'
       "work_units": [
         { "target": "browser-e2e-webserver-backed", "weight": 40, "needs": [], "produces_summary_targets": ["browser-e2e-webserver-backed"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 }, "make_jobs": "host_cpu" },
         { "target": "browser-e2e-stateful", "weight": 30, "needs": [], "produces_summary_targets": ["browser-e2e-stateful"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 }, "make_jobs": "host_cpu" },
-        { "target": "browser-e2e-measurement", "weight": 20, "needs": [], "produces_summary_targets": ["browser-e2e-measurement"], "resource_claims": { "host_cpu": 4, "host_io": 4, "process": 1, "browser_stack": 1, "browser_stage_measurement": 1 }, "make_jobs": "host_cpu" },
+        { "target": "browser-e2e-measurement", "weight": 20, "needs": [], "produces_summary_targets": ["browser-e2e-measurement"], "resource_claims": { "host_cpu": "limit", "host_io": "limit", "process": "limit", "browser_stack": "limit", "browser_stage_measurement": 1 }, "make_jobs": "host_cpu" },
         { "target": "browser-e2e-visual", "weight": 10, "needs": [], "produces_summary_targets": ["browser-e2e-visual"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_visual": 1 }, "make_jobs": "host_cpu" }
       ]
     }
@@ -1339,7 +1339,7 @@ cat >"$browser_auto_manifest" <<'JSON'
 JSON
 browser_auto_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_DEFAULT=0.2 run_scheduler "$browser_auto_dir" "$browser_auto_manifest" browser-auto 2>&1)"
 assert_contains "$browser_auto_output" "browser_stack:4" "check browser stack auto capacity resolves to all four browser stages"
-assert_equals "$(cat "${browser_auto_dir}/max")" "4" "check browser auto capacity allows all four browser stages to overlap"
+assert_equals "$(cat "${browser_auto_dir}/max")" "2" "check browser auto capacity keeps limit-claim measurement from overlapping sibling stages"
 "$NODE_BIN" - "${browser_auto_dir}/results/browser-auto/check/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);

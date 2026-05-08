@@ -49,6 +49,19 @@ type HeldBrowserAPIRequest = {
   hitCount: () => number;
 };
 
+export const ordinaryMeasurementSamplePolicy = {
+  warmupSamples: 1,
+  measuredSamples: 25,
+  totalSamples: 26,
+} as const;
+
+export type ServerTimingMetric = {
+  attributes: Record<string, string | true>;
+  durationMs: number | null;
+  name: string;
+  raw: string;
+};
+
 const suiteAdminTotpStatePath = resolvePlaywrightStateFile(
   "cartulary-playwright-admin-totp.txt",
 );
@@ -640,25 +653,110 @@ export async function measureBlankRowCreate(
       completion,
       responseCompletion,
     ]);
+    const status = response.status();
+    expect(status).toBe(201);
+    const serverTiming = response.headers()["server-timing"] ?? "";
     return {
       committedDurationMs: committed.durationMs,
       networkDurationMs: Date.now() - networkStart,
       recordId: committed.recordId,
-      serverTiming: response.headers()["server-timing"] ?? "",
-      status: response.status(),
+      rowVersion: committed.rowVersion,
+      serverTiming,
+      serverTimingMetrics: parseServerTiming(serverTiming),
+      status,
     };
   } finally {
     await page.unroute(createRoute, routeHandler);
   }
 }
 
-export function percentile95(samples: number[]) {
+export function percentile95(
+  samples: number[],
+  options: {
+    minimumSampleCount?: number;
+    sampleLabel?: string;
+  } = {},
+) {
+  const minimumSampleCount =
+    options.minimumSampleCount ??
+    ordinaryMeasurementSamplePolicy.measuredSamples;
+  const sampleLabel = options.sampleLabel ?? "samples";
   if (samples.length === 0) {
     throw new Error("cannot compute percentile95 for an empty sample set");
+  }
+  if (samples.length < minimumSampleCount) {
+    throw new Error(
+      `cannot compute percentile95 for ${sampleLabel}: expected at least ${minimumSampleCount} samples, got ${samples.length}`,
+    );
   }
   const sorted = [...samples].sort((left, right) => left - right);
   const index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
   return sorted[index] ?? sorted[sorted.length - 1];
+}
+
+export function parseServerTiming(header: string): ServerTimingMetric[] {
+  return splitServerTimingHeader(header)
+    .map((rawPart) => rawPart.trim())
+    .filter((rawPart) => rawPart !== "")
+    .map((raw) => {
+      const [rawName = "", ...rawAttributes] = raw.split(";");
+      const attributes: Record<string, string | true> = {};
+      let durationMs: number | null = null;
+      for (const rawAttribute of rawAttributes) {
+        const attribute = rawAttribute.trim();
+        if (attribute === "") {
+          continue;
+        }
+        const separatorIndex = attribute.indexOf("=");
+        if (separatorIndex < 0) {
+          attributes[attribute] = true;
+          continue;
+        }
+        const key = attribute.slice(0, separatorIndex).trim();
+        const value = unquoteServerTimingValue(
+          attribute.slice(separatorIndex + 1).trim(),
+        );
+        attributes[key] = value;
+        if (key.toLowerCase() === "dur") {
+          const parsed = Number.parseFloat(value);
+          durationMs = Number.isFinite(parsed) ? parsed : null;
+        }
+      }
+      return {
+        attributes,
+        durationMs,
+        name: rawName.trim(),
+        raw,
+      };
+    });
+}
+
+function splitServerTimingHeader(header: string) {
+  const parts: string[] = [];
+  let current = "";
+  let quoted = false;
+  for (const character of header) {
+    if (character === '"') {
+      quoted = !quoted;
+      current += character;
+      continue;
+    }
+    if (character === "," && !quoted) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    current += character;
+  }
+  parts.push(current);
+  return parts;
+}
+
+function unquoteServerTimingValue(value: string) {
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\"/gu, '"');
+  }
+  return value;
 }
 
 export async function patchTimelineRecord(
@@ -985,7 +1083,7 @@ export async function waitForCommittedRowSummary(
       startMark,
       timeoutMs,
     }) =>
-      new Promise<{ durationMs: number; recordId: string }>(
+      new Promise<{ durationMs: number; recordId: string; rowVersion: number }>(
         (resolve, reject) => {
           const deadline = startMark + timeoutMs;
           const tick = () => {
@@ -1030,9 +1128,21 @@ export async function waitForCommittedRowSummary(
               if (!recordId) {
                 continue;
               }
+              const rowVersionTestId = `row-${recordId}-row-version`;
+              const rowVersionElement = savedRow.querySelector(
+                `[data-testid="${CSS.escape(rowVersionTestId)}"]`,
+              );
+              const rowVersion =
+                rowVersionElement instanceof HTMLElement
+                  ? Number.parseInt(rowVersionElement.textContent ?? "", 10)
+                  : Number.NaN;
+              if (!Number.isInteger(rowVersion) || rowVersion < 1) {
+                continue;
+              }
               resolve({
                 durationMs: performance.now() - startMark,
                 recordId,
+                rowVersion,
               });
               return;
             }

@@ -18,14 +18,17 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { requireFetchCall } from "./fetchMockTestSupport";
 import {
+  buildRecordChangedPayload,
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
   deferred,
+  emitRecordChanged,
   errorEnvelope,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
   gridScalarInput,
   installTimelineWorkbookTestGlobals,
+  latestTimelineWebSocket,
   requiredGridRow,
   successEnvelope,
   type TimelineWorkbookFetchMock,
@@ -201,6 +204,164 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       String(requireFetchCall(fetchMock, 1, "timeline patch request #1")[0]),
     ).toContain("/api/v1/records/record-1");
     expect(extractTimelinePatchBody(fetchMock, 1).base_row_version).toBe(7);
+  });
+
+  it("Phase 3 U-3-05 preserves draft row edits across projection refresh before create commit", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-draft-create",
+        row: timelineRow({
+          recordId: "record-created",
+          rowVersion: 1,
+          summary: "First browser fact",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+
+    await screen.findByTestId("save-state");
+    await waitForTimelineWorkbookReady(container, 0);
+
+    const initialDraftSummary = screen.getByTestId(
+      "draft-row-summary",
+    ) as HTMLInputElement;
+    await changeInputValue(initialDraftSummary, "First browser fact");
+
+    emitRecordChanged(
+      latestTimelineWebSocket(),
+      buildRecordChangedPayload({
+        recordId: "external-record",
+        rowVersion: 1,
+        clientTxnId: "external-client-txn",
+        changedFieldKeys: ["timeline.summary"],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    const refreshedDraftSummary = screen.getByTestId(
+      "draft-row-summary",
+    ) as HTMLInputElement;
+    expect(refreshedDraftSummary.value).toBe("First browser fact");
+
+    fireEvent.keyDown(refreshedDraftSummary, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(extractTimelineJSONBody(fetchMock, 2)).toMatchObject({
+      "timeline.summary": "First browser fact",
+    });
+
+    await waitFor(() => {
+      expect(visibleGridRows(container)).toHaveLength(1);
+    });
+    expect(
+      (screen.getByTestId("row-record-created-summary") as HTMLInputElement)
+        .value,
+    ).toBe("First browser fact");
+    expect(
+      (screen.getByTestId("draft-row-summary") as HTMLInputElement).value,
+    ).toBe("");
+  });
+
+  it("Phase 3 U-3-05 preserves an in-flight draft create across unrelated projection refresh", async () => {
+    const pendingCreate = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(pendingCreate.promise);
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [],
+      }),
+    );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+
+    await screen.findByTestId("save-state");
+    await waitForTimelineWorkbookReady(container, 0);
+
+    const draftSummary = screen.getByTestId(
+      "draft-row-summary",
+    ) as HTMLInputElement;
+    await changeInputValue(draftSummary, "Pending browser fact");
+    fireEvent.keyDown(draftSummary, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
+      "timeline.summary": "Pending browser fact",
+    });
+
+    emitRecordChanged(
+      latestTimelineWebSocket(),
+      buildRecordChangedPayload({
+        recordId: "external-record",
+        rowVersion: 1,
+        clientTxnId: "external-client-txn",
+        changedFieldKeys: ["timeline.details"],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(
+      (screen.getByTestId("draft-row-summary") as HTMLInputElement).value,
+    ).toBe("Pending browser fact");
+
+    pendingCreate.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-pending-draft-create",
+        row: timelineRow({
+          recordId: "record-pending-created",
+          rowVersion: 1,
+          summary: "Pending browser fact",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(visibleGridRows(container)).toHaveLength(1);
+    });
+    expect(
+      (
+        screen.getByTestId(
+          "row-record-pending-created-summary",
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("Pending browser fact");
+    expect(
+      (screen.getByTestId("draft-row-summary") as HTMLInputElement).value,
+    ).toBe("");
   });
 
   it("keeps Timeline controls mounted while a sorted query refresh is pending", async () => {

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestPhase6_GridWriteConcurrency_U_6_01(t *testing.T) {
+func TestSupportPhase6Unit_ConflictHelperDetectsOverlappingFields(t *testing.T) {
 	changed := map[string]workbookPatchChangedField{
 		"note.title": {ServerUpdatedBy: uuid.New(), ServerUpdatedAt: time.Now().UTC()},
 	}
@@ -25,7 +25,7 @@ func TestPhase6_GridWriteConcurrency_U_6_01(t *testing.T) {
 	}
 }
 
-func TestPhase6_SameFieldConflictTransport_U_6_02(t *testing.T) {
+func TestSupportPhase6Unit_ConflictHelperBuildsOpaqueConflictToken(t *testing.T) {
 	recordID := uuid.New()
 	actorID := uuid.New()
 	requestHash := hashRequestPayload(map[string]any{"client": "phase6-u-6-02"})
@@ -71,7 +71,7 @@ func TestPhase6_SameFieldConflictTransport_U_6_02(t *testing.T) {
 	}
 }
 
-func TestPhase6_TextCompareMerge_U_6_03(t *testing.T) {
+func TestSupportPhase6Unit_ConflictHelperSuggestsOnlyCleanTextMerges(t *testing.T) {
 	suggested, ok := suggestedTextMergeValue("one\r\ntwo\nthree", "one\r\nTWO\nthree", "one\ntwo\nTHREE")
 	if !ok || suggested != "one\nTWO\nTHREE" {
 		t.Fatalf("clean line merge got %q ok=%v", suggested, ok)
@@ -98,7 +98,7 @@ func TestPhase6_TextCompareMerge_U_6_03(t *testing.T) {
 	}
 }
 
-func TestPhase6_CollectionReviewWireFamilies_U_6_04(t *testing.T) {
+func TestSupportPhase6Unit_ConflictHelperBuildsCollectionConflictValues(t *testing.T) {
 	recordID := uuid.New()
 	base := map[string]any{
 		"kind":    "collection_value_v1",

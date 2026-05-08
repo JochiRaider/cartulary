@@ -46,7 +46,7 @@ const roleDefinitions = [
   {
     role: "feature-dev",
     summary: "verify ordinary product changes before the full gate",
-    targets: ["test-fast", "backend-unit", "frontend-unit", "lint"],
+    targets: ["agent-finalize", "test-fast", "backend-unit", "frontend-unit", "lint"],
   },
   {
     role: "phase-author",

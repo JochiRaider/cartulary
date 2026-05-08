@@ -16,7 +16,7 @@ cat >"$measurement_metadata_file" <<EOF
   "claim_bearing": false,
   "target": "browser-e2e-measurement",
   "execution_dependency": "browser_measurement",
-  "sample_count_per_predicate": 12,
+  "sample_count_per_predicate": 25,
   "warmup_samples_per_predicate": 1,
   "benchmark_manifest_schema_id": null,
   "benchmark_profile_id": null,

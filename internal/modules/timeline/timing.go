@@ -1,11 +1,18 @@
 package timeline
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type createTimingContextKey struct{}
 
 type CreateTimingRecorder interface {
 	MarkTimelineCreateTiming(name string)
+}
+
+type CreateTimingDurationRecorder interface {
+	AddTimelineCreateTiming(name string, duration time.Duration)
 }
 
 func WithCreateTimingRecorder(ctx context.Context, recorder CreateTimingRecorder) context.Context {
@@ -21,4 +28,13 @@ func markCreateTiming(ctx context.Context, name string) {
 		return
 	}
 	recorder.MarkTimelineCreateTiming(name)
+}
+
+func markCreateTimingDuration(ctx context.Context, name string, duration time.Duration) {
+	recorder, _ := ctx.Value(createTimingContextKey{}).(CreateTimingDurationRecorder)
+	if recorder == nil {
+		markCreateTiming(ctx, name)
+		return
+	}
+	recorder.AddTimelineCreateTiming(name, duration)
 }

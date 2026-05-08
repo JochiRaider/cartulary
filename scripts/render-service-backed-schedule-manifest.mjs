@@ -479,7 +479,6 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
       resource_claims: {
         go_cpu: 1,
         go_io: 1,
-        ...browserStageResourceClaims(profile, stage.name),
       },
     });
   }

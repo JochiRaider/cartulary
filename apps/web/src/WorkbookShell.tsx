@@ -1060,6 +1060,70 @@ function ensureDraftRowWithFreshIndex(
   };
 }
 
+function rowWithMaterializedScalarDrafts(
+  row: WorkbookRow,
+  draftValueForFocusKey: (focusKey: string) => string | undefined,
+  preferred?: {
+    readonly field: keyof RowValues;
+    readonly value: string | undefined;
+  },
+): WorkbookRow {
+  let nextValues: RowValues | null = null;
+  for (const binding of Object.values(timelineScalarBindingIndex)) {
+    let draftValue =
+      preferred?.field === binding.key ? preferred.value : undefined;
+    if (draftValue === undefined) {
+      for (const surface of timelineScalarEditorSurfaces) {
+        draftValue = draftValueForFocusKey(
+          inputFocusKey(row.key, binding.key, surface),
+        );
+        if (draftValue !== undefined) {
+          break;
+        }
+      }
+    }
+    if (draftValue === undefined || draftValue === row.values[binding.key]) {
+      continue;
+    }
+    nextValues ??= { ...row.values };
+    nextValues[binding.key] = draftValue;
+  }
+  return nextValues === null ? row : { ...row, values: nextValues };
+}
+
+function reconcileCommittedRowsWithLocalDrafts({
+  currentRows,
+  incomingRows,
+  draftValueForFocusKey,
+  nextDraftIndex,
+}: {
+  readonly currentRows: WorkbookRow[];
+  readonly incomingRows: WorkbookRow[];
+  readonly draftValueForFocusKey: (focusKey: string) => string | undefined;
+  readonly nextDraftIndex: () => number;
+}): {
+  readonly committedRows: WorkbookRow[];
+  readonly rows: WorkbookRow[];
+} {
+  const committedRows = [
+    ...reconcileRecordRows(
+      currentRows.filter((row) => row.recordId !== null),
+      incomingRows,
+    ),
+  ];
+  const localDraftRows = currentRows
+    .filter((row) => row.recordId === null)
+    .map((row) => rowWithMaterializedScalarDrafts(row, draftValueForFocusKey));
+
+  return {
+    committedRows,
+    rows: ensureDraftRowWithFreshIndex(
+      [...committedRows, ...localDraftRows],
+      nextDraftIndex,
+    ).rows,
+  };
+}
+
 function buildCollectionActions(rawInput: string) {
   const actions = rawInput
     .split(/\r?\n/u)
@@ -2557,16 +2621,14 @@ export function TimelineWorkbook({
       }
 
       const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
-      const projectedRows = [
-        ...reconcileRecordRows(
-          rowsRef.current.filter((row) => row.recordId !== null),
-          envelope.data.rows.map(rowFromApi),
-        ),
-      ];
-      const hydratedRows = ensureDraftRowWithFreshIndex(
-        projectedRows,
-        nextDraftIndex,
-      ).rows;
+      const { committedRows, rows: hydratedRows } =
+        reconcileCommittedRowsWithLocalDrafts({
+          currentRows: rowsRef.current,
+          incomingRows: envelope.data.rows.map(rowFromApi),
+          draftValueForFocusKey: (focusKey) =>
+            scalarDraftValuesRef.current.get(focusKey),
+          nextDraftIndex,
+        });
       startTransition(() => {
         rowsRef.current = hydratedRows;
         setRows(hydratedRows);
@@ -2574,7 +2636,7 @@ export function TimelineWorkbook({
       advanceViewportContinuity(options.viewportContinuityToken);
       setDismissedMentionsByRow((current) => {
         const next = { ...current };
-        for (const row of projectedRows) {
+        for (const row of committedRows) {
           if (row.recordId === null) {
             continue;
           }
@@ -2897,28 +2959,11 @@ export function TimelineWorkbook({
         readonly value: string | undefined;
       },
     ): WorkbookRow => {
-      let nextValues: RowValues | null = null;
-      for (const binding of Object.values(timelineScalarBindingIndex)) {
-        let draftValue =
-          preferred?.field === binding.key ? preferred.value : undefined;
-        if (draftValue === undefined) {
-          for (const surface of timelineScalarEditorSurfaces) {
-            const focusKey = inputFocusKey(row.key, binding.key, surface);
-            if (scalarDraftValuesRef.current.has(focusKey)) {
-              draftValue = scalarDraftValuesRef.current.get(focusKey);
-            }
-          }
-        }
-        if (
-          draftValue === undefined ||
-          draftValue === row.values[binding.key]
-        ) {
-          continue;
-        }
-        nextValues ??= { ...row.values };
-        nextValues[binding.key] = draftValue;
-      }
-      return nextValues === null ? row : { ...row, values: nextValues };
+      return rowWithMaterializedScalarDrafts(
+        row,
+        (focusKey) => scalarDraftValuesRef.current.get(focusKey),
+        preferred,
+      );
     },
     [],
   );

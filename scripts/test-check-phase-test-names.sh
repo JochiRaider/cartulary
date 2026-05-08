@@ -157,6 +157,15 @@ func TestPhase5_Process_E_5_SMOKE_01_ProcessSmoke(t *testing.T) {}
 '
 assert_passes "phase5 manifest-owned names" run_checker "$valid_root" "$manifest_root"
 
+support_root="$tmp_dir/support"
+write_case "$support_root" "internal/modules/future" 'package future
+
+import "testing"
+
+func TestSupportPhase5Unit_HelperCoverage(t *testing.T) {}
+'
+assert_passes "phase5 support names stay outside authoritative checker" run_checker "$support_root" "$manifest_root"
+
 unknown_root="$tmp_dir/unknown"
 write_case "$unknown_root" "internal/modules/future" 'package future
 

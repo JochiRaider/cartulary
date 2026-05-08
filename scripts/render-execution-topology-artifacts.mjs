@@ -440,6 +440,32 @@ function compareArtifacts(artifacts) {
   }
 }
 
+function writeChangedArtifacts(artifacts) {
+  const changed = [];
+  for (const artifact of artifacts) {
+    const existing = existsSync(artifact.outputPath)
+      ? readFileSync(artifact.outputPath, "utf8")
+      : null;
+    if (existing === artifact.content) {
+      continue;
+    }
+    mkdirSync(path.dirname(artifact.outputPath), { recursive: true });
+    writeFileSync(artifact.outputPath, artifact.content);
+    changed.push(artifact.file);
+  }
+  return changed;
+}
+
+function printRenderSummary(changed) {
+  if (changed.length === 0) {
+    console.log("phase-schedules: unchanged");
+    return;
+  }
+  const displayed = changed.slice(0, 5);
+  const suffix = changed.length > displayed.length ? `, ... +${changed.length - displayed.length} more` : "";
+  console.log(`phase-schedules: updated ${changed.length} files (${displayed.join(", ")}${suffix})`);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.check) {
@@ -467,10 +493,7 @@ function main() {
     compareArtifacts(allArtifacts);
     return;
   }
-  for (const artifact of allArtifacts) {
-    mkdirSync(path.dirname(artifact.outputPath), { recursive: true });
-    writeFileSync(artifact.outputPath, artifact.content);
-  }
+  printRenderSummary(writeChangedArtifacts(allArtifacts));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

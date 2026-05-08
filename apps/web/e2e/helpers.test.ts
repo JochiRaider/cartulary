@@ -2,7 +2,12 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { reconcileSuiteAdminTotpState } from "./helpers";
+import {
+  ordinaryMeasurementSamplePolicy,
+  parseServerTiming,
+  percentile95,
+  reconcileSuiteAdminTotpState,
+} from "./helpers";
 
 describe("reconcileSuiteAdminTotpState", () => {
   it("reuses the stored suite-admin secret when it still authenticates", async () => {
@@ -76,5 +81,59 @@ describe("reconcileSuiteAdminTotpState", () => {
         stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
       }),
     ).rejects.toThrow("CARTULARY_PLAYWRIGHT_STATE_DIR=/tmp/cartulary-shared");
+  });
+});
+
+describe("ordinary measurement helpers", () => {
+  it("computes p95 without letting one isolated outlier define a 25-sample run", () => {
+    const samples = [
+      ...Array.from(
+        { length: ordinaryMeasurementSamplePolicy.measuredSamples - 1 },
+        () => 100,
+      ),
+      1_000,
+    ];
+
+    expect(percentile95(samples, { sampleLabel: "single-outlier" })).toBe(100);
+  });
+
+  it("keeps the p95 gate strict when two samples exceed the envelope", () => {
+    const samples = [
+      ...Array.from(
+        { length: ordinaryMeasurementSamplePolicy.measuredSamples - 2 },
+        () => 100,
+      ),
+      1_000,
+      1_001,
+    ];
+
+    expect(percentile95(samples, { sampleLabel: "two-outliers" })).toBe(1_000);
+  });
+
+  it("rejects p95 calculations below the ordinary measurement sample floor", () => {
+    expect(() =>
+      percentile95([100, 101, 102], { sampleLabel: "undersampled" }),
+    ).toThrow("expected at least 25 samples, got 3");
+  });
+
+  it("parses Server-Timing diagnostics while preserving raw metric entries", () => {
+    expect(
+      parseServerTiming(
+        'store_base_insert;dur=212.522, store_commit;dur=20.312;desc="commit"',
+      ),
+    ).toEqual([
+      {
+        attributes: { dur: "212.522" },
+        durationMs: 212.522,
+        name: "store_base_insert",
+        raw: "store_base_insert;dur=212.522",
+      },
+      {
+        attributes: { desc: "commit", dur: "20.312" },
+        durationMs: 20.312,
+        name: "store_commit",
+        raw: 'store_commit;dur=20.312;desc="commit"',
+      },
+    ]);
   });
 });

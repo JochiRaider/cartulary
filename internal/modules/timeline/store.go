@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"reflect"
 	"sort"
@@ -311,38 +312,69 @@ func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentI
 		CreatedByUserID: actor.ID,
 		UpdatedByUserID: actor.ID,
 	}
-	if _, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
-		RecordID:        &recordID,
-		IncidentID:      incidentID,
-		RecordType:      "timeline_event",
-		CreatedByUserID: actor.ID,
-		CreatedAt:       now.UTC(),
-		UpdatedByUserID: actor.ID,
-		UpdatedAt:       now.UTC(),
-		RowVersion:      1,
-	}); err != nil {
-		return MutationResult{}, err
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO timeline_events (
-    record_id,
-    incident_id,
-    occurred_at,
-    summary,
-    details,
-    source_text,
-    capture_state,
-    row_version,
-    recorded_at,
-    edited_at,
-    created_by_user_id,
-    updated_by_user_id
+	var recordEnvelopeInsertMs float64
+	var timelineEventInsertMs float64
+	if err := tx.QueryRow(ctx, `
+WITH timing_start AS (
+    SELECT clock_timestamp() AS started_at
+),
+inserted_record AS (
+    INSERT INTO records (
+        record_id,
+        incident_id,
+        record_type,
+        created_by_user_id,
+        created_at,
+        updated_by_user_id,
+        updated_at,
+        row_version
+    )
+    VALUES ($1, $2, 'timeline_event', $3, $4, $3, $4, 1)
+    RETURNING
+        record_id,
+        (SELECT started_at FROM timing_start) AS started_at,
+        clock_timestamp() AS inserted_at
+),
+inserted_timeline_event AS (
+    INSERT INTO timeline_events (
+        record_id,
+        incident_id,
+        occurred_at,
+        summary,
+        details,
+        source_text,
+        capture_state,
+        row_version,
+        recorded_at,
+        edited_at,
+        created_by_user_id,
+        updated_by_user_id
+    )
+    SELECT
+        inserted_record.record_id,
+        $2,
+        $5,
+        $6,
+        $7,
+        $8,
+        'rough',
+        1,
+        $4,
+        $4,
+        $3,
+        $3
+    FROM inserted_record
+    RETURNING clock_timestamp() AS inserted_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, 'rough', 1, $7, $7, $8, $8)
-`, current.RecordID, incidentID, request.OccurredAt, request.Summary, request.Details, request.SourceText, now.UTC(), actor.ID); err != nil {
-		return MutationResult{}, fmt.Errorf("insert timeline record: %w", err)
+SELECT
+    EXTRACT(EPOCH FROM (inserted_record.inserted_at - inserted_record.started_at)) * 1000,
+    EXTRACT(EPOCH FROM (inserted_timeline_event.inserted_at - inserted_record.inserted_at)) * 1000
+FROM inserted_record, inserted_timeline_event
+`, current.RecordID, incidentID, actor.ID, now.UTC(), request.OccurredAt, request.Summary, request.Details, request.SourceText).Scan(&recordEnvelopeInsertMs, &timelineEventInsertMs); err != nil {
+		return MutationResult{}, fmt.Errorf("insert timeline base rows: %w", err)
 	}
-	markCreateTiming(ctx, "store_base_insert")
+	markCreateTimingDuration(ctx, "store_record_envelope_insert", durationFromMilliseconds(recordEnvelopeInsertMs))
+	markCreateTimingDuration(ctx, "store_timeline_event_insert", durationFromMilliseconds(timelineEventInsertMs))
 
 	if err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, now.UTC()); err != nil {
 		return MutationResult{}, err
@@ -434,6 +466,13 @@ func createRequestHasCollectionActions(request CreateRequest) bool {
 		(request.IdentityRefs != nil && len(request.IdentityRefs.Actions) > 0) ||
 		(request.Tags != nil && len(request.Tags.Actions) > 0) ||
 		(request.AttachedEvidence != nil && len(request.AttachedEvidence.Actions) > 0)
+}
+
+func durationFromMilliseconds(milliseconds float64) time.Duration {
+	if milliseconds <= 0 || math.IsNaN(milliseconds) || math.IsInf(milliseconds, 0) {
+		return 0
+	}
+	return time.Duration(milliseconds * float64(time.Millisecond))
 }
 
 func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {

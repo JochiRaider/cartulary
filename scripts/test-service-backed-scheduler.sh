@@ -1397,9 +1397,9 @@ cat >"$browser_auto_manifest" <<'JSON'
           "browser_stage": "measurement",
           "needs": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-visual"],
           "weight": 20,
-          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "go_cpu": 4, "go_io": 4, "browser_stage_measurement": 1 },
+          "resource_claims": { "postgres": "limit", "minio": "limit", "process": "limit", "browser_stack": "limit", "go_cpu": "limit", "go_io": "limit", "browser_stage_measurement": 1 },
           "groups": [
-            { "id": "browser-e2e-measurement:measurement", "name": "measurement", "kind": "measurement", "target": "browser-e2e-measurement", "aggregate_target": "browser-e2e-measurement", "coverage": "authoritative", "execution_dependency": "browser_measurement", "weight": 20, "resource_claims": { "go_cpu": 4, "go_io": 4 } }
+            { "id": "browser-e2e-measurement:measurement", "name": "measurement", "kind": "measurement", "target": "browser-e2e-measurement", "aggregate_target": "browser-e2e-measurement", "coverage": "authoritative", "execution_dependency": "browser_measurement", "weight": 20, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
         },
         {

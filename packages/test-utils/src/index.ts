@@ -159,8 +159,10 @@ export async function scrollGridTargetIntoView(options: {
       return readGridScroll(page, surface);
     }
 
-    const state = await readGridScrollDiagnostics(page, surface);
+    let state = await readGridScrollDiagnostics(page, surface);
     observeGridTargetScanState(observation, state);
+    let scanRangeGrew = false;
+    const scanMaxTop = state.maxTop;
     const scanOffsets = buildGridScanOffsets(state);
 
     for (const top of scanOffsets) {
@@ -171,11 +173,24 @@ export async function scrollGridTargetIntoView(options: {
         await target.scrollIntoViewIfNeeded?.();
         return readGridScroll(page, surface);
       }
-      if (Date.now() > deadline) {
+      state = await readGridScrollDiagnostics(page, surface);
+      observeGridTargetScanState(observation, state);
+      if (state.maxTop > scanMaxTop) {
+        observation.scrollRangeGrowths += 1;
+        scanRangeGrew = true;
         break;
       }
     }
 
+    if (scanRangeGrew) {
+      continue;
+    }
+
+    observation.completedScanCycles += 1;
+    observation.completedScanMaxTop = Math.max(
+      observation.completedScanMaxTop,
+      scanMaxTop,
+    );
     if (Date.now() > deadline) {
       break;
     }
@@ -194,9 +209,12 @@ export async function scrollGridTargetIntoView(options: {
       `maxTop=${finalState.maxTop}`,
       `mountedRowIds=${finalState.mountedRowIds.join(",") || "(none)"}`,
       `scanCycles=${observation.scanCycles}`,
+      `completedScanCycles=${observation.completedScanCycles}`,
       `scrollAttempts=${observation.scrollAttempts}`,
+      `scrollRangeGrowths=${observation.scrollRangeGrowths}`,
       `observedScrollable=${observation.scrollableScanCycles > 0}`,
       `observedMaxTop=${observation.maxTop}`,
+      `completedScanMaxTop=${observation.completedScanMaxTop}`,
       `observedMountedRowIds=${
         Array.from(observation.mountedRowIds).join(",") || "(none)"
       }`,
@@ -622,18 +640,24 @@ function buildGridScanOffsets(state: GridScrollDiagnostics) {
 }
 
 type GridTargetScanObservation = {
+  completedScanCycles: number;
+  completedScanMaxTop: number;
   maxTop: number;
   mountedRowIds: Set<string>;
   scanCycles: number;
+  scrollRangeGrowths: number;
   scrollableScanCycles: number;
   scrollAttempts: number;
 };
 
 function createGridTargetScanObservation(): GridTargetScanObservation {
   return {
+    completedScanCycles: 0,
+    completedScanMaxTop: 0,
     maxTop: 0,
     mountedRowIds: new Set(),
     scanCycles: 0,
+    scrollRangeGrowths: 0,
     scrollableScanCycles: 0,
     scrollAttempts: 0,
   };

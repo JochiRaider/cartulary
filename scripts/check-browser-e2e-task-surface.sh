@@ -721,7 +721,7 @@ require_browser_batch_target browser-e2e-functional functional '$(PLAYWRIGHT_WOR
 require_browser_batch_target browser-e2e-support support '$(PLAYWRIGHT_WORKERS)' direct
 require_browser_batch_target browser-e2e-stateful stateful 1 direct
 require_browser_batch_target browser-e2e-resettable resettable 1 direct
-require_browser_batch_target browser-e2e-measurement measurement 1 direct
+require_browser_batch_target browser-e2e-measurement measurement 1 test-services
 require_browser_batch_target browser-e2e-visual visual 1 direct
 browser_measurement_block="$(extract_target_block browser-e2e-measurement)"
 if text_contains "$browser_measurement_block" 'Core 05-bound timing evidence'; then
@@ -1057,6 +1057,9 @@ if ! grep -Fq 'claim_bearing": false' "$measurement_script"; then
 fi
 if ! grep -Fq 'evidence_kind": "ordinary_measurement"' "$measurement_script"; then
   fail "scripts/run-browser-e2e-measurement.sh must emit ordinary_measurement evidence_kind metadata"
+fi
+if ! grep -Fq '"sample_count_per_predicate": 25' "$measurement_script"; then
+  fail "scripts/run-browser-e2e-measurement.sh must emit the ordinary 25-sample p95 measurement policy"
 fi
 if ! grep -Fq 'browser_measurement' "$measurement_script"; then
   fail "scripts/run-browser-e2e-measurement.sh must execute browser_measurement rows through the manifest"

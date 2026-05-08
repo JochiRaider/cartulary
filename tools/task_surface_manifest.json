@@ -39,16 +39,16 @@
         "description": "format authored Go and frontend sources"
       },
       {
+        "target": "agent-finalize",
+        "description": "refresh schedule and duration artifacts before verification"
+      },
+      {
         "target": "test-fast",
         "description": "run the narrower local verification loop"
       },
       {
         "target": "check",
         "description": "run the developer verification gate"
-      },
-      {
-        "target": "clean",
-        "description": "remove repo-local build and report artifacts"
       }
     ]
   },
@@ -310,6 +310,10 @@
         {
           "target": "phase-schedule-drift",
           "description": "fail on phase-derived schedule drift"
+        },
+        {
+          "target": "agent-finalize",
+          "description": "refresh schedule and duration artifacts before verification"
         },
         {
           "target": "benchmark-claim-check",
@@ -1016,6 +1020,22 @@
       ],
       "test_target": "self"
     },
+    "agent-finalize": {
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "type": "phase_command",
+      "mode": "run_phase",
+      "phase_label": "agent-finalize",
+      "env": {
+        "MAKE": "$(MAKE)"
+      },
+      "command": [
+        "bash",
+        "./scripts/agent-finalize.sh"
+      ],
+      "test_target": "self"
+    },
     "benchmark-claim-check": {
       "prerequisites": [
         "$(NODE_BIN)"
@@ -1541,14 +1561,16 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-server",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "comments": [
         "Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence."
       ],
       "stage": "measurement",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_wrapper": "test-services",
       "test_target": "self"
     },
     "browser-e2e-visual": {
@@ -2646,6 +2668,34 @@
         "success_budget": {
           "stdout_lines": 2,
           "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v1"
+      }
+    },
+    {
+      "name": "agent-finalize",
+      "classification": "public",
+      "included_in": [
+        "helper_only"
+      ],
+      "backing_scripts": [
+        "scripts/agent-finalize.sh"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 2000,
           "stderr_lines": 0,
           "stderr_bytes": 0
         },

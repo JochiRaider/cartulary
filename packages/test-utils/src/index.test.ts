@@ -164,6 +164,29 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
     expect(scrollIntoViewCalls).toEqual([targetTestId]);
   });
 
+  it("finishes a scan through the bottom offset after the deadline has expired", async () => {
+    const { grid, page, scrollIntoViewCalls, targetTestId } =
+      installGridTargetFixture({
+        clientHeight: 502,
+        currentScroll: { left: 0, top: 0 },
+        isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 2_074,
+        scrollHeight: 2_576,
+      });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 1,
+        page,
+        surface: "timeline",
+        targetTestId,
+        timeoutMs: 0,
+      }),
+    ).resolves.toEqual({ left: 0, top: 2_074 });
+
+    expect(grid.scrollTop).toBe(2_074);
+    expect(scrollIntoViewCalls).toEqual([targetTestId]);
+  });
+
   it("recomputes scan offsets after an initially non-scrollable grid hydrates", async () => {
     const { grid, page, scrollIntoViewCalls, targetTestId } =
       installGridTargetFixture({
@@ -192,6 +215,37 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
     ).resolves.toEqual({ left: 0, top: 400 });
 
     expect(grid.scrollTop).toBe(400);
+    expect(scrollIntoViewCalls).toEqual([targetTestId]);
+  });
+
+  it("extends the scan when the grid scroll range grows during scanning", async () => {
+    const { grid, page, scrollIntoViewCalls, targetTestId } =
+      installGridTargetFixture({
+        clientHeight: 200,
+        currentScroll: { left: 0, top: 0 },
+        isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 700,
+        onGridEvaluate: (candidateGrid, evaluateCount) => {
+          if (evaluateCount >= 3) {
+            Object.defineProperty(candidateGrid, "scrollHeight", {
+              configurable: true,
+              value: 1_000,
+            });
+          }
+        },
+        scrollHeight: 400,
+      });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId,
+        timeoutMs: 1_000,
+      }),
+    ).resolves.toEqual({ left: 0, top: 700 });
+
+    expect(grid.scrollTop).toBe(700);
     expect(scrollIntoViewCalls).toEqual([targetTestId]);
   });
 
@@ -285,7 +339,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
         timeoutMs: 50,
       }),
     ).rejects.toThrow(
-      /missing-target.*timeline.*scrollHeight=900.*mountedRowIds=record-a,record-b.*observedMaxTop=700.*observedMountedRowIds=record-a,record-b/,
+      /missing-target.*timeline.*scrollHeight=900.*mountedRowIds=record-a,record-b.*completedScanCycles=.*scrollRangeGrowths=.*observedMaxTop=700.*completedScanMaxTop=700.*observedMountedRowIds=record-a,record-b/,
     );
   });
 

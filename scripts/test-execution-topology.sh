@@ -6,7 +6,8 @@ NODE_BIN="${NODE_BIN:-node}"
 
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
 import assert from "node:assert/strict";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -55,6 +56,21 @@ assert.deepEqual(
   renderedTaskSurface.targets.find((target) => target.name === "migration-drift")?.service_requirements,
   ["postgres"],
   "migration-drift must declare its Postgres service requirement",
+);
+assert.equal(
+  renderedTaskSurface.targets.find((target) => target.name === "agent-finalize")?.classification,
+  "public",
+  "agent-finalize must be a public workflow target",
+);
+assert.deepEqual(
+  renderedTaskSurface.targets.find((target) => target.name === "agent-finalize")?.backing_scripts,
+  ["scripts/agent-finalize.sh"],
+  "agent-finalize must be backed by the end-of-run maintenance script",
+);
+assert.equal(
+  renderedTaskSurface.make_recipes["agent-finalize"]?.type,
+  "phase_command",
+  "agent-finalize must be generated as a summarized Make command",
 );
 
 const taskSurfaceFixture = () => JSON.parse(JSON.stringify(renderedTaskSurface));
@@ -431,6 +447,196 @@ const writeTopologyFixture = (name, value) => {
   writeFileSync(fixturePath, `${JSON.stringify(value, null, 2)}\n`);
   return fixturePath;
 };
+
+const agentFinalizeSuccessMake = path.join(tempDir, "agent-finalize-success-make.sh");
+const agentFinalizeSuccessLog = path.join(tempDir, "agent-finalize-success.log");
+writeFileSync(
+  agentFinalizeSuccessMake,
+  `#!/usr/bin/env bash
+set -euo pipefail
+target="\${@: -1}"
+printf '%s\\n' "\${target}" >>"\${FAKE_MAKE_LOG}"
+case "\${target}" in
+  go-test-duration-baseline-coverage)
+    ;;
+  phase-schedules)
+    printf 'phase-schedules: updated 2 files (tools/check_schedule_manifest.json, tools/execution_topology_render_index.json)\\n'
+    ;;
+  phase-schedule-drift|json-shape-check)
+    ;;
+  *)
+    printf 'unexpected target %s\\n' "\${target}" >&2
+    exit 2
+    ;;
+esac
+`,
+);
+chmodSync(agentFinalizeSuccessMake, 0o755);
+const agentFinalizeOutput = execFileSync("bash", [path.join(root, "scripts/agent-finalize.sh")], {
+  encoding: "utf8",
+  env: {
+    ...process.env,
+    MAKE: agentFinalizeSuccessMake,
+    FAKE_MAKE_LOG: agentFinalizeSuccessLog,
+    RESULTS_DIR: "",
+  },
+});
+assert.equal(
+  agentFinalizeOutput.trim(),
+  [
+    "agent-finalize: duration baselines skipped, RESULTS_DIR not set",
+    "agent-finalize: ran, updated 2 files (tools/check_schedule_manifest.json, tools/execution_topology_render_index.json)",
+  ].join("\n"),
+  "agent-finalize must report the phase-schedules update summary",
+);
+assert.deepEqual(
+  readFileSync(agentFinalizeSuccessLog, "utf8").trim().split("\n"),
+  ["go-test-duration-baseline-coverage", "phase-schedules", "phase-schedule-drift", "json-shape-check"],
+  "agent-finalize must run maintenance targets in order",
+);
+
+const agentFinalizeResultsMake = path.join(tempDir, "agent-finalize-results-make.sh");
+const agentFinalizeResultsLog = path.join(tempDir, "agent-finalize-results.log");
+const agentFinalizeResultsDir = path.join(tempDir, "agent-finalize-results");
+mkdirSync(agentFinalizeResultsDir, { recursive: true });
+writeFileSync(
+  agentFinalizeResultsMake,
+  `#!/usr/bin/env bash
+set -euo pipefail
+target="\${@: -1}"
+printf '%s\\n' "\${target}" >>"\${FAKE_MAKE_LOG}"
+case "\${target}" in
+  phase-schedules)
+    printf 'phase-schedules: unchanged\\n'
+    ;;
+  go-test-duration-baselines|browser-e2e-duration-baselines|service-backed-make-target-duration-baselines|harness-smoke-duration-baselines|go-test-duration-baseline-coverage|phase-schedule-drift|json-shape-check|go-test-duration-baseline-drift|browser-e2e-duration-baseline-drift|service-backed-make-target-duration-baseline-drift|harness-smoke-duration-baseline-drift)
+    ;;
+  *)
+    printf 'unexpected target %s\\n' "\${target}" >&2
+    exit 2
+    ;;
+esac
+`,
+);
+chmodSync(agentFinalizeResultsMake, 0o755);
+const agentFinalizeResultsOutput = execFileSync("bash", [path.join(root, "scripts/agent-finalize.sh")], {
+  encoding: "utf8",
+  env: {
+    ...process.env,
+    MAKE: agentFinalizeResultsMake,
+    FAKE_MAKE_LOG: agentFinalizeResultsLog,
+    RESULTS_DIR: agentFinalizeResultsDir,
+  },
+});
+assert.equal(
+  agentFinalizeResultsOutput.trim(),
+  [
+    `agent-finalize: duration baselines refreshed from ${agentFinalizeResultsDir}`,
+    `agent-finalize: duration baselines checked from ${agentFinalizeResultsDir}`,
+    "agent-finalize: ran, unchanged",
+  ].join("\n"),
+  "agent-finalize must report duration baseline refresh and drift status when RESULTS_DIR is supplied",
+);
+assert.deepEqual(
+  readFileSync(agentFinalizeResultsLog, "utf8").trim().split("\n"),
+  [
+    "go-test-duration-baselines",
+    "browser-e2e-duration-baselines",
+    "service-backed-make-target-duration-baselines",
+    "harness-smoke-duration-baselines",
+    "go-test-duration-baseline-coverage",
+    "phase-schedules",
+    "phase-schedule-drift",
+    "json-shape-check",
+    "go-test-duration-baseline-drift",
+    "browser-e2e-duration-baseline-drift",
+    "service-backed-make-target-duration-baseline-drift",
+    "harness-smoke-duration-baseline-drift",
+  ],
+  "agent-finalize must refresh baselines before schedule rendering and duration drift checks",
+);
+
+const agentFinalizeFailMake = path.join(tempDir, "agent-finalize-fail-make.sh");
+const agentFinalizeFailLog = path.join(tempDir, "agent-finalize-fail.log");
+writeFileSync(
+  agentFinalizeFailMake,
+  `#!/usr/bin/env bash
+set -euo pipefail
+target="\${@: -1}"
+printf '%s\\n' "\${target}" >>"\${FAKE_MAKE_LOG}"
+if [[ "\${target}" == "phase-schedules" ]]; then
+  printf 'phase-schedules failed fixture\\n' >&2
+  exit 17
+fi
+`,
+);
+chmodSync(agentFinalizeFailMake, 0o755);
+let agentFinalizeFailure = null;
+try {
+  execFileSync("bash", [path.join(root, "scripts/agent-finalize.sh")], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      MAKE: agentFinalizeFailMake,
+      FAKE_MAKE_LOG: agentFinalizeFailLog,
+      RESULTS_DIR: "",
+    },
+  });
+} catch (error) {
+  agentFinalizeFailure = error;
+}
+assert.ok(agentFinalizeFailure, "agent-finalize fixture must fail at phase-schedules");
+assert.match(
+  String(agentFinalizeFailure.stderr),
+  /agent-finalize: failed at phase-schedules/,
+  "agent-finalize must stop and report the failed subtarget",
+);
+assert.deepEqual(
+  readFileSync(agentFinalizeFailLog, "utf8").trim().split("\n"),
+  ["go-test-duration-baseline-coverage", "phase-schedules"],
+  "agent-finalize must not continue after a failed maintenance target",
+);
+
+const cliRenderDir = mkdtempSync(path.join(root, "tmp", "topology-cli-render-test-"));
+const cliRenderOutputPath = (name) => path.relative(root, path.join(cliRenderDir, name)).split(path.sep).join("/");
+const cliRenderTopology = topologyFixture();
+cliRenderTopology.generated_outputs = {
+  ...cliRenderTopology.generated_outputs,
+  task_surface_manifest: cliRenderOutputPath("task_surface_manifest.json"),
+  task_surface_make: cliRenderOutputPath("task_surface.generated.mk"),
+  check_schedule_manifest: cliRenderOutputPath("check_schedule_manifest.json"),
+  service_backed_schedule_manifest: cliRenderOutputPath("service_backed_schedule_manifest.json"),
+  browser_e2e_batch_manifest: cliRenderOutputPath("browser_e2e_batch_manifest.json"),
+  execution_topology_render_index: cliRenderOutputPath("execution_topology_render_index.json"),
+};
+const cliRenderTopologyPath = path.join(cliRenderDir, "execution_topology_manifest.json");
+copyFileSync(
+  path.join(root, "tools/service_backed_make_target_duration_baselines.json"),
+  path.join(cliRenderDir, "service_backed_make_target_duration_baselines.json"),
+);
+writeFileSync(cliRenderTopologyPath, `${JSON.stringify(cliRenderTopology, null, 2)}\n`);
+const renderScript = path.join(root, "scripts/render-execution-topology-artifacts.mjs");
+const firstRenderOutput = execFileSync(process.execPath, [renderScript, "--topology", cliRenderTopologyPath], {
+  encoding: "utf8",
+});
+assert.match(
+  firstRenderOutput,
+  /phase-schedules: updated 6 files/,
+  "phase-schedules must report updated generated artifacts",
+);
+assert.doesNotThrow(
+  () => topologyRendererModule.quickCheckRenderIndex({ topology: cliRenderTopologyPath }),
+  "phase-schedule drift must pass after rendering generated artifacts",
+);
+const secondRenderOutput = execFileSync(process.execPath, [renderScript, "--topology", cliRenderTopologyPath], {
+  encoding: "utf8",
+});
+assert.equal(
+  secondRenderOutput.trim(),
+  "phase-schedules: unchanged",
+  "phase-schedules must be idempotent on a second run",
+);
 
 const renderIndexDir = mkdtempSync(path.join(root, "tmp", "topology-render-index-test-"));
 const renderOutputPath = (name) => path.relative(root, path.join(renderIndexDir, name)).split(path.sep).join("/");

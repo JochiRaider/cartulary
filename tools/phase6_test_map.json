@@ -17,7 +17,8 @@
       "`browser-e2e-visual` carries authoritative `V-6-*` visual rows through `browser_visual`."
     ],
     "support_execution_extras": [
-      "Existing Phase 1 and Phase 3 socket, revocation, autosave, and same-field conflict tests remain carryover support evidence and must not claim Phase 6 IDs."
+      "Existing Phase 1 and Phase 3 socket, revocation, autosave, and same-field conflict tests remain carryover support evidence and must not claim Phase 6 IDs.",
+      "`internal/modules/workbook/phase6_conflict_support_test.go` keeps helper-level workbook conflict regression coverage under `TestSupportPhase6Unit_ConflictHelper*`; the authoritative Phase 6 conflict claims remain the route-owned rows in `phase6_conflict_route_test.go`."
     ],
     "sections": {
       "unit": "Unit",
@@ -35,6 +36,7 @@
     "support_only": [
       "`internal/modules/auth/phase1_integration_test.go` keeps Phase 1 session revocation socket coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.",
       "`internal/modules/timeline/phase3_integration_test.go` keeps Phase 3 canonical socket and same-field conflict transport coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.",
+      "`internal/modules/workbook/phase6_conflict_support_test.go` keeps helper-level regression coverage for field-overlap detection, opaque conflict token payloads, clean text merge suggestions, and collection conflict value shaping. These tests run under `TestSupportPhase6Unit_ConflictHelper*` and do not replace `U-6-01` through `U-6-04`.",
       "`internal/modules/workbook/workbook_mutation_integration_test.go` keeps existing workbook mutation conflict coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.",
       "`apps/web/src/WorkbookShell.phase3.autosave.test.tsx` keeps Phase 3 autosave and conflict UI coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows."
     ]
@@ -65,66 +67,119 @@
   "forbidden_id_files": [
     "internal/modules/auth/phase1_integration_test.go",
     "internal/modules/timeline/phase3_integration_test.go",
+    "internal/modules/workbook/phase6_conflict_support_test.go",
     "internal/modules/workbook/workbook_mutation_integration_test.go",
     "apps/web/src/WorkbookShell.phase3.autosave.test.tsx"
   ],
-  "support_go_targets": [],
+  "support_go_targets": [
+    {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase6_conflict_support_test.go",
+      "symbols": [
+        "TestSupportPhase6Unit_ConflictHelperDetectsOverlappingFields",
+        "TestSupportPhase6Unit_ConflictHelperBuildsOpaqueConflictToken",
+        "TestSupportPhase6Unit_ConflictHelperSuggestsOnlyCleanTextMerges",
+        "TestSupportPhase6Unit_ConflictHelperBuildsCollectionConflictValues"
+      ],
+      "selection_pattern": "TestSupportPhase6Unit_ConflictHelper",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit support phase6 workbook"
+    }
+  ],
   "unit": [
     {
       "id": "U-6-01",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase6_conflict_test.go",
-      "symbol": "TestPhase6_GridWriteConcurrency_U_6_01",
+      "file": "internal/modules/workbook/phase6_conflict_route_test.go",
+      "symbol": "TestPhase6_GridWriteConcurrencyRoute_U_6_01",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Every grid write includes `record_id`, `base_row_version`, and changed fields only; different-field concurrent edits auto-rebase, while same-field concurrent edits reject with an explicit conflict payload.",
       "out_of_scope": "Same-surface resolver UX and local pending-queue replay behavior remain separate Phase 6 rows.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase6 authoritative"
+      "execution_label": "backend-store phase6 authoritative",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Workbook route concurrency coverage starts the real runtime harness through phase4test.StartServer."
     },
     {
       "id": "U-6-02",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase6_conflict_test.go",
-      "symbol": "TestPhase6_SameFieldConflictTransport_U_6_02",
+      "file": "internal/modules/workbook/phase6_conflict_route_test.go",
+      "symbol": "TestPhase6_SameFieldConflictHTTP_U_6_02",
       "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
       "claim": "Same-field conflict transport uses `409`, `error.code='same_field_conflict'`, and an `error.conflict` object with the required base and current values.",
       "out_of_scope": "Phase 3 remains owner for existing Timeline conflict transport support evidence; Phase 6 owns generalized resolver-consumable coverage.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase6 authoritative"
+      "execution_label": "backend-store phase6 authoritative",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Workbook same-field conflict HTTP coverage starts the real runtime harness through phase4test.StartServer."
     },
     {
       "id": "U-6-03",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase6_conflict_test.go",
-      "symbol": "TestPhase6_TextCompareMerge_U_6_03",
-      "execution_dependency": "backend_unit",
-      "evidence_layer": "domain",
+      "file": "internal/modules/workbook/phase6_conflict_route_test.go",
+      "symbol": "TestPhase6_TextCompareMergeDurability_U_6_03",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
       "claim": "`text_compare_merge` treats the field as plain text, normalizes line endings only for merge computation, and never silently auto-commits a clean merge suggestion.",
       "out_of_scope": "Browser presentation of suggested merge choices remains resolver UI evidence.",
-      "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase6 authoritative"
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase6 authoritative",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Workbook text-merge durability coverage starts the real runtime harness through phase4test.StartServer."
     },
     {
       "id": "U-6-04",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase6_conflict_test.go",
-      "symbol": "TestPhase6_CollectionReviewWireFamilies_U_6_04",
+      "file": "internal/modules/workbook/phase6_conflict_route_test.go",
+      "symbol": "TestPhase6_CollectionReviewRouteResolve_U_6_04",
       "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
       "claim": "`collection_review` fields use `collection_value_v1` in read or conflict payloads and `collection_actions_v1` in explicit resolution writes.",
       "out_of_scope": "Interactive resolver choice rendering remains frontend evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase6 authoritative"
+      "execution_label": "backend-store phase6 authoritative",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Workbook collection resolver route coverage starts the real runtime harness through phase4test.StartServer."
     },
     {
       "id": "U-6-05",
