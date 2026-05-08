@@ -47,7 +47,7 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v10";
+const supportedSchemaID = "cartulary.check_schedule.v11";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v9";
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -120,6 +120,16 @@ function normalizeMakeJobs(value, label, resourceClaims) {
   }
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`${label} make_jobs must be a positive integer or check scheduler resource name`);
+  }
+  return value;
+}
+
+function normalizeSchedulerPriority(value, label) {
+  if (value === undefined) {
+    return 0;
+  }
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} scheduler_priority must be a non-negative integer`);
   }
   return value;
 }
@@ -377,6 +387,7 @@ function findSchedule(manifest, target, overrides) {
         unit.running_dependency_keys,
         `${label} ${unitTarget} running_dependency_keys`,
       ),
+      schedulerPriority: normalizeSchedulerPriority(unit.scheduler_priority, `${label} ${unitTarget}`),
       weight: unit.weight,
       needs: normalizeNeeds(unit.needs, `${label} ${unitTarget}`),
       producesSummaryTargets: normalizeTargetList(
@@ -428,7 +439,11 @@ function findSchedule(manifest, target, overrides) {
   const units = schedule.work_units.map((unit, index) => normalizeUnit(unit, index, resourceLimits));
   validateCheckWorkUnitDependencyGraph(units, `check schedule ${target}`);
   const sortedUnits = units.sort(
-    (left, right) => right.weight - left.weight || left.order - right.order || left.target.localeCompare(right.target),
+    (left, right) =>
+      right.schedulerPriority - left.schedulerPriority ||
+      right.weight - left.weight ||
+      left.order - right.order ||
+      left.target.localeCompare(right.target),
   );
   const summaryTargets = sortedUnits.flatMap((unit) => unit.producesSummaryTargets);
   return {

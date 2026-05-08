@@ -685,7 +685,7 @@ write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"
 cat >"$smoke_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -798,7 +798,7 @@ if (
 }
 const expectedCheckCPU = estimateCheckHostCPULimit();
 const expectedCheckIO = estimateCheckHostIOLimit(new Map([["host_cpu", expectedCheckCPU]]));
-if (expectedCheckCPU < 1 || expectedCheckCPU > 4 || expectedCheckIO !== expectedCheckCPU) {
+if (expectedCheckCPU < 1 || expectedCheckCPU > 6 || expectedCheckIO !== expectedCheckCPU) {
   fail("check host auto-limit estimates changed");
 }
 if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
@@ -1244,7 +1244,7 @@ check_auto_cpu="${check_auto_capacity%,*}"
 check_auto_io="${check_auto_capacity#*,}"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1308,7 +1308,7 @@ write_fake_make "$browser_auto_dir"
 browser_auto_manifest="${browser_auto_dir}/manifest.json"
 cat >"$browser_auto_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1368,7 +1368,7 @@ write_fake_make "$priority_reservation_dir"
 priority_reservation_manifest="${priority_reservation_dir}/manifest.json"
 cat >"$priority_reservation_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1410,6 +1410,41 @@ if (!(startAlpha < startLowIO && startLowIO < endLowIO && endLowIO < endAlpha)) 
 }
 if (!(endAlpha < startBuild && startBuild < startLowCPU)) {
   throw new Error("lower-priority host_cpu work must not backfill before build-server starts");
+}
+EOF
+
+scheduler_priority_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-scheduler-priority.XXXXXX")"
+cleanup_paths+=("$scheduler_priority_dir")
+write_fake_make "$scheduler_priority_dir"
+scheduler_priority_manifest="${scheduler_priority_dir}/manifest.json"
+cat >"$scheduler_priority_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v11",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1, "migration_scratch_postgres": 1 },
+      "summary_groups": [
+        { "name": "scheduler-priority", "summary_targets": ["alpha", "beta"] }
+      ],
+      "work_units": [
+        { "target": "alpha", "scheduler_priority": 0, "weight": 100, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "beta", "scheduler_priority": 10, "weight": 1, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+scheduler_priority_output="$(FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$scheduler_priority_dir" "$scheduler_priority_manifest" scheduler-priority 2>&1)"
+assert_contains "$scheduler_priority_output" "[SUMMARY] target=check status=pass work_units=2/2" "scheduler priority pass summary"
+"$NODE_BIN" - "${scheduler_priority_dir}/events.log" <<'EOF'
+const fs = require("node:fs");
+const [eventLog] = process.argv.slice(2);
+const lines = fs.readFileSync(eventLog, "utf8").trim().split(/\n/).filter(Boolean);
+const startBeta = lines.findIndex((line) => line.startsWith("start beta "));
+const startAlpha = lines.findIndex((line) => line.startsWith("start alpha "));
+if (startBeta === -1 || startAlpha === -1 || startBeta > startAlpha) {
+  throw new Error(`scheduler_priority must outrank duration weight, got\n${lines.join("\n")}`);
 }
 EOF
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
@@ -1570,7 +1605,7 @@ write_fake_make "$blocker_clarity_dir"
 blocker_clarity_manifest="${blocker_clarity_dir}/manifest.json"
 cat >"$blocker_clarity_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1622,7 +1657,7 @@ write_fake_make "$success_budget_dir"
 success_budget_manifest="${success_budget_dir}/manifest.json"
 cat >"$success_budget_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1651,7 +1686,7 @@ write_fake_make "$split_lane_dir"
 split_lane_manifest="${split_lane_dir}/manifest.json"
 cat >"$split_lane_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1739,7 +1774,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1768,7 +1803,7 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1797,7 +1832,7 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -1917,7 +1952,7 @@ write_fake_make "$service_skip_dir"
 service_skip_manifest="${service_skip_dir}/manifest.json"
 cat >"$service_skip_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -2009,7 +2044,7 @@ chmod +x "${service_no_lease_dir}/fake-test-services"
 service_no_lease_manifest="${service_no_lease_dir}/manifest.json"
 cat >"$service_no_lease_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -2071,7 +2106,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -2093,7 +2128,7 @@ assert_contains "$invalid_output" "depends on unknown completion key missing" "i
 invalid_env_manifest="${invalid_dir}/invalid-env-manifest.json"
 cat >"$invalid_env_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -2115,7 +2150,7 @@ assert_contains "$invalid_env_output" "env.CARTULARY_TEST_TARGET is scheduler-ow
 invalid_retained_manifest="${invalid_dir}/invalid-retained-manifest.json"
 cat >"$invalid_retained_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",
@@ -2143,7 +2178,7 @@ assert_contains "$invalid_retained_output" "resource_claims entry host_io is not
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v10",
+  "schema_id": "cartulary.check_schedule.v11",
   "schedules": [
     {
       "target": "check",

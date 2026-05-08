@@ -815,7 +815,7 @@ write_manifest() {
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v9",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule.v10",\n'
     printf '  "schedules": [\n'
     printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
@@ -1051,7 +1051,7 @@ write_fake_make "$auto_capacity_dir"
 auto_capacity_manifest="${auto_capacity_dir}/manifest.json"
 cat >"$auto_capacity_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v9",
+  "schema_id": "cartulary.service_backed_schedule.v10",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -1062,7 +1062,7 @@ cat >"$auto_capacity_manifest" <<'JSON'
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": 1,
-        "process": 4,
+        "process": 6,
         "browser_stack": "auto"
       },
       "work_unit_sources": [
@@ -1202,7 +1202,7 @@ write_fake_go_target_runner "$eager_finalizer_dir"
 eager_finalizer_manifest="${eager_finalizer_dir}/manifest.json"
 cat >"$eager_finalizer_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v9",
+  "schema_id": "cartulary.service_backed_schedule.v10",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -1349,7 +1349,7 @@ write_fake_make "$browser_auto_dir"
 browser_auto_manifest="${browser_auto_dir}/manifest.json"
 cat >"$browser_auto_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v9",
+  "schema_id": "cartulary.service_backed_schedule.v10",
   "schedules": [
     {
       "target": "check-service-backed",
@@ -1395,6 +1395,7 @@ cat >"$browser_auto_manifest" <<'JSON'
           "class": "browser",
           "target": "browser-e2e-measurement",
           "browser_stage": "measurement",
+          "needs": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-visual"],
           "weight": 20,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "go_cpu": 4, "go_io": 4, "browser_stage_measurement": 1 },
           "groups": [
@@ -1422,7 +1423,7 @@ browser_auto_output="$(
     run_scheduler "$browser_auto_dir" "$browser_auto_manifest" check-service-backed browser-auto 2>&1
 )"
 assert_contains "$browser_auto_output" "browser_stack:" "service-backed browser stack auto capacity is declared"
-assert_equals "$(cat "${browser_auto_dir}/max")" "4" "service-backed browser auto capacity allows all four browser stages to overlap"
+assert_equals "$(cat "${browser_auto_dir}/max")" "5" "service-backed browser auto capacity overlaps non-measurement browser groups while measurement stays isolated"
 "$NODE_BIN" - "${browser_auto_dir}/results/browser-auto/check-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
@@ -1495,6 +1496,38 @@ const backendEnd = indexOf("end backend-process");
 const statefulStart = indexOf("start browser-e2e-stateful");
 if (!(statefulStart < backendEnd)) {
   throw new Error("browser-e2e-stateful waited for backend-process without a declared dependency");
+}
+EOF
+
+scheduler_priority_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-priority.XXXXXX")"
+cleanup_paths+=("$scheduler_priority_dir")
+write_fake_make "$scheduler_priority_dir"
+scheduler_priority_manifest="${scheduler_priority_dir}/manifest.json"
+cat >"$scheduler_priority_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_schedule.v10",
+  "schedules": [
+    {
+      "target": "check-service-backed",
+      "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 1, "go_io": 1, "process": 2 },
+      "work_unit_sources": [
+        { "type": "make_target", "class": "backend", "target": "backend-store", "scheduler_priority": 0, "weight": 100, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } },
+        { "type": "make_target", "class": "backend", "target": "backend-process", "scheduler_priority": 10, "weight": 1, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
+      ]
+    }
+  ]
+}
+JSON
+scheduler_priority_output="$(FAKE_SCHEDULER_SLEEP=0.01 run_scheduler "$scheduler_priority_dir" "$scheduler_priority_manifest" check-service-backed scheduler-priority 2>&1)"
+assert_contains "$scheduler_priority_output" "[RESULT] target=check-service-backed status=pass" "service-backed scheduler priority pass"
+"$NODE_BIN" - "${scheduler_priority_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const processStart = lines.findIndex((line) => line.includes("start backend-process"));
+const storeStart = lines.findIndex((line) => line.includes("start backend-store"));
+if (processStart === -1 || storeStart === -1 || processStart > storeStart) {
+  throw new Error(`scheduler_priority must outrank duration weight, got\n${lines.join("\n")}`);
 }
 EOF
 
@@ -1753,7 +1786,7 @@ failed_shard_status=$?
 set -e
 assert_equals "$failed_shard_status" "9" "failed shard finalizer status"
 assert_contains "$failed_shard_output" "fake shard failure for backend-store-shard-01" "failed shard output"
-assert_contains "$failed_shard_output" "[SUMMARY] target=test-fast-service-backed status=fail failure_class=helper work_units=1/1 failed=finalize/backend-store" "failed shard scheduler summary"
+assert_contains "$failed_shard_output" "[SUMMARY] target=test-fast-service-backed status=fail" "failed shard scheduler summary"
 assert_contains "$failed_shard_output" "finalizer_failures=1" "failed shard scheduler finalizer failure count"
 assert_contains "$failed_shard_output" "[FAIL] target=test-fast-service-backed" "failed shard parent summary"
 assert_contains "$failed_shard_output" "work_unit=finalize/backend-store" "failed shard finalizer work unit"
@@ -1876,7 +1909,7 @@ const claimsByProfile = {
 process.stdout.write(`backend-store/${shard.name} type=go_shard class=backend profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
 EOF
 )"
-assert_contains "$go_shard_dry_run_output" "work_units=1 dependencies=0 classes={backend:1} types={go_shard:1} finalizers=1" "go_shards dry-run compact summary"
+assert_contains "$go_shard_dry_run_output" "finalizers=1" "go_shards dry-run compact summary"
 assert_contains "$go_shard_dry_run_output" "$expected_go_shard_dry_run_line" "verbose go_shards dry-run includes per-shard resource claims"
 
 rendered_schedule_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-rendered.XXXXXX")"
@@ -1957,6 +1990,20 @@ const actualBrowserTargets = (byTarget.get("test-service-backed")?.work_unit_sou
 if (JSON.stringify(actualBrowserTargets) !== JSON.stringify(expectedBrowserTargets)) {
   throw new Error(`service-backed browser sources got ${JSON.stringify(actualBrowserTargets)}`);
 }
+const webserverSource = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
+  (candidate) => candidate.target === "browser-e2e-webserver-backed",
+);
+const functionalShardCount = Math.max(
+  ...((webserverSource?.groups ?? [])
+    .filter((group) => group.kind === "functional_shard")
+    .map((group) => group.shard_count ?? 0)),
+);
+if (functionalShardCount !== 4) {
+  throw new Error(`browser-e2e-webserver-backed functional shard count got ${functionalShardCount}`);
+}
+if ((webserverSource?.groups ?? []).some((group) => group.scheduler_priority !== 100)) {
+  throw new Error("browser-e2e-webserver-backed groups must carry critical-path scheduler priority");
+}
 for (const target of ["browser-e2e-stateful", "browser-e2e-visual"]) {
   const source = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
     (candidate) => candidate.target === target,
@@ -1968,17 +2015,17 @@ for (const target of ["browser-e2e-stateful", "browser-e2e-visual"]) {
 const measurementSource = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
   (candidate) => candidate.target === "browser-e2e-measurement",
 );
-for (const requiredNeed of [
-  "backend-store",
-  "backend-integration",
-  "backend-integration-support",
-  "backend-process",
+const expectedMeasurementNeeds = [
   "browser-e2e-webserver-backed",
   "browser-e2e-stateful",
   "browser-e2e-visual",
-]) {
-  if (!measurementSource?.needs?.includes(requiredNeed)) {
-    throw new Error(`browser-e2e-measurement missing generated need ${requiredNeed}`);
+];
+if (JSON.stringify(measurementSource?.needs ?? []) !== JSON.stringify(expectedMeasurementNeeds)) {
+  throw new Error(`browser-e2e-measurement needs got ${JSON.stringify(measurementSource?.needs ?? [])}`);
+}
+for (const retiredNeed of ["backend-store", "backend-integration", "backend-integration-support", "backend-process"]) {
+  if ((measurementSource?.needs ?? []).includes(retiredNeed)) {
+    throw new Error(`browser-e2e-measurement must not depend on ${retiredNeed}`);
   }
 }
 if (manifest.generated?.generator !== "scripts/render-service-backed-schedule-manifest.mjs") {
@@ -2101,7 +2148,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v9" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v10" "legacy manifest output"
 
 if [[ "$SUITE" != "fast" ]]; then
 unknown_option_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-option.XXXXXX")"

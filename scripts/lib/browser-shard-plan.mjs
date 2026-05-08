@@ -27,7 +27,7 @@ function usage() {
   process.stderr.write(
     [
       "usage:",
-      "  browser-shard-plan.mjs plan [--baseline-file <path>] [--max-shards <n>]",
+      "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>]",
       "  browser-shard-plan.mjs merge-reports <output-report> <input-report...>",
       "  browser-shard-plan.mjs update-baselines [--baseline-file <path>] <results-dir>",
       "  browser-shard-plan.mjs check-baseline-drift [--baseline-file <path>] <results-dir>",
@@ -212,14 +212,16 @@ function uniqueSortedFiles(entries) {
   return [...new Set(entries.map((entry) => entry.file))].sort();
 }
 
-function planShardCount(entries, maxShards) {
+function planShardCount(entries, { minShards, maxShards, shardTargetMs }) {
   if (entries.length === 0) {
     return 0;
   }
-  return Math.max(1, Math.min(entries.length, maxShards));
+  const totalWeight = entries.reduce((sum, entry) => sum + entry.weight_ms, 0);
+  const targetCount = Math.ceil(totalWeight / Math.max(1, shardTargetMs));
+  return Math.max(1, Math.min(entries.length, maxShards, Math.max(minShards, targetCount)));
 }
 
-export function createPlan({ baselineFile, maxShards, phase = "" }) {
+export function createPlan({ baselineFile, minShards = 1, maxShards, phase = "" }) {
   const activeEntries = browserFunctionalEntries(repoRoot);
   const baseline = readBaseline(baselineFile, activeEntries);
   const entries = collectEntryRows(repoRoot, baseline, { phase });
@@ -230,7 +232,11 @@ export function createPlan({ baselineFile, maxShards, phase = "" }) {
         : "no authoritative browser_functional Playwright rows found",
     );
   }
-  const shardCount = planShardCount(entries, maxShards);
+  const shardCount = planShardCount(entries, {
+    minShards,
+    maxShards,
+    shardTargetMs: baseline.shardTargetMs,
+  });
   const shards = Array.from({ length: shardCount }, (_, index) => ({
     name: `browser-functional-shard-${String(index + 1).padStart(2, "0")}`,
     weight_ms: 0,
@@ -259,6 +265,7 @@ export function createPlan({ baselineFile, maxShards, phase = "" }) {
     phase,
     generated_at: new Date().toISOString(),
     baseline_file: path.relative(repoRoot, baselineFile),
+    min_shards: minShards,
     max_shards: maxShards,
     shard_count: shardCount,
     default_entry_weight_ms: baseline.defaultEntryWeightMs,
@@ -306,6 +313,7 @@ function parsePlanArgs(argv) {
   const options = {
     baselineFile: defaultBaselineFile,
     maxShards: 1,
+    minShards: 1,
     phase: "",
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -326,6 +334,14 @@ function parsePlanArgs(argv) {
       }
       continue;
     }
+    if (arg === "--min-shards") {
+      options.minShards = Number.parseInt(argv[index + 1] ?? "", 10);
+      index += 1;
+      if (!Number.isInteger(options.minShards) || options.minShards < 1) {
+        usage();
+      }
+      continue;
+    }
     if (arg === "--phase") {
       options.phase = argv[index + 1] ?? "";
       index += 1;
@@ -334,6 +350,9 @@ function parsePlanArgs(argv) {
       }
       continue;
     }
+    usage();
+  }
+  if (options.minShards > options.maxShards) {
     usage();
   }
   return options;

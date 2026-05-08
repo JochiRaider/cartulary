@@ -26,7 +26,7 @@ import {
 
 const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
 const baselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v1";
-const scheduleSchemaID = "cartulary.service_backed_schedule.v9";
+const scheduleSchemaID = "cartulary.service_backed_schedule.v10";
 const defaultBaselineFile = path.join(
   repoRoot,
   "tools",

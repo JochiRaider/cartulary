@@ -14,6 +14,7 @@ const hostCPUResource = "host_cpu";
 const hostIOResource = "host_io";
 const postgresResetResource = "postgres_reset";
 const buildServerTarget = "build-server";
+const defaultSchedulerPriority = 0;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -121,6 +122,10 @@ function browserGroupClaims(rawClaims) {
   return mapServiceBackedClaimsToCheckClaims(rawClaims ?? {}, { ensureHost: true });
 }
 
+function schedulerPriority(value) {
+  return Number.isInteger(value) && value > 0 ? value : defaultSchedulerPriority;
+}
+
 export function expandServiceBackedScheduleForCheck({
   repoRoot,
   serviceSchedule,
@@ -164,6 +169,7 @@ export function expandServiceBackedScheduleForCheck({
         target: source.target,
         label: `${source.target}/stage-session`,
         aggregate_target: source.target,
+        scheduler_priority: schedulerPriority(source.scheduler_priority),
         weight: source.weight,
         needs: sourceNeeds(source, serviceSessionKey, browserStageExtraNeeds(parentNeeds)),
         completion_keys: [stageSessionKey],
@@ -184,6 +190,7 @@ export function expandServiceBackedScheduleForCheck({
         target: source.target,
         label: `${source.target}/complete`,
         aggregate_target: source.target,
+        scheduler_priority: schedulerPriority(source.scheduler_priority),
         weight: 1,
         needs: browserStageCompletionNeeds(source.groups),
         completion_keys: [source.target],
@@ -205,6 +212,7 @@ export function expandServiceBackedScheduleForCheck({
           target: group.target,
           label: `${source.target}/${group.name}`,
           aggregate_target: source.target,
+          scheduler_priority: schedulerPriority(group.scheduler_priority ?? source.scheduler_priority),
           weight: group.weight,
           needs: browserGroupNeeds(stageSessionKey),
           completion_keys: [browserGroupCompletionKey(group.id)],
@@ -229,6 +237,7 @@ export function expandServiceBackedScheduleForCheck({
         target: source.target,
         label: source.target,
         aggregate_target: source.target,
+        scheduler_priority: schedulerPriority(source.scheduler_priority),
         weight: source.weight,
         needs: sourceNeeds(source, serviceSessionKey),
         completion_keys: [source.target],
@@ -258,6 +267,7 @@ export function expandServiceBackedScheduleForCheck({
       target: source.target,
       label: `finalize/${source.target}`,
       aggregate_target: source.target,
+      scheduler_priority: schedulerPriority(source.scheduler_priority),
       weight: 1,
       needs: shards.map((shard) => shardCompletionKey(shard.name)),
       completion_keys: [source.target],
@@ -279,6 +289,7 @@ export function expandServiceBackedScheduleForCheck({
         target: source.target,
         label: `${source.target}/${shard.name}`,
         aggregate_target: source.target,
+        scheduler_priority: schedulerPriority(source.scheduler_priority),
         weight: shard.weight_ms,
         needs: sourceNeeds(source, serviceSessionKey),
         completion_keys: [shardCompletionKey(shard.name)],
@@ -317,6 +328,7 @@ export function expandServiceBackedScheduleForCheck({
   return expanded
     .sort(
       (left, right) =>
+        (right.scheduler_priority ?? 0) - (left.scheduler_priority ?? 0) ||
         right.weight - left.weight ||
         (left.order ?? 0) - (right.order ?? 0) ||
         left.id.localeCompare(right.id),

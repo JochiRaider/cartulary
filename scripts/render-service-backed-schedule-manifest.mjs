@@ -28,10 +28,13 @@ import { collectTargetPlanRows, findTargetDescriptor } from "./lib/target-plan.m
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const scheduleSchemaID = "cartulary.service_backed_schedule.v9";
+const scheduleSchemaID = "cartulary.service_backed_schedule.v10";
 const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v1";
-const defaultBrowserFunctionalShards = 2;
+const defaultBrowserFunctionalMinShards = 2;
+const defaultBrowserFunctionalMaxShards = 4;
+const browserCriticalPathPriority = 100;
+const measurementIsolationStages = new Set(["webserver-backed", "stateful", "visual"]);
 
 function usage() {
   throw new Error(
@@ -232,9 +235,11 @@ function browserGroupBaselineKey(scheduleTarget, groupID, aggregateTarget) {
 }
 
 function browserGroupWeight(timing, scheduleTarget, groupID, aggregateTarget, fallback = 0) {
-  const baselineWeight = timing.baseline.workUnits.get(
-    browserGroupBaselineKey(scheduleTarget, groupID, aggregateTarget),
-  );
+  const baselineWeight =
+    timing.baseline.workUnits.get(browserGroupBaselineKey(scheduleTarget, groupID, aggregateTarget)) ??
+    timing.baseline.workUnits.get(
+      ["check", "check", `${scheduleTarget}:${groupID}`, aggregateTarget].join("|"),
+    );
   if (Number.isInteger(baselineWeight) && baselineWeight > 0) {
     return baselineWeight;
   }
@@ -390,22 +395,34 @@ function browserStageResourceClaims(profile, stageName) {
   return cloneObject(stageClaims);
 }
 
-function browserFunctionalShardCount(profile) {
-  const configured = profile.defaults.browser_functional_shards ?? defaultBrowserFunctionalShards;
-  if (!Number.isInteger(configured) || configured < 1) {
-    throw new Error("defaults.browser_functional_shards must be a positive integer when present");
+function browserFunctionalSharding(profile) {
+  const raw = profile.defaults.browser_functional_sharding ?? {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("defaults.browser_functional_sharding must be an object when present");
   }
-  return configured;
+  const minShards = raw.min_shards ?? defaultBrowserFunctionalMinShards;
+  const maxShards = raw.max_shards ?? defaultBrowserFunctionalMaxShards;
+  if (!Number.isInteger(minShards) || minShards < 1) {
+    throw new Error("defaults.browser_functional_sharding.min_shards must be a positive integer when present");
+  }
+  if (!Number.isInteger(maxShards) || maxShards < 1) {
+    throw new Error("defaults.browser_functional_sharding.max_shards must be a positive integer when present");
+  }
+  if (minShards > maxShards) {
+    throw new Error("defaults.browser_functional_sharding.min_shards must be less than or equal to max_shards");
+  }
+  return { minShards, maxShards };
 }
 
 function browserGroupSources(profile, timing, scheduleTarget, stage) {
   const groups = [];
-  const shardCount = browserFunctionalShardCount(profile);
+  const functionalSharding = browserFunctionalSharding(profile);
   for (const group of stage.groups) {
     if (stage.name === "webserver-backed" && group.kind === "duration_balanced_specs") {
       const plan = createBrowserShardPlan({
         baselineFile: path.join(repoRoot, "tools", "browser_e2e_duration_baselines.json"),
-        maxShards: shardCount,
+        minShards: functionalSharding.minShards,
+        maxShards: functionalSharding.maxShards,
       });
       for (const [index, shard] of plan.shards.entries()) {
         const id = `${stage.target}:${shard.name}`;
@@ -422,7 +439,8 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
           shard_count: plan.shard_count,
           phases: shard.phases,
           entry_ids: shard.entries.map((entry) => entry.id),
-          weight: browserGroupWeight(timing, scheduleTarget, id, stage.target, shard.weight_ms),
+          scheduler_priority: browserCriticalPathPriority,
+          weight: shard.weight_ms,
           resource_claims: {
             go_cpu: 1,
             go_io: 1,
@@ -437,6 +455,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
         aggregate_target: stage.target,
         coverage: "supplemental",
         execution_dependency: "browser_support",
+        scheduler_priority: browserCriticalPathPriority,
         weight: browserGroupWeight(timing, scheduleTarget, `${stage.target}:support`, stage.target),
         resource_claims: {
           go_cpu: 1,
@@ -455,6 +474,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
       aggregate_target: stage.target,
       coverage: group.coverage,
       execution_dependency: group.executionDependency,
+      scheduler_priority: browserCriticalPathPriority,
       weight: browserGroupWeight(timing, scheduleTarget, id, stage.target, makeTargetWeight(timing, scheduleTarget, group.target)),
       resource_claims: {
         go_cpu: 1,
@@ -483,6 +503,7 @@ function browserSource(profile, timing, scheduleTarget, stage, selectedTargets, 
     target: stage.target,
     browser_stage: stageName,
     ...(needs.length > 0 ? { needs } : {}),
+    scheduler_priority: browserCriticalPathPriority,
     weight: browserGroupSources(profile, timing, scheduleTarget, stage)
       .reduce((sum, group) => sum + group.weight, 0),
     resource_claims: claims,
@@ -594,12 +615,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   for (const stage of stages) {
     resourceLimits[browserStageResource(stage.name)] = 1;
     const generatedNeeds = stage.name === "measurement"
-      ? [
-          ...backendTargets,
-          ...stages
-            .filter((candidate) => candidate.name !== stage.name)
-            .map((candidate) => candidate.target),
-        ]
+      ? measurementGeneratedNeeds(stages, scheduleProfile.target)
       : [];
     const source = browserSource(
       profile,
@@ -617,6 +633,22 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
     resource_limits: resourceLimits,
     work_unit_sources: sources,
   };
+}
+
+function measurementGeneratedNeeds(stages, scheduleTarget) {
+  const dependencies = [];
+  for (const stage of stages) {
+    if (stage.name === "measurement") {
+      continue;
+    }
+    if (!measurementIsolationStages.has(stage.name)) {
+      throw new Error(
+        `${scheduleTarget} browser measurement isolation must explicitly account for newly selected stage ${stage.name}`,
+      );
+    }
+    dependencies.push(stage.target);
+  }
+  return dependencies;
 }
 
 export function renderServiceBackedScheduleManifest(options = {}) {

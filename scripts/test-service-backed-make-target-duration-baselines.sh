@@ -128,7 +128,7 @@ cp "$ROOT_DIR/tools/service_backed_make_target_duration_baselines.json" \
   "$tmp_dir/service_backed_make_target_duration_baselines.json"
 cat >"$tmp_dir/schedule.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v9",
+  "schema_id": "cartulary.service_backed_schedule.v10",
   "schedules": [
     {
       "target": "check-service-backed",

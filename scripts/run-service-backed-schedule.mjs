@@ -47,7 +47,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-const supportedSchemaID = "cartulary.service_backed_schedule.v9";
+const supportedSchemaID = "cartulary.service_backed_schedule.v10";
 const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v5";
 const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v9";
 const goCPUResource = "go_cpu";
@@ -57,6 +57,7 @@ const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const validSourceTypes = new Set(["go_shards", "make_target", "browser_stage"]);
 const validSourceClasses = new Set(["backend", "browser"]);
 const validBrowserGroupKinds = new Set(["functional_shard", "support", "stateful", "measurement", "visual"]);
+const measurementIsolationStages = new Set(["webserver-backed", "stateful", "visual"]);
 
 function usage() {
   process.stderr.write(
@@ -172,6 +173,12 @@ function validateBrowserGroup(source, group, groupIndex, label, resourceLimits) 
   if (!Number.isFinite(group.weight) || group.weight < 0) {
     throw new Error(`${groupLabel}.weight must be non-negative`);
   }
+  if (
+    group.scheduler_priority !== undefined &&
+    (!Number.isInteger(group.scheduler_priority) || group.scheduler_priority < 0)
+  ) {
+    throw new Error(`${groupLabel}.scheduler_priority must be a non-negative integer`);
+  }
   if (!validBrowserGroupKinds.has(group.kind.trim())) {
     throw new Error(`${groupLabel}.kind must be one of ${Array.from(validBrowserGroupKinds).join(", ")}`);
   }
@@ -205,6 +212,7 @@ function validateBrowserGroup(source, group, groupIndex, label, resourceLimits) 
     shardCount: Number.isInteger(group.shard_count) ? group.shard_count : 0,
     phases: Array.isArray(group.phases) ? group.phases.filter((entry) => typeof entry === "string") : [],
     entryIDs: Array.isArray(group.entry_ids) ? group.entry_ids.filter((entry) => typeof entry === "string") : [],
+    schedulerPriority: group.scheduler_priority ?? 0,
     weight: group.weight,
     resourceClaims: normalizeResourceClaims(
       group.resource_claims ?? {},
@@ -233,6 +241,12 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
     throw new Error(`${label} must not declare legacy resource_tags or exclusive_tags`);
   }
   const target = source.target.trim();
+  if (
+    source.scheduler_priority !== undefined &&
+    (!Number.isInteger(source.scheduler_priority) || source.scheduler_priority < 0)
+  ) {
+    throw new Error(`${label} ${target} scheduler_priority must be a non-negative integer`);
+  }
   const resourceClaims = normalizeResourceClaims(
     source.resource_claims,
     `${label} ${target}`,
@@ -259,6 +273,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
       class: source.class,
       target,
       needs,
+      schedulerPriority: source.scheduler_priority ?? 0,
       resourceClaims,
       rawResourceClaims: source.resource_claims,
       order: index,
@@ -283,6 +298,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
       target,
       browserStage: source.browser_stage.trim(),
       needs,
+      schedulerPriority: source.scheduler_priority ?? 0,
       weight: source.weight,
       resourceClaims,
       rawResourceClaims: source.resource_claims,
@@ -299,6 +315,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
     class: source.class,
     target,
     needs,
+    schedulerPriority: source.scheduler_priority ?? 0,
     weight: source.weight,
     resourceClaims,
     rawResourceClaims: source.resource_claims,
@@ -324,6 +341,7 @@ function findSchedule(manifest, target, browserStages, overrides) {
   const sources = schedule.work_unit_sources.map((source, index) =>
     validateSource(target, source, index, resourceLimits, browserStages),
   );
+  validateMeasurementIsolation(sources, `schedule ${target}`);
   validateTargetDependencyGraph(sources, {
     scheduleLabel: `schedule ${target}`,
     nodeKind: "source",
@@ -341,6 +359,33 @@ function findSchedule(manifest, target, browserStages, overrides) {
       .map((source) => source.target),
     dependencyCount: sources.reduce((sum, source) => sum + source.needs.length, 0),
   };
+}
+
+function validateMeasurementIsolation(sources, scheduleLabel) {
+  const browserSources = sources.filter((source) => source.type === "browser_stage");
+  const measurement = browserSources.find((source) => source.browserStage === "measurement");
+  if (!measurement) {
+    return;
+  }
+  const expectedNeeds = [];
+  for (const source of browserSources) {
+    if (source.target === measurement.target) {
+      continue;
+    }
+    if (!measurementIsolationStages.has(source.browserStage)) {
+      throw new Error(
+        `${scheduleLabel} browser measurement isolation must explicitly account for newly selected stage ${source.browserStage}`,
+      );
+    }
+    expectedNeeds.push(source.target);
+  }
+  expectedNeeds.sort();
+  const actualNeeds = [...measurement.needs].sort();
+  if (JSON.stringify(actualNeeds) !== JSON.stringify(expectedNeeds)) {
+    throw new Error(
+      `${scheduleLabel} browser measurement must depend exactly on isolated browser stages ${expectedNeeds.join(",") || "(none)"}`,
+    );
+  }
 }
 
 function cloneResourceClaims(resourceClaims) {
@@ -420,6 +465,7 @@ function expandSchedule(schedule) {
         completionKeys: [browserStageSessionKey(source.target)],
         failureKeys: [browserStageSessionKey(source.target)],
         weight: source.weight,
+        schedulerPriority: source.schedulerPriority,
         resourceClaims: cloneResourceClaims(source.resourceClaims),
         retainedResourceClaims: retainedClaims,
         order: source.order,
@@ -461,6 +507,7 @@ function expandSchedule(schedule) {
           completionKeys: [browserGroupCompletionKey(group.id)],
           failureKeys: [browserGroupCompletionKey(group.id)],
           weight: group.weight,
+          schedulerPriority: group.schedulerPriority,
           resourceClaims: cloneResourceClaims(group.resourceClaims),
           rawResourceClaims: group.rawResourceClaims,
           order: source.order,
@@ -483,6 +530,7 @@ function expandSchedule(schedule) {
         completionKeys: [source.target],
         failureKeys: [source.target],
         weight: source.weight,
+        schedulerPriority: source.schedulerPriority,
         resourceClaims: cloneResourceClaims(source.resourceClaims),
         rawResourceClaims: source.rawResourceClaims,
         order: source.order,
@@ -535,6 +583,7 @@ function expandSchedule(schedule) {
         shard: shard.name,
         schedulerProfile: shard.scheduler_profile,
         weight: shard.weight_ms,
+        schedulerPriority: source.schedulerPriority,
         resourceClaims: mergeResourceClaims(
           source.resourceClaims,
           schedulerClaimsForShard(shard, schedule.resourceLimits),
@@ -548,6 +597,7 @@ function expandSchedule(schedule) {
 
   countedWorkUnits.sort(
     (left, right) =>
+      right.schedulerPriority - left.schedulerPriority ||
       right.weight - left.weight ||
       left.order - right.order ||
       left.label.localeCompare(right.label),

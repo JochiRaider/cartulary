@@ -2,6 +2,7 @@ import { checkScheduleSchemaID } from "./execution-topology.mjs";
 import {
   readJsonObject,
   requireObject,
+  requireInteger,
   requirePositiveInteger,
   requireSchemaID,
   requireString,
@@ -25,6 +26,7 @@ const checkWorkUnitKeys = new Set([
   "target",
   "label",
   "aggregate_target",
+  "scheduler_priority",
   "weight",
   "needs",
   "produces_summary_targets",
@@ -76,6 +78,9 @@ export function validateCheckScheduleManifestShape(fileOrManifest, label = fileO
             pattern: makeTargetPattern,
           });
           requirePositiveInteger(unit.weight, `${unitLabel}.weight`);
+          if (unit.scheduler_priority !== undefined) {
+            requireInteger(unit.scheduler_priority, `${unitLabel}.scheduler_priority`, { min: 0 });
+          }
           if (unit.env !== undefined) {
             for (const name of Object.keys(requireObject(unit.env, `${unitLabel}.env`))) {
               requireString(name, `${unitLabel}.env key`, {

@@ -169,8 +169,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v9") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v9");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v10") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v10");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -195,8 +195,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v9") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v9");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v10") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v10");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -244,8 +244,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v10") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v10");
+if (manifest.schema_id !== "cartulary.check_schedule.v11") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v11");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -265,8 +265,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v10") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v10");
+if (manifest.schema_id !== "cartulary.check_schedule.v11") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v11");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -645,6 +645,9 @@ const functionalShardCount = Math.max(
     .filter((entry) => entry.browser_group?.kind === "functional_shard")
     .map((entry) => entry.browser_group?.shard_count ?? 0),
 );
+if (functionalShardCount !== 4) {
+  throw new Error(`check schedule must render 4 duration-balanced functional shards, got ${functionalShardCount}`);
+}
 const webserverWorkerCount = functionalShardCount + (
   webserverGroups.some((entry) => entry.browser_group?.kind === "support") ? 1 : 0
 );
@@ -671,6 +674,24 @@ for (const group of webserverGroups) {
     ) {
       throw new Error(`${group.label} must use a worker slot outside the functional shard range`);
     }
+  }
+}
+const measurementSession = (schedule.work_units ?? []).find((entry) =>
+  entry.target === "browser-e2e-measurement" && entry.kind === "browser_stage_session"
+);
+const expectedMeasurementNeeds = [
+  "service_session:check-service-backed",
+  "build-server",
+  "browser-e2e-webserver-backed",
+  "browser-e2e-stateful",
+  "browser-e2e-visual",
+];
+if (JSON.stringify(measurementSession?.needs ?? []) !== JSON.stringify(expectedMeasurementNeeds)) {
+  throw new Error(`browser-e2e-measurement stage needs got ${JSON.stringify(measurementSession?.needs ?? [])}`);
+}
+for (const retiredNeed of ["backend-store", "backend-integration", "backend-integration-support", "backend-process"]) {
+  if ((measurementSession?.needs ?? []).includes(retiredNeed)) {
+    throw new Error(`browser-e2e-measurement stage must not depend on ${retiredNeed}`);
   }
 }
 const webserverComplete = (schedule.work_units ?? []).find((entry) =>

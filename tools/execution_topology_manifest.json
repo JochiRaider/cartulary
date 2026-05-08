@@ -5823,7 +5823,10 @@
         "minio": 1
       },
       "make_target_duration_baseline": "service_backed_make_target_duration_baselines.json",
-      "browser_functional_shards": 2,
+      "browser_functional_sharding": {
+        "min_shards": 2,
+        "max_shards": 4
+      },
       "make_target_weight_overrides": {},
       "backend_make_target_resource_claims": {
         "backend-process": {

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule.v9",
+  "schema_id": "cartulary.service_backed_schedule.v10",
   "generated": {
     "generator": "scripts/render-service-backed-schedule-manifest.mjs",
     "topology": "tools/execution_topology_manifest.json",
@@ -69,6 +69,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
+          "scheduler_priority": 100,
           "weight": 84428,
           "resource_claims": {
             "postgres": 1,
@@ -88,31 +89,21 @@
               "execution_dependency": "browser_functional",
               "shard_name": "browser-functional-shard-01",
               "shard_index": 0,
-              "shard_count": 2,
+              "shard_count": 4,
               "phases": [
                 "phase1",
-                "phase2",
-                "phase3",
                 "phase4",
-                "phase5",
-                "phase6"
+                "phase5"
               ],
               "entry_ids": [
+                "E-1-02",
                 "E-1-06",
-                "E-1-08",
-                "E-2-01",
-                "E-3-01",
-                "E-3-03",
-                "E-4-04",
                 "E-4-06",
-                "E-5-02",
-                "E-5-04",
-                "E-5-05",
-                "E-6-01",
-                "E-6-03",
-                "E-6-04"
+                "E-5-01",
+                "E-5-02"
               ],
-              "weight": 37113,
+              "scheduler_priority": 100,
+              "weight": 18247,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -128,10 +119,43 @@
               "execution_dependency": "browser_functional",
               "shard_name": "browser-functional-shard-02",
               "shard_index": 1,
-              "shard_count": 2,
+              "shard_count": 4,
               "phases": [
                 "phase1",
                 "phase2",
+                "phase4",
+                "phase5",
+                "phase6"
+              ],
+              "entry_ids": [
+                "E-1-08",
+                "E-2-01",
+                "E-2-02",
+                "E-2-03",
+                "E-4-02",
+                "E-5-05",
+                "E-6-05"
+              ],
+              "scheduler_priority": 100,
+              "weight": 18810,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            },
+            {
+              "id": "browser-e2e-webserver-backed:browser-functional-shard-03",
+              "name": "browser-functional-shard-03",
+              "kind": "functional_shard",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_functional",
+              "shard_name": "browser-functional-shard-03",
+              "shard_index": 2,
+              "shard_count": 4,
+              "phases": [
+                "phase1",
                 "phase3",
                 "phase4",
                 "phase5",
@@ -139,22 +163,50 @@
               ],
               "entry_ids": [
                 "E-1-01",
-                "E-1-02",
-                "E-1-03",
-                "E-1-07",
-                "E-2-02",
-                "E-2-03",
+                "E-3-03",
                 "E-3-04",
-                "E-4-02",
-                "E-4-01",
                 "E-4-03",
                 "E-4-05",
-                "E-5-01",
                 "E-5-03",
-                "E-6-02",
-                "E-6-05"
+                "E-5-04",
+                "E-6-02"
               ],
-              "weight": 37315,
+              "scheduler_priority": 100,
+              "weight": 18735,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            },
+            {
+              "id": "browser-e2e-webserver-backed:browser-functional-shard-04",
+              "name": "browser-functional-shard-04",
+              "kind": "functional_shard",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_functional",
+              "shard_name": "browser-functional-shard-04",
+              "shard_index": 3,
+              "shard_count": 4,
+              "phases": [
+                "phase1",
+                "phase3",
+                "phase4",
+                "phase6"
+              ],
+              "entry_ids": [
+                "E-1-03",
+                "E-1-07",
+                "E-3-01",
+                "E-4-04",
+                "E-4-01",
+                "E-6-01",
+                "E-6-03",
+                "E-6-04"
+              ],
+              "scheduler_priority": 100,
+              "weight": 18636,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -168,6 +220,7 @@
               "aggregate_target": "browser-e2e-webserver-backed",
               "coverage": "supplemental",
               "execution_dependency": "browser_support",
+              "scheduler_priority": 100,
               "weight": 10000,
               "resource_claims": {
                 "go_cpu": 1,
@@ -181,6 +234,7 @@
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
+          "scheduler_priority": 100,
           "weight": 10167,
           "resource_claims": {
             "postgres": 1,
@@ -198,6 +252,7 @@
               "aggregate_target": "browser-e2e-stateful",
               "coverage": "authoritative",
               "execution_dependency": "browser_stateful",
+              "scheduler_priority": 100,
               "weight": 10167,
               "resource_claims": {
                 "go_cpu": 1,
@@ -212,14 +267,11 @@
           "target": "browser-e2e-measurement",
           "browser_stage": "measurement",
           "needs": [
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process",
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",
             "browser-e2e-visual"
           ],
+          "scheduler_priority": 100,
           "weight": 11098,
           "resource_claims": {
             "postgres": 1,
@@ -239,6 +291,7 @@
               "aggregate_target": "browser-e2e-measurement",
               "coverage": "authoritative",
               "execution_dependency": "browser_measurement",
+              "scheduler_priority": 100,
               "weight": 11098,
               "resource_claims": {
                 "go_cpu": 4,
@@ -252,6 +305,7 @@
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
+          "scheduler_priority": 100,
           "weight": 11143,
           "resource_claims": {
             "postgres": 1,
@@ -269,6 +323,7 @@
               "aggregate_target": "browser-e2e-visual",
               "coverage": "authoritative",
               "execution_dependency": "browser_visual",
+              "scheduler_priority": 100,
               "weight": 11143,
               "resource_claims": {
                 "go_cpu": 1,
@@ -395,7 +450,8 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 84428,
+          "scheduler_priority": 100,
+          "weight": 82478,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -414,31 +470,21 @@
               "execution_dependency": "browser_functional",
               "shard_name": "browser-functional-shard-01",
               "shard_index": 0,
-              "shard_count": 2,
+              "shard_count": 4,
               "phases": [
                 "phase1",
-                "phase2",
-                "phase3",
                 "phase4",
-                "phase5",
-                "phase6"
+                "phase5"
               ],
               "entry_ids": [
+                "E-1-02",
                 "E-1-06",
-                "E-1-08",
-                "E-2-01",
-                "E-3-01",
-                "E-3-03",
-                "E-4-04",
                 "E-4-06",
-                "E-5-02",
-                "E-5-04",
-                "E-5-05",
-                "E-6-01",
-                "E-6-03",
-                "E-6-04"
+                "E-5-01",
+                "E-5-02"
               ],
-              "weight": 37113,
+              "scheduler_priority": 100,
+              "weight": 18247,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -454,10 +500,43 @@
               "execution_dependency": "browser_functional",
               "shard_name": "browser-functional-shard-02",
               "shard_index": 1,
-              "shard_count": 2,
+              "shard_count": 4,
               "phases": [
                 "phase1",
                 "phase2",
+                "phase4",
+                "phase5",
+                "phase6"
+              ],
+              "entry_ids": [
+                "E-1-08",
+                "E-2-01",
+                "E-2-02",
+                "E-2-03",
+                "E-4-02",
+                "E-5-05",
+                "E-6-05"
+              ],
+              "scheduler_priority": 100,
+              "weight": 18810,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            },
+            {
+              "id": "browser-e2e-webserver-backed:browser-functional-shard-03",
+              "name": "browser-functional-shard-03",
+              "kind": "functional_shard",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_functional",
+              "shard_name": "browser-functional-shard-03",
+              "shard_index": 2,
+              "shard_count": 4,
+              "phases": [
+                "phase1",
                 "phase3",
                 "phase4",
                 "phase5",
@@ -465,22 +544,50 @@
               ],
               "entry_ids": [
                 "E-1-01",
-                "E-1-02",
-                "E-1-03",
-                "E-1-07",
-                "E-2-02",
-                "E-2-03",
+                "E-3-03",
                 "E-3-04",
-                "E-4-02",
-                "E-4-01",
                 "E-4-03",
                 "E-4-05",
-                "E-5-01",
                 "E-5-03",
-                "E-6-02",
-                "E-6-05"
+                "E-5-04",
+                "E-6-02"
               ],
-              "weight": 37315,
+              "scheduler_priority": 100,
+              "weight": 18735,
+              "resource_claims": {
+                "go_cpu": 1,
+                "go_io": 1
+              }
+            },
+            {
+              "id": "browser-e2e-webserver-backed:browser-functional-shard-04",
+              "name": "browser-functional-shard-04",
+              "kind": "functional_shard",
+              "target": "browser-e2e-webserver-backed",
+              "aggregate_target": "browser-e2e-webserver-backed",
+              "coverage": "authoritative",
+              "execution_dependency": "browser_functional",
+              "shard_name": "browser-functional-shard-04",
+              "shard_index": 3,
+              "shard_count": 4,
+              "phases": [
+                "phase1",
+                "phase3",
+                "phase4",
+                "phase6"
+              ],
+              "entry_ids": [
+                "E-1-03",
+                "E-1-07",
+                "E-3-01",
+                "E-4-04",
+                "E-4-01",
+                "E-6-01",
+                "E-6-03",
+                "E-6-04"
+              ],
+              "scheduler_priority": 100,
+              "weight": 18636,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -494,7 +601,8 @@
               "aggregate_target": "browser-e2e-webserver-backed",
               "coverage": "supplemental",
               "execution_dependency": "browser_support",
-              "weight": 10000,
+              "scheduler_priority": 100,
+              "weight": 8050,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -507,7 +615,8 @@
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
-          "weight": 10167,
+          "scheduler_priority": 100,
+          "weight": 4987,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -524,7 +633,8 @@
               "aggregate_target": "browser-e2e-stateful",
               "coverage": "authoritative",
               "execution_dependency": "browser_stateful",
-              "weight": 10167,
+              "scheduler_priority": 100,
+              "weight": 4987,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -538,15 +648,12 @@
           "target": "browser-e2e-measurement",
           "browser_stage": "measurement",
           "needs": [
-            "backend-store",
-            "backend-integration",
-            "backend-integration-support",
-            "backend-process",
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",
             "browser-e2e-visual"
           ],
-          "weight": 11098,
+          "scheduler_priority": 100,
+          "weight": 4779,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -565,7 +672,8 @@
               "aggregate_target": "browser-e2e-measurement",
               "coverage": "authoritative",
               "execution_dependency": "browser_measurement",
-              "weight": 11098,
+              "scheduler_priority": 100,
+              "weight": 4779,
               "resource_claims": {
                 "go_cpu": 4,
                 "go_io": 4
@@ -578,7 +686,8 @@
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
-          "weight": 11143,
+          "scheduler_priority": 100,
+          "weight": 27116,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -595,7 +704,8 @@
               "aggregate_target": "browser-e2e-visual",
               "coverage": "authoritative",
               "execution_dependency": "browser_visual",
-              "weight": 11143,
+              "scheduler_priority": 100,
+              "weight": 27116,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1

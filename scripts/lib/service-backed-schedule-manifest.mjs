@@ -25,6 +25,7 @@ const serviceSourceKeys = new Set([
   "class",
   "target",
   "needs",
+  "scheduler_priority",
   "weight",
   "resource_claims",
   "browser_stage",
@@ -43,6 +44,7 @@ const serviceBrowserGroupKeys = new Set([
   "shard_count",
   "phases",
   "entry_ids",
+  "scheduler_priority",
   "weight",
   "resource_claims",
 ]);
@@ -103,6 +105,9 @@ export function validateServiceBackedScheduleManifestShape(
           if (source.type === "make_target" || source.type === "browser_stage") {
             requirePositiveInteger(source.weight, `${sourceLabel}.weight`);
           }
+          if (source.scheduler_priority !== undefined) {
+            requireInteger(source.scheduler_priority, `${sourceLabel}.scheduler_priority`, { min: 0 });
+          }
           if (source.type === "browser_stage") {
             validateObjectArray(
               source.groups,
@@ -119,6 +124,9 @@ export function validateServiceBackedScheduleManifestShape(
                   pattern: makeTargetPattern,
                 });
                 requirePositiveInteger(group.weight, `${groupLabel}.weight`);
+                if (group.scheduler_priority !== undefined) {
+                  requireInteger(group.scheduler_priority, `${groupLabel}.scheduler_priority`, { min: 0 });
+                }
                 if (group.kind === "functional_shard") {
                   requireString(group.shard_name, `${groupLabel}.shard_name`);
                   requireInteger(group.shard_index, `${groupLabel}.shard_index`, { min: 0 });
