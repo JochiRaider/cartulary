@@ -358,8 +358,8 @@
       "title": "E-6-03 preserves unsaved local work after socket revocation and re-authentication",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Logout, expiry, or concurrency-limit revocation emits `session_revoked`, closes the socket, and preserves unsaved local work for later explicit recovery after re-authentication.",
-      "out_of_scope": "Low-level session revocation socket delivery remains backend evidence."
+      "claim": "Representative route-owned browser revocation sources, including admin revoke-all, current-session logout, and concurrency-limit eviction, emit `session_revoked`, close the socket, and preserve unsaved local work for explicit recovery and replay after re-authentication.",
+      "out_of_scope": "Browser evidence proves UI preservation and replay after representative route-owned revocation sources. Clock-driven expiry mechanics and low-level revocation-source correctness remain backend and integration evidence."
     },
     {
       "id": "E-6-04",
@@ -370,7 +370,7 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Live updates never retarget a pending local edit, same-field conflict marker, row-gutter presence marker, or same-cell presence marker away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
-      "out_of_scope": "Low-level grid adapter identity helpers may receive separate frontend unit coverage."
+      "out_of_scope": "Current-product single-cell paste completion is covered here. Multi-cell paste-matrix anchoring remains Phase 9 grid/paste evidence under `I-9-GRID-01` and shared `I-GRID-03` unless product scope moves earlier."
     },
     {
       "id": "E-6-05",
@@ -390,10 +390,10 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-6-GRID-01 captures Phase 6 row-gutter and same-cell presence markers",
+      "title": "V-6-GRID-01 regresses Phase 6 row-gutter and same-cell presence markers",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
-      "claim": "The visual harness captures deterministic Timeline row-gutter and same-cell presence markers keyed by `record_id` and `field_key`.",
+      "claim": "The visual harness asserts deterministic Timeline row-gutter and same-cell presence markers keyed by `record_id` and `field_key` against a stable screenshot baseline.",
       "out_of_scope": "Socket payload canonicalization and timing remain backend and functional browser evidence."
     },
     {
@@ -401,10 +401,10 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-6-GRID-02 captures Phase 6 same-field conflict marker resolver and Conflict strip",
+      "title": "V-6-GRID-02 regresses Phase 6 same-field conflict marker resolver and Conflict strip",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
-      "claim": "The visual harness captures the same-field conflict marker, same-surface resolver, and `Conflict` save-state strip on the Timeline grid.",
+      "claim": "The visual harness asserts the same-field conflict marker, same-surface resolver, and `Conflict` save-state strip on the Timeline grid against a stable screenshot baseline.",
       "out_of_scope": "Resolver mutation semantics remain frontend-unit and functional browser evidence."
     },
     {
@@ -412,10 +412,10 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/workbook.visual.spec.ts",
-      "title": "V-6-GRID-03 captures Phase 6 pending-queue save-state transitions",
+      "title": "V-6-GRID-03 regresses Phase 6 pending-queue save-state transitions",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
-      "claim": "The visual harness captures pending-queue `Syncing`, blocked `Conflict`, and recovered `Saved` save-state presentations.",
+      "claim": "The visual harness asserts pending-queue `Syncing`, blocked `Conflict`, and recovered `Saved` save-state presentations against stable screenshot baselines.",
       "out_of_scope": "Pending-queue FIFO, boundedness, and replay semantics remain frontend-unit and functional browser evidence."
     }
   ]

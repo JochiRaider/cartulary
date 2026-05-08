@@ -93,6 +93,38 @@ export function assertAnchorTestId(recordId: string, fieldKey: string): string {
   return rowCellTestId(recordId, fieldKey);
 }
 
+export function assertRecordFieldMutationAnchor(options: {
+  actualRecordId: string;
+  body: Record<string, unknown>;
+  expectedRecordId: string;
+  expectedValue?: unknown;
+  fieldKey: string;
+}) {
+  const { actualRecordId, body, expectedRecordId, expectedValue, fieldKey } =
+    options;
+  if (actualRecordId !== expectedRecordId) {
+    throw new Error(
+      `Expected mutation for record_id ${expectedRecordId}, received ${actualRecordId}`,
+    );
+  }
+  const changes = Array.isArray(body.changes) ? body.changes : [];
+  const change = changes.find(
+    (candidate): candidate is { field_key: string; value?: unknown } =>
+      typeof candidate === "object" &&
+      candidate !== null &&
+      "field_key" in candidate &&
+      candidate.field_key === fieldKey,
+  );
+  if (!change) {
+    throw new Error(`Expected mutation body to include field_key ${fieldKey}`);
+  }
+  if ("expectedValue" in options && change.value !== expectedValue) {
+    throw new Error(
+      `Expected ${fieldKey} mutation value ${String(expectedValue)}, received ${String(change.value)}`,
+    );
+  }
+}
+
 export async function readGridScroll(
   page: BrowserPageLike,
   surface: WorkbookSurface,

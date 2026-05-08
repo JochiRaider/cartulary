@@ -2,6 +2,7 @@ import {
   applyFilterChip,
   assertMarkerAnchoredToGridTarget,
   assertMountedGridRowCountAtMost,
+  assertRecordFieldMutationAnchor,
   changeGrouping,
   scrollGridToBottom,
   scrollGridToOffset,
@@ -17,11 +18,13 @@ import {
   saveStateTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Route, WebSocket } from "@playwright/test";
+import { request } from "@playwright/test";
 
 import { revokeAllSessions } from "./authRuntime";
 import { expect, test } from "./fixtures";
 import {
   apiBase,
+  applyStorageState,
   createIncident,
   createIncidentMemberUser,
   createViewRow,
@@ -59,6 +62,19 @@ type SocketMessage = {
   payload: Record<string, unknown>;
   socketIndex: number;
   type: string;
+};
+
+type SessionTracker = {
+  loginTrackedUser: (
+    page: Page,
+    details: {
+      createdBy: string;
+      email: string;
+      password: string;
+      purpose: string;
+      userId: string;
+    },
+  ) => Promise<void>;
 };
 
 test("E-6-01 shows two analysts each other's workbook presence within the expected interaction window", async ({
@@ -238,113 +254,65 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
 test("E-6-03 preserves unsaved local work after socket revocation and re-authentication", async ({
   page,
   sessionTracker,
+  workerAdmin,
   workerAdminRequest,
 }) => {
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey("E603"),
-    "Phase 6 E-6-03 revocation recovery",
-  );
-  const member = await createIncidentMemberUser(page, incidentId, {
-    display_name: "Phase 6 E-6-03 Analyst",
-    email: uniqueEmail("phase6-e603-analyst"),
-    initial_password: "Phase6E603Analyst!",
-    role: "editor",
+  await test.step("deployment-admin revoke-all preserves and replays local work", async () => {
+    await exerciseRevokedPendingReplay({
+      createdBy: "E-6-03",
+      incidentKeyPrefix: "E603REVOKE",
+      page,
+      scenario: "revoke-all",
+      sessionTracker,
+      triggerRevocation: async ({ member }) => {
+        await revokeAllSessions(
+          workerAdminRequest,
+          member.user_id,
+          "Phase 6 E-6-03 browser revoke-all",
+        );
+      },
+    });
+    await applyStorageState(page, workerAdmin.storageState);
   });
-  const firstRow = await createTimelineRow(
-    page,
-    incidentId,
-    "E-6-03 first base",
-  );
-  const secondRow = await createTimelineRow(
-    page,
-    incidentId,
-    "E-6-03 second base",
-  );
-  const firstRecordId = requireRecordId(firstRow);
-  const secondRecordId = requireRecordId(secondRow);
-  const patchController = await installPatchController(page);
 
-  try {
-    await sessionTracker.loginTrackedUser(page, {
+  await test.step("current-session logout preserves and replays local work", async () => {
+    await exerciseRevokedPendingReplay({
       createdBy: "E-6-03",
-      email: member.email,
-      password: member.initial_password,
-      purpose: "Phase 6 E-6-03 analyst runtime",
-      userId: member.user_id,
+      incidentKeyPrefix: "E603LOGOUT",
+      page,
+      scenario: "logout",
+      sessionTracker,
+      triggerRevocation: async () => {
+        const response = await page.request.post(
+          `${apiBase}/api/v1/auth/logout`,
+          {
+            headers: await csrfHeaders(page),
+            data: {},
+          },
+        );
+        expect(response.ok()).toBeTruthy();
+      },
     });
+    await applyStorageState(page, workerAdmin.storageState);
+  });
 
-    const socketMonitor = installIncidentSocketMonitor(page, incidentId);
-    await page.goto(`/?incident_id=${incidentId}`);
-    await socketMonitor.waitForMessage("hello_ack");
-    await expect(page.getByTestId(`row-${firstRecordId}-summary`)).toHaveValue(
-      "E-6-03 first base",
-    );
-    await expect(page.getByText("Current incident role: editor")).toBeVisible();
-
-    const heldPatch = patchController.holdNextPatch();
-    await editTimelineSummary(page, firstRecordId, "E-6-03 first local");
-    await heldPatch.waitForHit;
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-
-    await revokeAllSessions(
-      workerAdminRequest,
-      member.user_id,
-      "Phase 6 E-6-03 browser revocation",
-    );
-    await socketMonitor.waitForMessage("session_revoked");
-    await socketMonitor.waitForClose(0);
-
-    heldPatch.release();
-    await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
-
-    await editTimelineSummary(page, secondRecordId, "E-6-03 second local");
-    await expect(page.getByTestId(`row-${firstRecordId}-summary`)).toHaveValue(
-      "E-6-03 first local",
-    );
-    await expect(page.getByTestId(`row-${secondRecordId}-summary`)).toHaveValue(
-      "E-6-03 second local",
-    );
-    await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
-      "2",
-    );
-
-    const messageStart = socketMonitor.messageCount();
-    await sessionTracker.loginTrackedUser(page, {
+  await test.step("concurrency-limit revocation preserves and replays local work", async () => {
+    await exerciseRevokedPendingReplay({
       createdBy: "E-6-03",
-      email: member.email,
-      password: member.initial_password,
-      purpose: "Phase 6 E-6-03 analyst re-authentication",
-      userId: member.user_id,
+      incidentKeyPrefix: "E603CONCURRENCY",
+      page,
+      scenario: "concurrency",
+      sessionTracker,
+      triggerRevocation: async ({ member }) => {
+        await createUntrackedLoginSessions(
+          member.email,
+          member.initial_password,
+          5,
+        );
+      },
     });
-    await socketMonitor.waitForMessage("hello_ack", {
-      startAt: messageStart,
-    });
-
-    await expect
-      .poll(() => successfulPatchCalls(patchController.calls).length)
-      .toBeGreaterThanOrEqual(2);
-    const replayed = successfulPatchCalls(patchController.calls).slice(-2);
-    expect(replayed.map((call) => call.recordId)).toEqual([
-      firstRecordId,
-      secondRecordId,
-    ]);
-    const [firstReplay, secondReplay] = replayed;
-    if (!firstReplay || !secondReplay) {
-      throw new Error("missing replayed E-6-03 patch calls");
-    }
-    expect(summaryPatchValue(firstReplay.body)).toBe("E-6-03 first local");
-    expect(summaryPatchValue(secondReplay.body)).toBe("E-6-03 second local");
-
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
-    await expectServerSummaries(page, incidentId, {
-      [firstRecordId]: "E-6-03 first local",
-      [secondRecordId]: "E-6-03 second local",
-    });
-  } finally {
-    await patchController.dispose();
-  }
+    await applyStorageState(page, workerAdmin.storageState);
+  });
 });
 
 test("E-6-04 keeps live updates conflict markers and presence markers anchored to record_id and field_key", async ({
@@ -363,7 +331,6 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     initial_password: "Phase6E604Anchor!",
     role: "editor",
   });
-  const betaRow = await createTimelineRow(page, incidentId, "E-6-04 Beta base");
   for (let index = 0; index < 24; index += 1) {
     await createTimelineRow(
       page,
@@ -371,6 +338,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       `E-6-04 Filler ${String(index).padStart(2, "0")}`,
     );
   }
+  const betaRow = await createTimelineRow(page, incidentId, "E-6-04 Beta base");
   const alphaRow = await createTimelineRow(
     page,
     incidentId,
@@ -385,6 +353,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForMessage("hello_ack");
+    await sortByHeader(page, "timeline", "timeline.summary");
     await expect(page.getByTestId(`row-${betaId}-summary`)).toHaveValue(
       "E-6-04 Beta base",
     );
@@ -392,7 +361,6 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     await expect(page.getByTestId(`row-${betaId}-capture-state`)).toHaveText(
       "reviewed",
     );
-    await sortByHeader(page, "timeline", "timeline.summary");
     await applyFilterChip(page, "timeline", "timeline.has_evidence", "false");
     await changeGrouping(page, "timeline", "timeline.capture_state");
 
@@ -415,6 +383,25 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     );
     expect(betaPatch.ok()).toBeTruthy();
     await expect(page.getByTestId(`row-${betaId}-row-version`)).toHaveText("3");
+
+    const betaInput = page.getByTestId(`row-${betaId}-summary`);
+    const pastePatch = patchController.holdNextPatch();
+    await betaInput.focus();
+    await betaInput.fill("E-6-04 pasted beta anchor");
+    await betaInput.dispatchEvent("paste");
+    const pasteCall = await pastePatch.waitForHit;
+    assertRecordFieldMutationAnchor({
+      actualRecordId: pasteCall.recordId,
+      body: pasteCall.body,
+      expectedRecordId: betaId,
+      expectedValue: "E-6-04 pasted beta anchor",
+      fieldKey: "timeline.summary",
+    });
+    pastePatch.release();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expectServerSummaries(page, incidentId, {
+      [betaId]: "E-6-04 pasted beta anchor",
+    });
 
     await scrollGridToBottom(page, "timeline");
     await assertMountedGridRowCountAtMost({
@@ -510,8 +497,10 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
 
 test("E-6-05 replays queued unsent writes after re-authentication without silent reload restore", async ({
   page,
+  sessionTracker,
+  workerAdminRequest,
 }) => {
-  await test.step("replays blocked writes in FIFO order after auth recovery", async () => {
+  await test.step("replays transient browser request failures in FIFO order after transport recovery", async () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("E605FIFO"),
@@ -526,11 +515,10 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
     const thirdId = requireRecordId(
       await createTimelineRow(page, incidentId, "E-6-05 FIFO C base"),
     );
-    const patchController = await installPatchController(page);
-    const sessionGate = await installAuthSessionGate(page);
+    const patchController = await installPatchTransportFailureController(page);
 
     try {
-      patchController.failNextPatch(401, "session_required");
+      patchController.disconnect();
       await page.goto(`/?incident_id=${incidentId}`);
       await expect(page.getByTestId(`row-${firstId}-summary`)).toHaveValue(
         "E-6-05 FIFO A base",
@@ -538,7 +526,6 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByText("Current incident role: admin"),
       ).toBeVisible();
-      sessionGate.close();
 
       await editTimelineSummary(page, firstId, "E-6-05 FIFO A local");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
@@ -550,7 +537,7 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       );
       expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
 
-      sessionGate.open();
+      patchController.connect();
       await expect
         .poll(() => successfulPatchCalls(patchController.calls).length)
         .toBe(3);
@@ -573,7 +560,6 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       });
     } finally {
       await patchController.dispose();
-      await sessionGate.dispose();
     }
   });
 
@@ -691,6 +677,28 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await sessionGate.dispose();
     }
   });
+
+  await test.step("replays queued writes in FIFO order after real session revocation and re-authentication", async () => {
+    await exerciseRevokedPendingReplay({
+      createdBy: "E-6-05",
+      incidentKeyPrefix: "E605REVOKE",
+      localValues: [
+        "E-6-05 revoked A local",
+        "E-6-05 revoked B local",
+        "E-6-05 revoked C local",
+      ],
+      page,
+      scenario: "revoked",
+      sessionTracker,
+      triggerRevocation: async ({ member }) => {
+        await revokeAllSessions(
+          workerAdminRequest,
+          member.user_id,
+          "Phase 6 E-6-05 browser revoke-all",
+        );
+      },
+    });
+  });
 });
 
 async function createTimelineRow(
@@ -713,6 +721,164 @@ async function editTimelineSummary(
   await input.fill(value);
   await input.press("Enter");
   await expect(input).toHaveValue(value);
+}
+
+async function exerciseRevokedPendingReplay({
+  createdBy,
+  incidentKeyPrefix,
+  localValues,
+  page,
+  scenario,
+  sessionTracker,
+  triggerRevocation,
+}: {
+  createdBy: string;
+  incidentKeyPrefix: string;
+  localValues?: readonly string[];
+  page: Page;
+  scenario: string;
+  sessionTracker: SessionTracker;
+  triggerRevocation: (context: {
+    incidentId: string;
+    member: {
+      email: string;
+      initial_password: string;
+      user_id: string;
+    };
+  }) => Promise<void>;
+}) {
+  const replayValues = localValues ?? [
+    `Phase 6 ${createdBy} ${scenario} first local`,
+    `Phase 6 ${createdBy} ${scenario} second local`,
+  ];
+  if (replayValues.length < 2) {
+    throw new Error(
+      "revoked pending replay requires at least two local values",
+    );
+  }
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey(incidentKeyPrefix),
+    `Phase 6 ${createdBy} ${scenario} revocation recovery`,
+  );
+  const member = await createIncidentMemberUser(page, incidentId, {
+    display_name: `Phase 6 ${createdBy} ${scenario} Analyst`,
+    email: uniqueEmail(`phase6-${createdBy.toLowerCase()}-${scenario}`),
+    initial_password: `Phase6${createdBy.replaceAll("-", "")}${scenario}Pass!`,
+    role: "editor",
+  });
+  const recordIds: string[] = [];
+  for (const [index] of replayValues.entries()) {
+    recordIds.push(
+      requireRecordId(
+        await createTimelineRow(
+          page,
+          incidentId,
+          `Phase 6 ${createdBy} ${scenario} ${index + 1} base`,
+        ),
+      ),
+    );
+  }
+  const replayItems = requireReplayItems(recordIds, replayValues);
+  const firstReplayItem = replayItems[0];
+  if (!firstReplayItem) {
+    throw new Error("revoked pending replay did not create a first row");
+  }
+  const patchController = await installPatchController(page);
+
+  try {
+    await sessionTracker.loginTrackedUser(page, {
+      createdBy,
+      email: member.email,
+      password: member.initial_password,
+      purpose: `Phase 6 ${createdBy} ${scenario} analyst runtime`,
+      userId: member.user_id,
+    });
+
+    const socketMonitor = installIncidentSocketMonitor(page, incidentId);
+    await page.goto(`/?incident_id=${incidentId}`);
+    await socketMonitor.waitForMessage("hello_ack");
+    await expect(
+      page.getByTestId(`row-${firstReplayItem.recordId}-summary`),
+    ).toHaveValue(`Phase 6 ${createdBy} ${scenario} 1 base`);
+    await expect(page.getByText("Current incident role: editor")).toBeVisible();
+
+    const heldPatch = patchController.holdNextPatch();
+    await editTimelineSummary(
+      page,
+      firstReplayItem.recordId,
+      firstReplayItem.value,
+    );
+    await heldPatch.waitForHit;
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+
+    await triggerRevocation({ incidentId, member });
+    await socketMonitor.waitForMessage("session_revoked");
+    await socketMonitor.waitForClose(0);
+
+    heldPatch.release();
+    await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+
+    for (const item of replayItems.slice(1)) {
+      await editTimelineSummary(page, item.recordId, item.value);
+    }
+    for (const item of replayItems) {
+      await expect(
+        page.getByTestId(`row-${item.recordId}-summary`),
+      ).toHaveValue(item.value);
+    }
+    await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      String(replayValues.length),
+    );
+
+    const messageStart = socketMonitor.messageCount();
+    await sessionTracker.loginTrackedUser(page, {
+      createdBy,
+      email: member.email,
+      password: member.initial_password,
+      purpose: `Phase 6 ${createdBy} ${scenario} analyst re-authentication`,
+      userId: member.user_id,
+    });
+    await socketMonitor.waitForMessage("hello_ack", {
+      startAt: messageStart,
+    });
+
+    await expect
+      .poll(() => successfulPatchCalls(patchController.calls).length)
+      .toBeGreaterThanOrEqual(replayValues.length);
+    const replayed = successfulPatchCalls(patchController.calls).slice(
+      -replayValues.length,
+    );
+    expect(replayed.map((call) => call.recordId)).toEqual(recordIds);
+    expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual(
+      replayValues,
+    );
+
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+    await expectServerSummaries(
+      page,
+      incidentId,
+      Object.fromEntries(
+        replayItems.map((item) => [item.recordId, item.value]),
+      ),
+    );
+  } finally {
+    await patchController.dispose();
+  }
+}
+
+function requireReplayItems(
+  recordIds: readonly string[],
+  values: readonly string[],
+) {
+  return recordIds.map((recordId, index) => {
+    const value = values[index];
+    if (value === undefined) {
+      throw new Error(`missing replay value for record ${recordId}`);
+    }
+    return { recordId, value };
+  });
 }
 
 async function patchTimelineField(
@@ -986,6 +1152,75 @@ async function installPatchController(page: Page) {
       };
     },
   };
+}
+
+async function installPatchTransportFailureController(page: Page) {
+  const calls: PatchCall[] = [];
+  let connected = true;
+  const routePattern = "**/api/v1/records/*";
+  const handler = async (route: Route) => {
+    const request = route.request();
+    if (request.method().toUpperCase() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    const call: PatchCall = {
+      body: parseRequestBody(request.postData()),
+      recordId: recordIdFromURL(request.url()),
+      status: 0,
+    };
+    if (!connected) {
+      calls.push(call);
+      await route.abort("internetdisconnected");
+      return;
+    }
+
+    const response = await route.fetch();
+    call.status = response.status();
+    calls.push(call);
+    await route.fulfill({ response });
+  };
+
+  await page.route(routePattern, handler);
+
+  return {
+    calls,
+    connect: () => {
+      connected = true;
+    },
+    disconnect: () => {
+      connected = false;
+    },
+    dispose: async () => {
+      await page.unroute(routePattern, handler);
+    },
+  };
+}
+
+async function createUntrackedLoginSessions(
+  email: string,
+  password: string,
+  count: number,
+) {
+  for (let index = 0; index < count; index += 1) {
+    const anonymousRequests = await request.newContext({ baseURL: apiBase });
+    try {
+      const response = await anonymousRequests.post("/api/v1/auth/login", {
+        data: {
+          username: email,
+          password,
+        },
+      });
+      if (!response.ok()) {
+        throw new Error(
+          `untracked login ${index + 1} failed for ${email}: ${await response.text()}`,
+        );
+      }
+    } finally {
+      await anonymousRequests.dispose();
+    }
+  }
 }
 
 async function installAuthSessionGate(page: Page) {

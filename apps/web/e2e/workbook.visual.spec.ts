@@ -11,7 +11,7 @@ import {
   rowPresenceMarkerTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Route, TestInfo } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   createIncident,
@@ -45,7 +45,7 @@ type ViewRow = {
 test.describe("Phase 3 workbook visual evidence", () => {
   test("V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -74,9 +74,8 @@ test.describe("Phase 3 workbook visual evidence", () => {
       page.getByTestId(`row-${timelineRow.record_id}-summary`),
     ).toHaveValue("Default visual row");
 
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-3-grid-01-timeline-default",
       page.getByRole("main"),
     );
@@ -84,7 +83,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
 
   test("V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -114,9 +113,8 @@ test.describe("Phase 3 workbook visual evidence", () => {
     await expect(saveState).toHaveText("Saved");
     await summaryInput.focus();
     await summaryInput.fill("Active visual edit");
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-3-grid-02-active-edit-cell",
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     );
@@ -131,17 +129,15 @@ test.describe("Phase 3 workbook visual evidence", () => {
       await summaryInput.press("Enter");
       await hold.waitForHit;
       await expect(saveState).toHaveText("Syncing");
-      await captureScreenshot(
+      await assertVisualRegression(
         page,
-        testInfo,
         "v-3-grid-02-syncing-strip",
         saveStateStrip,
       );
       await hold.release();
       await expect(saveState).toHaveText("Saved");
-      await captureScreenshot(
+      await assertVisualRegression(
         page,
-        testInfo,
         "v-3-grid-02-saved-strip",
         saveStateStrip,
       );
@@ -183,9 +179,8 @@ test.describe("Phase 3 workbook visual evidence", () => {
       await summaryInput.fill("Conflict visual edit");
       await summaryInput.press("Enter");
       await expect(saveState).toHaveText("Conflict");
-      await captureScreenshot(
+      await assertVisualRegression(
         page,
-        testInfo,
         "v-3-grid-02-conflict-strip",
         saveStateStrip,
       );
@@ -196,7 +191,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
 
   test("V-3-GRID-03 captures Timeline grouped rows and currently exposed grid chrome", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -237,9 +232,8 @@ test.describe("Phase 3 workbook visual evidence", () => {
       ),
     ).toBeVisible();
 
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-3-grid-03-grouped-grid",
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     );
@@ -249,7 +243,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
 test.describe("Phase 4 workbook visual evidence", () => {
   test("V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -300,9 +294,8 @@ test.describe("Phase 4 workbook visual evidence", () => {
         .getByLabel("Resolved WS-023"),
     ).toBeVisible();
 
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-4-grid-01-mention-chips",
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     );
@@ -310,7 +303,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
 
   test("V-4-GRID-02 captures Evidence access affordances on the required Evidence surface", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -344,9 +337,8 @@ test.describe("Phase 4 workbook visual evidence", () => {
       page.getByTestId(`evidence-access-message-${evidenceRow.record_id}`),
     ).toContainText("Blocked");
 
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-4-grid-02-evidence-access",
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     );
@@ -354,7 +346,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
 
   test("V-4-GRID-03 captures Task Requests system view fields through the generic workbook grid", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -385,9 +377,8 @@ test.describe("Phase 4 workbook visual evidence", () => {
       page.getByTestId(rowCellTestId(taskRow.record_id, "task.status")),
     ).toHaveText("open");
 
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-4-grid-03-task-requests",
       page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
     );
@@ -397,7 +388,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
 test.describe("Phase 5 workbook visual evidence", () => {
   test("V-5-GRID-01 captures requested and available Evidence states on the required Evidence surface", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -426,9 +417,8 @@ test.describe("Phase 5 workbook visual evidence", () => {
         rowCellTestId(evidenceRow.record_id, "evidence.lifecycle_state"),
       ),
     ).toHaveText("requested");
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-5-grid-01-requested-evidence",
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     );
@@ -450,9 +440,8 @@ test.describe("Phase 5 workbook visual evidence", () => {
         rowCellTestId(evidenceRow.record_id, "evidence.upload_state"),
       ),
     ).toHaveText("available");
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-5-grid-01-available-evidence",
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     );
@@ -460,7 +449,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
 
   test("V-5-GRID-02 captures blocked preview feedback and Timeline evidence badges", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -496,9 +485,8 @@ test.describe("Phase 5 workbook visual evidence", () => {
     await expect(
       page.getByTestId(`evidence-access-message-${blocked.record_id}`),
     ).toContainText("Blocked");
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-5-grid-02-blocked-preview",
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     );
@@ -531,9 +519,8 @@ test.describe("Phase 5 workbook visual evidence", () => {
         rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
       ),
     ).toHaveText("true");
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-5-grid-02-timeline-evidence-badge",
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     );
@@ -541,11 +528,11 @@ test.describe("Phase 5 workbook visual evidence", () => {
 });
 
 test.describe("Phase 6 workbook visual evidence", () => {
-  test("V-6-GRID-01 captures Phase 6 row-gutter and same-cell presence markers", async ({
+  test("V-6-GRID-01 regresses Phase 6 row-gutter and same-cell presence markers", async ({
     browser,
     page,
     sessionTracker,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -596,9 +583,8 @@ test.describe("Phase 6 workbook visual evidence", () => {
         ),
       ).toContainText("VA");
 
-      await captureScreenshot(
+      await assertVisualRegression(
         page,
-        testInfo,
         "v-6-grid-01-presence-markers",
         page.getByTestId(gridShellTestId(timelineViewSchemaId)),
       );
@@ -607,9 +593,9 @@ test.describe("Phase 6 workbook visual evidence", () => {
     }
   });
 
-  test("V-6-GRID-02 captures Phase 6 same-field conflict marker resolver and Conflict strip", async ({
+  test("V-6-GRID-02 regresses Phase 6 same-field conflict marker resolver and Conflict strip", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -676,9 +662,8 @@ test.describe("Phase 6 workbook visual evidence", () => {
       ).toBeVisible();
       await expect(page.getByTestId("conflict-resolver")).toBeVisible();
 
-      await captureScreenshot(
+      await assertVisualRegression(
         page,
-        testInfo,
         "v-6-grid-02-conflict-resolver",
         page.getByRole("main"),
       );
@@ -687,9 +672,9 @@ test.describe("Phase 6 workbook visual evidence", () => {
     }
   });
 
-  test("V-6-GRID-03 captures Phase 6 pending-queue save-state transitions", async ({
+  test("V-6-GRID-03 regresses Phase 6 pending-queue save-state transitions", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -723,17 +708,15 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await summaryInput.press("Enter");
       await hold.waitForHit;
       await expect(saveState).toHaveText("Syncing");
-      await captureScreenshot(
+      await assertVisualRegression(
         page,
-        testInfo,
         "v-6-grid-03-syncing-strip",
         saveStateStrip,
       );
       await hold.release();
       await expect(saveState).toHaveText("Saved");
-      await captureScreenshot(
+      await assertVisualRegression(
         page,
-        testInfo,
         "v-6-grid-03-saved-strip",
         saveStateStrip,
       );
@@ -768,9 +751,8 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await summaryInput.press("Enter");
       await expect(saveState).toHaveText("Conflict");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
-      await captureScreenshot(
+      await assertVisualRegression(
         page,
-        testInfo,
         "v-6-grid-03-blocked-conflict",
         page.getByRole("main"),
       );
@@ -781,18 +763,16 @@ test.describe("Phase 6 workbook visual evidence", () => {
     await page.reload();
     await expect(saveState).toHaveText("Saved");
     await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
-    await captureScreenshot(
+    await assertVisualRegression(
       page,
-      testInfo,
       "v-6-grid-03-recovered-saved-strip",
       saveStateStrip,
     );
   });
 });
 
-async function captureScreenshot(
+async function assertVisualRegression(
   page: Page,
-  testInfo: TestInfo,
   name: string,
   locator = page.getByRole("main"),
 ) {
@@ -800,13 +780,38 @@ async function captureScreenshot(
   await page.evaluate(() => {
     document.documentElement.dataset.visualSnapshot = "true";
   });
-  const screenshot = await locator.screenshot({
+  await maskVisualDynamicText(page);
+  await expect(locator).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
   });
-  await testInfo.attach(name, {
-    body: screenshot,
-    contentType: "image/png",
+}
+
+async function maskVisualDynamicText(page: Page) {
+  await page.evaluate(() => {
+    const replacements: Array<[RegExp, string]> = [
+      [
+        /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+        "00000000-0000-0000-0000-000000000000",
+      ],
+      [
+        /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,
+        "2025-01-01T00:00:00Z",
+      ],
+      [/\bIR-[A-Z0-9-]+\b/g, "IR-VISUAL-FIXTURE"],
+      [/Playwright Worker Admin \d+/g, "Playwright Worker Admin"],
+    ];
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+    );
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      let text = node.textContent ?? "";
+      for (const [pattern, replacement] of replacements) {
+        text = text.replace(pattern, replacement);
+      }
+      node.textContent = text;
+    }
   });
 }
 

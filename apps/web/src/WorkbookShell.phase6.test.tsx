@@ -40,6 +40,17 @@ describe("Phase 6 workbook collaboration coverage", () => {
     cleanupTimelineWorkbookTestGlobals();
   });
 
+  async function changeQueuedCellValue(
+    input: HTMLInputElement | HTMLTextAreaElement,
+    value: string,
+  ) {
+    fireEvent.change(input, { target: { value } });
+    await waitFor(() => {
+      expect(input).toHaveProperty("value", value);
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+
   it("Phase 6 presence indicators render from keyed socket state without changing save-state", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -510,16 +521,16 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "row-record-2-summary",
     )) as HTMLInputElement;
 
-    await changeInputValue(firstInput, "One in flight");
+    await changeQueuedCellValue(firstInput, "One in flight");
     fireEvent.blur(firstInput);
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
     });
 
-    await changeInputValue(secondInput, "Two queued first");
+    await changeQueuedCellValue(secondInput, "Two queued first");
     fireEvent.blur(secondInput);
-    await changeInputValue(secondInput, "Two queued final");
+    await changeQueuedCellValue(secondInput, "Two queued final");
     fireEvent.blur(secondInput);
     await new Promise((resolve) => window.setTimeout(resolve, 0));
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -597,7 +608,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       const input = screen.getByTestId(
         `row-${recordID}-summary`,
       ) as HTMLInputElement;
-      await changeInputValue(input, `Queue ${index} local`);
+      await changeQueuedCellValue(input, `Queue ${index} local`);
       fireEvent.blur(input);
       if (index === 1) {
         await waitFor(() => {
@@ -667,7 +678,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       payload: { reason_code: "session_revoked" },
     });
 
-    await changeInputValue(input, "Auth replay");
+    await changeQueuedCellValue(input, "Auth replay");
     fireEvent.blur(input);
     await new Promise((resolve) => window.setTimeout(resolve, 0));
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -728,10 +739,10 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "row-record-2-summary",
     )) as HTMLInputElement;
 
-    await changeInputValue(firstInput, "Conflict local");
+    await changeQueuedCellValue(firstInput, "Conflict local");
     fireEvent.blur(firstInput);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    await changeInputValue(secondInput, "Still queued");
+    await changeQueuedCellValue(secondInput, "Still queued");
     fireEvent.blur(secondInput);
 
     firstPendingPatch.resolve(
