@@ -11,6 +11,7 @@ import {
   conflictMarkerTestId,
   draftCellTestId,
   gridGroupRowTestId,
+  gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
   pendingQueueCountTestId,
@@ -894,26 +895,26 @@ function visiblePresence(records: readonly PresenceRecord[], limit: number) {
   };
 }
 
-function resolveGridScrollElement(element: HTMLElement): HTMLElement {
-  if (isVerticallyScrollableElement(element)) {
-    return element;
+function resolveGridScrollElement(
+  element: HTMLElement,
+  surface: WorkbookSurface,
+): HTMLElement {
+  const selector = gridScrollportSelector();
+  const scrollports = Array.from(
+    element.querySelectorAll<HTMLElement>(selector),
+  );
+  if (scrollports.length !== 1) {
+    throw new Error(
+      `Expected ${surface} grid shell to contain exactly one ${selector} scrollport, received ${scrollports.length}`,
+    );
   }
-  return (
-    Array.from(element.querySelectorAll<HTMLElement>("*")).find(
-      isScrollableElement,
-    ) ?? element
-  );
-}
-
-function isVerticallyScrollableElement(element: HTMLElement): boolean {
-  return element.scrollHeight > element.clientHeight + 1;
-}
-
-function isScrollableElement(element: HTMLElement): boolean {
-  return (
-    element.scrollHeight > element.clientHeight + 1 ||
-    element.scrollWidth > element.clientWidth + 1
-  );
+  const scrollport = scrollports[0];
+  if (scrollport === undefined) {
+    throw new Error(
+      `Expected ${surface} grid shell to contain exactly one ${selector} scrollport, received 0`,
+    );
+  }
+  return scrollport;
 }
 
 function isPresenceRecord(value: unknown): value is PresenceRecord {
@@ -2119,7 +2120,7 @@ export function TimelineWorkbook({
     if (!element) {
       return null;
     }
-    const scrollElement = resolveGridScrollElement(element);
+    const scrollElement = resolveGridScrollElement(element, "timeline");
     return {
       top: scrollElement.scrollTop,
       left: scrollElement.scrollLeft,
@@ -2139,7 +2140,10 @@ export function TimelineWorkbook({
           target === null
             ? null
             : captureViewportAnchor(
-                resolveGridScrollElement(gridShell).getBoundingClientRect(),
+                resolveGridScrollElement(
+                  gridShell,
+                  "timeline",
+                ).getBoundingClientRect(),
                 target.getBoundingClientRect(),
               ),
       };
@@ -2183,7 +2187,7 @@ export function TimelineWorkbook({
       if (gridShell === null || preservedScroll === null) {
         return;
       }
-      const scrollElement = resolveGridScrollElement(gridShell);
+      const scrollElement = resolveGridScrollElement(gridShell, "timeline");
       scrollElement.scrollTop = preservedScroll.top;
       scrollElement.scrollLeft = preservedScroll.left;
       window.requestAnimationFrame(() => {
@@ -2191,7 +2195,10 @@ export function TimelineWorkbook({
         if (currentGridShell === null) {
           return;
         }
-        const currentScrollElement = resolveGridScrollElement(currentGridShell);
+        const currentScrollElement = resolveGridScrollElement(
+          currentGridShell,
+          "timeline",
+        );
         currentScrollElement.scrollTop = preservedScroll.top;
         currentScrollElement.scrollLeft = preservedScroll.left;
       });
@@ -2235,7 +2242,10 @@ export function TimelineWorkbook({
         ) {
           return false;
         }
-        const scrollElement = resolveGridScrollElement(currentGridShell);
+        const scrollElement = resolveGridScrollElement(
+          currentGridShell,
+          "timeline",
+        );
         const restoredScroll = computeRestoredViewportScroll({
           preservedScroll,
           currentScroll: {
@@ -2257,7 +2267,10 @@ export function TimelineWorkbook({
           return false;
         }
         return isRectFullyVisibleWithinContainer(
-          resolveGridScrollElement(updatedGridShell).getBoundingClientRect(),
+          resolveGridScrollElement(
+            updatedGridShell,
+            "timeline",
+          ).getBoundingClientRect(),
           updatedElement.getBoundingClientRect(),
         );
       };

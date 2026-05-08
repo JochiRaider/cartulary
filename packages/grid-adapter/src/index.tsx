@@ -1,3 +1,4 @@
+import { gridScrollportClassName } from "@cartulary/ui-contracts";
 import {
   type CSSProperties,
   type ForwardedRef,
@@ -200,6 +201,7 @@ export function GridTable<Row>({
 
   return (
     <DataGrid<AdapterGridRow<Row>, unknown>
+      className={gridScrollportClassName()}
       columns={rdgColumns}
       enableVirtualization
       renderers={renderers}

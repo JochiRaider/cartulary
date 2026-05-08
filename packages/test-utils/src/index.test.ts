@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  gridScrollportClassName,
   gridShellTestId,
   rowInspectButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -69,8 +70,11 @@ describe("@cartulary/test-utils grid continuity", () => {
             return;
           }
           gridEvaluateCount += 1;
-          if (gridEvaluateCount >= 5 && element instanceof HTMLDivElement) {
-            element.scrollTop = 240;
+          const scrollport = element.querySelector(
+            `.${gridScrollportClassName()}`,
+          );
+          if (gridEvaluateCount >= 5 && scrollport instanceof HTMLDivElement) {
+            scrollport.scrollTop = 240;
           }
         },
       },
@@ -160,6 +164,52 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
     expect(scrollIntoViewCalls).toEqual([targetTestId]);
   });
 
+  it("scrolls the explicit grid scrollport when the outer shell is also scrollable", async () => {
+    const { grid, page, shell, targetTestId } = installGridTargetFixture({
+      clientHeight: 200,
+      currentScroll: { left: 0, top: 0 },
+      isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 400,
+      outerScrollable: true,
+      scrollHeight: 900,
+    });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId,
+        timeoutMs: 1_000,
+      }),
+    ).resolves.toEqual({ left: 0, top: 400 });
+
+    expect(grid.scrollTop).toBe(400);
+    expect(shell.scrollTop).toBe(250);
+  });
+
+  it("fails explicitly when the grid shell has no owned scrollport", async () => {
+    const gridTestId = gridShellTestId("timeline");
+    document.body.innerHTML = `<div data-testid="${gridTestId}"></div>`;
+    const shell = document.querySelector(`[data-testid="${gridTestId}"]`);
+    if (!(shell instanceof HTMLDivElement)) {
+      throw new Error("Expected missing-scrollport fixture shell to exist");
+    }
+
+    const page = createBrowserPage({ [gridTestId]: shell });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId: "missing-target",
+        timeoutMs: 50,
+      }),
+    ).rejects.toThrow(
+      "Expected timeline grid shell to contain exactly one .cartulary-grid-scrollport scrollport, received 0",
+    );
+  });
+
   it("throws diagnostics when the target never becomes visible", async () => {
     const { page } = installGridTargetFixture({
       includeTarget: false,
@@ -217,27 +267,34 @@ function installGridContinuityFixture(
   const gridTestId = gridShellTestId("timeline");
   document.body.innerHTML = `
     <div data-testid="${gridTestId}">
-      <button data-testid="${focusTestId}">Inspect</button>
+      <div class="${gridScrollportClassName()}">
+        <button data-testid="${focusTestId}">Inspect</button>
+      </div>
     </div>
   `;
 
   const grid = document.querySelector(`[data-testid="${gridTestId}"]`);
+  const scrollport = grid?.querySelector(`.${gridScrollportClassName()}`);
   const focusTarget = document.querySelector(`[data-testid="${focusTestId}"]`);
   if (
     !(grid instanceof HTMLDivElement) ||
+    !(scrollport instanceof HTMLDivElement) ||
     !(focusTarget instanceof HTMLButtonElement)
   ) {
     throw new Error("Expected grid continuity fixture elements to exist");
   }
 
-  grid.scrollTop = options.currentScroll.top;
-  grid.scrollLeft = options.currentScroll.left;
+  scrollport.scrollTop = options.currentScroll.top;
+  scrollport.scrollLeft = options.currentScroll.left;
   focusTarget.focus();
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
     function mockRect(this: HTMLElement) {
       const testId = this.getAttribute("data-testid");
-      if (testId === gridTestId) {
+      if (
+        testId === null &&
+        this.classList.contains(gridScrollportClassName())
+      ) {
         return rectFromBox(options.gridRect);
       }
       if (testId === focusTestId) {
@@ -267,6 +324,7 @@ function installGridTargetFixture(
     isTargetVisible?: (grid: HTMLDivElement) => boolean;
     mountedRowIds?: string[];
     onTargetScrollIntoView?: (grid: HTMLDivElement) => void;
+    outerScrollable?: boolean;
     scrollHeight?: number;
     targetTestId?: string;
   } = {},
@@ -280,18 +338,21 @@ function installGridTargetFixture(
     .join("");
   document.body.innerHTML = `
     <div data-testid="${gridTestId}">
-      ${mountedRows}
-      ${
-        options.includeTarget === false
-          ? ""
-          : `<input data-testid="${targetTestId}" />`
-      }
+      <div class="${gridScrollportClassName()}">
+        ${mountedRows}
+        ${
+          options.includeTarget === false
+            ? ""
+            : `<input data-testid="${targetTestId}" />`
+        }
+      </div>
     </div>
   `;
 
-  const grid = document.querySelector(`[data-testid="${gridTestId}"]`);
+  const shell = document.querySelector(`[data-testid="${gridTestId}"]`);
+  const grid = shell?.querySelector(`.${gridScrollportClassName()}`);
   const target = document.querySelector(`[data-testid="${targetTestId}"]`);
-  if (!(grid instanceof HTMLDivElement)) {
+  if (!(shell instanceof HTMLDivElement) || !(grid instanceof HTMLDivElement)) {
     throw new Error("Expected grid targeting fixture grid to exist");
   }
   if (
@@ -319,6 +380,27 @@ function installGridTargetFixture(
       value: 400,
     },
   });
+  if (options.outerScrollable) {
+    Object.defineProperties(shell, {
+      clientHeight: {
+        configurable: true,
+        value: 100,
+      },
+      clientWidth: {
+        configurable: true,
+        value: 300,
+      },
+      scrollHeight: {
+        configurable: true,
+        value: 3_000,
+      },
+      scrollWidth: {
+        configurable: true,
+        value: 300,
+      },
+    });
+    shell.scrollTop = 250;
+  }
   grid.scrollLeft = options.currentScroll?.left ?? 0;
   grid.scrollTop = options.currentScroll?.top ?? 0;
 
@@ -328,7 +410,7 @@ function installGridTargetFixture(
     page: createBrowserPage(
       () => {
         const elements: Record<string, Element | undefined> = {
-          [gridTestId]: grid,
+          [gridTestId]: shell,
         };
         if (target instanceof HTMLInputElement) {
           elements[targetTestId] = target;
@@ -351,6 +433,7 @@ function installGridTargetFixture(
       },
     ),
     scrollIntoViewCalls,
+    shell,
     targetTestId,
   };
 }

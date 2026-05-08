@@ -4,6 +4,14 @@ export function gridShellTestId(surface: WorkbookSurface): string {
   return `${surface}-grid-shell`;
 }
 
+export function gridScrollportClassName(): string {
+  return "cartulary-grid-scrollport";
+}
+
+export function gridScrollportSelector(): string {
+  return `.${gridScrollportClassName()}`;
+}
+
 /**
  * Scope this selector through `gridShellTestId(surface)` when targeting
  * workbook rows. Do not rely on raw table markup or renderer classes.

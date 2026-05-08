@@ -4,6 +4,8 @@ import {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
+  gridSavedRowsSelector,
+  gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
   rowCellTestId,
@@ -100,7 +102,7 @@ export async function readGridScroll(
     grid,
     `readGridScroll(${surface}) requires locator.evaluate() support`,
   );
-  return readScrollSnapshot(evaluate);
+  return readScrollSnapshot(evaluate, surface);
 }
 
 export async function scrollGridToBottom(
@@ -112,7 +114,7 @@ export async function scrollGridToBottom(
     grid,
     `scrollGridToBottom(${surface}) requires locator.evaluate() support`,
   );
-  return readScrollSnapshot(evaluate, { kind: "bottom" });
+  return readScrollSnapshot(evaluate, surface, { kind: "bottom" });
 }
 
 export async function scrollGridToOffset(
@@ -125,7 +127,7 @@ export async function scrollGridToOffset(
     grid,
     `scrollGridToOffset(${surface}) requires locator.evaluate() support`,
   );
-  return readScrollSnapshot(evaluate, { kind: "offset", top });
+  return readScrollSnapshot(evaluate, surface, { kind: "offset", top });
 }
 
 export async function scrollGridTargetIntoView(options: {
@@ -195,11 +197,12 @@ export async function assertMountedGridRowCountAtMost(options: {
     grid,
     `assertMountedGridRowCountAtMost(${surface}) requires locator.evaluate() support`,
   );
-  const mountedRows = (await evaluate((element) => {
-    return element.querySelectorAll(
-      '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
-    ).length;
-  })) as number;
+  const mountedRows = (await evaluate(
+    (element, selector) =>
+      element.querySelectorAll(typeof selector === "string" ? selector : "")
+        .length,
+    gridSavedRowsSelector(),
+  )) as number;
   if (mountedRows > maxRows) {
     throw new Error(
       `Expected ${surface} to mount at most ${maxRows} saved rows, received ${mountedRows}`,
@@ -265,29 +268,40 @@ async function readTestIdGridViewportState(
     target,
     `isTestIdVisibleWithinGridViewport(${surface}, ${testId}) requires locator.evaluate() support`,
   );
-  const containerRect = (await evaluateGrid((element) => {
-    const isScrollableElement = (candidate: Element) =>
-      candidate instanceof HTMLElement &&
-      (candidate.scrollHeight > candidate.clientHeight + 1 ||
-        candidate.scrollWidth > candidate.clientWidth + 1);
-    const isVerticallyScrollableElement = (candidate: Element) =>
-      candidate instanceof HTMLElement &&
-      candidate.scrollHeight > candidate.clientHeight + 1;
-    const gridShell = isVerticallyScrollableElement(element)
-      ? element
-      : (Array.from(element.querySelectorAll<HTMLElement>("*")).find(
-          isScrollableElement,
-        ) ?? (element as HTMLElement));
-    const rect = gridShell.getBoundingClientRect();
-    return {
-      bottom: rect.bottom,
-      height: rect.height,
-      left: rect.left,
-      right: rect.right,
-      top: rect.top,
-      width: rect.width,
-    };
-  })) as {
+  const containerRect = (await evaluateGrid(
+    (element, options) => {
+      const { scrollportSelector, surface } =
+        typeof options === "object" && options !== null
+          ? (options as { scrollportSelector?: unknown; surface?: unknown })
+          : {};
+      const selector =
+        typeof scrollportSelector === "string" ? scrollportSelector : "";
+      const scrollports = Array.from(
+        element.querySelectorAll<HTMLElement>(selector),
+      );
+      if (scrollports.length !== 1) {
+        throw new Error(
+          `Expected ${typeof surface === "string" ? surface : "workbook"} grid shell to contain exactly one ${selector} scrollport, received ${scrollports.length}`,
+        );
+      }
+      const gridScrollport = scrollports[0];
+      if (gridScrollport === undefined) {
+        throw new Error(
+          `Expected ${typeof surface === "string" ? surface : "workbook"} grid shell to contain exactly one ${selector} scrollport, received 0`,
+        );
+      }
+      const rect = gridScrollport.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+      };
+    },
+    { scrollportSelector: gridScrollportSelector(), surface },
+  )) as {
     bottom: number;
     height: number;
     left: number;
@@ -478,12 +492,15 @@ type GridScrollDiagnostics = {
 
 async function readScrollSnapshot(
   evaluate: BrowserEvaluate,
+  surface: WorkbookSurface,
   action: GridScrollAction = { kind: "none" },
 ) {
-  const state = (await evaluate(
-    readGridScrollState,
-    action,
-  )) as GridScrollDiagnostics;
+  const state = (await evaluate(readGridScrollState, {
+    ...action,
+    savedRowsSelector: gridSavedRowsSelector(),
+    scrollportSelector: gridScrollportSelector(),
+    surface,
+  })) as GridScrollDiagnostics;
   return {
     left: state.left,
     top: state.top,
@@ -501,6 +518,9 @@ async function readGridScrollDiagnostics(
   );
   return (await evaluate(readGridScrollState, {
     kind: "none",
+    savedRowsSelector: gridSavedRowsSelector(),
+    scrollportSelector: gridScrollportSelector(),
+    surface,
   })) as GridScrollDiagnostics;
 }
 
@@ -508,49 +528,64 @@ function readGridScrollState(
   element: Element,
   rawAction?: unknown,
 ): GridScrollDiagnostics {
-  const isScrollableElement = (candidate: Element) =>
-    candidate instanceof HTMLElement &&
-    (candidate.scrollHeight > candidate.clientHeight + 1 ||
-      candidate.scrollWidth > candidate.clientWidth + 1);
-  const isVerticallyScrollableElement = (candidate: Element) =>
-    candidate instanceof HTMLElement &&
-    candidate.scrollHeight > candidate.clientHeight + 1;
-  const gridShell = isVerticallyScrollableElement(element)
-    ? element
-    : (Array.from(element.querySelectorAll<HTMLElement>("*")).find(
-        isScrollableElement,
-      ) ?? (element as HTMLElement));
-
   const action =
     typeof rawAction === "object" && rawAction !== null
-      ? (rawAction as { kind?: unknown; top?: unknown })
+      ? (rawAction as {
+          kind?: unknown;
+          savedRowsSelector?: unknown;
+          scrollportSelector?: unknown;
+          surface?: unknown;
+          top?: unknown;
+        })
       : { kind: "none" };
+  const scrollportSelector =
+    typeof action.scrollportSelector === "string"
+      ? action.scrollportSelector
+      : "";
+  const surface =
+    typeof action.surface === "string" ? action.surface : "workbook";
+  const scrollports = Array.from(
+    element.querySelectorAll<HTMLElement>(scrollportSelector),
+  );
+  if (scrollports.length !== 1) {
+    throw new Error(
+      `Expected ${surface} grid shell to contain exactly one ${scrollportSelector} scrollport, received ${scrollports.length}`,
+    );
+  }
+  const gridScrollport = scrollports[0];
+  if (gridScrollport === undefined) {
+    throw new Error(
+      `Expected ${surface} grid shell to contain exactly one ${scrollportSelector} scrollport, received 0`,
+    );
+  }
   if (action.kind === "bottom") {
-    gridShell.scrollTop = gridShell.scrollHeight;
+    gridScrollport.scrollTop = gridScrollport.scrollHeight;
   }
   if (action.kind === "offset") {
     const nextTop =
       typeof action.top === "number" && Number.isFinite(action.top)
         ? action.top
         : 0;
-    gridShell.scrollTop = nextTop;
+    gridScrollport.scrollTop = nextTop;
   }
 
-  const scrollHeight = gridShell.scrollHeight;
-  const clientHeight = gridShell.clientHeight;
+  const scrollHeight = gridScrollport.scrollHeight;
+  const clientHeight = gridScrollport.clientHeight;
+  const savedRowsSelector =
+    typeof action.savedRowsSelector === "string"
+      ? action.savedRowsSelector
+      : '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])';
   return {
     clientHeight,
-    clientWidth: gridShell.clientWidth,
-    left: gridShell.scrollLeft,
+    clientWidth: gridScrollport.clientWidth,
+    left: gridScrollport.scrollLeft,
     maxTop: Math.max(0, scrollHeight - clientHeight),
     mountedRowIds: Array.from(
-      element.querySelectorAll<HTMLElement>(
-        '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
-      ),
+      element.querySelectorAll<HTMLElement>(savedRowsSelector),
     ).map((row) => row.getAttribute("data-grid-record-id") ?? ""),
     scrollHeight,
-    scrollWidth: gridShell.scrollWidth,
-    top: gridShell.scrollTop,
+    scrollWidth: gridScrollport.scrollWidth,
+    top: gridScrollport.scrollTop,
   };
 }
 

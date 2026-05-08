@@ -84,6 +84,9 @@ importers:
 
   packages/grid-adapter:
     dependencies:
+      '@cartulary/ui-contracts':
+        specifier: workspace:*
+        version: link:../ui-contracts
       react:
         specifier: 19.2.5
         version: 19.2.5

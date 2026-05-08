@@ -1,3 +1,4 @@
+import { gridScrollportClassName } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type ChangeEvent, useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -136,6 +137,7 @@ describe("grid-adapter", () => {
     const gridShell = await screen.findByTestId("grid-shell");
     const grid = gridShell.querySelector('[role="grid"]') as HTMLElement;
     expect(grid).toBeTruthy();
+    expect(grid.classList.contains(gridScrollportClassName())).toBe(true);
     expect(grid.style.gridTemplateColumns).toBe("224px 224px 176px");
     expect(
       gridShell.querySelector('[data-grid-record-id="record-1"]'),

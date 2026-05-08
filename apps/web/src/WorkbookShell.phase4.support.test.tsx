@@ -1,4 +1,5 @@
 import {
+  gridScrollportSelector,
   gridShellTestId,
   rowInspectButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -667,6 +668,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    const relationshipInput = (await screen.findByTestId(
+      "row-record-1-hostRefs-input",
+    )) as HTMLInputElement;
     installTimelineInspectGeometry("record-1", {
       containerHeight: 300,
       containerLeft: 40,
@@ -678,9 +682,6 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       targetWidth: 80,
     });
 
-    const relationshipInput = (await screen.findByTestId(
-      "row-record-1-hostRefs-input",
-    )) as HTMLInputElement;
     const preservedScroll = setTimelineGridScroll(240, 18);
 
     expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
@@ -1022,6 +1023,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    const inspectButton = await screen.findByTestId(
+      rowInspectButtonTestId("record-1"),
+    );
     installTimelineInspectGeometry("record-1", {
       containerHeight: 300,
       containerLeft: 40,
@@ -1033,9 +1037,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       targetWidth: 80,
     });
 
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("record-1")),
-    );
+    fireEvent.click(inspectButton);
     await screen.findByText("Dismiss");
 
     const dismissScroll = setTimelineGridScroll(320, 18);
@@ -1227,9 +1229,7 @@ function unresolvedItem({
 }
 
 function setTimelineGridScroll(top: number, left: number) {
-  const grid = screen.getByTestId(
-    gridShellTestId("timeline"),
-  ) as HTMLDivElement;
+  const grid = timelineGridScrollport();
   grid.scrollTop = top;
   grid.scrollLeft = left;
   return { top, left };
@@ -1248,9 +1248,7 @@ async function expectTimelineFocusAndScroll(
     expect(document.activeElement).toBe(
       screen.getByTestId(rowInspectButtonTestId(recordId)),
     );
-    const grid = screen.getByTestId(
-      gridShellTestId("timeline"),
-    ) as HTMLDivElement;
+    const grid = timelineGridScrollport();
     expect(grid.scrollTop).toBe(options.expectedTop ?? preservedScroll.top);
     expect(grid.scrollLeft).toBe(options.expectedLeft ?? preservedScroll.left);
     if (options.requireVisibleWithinGrid) {
@@ -1272,14 +1270,13 @@ function installTimelineInspectGeometry(
     targetWidth: number;
   },
 ) {
-  const gridTestId = gridShellTestId("timeline");
   const inspectTestId = rowInspectButtonTestId(recordId);
   const original = HTMLElement.prototype.getBoundingClientRect;
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
     function mockRect(this: HTMLElement) {
       const testId = this.getAttribute("data-testid");
-      if (testId === gridTestId) {
+      if (this.matches(gridScrollportSelector())) {
         return rectFromBox({
           height: options.containerHeight,
           left: options.containerLeft,
@@ -1288,7 +1285,7 @@ function installTimelineInspectGeometry(
         });
       }
       if (testId === inspectTestId) {
-        const grid = screen.getByTestId(gridTestId) as HTMLDivElement;
+        const grid = timelineGridScrollport();
         const contentTop =
           typeof options.contentTop === "function"
             ? options.contentTop()
@@ -1306,9 +1303,7 @@ function installTimelineInspectGeometry(
 }
 
 function installTimelineGridScrollClamp(maxTop: () => number) {
-  const grid = screen.getByTestId(
-    gridShellTestId("timeline"),
-  ) as HTMLDivElement;
+  const grid = timelineGridScrollport();
   let scrollTop = grid.scrollTop;
   Object.defineProperty(grid, "scrollTop", {
     configurable: true,
@@ -1323,7 +1318,7 @@ function installTimelineGridScrollClamp(maxTop: () => number) {
 
 function isInspectButtonFullyVisibleWithinGrid(recordId: string) {
   const tolerancePx = 1;
-  const grid = screen.getByTestId(gridShellTestId("timeline"));
+  const grid = timelineGridScrollport();
   const inspectButton = screen.getByTestId(rowInspectButtonTestId(recordId));
   const gridRect = grid.getBoundingClientRect();
   const inspectRect = inspectButton.getBoundingClientRect();
@@ -1334,6 +1329,16 @@ function isInspectButtonFullyVisibleWithinGrid(recordId: string) {
     inspectRect.bottom <= gridRect.bottom + tolerancePx &&
     inspectRect.right <= gridRect.right + tolerancePx
   );
+}
+
+function timelineGridScrollport() {
+  const grid = screen
+    .getByTestId(gridShellTestId("timeline"))
+    .querySelector(gridScrollportSelector());
+  if (!(grid instanceof HTMLDivElement)) {
+    throw new Error("Expected timeline grid scrollport to exist");
+  }
+  return grid;
 }
 
 function rectFromBox(options: {

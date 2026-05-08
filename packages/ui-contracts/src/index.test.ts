@@ -5,6 +5,8 @@ import {
   conflictMarkerTestId,
   gridDraftRowSelector,
   gridSavedRowsSelector,
+  gridScrollportClassName,
+  gridScrollportSelector,
   gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
@@ -22,6 +24,8 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
 
   it("targets saved and draft workbook rows when scoped through the grid shell", () => {
     expect(gridShellTestId("timeline")).toBe("timeline-grid-shell");
+    expect(gridScrollportClassName()).toBe("cartulary-grid-scrollport");
+    expect(gridScrollportSelector()).toBe(".cartulary-grid-scrollport");
     expect(gridSavedRowsSelector()).toBe(
       '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
     );
