@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 
 import {
+  conflictMarkerTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   saveStateTestId,
@@ -13,6 +14,7 @@ import {
   createIncident,
   createIncidentMemberUser,
   createViewRow,
+  csrfHeaders,
   queryViewRows,
   uniqueEmail,
   uniqueIncidentKey,
@@ -98,6 +100,97 @@ export async function editTimelineSummary(
   await input.fill(value);
   await input.press("Enter");
   await expect(input).toHaveValue(value);
+}
+
+export async function patchTimelineField(
+  page: Page,
+  recordId: string,
+  baseRowVersion: number,
+  fieldKey: string,
+  value: string,
+  txnPrefix: string,
+) {
+  const response = await page.request.patch(
+    `${apiBase}/api/v1/records/${recordId}`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        view_schema_id: timelineViewSchemaId,
+        base_row_version: baseRowVersion,
+        client_txn_id: uniqueTxn(txnPrefix),
+        changes: [
+          {
+            field_key: fieldKey,
+            value,
+          },
+        ],
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+export async function driveRealTimelineSummaryConflict({
+  afterLocalPatchHeld,
+  baseRowVersion,
+  expectConflictMarker = true,
+  expectEditedCellMounted = true,
+  localValue,
+  page,
+  patchController,
+  recordId,
+  remotePatchPage,
+  remoteValue,
+  txnPrefix,
+}: {
+  afterLocalPatchHeld?: () => Promise<void>;
+  baseRowVersion: number;
+  expectConflictMarker?: boolean;
+  expectEditedCellMounted?: boolean;
+  localValue: string;
+  page: Page;
+  patchController: Awaited<ReturnType<typeof installPatchController>>;
+  recordId: string;
+  remotePatchPage?: Page;
+  remoteValue: string;
+  txnPrefix: string;
+}) {
+  const heldPrimaryPatch = patchController.holdNextPatch();
+  await editTimelineSummary(page, recordId, localValue);
+  await heldPrimaryPatch.waitForHit;
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+
+  await afterLocalPatchHeld?.();
+
+  await patchTimelineField(
+    remotePatchPage ?? page,
+    recordId,
+    baseRowVersion,
+    "timeline.summary",
+    remoteValue,
+    txnPrefix,
+  );
+
+  heldPrimaryPatch.release();
+  await expect.poll(() => patchController.calls.at(-1)?.status ?? 0).toBe(409);
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+  if (expectConflictMarker) {
+    await expect(
+      page.getByTestId(conflictMarkerTestId(recordId, "timeline.summary")),
+    ).toBeVisible();
+  }
+  await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+  if (expectEditedCellMounted) {
+    await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+      localValue,
+    );
+  }
+  await expect(page.getByTestId("conflict-server-value")).toHaveValue(
+    remoteValue,
+  );
+  await expect(page.getByTestId("conflict-local-value")).toHaveValue(
+    localValue,
+  );
 }
 
 export async function exerciseRevokedPendingReplay({

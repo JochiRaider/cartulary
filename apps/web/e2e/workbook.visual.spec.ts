@@ -2,7 +2,6 @@ import { Buffer } from "node:buffer";
 import { changeGrouping } from "@cartulary/test-utils";
 import {
   cellPresenceMarkerTestId,
-  conflictMarkerTestId,
   gridGroupRowTestId,
   gridShellTestId,
   pendingQueueNoticeTestId,
@@ -32,6 +31,11 @@ import {
   timelineViewSchemaId as phase4TimelineViewSchemaId,
   taskRequestsViewSchemaId,
 } from "./phase4Helpers";
+import {
+  driveRealTimelineSummaryConflict,
+  editTimelineSummary,
+  installPatchController,
+} from "./phase6Harness";
 
 const timelineViewSchemaId = "timeline";
 const timelineApiViewSchemaId = "cartulary.view.timeline.v1";
@@ -614,53 +618,17 @@ test.describe("Phase 6 workbook visual evidence", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
-    const conflictHandler = async (route: Route) => {
-      if (route.request().method().toUpperCase() !== "PATCH") {
-        await route.fallback();
-        return;
-      }
-      await route.fulfill({
-        status: 409,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            status: 409,
-            code: "same_field_conflict",
-            message: "same-field conflict",
-            request_id: "visual-phase6-conflict",
-            retryable: false,
-            details: {},
-            conflict: {
-              conflict_token: "visual-phase6-conflict-token",
-              record_id: timelineRow.record_id,
-              field_key: "timeline.summary",
-              base_row_version: timelineRow.row_version,
-              current_row_version: timelineRow.row_version + 1,
-              conflict_resolution_class: "text_compare_merge",
-              base_value: "Conflict visual base",
-              server_value: "Conflict visual server",
-              client_value: "Conflict visual local",
-            },
-          },
-        }),
-      });
-    };
-
-    const patchUrl = `**/api/v1/records/${timelineRow.record_id}`;
-    await page.route(patchUrl, conflictHandler);
+    const patchController = await installPatchController(page);
     try {
-      const summaryInput = page.getByTestId(
-        `row-${timelineRow.record_id}-summary`,
-      );
-      await summaryInput.fill("Conflict visual local");
-      await summaryInput.press("Enter");
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-      await expect(
-        page.getByTestId(
-          conflictMarkerTestId(timelineRow.record_id, "timeline.summary"),
-        ),
-      ).toBeVisible();
-      await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+      await driveRealTimelineSummaryConflict({
+        baseRowVersion: timelineRow.row_version,
+        localValue: "Conflict visual local",
+        page,
+        patchController,
+        recordId: timelineRow.record_id,
+        remoteValue: "Conflict visual server",
+        txnPrefix: "visual-phase6-conflict",
+      });
 
       await assertVisualRegression(
         page,
@@ -668,7 +636,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
         page.getByRole("main"),
       );
     } finally {
-      await page.unroute(patchUrl, conflictHandler);
+      await patchController.dispose();
     }
   });
 
@@ -681,7 +649,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
       uniqueIncidentKey("V6GRID03"),
       "Phase 6 visual pending queue",
     );
-    const timelineRow = (await createViewRow(
+    const syncRow = (await createViewRow(
       page,
       incidentId,
       timelineApiViewSchemaId,
@@ -690,17 +658,33 @@ test.describe("Phase 6 workbook visual evidence", () => {
         "timeline.summary": "Pending visual base",
       },
     )) as ViewRow;
+    const conflictRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V6GRID03-CONFLICT-ROW"),
+        "timeline.summary": "Pending conflict visual base",
+      },
+    )) as ViewRow;
+    const queuedRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineApiViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V6GRID03-QUEUED-ROW"),
+        "timeline.summary": "Pending queued visual base",
+      },
+    )) as ViewRow;
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
-    const summaryInput = page.getByTestId(
-      `row-${timelineRow.record_id}-summary`,
-    );
+    const summaryInput = page.getByTestId(`row-${syncRow.record_id}-summary`);
     const saveState = page.getByTestId(saveStateTestId());
     const saveStateStrip = saveState.locator("..");
     const hold = await holdBrowserApiRequest(page, {
       method: "PATCH",
-      path: `/api/v1/records/${timelineRow.record_id}`,
+      path: `/api/v1/records/${syncRow.record_id}`,
     });
 
     try {
@@ -724,43 +708,40 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await hold.dispose();
     }
 
-    const blockingHandler = async (route: Route) => {
-      if (route.request().method().toUpperCase() !== "PATCH") {
-        await route.fallback();
-        return;
-      }
-      await route.fulfill({
-        status: 400,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            status: 400,
-            code: "invalid_mutation_payload",
-            message: "invalid mutation payload",
-            request_id: "visual-phase6-pending-blocked",
-            retryable: false,
-            details: {},
-          },
-        }),
-      });
-    };
-    const patchUrl = `**/api/v1/records/${timelineRow.record_id}`;
-    await page.route(patchUrl, blockingHandler);
+    const patchController = await installPatchController(page);
     try {
-      await summaryInput.fill("Pending visual blocked");
-      await summaryInput.press("Enter");
-      await expect(saveState).toHaveText("Conflict");
+      await driveRealTimelineSummaryConflict({
+        afterLocalPatchHeld: async () => {
+          await editTimelineSummary(
+            page,
+            queuedRow.record_id,
+            "Pending visual queued replay",
+          );
+          await expect(
+            page.getByTestId(pendingQueueNoticeTestId()),
+          ).toBeVisible();
+        },
+        baseRowVersion: conflictRow.row_version,
+        localValue: "Pending visual blocked",
+        page,
+        patchController,
+        recordId: conflictRow.record_id,
+        remoteValue: "Pending visual server",
+        txnPrefix: "visual-phase6-pending-conflict",
+      });
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
       await assertVisualRegression(
         page,
         "v-6-grid-03-blocked-conflict",
         page.getByRole("main"),
       );
+
+      await page.getByTestId("conflict-keep-saved").click();
+      await expect(saveState).toHaveText("Saved");
     } finally {
-      await page.unroute(patchUrl, blockingHandler);
+      await patchController.dispose();
     }
 
-    await page.reload();
     await expect(saveState).toHaveText("Saved");
     await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
     await assertVisualRegression(
@@ -789,6 +770,19 @@ async function assertVisualRegression(
 
 async function maskVisualDynamicText(page: Page) {
   await page.evaluate(() => {
+    const styleId = "visual-dynamic-input-mask";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `
+        [data-testid="conflict-server-actor"],
+        [data-testid="conflict-server-updated-at"] {
+          color: transparent !important;
+          caret-color: transparent !important;
+        }
+      `;
+      document.head.append(style);
+    }
     const replacements: Array<[RegExp, string]> = [
       [
         /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
@@ -811,6 +805,19 @@ async function maskVisualDynamicText(page: Page) {
         text = text.replace(pattern, replacement);
       }
       node.textContent = text;
+    }
+    for (const element of document.querySelectorAll("input, textarea")) {
+      if (
+        !(element instanceof HTMLInputElement) &&
+        !(element instanceof HTMLTextAreaElement)
+      ) {
+        continue;
+      }
+      let value = element.value;
+      for (const [pattern, replacement] of replacements) {
+        value = value.replace(pattern, replacement);
+      }
+      element.value = value;
     }
   });
 }

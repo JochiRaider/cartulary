@@ -25,18 +25,16 @@ import type { Locator, Page } from "@playwright/test";
 import { revokeAllSessions } from "./authRuntime";
 import { expect, test } from "./fixtures";
 import {
-  apiBase,
   applyStorageState,
   createIncident,
   createIncidentMemberUser,
-  csrfHeaders,
   openIncidentAsTrackedUser,
   uniqueEmail,
   uniqueIncidentKey,
-  uniqueTxn,
 } from "./helpers";
 import {
   createTimelineRow,
+  driveRealTimelineSummaryConflict,
   editTimelineSummary,
   exerciseRevokedPendingReplay,
   expectServerSummaries,
@@ -44,11 +42,11 @@ import {
   installIncidentSocketMonitor,
   installPatchController,
   installPatchTransportFailureController,
+  patchTimelineField,
   requireRecordId,
   type SocketMessage,
   successfulPatchCalls,
   summaryPatchValue,
-  timelineViewSchemaId,
 } from "./phase6Harness";
 
 const presenceInteractionThresholdMs = 1000;
@@ -332,24 +330,14 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       const input = page.getByTestId(`row-${recordId}-summary`);
       await expect(input).toHaveValue(baseSummary);
 
-      const livePatch = await page.request.patch(
-        `${apiBase}/api/v1/records/${recordId}`,
-        {
-          headers: await csrfHeaders(page),
-          data: {
-            view_schema_id: timelineViewSchemaId,
-            base_row_version: 1,
-            client_txn_id: uniqueTxn(`e604-${scenario.name}-live-patch`),
-            changes: [
-              {
-                field_key: "timeline.details",
-                value: `E-6-04 ${scenario.name} remote details`,
-              },
-            ],
-          },
-        },
+      await patchTimelineField(
+        page,
+        recordId,
+        1,
+        "timeline.details",
+        `E-6-04 ${scenario.name} remote details`,
+        `e604-${scenario.name}-live-patch`,
       );
-      expect(livePatch.ok()).toBeTruthy();
       await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText(
         "2",
       );
@@ -409,34 +397,17 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       page.getByTestId(cellPresenceMarkerTestId(alphaId, "timeline.summary")),
     ).toContainText("AA");
 
-    const heldPatch = patchController.holdNextPatch();
-    await alphaInput.fill("E-6-04 Alpha local");
-    await alphaInput.press("Enter");
-    await heldPatch.waitForHit;
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-
-    const alphaPatch = await page.request.patch(
-      `${apiBase}/api/v1/records/${alphaId}`,
-      {
-        headers: await csrfHeaders(page),
-        data: {
-          view_schema_id: timelineViewSchemaId,
-          base_row_version: 1,
-          client_txn_id: uniqueTxn("e604-alpha-remote-conflict"),
-          changes: [
-            {
-              field_key: "timeline.summary",
-              value: "E-6-04 Alpha remote",
-            },
-          ],
-        },
-      },
-    );
-    expect(alphaPatch.ok()).toBeTruthy();
-    await expect(alphaInput).toHaveValue("E-6-04 Alpha local");
-
-    heldPatch.release();
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await driveRealTimelineSummaryConflict({
+      baseRowVersion: 1,
+      expectConflictMarker: false,
+      expectEditedCellMounted: false,
+      localValue: "E-6-04 Alpha local",
+      page,
+      patchController,
+      recordId: alphaId,
+      remoteValue: "E-6-04 Alpha remote",
+      txnPrefix: "e604-alpha-remote-conflict",
+    });
     await scrollGridToOffset(page, "timeline", 0);
     await expect(
       page.getByTestId(conflictMarkerTestId(alphaId, "timeline.summary")),
@@ -790,34 +761,6 @@ function gridAnchorCommandScenarios(): readonly GridAnchorCommandScenario[] {
   ];
 }
 
-async function patchTimelineField(
-  page: Page,
-  recordId: string,
-  baseRowVersion: number,
-  fieldKey: string,
-  value: string,
-  txnPrefix: string,
-) {
-  const response = await page.request.patch(
-    `${apiBase}/api/v1/records/${recordId}`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        view_schema_id: timelineViewSchemaId,
-        base_row_version: baseRowVersion,
-        client_txn_id: uniqueTxn(txnPrefix),
-        changes: [
-          {
-            field_key: fieldKey,
-            value,
-          },
-        ],
-      },
-    },
-  );
-  expect(response.ok()).toBeTruthy();
-}
-
 async function exerciseSameFieldResolver({
   action,
   expectedPrimary,
@@ -841,33 +784,18 @@ async function exerciseSameFieldResolver({
   remotePage: Page;
   remoteValue: string;
 }) {
-  const heldPrimaryPatch = patchController.holdNextPatch();
-  await editTimelineSummary(page, recordId, localValue);
-  await heldPrimaryPatch.waitForHit;
-  await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-  await patchTimelineField(
-    remotePage,
+  await driveRealTimelineSummaryConflict({
+    baseRowVersion: 1,
+    localValue,
+    page,
+    patchController,
     recordId,
-    1,
-    "timeline.summary",
     remoteValue,
-    `e602-remote-${recordId}`,
-  );
+    remotePatchPage: remotePage,
+    txnPrefix: `e602-remote-${recordId}`,
+  });
   await expect(remotePage.getByTestId(`row-${recordId}-summary`)).toHaveValue(
     remoteValue,
-  );
-  heldPrimaryPatch.release();
-  await expect.poll(() => patchController.calls.at(-1)?.status ?? 0).toBe(409);
-  await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-  await expect(page.getByTestId("conflict-resolver")).toBeVisible();
-  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
-    localValue,
-  );
-  await expect(page.getByTestId("conflict-server-value")).toHaveValue(
-    remoteValue,
-  );
-  await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-    localValue,
   );
   await expect(page.getByTestId("timeline-grid-shell")).toBeVisible();
 

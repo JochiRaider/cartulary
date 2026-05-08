@@ -606,9 +606,9 @@ This phase completes the live multi-user path:
 
 | ID          | Test                                                                                                                          | Exact REQs                                                                         | Exact ACs                      |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------ |
-| V-6-GRID-01 | Row-gutter presence markers and same-cell editing hints render deterministically on the Timeline grid from record and field identity. | REQ-03-090..REQ-03-098                                                             | AC-008, AC-132, AC-133         |
-| V-6-GRID-02 | Same-field conflict marker, same-surface resolver, and `Conflict` save-state strip render deterministically on the Timeline grid.     | REQ-03-033..REQ-03-082, REQ-03-099..REQ-03-100                                     | AC-037..AC-042, AC-376         |
-| V-6-GRID-03 | Pending-queue save-state presentations cover `Syncing`, blocked `Conflict`, and recovery to `Saved` through the visual harness.       | REQ-03-072, REQ-03-089, REQ-03-095, REQ-03-099..REQ-03-100                         | AC-376..AC-382                 |
+| V-6-GRID-01 | Row-gutter presence markers and same-cell editing hints render deterministically on the Timeline grid from real browser presence state and record/field identity. | REQ-03-090..REQ-03-098                                                             | AC-008, AC-132, AC-133         |
+| V-6-GRID-02 | Same-field conflict marker, same-surface resolver, and `Conflict` save-state strip render deterministically after a real backend same-field conflict; resolver behavior remains owned by `E-6-02` and unit rows. | REQ-03-033..REQ-03-082, REQ-03-099..REQ-03-100                                     | AC-037..AC-042, AC-376         |
+| V-6-GRID-03 | Save-state presentations cover `Syncing`, same-field-conflict `Conflict`, and resolver recovery to `Saved` through the visual harness; queue semantics remain owned by `E-6-05` and `U-6-09`. | REQ-03-072, REQ-03-089, REQ-03-095, REQ-03-099..REQ-03-100                         | AC-376..AC-382                 |
 
 ---
 
