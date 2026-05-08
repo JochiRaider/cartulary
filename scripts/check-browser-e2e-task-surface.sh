@@ -102,7 +102,7 @@ require_browser_batch_target() {
     fail "$target dry-run must expand owned browser stack environment"
   fi
   if [[ "$dry_workers" == '$(PLAYWRIGHT_WORKERS)' ]]; then
-    dry_workers="${PLAYWRIGHT_WORKERS:-2}"
+    dry_workers="${PLAYWRIGHT_WORKERS:-3}"
   fi
   if [[ "$dry_run_output" != *"PLAYWRIGHT_WORKERS=$dry_workers"* ]]; then
     fail "$target dry-run must set PLAYWRIGHT_WORKERS=$dry_workers"

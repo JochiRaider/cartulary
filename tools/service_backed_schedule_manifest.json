@@ -16,7 +16,7 @@
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": 1,
-        "process": 4,
+        "process": 6,
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
         "browser_stage_stateful": 1,
@@ -288,7 +288,7 @@
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": 1,
-        "process": 4
+        "process": 6
       },
       "work_unit_sources": [
         {
@@ -342,7 +342,7 @@
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": 1,
-        "process": 4,
+        "process": 6,
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
         "browser_stage_stateful": 1,

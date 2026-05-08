@@ -138,8 +138,8 @@ for (const target of ["frontend-typecheck", "frontend-unit", "frontend-import-bo
   }
 }
 const frontendUnit = unitByTarget.get("frontend-unit");
-if (frontendUnit?.env?.VITEST_MAX_WORKERS !== "1") {
-  throw new Error("scheduled frontend-unit must set VITEST_MAX_WORKERS=1");
+if (frontendUnit?.env && Object.hasOwn(frontendUnit.env, "VITEST_MAX_WORKERS")) {
+  throw new Error("scheduled frontend-unit must inherit VITEST_MAX_WORKERS instead of overriding it");
 }
 if (JSON.stringify(frontendUnit?.resource_claims ?? {}) !== JSON.stringify({ host_cpu: 1 })) {
   throw new Error("scheduled frontend-unit must claim exactly host_cpu=1");

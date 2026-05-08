@@ -36,7 +36,8 @@ import (
 const (
 	postgresStartupTimeout     = 2 * time.Minute
 	suitePreflightTimeout      = 3 * time.Second
-	suiteContainerAttemptLimit = 5 * time.Second
+	suitePostgresAttemptLimit  = 35 * time.Second
+	suiteMinIOAttemptLimit     = 2 * time.Minute
 	staleSuiteContainerAge     = 10 * time.Minute
 	templateStartupTimeout     = 2 * time.Minute
 	minioStartupTimeout        = 5 * time.Minute
@@ -76,6 +77,11 @@ const (
 	bucketServiceWait = "service_wait"
 	bucketMigration   = "migration"
 	bucketTeardown    = "teardown"
+)
+
+var (
+	startPostgresHarnessWithOptions = pgtest.StartOwnedWithOptions
+	startMinIOHarnessWithOptions    = s3test.StartOwnedWithOptions
 )
 
 type postgresService struct {
@@ -1048,10 +1054,10 @@ func (ioDiscard) Write(p []byte) (int, error) {
 
 func startPostgresService(ctx context.Context, env map[string]string) (postgresService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServicePostgres)
-	harness, err := pgtest.StartOwnedWithOptions(ctx, pgtest.StartOptions{
+	harness, err := startPostgresHarnessWithOptions(ctx, pgtest.StartOptions{
 		Labels:         labels,
 		Observer:       suiteServiceStartObserver(env, suiteservices.ServicePostgres),
-		AttemptTimeout: suiteContainerAttemptLimit,
+		AttemptTimeout: suitePostgresAttemptLimit,
 	})
 	if err != nil {
 		return postgresService{}, err
@@ -1078,10 +1084,10 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 
 func startMinIOService(ctx context.Context, env map[string]string) (minioService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServiceMinIO)
-	harness, err := s3test.StartOwnedWithOptions(ctx, s3test.StartOptions{
+	harness, err := startMinIOHarnessWithOptions(ctx, s3test.StartOptions{
 		Labels:         labels,
 		Observer:       suiteServiceStartObserver(env, suiteservices.ServiceMinIO),
-		AttemptTimeout: suiteContainerAttemptLimit,
+		AttemptTimeout: suiteMinIOAttemptLimit,
 	})
 	if err != nil {
 		return minioService{}, err

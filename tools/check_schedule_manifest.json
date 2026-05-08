@@ -12,7 +12,7 @@
         "postgres": 32,
         "minio": 32,
         "postgres_reset": 1,
-        "process": 4,
+        "process": 6,
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
         "browser_stage_stateful": 1,
@@ -2001,10 +2001,7 @@
           "resource_claims": {
             "host_cpu": 1
           },
-          "make_jobs": "host_cpu",
-          "env": {
-            "VITEST_MAX_WORKERS": "1"
-          }
+          "make_jobs": "host_cpu"
         },
         {
           "target": "check-harness-smoke",

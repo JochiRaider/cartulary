@@ -668,6 +668,7 @@ run_scheduler() {
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
+  TEST_SERVICES_BIN="${TEST_SERVICES_BIN:-}" \
   VERBOSE="${VERBOSE:-}" \
   CI_VERBOSE="${CI_VERBOSE:-}" \
   CARTULARY_OUTPUT_MODE="${CARTULARY_OUTPUT_MODE:-}" \
@@ -1975,6 +1976,94 @@ assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.reason")
 assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.failed_dependency")" "lint-biome" "service skip child failed dependency"
 assert_equals "$(json_field "$service_skip_summary" "children.missing.length")" "0" "service skip children not missing"
 assert_equals "$(json_field "$service_skip_summary" "own.counts.non_test_failed")" "0" "service skip aggregate avoids artifact failure"
+
+service_no_lease_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-service-no-lease.XXXXXX")"
+cleanup_paths+=("$service_no_lease_dir")
+write_fake_make "$service_no_lease_dir"
+cat >"${service_no_lease_dir}/fake-test-services" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+log_file="${service_no_lease_dir}/test-services.log"
+mode="\${1:-}"
+shift || true
+
+case "\$mode" in
+  start-suite)
+    printf 'test-services start-suite\n' >>"\$log_file"
+    echo "fake test-services start failure before lease" >&2
+    exit 9
+    ;;
+  terminate-suite)
+    printf 'test-services terminate-suite\n' >>"\$log_file"
+    echo "terminate-suite should not run without a lease" >&2
+    exit 11
+    ;;
+  *)
+    echo "unexpected fake test-services mode \${mode}" >&2
+    exit 2
+    ;;
+esac
+EOF
+chmod +x "${service_no_lease_dir}/fake-test-services"
+service_no_lease_manifest="${service_no_lease_dir}/manifest.json"
+cat >"$service_no_lease_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v10",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
+      "summary_groups": [
+        { "name": "check-work", "summary_targets": ["service-no-lease-suite"] }
+      ],
+      "work_units": [
+        {
+          "id": "service-no-lease-suite:service-session",
+          "kind": "service_session",
+          "target": "service-no-lease-suite",
+          "label": "service-no-lease-suite/service-session",
+          "weight": 10,
+          "needs": [],
+          "completion_keys": ["service_session:service-no-lease-suite"],
+          "resource_claims": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
+          "retained_resource_claims": { "suite_service_stack": 1 },
+          "service_session": { "target": "service-no-lease-suite" }
+        },
+        {
+          "id": "service-no-lease-suite:complete",
+          "kind": "service_complete",
+          "target": "service-no-lease-suite",
+          "label": "service-no-lease-suite/complete",
+          "weight": 1,
+          "needs": ["service_session:service-no-lease-suite"],
+          "completion_keys": ["service-no-lease-suite"],
+          "failure_keys": ["service-no-lease-suite"],
+          "produces_summary_targets": ["service-no-lease-suite"],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "service_session": { "target": "service-no-lease-suite" }
+        }
+      ]
+    }
+  ]
+}
+JSON
+set +e
+service_no_lease_output="$(
+  TEST_SERVICES_BIN="${service_no_lease_dir}/fake-test-services" \
+    run_scheduler "$service_no_lease_dir" "$service_no_lease_manifest" service-no-lease 2>&1
+)"
+service_no_lease_status=$?
+set -e
+assert_equals "$service_no_lease_status" "1" "service no-lease startup failure status"
+assert_contains "$service_no_lease_output" "fake test-services start failure before lease" "service no-lease preserves startup failure"
+assert_not_contains "$service_no_lease_output" "terminate-suite should not run without a lease" "service no-lease cleanup skips missing lease"
+assert_not_contains "$(cat "${service_no_lease_dir}/test-services.log")" "test-services terminate-suite" "service no-lease does not invoke terminate-suite"
+service_no_lease_scheduler_summary="${service_no_lease_dir}/results/service-no-lease/check/scheduler-summary.json"
+assert_file_present "$service_no_lease_scheduler_summary" "service no-lease scheduler summary"
+assert_equals "$("$NODE_BIN" -e 'const fs=require("node:fs"); const summary=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(summary.service_sessions?.[0]?.cleanup_status ?? "missing");' "$service_no_lease_scheduler_summary")" "skipped_no_lease" "service no-lease cleanup status"
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-invalid.XXXXXX")"
 cleanup_paths+=("$invalid_dir")

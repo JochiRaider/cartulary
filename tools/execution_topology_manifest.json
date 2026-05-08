@@ -3997,9 +3997,6 @@
           "profile": "frontend_unit_vitest",
           "priority_band": "harness_evidence",
           "order": 0,
-          "env": {
-            "VITEST_MAX_WORKERS": "1"
-          },
           "produces_summary_targets": [
             "frontend-unit"
           ],

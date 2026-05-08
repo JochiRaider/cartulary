@@ -14,6 +14,8 @@ import (
 
 	dockercontainer "github.com/moby/moby/api/types/container"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -269,6 +271,54 @@ func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start postgres")
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start minio")
 	requireTimingEvent(t, events, bucketMigration, "test-services prepare postgres template database")
+}
+
+func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
+	previousPostgresStarter := startPostgresHarnessWithOptions
+	previousMinIOStarter := startMinIOHarnessWithOptions
+	defer func() {
+		startPostgresHarnessWithOptions = previousPostgresStarter
+		startMinIOHarnessWithOptions = previousMinIOStarter
+	}()
+
+	var postgresAttemptTimeout time.Duration
+	var minioAttemptTimeout time.Duration
+
+	startPostgresHarnessWithOptions = func(ctx context.Context, options pgtest.StartOptions) (*pgtest.Harness, error) {
+		postgresAttemptTimeout = options.AttemptTimeout
+		return &pgtest.Harness{
+			Host:     "127.0.0.1",
+			Port:     "5432",
+			User:     "cartulary",
+			Password: "cartulary",
+		}, nil
+	}
+	startMinIOHarnessWithOptions = func(ctx context.Context, options s3test.StartOptions) (*s3test.Harness, error) {
+		minioAttemptTimeout = options.AttemptTimeout
+		return &s3test.Harness{
+			Endpoint:  "127.0.0.1:9000",
+			AccessKey: "minio-access",
+			SecretKey: "minio-secret",
+		}, nil
+	}
+
+	env := map[string]string{suiteservices.SuiteIDEnv: "suite-attempt-timeouts"}
+	if _, err := startPostgresService(context.Background(), env); err != nil {
+		t.Fatalf("start postgres service: %v", err)
+	}
+	if _, err := startMinIOService(context.Background(), env); err != nil {
+		t.Fatalf("start minio service: %v", err)
+	}
+
+	if postgresAttemptTimeout != 35*time.Second {
+		t.Fatalf("unexpected postgres attempt timeout: got %v want %v", postgresAttemptTimeout, 35*time.Second)
+	}
+	if minioAttemptTimeout != 2*time.Minute {
+		t.Fatalf("unexpected minio attempt timeout: got %v want %v", minioAttemptTimeout, 2*time.Minute)
+	}
+	if postgresAttemptTimeout == minioAttemptTimeout {
+		t.Fatal("postgres and minio suite startup attempts must not share one timeout budget")
+	}
 }
 
 func TestRunDisablesRyukOnlyForSuiteStartup(t *testing.T) {

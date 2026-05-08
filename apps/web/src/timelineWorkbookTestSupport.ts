@@ -12,6 +12,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { expect, vi } from "vitest";
 
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
@@ -339,7 +340,14 @@ export async function changeInputValue(
   input: HTMLInputElement | HTMLTextAreaElement,
   value: string,
 ) {
-  fireEvent.change(input, { target: { value } });
+  const user = userEvent.setup();
+  await user.click(input);
+  if (input.ownerDocument.activeElement === input) {
+    input.setSelectionRange(0, input.value.length);
+    await user.keyboard(value === "" ? "{Backspace}" : value);
+  } else {
+    fireEvent.change(input, { target: { value } });
+  }
   await waitFor(() => {
     if (input.value !== value) {
       throw new Error(`Expected input value ${value}, got ${input.value}.`);

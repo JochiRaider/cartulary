@@ -607,7 +607,7 @@ function estimateGoCPULimit(goShardUnits) {
   const weightedConcurrency = Math.ceil(totalWeight / Math.max(30_000, maxWeight));
   const cpuCount = availableCPUCount();
   const hostConcurrency = cpuCount <= 4 ? Math.max(2, cpuCount - 1) : Math.floor(cpuCount * 0.75);
-  return clampInteger(Math.max(4, Math.min(hostConcurrency, weightedConcurrency)), 4, 12);
+  return clampInteger(Math.max(4, Math.min(hostConcurrency, weightedConcurrency)), 4, 16);
 }
 
 function estimateGoIOLimit(goShardUnits, goCPULimit) {
@@ -619,7 +619,7 @@ function estimateGoIOLimit(goShardUnits, goCPULimit) {
   const resetHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "reset_heavy").length;
   const cpuHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "cpu_heavy").length;
   const profileConcurrency = balanced + ioHeavy * 2 + resetHeavy * 3 + Math.ceil(cpuHeavy / 2);
-  return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 16);
+  return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 24);
 }
 
 function resolveResourceLimits(resourceLimits, resourceLimitSources, workUnits) {

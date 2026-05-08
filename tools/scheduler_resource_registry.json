@@ -75,7 +75,7 @@
       "schedulers": ["check", "service_backed"],
       "display_order": 160,
       "capacity": {
-        "default_limit": 4
+        "default_limit": 6
       }
     },
     {

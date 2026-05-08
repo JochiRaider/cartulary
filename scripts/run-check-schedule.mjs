@@ -1059,22 +1059,27 @@ function attachRuntime(schedule, {
       }
       for (const target of serviceSessionTargets) {
         const files = serviceSessionFiles.get(target);
-        if (files?.leaseFile) {
-          serviceSessionCleanupStatus.set(target, "running");
-          const result = await runLifecycle(repoRoot, testServicesBin, [
-            "terminate-suite",
-            "--lease",
-            files.leaseFile,
-          ]).then(
-            () => 0,
-            () => 1,
-          );
-          if (result !== 0 && !cleanupFailure) {
-            serviceSessionCleanupStatus.set(target, "failed");
-            cleanupFailure = { status: result, label: `${target}:terminate-suite` };
-          } else if (result === 0) {
-            serviceSessionCleanupStatus.set(target, "pass");
-          }
+        if (!files?.leaseFile) {
+          continue;
+        }
+        if (!existsSync(files.leaseFile)) {
+          serviceSessionCleanupStatus.set(target, "skipped_no_lease");
+          continue;
+        }
+        serviceSessionCleanupStatus.set(target, "running");
+        const result = await runLifecycle(repoRoot, testServicesBin, [
+          "terminate-suite",
+          "--lease",
+          files.leaseFile,
+        ]).then(
+          () => 0,
+          () => 1,
+        );
+        if (result !== 0 && !cleanupFailure) {
+          serviceSessionCleanupStatus.set(target, "failed");
+          cleanupFailure = { status: result, label: `${target}:terminate-suite` };
+        } else if (result === 0) {
+          serviceSessionCleanupStatus.set(target, "pass");
         }
       }
       return cleanupFailure;
