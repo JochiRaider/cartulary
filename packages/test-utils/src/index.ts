@@ -151,28 +151,39 @@ export async function scrollGridTargetIntoView(options: {
 
   const retryIntervalMs = Math.max(intervalMs, 0);
   const deadline = Date.now() + Math.max(timeoutMs, 0);
-  const initialState = await readGridScrollDiagnostics(page, surface);
-  const scanOffsets = buildGridScanOffsets(initialState);
+  const observation = createGridTargetScanObservation();
 
-  for (const top of scanOffsets) {
-    await scrollGridToOffset(page, surface, top);
+  for (;;) {
     if (await isLocatorVisible(target)) {
       await target.scrollIntoViewIfNeeded?.();
       return readGridScroll(page, surface);
     }
-    if (retryIntervalMs > 0) {
-      await delay(retryIntervalMs);
+
+    const state = await readGridScrollDiagnostics(page, surface);
+    observeGridTargetScanState(observation, state);
+    const scanOffsets = buildGridScanOffsets(state);
+
+    for (const top of scanOffsets) {
+      await scrollGridToOffset(page, surface, top);
+      observation.scrollAttempts += 1;
+      await waitForGridTargetRetry(retryIntervalMs);
       if (await isLocatorVisible(target)) {
         await target.scrollIntoViewIfNeeded?.();
         return readGridScroll(page, surface);
       }
+      if (Date.now() > deadline) {
+        break;
+      }
     }
+
     if (Date.now() > deadline) {
       break;
     }
+    await waitForGridTargetRetry(retryIntervalMs);
   }
 
   const finalState = await readGridScrollDiagnostics(page, surface);
+  observeGridTargetScanState(observation, finalState);
   throw new Error(
     [
       `Expected ${targetTestId} to become visible in the ${surface} grid viewport after scanning virtualized rows.`,
@@ -182,6 +193,13 @@ export async function scrollGridTargetIntoView(options: {
       `scrollHeight=${finalState.scrollHeight}`,
       `maxTop=${finalState.maxTop}`,
       `mountedRowIds=${finalState.mountedRowIds.join(",") || "(none)"}`,
+      `scanCycles=${observation.scanCycles}`,
+      `scrollAttempts=${observation.scrollAttempts}`,
+      `observedScrollable=${observation.scrollableScanCycles > 0}`,
+      `observedMaxTop=${observation.maxTop}`,
+      `observedMountedRowIds=${
+        Array.from(observation.mountedRowIds).join(",") || "(none)"
+      }`,
     ].join(" "),
   );
 }
@@ -601,6 +619,47 @@ function buildGridScanOffsets(state: GridScrollDiagnostics) {
   }
   offsets.push(maxTop);
   return Array.from(new Set(offsets));
+}
+
+type GridTargetScanObservation = {
+  maxTop: number;
+  mountedRowIds: Set<string>;
+  scanCycles: number;
+  scrollableScanCycles: number;
+  scrollAttempts: number;
+};
+
+function createGridTargetScanObservation(): GridTargetScanObservation {
+  return {
+    maxTop: 0,
+    mountedRowIds: new Set(),
+    scanCycles: 0,
+    scrollableScanCycles: 0,
+    scrollAttempts: 0,
+  };
+}
+
+function observeGridTargetScanState(
+  observation: GridTargetScanObservation,
+  state: GridScrollDiagnostics,
+) {
+  observation.scanCycles += 1;
+  observation.maxTop = Math.max(observation.maxTop, state.maxTop);
+  if (state.maxTop > 0) {
+    observation.scrollableScanCycles += 1;
+  }
+  for (const rowId of state.mountedRowIds) {
+    if (rowId !== "") {
+      observation.mountedRowIds.add(rowId);
+    }
+  }
+}
+
+function waitForGridTargetRetry(intervalMs: number) {
+  if (intervalMs <= 0) {
+    return Promise.resolve();
+  }
+  return delay(intervalMs);
 }
 
 async function isLocatorVisible(locator: BrowserLocator) {

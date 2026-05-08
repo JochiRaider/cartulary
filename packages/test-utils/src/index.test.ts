@@ -164,6 +164,66 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
     expect(scrollIntoViewCalls).toEqual([targetTestId]);
   });
 
+  it("recomputes scan offsets after an initially non-scrollable grid hydrates", async () => {
+    const { grid, page, scrollIntoViewCalls, targetTestId } =
+      installGridTargetFixture({
+        clientHeight: 200,
+        currentScroll: { left: 0, top: 0 },
+        isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 400,
+        onGridEvaluate: (candidateGrid, evaluateCount) => {
+          if (evaluateCount >= 3) {
+            Object.defineProperty(candidateGrid, "scrollHeight", {
+              configurable: true,
+              value: 900,
+            });
+          }
+        },
+        scrollHeight: 200,
+      });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId,
+        timeoutMs: 1_000,
+      }),
+    ).resolves.toEqual({ left: 0, top: 400 });
+
+    expect(grid.scrollTop).toBe(400);
+    expect(scrollIntoViewCalls).toEqual([targetTestId]);
+  });
+
+  it("waits for target hydration when the grid never needs a scroll range", async () => {
+    let targetHydrated = false;
+    const { grid, page, scrollIntoViewCalls, targetTestId } =
+      installGridTargetFixture({
+        clientHeight: 200,
+        currentScroll: { left: 0, top: 0 },
+        isTargetVisible: () => targetHydrated,
+        onGridEvaluate: (_candidateGrid, evaluateCount) => {
+          if (evaluateCount >= 3) {
+            targetHydrated = true;
+          }
+        },
+        scrollHeight: 200,
+      });
+
+    await expect(
+      scrollGridTargetIntoView({
+        intervalMs: 0,
+        page,
+        surface: "timeline",
+        targetTestId,
+        timeoutMs: 1_000,
+      }),
+    ).resolves.toEqual({ left: 0, top: 0 });
+
+    expect(grid.scrollTop).toBe(0);
+    expect(scrollIntoViewCalls).toEqual([targetTestId]);
+  });
+
   it("scrolls the explicit grid scrollport when the outer shell is also scrollable", async () => {
     const { grid, page, shell, targetTestId } = installGridTargetFixture({
       clientHeight: 200,
@@ -225,7 +285,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
         timeoutMs: 50,
       }),
     ).rejects.toThrow(
-      /missing-target.*timeline.*scrollHeight=900.*mountedRowIds=record-a,record-b/,
+      /missing-target.*timeline.*scrollHeight=900.*mountedRowIds=record-a,record-b.*observedMaxTop=700.*observedMountedRowIds=record-a,record-b/,
     );
   });
 
@@ -323,6 +383,7 @@ function installGridTargetFixture(
     includeTarget?: boolean;
     isTargetVisible?: (grid: HTMLDivElement) => boolean;
     mountedRowIds?: string[];
+    onGridEvaluate?: (grid: HTMLDivElement, evaluateCount: number) => void;
     onTargetScrollIntoView?: (grid: HTMLDivElement) => void;
     outerScrollable?: boolean;
     scrollHeight?: number;
@@ -405,6 +466,7 @@ function installGridTargetFixture(
   grid.scrollTop = options.currentScroll?.top ?? 0;
 
   const scrollIntoViewCalls: string[] = [];
+  let gridEvaluateCount = 0;
   return {
     grid,
     page: createBrowserPage(
@@ -423,6 +485,12 @@ function installGridTargetFixture(
             return options.isTargetVisible?.(grid) ?? true;
           }
           return element.isConnected;
+        },
+        onEvaluate(testId, element) {
+          if (testId === gridTestId && element === shell) {
+            gridEvaluateCount += 1;
+            options.onGridEvaluate?.(grid, gridEvaluateCount);
+          }
         },
         onScrollIntoViewIfNeeded(testId) {
           scrollIntoViewCalls.push(testId);
