@@ -208,7 +208,7 @@
       "symbol": "TestPhase6_GridWriteConcurrencyRoute_U_6_01",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Every grid write includes `record_id`, `base_row_version`, and changed fields only; different-field concurrent edits auto-rebase, while same-field concurrent edits reject with an explicit conflict payload.",
+      "claim": "Every grid write is anchored to the route-bound `record_id` and includes body-bound `base_row_version` plus changed fields only; different-field concurrent edits auto-rebase, while same-field concurrent edits reject with an explicit conflict payload.",
       "out_of_scope": "Same-surface resolver UX and local pending-queue replay behavior remain separate Phase 6 rows.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase6 authoritative",
