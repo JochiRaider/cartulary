@@ -451,7 +451,7 @@
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
           "scheduler_priority": 100,
-          "weight": 82478,
+          "weight": 83566,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -602,7 +602,7 @@
               "coverage": "supplemental",
               "execution_dependency": "browser_support",
               "scheduler_priority": 100,
-              "weight": 8050,
+              "weight": 9138,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -616,7 +616,7 @@
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
           "scheduler_priority": 100,
-          "weight": 4987,
+          "weight": 5435,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -634,7 +634,7 @@
               "coverage": "authoritative",
               "execution_dependency": "browser_stateful",
               "scheduler_priority": 100,
-              "weight": 4987,
+              "weight": 5435,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -653,7 +653,7 @@
             "browser-e2e-visual"
           ],
           "scheduler_priority": 100,
-          "weight": 4779,
+          "weight": 5834,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -673,7 +673,7 @@
               "coverage": "authoritative",
               "execution_dependency": "browser_measurement",
               "scheduler_priority": 100,
-              "weight": 4779,
+              "weight": 5834,
               "resource_claims": {
                 "go_cpu": 4,
                 "go_io": 4
@@ -687,7 +687,7 @@
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
           "scheduler_priority": 100,
-          "weight": 27116,
+          "weight": 29367,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -705,7 +705,7 @@
               "coverage": "authoritative",
               "execution_dependency": "browser_visual",
               "scheduler_priority": 100,
-              "weight": 27116,
+              "weight": 29367,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1

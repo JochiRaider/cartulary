@@ -5,7 +5,8 @@
     "task_surface_make": "tools/task_surface.generated.mk",
     "check_schedule_manifest": "tools/check_schedule_manifest.json",
     "service_backed_schedule_manifest": "tools/service_backed_schedule_manifest.json",
-    "browser_e2e_batch_manifest": "tools/browser_e2e_batch_manifest.json"
+    "browser_e2e_batch_manifest": "tools/browser_e2e_batch_manifest.json",
+    "execution_topology_render_index": "tools/execution_topology_render_index.json"
   },
   "execution_dependencies": [
     {

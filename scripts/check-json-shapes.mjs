@@ -1,23 +1,15 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  browserBatchManifestSchemaID,
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "./lib/browser-batch-manifest.mjs";
 import { validateCheckScheduleManifestShape } from "./lib/check-schedule-manifest.mjs";
-import { expandServiceBackedScheduleForCheck } from "./lib/check-service-backed-expansion.mjs";
 import {
-  defaultExecutionTopologyManifestPath,
   executionTopologySchemaID,
   loadExecutionTopology,
-  renderBrowserBatchManifest,
-  renderCheckScheduleManifest,
-  browserBatchManifestSchemaID as renderedBrowserBatchSchemaID,
-  renderTaskSurfaceManifest,
   taskSurfaceSchemaID,
 } from "./lib/execution-topology.mjs";
 import {
@@ -56,7 +48,7 @@ import {
   collectTaskSurfaceManifestErrors,
   loadTaskSurfaceManifest,
 } from "./lib/task-surface.mjs";
-import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
+import { quickCheckRenderIndex } from "./render-execution-topology-artifacts.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -289,19 +281,6 @@ function repoFile(root, relativePath) {
 
 function readShapeFile(file, label = file) {
   return readJsonObject(file, label);
-}
-
-function serializeJSON(value) {
-  return `${JSON.stringify(value, null, 2)}\n`;
-}
-
-function assertGeneratedJSONFresh(root, relativePath, rendered) {
-  const file = repoFile(root, relativePath);
-  const existing = readFileSync(file, "utf8");
-  const expected = serializeJSON(rendered);
-  if (existing !== expected) {
-    throw new Error(`${relativePath} is stale; run make phase-schedules`);
-  }
 }
 
 function validatePhaseRegistryShape(file) {
@@ -951,40 +930,13 @@ function validateAll(root) {
   validateExecutionTopologyShape(
     repoFile(root, "tools/execution_topology_manifest.json"),
   );
-  const topology = loadExecutionTopology({
+  loadExecutionTopology({
     root,
     manifestPath: repoFile(root, "tools/execution_topology_manifest.json"),
   });
-  const taskSurface = renderTaskSurfaceManifest(topology);
-  const browserBatch = renderBrowserBatchManifest(topology);
-  const serviceBackedSchedule = renderServiceBackedScheduleManifest({
-    topology: defaultExecutionTopologyManifestPath,
-    topologyObject: topology,
+  quickCheckRenderIndex({
+    topology: repoFile(root, "tools/execution_topology_manifest.json"),
   });
-  const checkSchedule = renderCheckScheduleManifest(topology, {
-    serviceBackedScheduleManifest: serviceBackedSchedule,
-    expandServiceBackedScheduleForCheck,
-  });
-  assertGeneratedJSONFresh(
-    root,
-    topology.generatedOutputs.task_surface_manifest,
-    taskSurface,
-  );
-  assertGeneratedJSONFresh(
-    root,
-    topology.generatedOutputs.check_schedule_manifest,
-    checkSchedule,
-  );
-  assertGeneratedJSONFresh(
-    root,
-    topology.generatedOutputs.browser_e2e_batch_manifest,
-    browserBatch,
-  );
-  assertGeneratedJSONFresh(
-    root,
-    topology.generatedOutputs.service_backed_schedule_manifest,
-    serviceBackedSchedule,
-  );
 
   validateTaskSurfaceShape(repoFile(root, "tools/task_surface_manifest.json"));
   loadTaskSurfaceManifest(repoFile(root, "tools/task_surface_manifest.json"));
@@ -1027,9 +979,6 @@ function validateAll(root) {
     repoFile(root, "configs/dev/bootstrap-admin.json"),
   );
 
-  if (browserBatchManifestSchemaID !== renderedBrowserBatchSchemaID) {
-    throw new Error("browser batch schema constants diverged");
-  }
 }
 
 function main() {

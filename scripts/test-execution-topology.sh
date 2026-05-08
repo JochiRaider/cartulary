@@ -6,7 +6,7 @@ NODE_BIN="${NODE_BIN:-node}"
 
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
 import assert from "node:assert/strict";
-import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -18,6 +18,9 @@ const topologyModule = await import(pathToFileURL(path.join(root, "scripts/lib/e
 const targetPlanModule = await import(pathToFileURL(path.join(root, "scripts/lib/target-plan.mjs")));
 const serviceRendererModule = await import(
   pathToFileURL(path.join(root, "scripts/render-service-backed-schedule-manifest.mjs"))
+);
+const topologyRendererModule = await import(
+  pathToFileURL(path.join(root, "scripts/render-execution-topology-artifacts.mjs"))
 );
 const taskSurfaceModule = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
 
@@ -428,6 +431,113 @@ const writeTopologyFixture = (name, value) => {
   writeFileSync(fixturePath, `${JSON.stringify(value, null, 2)}\n`);
   return fixturePath;
 };
+
+const renderIndexDir = mkdtempSync(path.join(root, "tmp", "topology-render-index-test-"));
+const renderOutputPath = (name) => path.relative(root, path.join(renderIndexDir, name)).split(path.sep).join("/");
+const renderIndexTopology = topologyFixture();
+renderIndexTopology.generated_outputs = {
+  ...renderIndexTopology.generated_outputs,
+  task_surface_manifest: renderOutputPath("task_surface_manifest.json"),
+  task_surface_make: renderOutputPath("task_surface.generated.mk"),
+  check_schedule_manifest: renderOutputPath("check_schedule_manifest.json"),
+  service_backed_schedule_manifest: renderOutputPath("service_backed_schedule_manifest.json"),
+  browser_e2e_batch_manifest: renderOutputPath("browser_e2e_batch_manifest.json"),
+  execution_topology_render_index: renderOutputPath("execution_topology_render_index.json"),
+};
+const renderIndexBaselinePath = path.join(renderIndexDir, "service_backed_make_target_duration_baselines.json");
+copyFileSync(path.join(root, "tools/service_backed_make_target_duration_baselines.json"), renderIndexBaselinePath);
+renderIndexTopology.service_backed_schedules = {
+  ...renderIndexTopology.service_backed_schedules,
+  defaults: {
+    ...renderIndexTopology.service_backed_schedules.defaults,
+    make_target_duration_baseline: renderIndexBaselinePath,
+  },
+};
+const renderIndexTopologyPath = path.join(renderIndexDir, "execution_topology_manifest.json");
+writeFileSync(renderIndexTopologyPath, `${JSON.stringify(renderIndexTopology, null, 2)}\n`);
+const renderArtifacts = [
+  { file: renderIndexTopology.generated_outputs.task_surface_manifest, content: "not json\n" },
+  { file: renderIndexTopology.generated_outputs.task_surface_make, content: "# generated make fixture\n" },
+  { file: renderIndexTopology.generated_outputs.check_schedule_manifest, content: "not json\n" },
+  { file: renderIndexTopology.generated_outputs.service_backed_schedule_manifest, content: "not json\n" },
+  { file: renderIndexTopology.generated_outputs.browser_e2e_batch_manifest, content: "not json\n" },
+];
+for (const artifact of renderArtifacts) {
+  writeFileSync(path.join(root, artifact.file), artifact.content);
+}
+const phaseRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-render-phase-root-"));
+mkdirSync(path.join(phaseRoot, "tools"), { recursive: true });
+copyFileSync(path.join(root, "tools/phase_registry.json"), path.join(phaseRoot, "tools/phase_registry.json"));
+for (const entry of JSON.parse(readFileSync(path.join(root, "tools/phase_registry.json"), "utf8")).phases) {
+  if (entry.status === "active") {
+    copyFileSync(path.join(root, entry.manifest_path), path.join(phaseRoot, entry.manifest_path));
+  }
+}
+const oldPhaseRoot = process.env.CARTULARY_PHASE_MANIFEST_ROOT;
+process.env.CARTULARY_PHASE_MANIFEST_ROOT = phaseRoot;
+try {
+  const writeRenderIndex = () => {
+    const inputInfo = topologyRendererModule.collectRenderInputs({ topology: renderIndexTopologyPath });
+    writeFileSync(
+      path.join(root, renderIndexTopology.generated_outputs.execution_topology_render_index),
+      `${JSON.stringify(topologyRendererModule.buildRenderIndex({ inputInfo, artifacts: renderArtifacts }), null, 2)}\n`,
+    );
+  };
+  writeRenderIndex();
+  assert.doesNotThrow(
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
+    "quick phase-schedule drift must accept a fresh index without rendering output content",
+  );
+  writeFileSync(path.join(root, renderArtifacts[0].file), "changed\n");
+  assert.throws(
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
+    /stale; run make phase-schedules/,
+    "quick phase-schedule drift must reject changed generated outputs by hash",
+  );
+  writeFileSync(path.join(root, renderArtifacts[0].file), renderArtifacts[0].content);
+  const changedTopology = { ...renderIndexTopology, schema_id: "cartulary.execution_topology.v3" };
+  changedTopology.task_surface = {
+    ...changedTopology.task_surface,
+    compact_help: {
+      ...changedTopology.task_surface.compact_help,
+      entries: [
+        ...changedTopology.task_surface.compact_help.entries,
+        { target: "future", description: "future fixture" },
+      ],
+    },
+  };
+  writeFileSync(renderIndexTopologyPath, `${JSON.stringify(changedTopology, null, 2)}\n`);
+  assert.throws(
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
+    /phase schedule inputs are stale.*execution_topology_manifest\.json changed.*run make phase-schedules/,
+    "quick phase-schedule drift must reject changed topology input by digest",
+  );
+  writeFileSync(renderIndexTopologyPath, `${JSON.stringify(renderIndexTopology, null, 2)}\n`);
+  const baselineFixture = JSON.parse(readFileSync(renderIndexBaselinePath, "utf8"));
+  baselineFixture.default_work_unit_weight_ms += 1;
+  writeFileSync(renderIndexBaselinePath, `${JSON.stringify(baselineFixture, null, 2)}\n`);
+  assert.throws(
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
+    /phase schedule inputs are stale.*service_backed_make_target_duration_baselines\.json changed.*run make phase-schedules/,
+    "quick phase-schedule drift must reject changed duration baselines by digest",
+  );
+  copyFileSync(path.join(root, "tools/service_backed_make_target_duration_baselines.json"), renderIndexBaselinePath);
+  const phase1FixturePath = path.join(phaseRoot, "tools/phase1_test_map.json");
+  const phase1Fixture = JSON.parse(readFileSync(phase1FixturePath, "utf8"));
+  phase1Fixture.notes = [...(phase1Fixture.notes ?? []), "render index drift fixture"];
+  writeFileSync(phase1FixturePath, `${JSON.stringify(phase1Fixture, null, 2)}\n`);
+  assert.throws(
+    () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath }),
+    /phase schedule inputs are stale.*phase1_test_map\.json changed.*run make phase-schedules/,
+    "quick phase-schedule drift must reject changed active phase maps by digest",
+  );
+} finally {
+  if (oldPhaseRoot === undefined) {
+    delete process.env.CARTULARY_PHASE_MANIFEST_ROOT;
+  } else {
+    process.env.CARTULARY_PHASE_MANIFEST_ROOT = oldPhaseRoot;
+  }
+}
 
 const invalidTopology = topologyFixture();
 invalidTopology.execution_dependencies.push({ ...invalidTopology.execution_dependencies[0] });

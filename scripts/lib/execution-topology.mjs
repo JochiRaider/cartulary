@@ -156,6 +156,7 @@ function validateOutputPaths(root, outputs) {
     "check_schedule_manifest",
     "service_backed_schedule_manifest",
     "browser_e2e_batch_manifest",
+    "execution_topology_render_index",
   ]) {
     const output = requireString(outputs[key], `generated_outputs.${key}`);
     if (output.includes("..") || path.isAbsolute(output)) {
