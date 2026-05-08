@@ -33,6 +33,7 @@ import {
   packageMatchesPattern,
   phaseManifestNames,
   selectManifestEntries,
+  vitestEntryTitles,
 } from "../phase-manifest.mjs";
 import {
   flattenPlaywrightSuites,
@@ -651,10 +652,12 @@ function loadManifestIndex() {
         continue;
       }
       if (entry.runner === "vitest") {
-        index.authoritativeVitest.set(
-          `${normalizePath(entry.file)}::${entry.title}`,
-          { ...entry, phase },
-        );
+        for (const title of vitestEntryTitles(entry)) {
+          index.authoritativeVitest.set(
+            `${normalizePath(entry.file)}::${title}`,
+            { ...entry, phase, title },
+          );
+        }
         continue;
       }
       if (entry.runner === "playwright") {
@@ -4747,10 +4750,19 @@ function evaluateFlatTitleManifest(summary, {
       .filter((item) => item.coverage === inventoryCoverage)
       .map((item) => `${item.package_or_file}::${item.symbol_or_title}`),
   );
-  const missingIDs = entries
-    .filter((entry) => !executedKeys.has(`${entry.file}::${entry.title}`))
-    .map((entry) => entry.id)
-    .sort();
+  const missingIDs = [
+    ...new Set(
+      entries
+        .flatMap((entry) =>
+          (entry.runner === "vitest" ? vitestEntryTitles(entry) : [entry.title]).map((title) => ({
+            entry,
+            title,
+          })),
+        )
+        .filter(({ entry, title }) => !executedKeys.has(`${entry.file}::${title}`))
+        .map(({ entry }) => entry.id),
+    ),
+  ].sort();
   const expectedIDs = new Set(entries.map((entry) => entry.id));
   const unexpectedIDs = summary.inventory
     .filter(
@@ -4865,7 +4877,9 @@ function createVitestSelection({ manifestAware }) {
       executionDependency,
     );
     const selected = new Set(
-      entries.map((entry) => `${entry.file}::${entry.title}`),
+      entries.flatMap((entry) =>
+        vitestEntryTitles(entry).map((title) => `${entry.file}::${title}`),
+      ),
     );
     const selectedFiles = new Set(
       entries.map((entry) => normalizePath(entry.file)),
@@ -4903,7 +4917,9 @@ function createVitestSelection({ manifestAware }) {
       "authoritative",
       excludedManifestDependency,
     )) {
-      excluded.add(`${normalizePath(entry.file)}::${entry.title}`);
+      for (const title of vitestEntryTitles(entry)) {
+        excluded.add(`${normalizePath(entry.file)}::${title}`);
+      }
       excludedFiles.add(normalizePath(entry.file));
     }
   }

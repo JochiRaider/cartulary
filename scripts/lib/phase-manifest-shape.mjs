@@ -60,6 +60,7 @@ export const phaseManifestEntryKeys = new Set([
   "symbol",
   "symbols",
   "title",
+  "titles",
   "execution_dependency",
   "evidence_layer",
   "claim",
@@ -121,6 +122,14 @@ export function validatePhaseManifestShape(manifest, label) {
       requireEnum(entry.coverage, `${entryLabel}.coverage`, validCoverage);
       requireEnum(entry.runner, `${entryLabel}.runner`, validRunners);
       requireString(entry.file, `${entryLabel}.file`);
+      if (entry.title !== undefined && entry.titles !== undefined) {
+        throw new Error(`${entryLabel} must declare title or titles[], not both`);
+      }
+      if (entry.titles !== undefined) {
+        requireStringArray(entry.titles, `${entryLabel}.titles`, {
+          nonEmpty: true,
+        });
+      }
       if (entry.fixture_refs !== undefined) {
         requireStringArray(entry.fixture_refs, `${entryLabel}.fixture_refs`, {
           nonEmpty: true,

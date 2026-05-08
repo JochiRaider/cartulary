@@ -1,4 +1,9 @@
-import { collectEntries, collectSupportGoEntries, loadManifest } from "./lib/phase-manifest.mjs";
+import {
+  collectEntries,
+  collectSupportGoEntries,
+  loadManifest,
+  vitestEntryTitles,
+} from "./lib/phase-manifest.mjs";
 import {
   activePhaseRegistryEntries,
   activePhaseRegistryEntry,
@@ -34,6 +39,14 @@ function renderEvidence(entry) {
     return symbols
       .map((symbol, index) =>
         index === 0 ? `\`${entry.file}::${symbol}\`` : `\`${symbol}\``,
+      )
+      .join(", ");
+  }
+  if (entry.runner === "vitest") {
+    const titles = vitestEntryTitles(entry);
+    return titles
+      .map((title, index) =>
+        index === 0 ? `\`${entry.file}::${title}\`` : `\`${title}\``,
       )
       .join(", ");
   }

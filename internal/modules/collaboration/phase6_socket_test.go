@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -202,6 +203,76 @@ func TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08(t *testing.T) {
 	}
 }
 
+func TestPhase6_IncidentSocketPresenceScopeEphemeral_U_6_08(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	harness, admin, _, incidentA := setupPhase6SocketIncidentWithAdminID(t, runtime, "phase6-u-6-08-presence-scope-a")
+	incidentBResource := phase3test.CreateIncident(t, harness.Server, admin, map[string]any{
+		"client_txn_id": "txn-phase6-u-6-08-presence-scope-b",
+		"incident_key":  "IR-PHASE6U608PRESENCEB",
+		"title":         "phase6-u-6-08-presence-scope-b",
+	})
+	incidentB := incidentBResource["incident_id"].(string)
+
+	firstA := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentA, incidentwstest.ConnectOptions{
+		SessionToken:     admin.SessionCookie.Value,
+		ClientInstanceID: "phase6-u-6-08-presence-a-first",
+		Presence:         timelinePresence(),
+	})
+	defer firstA.Close(websocket.StatusNormalClosure, "test_complete")
+	if got := len(firstA.PresenceSnapshot); got != 1 {
+		t.Fatalf("incident A initial presence_snapshot length = %d want 1: %#v", got, firstA.PresenceSnapshot)
+	}
+	firstAToken := firstA.HelloAck.ResumeToken
+
+	firstB := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentB, incidentwstest.ConnectOptions{
+		SessionToken:     admin.SessionCookie.Value,
+		ClientInstanceID: "phase6-u-6-08-presence-b-first",
+		Presence:         timelinePresence(),
+	})
+	defer firstB.Close(websocket.StatusNormalClosure, "test_complete")
+	if got := len(firstB.PresenceSnapshot); got != 1 {
+		t.Fatalf("incident B initial presence_snapshot length = %d want 1: %#v", got, firstB.PresenceSnapshot)
+	}
+
+	secondA := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentA, incidentwstest.ConnectOptions{
+		SessionToken:     admin.SessionCookie.Value,
+		ClientInstanceID: "phase6-u-6-08-presence-a-second",
+		Presence:         timelinePresence(),
+	})
+	defer secondA.Close(websocket.StatusNormalClosure, "test_complete")
+	if got := len(secondA.PresenceSnapshot); got != 2 {
+		t.Fatalf("incident A second presence_snapshot length = %d want 2: %#v", got, secondA.PresenceSnapshot)
+	}
+	upsert := requirePresenceDelta(t, firstA, "upsert")
+	if upsert.ConnectionID != secondA.HelloAck.ConnectionID {
+		t.Fatalf("incident A upsert connection_id = %s want %s", upsert.ConnectionID, secondA.HelloAck.ConnectionID)
+	}
+	requireNoSocketMessage(t, firstB, 200*time.Millisecond, "incident B must not receive incident A presence_delta")
+
+	secondA.Close(websocket.StatusNormalClosure, "test_complete")
+	remove := requirePresenceDelta(t, firstA, "remove")
+	if remove.ConnectionID != secondA.HelloAck.ConnectionID {
+		t.Fatalf("incident A remove connection_id = %s want %s", remove.ConnectionID, secondA.HelloAck.ConnectionID)
+	}
+
+	firstA.Close(websocket.StatusNormalClosure, "test_complete")
+	resumedA := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentA, incidentwstest.ConnectOptions{
+		SessionToken:     admin.SessionCookie.Value,
+		ClientInstanceID: "phase6-u-6-08-presence-a-first",
+		Presence:         timelinePresence(),
+	}, firstAToken, 0)
+	defer resumedA.Close(websocket.StatusNormalClosure, "test_complete")
+	if len(resumedA.ReplayedMessages) != 0 {
+		t.Fatalf("presence messages must remain ephemeral and absent from resume replay: %#v", resumedA.ReplayedMessages)
+	}
+	if got := len(resumedA.PresenceSnapshot); got != 1 {
+		t.Fatalf("resumed incident A presence_snapshot length = %d want 1: %#v", got, resumedA.PresenceSnapshot)
+	}
+	if resumedA.PresenceSnapshot[0].ConnectionID == firstB.HelloAck.ConnectionID {
+		t.Fatalf("resumed incident A snapshot leaked incident B presence: %#v", resumedA.PresenceSnapshot)
+	}
+}
+
 func setupPhase6SocketIncident(t testing.TB, runtime *phase3test.RuntimeHarness, prefix string) (*phase3test.ServerHarness, phase3test.LoginResult, string) {
 	t.Helper()
 
@@ -213,6 +284,19 @@ func setupPhase6SocketIncident(t testing.TB, runtime *phase3test.RuntimeHarness,
 		"title":         prefix,
 	})
 	return harness, admin, incident["incident_id"].(string)
+}
+
+func requireNoSocketMessage(t testing.TB, client *incidentwstest.Client, duration time.Duration, reason string) {
+	t.Helper()
+
+	message, err := client.AwaitNextMessage(duration)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("%s: unexpected socket error: %v", reason, err)
+	}
+	t.Fatalf("%s: unexpected message %#v", reason, message)
 }
 
 func timelinePresence() platformws.PresenceInput {

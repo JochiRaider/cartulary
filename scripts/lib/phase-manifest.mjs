@@ -120,6 +120,27 @@ export function goEntrySymbols(entry) {
   return [entry.symbol];
 }
 
+export function vitestEntryTitles(entry) {
+  if (entry.title !== undefined && entry.titles !== undefined) {
+    throw new Error(`manifest entry ${entry.id} must declare title or titles[], not both`);
+  }
+  if (entry.titles !== undefined) {
+    if (!Array.isArray(entry.titles) || entry.titles.length === 0) {
+      throw new Error(`manifest entry ${entry.id} must declare a non-empty titles[] array`);
+    }
+    for (const title of entry.titles) {
+      if (typeof title !== "string" || title.trim() === "") {
+        throw new Error(`manifest entry ${entry.id} has an invalid title in titles[]`);
+      }
+    }
+    return entry.titles;
+  }
+  if (typeof entry.title !== "string" || entry.title.trim() === "") {
+    throw new Error(`manifest entry ${entry.id} is missing a non-empty title`);
+  }
+  return [entry.title];
+}
+
 function supportGoEntryLabel(entry) {
   return `support_go_target ${entry.target ?? "(missing target)"} ${entry.file ?? "(missing file)"}`;
 }
@@ -888,6 +909,9 @@ export function validateManifest(root, phase) {
         );
       }
       if (entry.runner === "playwright") {
+        if (entry.titles !== undefined) {
+          throw new Error(`manifest entry ${entry.id} must declare title, not titles[]`);
+        }
         if (typeof entry.title !== "string" || entry.title.trim() === "") {
           throw new Error(`manifest entry ${entry.id} is missing a non-empty title`);
         }
@@ -895,13 +919,14 @@ export function validateManifest(root, phase) {
           throw new Error(`manifest entry ${entry.id} must point at an apps/web/e2e file`);
         }
       } else if (entry.runner === "vitest") {
-        if (typeof entry.title !== "string" || entry.title.trim() === "") {
-          throw new Error(`manifest entry ${entry.id} is missing a non-empty title`);
-        }
+        vitestEntryTitles(entry);
         if (typeof entry.file !== "string" || !entry.file.startsWith("apps/web/")) {
           throw new Error(`manifest entry ${entry.id} must point at an apps/web file`);
         }
       } else if (entry.runner === "go_test") {
+        if (entry.title !== undefined || entry.titles !== undefined) {
+          throw new Error(`manifest entry ${entry.id} must declare symbol or symbols[], not title metadata`);
+        }
         validateExecutionFamily(entry, `manifest entry ${entry.id}`);
         goEntrySymbols(entry);
         const postgresFixturePolicy = effectiveGoEntryPostgresFixturePolicy(entry);
@@ -1080,7 +1105,12 @@ export function validateManifest(root, phase) {
   for (const entry of entries) {
     const targetPath = path.join(root, entry.file);
     const source = readFileSync(targetPath, "utf8");
-    const needles = entry.runner === "go_test" ? goEntrySymbols(entry) : [entry.title];
+    const needles =
+      entry.runner === "go_test"
+        ? goEntrySymbols(entry)
+        : entry.runner === "vitest"
+          ? vitestEntryTitles(entry)
+          : [entry.title];
     for (const needle of needles) {
       if (!source.includes(needle)) {
         throw new Error(`manifest entry ${entry.id} not found in ${entry.file}: ${needle}`);
@@ -1921,14 +1951,14 @@ function main(argv) {
       if (entries.length === 0) {
         throw new Error(`no ${coverage} vitest tests found for ${phase}`);
       }
-      printLines([`${alternationRegex(entries.map((entry) => entry.title))}$`]);
+      printLines([`${alternationRegex(entries.flatMap((entry) => vitestEntryTitles(entry)))}$`]);
       return;
     }
 
     case "vitest-verify-run": {
       const [phase, coverage, executionDependency = "", reportFile] = rest;
       const entries = selectVitestEntries(root, phase, coverage, executionDependency);
-      const expectedTitles = entries.map((entry) => entry.title).sort();
+      const expectedTitles = entries.flatMap((entry) => vitestEntryTitles(entry)).sort();
       const result = verifyVitestRun(reportFile, expectedTitles);
       printLines([
         `matched vitest manifest tests: ${result.executed.length}`,

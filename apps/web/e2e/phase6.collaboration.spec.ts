@@ -50,10 +50,6 @@ type PatchBehavior =
       waitForHit: Promise<PatchCall>;
     }
   | {
-      baseRowVersion: number;
-      type: "forceBaseVersion";
-    }
-  | {
       code: string;
       status: number;
       type: "error";
@@ -770,6 +766,10 @@ async function exerciseSameFieldResolver({
   remotePage: Page;
   remoteValue: string;
 }) {
+  const heldPrimaryPatch = patchController.holdNextPatch();
+  await editTimelineSummary(page, recordId, localValue);
+  await heldPrimaryPatch.waitForHit;
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
   await patchTimelineField(
     remotePage,
     recordId,
@@ -781,12 +781,7 @@ async function exerciseSameFieldResolver({
   await expect(remotePage.getByTestId(`row-${recordId}-summary`)).toHaveValue(
     remoteValue,
   );
-  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
-    remoteValue,
-  );
-
-  patchController.forceNextPatchBaseVersion(1);
-  await editTimelineSummary(page, recordId, localValue);
+  heldPrimaryPatch.release();
   await expect.poll(() => patchController.calls.at(-1)?.status ?? 0).toBe(409);
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
   await expect(page.getByTestId("conflict-resolver")).toBeVisible();
@@ -952,16 +947,7 @@ async function installPatchController(page: Page) {
       return;
     }
 
-    if (behavior?.type === "forceBaseVersion") {
-      call.body = {
-        ...call.body,
-        base_row_version: behavior.baseRowVersion,
-      };
-    }
-    const response =
-      behavior?.type === "forceBaseVersion"
-        ? await route.fetch({ postData: JSON.stringify(call.body) })
-        : await route.fetch();
+    const response = await route.fetch();
     call.status = response.status();
     calls.push(call);
     await route.fulfill({ response });
@@ -976,9 +962,6 @@ async function installPatchController(page: Page) {
     },
     failNextPatch: (status: number, code: string) => {
       behaviors.push({ code, status, type: "error" });
-    },
-    forceNextPatchBaseVersion: (baseRowVersion: number) => {
-      behaviors.push({ baseRowVersion, type: "forceBaseVersion" });
     },
     holdNextPatch: () => {
       let releaseHold!: () => void;

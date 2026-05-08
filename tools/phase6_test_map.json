@@ -200,8 +200,8 @@
       "title": "Phase 6 U-6-06 applies explicit resolver outcomes to local conflict state and revisions",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
-      "claim": "`keep_saved` clears the local conflict without creating a new revision, while `use_unsaved` and `merged_value` create a new attributed change set.",
-      "out_of_scope": "Low-level mutation persistence and audit attribution remain backend evidence."
+      "claim": "`keep_saved` clears the local conflict locally, while `use_unsaved` and `merged_value` submit explicit resolver outcomes and apply the returned selected row value and version.",
+      "out_of_scope": "Low-level mutation persistence, revision creation, and audit attribution remain backend and integration evidence."
     },
     {
       "id": "U-6-07",
@@ -232,7 +232,10 @@
       "runner": "go_test",
       "package": "./internal/modules/collaboration",
       "file": "internal/modules/collaboration/phase6_socket_test.go",
-      "symbol": "TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08",
+      "symbols": [
+        "TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08",
+        "TestPhase6_IncidentSocketPresenceScopeEphemeral_U_6_08"
+      ],
       "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
       "claim": "Presence payloads are incident-scoped and ephemeral; heartbeats do not extend idle expiry; `session_revoked` closes the socket with the route-owned reason code set.",
@@ -254,7 +257,12 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/WorkbookShell.phase6.test.tsx",
-      "title": "Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit",
+      "titles": [
+        "Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit",
+        "Phase 6 U-6-09 fixes the browser-runtime pending queue capacity at exactly 64 replay units",
+        "Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication",
+        "Phase 6 U-6-09 moves the blocking same-field conflict out of the pending queue and keeps later writes queued"
+      ],
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "Save-state labels use only `Syncing`, `Saved`, and `Conflict`; the local pending queue is FIFO, bounded, coalesces only contiguous same-record units, and halts on blocking failures without silent eviction or reload restore.",

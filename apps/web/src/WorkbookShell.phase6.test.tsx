@@ -399,6 +399,80 @@ describe("Phase 6 workbook collaboration coverage", () => {
       client_txn_id: expect.any(String),
       resolved_value: "Use local",
     });
+
+    cleanup();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 6,
+            summary: "Merge base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      errorEnvelope("same_field_conflict", 409, {
+        conflict_token: "conflict-token-merged",
+        record_id: "record-1",
+        field_key: "timeline.summary",
+        conflict_resolution_class: "text_compare_merge",
+        base_row_version: 6,
+        current_row_version: 7,
+        base_value: "Merge base",
+        server_value: "Merge server",
+        client_value: "Merge local",
+        suggested_merged_value: "Merge server\nMerge local",
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-merged",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 8,
+          summary: "Merge final",
+          captureState: "enriched",
+        }),
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const mergedInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    fireEvent.focus(mergedInput);
+    await changeInputValue(mergedInput, "Merge local");
+    fireEvent.blur(mergedInput);
+    await screen.findByTestId("conflict-resolver");
+    expect(screen.getByTestId("conflict-merged-value")).toHaveProperty(
+      "value",
+      "Merge server\nMerge local",
+    );
+    fireEvent.change(screen.getByTestId("conflict-merged-value"), {
+      target: { value: "Merge final" },
+    });
+    fireEvent.click(screen.getByTestId("conflict-use-merged"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "8",
+      );
+    });
+    expect(extractTimelineJSONBody(fetchMock, 2)).toEqual({
+      conflict_token: "conflict-token-merged",
+      resolution_kind: "merged_value",
+      client_txn_id: expect.any(String),
+      resolved_value: "Merge final",
+    });
   });
 
   it("Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit", async () => {
@@ -491,8 +565,66 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
   });
 
-  it("Phase 6 U-6-09 fixes the browser-runtime pending queue capacity at exactly 64 replay units", () => {
+  it("Phase 6 U-6-09 fixes the browser-runtime pending queue capacity at exactly 64 replay units", async () => {
     expect(pendingReplayCapacity).toBe(64);
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Queue 1",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Queue 2",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(errorEnvelope("session_required", 401));
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("row-record-1-summary");
+
+    for (let index = 1; index <= pendingReplayCapacity + 1; index += 1) {
+      const recordID = index % 2 === 0 ? "record-2" : "record-1";
+      const input = screen.getByTestId(
+        `row-${recordID}-summary`,
+      ) as HTMLInputElement;
+      await changeInputValue(input, `Queue ${index} local`);
+      fireEvent.blur(input);
+      if (index === 1) {
+        await waitFor(() => {
+          expect(screen.getByTestId("pending-queue-notice")).toBeTruthy();
+          expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+        });
+      }
+    }
+
+    await waitFor(() => {
+      expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+      expect(screen.getByTestId("pending-queue-notice").textContent).toContain(
+        "Local pending queue is full",
+      );
+      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
+        "64",
+      );
+    });
+    expect(screen.getByTestId("row-record-1-summary")).toHaveProperty(
+      "value",
+      "Queue 65 local",
+    );
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("/api/v1/records/"),
+      ),
+    ).toHaveLength(1);
   });
 
   it("Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication", async () => {

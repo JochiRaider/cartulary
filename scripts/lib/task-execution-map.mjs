@@ -18,6 +18,7 @@ import {
   collectSupportGoEntries,
   loadManifest,
   phaseManifestNames,
+  vitestEntryTitles,
 } from "./phase-manifest.mjs";
 import {
   activePhaseStatus,
@@ -91,7 +92,7 @@ export function collectExecutionPhaseRows(root = repoRoot) {
         target: targetForEntry(entry),
         file: entry.file ?? "",
         package: entry.package ?? "",
-        title: entry.title ?? "",
+        title: entry.runner === "vitest" ? vitestEntryTitles(entry).join(" | ") : entry.title ?? "",
         manifest_path: relToRepo(manifestPath, phaseManifestRoot(root)),
       });
     }

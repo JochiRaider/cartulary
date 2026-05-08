@@ -1011,39 +1011,6 @@
           }
         },
         {
-          "id": "check-service-backed:backend-store:backend-store-shard-01",
-          "kind": "go_shard",
-          "target": "backend-store",
-          "label": "backend-store/backend-store-shard-01",
-          "aggregate_target": "backend-store",
-          "scheduler_priority": 0,
-          "weight": 28332,
-          "needs": [
-            "service_session:check-service-backed"
-          ],
-          "completion_keys": [
-            "go_shard:backend-store-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:backend-store-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-store"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-store-shard-01",
-          "scheduler_profile": "cpu_heavy",
-          "resource_claims": {
-            "host_cpu": 2,
-            "host_io": 1,
-            "minio": 1,
-            "postgres": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-integration-support:backend-integration-entities-shard-05",
           "kind": "go_shard",
           "target": "backend-integration-support",
@@ -1638,27 +1605,27 @@
           }
         },
         {
-          "id": "check-service-backed:backend-store:backend-store-collaboration-shard-01",
+          "id": "check-service-backed:backend-store:backend-store-shard-01",
           "kind": "go_shard",
           "target": "backend-store",
-          "label": "backend-store/backend-store-collaboration-shard-01",
+          "label": "backend-store/backend-store-shard-01",
           "aggregate_target": "backend-store",
           "scheduler_priority": 0,
-          "weight": 9499,
+          "weight": 9987,
           "needs": [
             "service_session:check-service-backed"
           ],
           "completion_keys": [
-            "go_shard:backend-store-collaboration-shard-01"
+            "go_shard:backend-store-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-store-collaboration-shard-01"
+            "go_shard:backend-store-shard-01"
           ],
           "running_dependency_keys": [
             "backend-store"
           ],
           "complete_on_failure": true,
-          "shard": "backend-store-collaboration-shard-01",
+          "shard": "backend-store-shard-01",
           "scheduler_profile": "balanced",
           "resource_claims": {
             "host_cpu": 1,
@@ -1857,6 +1824,39 @@
           ],
           "complete_on_failure": true,
           "shard": "backend-integration-incidents-shard-03",
+          "scheduler_profile": "balanced",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-store:backend-store-collaboration-shard-01",
+          "kind": "go_shard",
+          "target": "backend-store",
+          "label": "backend-store/backend-store-collaboration-shard-01",
+          "aggregate_target": "backend-store",
+          "scheduler_priority": 0,
+          "weight": 7177,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-store-collaboration-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-store-collaboration-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-store"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-store-collaboration-shard-01",
           "scheduler_profile": "balanced",
           "resource_claims": {
             "host_cpu": 1,
