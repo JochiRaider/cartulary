@@ -19,9 +19,13 @@ This ledger is generated from `tools/phase6_test_map.json`. Update the manifest 
 
 ## Support-Only Execution
 
+- `internal/modules/collaboration/phase6_shared_harness_test.go` runs through `backend-unit` with `TestSupportPhase6SharedHarness_` and is forbidden from claiming `U-6-*` identifiers.
 - `internal/modules/workbook/phase6_conflict_support_test.go` runs through `backend-unit` with `TestSupportPhase6Unit_ConflictHelper` and is forbidden from claiming `U-6-*` identifiers.
+- `internal/platform/ws/phase6_ws_test.go` runs through `backend-unit` with `TestSupportPhase6_` and is forbidden from claiming `U-6-*` identifiers.
+- `internal/modules/workbook/phase6_shared_harness_test.go` runs through `backend-integration-support` with `TestSupportPhase6SharedHarness_` and is forbidden from claiming `I-6-*` identifiers.
 - Existing Phase 1 and Phase 3 socket, revocation, autosave, and same-field conflict tests remain carryover support evidence and must not claim Phase 6 IDs.
 - `internal/modules/workbook/phase6_conflict_support_test.go` keeps helper-level workbook conflict regression coverage under `TestSupportPhase6Unit_ConflictHelper*`; the authoritative Phase 6 conflict claims remain the route-owned rows in `phase6_conflict_route_test.go`.
+- `internal/modules/workbook/phase6_shared_harness_test.go`, `internal/modules/collaboration/phase6_shared_harness_test.go`, and `internal/platform/ws/phase6_ws_test.go` are selected as Phase 6 support evidence for the shared §14 harness layer.
 
 ## Unit
 
@@ -68,14 +72,17 @@ This ledger is generated from `tools/phase6_test_map.json`. Update the manifest 
 
 | Harness | Phase 6 evidence |
 | --- | --- |
-| Incident WebSocket helpers | `internal/testutil/incidentwstest` already owns canonical incident WebSocket handshakes and revocation assertions. Sprint 0 does not extend it; resume and replay-specific helpers belong with the real Sprint 2 tests. |
+| Machine-readable ownership | `shared_harnesses[]` records support-owned §14 harness coverage separately from authoritative Phase 6 row completion. |
+| Workbook route conformance | `internal/testutil/phase6test.Phase6WorkbookRouteInventory()` enumerates Phase 6 workbook create, patch, and conflict-resolve route requirements; `internal/modules/workbook/phase6_shared_harness_test.go` probes envelope, authorization re-derivation, replay/divergent replay, closed vocabulary, writable-string normalization, field-key conformance, attribution, and replay-stability behavior through the real HTTP surface. |
+| Incident WebSocket lifecycle | `internal/testutil/phase6test.Phase6SocketEventInventory()`, `internal/modules/collaboration/phase6_shared_harness_test.go`, `internal/platform/ws/phase6_ws_test.go`, and `internal/testutil/incidentwstest` cover Phase 6 socket event ownership, replay filtering, presence scoping, reset behavior, canonical handshakes, and revocation assertions. |
+| Grid and browser-command anchors | `packages/grid-adapter/src/index.test.tsx`, `packages/ui-contracts/src/index.test.ts`, `apps/web/e2e/phase6.collaboration.spec.ts`, and `apps/web/e2e/workbook.visual.spec.ts` support §14.7, §14.8, §14.9A, and visual anchor coverage for record and field identity. |
 | Workbook resolver helpers | `apps/web/src/WorkbookShell.phase6.test.tsx` holds Phase 6 resolver, save-state, and pending-queue component rows until the UI is split into smaller owner components. |
-| Browser collaboration helpers | `apps/web/e2e/phase6.collaboration.spec.ts` holds Phase 6 multi-client browser rows for presence, resolver UX, live-cell anchoring, and pending-queue recovery. |
 
 ## Support-Only Evidence
 
 - `internal/modules/auth/phase1_integration_test.go` keeps Phase 1 session revocation socket coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.
 - `internal/modules/timeline/phase3_integration_test.go` keeps Phase 3 canonical socket and same-field conflict transport coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.
 - `internal/modules/workbook/phase6_conflict_support_test.go` keeps helper-level regression coverage for field-overlap detection, opaque conflict token payloads, clean text merge suggestions, and collection conflict value shaping. These tests run under `TestSupportPhase6Unit_ConflictHelper*` and do not replace `U-6-01` through `U-6-04`.
+- `internal/modules/workbook/phase6_shared_harness_test.go`, `internal/modules/collaboration/phase6_shared_harness_test.go`, and `internal/platform/ws/phase6_ws_test.go` are Phase 6 support evidence for shared harness conformance and must not claim `U-6-*` or `I-6-*` identifiers.
 - `internal/modules/workbook/workbook_mutation_integration_test.go` keeps existing workbook mutation conflict coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.
 - `apps/web/src/WorkbookShell.phase3.autosave.test.tsx` keeps Phase 3 autosave and conflict UI coverage as carryover support for Phase 6 implementation, but authoritative Phase 6 completion claims must live in `phase6_*` rows.

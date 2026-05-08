@@ -1963,6 +1963,39 @@
           }
         },
         {
+          "id": "check-service-backed:backend-integration-support:backend-integration-workbook-shard-02",
+          "kind": "go_shard",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-workbook-shard-02",
+          "aggregate_target": "backend-integration-support",
+          "scheduler_priority": 0,
+          "weight": 2886,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-integration-workbook-shard-02"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-workbook-shard-02"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-workbook-shard-02",
+          "scheduler_profile": "balanced",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
           "id": "check-service-backed:backend-integration-support:backend-integration-platform-shard-02",
           "kind": "go_shard",
           "target": "backend-integration-support",
@@ -2138,6 +2171,7 @@
             "go_shard:backend-integration-entities-shard-07",
             "go_shard:backend-integration-auth-shard-04",
             "go_shard:backend-integration-timeline-shard-05",
+            "go_shard:backend-integration-workbook-shard-02",
             "go_shard:backend-integration-platform-shard-02"
           ],
           "completion_keys": [
@@ -2165,6 +2199,7 @@
             "backend-integration-entities-shard-07",
             "backend-integration-auth-shard-04",
             "backend-integration-timeline-shard-05",
+            "backend-integration-workbook-shard-02",
             "backend-integration-platform-shard-02"
           ],
           "unblock_label": "backend-integration-support"

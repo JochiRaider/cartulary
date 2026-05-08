@@ -22,6 +22,7 @@ export const phaseManifestTopLevelKeys = new Set([
   "phase",
   "note",
   "ledger",
+  "shared_harnesses",
   "expected_ids",
   "forbidden_id_files",
   "support_go_targets",
@@ -86,7 +87,16 @@ export const supportGoEntryKeys = new Set([
   "execution_label",
   "fixture_policy",
   "fixture_budget",
+  "template_clone_reason",
   "migration_scratch_reason",
+]);
+
+export const sharedHarnessEntryKeys = new Set([
+  "id",
+  "coverage",
+  "harnesses",
+  "evidence",
+  "notes",
 ]);
 
 export function validatePhaseManifestShape(manifest, label) {
@@ -108,6 +118,28 @@ export function validatePhaseManifestShape(manifest, label) {
       `${label}.forbidden_id_files`,
     );
   }
+
+  const sharedHarnesses = requireObjectArray(
+    manifest.shared_harnesses ?? [],
+    `${label}.shared_harnesses`,
+  );
+  const sharedHarnessIDs = [];
+  for (const [index, entry] of sharedHarnesses.entries()) {
+    const entryLabel = `${label}.shared_harnesses[${index + 1}]`;
+    assertObjectKeys(entry, sharedHarnessEntryKeys, entryLabel);
+    sharedHarnessIDs.push(requireString(entry.id, `${entryLabel}.id`));
+    requireEnum(entry.coverage, `${entryLabel}.coverage`, validCoverage);
+    requireStringArray(entry.harnesses, `${entryLabel}.harnesses`, {
+      nonEmpty: true,
+    });
+    requireStringArray(entry.evidence, `${entryLabel}.evidence`, {
+      nonEmpty: true,
+    });
+    if (entry.notes !== undefined) {
+      requireStringArray(entry.notes, `${entryLabel}.notes`);
+    }
+  }
+  assertUnique(sharedHarnessIDs, `${label}.shared_harnesses.id`);
 
   for (const section of ["unit", "integration", "e2e", "visual"]) {
     const entries = requireObjectArray(

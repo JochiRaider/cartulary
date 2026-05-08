@@ -109,8 +109,9 @@
     {
       "target": "frontend-unit",
       "file": "packages/grid-adapter/src/index.test.tsx",
-      "coverage": "unowned_regression",
-      "reason": "Shared grid adapter behavior is intentional product regression coverage outside the phase row inventory."
+      "coverage": "support",
+      "phase": "phase6",
+      "reason": "Shared grid adapter identity and capability assertions support Phase 6 §14.7/§14.8 field-key and stable-anchor harness coverage."
     },
     {
       "target": "frontend-unit",
@@ -121,8 +122,9 @@
     {
       "target": "frontend-unit",
       "file": "packages/ui-contracts/src/index.test.ts",
-      "coverage": "tooling_support",
-      "reason": "Shared UI selector contract assertions support frontend runtime and browser harness stability."
+      "coverage": "support",
+      "phase": "phase6",
+      "reason": "Shared UI selector contract assertions support Phase 6 §14.7/§14.8/§14.9A conflict, presence, save-state, and pending-queue anchor coverage."
     },
     {
       "target": "frontend-unit",

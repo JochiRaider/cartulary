@@ -18,6 +18,7 @@
     "backend-integration-support::github.com/JochiRaider/cartulary/internal/modules/entities": 87,
     "backend-integration-support::github.com/JochiRaider/cartulary/internal/modules/incidents": 51,
     "backend-integration-support::github.com/JochiRaider/cartulary/internal/modules/timeline": 50,
+    "backend-integration-support::github.com/JochiRaider/cartulary/internal/modules/workbook": 23,
     "backend-integration-support::github.com/JochiRaider/cartulary/internal/platform/objectstore": 63,
     "backend-integration::github.com/JochiRaider/cartulary/internal/app": 38,
     "backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth": 59,
@@ -186,9 +187,11 @@
     "github.com/JochiRaider/cartulary/internal/modules/workbook::TestPhase6_GridWriteConcurrencyRoute_U_6_01": 210,
     "github.com/JochiRaider/cartulary/internal/modules/workbook::TestPhase6_SameFieldConflictHTTP_U_6_02": 130,
     "github.com/JochiRaider/cartulary/internal/modules/workbook::TestPhase6_TextCompareMergeDurability_U_6_03": 150,
+    "github.com/JochiRaider/cartulary/internal/modules/workbook::TestSupportPhase6SharedHarness_WorkbookRouteConformance": 560,
+    "github.com/JochiRaider/cartulary/internal/modules/workbook::TestSupportPhase6SharedHarness_WorkbookRouteInventoryCoverage": 1,
     "github.com/JochiRaider/cartulary/internal/platform/objectstore::TestPhase0_ObjectStoreInitialization_I_0_02": 20,
     "github.com/JochiRaider/cartulary/internal/platform/objectstore::TestSupportPhase0_ManagedServiceObjectStoreBinding": 60,
     "github.com/JochiRaider/cartulary/internal/platform/postgres::TestPhase0_SchemaBootstrap_I_0_01": 3450
   },
-  "updated_at": "2026-05-08T18:05:04.903Z"
+  "updated_at": "2026-05-08T20:00:15.315Z"
 }
