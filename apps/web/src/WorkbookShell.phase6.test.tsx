@@ -576,6 +576,133 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
   });
 
+  it("Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "A base",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "B base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-a1",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "A1 queued",
+          captureState: "rough",
+        }),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-b1",
+        row: timelineRow({
+          recordId: "record-2",
+          rowVersion: 2,
+          summary: "B1 queued",
+          captureState: "rough",
+        }),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-a2",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 3,
+          summary: "A2 queued",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const firstInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    const secondInput = (await screen.findByTestId(
+      "row-record-2-summary",
+    )) as HTMLInputElement;
+    await waitFor(() => {
+      expect(latestTimelineWebSocket()).not.toBeNull();
+    });
+    latestTimelineWebSocket()?.emit({
+      type: "session_revoked",
+      payload: { reason_code: "session_revoked" },
+    });
+
+    await changeQueuedCellValue(firstInput, "A1 queued");
+    fireEvent.blur(firstInput);
+    await changeQueuedCellValue(secondInput, "B1 queued");
+    fireEvent.blur(secondInput);
+    await changeQueuedCellValue(firstInput, "A2 queued");
+    fireEvent.blur(firstInput);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+    expect(screen.getByTestId("pending-queue-count").textContent).toContain(
+      "3",
+    );
+
+    latestTimelineWebSocket()?.emit({
+      type: "hello_ack",
+      payload: {
+        resume_token: "resume-non-contiguous-coalescing",
+      },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    });
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+      "/api/v1/records/record-1",
+    );
+    expect(String(fetchMock.mock.calls[2]?.[0])).toContain(
+      "/api/v1/records/record-2",
+    );
+    expect(String(fetchMock.mock.calls[3]?.[0])).toContain(
+      "/api/v1/records/record-1",
+    );
+    expect(extractTimelinePatchBody(fetchMock, 1).changes).toEqual([
+      {
+        field_key: "timeline.summary",
+        value: "A1 queued",
+      },
+    ]);
+    expect(extractTimelinePatchBody(fetchMock, 2).changes).toEqual([
+      {
+        field_key: "timeline.summary",
+        value: "B1 queued",
+      },
+    ]);
+    expect(extractTimelinePatchBody(fetchMock, 3).changes).toEqual([
+      {
+        field_key: "timeline.summary",
+        value: "A2 queued",
+      },
+    ]);
+  });
+
   it("Phase 6 U-6-09 fixes the browser-runtime pending queue capacity at exactly 64 replay units", async () => {
     expect(pendingReplayCapacity).toBe(64);
     fetchMock.mockResolvedValueOnce(

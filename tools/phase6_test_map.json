@@ -381,6 +381,7 @@
       "file": "apps/web/src/WorkbookShell.phase6.test.tsx",
       "titles": [
         "Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit",
+        "Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches",
         "Phase 6 U-6-09 fixes the browser-runtime pending queue capacity at exactly 64 replay units",
         "Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication",
         "Phase 6 U-6-09 moves the blocking same-field conflict out of the pending queue and keeps later writes queued"
@@ -458,7 +459,7 @@
       "title": "E-6-01 shows two analysts each other's workbook presence within the expected interaction window",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Two analysts on the same incident see each other's presence on the workbook surface within the expected interaction window.",
+      "claim": "Two analysts on the same incident see each other's presence on the workbook surface within the expected interaction window, with the browser row retaining a timing artifact for the 1-second presence validation.",
       "out_of_scope": "Socket-level presence canonicalization remains backend evidence."
     },
     {

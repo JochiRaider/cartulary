@@ -1,3 +1,5 @@
+import { performance } from "node:perf_hooks";
+
 import {
   applyFilterChip,
   assertMarkerAnchoredToGridTarget,
@@ -17,7 +19,7 @@ import {
   rowPresenceMarkerTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Route, WebSocket } from "@playwright/test";
+import type { Locator, Page, Route, WebSocket } from "@playwright/test";
 import { request } from "@playwright/test";
 
 import { revokeAllSessions } from "./authRuntime";
@@ -37,6 +39,7 @@ import {
 } from "./helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const presenceInteractionThresholdMs = 1000;
 
 type PatchCall = {
   body: Record<string, unknown>;
@@ -60,6 +63,7 @@ type PatchBehavior =
 
 type SocketMessage = {
   payload: Record<string, unknown>;
+  receivedAtMs: number;
   socketIndex: number;
   type: string;
 };
@@ -81,7 +85,7 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
   browser,
   page,
   sessionTracker,
-}) => {
+}, testInfo) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E601"),
@@ -116,14 +120,53 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
     await primarySocket.waitForMessage("presence_delta");
     await expect(page.getByTestId("presence-header")).toContainText("RA");
 
+    const fieldKey = "timeline.summary";
     const remoteInput = remotePage.getByTestId(`row-${recordId}-summary`);
+    const markerStartAt = primarySocket.messageCount();
+    const interactionStartedAtMs = performance.now();
+    const markerDelta = primarySocket.waitForMessage("presence_delta", {
+      matches: (message) =>
+        presenceDeltaMatches(message, {
+          fieldKey,
+          mode: "editing",
+          recordId,
+        }),
+      startAt: markerStartAt,
+      timeoutMs: presenceInteractionThresholdMs,
+    });
     await remoteInput.focus();
-    await expect(
-      page.getByTestId(rowPresenceMarkerTestId(recordId)),
-    ).toContainText("RA");
-    await expect(
-      page.getByTestId(cellPresenceMarkerTestId(recordId, "timeline.summary")),
-    ).toContainText("RA");
+    const [presenceDelta, markerTiming] = await Promise.all([
+      markerDelta,
+      waitForPresenceMarkerTiming(page, {
+        actorText: "RA",
+        fieldKey,
+        recordId,
+        startedAtMs: interactionStartedAtMs,
+        timeoutMs: presenceInteractionThresholdMs,
+      }),
+    ]);
+    const socketDeltaDurationMs =
+      presenceDelta.receivedAtMs - interactionStartedAtMs;
+    const timingArtifact = {
+      actor_text: "RA",
+      cell_marker_duration_ms: markerTiming.cellMarkerDurationMs,
+      field_key: fieldKey,
+      interaction_threshold_ms: presenceInteractionThresholdMs,
+      record_id: recordId,
+      row_marker_duration_ms: markerTiming.rowMarkerDurationMs,
+      socket_delta_duration_ms: socketDeltaDurationMs,
+      ui_render_duration_ms: markerTiming.renderDurationMs,
+    };
+    await testInfo.attach("phase6-e-6-01-presence-timing.json", {
+      body: JSON.stringify(timingArtifact, null, 2),
+      contentType: "application/json",
+    });
+    expect(socketDeltaDurationMs).toBeLessThanOrEqual(
+      presenceInteractionThresholdMs,
+    );
+    expect(markerTiming.renderDurationMs).toBeLessThanOrEqual(
+      presenceInteractionThresholdMs,
+    );
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   } finally {
     await remotePage?.context().close();
@@ -1059,19 +1102,28 @@ function installIncidentSocketMonitor(page: Page, incidentId: string) {
     },
     waitForMessage: (
       type: string,
-      options: { startAt?: number; timeoutMs?: number } = {},
+      options: {
+        matches?: (message: SocketMessage) => boolean;
+        startAt?: number;
+        timeoutMs?: number;
+      } = {},
     ) => {
       const startAt = options.startAt ?? 0;
       const existing = messages
         .slice(startAt)
-        .find((message) => message.type === type);
+        .find(
+          (message) =>
+            message.type === type && (options.matches?.(message) ?? true),
+        );
       if (existing) {
         return Promise.resolve(existing);
       }
       return new Promise<SocketMessage>((resolve, reject) => {
         const waiter = {
           matches: (message: SocketMessage) =>
-            messages.indexOf(message) >= startAt && message.type === type,
+            messages.indexOf(message) >= startAt &&
+            message.type === type &&
+            (options.matches?.(message) ?? true),
           reject,
           resolve,
           timeout: setTimeout(() => {
@@ -1083,6 +1135,80 @@ function installIncidentSocketMonitor(page: Page, incidentId: string) {
       });
     },
   };
+}
+
+async function waitForPresenceMarkerTiming(
+  page: Page,
+  options: {
+    actorText: string;
+    fieldKey: string;
+    recordId: string;
+    startedAtMs: number;
+    timeoutMs: number;
+  },
+) {
+  const rowMarker = page.getByTestId(rowPresenceMarkerTestId(options.recordId));
+  const cellMarker = page.getByTestId(
+    cellPresenceMarkerTestId(options.recordId, options.fieldKey),
+  );
+  let rowMarkerDurationMs: number | null = null;
+  let cellMarkerDurationMs: number | null = null;
+  let lastRowText = "";
+  let lastCellText = "";
+  const deadline = options.startedAtMs + options.timeoutMs;
+
+  while (performance.now() <= deadline) {
+    if (rowMarkerDurationMs === null) {
+      lastRowText = await locatorText(rowMarker);
+      if (lastRowText.includes(options.actorText)) {
+        rowMarkerDurationMs = performance.now() - options.startedAtMs;
+      }
+    }
+    if (cellMarkerDurationMs === null) {
+      lastCellText = await locatorText(cellMarker);
+      if (lastCellText.includes(options.actorText)) {
+        cellMarkerDurationMs = performance.now() - options.startedAtMs;
+      }
+    }
+    if (rowMarkerDurationMs !== null && cellMarkerDurationMs !== null) {
+      return {
+        cellMarkerDurationMs,
+        renderDurationMs: Math.max(rowMarkerDurationMs, cellMarkerDurationMs),
+        rowMarkerDurationMs,
+      };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+
+  throw new Error(
+    `timed out waiting for presence markers: row=${JSON.stringify(lastRowText)} cell=${JSON.stringify(lastCellText)}`,
+  );
+}
+
+async function locatorText(locator: Locator) {
+  return (await locator.textContent({ timeout: 100 }).catch(() => "")) ?? "";
+}
+
+function presenceDeltaMatches(
+  message: SocketMessage,
+  options: {
+    fieldKey: string;
+    mode: string;
+    recordId: string;
+  },
+) {
+  const presence = message.payload.presence;
+  return (
+    presence !== null &&
+    typeof presence === "object" &&
+    !Array.isArray(presence) &&
+    "record_id" in presence &&
+    presence.record_id === options.recordId &&
+    "field_key" in presence &&
+    presence.field_key === options.fieldKey &&
+    "mode" in presence &&
+    presence.mode === options.mode
+  );
 }
 
 async function installPatchController(page: Page) {
@@ -1279,6 +1405,7 @@ function parseSocketPayload(
     }
     return {
       payload: parsed.payload ?? {},
+      receivedAtMs: performance.now(),
       socketIndex,
       type: parsed.type,
     };
