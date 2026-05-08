@@ -305,13 +305,25 @@
     {
       "id": "U-6-06",
       "coverage": "authoritative",
-      "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.phase6.test.tsx",
-      "title": "Phase 6 U-6-06 applies explicit resolver outcomes to local conflict state and revisions",
-      "execution_dependency": "frontend_unit",
-      "evidence_layer": "component",
-      "claim": "`keep_saved` clears the local conflict locally, while `use_unsaved` and `merged_value` submit explicit resolver outcomes and apply the returned selected row value and version.",
-      "out_of_scope": "Low-level mutation persistence, revision creation, and audit attribution remain backend and integration evidence."
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase6_conflict_route_test.go",
+      "symbol": "TestPhase6_ConflictResolveDurability_U_6_06",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "route_contract",
+      "claim": "`keep_saved` clears the conflict without creating a source revision, while `use_unsaved` and `merged_value` create exactly one attributed change set, mutation row, and row revision with idempotent replay.",
+      "out_of_scope": "Frontend resolver dispatch, rendering, and returned-row application remain component, browser, and visual evidence.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase6 authoritative",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Workbook conflict resolve durability coverage starts the real runtime harness through phase4test.StartServer."
     },
     {
       "id": "U-6-07",
@@ -349,7 +361,7 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
       "claim": "Presence payloads are incident-scoped and ephemeral; heartbeats do not extend idle expiry; `session_revoked` closes the socket with the route-owned reason code set.",
-      "out_of_scope": "Pure replay filtering, presence sorting, and reason-code helpers remain support evidence in `internal/platform/ws`.",
+      "out_of_scope": "Cell-level presence anchoring remains browser and visual evidence; pure replay filtering, presence sorting, and reason-code helpers remain support evidence in `internal/platform/ws`.",
       "execution_family": "backend-store-collaboration",
       "execution_label": "backend-store phase6 collaboration",
       "fixture_policy": {

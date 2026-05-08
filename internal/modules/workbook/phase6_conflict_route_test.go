@@ -408,6 +408,81 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 	}
 }
 
+func TestPhase6_ConflictResolveDurability_U_6_06(t *testing.T) {
+	harness, login, actorID, incidentID := phase6ConflictFixture(t, "phase6-u-6-06-conflict-resolve-durability", "IR-PHASE6-U-6-06")
+
+	keepRecordID, keepConflict := phase6CreateNoteTitleConflict(t, harness, login, incidentID, "keep", "Keep saved", "Keep local")
+	beforeKeep := snapshotWorkbookConflictSideEffects(t, harness, incidentID, keepRecordID)
+	keepBody := map[string]any{
+		"conflict_token":  keepConflict["conflict_token"].(string),
+		"resolution_kind": "keep_saved",
+		"client_txn_id":   "txn-phase6-u-6-06-keep-resolve",
+	}
+	keepData := phase6ResolveConflict(t, harness, login, keepRecordID, keepConflict["conflict_token"].(string), keepBody)
+	phase6RequireNoChangeSetID(t, keepData)
+	requireCellValue(t, keepData["row"].(map[string]any), "note.title", "Keep saved")
+	afterKeep := snapshotWorkbookConflictSideEffects(t, harness, incidentID, keepRecordID)
+	phase6RequireSideEffectDelta(t, "keep_saved", beforeKeep, afterKeep, workbookConflictSideEffects{
+		RouteIdempotency: 1,
+	})
+	phase6ResolveConflict(t, harness, login, keepRecordID, keepConflict["conflict_token"].(string), keepBody)
+	phase6RequireSideEffectDelta(t, "keep_saved replay", beforeKeep, snapshotWorkbookConflictSideEffects(t, harness, incidentID, keepRecordID), workbookConflictSideEffects{
+		RouteIdempotency: 1,
+	})
+
+	useRecordID, useConflict := phase6CreateNoteTitleConflict(t, harness, login, incidentID, "use", "Use saved", "Use local")
+	beforeUse := snapshotWorkbookConflictSideEffects(t, harness, incidentID, useRecordID)
+	useBody := map[string]any{
+		"conflict_token":  useConflict["conflict_token"].(string),
+		"resolution_kind": "use_unsaved",
+		"client_txn_id":   "txn-phase6-u-6-06-use-resolve",
+		"resolved_value":  "Use local",
+	}
+	useData := phase6ResolveConflict(t, harness, login, useRecordID, useConflict["conflict_token"].(string), useBody)
+	requireCellValue(t, useData["row"].(map[string]any), "note.title", "Use local")
+	phase4test.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-phase6-u-6-06-use-resolve")
+	afterUse := snapshotWorkbookConflictSideEffects(t, harness, incidentID, useRecordID)
+	phase6RequireSideEffectDelta(t, "use_unsaved", beforeUse, afterUse, workbookConflictSideEffects{
+		ChangeSets:       1,
+		MutationRows:     1,
+		RecordRevisions:  1,
+		RouteIdempotency: 1,
+	})
+	phase6ResolveConflict(t, harness, login, useRecordID, useConflict["conflict_token"].(string), useBody)
+	phase6RequireSideEffectDelta(t, "use_unsaved replay", beforeUse, snapshotWorkbookConflictSideEffects(t, harness, incidentID, useRecordID), workbookConflictSideEffects{
+		ChangeSets:       1,
+		MutationRows:     1,
+		RecordRevisions:  1,
+		RouteIdempotency: 1,
+	})
+
+	mergedRecordID, mergedConflict := phase6CreateNoteTitleConflict(t, harness, login, incidentID, "merged", "Merged saved", "Merged local")
+	beforeMerged := snapshotWorkbookConflictSideEffects(t, harness, incidentID, mergedRecordID)
+	mergedBody := map[string]any{
+		"conflict_token":  mergedConflict["conflict_token"].(string),
+		"resolution_kind": "merged_value",
+		"client_txn_id":   "txn-phase6-u-6-06-merged-resolve",
+		"resolved_value":  "Merged final",
+	}
+	mergedData := phase6ResolveConflict(t, harness, login, mergedRecordID, mergedConflict["conflict_token"].(string), mergedBody)
+	requireCellValue(t, mergedData["row"].(map[string]any), "note.title", "Merged final")
+	phase4test.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-phase6-u-6-06-merged-resolve")
+	afterMerged := snapshotWorkbookConflictSideEffects(t, harness, incidentID, mergedRecordID)
+	phase6RequireSideEffectDelta(t, "merged_value", beforeMerged, afterMerged, workbookConflictSideEffects{
+		ChangeSets:       1,
+		MutationRows:     1,
+		RecordRevisions:  1,
+		RouteIdempotency: 1,
+	})
+	phase6ResolveConflict(t, harness, login, mergedRecordID, mergedConflict["conflict_token"].(string), mergedBody)
+	phase6RequireSideEffectDelta(t, "merged_value replay", beforeMerged, snapshotWorkbookConflictSideEffects(t, harness, incidentID, mergedRecordID), workbookConflictSideEffects{
+		ChangeSets:       1,
+		MutationRows:     1,
+		RecordRevisions:  1,
+		RouteIdempotency: 1,
+	})
+}
+
 type phase6CollectionActionIDs struct {
 	SecondDecisionID uuid.UUID
 	ThirdDecisionID  uuid.UUID
@@ -596,6 +671,56 @@ func phase6CreateNote(t testing.TB, harness *phase4test.ServerHarness, login pha
 		"note.body":     body,
 	})
 	return data["row"].(map[string]any)
+}
+
+func phase6CreateNoteTitleConflict(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, suffix string, savedValue string, localValue string) (uuid.UUID, map[string]any) {
+	t.Helper()
+	note := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-06-"+suffix+"-create", suffix+" base", suffix+" body")
+	recordID := phase4test.MustUUID(t, note["record_id"].(string))
+	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
+		"view_schema_id":   phase6NotesViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase6-u-6-06-" + suffix + "-server",
+		"changes":          []map[string]any{{"field_key": "note.title", "value": savedValue}},
+	})
+	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
+		"view_schema_id":   phase6NotesViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase6-u-6-06-" + suffix + "-client",
+		"changes":          []map[string]any{{"field_key": "note.title", "value": localValue}},
+	})
+	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "same_field_conflict")
+	conflict := body["error"].(map[string]any)["conflict"].(map[string]any)
+	if conflict["conflict_token"] == "" ||
+		conflict["record_id"] != recordID.String() ||
+		conflict["field_key"] != "note.title" ||
+		conflict["server_value"] != savedValue ||
+		conflict["client_value"] != localValue {
+		t.Fatalf("unexpected U-6-06 conflict payload: %#v", conflict)
+	}
+	return recordID, conflict
+}
+
+func phase6RequireNoChangeSetID(t testing.TB, data map[string]any) {
+	t.Helper()
+	if _, ok := data["change_set_id"]; ok {
+		t.Fatalf("response must not carry change_set_id: %#v", data)
+	}
+}
+
+func phase6RequireSideEffectDelta(t testing.TB, label string, before workbookConflictSideEffects, after workbookConflictSideEffects, want workbookConflictSideEffects) {
+	t.Helper()
+	got := workbookConflictSideEffects{
+		ChangeSets:        after.ChangeSets - before.ChangeSets,
+		MutationRows:      after.MutationRows - before.MutationRows,
+		RecordRevisions:   after.RecordRevisions - before.RecordRevisions,
+		RouteIdempotency:  after.RouteIdempotency - before.RouteIdempotency,
+		ActiveRecordLinks: after.ActiveRecordLinks - before.ActiveRecordLinks,
+		ActiveRiskRefs:    after.ActiveRiskRefs - before.ActiveRiskRefs,
+	}
+	if got != want {
+		t.Fatalf("%s side-effect delta = %+v want %+v (before=%+v after=%+v)", label, got, want, before, after)
+	}
 }
 
 func phase6RequireMutationChangedFields(t testing.TB, harness *phase4test.ServerHarness, changeSetID string, want []string) {

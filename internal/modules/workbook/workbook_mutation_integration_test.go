@@ -826,6 +826,7 @@ func requireCollectionItemCount(t testing.TB, row map[string]any, fieldKey strin
 
 type workbookConflictSideEffects struct {
 	ChangeSets        int
+	MutationRows      int
 	RecordRevisions   int
 	RouteIdempotency  int
 	ActiveRecordLinks int
@@ -928,12 +929,13 @@ func snapshotWorkbookConflictSideEffects(t testing.TB, harness *phase4test.Serve
 	row := harness.DB.QueryRowContext(context.Background(), `
 SELECT
     (SELECT count(*) FROM change_sets WHERE incident_id = $1),
+    (SELECT count(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1),
     (SELECT count(*) FROM record_revisions WHERE record_id = $2),
     (SELECT count(*) FROM route_idempotency WHERE scope_key = $2::text),
     (SELECT count(*) FROM record_links WHERE incident_id = $1 AND src_record_id = $2 AND deleted_at IS NULL),
     (SELECT count(*) FROM handoff_risk_refs WHERE incident_id = $1 AND handoff_record_id = $2 AND deleted_at IS NULL)
 `, incidentID, recordID)
-	if err := row.Scan(&snapshot.ChangeSets, &snapshot.RecordRevisions, &snapshot.RouteIdempotency, &snapshot.ActiveRecordLinks, &snapshot.ActiveRiskRefs); err != nil {
+	if err := row.Scan(&snapshot.ChangeSets, &snapshot.MutationRows, &snapshot.RecordRevisions, &snapshot.RouteIdempotency, &snapshot.ActiveRecordLinks, &snapshot.ActiveRiskRefs); err != nil {
 		t.Fatalf("snapshot workbook conflict side effects: %v", err)
 	}
 	return snapshot

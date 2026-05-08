@@ -281,7 +281,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
   });
 
-  it("Phase 6 U-6-06 applies explicit resolver outcomes to local conflict state and revisions", async () => {
+  it("Phase 6 resolver actions submit explicit outcomes and apply returned row state", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
