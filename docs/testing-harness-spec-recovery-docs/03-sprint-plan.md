@@ -31,10 +31,11 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 | S1. Inventory and boundary | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/harness-inventory.md` |
 | S2. Entrypoints and commands | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md` |
 | S3. Fixtures, artifacts, and cleanup | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md` |
-| S4. Services, environments, and resources | `not_started` | `TODO:` | `TODO: service_lifecycle_map` |
-| S5. Lifecycle, interfaces, and failures | `not_started` | `TODO:` | `TODO: observable_interface_map` and `TODO: failure_mode_register` |
-| S6. Hazards, intent, and authority | `not_started` | `TODO:` | `TODO: race_timing_resource_register` and `TODO: preservation_matrix` |
+| S4. Services, environments, and resources | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md` |
+| S5. Lifecycle, interfaces, and failures | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/observable-interface-map.md` and `docs/testing-harness-spec-recovery-docs/failure-mode-register.md` |
+| S6. Hazards, resources, and timing | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md` |
 | S7. NLSpec, acceptance, roadmap, and handoff | `not_started` | `TODO:` | `TODO: harness_nlspec_draft_path` and `TODO: acceptance_matrix` |
+| S8. Authority and preservation follow-up | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md` |
 
 ## S0: Charter and setup
 
@@ -334,21 +335,24 @@ Recover service lifecycle, environment assumptions, resource allocation, isolati
 
 ### Concrete tasks
 
-- [ ] Inventory service and environment dependencies.
-- [ ] Record provision, configure, start, ready-check, use, reset, stop, and cleanup phases.
-- [ ] Record readiness checks and timeout behavior.
-- [ ] Record isolation scope.
-- [ ] Record port, socket, lock, DB, browser profile, process, worker, and container allocation rules.
-- [ ] Record secret and network assumptions.
-- [ ] Record service failure behavior.
-- [ ] Record unsupported platform behavior.
+- [x] Inventory service and environment dependencies.
+- [x] Record provision, configure, start, ready-check, use, reset, stop, and cleanup phases.
+- [x] Record readiness checks and timeout behavior.
+- [x] Record isolation scope.
+- [x] Record port, socket, lock, DB, browser profile, process, worker, and container allocation rules.
+- [x] Record secret and network assumptions.
+- [x] Record service failure behavior.
+- [x] Record unsupported platform behavior.
 
 ### Expected outputs
 
-- `TODO: service_lifecycle_map`
-- `TODO: environment_contract_observations`
-- `TODO: resource_allocation_register`
-- Updated `TODO: shared_state_hazard_list`
+- `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md`
+- `docs/testing-harness-spec-recovery-docs/environment-contract-observations.md`
+- `docs/testing-harness-spec-recovery-docs/resource-allocation-register.md`
+- Updated `docs/testing-harness-spec-recovery-docs/shared-state-hazard-list.md`
+- Updated `docs/testing-harness-spec-recovery-docs/ambiguity-register.md`
+- Updated `docs/testing-harness-spec-recovery-docs/source-limit-log.md`
+- `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s4-services-environments-resources.md`
 
 ### Validation criteria
 
@@ -359,25 +363,27 @@ Recover service lifecycle, environment assumptions, resource allocation, isolati
 
 ### Exit criteria
 
-- [ ] Service lifecycle map is row-complete for discovered services.
-- [ ] Resource allocation rules are known or explicitly unknown.
-- [ ] S6 can analyze hazards using concrete resource rows.
+- [x] Service lifecycle map is row-complete for discovered services.
+- [x] Resource allocation rules are known or explicitly unknown.
+- [x] S6 can analyze hazards using concrete resource rows.
 
 ### Status field
 
-`not_started`
+`complete`
 
 ### Blocker field
 
-`TODO:`
+`none`
 
 ### Issues or concerns field
 
-`TODO:`
+S4 intentionally did not run live service-backed targets, browser E2E targets, Docker/testcontainers, Docker Compose, reset routes, cleanup paths, timeout/interrupt scenarios, formatters, generators, or broad verification gates. Runtime readiness, timeout, interrupt, detached reaper completion, stale fixture janitor execution, active DB connection cleanup, package-script bypass behavior, and env override precedence remain source-limited under `SL-0012` through `SL-0015` and open ambiguity rows `AMB-0023` through `AMB-0028`.
 
 ### Findings or handoff notes for future sprints
 
-`TODO:`
+S4 created `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md`, `docs/testing-harness-spec-recovery-docs/environment-contract-observations.md`, `docs/testing-harness-spec-recovery-docs/resource-allocation-register.md`, and handoff `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s4-services-environments-resources.md`. S4 added S4 hazard rows `HAZ-S4-0001` through `HAZ-S4-0009`, ambiguity rows `AMB-0023` through `AMB-0028`, and source-limit rows `SL-0012` through `SL-0015`.
+
+S5 may consume S4 service, env, and resource row IDs to map observable interfaces and failure outputs, but must not treat S4 static lifecycle evidence as settled stdout/stderr, schema, runtime timing, failure taxonomy, or cleanup guarantee evidence. S6 should use `RES-*`, `SVC-*`, and `HAZ-S4-*` rows to recover race, timing, cancellation, platform, and resource hazards. S8 should settle authority for package scripts, local-dev services, environment contracts, external cache cleanup, stale janitors, and the app test runtime reset route.
 
 ## S5: Lifecycle, interfaces, and failures
 
@@ -400,26 +406,27 @@ Map caller-visible outputs, machine interfaces, lifecycle phases, terminal state
 
 ### Concrete tasks
 
-- [ ] Map stdout, stderr, and exit codes.
-- [ ] Map structured reports and schemas.
-- [ ] Map coverage, CI annotations, failure bundles, logs, and dashboards.
-- [ ] Distinguish machine-consumed outputs from human diagnostics.
-- [ ] Reconstruct lifecycle phases for each major entrypoint.
-- [ ] Record terminal states and partial-completion states.
-- [ ] Build failure-mode taxonomy.
-- [ ] Populate failure-mode register with observed and plausible failures.
-- [ ] Separate product assertion failures from harness operational failures.
+- [x] Map stdout, stderr, and exit codes for S4 follow-up surfaces.
+- [x] Map structured reports and schemas for S4 follow-up surfaces.
+- [x] Map failure bundles, logs, and diagnostics tied to S4 service/resource gaps.
+- [x] Distinguish machine-consumed outputs from human diagnostics.
+- [x] Reconstruct lifecycle phases for each major S4 follow-up entrypoint.
+- [x] Record terminal states and partial-completion states.
+- [x] Build failure-mode taxonomy.
+- [x] Populate failure-mode register with observed and plausible S4 follow-up failures.
+- [x] Separate product assertion failures from harness operational failures.
 
 ### Expected outputs
 
-- `TODO: observable_interface_map`
-- `TODO: structured_output_schema_notes`
-- `TODO: output_consumer_map`
-- `TODO: harness_lifecycle_map`
-- `TODO: phase_transition_table`
-- `TODO: partial_completion_state_list`
-- `TODO: failure_mode_register`
-- `TODO: failure_class_taxonomy`
+- `docs/testing-harness-spec-recovery-docs/observable-interface-map.md`
+- `docs/testing-harness-spec-recovery-docs/structured-output-schema-notes.md`
+- `docs/testing-harness-spec-recovery-docs/output-consumer-map.md`
+- `docs/testing-harness-spec-recovery-docs/harness-lifecycle-map.md`
+- `docs/testing-harness-spec-recovery-docs/phase-transition-table.md`
+- `docs/testing-harness-spec-recovery-docs/partial-completion-state-list.md`
+- `docs/testing-harness-spec-recovery-docs/failure-mode-register.md`
+- `docs/testing-harness-spec-recovery-docs/failure-class-taxonomy.md`
+- `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s5-lifecycle-interfaces-failures.md`
 
 ### Validation criteria
 
@@ -430,27 +437,43 @@ Map caller-visible outputs, machine interfaces, lifecycle phases, terminal state
 
 ### Exit criteria
 
-- [ ] Observable interface map is usable by the NLSpec draft.
-- [ ] Failure modes are specific enough for failure taxonomy writing.
-- [ ] S6 can connect failures to race, timing, resource, and authority issues.
+- [x] Observable interface map is usable by the NLSpec draft for S4 follow-up surfaces.
+- [x] Failure modes are specific enough for S4 follow-up failure taxonomy writing.
+- [x] S6 can connect failures to race, timing, resource, and authority issues.
 
 ### Status field
 
-`not_started`
+`complete`
 
 ### Blocker field
 
-`TODO:`
+`none`
 
 ### Issues or concerns field
 
-`TODO:`
+S5 was completed for the S4 follow-up routing scope only. It did not run
+service-backed targets, browser E2E targets, Docker/testcontainers, Docker
+Compose, reset routes, cleanup paths, formatters, generators, broad gates, or
+controlled failure commands. Runtime readiness, cleanup strength, platform
+behavior, failure-only bundle schemas, and retained-run freshness remain
+source-limited unless a later authorized runtime or artifact-selection pass
+provides evidence.
 
 ### Findings or handoff notes for future sprints
 
-`TODO:`
+S5 created `observable-interface-map.md`, `structured-output-schema-notes.md`,
+`output-consumer-map.md`, `harness-lifecycle-map.md`,
+`phase-transition-table.md`, `partial-completion-state-list.md`,
+`failure-mode-register.md`, `failure-class-taxonomy.md`, S5 handoff
+`handoffs/2026-05-08-s5-lifecycle-interfaces-failures.md`, and S5 audit
+`audits/2026-05-08-s5-lifecycle-interfaces-failures-audit.md`.
 
-## S6: Hazards, intent, and authority
+S5 routes live readiness, cleanup guarantees, resource/capacity, timing,
+interrupt, and stale-state behavior to S6. It routes reset-route, package-script,
+local-dev, public env contract, supported platform, destructive janitor, and
+external Go cache authority decisions to S8.
+
+## S6: Hazards, resources, and timing
 
 ### Sprint objective
 
@@ -469,24 +492,24 @@ Identify hazards and classify behavior as intentional, accidental, compatibility
 
 ### Concrete tasks
 
-- [ ] Identify concurrency points.
-- [ ] Identify shared mutable resources.
-- [ ] Record sleeps, poll loops, timeouts, retries, debounces, and watch triggers.
-- [ ] Populate race/timing/resource register.
-- [ ] Connect recurring failures to hazards.
-- [ ] Classify significant behavior in preservation matrix.
-- [ ] Record main-spec and harness conflicts.
-- [ ] Draft authority map and owner questions.
-- [ ] Update ambiguity register.
+- [x] Identify concurrency points for S4 follow-up surfaces.
+- [x] Identify shared mutable resources for S4 follow-up surfaces.
+- [x] Record sleeps, poll loops, timeouts, retries, debounces, and watch triggers.
+- [x] Populate race/timing/resource register.
+- [x] Connect recurring S4 follow-up failures to hazards.
+- [x] Route preservation and authority questions to S8.
+- [x] Preserve main-spec and harness authority conflicts for S8.
+- [x] Update ambiguity/source-limit routing without closing source limits.
 
 ### Expected outputs
 
-- `TODO: race_timing_resource_register`
-- `TODO: concurrency_model_notes`
-- `TODO: preservation_matrix`
-- `TODO: ambiguity_register`
-- `TODO: harness_authority_map`
-- `TODO: main_spec_conflict_list`
+- `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md`
+- `docs/testing-harness-spec-recovery-docs/concurrency-model-notes.md`
+- `docs/testing-harness-spec-recovery-docs/timeout-retry-register.md`
+- Updated `docs/testing-harness-spec-recovery-docs/shared-state-hazard-list.md`
+- Updated `docs/testing-harness-spec-recovery-docs/ambiguity-register.md`
+- Updated `docs/testing-harness-spec-recovery-docs/source-limit-log.md`
+- `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s6-hazards-resources-timing.md`
 
 ### Validation criteria
 
@@ -497,25 +520,103 @@ Identify hazards and classify behavior as intentional, accidental, compatibility
 
 ### Exit criteria
 
-- [ ] Hazard register can drive spec resource and timing rules.
-- [ ] Preservation matrix can drive roadmap and normative decisions.
-- [ ] Authority map is ready to include in the harness NLSpec.
+- [x] Hazard register can drive spec resource and timing rules for S4 follow-up surfaces.
+- [x] Preservation and authority questions are routed to S8 rather than silently closed.
+- [x] Open runtime evidence gaps remain source-limited.
 
 ### Status field
 
-`not_started`
+`complete`
 
 ### Blocker field
 
-`TODO:`
+`none`
 
 ### Issues or concerns field
 
-`TODO:`
+S6 was completed for S4 follow-up hazard routing. It did not execute runtime
+readiness, service-backed, browser, Docker, Compose, reset, cleanup, timeout,
+interrupt, or parent-death scenarios. Scheduler lanes are treated as scheduler
+accounting only, not concrete host or service capacity guarantees.
 
 ### Findings or handoff notes for future sprints
 
-`TODO:`
+S6 created `race-timing-resource-register.md`, `concurrency-model-notes.md`,
+`timeout-retry-register.md`, S6 handoff
+`handoffs/2026-05-08-s6-hazards-resources-timing.md`, and S6 audit
+`audits/2026-05-08-s6-hazards-resources-timing-audit.md`.
+
+S6 keeps `SL-0012`, `SL-0013`, `SL-0014`, and `SL-0015` open. S8 must settle
+authority for reset route, package scripts, local-dev services, stale janitor
+destructive bounds, public environment contracts, supported platform/tool
+profile, and external Go cache cleanup.
+
+## S8: Authority and preservation follow-up
+
+### Sprint objective
+
+Classify S4 follow-up authority and preservation decisions without changing
+harness behavior or inventing maintainer decisions.
+
+### Required inputs
+
+- S4 audit follow-up rows.
+- S5 observable interface and failure outputs.
+- S6 race/timing/resource outputs.
+- Core 00 through Core 04 authority posture.
+- `docs/domain.md` vocabulary context.
+- Open ambiguity rows for reset route, package scripts, local-dev services,
+  env precedence, platform support, stale janitors, and external caches.
+
+### Concrete tasks
+
+- [x] Classify preservation posture for S4 follow-up surfaces.
+- [x] Record harness authority map and owner questions.
+- [x] Record main-spec conflict risks without resolving them by inference.
+- [x] Preserve maintainer-decision-required status where owner input is absent.
+- [x] Keep generated artifacts as downstream execution inputs, not behavior owners.
+
+### Expected outputs
+
+- `docs/testing-harness-spec-recovery-docs/preservation-matrix.md`
+- `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`
+- `docs/testing-harness-spec-recovery-docs/main-spec-conflict-list.md`
+- `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s8-authority-preservation.md`
+
+### Validation criteria
+
+- Every S4 authority follow-up has a proposed owner and required decision.
+- Product behavior owned by Core 00 through Core 04 is not redefined.
+- Owner-required decisions remain open unless an explicit maintainer decision exists.
+
+### Exit criteria
+
+- [x] Preservation matrix can drive roadmap and normative decisions.
+- [x] Authority map is ready to include in the harness NLSpec.
+- [x] Main-spec conflict risks are recorded.
+
+### Status field
+
+`complete`
+
+### Blocker field
+
+`none`
+
+### Issues or concerns field
+
+S8 did not make maintainer decisions. Reset route, package scripts, local-dev
+services, stale janitor destructive bounds, public environment contracts,
+supported platform/tool profile, and external Go cache cleanup remain
+`maintainer_decision_required`.
+
+### Findings or handoff notes for future sprints
+
+S8 created `preservation-matrix.md`, `harness-authority-map.md`,
+`main-spec-conflict-list.md`, handoff
+`handoffs/2026-05-08-s8-authority-preservation.md`, and audit
+`audits/2026-05-08-s8-authority-preservation-audit.md`. NLSpec drafting must
+not normalize owner-required items without recorded maintainer decisions.
 
 ## S7: NLSpec, acceptance, roadmap, and handoff
 
@@ -525,7 +626,7 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 
 ### Required inputs
 
-- S0 through S6 outputs.
+- S0 through S6 outputs plus S8 authority/preservation follow-up outputs.
 - `templates/harness-nlspec-template.md`.
 - Main project specification.
 - Ambiguity register.
