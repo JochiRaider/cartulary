@@ -25,17 +25,17 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 
 ## Sprint progress board
 
-| Sprint                                       | Status        | Blocker | Primary output                                                                                                                               |
-| -------------------------------------------- | ------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| S0. Charter and setup                        | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/recovery-charter.md`                                                                                |
-| S1. Inventory and boundary                   | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/harness-inventory.md`                                                                               |
-| S2. Entrypoints and commands                 | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md`                                                                          |
-| S3. Fixtures, artifacts, and cleanup         | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md`                                                                       |
-| S4. Services, environments, and resources    | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md`                                                                           |
-| S5. Lifecycle, interfaces, and failures      | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/observable-interface-map.md` and `docs/testing-harness-spec-recovery-docs/failure-mode-register.md` |
-| S6. Hazards, resources, and timing           | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md`                                                                   |
-| S7. NLSpec, acceptance, roadmap, and handoff | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`, `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`, `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`, and `docs/testing-harness-spec-recovery-docs/harness-review-packet.md` |
-| S8. Authority and preservation follow-up     | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`      |
+| Sprint                                       | Status        | Blocker | Primary output                                                                                                                                                                                                                                                                           |
+| -------------------------------------------- | ------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S0. Charter and setup                        | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/recovery-charter.md`                                                                                                                                                                                                                            |
+| S1. Inventory and boundary                   | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/harness-inventory.md`                                                                                                                                                                                                                           |
+| S2. Entrypoints and commands                 | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md`                                                                                                                                                                                                                      |
+| S3. Fixtures, artifacts, and cleanup         | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md`                                                                                                                                                                                                                   |
+| S4. Services, environments, and resources    | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md`                                                                                                                                                                                                                       |
+| S5. Lifecycle, interfaces, and failures      | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/observable-interface-map.md` and `docs/testing-harness-spec-recovery-docs/failure-mode-register.md`                                                                                                                                             |
+| S6. Hazards, resources, and timing           | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md`                                                                                                                                                                                                               |
+| S7. NLSpec, acceptance, roadmap, and handoff | `in_progress` | `none`  | `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`, `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`, `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`, and `docs/testing-harness-spec-recovery-docs/harness-review-packet.md` |
+| S8. Authority and preservation follow-up     | `in_progress` | `none`  | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`                                                                                                                                                  |
 
 ## S0: Charter and setup
 
@@ -663,18 +663,18 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 
 ### Concrete tasks
 
-- [x] Create `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`.
-- [x] Write document status, purpose, scope, non-goals, and authority relationship.
-- [x] Define terms, actors, and harness-owned surfaces.
-- [x] Draft entrypoint contracts.
-- [x] Draft run lifecycle and phase transitions at the contract level while preserving source limits.
-- [x] Draft fixture, artifact, service, environment, resource, timing, retry, timeout, cancellation, failure, cleanup, and diagnostic rules.
-- [x] Add tables required for cleanup tiers, acceptance routing, and source-limit carry-forward.
-- [x] Extract normative candidates into `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`.
-- [x] Assign verification method and current coverage to every criterion.
-- [x] Identify missing tests, missing fixtures, missing golden files, and future CI gates.
-- [x] Create `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`.
-- [x] Produce `docs/testing-harness-spec-recovery-docs/harness-review-packet.md`.
+- [ ] Create `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`.
+- [ ] Write document status, purpose, scope, non-goals, and authority relationship.
+- [ ] Define terms, actors, and harness-owned surfaces.
+- [ ] Draft entrypoint contracts.
+- [ ] Draft run lifecycle and phase transitions at the contract level while preserving source limits.
+- [ ] Draft fixture, artifact, service, environment, resource, timing, retry, timeout, cancellation, failure, cleanup, and diagnostic rules.
+- [ ] Add tables required for cleanup tiers, acceptance routing, and source-limit carry-forward.
+- [ ] Extract normative candidates into `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`.
+- [ ] Assign verification method and current coverage to every criterion.
+- [ ] Identify missing tests, missing fixtures, missing golden files, and future CI gates.
+- [ ] Create `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`.
+- [ ] Produce `docs/testing-harness-spec-recovery-docs/harness-review-packet.md`.
 
 ### Expected outputs
 
@@ -696,13 +696,13 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 
 ### Exit criteria
 
-- [x] Harness NLSpec draft is complete enough for maintainer review.
-- [x] Acceptance matrix is complete.
-- [x] Roadmap is complete.
-- [x] Review packet is complete.
-- [x] Source limits are summarized.
-- [x] Open owner decisions are consolidated.
-- [x] Verification commands have completed and outcomes are recorded.
+- [ ] Harness NLSpec draft is complete enough for maintainer review.
+- [ ] Acceptance matrix is complete.
+- [ ] Roadmap is complete.
+- [ ] Review packet is complete.
+- [ ] Source limits are summarized.
+- [ ] Open owner decisions are consolidated.
+- [ ] Verification commands have completed and outcomes are recorded.
 
 ### Status field
 
