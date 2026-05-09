@@ -28,7 +28,7 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 | Sprint | Status | Blocker | Primary output |
 |---|---|---|---|
 | S0. Charter and setup | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/recovery-charter.md` |
-| S1. Inventory and boundary | `not_started` | `TODO:` | `TODO: harness_inventory` |
+| S1. Inventory and boundary | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/harness-inventory.md` |
 | S2. Entrypoints and commands | `not_started` | `TODO:` | `TODO: entrypoint_command_map` |
 | S3. Fixtures, artifacts, and cleanup | `not_started` | `TODO:` | `TODO: artifact_ownership_matrix` |
 | S4. Services, environments, and resources | `not_started` | `TODO:` | `TODO: service_lifecycle_map` |
@@ -119,23 +119,25 @@ Produce a complete candidate inventory of harness-related files, directories, co
 
 ### Concrete tasks
 
-- [ ] Inventory test directories and test runner configuration.
-- [ ] Inventory package scripts and task-runner targets.
-- [ ] Inventory CI workflows and local automation files.
-- [ ] Inventory fixtures, snapshots, goldens, seeds, mocks, and sample projects.
-- [ ] Inventory reports, coverage outputs, logs, screenshots, traces, and failure bundles.
-- [ ] Inventory cleanup scripts and cleanup hooks.
-- [ ] Classify each inventory item by role.
-- [ ] Record read/write/generated/ignored/committed/external status.
-- [ ] List harness-like files not invoked by discovered entrypoints.
-- [ ] List harness behavior embedded in ordinary tests.
+- [x] Inventory test directories and test runner configuration.
+- [x] Inventory package scripts and task-runner targets.
+- [x] Inventory CI workflows and local automation files.
+- [x] Inventory fixtures, snapshots, goldens, seeds, mocks, and sample projects.
+- [x] Inventory reports, coverage outputs, logs, screenshots, traces, and failure bundles.
+- [x] Inventory cleanup scripts and cleanup hooks.
+- [x] Classify each inventory item by role.
+- [x] Record read/write/generated/ignored/committed/external status.
+- [x] List harness-like files not invoked by discovered entrypoints.
+- [x] List harness behavior embedded in ordinary tests.
 
 ### Expected outputs
 
-- `TODO: harness_inventory`
-- `TODO: uninvoked_surface_list`
-- `TODO: embedded_harness_logic_list`
-- Updated `TODO: source_limit_log`
+- `docs/testing-harness-spec-recovery-docs/harness-inventory.md`
+- `docs/testing-harness-spec-recovery-docs/uninvoked-surface-list.md`
+- `docs/testing-harness-spec-recovery-docs/embedded-harness-logic-list.md`
+- `docs/testing-harness-spec-recovery-docs/ambiguity-register.md`
+- Updated `docs/testing-harness-spec-recovery-docs/source-limit-log.md`
+- `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s1-inventory-and-boundary.md`
 
 ### Validation criteria
 
@@ -146,25 +148,25 @@ Produce a complete candidate inventory of harness-related files, directories, co
 
 ### Exit criteria
 
-- [ ] Inventory covers every discovered candidate surface.
-- [ ] Missing or inaccessible areas are recorded as source limits.
-- [ ] S2 can trace entrypoints using the inventory.
+- [x] Inventory covers every discovered candidate surface.
+- [x] Missing or inaccessible areas are recorded as source limits.
+- [x] S2 can trace entrypoints using the inventory.
 
 ### Status field
 
-`not_started`
+`complete`
 
 ### Blocker field
 
-`TODO:`
+`none`
 
 ### Issues or concerns field
 
-`TODO:`
+Open ambiguity/source-limit items remain for later sprints: absent `.github/**` CI workflow source (`SL-0001`, `AMB-0001`), intentionally unrun broad verification commands (`SL-0002`), static-only service lifecycle evidence (`SL-0003`, `AMB-0007`), retained artifact provenance gaps (`SL-0004`, `AMB-0002`, `AMB-0010`), planned phase7/phase8 missing files (`SL-0005`, `AMB-0004`), embedded harness/product-test ownership (`AMB-0005`), test runtime reset owner boundary (`AMB-0006`), cleanup owner/idempotency (`AMB-0008`), and local-dev versus verification-contract boundary (`AMB-0009`).
 
 ### Findings or handoff notes for future sprints
 
-`TODO:`
+S1 created `docs/testing-harness-spec-recovery-docs/harness-inventory.md`, `docs/testing-harness-spec-recovery-docs/uninvoked-surface-list.md`, `docs/testing-harness-spec-recovery-docs/embedded-harness-logic-list.md`, `docs/testing-harness-spec-recovery-docs/ambiguity-register.md`, and handoff `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s1-inventory-and-boundary.md`. The harness boundary is Make/task-surface centered and spans generated task/scheduler manifests, shell and Node orchestration scripts, Go test utilities, `tools/testservices`, Playwright/Vitest harness code, committed fixtures/goldens/snapshots, ignored runtime artifacts, and selected test-only product-package hooks. S2 should begin with `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`, `tools/task_surface_manifest.json`, and `tools/task_surface.generated.mk`, then trace each entrypoint to exact command contracts while preserving S1's distinction between harness mechanics and product assertions.
 
 ## S2: Entrypoints and commands
 
