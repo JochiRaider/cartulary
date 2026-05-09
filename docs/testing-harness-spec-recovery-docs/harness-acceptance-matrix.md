@@ -50,3 +50,15 @@ planning or source-limited drafting.
 | HAC-GAP-0006 | Playwright report/trace/video/screenshot schemas | Tool-schema adoption decision or selected failure artifacts. |
 | HAC-GAP-0007 | Release readiness beyond smoke demotion | Passing release evidence or explicit non-readiness classification. |
 
+## Missing fixture/golden/snapshot review
+
+This S7 review found no missing fixture, golden, or snapshot files inside the
+source-bounded S7 package review. This is a reviewed absence statement for the
+audited source set, not a claim that future harness work has complete fixture
+coverage.
+
+| Artifact class | S7 missing-item disposition | Evidence | Preserved limit |
+|---|---|---|---|
+| Fixtures | `none identified in the S7 source-bounded review` | `ART-0001`, `ART-0004`, `ART-0005` | Fixture update authority remains `AMB-0015`; committed fixtures change only through owner-reviewed source edits unless a later owner decision adds a supported refresh command. |
+| Goldens | `none identified in the S7 source-bounded review` | `ART-0002`, `ART-0005` | Golden update authority remains `AMB-0015`; no generator or refresh command is adopted by this review. |
+| Visual snapshots | `none identified as missing`; committed baselines exist | `ART-0003` | Visual snapshot refresh OS/browser/version/command remains `AMB-0022`, `AUTH-0014`, `PRES-0018`, `MD-S7-0013`, and `HAC-GAP-0002`. |

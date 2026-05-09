@@ -35,6 +35,7 @@ matrix, roadmap, and review packet. It does not override Core 00 through Core
 | MD-S7-0015 | CI | Keep CI provider-neutral. Do not invent `.github/**` behavior. Release readiness is not required before S7 implementation proceeds. | `AUTH-0015`, `PRES-0019`, `AMB-0001`, `SL-0001`, `MSC-0010` | `maintainer_decision/source_limit` |
 | MD-S7-0016 | Stale extended smoke | The stale `run-harness-smoke-extended` failure must not block phase advancement. Remove or demote it from blocking advancement paths after implementation analysis. | `FAIL-0028`, `runtime-evidence-register.md`, `03-sprint-plan.md` | `maintainer_decision/selected_runtime_observed` |
 | MD-S7-0017 | Final MUST language | Final S7 `MUST` language uses the audit register evidence split: `selected_runtime_observed`, `source_observed`, and `source_limit` or `maintainer_decision_required`. | S7 deliverables | `maintainer_decision` |
+| MD-S7-0018 | Phase 6 browser login burst | `concurrencyEvictionLoginBurst = 10` in `apps/web/e2e/phase6.session-recovery.spec.ts` is approved as harness-only browser test stress margin for eviction coverage. This does not change Core 04's 5-session human-user concurrent-session cap or AC-159's 6th-login eviction semantics. | `S7-BLOCK-003`, `docs/testing/phase6_coverage_ledger.md` `E-6-03`, `apps/web/e2e/phase6.session-recovery.spec.ts` | `maintainer_decision/source_observed` |
 
 ## S7 deliverable paths
 

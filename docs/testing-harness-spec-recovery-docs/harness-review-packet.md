@@ -31,6 +31,7 @@ unless verification proves it.
 | Fixture/golden/snapshot workflow | Documented controlled refresh workflow and validation-only visual snapshots. | `harness-nlspec.md`, `harness-acceptance-matrix.md`, `MD-S7-0013` |
 | Unknown schemas | Preserved `partial`, `schema_unknown`, and `authority_unknown` blockers. | `structured-output-schema-notes.md`, `harness-acceptance-matrix.md`, `MD-S7-0014` |
 | CI and stale smoke | Demoted `run-harness-smoke-extended` from blocking `ci` and `release-check`; kept provider-neutral CI. | `tools/execution_topology_manifest.json`, `tools/task_surface_manifest.json`, `scripts/test-run-make-sequence.sh`, `MD-S7-0015`, `MD-S7-0016` |
+| Phase 6 browser login burst | Documented as approved harness-only browser test stress margin for eviction coverage; Core 04's session cap remains unchanged. | `apps/web/e2e/phase6.session-recovery.spec.ts`, commit `6f7ec1c`, `MD-S7-0018` |
 
 ## Deferred source limits and owner-required items
 
@@ -68,3 +69,61 @@ The maintainer decisions recorded in
 Review should focus on implementation consistency, source-limit preservation,
 and whether any acceptance criterion needs stronger selected evidence before
 final normative wording.
+
+## Final handoff
+
+S7 package status after this follow-up: the missing final handoff and explicit
+fixture/golden/snapshot review gaps are documented in recovery docs. The
+historical Phase 6 browser test burst change is documented and authorized by
+`MD-S7-0018` as harness-only test logic.
+
+Recovery-doc paths changed by this follow-up:
+
+- `docs/testing-harness-spec-recovery-docs/harness-review-packet.md`
+- `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`
+- `docs/testing-harness-spec-recovery-docs/maintainer-decision-summary-2026-05-09.md`
+
+No implementation, fixture, golden, snapshot, generated artifact, CI, cleanup,
+lockfile, package-manager, runtime-service, or harness behavior path is changed
+by this follow-up.
+
+Existing verification summary only: this handoff relies on the verification
+results already recorded in this review packet and the S7 audit. No new runtime
+evidence was collected for the follow-up.
+
+Preserved source limits and owner-required items:
+
+| Item | Preserved status |
+|---|---|
+| Environment-variable precedence | `source_limit/owner_required`; do not specify precedence without owner decision or override matrix. |
+| Visual snapshot refresh OS/browser/version/command | `source_limit/owner_required`; visual snapshots remain validation-only under `MD-S7-0013`, `AUTH-0014`, and `PRES-0018`. |
+| Parent-death cleanup | `source_limit`; no guaranteed abrupt-exit cleanup claim. |
+| Active DB cleanup | `source_limit`; no guaranteed live-connection cleanup claim. |
+| Detached reaper completion | `source_limit`; no hard cleanup completion guarantee. |
+| CI provider behavior | `source_limit`; provider-specific workflow, annotation, upload, and dashboard behavior remain out of scope while `.github/**` is absent. |
+| Playwright report/trace/video/screenshot internals | `schema_unknown`; tool-owned report internals are not promoted to stable harness schemas. |
+| Release readiness beyond recorded evidence | `not_claimed`; release readiness remains separate from stale-smoke demotion. |
+
+Remaining open owner decisions:
+
+| Decision needed | Current routing | Next action |
+|---|---|---|
+| Visual snapshot refresh bounds. | `source_limit/owner_required` through `AMB-0022`, `AUTH-0014`, `PRES-0018`, and `HAC-GAP-0002`. | Browser/harness owner should name exact OS, browser, version, and update command before any snapshot refresh workflow becomes normative. |
+| Environment precedence. | `source_limit/owner_required` through `SL-0015` and `HAC-GAP-0001`. | Harness config owner should provide an override matrix or owner decision before final precedence wording. |
+
+Historical implementation-change audit:
+
+| Change area | Accounted status | Evidence and authority | Follow-up disposition |
+|---|---|---|---|
+| Reset-route movement and bootstrap extraction | Accounted and authorized. | `internal/platform/bootstrap/**`, `internal/testutil/testruntime/**`, `cmd/server/main.go`, `MD-S7-0004`. | Keep the reset route harness-owned, disabled by default, test-wired only, and not documented as a product API. |
+| Stale extended smoke demotion | Accounted and authorized. | `tools/execution_topology_manifest.json`, generated task-surface artifacts, `scripts/test-run-make-sequence.sh`, `MD-S7-0015`, `MD-S7-0016`. | Keep `run-harness-smoke-extended` out of blocking `ci` and `release-check` paths while retaining provider-neutral CI bounds. |
+| Generated task, schedule, and code artifacts | Accounted as downstream inputs. | Generated-artifact policy, generated markers, `MD-S7-0003`. | Do not treat generated outputs as behavior owners or hand-edit generated paths. |
+| Phase 6 browser concurrency eviction login burst | Accounted and authorized as harness-only test logic. Commit `6f7ec1c` changed `apps/web/e2e/phase6.session-recovery.spec.ts` from literal `5` to `concurrencyEvictionLoginBurst = 10`. | Core 04 still owns the human-user concurrent-session cap at `5`; AC-159 still describes the `6th` concurrent login eviction behavior; `MD-S7-0018` approves the `10`-login burst only as browser-test stress margin. | No implementation remediation is needed for S7. Do not cite the `10`-login burst as product behavior or as a change to session-cap semantics. |
+
+Exact next actions:
+
+1. Treat the Phase 6 browser burst audit blocker as closed by `MD-S7-0018`.
+2. Keep visual snapshot refresh bounds and environment precedence routed to
+   owner-required future decisions.
+3. Do not collect new runtime evidence unless a later follow-up explicitly
+   authorizes it.
