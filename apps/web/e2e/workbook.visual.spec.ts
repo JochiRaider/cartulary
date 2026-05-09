@@ -1,7 +1,11 @@
 import { Buffer } from "node:buffer";
-import { changeGrouping } from "@cartulary/test-utils";
+import {
+  assertMarkerAnchoredToGridTarget,
+  changeGrouping,
+} from "@cartulary/test-utils";
 import {
   cellPresenceMarkerTestId,
+  conflictMarkerTestId,
   gridGroupRowTestId,
   gridShellTestId,
   pendingQueueNoticeTestId,
@@ -586,6 +590,23 @@ test.describe("Phase 6 workbook visual evidence", () => {
           cellPresenceMarkerTestId(timelineRow.record_id, "timeline.summary"),
         ),
       ).toContainText("VA");
+      await assertMarkerAnchoredToGridTarget({
+        anchorKind: "row-gutter",
+        markerTestId: rowPresenceMarkerTestId(timelineRow.record_id),
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(timelineRow.record_id, "capture-state"),
+      });
+      await assertMarkerAnchoredToGridTarget({
+        anchorKind: "cell",
+        markerTestId: cellPresenceMarkerTestId(
+          timelineRow.record_id,
+          "timeline.summary",
+        ),
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(timelineRow.record_id, "summary"),
+      });
 
       await assertVisualRegression(
         page,
@@ -628,6 +649,21 @@ test.describe("Phase 6 workbook visual evidence", () => {
         recordId: timelineRow.record_id,
         remoteValue: "Conflict visual server",
         txnPrefix: "visual-phase6-conflict",
+      });
+      await expect(
+        page.getByTestId(
+          conflictMarkerTestId(timelineRow.record_id, "timeline.summary"),
+        ),
+      ).toBeVisible();
+      await assertMarkerAnchoredToGridTarget({
+        anchorKind: "cell",
+        markerTestId: conflictMarkerTestId(
+          timelineRow.record_id,
+          "timeline.summary",
+        ),
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(timelineRow.record_id, "summary"),
       });
 
       await assertVisualRegression(

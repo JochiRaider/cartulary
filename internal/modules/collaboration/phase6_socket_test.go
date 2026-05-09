@@ -21,73 +21,117 @@ import (
 func TestPhase6_IncidentSocketHandshakeResume_U_6_07(t *testing.T) {
 	runtime := phase3test.StartRuntime(t)
 
-	t.Run("first application message must be hello or resume", func(t *testing.T) {
+	t.Run("first application message rejects every closed token except hello or resume", func(t *testing.T) {
 		harness, admin, incidentID := setupPhase6SocketIncident(t, runtime, "phase6-u-6-07-first-message")
 
-		conn, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken: admin.SessionCookie.Value,
-		})
-		if err != nil {
-			t.Fatalf("dial incident socket: %v", err)
-		}
-		defer conn.CloseNow()
+		for _, messageType := range []string{
+			"hello_ack",
+			"resume_ack",
+			"presence_snapshot",
+			"presence_delta",
+			"presence_update",
+			"record_changed",
+			"job_progress",
+			"ping",
+			"pong",
+			"error",
+			"session_revoked",
+		} {
+			t.Run(messageType, func(t *testing.T) {
+				conn, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+					SessionToken: admin.SessionCookie.Value,
+				})
+				if err != nil {
+					t.Fatalf("dial incident socket: %v", err)
+				}
+				defer conn.CloseNow()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := platformws.WriteJSON(ctx, conn, platformws.Message{
-			Type:    "presence_update",
-			Payload: platformws.RawPayload(map[string]any{"presence": timelinePresence()}),
-		}); err != nil {
-			t.Fatalf("send invalid first message: %v", err)
-		}
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := platformws.WriteJSON(ctx, conn, platformws.Message{
+					Type:    messageType,
+					Payload: invalidFirstMessagePayload(messageType),
+				}); err != nil {
+					t.Fatalf("send invalid first message %q: %v", messageType, err)
+				}
 
-		var message platformws.Message
-		if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
-			t.Fatalf("read invalid handshake error: %v", err)
-		}
-		if message.Type != "error" {
-			t.Fatalf("invalid first message response type = %q want error", message.Type)
-		}
-		requireErrorCode(t, message, "invalid_websocket_handshake")
+				var message platformws.Message
+				if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
+					t.Fatalf("read invalid handshake error for %q: %v", messageType, err)
+				}
+				if message.Type != "error" {
+					t.Fatalf("invalid first message %q response type = %q want error", messageType, message.Type)
+				}
+				requireErrorCode(t, message, "invalid_websocket_handshake")
 
-		var closed platformws.Message
-		err = platformws.ReadJSON(ctx, conn, &closed)
-		wstest.RequireClose(t, err, websocket.StatusPolicyViolation, "invalid_first_message")
+				var closed platformws.Message
+				err = platformws.ReadJSON(ctx, conn, &closed)
+				wstest.RequireClose(t, err, websocket.StatusPolicyViolation, "invalid_first_message")
+			})
+		}
 	})
 
 	t.Run("later hello or resume closes with route-owned invalid message behavior", func(t *testing.T) {
 		harness, admin, incidentID := setupPhase6SocketIncident(t, runtime, "phase6-u-6-07-later-handshake")
 
-		client := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     admin.SessionCookie.Value,
-			ClientInstanceID: "phase6-u-6-07-later",
-			Presence:         timelinePresence(),
-		})
-		defer client.Close(websocket.StatusNormalClosure, "test_complete")
+		for _, tc := range []struct {
+			name         string
+			buildMessage func(*incidentwstest.Client) platformws.Message
+		}{
+			{
+				name: "hello",
+				buildMessage: func(*incidentwstest.Client) platformws.Message {
+					return platformws.Message{
+						Type: "hello",
+						Payload: platformws.RawPayload(map[string]any{
+							"client_instance_id": "phase6-u-6-07-later",
+							"presence":           timelinePresence(),
+						}),
+					}
+				},
+			},
+			{
+				name: "resume",
+				buildMessage: func(client *incidentwstest.Client) platformws.Message {
+					return platformws.Message{
+						Type: "resume",
+						Payload: platformws.RawPayload(map[string]any{
+							"client_instance_id":   "phase6-u-6-07-later",
+							"resume_token":         client.HelloAck.ResumeToken,
+							"last_seen_stream_seq": 0,
+							"presence":             timelinePresence(),
+						}),
+					}
+				},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				client := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+					SessionToken:     admin.SessionCookie.Value,
+					ClientInstanceID: "phase6-u-6-07-later-" + tc.name,
+					Presence:         timelinePresence(),
+				})
+				defer client.Close(websocket.StatusNormalClosure, "test_complete")
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := client.Send(ctx, platformws.Message{
-			Type: "hello",
-			Payload: platformws.RawPayload(map[string]any{
-				"client_instance_id": "phase6-u-6-07-later",
-				"presence":           timelinePresence(),
-			}),
-		}); err != nil {
-			t.Fatalf("send repeated hello: %v", err)
-		}
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := client.Send(ctx, tc.buildMessage(client)); err != nil {
+					t.Fatalf("send repeated %s: %v", tc.name, err)
+				}
 
-		message, err := client.AwaitNextMessage(5 * time.Second)
-		if err != nil {
-			t.Fatalf("receive invalid message error: %v", err)
-		}
-		if message.Type != "error" {
-			t.Fatalf("repeated hello response type = %q want error", message.Type)
-		}
-		requireErrorCode(t, message, "invalid_websocket_message")
+				message, err := client.AwaitNextMessage(5 * time.Second)
+				if err != nil {
+					t.Fatalf("receive invalid message error: %v", err)
+				}
+				if message.Type != "error" {
+					t.Fatalf("repeated %s response type = %q want error", tc.name, message.Type)
+				}
+				requireErrorCode(t, message, "invalid_websocket_message")
 
-		closeErr := client.AwaitClose(5 * time.Second)
-		wstest.RequireClose(t, closeErr, websocket.StatusPolicyViolation, "invalid_message")
+				closeErr := client.AwaitClose(5 * time.Second)
+				wstest.RequireClose(t, closeErr, websocket.StatusPolicyViolation, "invalid_message")
+			})
+		}
 	})
 
 	t.Run("invalid stale or mismatched resume resets without partial replay", func(t *testing.T) {
@@ -159,6 +203,29 @@ func TestPhase6_IncidentSocketHandshakeResume_U_6_07(t *testing.T) {
 			t.Fatalf("expired resume replayed messages: %#v", expired.ReplayedMessages)
 		}
 	})
+}
+
+func invalidFirstMessagePayload(messageType string) json.RawMessage {
+	switch messageType {
+	case "presence_update":
+		return platformws.RawPayload(map[string]any{"presence": timelinePresence()})
+	case "hello_ack":
+		return platformws.RawPayload(map[string]any{"resume_token": "unexpected"})
+	case "resume_ack":
+		return platformws.RawPayload(map[string]any{"status": platformws.ResumeStatusReplayed})
+	case "presence_snapshot":
+		return platformws.RawPayload(map[string]any{"presences": []any{}})
+	case "presence_delta":
+		return platformws.RawPayload(map[string]any{"delta_kind": "upsert", "presence": map[string]any{}})
+	case "record_changed":
+		return platformws.RawPayload(map[string]any{"record_id": "record-1"})
+	case "job_progress":
+		return platformws.RawPayload(map[string]any{"job_id": "job-1"})
+	case "session_revoked":
+		return platformws.RawPayload(map[string]any{"reason_code": "session_revoked"})
+	default:
+		return platformws.RawPayload(map[string]any{})
+	}
 }
 
 func TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08(t *testing.T) {

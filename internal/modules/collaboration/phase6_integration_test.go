@@ -65,27 +65,30 @@ func TestPhase6_TwoClientsPresenceReplay_I_6_01(t *testing.T) {
 			t.Fatalf("resumed presence_snapshot length = %d want 2: %#v", got, resumed.PresenceSnapshot)
 		}
 	})
+}
 
-	t.Run("revocations emit session_revoked before close", func(t *testing.T) {
-		harness, admin, _, incidentID := setupPhase6SocketIncidentWithAdminID(t, runtime, "phase6-i-6-01-revocations")
+func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	harness, admin, _, incidentID := setupPhase6SocketIncidentWithAdminID(t, runtime, "phase6-support-socket-revocations")
 
-		logoutUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-i-6-01-logout@example.test", "Phase 6 Logout", "Phase6LogoutPass1!", false, false, true)
-		expiryUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-i-6-01-expiry@example.test", "Phase 6 Expiry", "Phase6ExpiryPass1!", false, false, true)
-		concurrencyUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-i-6-01-concurrency@example.test", "Phase 6 Concurrency", "Phase6ConcurrencyPass1!", false, false, true)
-		member := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-i-6-01-member@example.test", "Phase 6 Member", "Phase6MemberPass1!", false, false, true)
-		phase3test.CreateMembership(t, harness.Server, incidentID, logoutUser.ID.String(), logoutUser.Email, "editor", admin)
-		phase3test.CreateMembership(t, harness.Server, incidentID, expiryUser.ID.String(), expiryUser.Email, "editor", admin)
-		phase3test.CreateMembership(t, harness.Server, incidentID, concurrencyUser.ID.String(), concurrencyUser.Email, "editor", admin)
-		phase3test.CreateMembership(t, harness.Server, incidentID, member.ID.String(), member.Email, "editor", admin)
+	logoutUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-support-socket-logout@example.test", "Phase 6 Logout", "Phase6LogoutPass1!", false, false, true)
+	expiryUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-support-socket-expiry@example.test", "Phase 6 Expiry", "Phase6ExpiryPass1!", false, false, true)
+	concurrencyUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-support-socket-concurrency@example.test", "Phase 6 Concurrency", "Phase6ConcurrencyPass1!", false, false, true)
+	member := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-support-socket-member@example.test", "Phase 6 Member", "Phase6MemberPass1!", false, false, true)
+	phase3test.CreateMembership(t, harness.Server, incidentID, logoutUser.ID.String(), logoutUser.Email, "editor", admin)
+	phase3test.CreateMembership(t, harness.Server, incidentID, expiryUser.ID.String(), expiryUser.Email, "editor", admin)
+	phase3test.CreateMembership(t, harness.Server, incidentID, concurrencyUser.ID.String(), concurrencyUser.Email, "editor", admin)
+	phase3test.CreateMembership(t, harness.Server, incidentID, member.ID.String(), member.Email, "editor", admin)
 
-		logoutSession, logoutCSRF := phase3test.LoginLocalUser(t, harness.Server, logoutUser.Email, "Phase6LogoutPass1!")
-		expirySession, _ := phase3test.LoginLocalUser(t, harness.Server, expiryUser.Email, "Phase6ExpiryPass1!")
-		concurrencySession, _ := phase3test.LoginLocalUser(t, harness.Server, concurrencyUser.Email, "Phase6ConcurrencyPass1!")
-		memberSession, _ := phase3test.LoginLocalUser(t, harness.Server, member.Email, "Phase6MemberPass1!")
+	logoutSession, logoutCSRF := phase3test.LoginLocalUser(t, harness.Server, logoutUser.Email, "Phase6LogoutPass1!")
+	expirySession, _ := phase3test.LoginLocalUser(t, harness.Server, expiryUser.Email, "Phase6ExpiryPass1!")
+	concurrencySession, _ := phase3test.LoginLocalUser(t, harness.Server, concurrencyUser.Email, "Phase6ConcurrencyPass1!")
+	memberSession, _ := phase3test.LoginLocalUser(t, harness.Server, member.Email, "Phase6MemberPass1!")
 
+	t.Run("current session logout", func(t *testing.T) {
 		logoutSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     logoutSession.Value,
-			ClientInstanceID: "phase6-i-6-01-logout",
+			ClientInstanceID: "phase6-support-socket-logout",
 			Presence:         timelinePresence(),
 		})
 		logoutResp := phase3test.DoJSON(
@@ -98,27 +101,33 @@ func TestPhase6_TwoClientsPresenceReplay_I_6_01(t *testing.T) {
 		)
 		httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)
 		incidentwstest.ExpectSessionRevoked(t, logoutSocket, "session_revoked")
+	})
 
+	t.Run("concurrency limit eviction", func(t *testing.T) {
 		concurrencySocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     concurrencySession.Value,
-			ClientInstanceID: "phase6-i-6-01-concurrency",
+			ClientInstanceID: "phase6-support-socket-concurrency",
 			Presence:         timelinePresence(),
 		})
 		sessionID := phase3test.MustUUID(t, sessionIDForCookie(t, harness, concurrencyUser.ID.String()))
 		harness.Server.Runtime.WSHub.RevokeSession(sessionID, authn.ConcurrencyLimitReasonCode)
 		incidentwstest.ExpectSessionRevoked(t, concurrencySocket, authn.ConcurrencyLimitReasonCode)
+	})
 
+	t.Run("incident membership removal", func(t *testing.T) {
 		memberSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     memberSession.Value,
-			ClientInstanceID: "phase6-i-6-01-membership",
+			ClientInstanceID: "phase6-support-socket-membership",
 			Presence:         timelinePresence(),
 		})
 		phase3test.DeleteMembership(t, harness.Server, incidentID, member.ID.String(), queryMembershipVersion(t, harness, incidentID, member.ID.String()), admin)
 		incidentwstest.ExpectSessionRevoked(t, memberSocket, "incident_access_revoked")
+	})
 
+	t.Run("idle expiry", func(t *testing.T) {
 		expirySocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     expirySession.Value,
-			ClientInstanceID: "phase6-i-6-01-expiry",
+			ClientInstanceID: "phase6-support-socket-expiry",
 			Presence:         timelinePresence(),
 		})
 		if err := expirySocket.Send(context.Background(), platformws.Message{
