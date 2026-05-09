@@ -51,25 +51,40 @@ changes.
 - S6 should recover timing, lock, port, and cleanup-on-interrupt behavior from targeted runtime evidence if authorized.
 - S8 should settle package script, generated output, and reset route authority.
 
-## S6 Follow-Up Hazard Routing
+## S6 Hazard Routing
 
-These rows connect S4 hazards to the follow-up S6/S8 recovery documents. They
-preserve S4 evidence labels and do not claim runtime-observed readiness,
+These rows connect S3/S4 shared-state hazards to S6 hazard, timing, concurrency,
+preservation, and authority outputs. They preserve the original evidence labels
+and do not upgrade static source evidence into runtime-observed readiness,
 cleanup, timing, or capacity behavior.
 
-| Routing ID | Source hazards | S6 hazard rows | S8 authority rows | Evidence status | Notes |
-|---|---|---|---|---|---|
-| HAZ-FU-0001 | `HAZ-S4-0001` | `RTR-0001`, `CONC-0001`, `CONC-0002` | `AUTH-0010`, `AUTH-0011` | `observed/source_limit` | Scheduler lanes are routed separately from concrete Docker, Postgres, MinIO, browser, host-process, and port capacity. No capacity claim is upgraded without runtime evidence. |
-| HAZ-FU-0002 | `HAZ-S4-0002`, `HAZ-S4-0003` | `RTR-0002`, `RTR-0003`, `RTR-0004`, `TIME-0001`, `TIME-0002` | `AUTH-0007`, `AUTH-0010` | `observed/source_limit` | Docker/testcontainers startup, stale container cleanup, detached reaper completion, timeout, interrupt, and parent-death behavior remain source-limited. |
-| HAZ-FU-0003 | `HAZ-S4-0004` | `RTR-0004`, `RTR-0005`, `TIME-0003` | `AUTH-0004`, `AUTH-0007` | `observed/source_limit` | Active DB connection cleanup, generated browser DB/bucket cleanup, and stale janitor bounds require controlled runtime evidence or maintainer authority. |
-| HAZ-FU-0004 | `HAZ-S4-0005` | `RTR-0006`, `CONC-0004`, `TIME-0004` | `AUTH-0010` | `observed/source_limit` | Browser dynamic port allocation, configured-port collision checks, optional `ss`, and port release behavior remain platform/timing hazards. |
-| HAZ-FU-0005 | `HAZ-S4-0006` | `RTR-0007`, `CONC-0005`, `TIME-0005` | `AUTH-0009`, `AUTH-0010` | `observed/source_limit` | Playwright shared state lock, manifest staleness, cleanup marker staleness, browser runtime, and shared-state external-server behavior remain unresolved. |
-| HAZ-FU-0006 | `HAZ-S4-0007` | `RTR-0008`, `TIME-0006` | `AUTH-0001` | `observed/source_limit` | App test runtime reset route behavior is routed as a runtime hazard and authority decision; no reset call evidence was generated. |
-| HAZ-FU-0007 | `HAZ-S4-0008` | `RTR-0009`, `CONC-0006` | `AUTH-0003`, `AUTH-0010` | `observed/source_limit` | Docker Compose fixed ports, persistent dev volumes, local-dev services, and MinIO reset gaps remain local-dev/platform authority questions with resource hazards. |
-| HAZ-FU-0008 | `HAZ-S4-0009` | `RTR-0010`, `CONC-0007` | `AUTH-0002`, `AUTH-0005`, `AUTH-0006` | `observed/source_limit` | Direct package scripts remain separate from Make-owned result-root, scheduler limits, env precedence, and cleanup guarantees. |
+| Routing ID | Source hazards | S6 hazard rows | S6 timing/concurrency rows | Preservation/authority rows | Evidence status | Notes |
+|---|---|---|---|---|---|---|
+| HAZ-FU-0001 | `HAZ-S4-0001` | `RTR-0001` | `CONC-0002`, `CONC-0003`, `TMR-0020`, `TMR-0021` | `PRES-0003`, `AUTH-0011` | `observed/source_limit` | Scheduler lanes are scheduling constraints. They are not concrete Docker, Postgres, MinIO, browser, host-process, or port capacity guarantees. |
+| HAZ-FU-0002 | `HAZ-S3-0003`, `HAZ-S3-0004` | `RTR-0002` | `CONC-0013`, `TMR-0027` | `PRES-0002`, `AUTH-0010`, `MSC-0005` | `observed` | Generated files can drive execution but do not own behavior. Stale generated schedules/manifests remain drift hazards. |
+| HAZ-FU-0003 | `HAZ-S3-0005` | `RTR-0003` | `TMR-0027` | `PRES-0017`, `AUTH-0013` | `observed/source_limit` | Duration baselines require explicit successful-run provenance; S6 did not refresh or validate baselines. |
+| HAZ-FU-0004 | `HAZ-S4-0002`, `HAZ-S4-0003` | `RTR-0004`, `RTR-0007`, `RTR-0008`, `RTR-0009` | `TMR-0001`, `TMR-0002`, `TMR-0004`, `TMR-0007`, `TMR-0017`, `TMR-0028`, `CONC-0005` | `PRES-0005`, `PRES-0013`, `AUTH-0007`, `AUTH-0008`, `AUTH-0012` | `observed/source_limit` | Docker/testcontainers readiness, stale container cleanup, detached reaper completion, timeout, interrupt, and parent-death behavior remain source-limited. |
+| HAZ-FU-0005 | `HAZ-S3-0007`, `HAZ-S3-0008`, `HAZ-S4-0004` | `RTR-0005`, `RTR-0009`, `RTR-0010` | `TMR-0002`, `TMR-0003`, `TMR-0006`, `TMR-0017`, `TMR-0022`, `CONC-0006` | `PRES-0006`, `PRES-0013`, `AUTH-0006`, `AUTH-0007`, `AUTH-0012` | `observed/source_limit` | Postgres template, clone, package reset, active-connection cleanup, and stale generated DB janitor bounds require runtime evidence or owner authority. |
+| HAZ-FU-0006 | `HAZ-S3-0009`, `HAZ-S3-0010`, `HAZ-S4-0004` | `RTR-0006`, `RTR-0009`, `RTR-0010` | `TMR-0004`, `TMR-0005`, `TMR-0017`, `TMR-0023`, `CONC-0007` | `PRES-0007`, `PRES-0013`, `AUTH-0007`, `AUTH-0012` | `observed/source_limit` | MinIO bucket/prefix reuse and stale generated bucket cleanup are source-observed; cleanup strength is not runtime-proved. |
+| HAZ-FU-0007 | `HAZ-S3-0011`, `HAZ-S4-0005` | `RTR-0011`, `RTR-0012` | `TMR-0008`, `TMR-0009`, `TMR-0010`, `TMR-0029`, `CONC-0008`, `CONC-0009` | `PRES-0008`, `AUTH-0008`, `AUTH-0012` | `observed/source_limit` | Browser dynamic port allocation, configured-port collision checks, optional `ss`, process group cleanup, and port release behavior remain platform/timing hazards. |
+| HAZ-FU-0008 | `HAZ-S3-0012`, `HAZ-S4-0006` | `RTR-0013` | `TMR-0011`, `TMR-0012`, `TMR-0024`, `TMR-0025`, `CONC-0010` | `PRES-0009`, `AUTH-0008`, `AUTH-0012` | `observed/source_limit` | Playwright shared-state lock, manifest staleness, cleanup markers, worker state, and abrupt-exit cleanup remain unresolved runtime hazards. |
+| HAZ-FU-0009 | `HAZ-S3-0014`, `HAZ-S4-0007` | `RTR-0014` | `TMR-0016`, `TMR-0030` | `PRES-0010`, `AUTH-0004`, `MSC-0001` | `maintainer_decision_required/source_limit` | App test runtime reset behavior is routed as a runtime hazard and authority decision; no reset call evidence was generated. |
+| HAZ-FU-0010 | `HAZ-S4-0008` | `RTR-0019` | `TMR-0013`, `TMR-0014`, `TMR-0015`, `TMR-0029`, `CONC-0012` | `PRES-0012`, `AUTH-0005`, `AUTH-0008`, `MSC-0003` | `maintainer_decision_required/source_limit` | Docker Compose fixed ports, persistent dev volumes, local-dev services, and MinIO reset gaps remain local-dev/platform authority questions. |
+| HAZ-FU-0011 | `HAZ-S3-0013`, `HAZ-S4-0009` | `RTR-0015` | `TMR-0032`, `CONC-0011` | `PRES-0011`, `AUTH-0003` | `maintainer_decision_required` | Direct package scripts remain separate from Make-owned result roots, scheduler limits, env precedence, and cleanup guarantees. |
+| HAZ-FU-0012 | `HAZ-S3-0001`, `HAZ-S3-0002` | `RTR-0016` | `TMR-0027`, `CONC-0013` | `PRES-0017`, `AUTH-0013` | `observed/source_limit` | Retained run artifacts need explicit selection and freshness rules before later specs rely on them as evidence. |
+| HAZ-FU-0013 | `HAZ-S3-0015` | `RTR-0017` | `TMR-0026`, `CONC-0014` | `PRES-0016`, `AUTH-0009` | `maintainer_decision_required/source_limit` | External Go caches remain outside repo cleanup unless owner expands cleanup scope. |
+| HAZ-FU-0014 | S3 fixture/golden/snapshot authority hazards `AMB-0015`, `AMB-0022` | `RTR-0021` | `TMR-0012`, `TMR-0025` | `PRES-0018`, `AUTH-0014`, `MSC-0007` | `maintainer_decision_required/source_limit` | Visual snapshot platform/browser/update authority remains unresolved; S6 did not run snapshot updates. |
+| HAZ-FU-0015 | S3 cleanup scratch surfaces `CLN-0004` and related shell self-tests | `RTR-0020` | `TMR-0031` | `PRES-0020` | `observed/source_limit` | Scratch-dir cleanup is source-observed and trap-specific; signal behavior is not proved. |
 
 ## Updated Open Handoff Themes
 
-- S5 follow-up docs now classify observable outputs, structured schemas, output consumers, partial completion states, and failure classes for S4 follow-up surfaces.
-- S6 follow-up docs now route S4 hazards to timing/resource registers, but all live service readiness, cleanup strength, and capacity rows remain source-limited unless separately authorized runtime evidence exists.
-- S8 follow-up docs now route reset route, package-script, local-dev, janitor, env, platform, and external-cache questions to authority rows without making owner decisions.
+- S5 follow-up docs classify observable outputs, structured schemas, output
+  consumers, partial-completion states, and failure classes for S4 follow-up
+  surfaces.
+- S6 docs route every S3/S4 shared-state hazard class to resource/timing rows,
+  but live service readiness, cleanup strength, destructive cleanup, and
+  concrete capacity remain source-limited unless separately authorized runtime
+  evidence exists.
+- Preservation and authority docs route reset route, package-script, local-dev,
+  janitor, env, platform, generated-artifact, retained-artifact, visual snapshot,
+  and external-cache questions without making owner decisions.

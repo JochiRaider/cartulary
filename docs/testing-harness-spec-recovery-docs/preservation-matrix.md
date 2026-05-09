@@ -7,25 +7,78 @@ role: preservation-matrix
 
 # Testing Harness Recovery Preservation Matrix
 
-## Document role
+## Document Role
 
-This S8 artifact classifies S4 follow-up behavior as preserve, clarify,
-authority-required, or exclude from contract. Maintainer decisions are still
-required where noted.
+This artifact classifies harness subsystems for preservation, clarification,
+exclusion, redesign, deprecation, compatibility-only handling, or owner review.
+S6 refreshed this matrix from the S3 artifact/resource ownership matrix, S4
+service/resource lifecycle map, and S5 lifecycle/failure registers.
 
-## Preservation matrix
+The matrix is documentation-only. It does not change harness behavior and does
+not close maintainer decisions by inference.
 
-| Behavior ID | Behavior | Current evidence | Main-spec dependency | External dependency | Failure cost | Classification | Required decision | Roadmap target | Evidence status | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|
-| PRES-0001 | Make/task-surface as canonical harness command surface. | S2 command map; Make help/task manifests. | none beyond product validation scope. | Make, shell, Go/Node tools. | high | `preserve_with_clarification` | Confirm direct package scripts remain secondary unless explicitly adopted. | NLSpec command surface | `observed` | S4 follow-ups rely on Make-owned result roots and scheduler policy. |
-| PRES-0002 | S4 source-limit preservation for live readiness, runtime, cleanup, platform, and env precedence. | `SL-0012` through `SL-0015`; S4 audit. | none. | Docker, browsers, platform tools. | high | `preserve` | none; keep limits open until evidence. | NLSpec evidence discipline | `observed/source_limit` | Do not rewrite static findings as runtime proof. |
-| PRES-0003 | App test runtime reset route. | `SVC-0014`, `RES-0026`, `HAZ-S4-0007`, `AMB-0006`. | Core 01/Core 04 product state and deployment trust boundaries. | running test-enabled backend, Postgres, object store. | high | `authority_decision_required` | Is reset route a harness-owned test hook, and what visibility/security boundary applies? | S8 owner review | `observed/source_limit` | Do not make public product behavior. |
-| PRES-0004 | Direct package scripts. | `EP-0016`, `ART-0030`, `HAZ-S4-0009`, `AMB-0020`. | none. | pnpm, Vite, Vitest, Biome, Playwright. | medium | `authority_decision_required` | Are direct package scripts first-class harness contracts or developer conveniences? | S8 owner review | `observed` | Default is Make canonical. |
-| PRES-0005 | Local-dev Compose services and `make dev`. | `SVC-0008`, `SVC-0012`, `SVC-0015`, `HAZ-S4-0008`. | Core 04 deployment config only by analogy; not product conformance. | Docker Compose, fixed host ports, local volumes. | medium | `authority_decision_required` | Which local-dev service behavior belongs in harness contract? | S8 owner review | `observed/source_limit` | Persistent volumes and no compose-down target remain source-limited. |
-| PRES-0006 | Stale janitor destructive cleanup. | `SVC-0011`, `RES-0013`, `RES-0014`, `RES-0016`, `AMB-0027`. | product DB/object state must not be destroyed outside harness ownership. | Docker/Postgres/MinIO. | high | `authority_decision_required` | What proof is sufficient before deleting stale DBs, buckets, or containers? | S8 owner review and S6 runtime evidence | `observed/source_limit` | Keep generated-name/metadata bounds narrow. |
-| PRES-0007 | Public environment-variable contracts and precedence. | `ENV-0001` through `ENV-0024`; `AMB-0012`, `AMB-0026`, `SL-0015`. | Core 04 owns product deployment config where applicable. | Make, schedulers, shell wrappers, package scripts, Go helpers, config files, Playwright. | medium | `authority_decision_required` | Which env vars are public harness API, and what precedence applies? | S8 owner review | `observed/source_limit` | Optional runtime matrix requires separate authorization. |
-| PRES-0008 | Supported platform/tool profile. | `ENV-0024`; `AMB-0025`, `AMB-0028`; `SL-0013`. | none unless product deployment support is implicated. | Docker, Compose, `ss`, `curl`, `setsid`, `realpath`, bash, localhost, Node/pnpm, browser runtime. | high | `authority_decision_required` | What host/tool profile is supported, and what behavior is unsupported? | S8 owner review | `observed/source_limit` | Missing-tool behavior is mixed by source. |
-| PRES-0009 | Scheduler resource lanes. | `RES-0001` through `RES-0010`; `HAZ-S4-0001`; `RTR-0001`. | none. | host and service capacity. | high | `preserve_with_clarification` | State lanes are scheduling limits, not concrete capacity guarantees. | NLSpec resource rules | `observed/source_limit` | Runtime capacity evidence is separate. |
-| PRES-0010 | External Go caches. | `RES-0025`, `ART-0024`, `AMB-0021`. | none. | Go toolchain caches under `/tmp`. | low | `authority_decision_required` | Are external Go caches in cleanup contract? | S8 owner review | `observed/source_limit` | Proposed default: tool-managed, outside `clean`/`distclean`. |
-| PRES-0011 | Generated artifacts as execution inputs but not behavior owners. | `ART-0006` through `ART-0011`; S3 hazards. | Core specs/contracts/SQL own upstream behavior. | generators and drift checks. | high | `preserve_with_clarification` | none unless owner changes generated policy. | NLSpec authority language | `observed` | Avoid treating generated Make/schedules as normative owners. |
+## Classification Rules
 
+Allowed classifications:
+
+- `preserve`: behavior is intentional enough for later NLSpec drafting.
+- `preserve_with_clarification`: preserve the behavior but clarify limits,
+  source status, or authority.
+- `compatibility_only`: keep as compatibility support, not a preferred contract.
+- `accidental`: observed behavior should not become a contract without redesign.
+- `deprecated`: keep only as deprecated behavior if owner confirms.
+- `redesign_required`: behavior is too risky or underspecified for preservation.
+- `authority_required`: maintainer or owner decision is required before drafting.
+- `exclude_from_contract`: document as out of contract or implementation detail.
+
+## Preservation Matrix
+
+| Behavior ID | Subsystem or behavior | Controlling evidence | Hazard/timing links | Main-spec dependency | Classification | Required owner question | Evidence status | S7/NLSpec handoff |
+|---|---|---|---|---|---|---|---|---|
+| PRES-0001 | Make/task-surface as canonical harness command surface. | S2 entrypoint map; `Makefile`; `tools/task_surface_manifest.json`; `tools/task_surface.generated.mk`. | `RTR-0002`, `CONC-0001`, `CONC-0013`; `AUTH-0002`. | none beyond verification scope. | `preserve_with_clarification` | Should direct package scripts remain secondary unless explicitly adopted? | `observed` | Draft Make/public target surface as canonical and state package scripts separately. |
+| PRES-0002 | Generated task surface, schedules, ledgers, generated Go/TS, and generated Make fragments as execution inputs. | S3 `ART-0006` through `ART-0011`; `HAZ-S3-0003`, `HAZ-S3-0004`; generated artifact policy. | `RTR-0002`, `CONC-0013`; `AUTH-0010`; `MSC-0005`. | Core specs/contracts/SQL own upstream behavior. | `preserve_with_clarification` | Which generated artifacts are execution inputs but not behavior owners? | `observed` | Draft generated files as downstream inputs and require drift checks for freshness. |
+| PRES-0003 | Check and service-backed scheduler lanes, resource claims, and work-unit dependencies. | S4 `RES-0001` through `RES-0010`; `HAZ-S4-0001`; scheduler manifests. | `RTR-0001`, `TMR-0020`, `TMR-0021`, `CONC-0002`, `CONC-0003`; `AUTH-0011`. | none. | `preserve_with_clarification` | Are lanes scheduling constraints only, and not concrete host/service capacity guarantees? | `observed/source_limit` | Draft logical concurrency limits separately from Docker/Postgres/MinIO/browser capacity. |
+| PRES-0004 | Go shard construction, shared report directories, and lock-protected report reuse. | S3 `HAZ-S3-0006`; S4 `RES-0020`, `RES-0021`; S5 failure rows for report/lock failures. | `RTR-0018`, `TMR-0018`, `TMR-0019`, `CONC-0004`. | none. | `preserve_with_clarification` | Are shared report lock deadlines part of the public harness contract or implementation detail? | `observed/source_limit` | Draft lock behavior as source-observed unless owner confirms public timeout semantics. |
+| PRES-0005 | Suite service lifecycle for Docker/testcontainers, service leases, and managed containers. | S4 `SVC-0001`, `SVC-0007`, `RES-0012`, `RES-0013`; `HAZ-S4-0002`, `HAZ-S4-0003`. | `RTR-0004`, `RTR-0007`, `RTR-0008`; `TMR-0001`, `TMR-0002`, `TMR-0004`, `TMR-0017`, `TMR-0028`; `AUTH-0012`. | none unless cleanup touches product-like resources. | `preserve_with_clarification` | Which cleanup paths are guaranteed, best-effort, or source-limited? | `observed/source_limit` | Draft startup/readiness from source and keep live Docker readiness as source-limited. |
+| PRES-0006 | Postgres templates, cloned DBs, package DB reuse, transactions, and reset tables. | S3 `HAZ-S3-0007`, `HAZ-S3-0008`; S4 `SVC-0002`, `SVC-0003`, `RES-0014`; S5 DB failure rows. | `RTR-0005`, `RTR-0010`; `TMR-0002`, `TMR-0003`, `TMR-0006`, `TMR-0022`; `AUTH-0006`, `AUTH-0007`, `AUTH-0012`. | Core 04 only if harness cleanup could affect non-harness DBs. | `preserve_with_clarification` | What DB naming and metadata proof is sufficient before cleanup or stale janitor deletion? | `observed/source_limit` | Draft template/clone/reset behavior with stale cleanup authority separated. |
+| PRES-0007 | MinIO buckets, package bucket reuse, browser buckets, and object cleanup. | S3 `HAZ-S3-0009`, `HAZ-S3-0010`; S4 `SVC-0004`, `SVC-0005`, `RES-0015`, `RES-0016`. | `RTR-0006`, `RTR-0010`; `TMR-0004`, `TMR-0005`, `TMR-0023`; `AUTH-0007`, `AUTH-0012`. | Core 04 if object-store config is product-facing. | `preserve_with_clarification` | What bucket/prefix proof is sufficient before stale object cleanup? | `observed/source_limit` | Draft bucket scope and cleanup as source-observed, not live-proven. |
+| PRES-0008 | Browser E2E dynamic ports, process groups, webserver readiness, runtime roots, and port release waits. | S3 `HAZ-S3-0011`; S4 `SVC-0009`, `SVC-0010`, `RES-0017`, `RES-0018`; S5 browser failure rows. | `RTR-0011`, `RTR-0012`; `TMR-0008`, `TMR-0009`, `TMR-0010`, `TMR-0029`; `AUTH-0008`, `AUTH-0012`. | none unless backend is accidentally non-test product runtime. | `preserve_with_clarification` | Is `ss` required, and what is supported when configured-port checks are unavailable? | `observed/source_limit` | Draft dynamic-port behavior as best-effort allocation with platform caveats. |
+| PRES-0009 | Playwright shared state, global setup lock, worker admin manifest, cleanup markers, and worker profiles. | S3 `HAZ-S3-0012`; S4 `SVC-0013`, `RES-0022`; S5 Playwright failure rows. | `RTR-0013`; `TMR-0011`, `TMR-0012`, `TMR-0024`, `TMR-0025`; `CONC-0010`; `AUTH-0008`, `AUTH-0012`. | none. | `preserve_with_clarification` | Which shared-state cleanup behaviors survive abrupt exit, and which are best-effort? | `observed/source_limit` | Draft setup lock/manifest semantics as source-observed and runtime-sensitive. |
+| PRES-0010 | Browser reset boundaries and `internal/app/test_runtime_reset.go`. | S3 `HAZ-S3-0014`; S4 `SVC-0014`, `RES-0026`; S5 reset failure rows; `AMB-0006`. | `RTR-0014`, `TMR-0016`, `TMR-0030`; `AUTH-0004`; `MSC-0001`. | Core 01/Core 04 product runtime and security boundaries. | `authority_required` | Is `internal/app/test_runtime_reset.go` a harness-owned test hook, and what visibility/security boundary applies? | `maintainer_decision_required/source_limit` | Do not draft as product API; route as owner question before NLSpec. |
+| PRES-0011 | Direct root and app package scripts. | S3 `ART-0030`, `CLN-0020`, `HAZ-S3-0013`; S4 `HAZ-S4-0009`; S5 package-script failure/output rows. | `RTR-0015`, `TMR-0032`, `CONC-0011`; `AUTH-0003`. | none. | `authority_required` | Are direct package scripts first-class harness contracts or developer conveniences? | `maintainer_decision_required` | Draft Make as canonical and package scripts only if owner includes them. |
+| PRES-0012 | Local-dev Compose services, `make dev`, fixed ports, persistent volumes, and MinIO reset gap. | S3 cleanup matrix; S4 `SVC-0008`, `SVC-0012`, `SVC-0015`, `RES-0019`; `HAZ-S4-0008`. | `RTR-0019`; `TMR-0013`, `TMR-0014`, `TMR-0015`; `CONC-0012`; `AUTH-0005`; `MSC-0003`. | Core 04 only by analogy; not deployment conformance. | `authority_required` | Which local-dev Compose and `make dev` behaviors belong in the harness contract? | `maintainer_decision_required/source_limit` | Keep local-dev persistence and reset gaps out of verification rules until owner decides. |
+| PRES-0013 | Stale janitors for generated DBs, buckets, and managed containers. | S4 `SVC-0011`, `RES-0013`, `RES-0014`, `RES-0016`; `AMB-0019`, `AMB-0027`. | `RTR-0007`, `RTR-0009`, `RTR-0010`; `TMR-0007`; `AUTH-0007`; `MSC-0008`. | Core 04/product data safety if bounds are wrong. | `authority_required` | What proof is sufficient before stale janitors may delete DBs, buckets, or containers? | `maintainer_decision_required/source_limit` | Draft only as source-observed bounded cleanup; do not strengthen destructive authority. |
+| PRES-0014 | Public environment variables and cross-layer precedence. | S4 environment observations; `AMB-0012`, `AMB-0026`, `SL-0015`. | `RTR-0015`, `RTR-0019`; `TMR-0031`, `TMR-0032`; `AUTH-0006`; `MSC-0004`. | Core 04 for product config keys. | `authority_required` | Which environment variables are public harness API, and what precedence applies? | `maintainer_decision_required/source_limit` | Draft known defaults/read sites only; mark precedence unresolved. |
+| PRES-0015 | Supported platform/tool profile. | S4 `ENV-0024`; `AMB-0025`, `AMB-0028`; `SL-0013`. | `RTR-0004`, `RTR-0011`, `RTR-0012`, `RTR-0019`; `AUTH-0008`. | none unless deployment support is implicated. | `authority_required` | What platform/tool profile is supported: Linux/WSL, Docker, Compose, `ss`, `curl`, `setsid`, `realpath`, Node/pnpm, browsers, and localhost networking? | `maintainer_decision_required/source_limit` | Draft required tools only where source clearly validates or fails. |
+| PRES-0016 | External Go caches under `/tmp/cartulary-go-*`. | S3 `ART-0024`, `HAZ-S3-0015`; `AMB-0021`. | `RTR-0017`; `AUTH-0009`. | none. | `authority_required` | Are external Go caches under `/tmp/cartulary-go-*` in cleanup scope? | `maintainer_decision_required/source_limit` | Default draft posture should keep them tool-managed unless owner expands cleanup. |
+| PRES-0017 | Retained `.cartulary/test-results/**` artifacts, run selection, newest-run fallback, and failure bundles. | S3 `HAZ-S3-0001`; S5 output/failure registers; `AMB-0017`; `SL-0004`, `SL-0009`, `SL-0010`. | `RTR-0016`; `AUTH-0013`; `MSC-0009`. | none. | `preserve_with_clarification` | Which retained artifact selection rule is supported for explain, fixture, drift, and baseline tools? | `observed/source_limit` | Draft explicit `RESULTS_DIR`/run-id provenance; keep newest fallback diagnostic-only unless owner confirms. |
+| PRES-0018 | Browser visual snapshot baselines and update authority. | S3 `AMB-0015`, `AMB-0022`; Playwright visual snapshots and configs. | `RTR-0021`; `AUTH-0014`; `MSC-0007`. | Product UI conformance only through test assertions. | `authority_required` | Which visual snapshot platform/browser/update command is authoritative? | `maintainer_decision_required/source_limit` | Do not draft refresh/update workflow until owner answers. |
+| PRES-0019 | Provider-neutral `make ci` and absent `.github/**` workflows. | `SL-0001`; S2 command map; `scripts/ci/**`. | `AUTH-0015`; `MSC-0010`. | release/deployment process only if owner links it. | `preserve_with_clarification` | Are provider workflows intentionally external, absent, or represented only by `scripts/ci/**`? | `source_limit` | Draft repo-local CI entrypoint; keep provider workflow behavior out of scope. |
+| PRES-0020 | Shell scratch directories and temporary roots used by harness scripts. | S3 cleanup matrix; shell lifecycle scripts. | `RTR-0020`, `TMR-0026`, `TMR-0027`. | none. | `preserve_with_clarification` | Which scratch dirs are stable interfaces versus local implementation detail? | `observed/source_limit` | Draft cleanup as best-effort where traps/source support it; avoid public path guarantees unless needed. |
+
+## Coverage Check
+
+- Command surface: `PRES-0001`.
+- Generated artifacts: `PRES-0002`.
+- Schedulers and lanes: `PRES-0003`.
+- Go sharding/report locks: `PRES-0004`.
+- Suite services and Docker/testcontainers: `PRES-0005`.
+- Postgres resources: `PRES-0006`.
+- MinIO resources: `PRES-0007`.
+- Browser stack/processes/ports: `PRES-0008`.
+- Playwright state/workers: `PRES-0009`.
+- Reset route: `PRES-0010`.
+- Package scripts: `PRES-0011`.
+- Local-dev services: `PRES-0012`.
+- Stale janitors: `PRES-0013`.
+- Environment contracts: `PRES-0014`.
+- Platform/tools: `PRES-0015`.
+- External Go caches: `PRES-0016`.
+- Retained artifacts: `PRES-0017`.
+- Visual snapshots: `PRES-0018`.
+- CI provider gap: `PRES-0019`.
+- Scratch dirs: `PRES-0020`.
+
+Every `authority_required` row has a concrete owner question. Runtime-sensitive
+claims remain `source_limit` unless a controlling input already marked runtime
+evidence.

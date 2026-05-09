@@ -34,7 +34,7 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 | S4. Services, environments, and resources    | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md`                                                                           |
 | S5. Lifecycle, interfaces, and failures      | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/observable-interface-map.md` and `docs/testing-harness-spec-recovery-docs/failure-mode-register.md` |
 | S6. Hazards, resources, and timing           | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md`                                                                   |
-| S7. NLSpec, acceptance, roadmap, and handoff | `not_started` | `TODO:` | `TODO: harness_nlspec_draft_path` and `TODO: acceptance_matrix`                                                                              |
+| S7. NLSpec, acceptance, roadmap, and handoff | `not_started` | `none if source limits are preserved` | `TODO: harness_nlspec_draft_path` and `TODO: acceptance_matrix`                                                                              |
 | S8. Authority and preservation follow-up     | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`      |
 
 ## S0: Charter and setup
@@ -508,14 +508,14 @@ Identify hazards and classify behavior as intentional, accidental, compatibility
 
 ### Concrete tasks
 
-- [ ] Identify concurrency points for S4 follow-up surfaces.
-- [ ] Identify shared mutable resources for S4 follow-up surfaces.
-- [ ] Record sleeps, poll loops, timeouts, retries, debounces, and watch triggers.
-- [ ] Populate race/timing/resource register.
-- [ ] Connect recurring S4 follow-up failures to hazards.
-- [ ] Route preservation and authority questions to S8.
-- [ ] Preserve main-spec and harness authority conflicts for S8.
-- [ ] Update ambiguity/source-limit routing without closing source limits.
+- [x] Identify concurrency points for S4 follow-up surfaces.
+- [x] Identify shared mutable resources for S4 follow-up surfaces.
+- [x] Record sleeps, poll loops, timeouts, retries, debounces, and watch triggers.
+- [x] Populate race/timing/resource register.
+- [x] Connect recurring S4 follow-up failures to hazards.
+- [x] Route preservation and authority questions to S8.
+- [x] Preserve main-spec and harness authority conflicts for S8.
+- [x] Update ambiguity/source-limit routing without closing source limits.
 
 ### Expected outputs
 
@@ -523,22 +523,28 @@ Identify hazards and classify behavior as intentional, accidental, compatibility
 - `docs/testing-harness-spec-recovery-docs/concurrency-model-notes.md`
 - `docs/testing-harness-spec-recovery-docs/timeout-retry-register.md`
 - Updated `docs/testing-harness-spec-recovery-docs/shared-state-hazard-list.md`
+- Updated `docs/testing-harness-spec-recovery-docs/preservation-matrix.md`
+- Updated `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`
+- Updated `docs/testing-harness-spec-recovery-docs/main-spec-conflict-list.md`
 - Updated `docs/testing-harness-spec-recovery-docs/ambiguity-register.md`
 - Updated `docs/testing-harness-spec-recovery-docs/source-limit-log.md`
 - `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s6-hazards-resources-timing.md`
+- `docs/testing-harness-spec-recovery-docs/audits/2026-05-08-s6-hazards-resources-timing-audit.md`
 
 ### Validation criteria
 
 - Every shared mutable resource appears in hazard analysis.
-- Every fixed sleep and timeout appears in timing analysis.
+- Every fixed sleep, poll, retry, timeout, debounce/watch trigger, readiness check, signal wait, lock wait, and cleanup wait appears in timing analysis or an explicit source-limit row.
 - Every major subsystem has a preservation classification.
 - Every authority-required behavior has a specific owner question.
+- Scheduler lanes are not described as concrete capacity guarantees.
+- Runtime-sensitive claims remain `source_limit` unless actual runtime evidence exists.
 
 ### Exit criteria
 
-- [ ] Hazard register can drive spec resource and timing rules for S4 follow-up surfaces.
-- [ ] Preservation and authority questions are routed to S8 rather than silently closed.
-- [ ] Open runtime evidence gaps remain source-limited.
+- [x] Hazard register can drive spec resource and timing rules for S4 follow-up surfaces.
+- [x] Preservation and authority questions are routed to S8 rather than silently closed.
+- [x] Open runtime evidence gaps remain source-limited.
 
 ### Status field
 
@@ -557,8 +563,11 @@ accounting only, not concrete host or service capacity guarantees.
 
 ### Findings or handoff notes for future sprints
 
-S6 created `race-timing-resource-register.md`, `concurrency-model-notes.md`,
-`timeout-retry-register.md`, S6 handoff
+S6 created or refreshed `race-timing-resource-register.md`,
+`concurrency-model-notes.md`, `timeout-retry-register.md`,
+`shared-state-hazard-list.md`, `preservation-matrix.md`,
+`harness-authority-map.md`, `main-spec-conflict-list.md`,
+`ambiguity-register.md`, `source-limit-log.md`, S6 handoff
 `handoffs/2026-05-08-s6-hazards-resources-timing.md`, and S6 audit
 `audits/2026-05-08-s6-hazards-resources-timing-audit.md`.
 
@@ -648,6 +657,7 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 - Ambiguity register.
 - Preservation matrix.
 - Authority map.
+- `s7-s6-audit-gap-follow-up.md`.
 - Existing tests and CI.
 
 ### Concrete tasks
@@ -700,12 +710,24 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 
 ### Blocker field
 
-`TODO:`
+`none if source limits and owner questions are preserved`
 
 ### Issues or concerns field
 
-`TODO:`
+S7 may start from the completed S0 through S6 and S8 recovery outputs plus
+`s7-s6-audit-gap-follow-up.md`. Runtime readiness, cleanup strength, retained
+artifact provenance, environment precedence, platform support, direct package
+scripts, local-dev services, external Go caches, visual snapshot update
+authority, and CI provider workflow behavior remain source-limited or
+maintainer-decision-required.
 
 ### Findings or handoff notes for future sprints
 
-`TODO:`
+`s7-s6-audit-gap-follow-up.md` is the S7 carry-forward track for remaining S6
+audit gaps. S7 must not draft final normative `MUST` language for live
+readiness, cleanup completion, signal/timeout behavior, detached reaper
+completion, active DB cleanup, stale janitor deletion, port release, reset-route
+public status, env precedence, direct package scripts, local-dev Compose,
+visual snapshot updates, external Go cache cleanup, CI provider annotations, or
+concrete scheduler capacity guarantees unless later authorized runtime evidence
+or explicit owner decisions exist.

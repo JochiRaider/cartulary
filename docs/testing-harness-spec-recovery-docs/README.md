@@ -25,6 +25,7 @@ Start with `00-overview.md`, then use `03-sprint-plan.md` as the working progres
 | `03-sprint-plan.md` | Breaks the work into practical, agent-sized sprints with progress fields. |
 | `04-registers-and-checklists.md` | Provides working checklists and register templates. |
 | `05-agent-handoff.md` | Provides a multi-session handoff template. |
+| `s7-s6-audit-gap-follow-up.md` | Defines the S7 carry-forward track for remaining S6 source limits, owner questions, and later authorized evidence collection. |
 | `templates/harness-nlspec-template.md` | Provides a scaffold for the recovered testing harness NLSpec. |
 
 ## Implementation-change boundary
