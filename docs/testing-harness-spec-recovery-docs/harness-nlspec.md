@@ -71,6 +71,34 @@ of these routes: a `HAC-*` acceptance row, a `HAC-GAP-*` blocker, a
 sentence is a package defect and must be rewritten as source-limited,
 owner-required, or accepted by a new or existing criterion.
 
+## Audit Basis and Contract Delegation
+
+This document adopts the row-level recovery registers below as the exact
+current-state interface detail for the recovered harness contract. The rows
+remain evidence-backed contract inputs, not independent behavior owners; Core 00
+through Core 04 and any later adopted harness NLSpec still control conflicts.
+
+| Recovery input | Row family | Contract detail delegated here |
+|---|---|---|
+| `entrypoint-command-map.md` | `EP-*` | Declared command shape, caller, inputs, defaults, outputs, side effects, ordering, parallel-safety, and source-observed usage behavior. |
+| `observable-interface-map.md` | `OI-*` | Caller-visible stdout/stderr/report/log surfaces, consumers, ordering, stable-local/CI boundaries, and authority class. |
+| `structured-output-schema-notes.md` | `SCHEMA-*` | Schema markers, producer/consumer relationships, and whether field-level contracts are complete, partial, tool-owned, or unknown. |
+| `service-lifecycle-map.md` | `SVC-*` | Service provisioning, ready conditions, reset behavior, stop/cleanup behavior, and service-specific source limits. |
+| `resource-allocation-register.md` | `RES-*` | Allocation, collision behavior, release behavior, reuse, parallel-safety, and concrete-resource non-guarantees. |
+| `timeout-retry-register.md` | `TMR-*` | Timeouts, waits, retries, lock waits, watchdogs, polling loops, and timeout-unknown boundaries. |
+| `cleanup-lifecycle-matrix.md` | `CLN-*` | Cleanup triggers, scope, order, idempotence, success/failure/timeout/interrupt behavior, and affected external state. |
+| `failure-mode-register.md` | `FAIL-*` | Failure trigger, detection, report surface, retryability, ownership, cleanup follow-up, and source-limit routing. |
+| `harness-acceptance-matrix.md` | `HAC-*`, `HAC-GAP-*` | Binary acceptance criteria and blocked final claims. |
+| `source-limit-log.md` and `ambiguity-register.md` | `SL-*`, `AMB-*` | Preserved evidence gaps, authority gaps, and owner-required decisions. |
+
+An invocation, output, schema, artifact, or service surface that is absent from
+the adopted Make task surface and not cited by an `EP-*`, `OI-*`, `SCHEMA-*`, or
+`SVC-*` row is not a canonical harness contract surface in this draft. It may be
+investigated as source evidence, but callers must not rely on it unless a later
+owner decision adopts it.
+
+This delegation rule is accepted by `HAC-0001`, `HAC-0017`, and `HAC-0020`.
+
 ## Scope and Non-Goals
 
 This specification owns the current harness contract for these surfaces:
@@ -176,6 +204,31 @@ Direct package scripts must not be documented as canonical harness contracts
 unless a later owner decision adopts them. Package scripts that call repository
 wrappers may rely only on the wrapper behavior they actually invoke.
 
+The command-family rows above incorporate these controlling interface rows by
+reference. A later edit that changes a command family's inputs, outputs,
+side effects, timing, cleanup, failure handling, or schema status must update
+the corresponding recovery row or add a new accepted row instead of relying on
+uncited prose.
+
+| Family | Controlling rows | Acceptance or blocker |
+|---|---|---|
+| Help and planning | `EP-0001`, `EP-0014`, `OI-0011`, `OI-0016`, `SCHEMA-0017`, `FAIL-0001`, `FAIL-0003`, `FAIL-0027`. | `HAC-0001`, `HAC-0014` |
+| Phase command targets | `EP-0002`, `OI-0001`, `SCHEMA-0001`, `SCHEMA-0002`, `FAIL-0001`, `FAIL-0003`, `FAIL-0011`, `FAIL-0013`, `FAIL-0017`. | `HAC-0001`, `HAC-0020` |
+| Aggregate sequences | `EP-0008`, `OI-0003`, `SCHEMA-0004`, `SCHEMA-0006`, `FAIL-0011`, `FAIL-0013`, `FAIL-0017`, `FAIL-0026`. | `HAC-0018`, `HAC-0019`, `HAC-GAP-0007` |
+| Check scheduler | `EP-0007`, `OI-0004`, `SCHEMA-0005`, `SCHEMA-0006`, `RES-0001` through `RES-0010`, `TMR-0020`, `TMR-0021`, `FAIL-0004`, `FAIL-0013`, `FAIL-0014`, `FAIL-0025`. | `HAC-0008`, `HAC-0017`, `HAC-0020` |
+| Service-backed scheduler | `EP-0006`, `EP-0012`, `OI-0005`, `SCHEMA-0005`, `SCHEMA-0006`, `SVC-0001`, `RES-0003`, `RES-0005` through `RES-0010`, `TMR-0020`, `TMR-0021`, `CLN-0011`, `CLN-0012`, `FAIL-0005`, `FAIL-0006`, `FAIL-0014`. | `HAC-0008`, `HAC-0010`, `HAC-0020` |
+| Go target runner | `EP-0004`, `EP-0005`, `OI-0006`, `SCHEMA-0007`, `SCHEMA-0011`, `SVC-0004`, `SVC-0006`, `RES-0014` through `RES-0016`, `RES-0025`, `TMR-0018`, `TMR-0019`, `TMR-0022`, `TMR-0023`, `TMR-0026`, `FAIL-0011`, `FAIL-0013`. | `HAC-0011`, `HAC-0017`, `HAC-0020` |
+| Frontend unit/typecheck | `EP-0002`, `EP-0019`, `OI-0007`, `OI-0013`, `SCHEMA-0008`, `SCHEMA-0012`, `FAIL-0011`, `FAIL-0012`, `FAIL-0013`. | `HAC-0001`, `HAC-0017`, `HAC-0020` |
+| Browser E2E | `EP-0009`, `EP-0010`, `EP-0018`, `OI-0008`, `OI-0009`, `SCHEMA-0009`, `SCHEMA-0010`, `SCHEMA-0013`, `SVC-0009` through `SVC-0014`, `RES-0017`, `RES-0021` through `RES-0023`, `RES-0026`, `TMR-0008` through `TMR-0012`, `TMR-0016`, `TMR-0024`, `TMR-0025`, `TMR-0029`, `TMR-0030`, `CLN-0013` through `CLN-0019`, `FAIL-0008` through `FAIL-0011`, `FAIL-0014`, `FAIL-0021`, `FAIL-0022`. | `HAC-0005`, `HAC-0006`, `HAC-0016`, `HAC-GAP-0006` |
+| Testservices | `EP-0011`, `OI-0010`, `SCHEMA-0014`, `SCHEMA-0015`, `SCHEMA-0016`, `SVC-0001` through `SVC-0007`, `SVC-0011`, `RES-0011` through `RES-0016`, `TMR-0001` through `TMR-0007`, `TMR-0017`, `TMR-0028`, `CLN-0011` through `CLN-0013`, `FAIL-0005` through `FAIL-0007`, `FAIL-0014`, `FAIL-0015`. | `HAC-0009`, `HAC-0010` |
+| Direct package scripts | `EP-0016`, `EP-0018`, `EP-0019`, `OI-0013`, `SCHEMA-0018`, `TMR-0032`, `CLN-0020`, `FAIL-0018`. | `HAC-0001` |
+| Maintenance writers and cleanup | `EP-0020`, `OI-0015`, `SCHEMA-0020`, `CLN-0001`, `CLN-0002`, `TMR-0027`, `TMR-0031`, `FAIL-0013`, `FAIL-0016`, `FAIL-0026`. | `HAC-0002`, `HAC-0011` |
+
+For package scripts that invoke repository wrappers, only the wrapper behavior
+identified by the relevant `EP-*` and `OI-*` rows is adopted. Package-manager
+sequencing, tool-native reports, direct Playwright/Vitest output, and artifacts
+outside the Make result-root policy remain tool-defined or authority-ambiguous.
+
 ### Command Modes and Side Effects
 
 | Command mode | Representative surfaces | Allowed side effects | Required result boundary | Acceptance or blocker |
@@ -207,6 +260,22 @@ Postgres, MinIO, browser processes, ports, or network resources.
 Duration baselines are planning weights. They may inform scheduler ordering and
 drift checks, but they do not prove throughput, runtime capacity, or service
 health.
+
+Timing and resource-sensitive behavior uses the following source-observed
+defaults and boundaries. These rows define what callers may rely on without
+turning source-limited runtime behavior into guaranteed cleanup, throughput, or
+platform support.
+
+| Surface | Default or bound | Exhaustion or invalid behavior | Preserved limit | Rows |
+|---|---|---|---|---|
+| Scheduler progress and resource waits | Progress tick default `60000ms`; no generic wall-clock timeout for pending work waiting on dependencies or resource claims. | Failed dependencies, failed children, invalid manifests, or invalid resource claims fail or skip work through scheduler rules; ordinary resource waiting is not itself a timeout failure. | No physical capacity or throughput guarantee. | `TMR-0020`, `TMR-0021`, `RES-0001` through `RES-0010` |
+| Suite service startup | Preflight `3s`; Postgres wrapper `2m`; MinIO wrapper `5m`; template setup `2m`; stale fixture janitor `10s`. | Startup, readiness, template, or janitor failure is a harness setup or fixture failure before or around child work as recorded by service summaries. | Live Docker/testcontainers timing and retry exhaustion remain source-limited outside selected evidence. | `TMR-0001` through `TMR-0007`, `SVC-0001` through `SVC-0007` |
+| Browser backend/frontend readiness | Backend and frontend readiness loops use 180 attempts at 1 second; Playwright webServer timeout is `180000ms`. | Early process exit or readiness exhaustion fails browser startup and retains recent logs/stack artifacts where the wrapper reaches reporting. | Browser runtime success, failure bundles, and interruption cleanup remain source-limited outside selected evidence. | `TMR-0008`, `TMR-0012`, `SVC-0009`, `SVC-0010`, `FAIL-0009`, `FAIL-0021` |
+| Process groups and port release | Stop sends TERM, waits 50 x 0.2 seconds, then sends KILL and waits again; port release checks also use 50 x 0.2 seconds when `ss` exists. | Cleanup or release failures become cleanup diagnostics or cleanup failure only where the wrapper observes them. | Signal behavior, parent death, and `ss`-absent behavior remain source-limited. | `TMR-0009`, `TMR-0010`, `RES-0017`, `RES-0020`, `CLN-0015` |
+| Lock waits | Playwright global setup lock deadline is `120s`; Go dependency warm and shared report locks default to `300s` with 100ms polling. | Lock timeout fails the setup or report-capture path with the source-observed failure surface. | Abrupt-exit stale lock recovery remains source-limited. | `TMR-0011`, `TMR-0018`, `TMR-0019`, `RES-0022` |
+| Reset route call and route internals | No route-specific timeout is recovered; reset script and handler use curl/request context behavior. | Non-200, invalid JSON, unexpected schema/counts, or handler error fails the reset wrapper or returns `500 test_runtime_reset_failed`. | Partial reset failure semantics and route-specific timeout remain source-limited. | `TMR-0016`, `TMR-0030`, `SVC-0014`, `FAIL-0010` |
+| Ordinary DB and object operations | Ordinary fixture DB create/drop/reset and MinIO bucket create/cleanup use caller context; no fixed per-operation timeout is recovered. | SQL or object-store operation failures fail the owning setup, cleanup, or fixture path. | Active DB cleanup and bucket operation timeout guarantees remain source-limited. | `TMR-0022`, `TMR-0023`, `SVC-0004`, `SVC-0006`, `CLN-0005` through `CLN-0010` |
+| Retained artifact readers | Durable claims require explicit `RESULTS_DIR`, run ID, command/target, platform/tool profile, exit status, and artifact paths. | Missing or ambiguous selected artifacts fail the reader or remain human-investigation-only according to the tool. | Newest-run fallback never supports durable normative claims. | `TMR-0027`, `OI-0011`, `HAC-0014` |
 
 ## Environment and Platform
 
@@ -303,6 +372,15 @@ refresh authority remains owner-required.
 | `schema_unknown` | No field-level harness contract is allowed. | Treat the output as diagnostic or tool-owned. | `HAC-GAP-0006` where browser/Playwright-owned. |
 | `authority_unknown` | No first-class harness schema is allowed. | Requires a later owner decision before adoption. | `HAC-0017`, `HAC-0020` |
 
+Schema adoption is not inferred from the presence of JSON, retained examples, or
+tool reports. A stable source schema ID adopts only the producing/consuming
+surface and the source-declared field contract recorded by
+`structured-output-schema-notes.md` and the referenced producer source.
+`partial` rows adopt only the inspected fields and cases named by their row.
+Tool-defined Go, Vitest, Playwright, pnpm, Vite, Biome, shell log, and provider
+CI outputs remain tool-owned unless a later owner decision adopts a harness
+schema for them.
+
 Stable schema IDs include phase, target, run, scheduler, tool-run, web E2E
 stack, selected reset/session, and generated manifest schemas recorded in
 `SCHEMA-0001`, `SCHEMA-0003`, `SCHEMA-0004`, `SCHEMA-0005`, `SCHEMA-0006`,
@@ -367,7 +445,7 @@ source-limited.
 | `configuration_error` | Required env, config, binary, manifest, path, or toolchain is missing, invalid, or contradictory. | Non-zero before child work or before dependent child work; summary exists only when reporting is reached. | Cleanup only for resources already started. | No until configuration changes. | Harness/platform owner. |
 | `preflight_error` | Docker, testcontainers, platform, secret, or prerequisite check fails before managed service startup. | Non-zero setup failure with preflight diagnostics where the wrapper reports them. | No service cleanup unless partial startup began. | Only after the environment or prerequisite is fixed. | Harness/platform owner. |
 | `service_start_error` | Required service cannot be provisioned or started. | Non-zero harness setup failure; scheduler or service summary records failure when reporting is reached. | Cleanup follows started-service owner and supported tier. | Only after the transient service or environment cause clears. | Harness service owner. |
-| `service_readiness_timeout` | Service starts but does not satisfy its ready condition before the declared timeout. | Non-zero harness setup failure with readiness diagnostics when available. | Cleanup follows service owner and timeout source limits. | Only after the readiness cause clears or timeout/configuration changes. | Harness service owner unless readiness endpoint is product-under-test. |
+| `service_readiness_timeout` | Service starts but does not satisfy its ready condition before the declared timeout. | Non-zero harness setup failure with readiness diagnostics when the owning wrapper reports them. | Cleanup follows service owner and timeout source limits. | Only after the readiness cause clears or timeout/configuration changes. | Harness service owner unless readiness endpoint is product-under-test. |
 | `fixture_error` | Fixture, reset, DB, bucket, template, or janitor operation fails. | Non-zero harness or target failure before or during child work, depending on fixture phase. | Cleanup follows fixture/service owner; destructive retry requires proof gates. | Only after the fixture cause is corrected or evidence classifies it as transient. | Harness fixture/service owner. |
 | `resource_conflict` | Port, DB, bucket, lock, cache, worker, lane, process, or profile conflict blocks setup or scheduling. | Non-zero setup/scheduler failure or source-limited platform behavior for unvalidated conflicts. | Cleanup is limited to owned resources already allocated. | Only after the conflict clears. | Harness resource owner. |
 | `test_assertion_failure` | Product-under-test assertion fails after harness setup reaches test execution. | Child failure propagates through target and aggregate summaries. | Harness resources are cleaned by their owner; cleanup failure is additional harness failure. | No by default unless a separate flake/rerun policy exists. | Product/test owner. |
