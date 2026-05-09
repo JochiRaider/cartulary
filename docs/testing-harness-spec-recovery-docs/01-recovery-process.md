@@ -9,9 +9,40 @@ role: process
 
 ## Document role
 
-This document defines the staged recovery workflow. Agents should follow these stages in order, but may loop back when later evidence invalidates an earlier finding.
+This document defines the staged recovery workflow and the current maintenance posture for the recovered testing harness specification package. The initial recovery pass has completed; agents should not restart stages unless new evidence invalidates an earlier finding or a maintainer requests a targeted follow-up.
 
-Each stage must update the sprint plan, source-limit log, and handoff notes when work stops.
+When a stage is rerun or materially updated, the agent must update the sprint plan, source-limit log, and handoff notes before work stops.
+
+## Current recovery state
+
+As of 2026-05-09, the recovery package is in a reviewable recovered-specification state.
+
+| Area | Current state |
+|---|---|
+| S0 through S6 recovery and register phases | Complete. Charter, inventory, command mapping, artifact ownership, service lifecycle, observable interface, failure, race, timing, resource, and gap-closure artifacts exist. |
+| S8 authority and preservation follow-up | Complete. Authority and preservation routing exists without converting owner-required questions into inferred decisions. |
+| S7 NLSpec, acceptance, roadmap, and review packet | Complete. The harness NLSpec draft, acceptance matrix, implementation roadmap, review packet, and final handoff material exist for maintainer review. |
+| Source limits and owner decisions | Preserved. Remaining gaps are bounded source limits or maintainer-decision-required items, not implicit blockers to documenting the current state. |
+
+The canonical harness command surface is `make`, per `MD-S7-0001` in `maintainer-decision-summary-2026-05-09.md`. Direct package scripts are developer conveniences unless they re-enter Make-owned wrappers.
+
+Generated task, schedule, Go, and TypeScript artifacts are downstream execution inputs. They may drive execution when fresh, but they do not own behavior; upstream specs, manifests, SQL, authored sources, and adopted harness specification text remain the owner inputs.
+
+Later work on this package is maintenance and review work. Preserve source limits instead of closing them by inference, and use `maintainer-decision-summary-2026-05-09.md` for S7 decisions rather than re-deciding settled questions.
+
+## Preserved limits
+
+The current recovery package must not close these boundaries without later selected evidence or maintainer decision:
+
+| Boundary | Current posture |
+|---|---|
+| Environment-variable precedence | Source-limited and owner-required; document only source-observed variables and defaults. |
+| Visual snapshot refresh OS/browser/version/command | Source-limited and owner-required; visual snapshots remain validation-only. |
+| Parent-death cleanup | Source-limited; do not claim guaranteed abrupt-exit cleanup. |
+| Active DB cleanup | Source-limited; do not claim guaranteed live-connection cleanup. |
+| Detached reaper hard completion | Source-limited; cleanup scheduling evidence is not a hard completion guarantee. |
+| Provider-specific CI behavior while `.github/**` is absent | Source-limited; keep CI provider-neutral and do not invent annotations, uploads, or workflow behavior. |
+| Playwright report, trace, video, and screenshot internals | Tool-owned or schema-unknown unless later adopted as stable harness schemas. |
 
 ## Process rules
 
@@ -25,24 +56,26 @@ Each stage must update the sprint plan, source-limit log, and handoff notes when
 8. Do not silently reconcile conflicts between main project spec, implementation, tests, fixtures, CI, and documentation.
 9. Keep recovery artifacts small, updateable, and table-driven.
 10. Move future implementation fixes into the roadmap instead of performing them during recovery.
+11. Do not rerun completed stages unless new evidence invalidates them or a maintainer requests a targeted follow-up.
+12. Treat Core 00 through Core 04 as product-behavior authority; harness recovery documents may define validation mechanics only.
 
 ## Stage map
 
-| Stage | Name | Primary output |
-|---:|---|---|
-| 0 | Charter and scope freeze | `TODO: recovery_charter_path` |
-| 1 | Harness inventory | `TODO: harness_inventory` |
-| 2 | Entrypoint and command map | `TODO: entrypoint_command_map` |
-| 3 | Fixtures, artifacts, and cleanup | `TODO: artifact_ownership_matrix` |
-| 4 | Services, environments, and resources | `TODO: service_lifecycle_map` |
-| 5 | Observable behavior and lifecycle | `TODO: observable_interface_map` and `TODO: harness_lifecycle_map` |
-| 6 | Race, timing, and resource hazards | `TODO: race_timing_resource_register` |
-| 7 | Failure-mode recovery | `TODO: failure_mode_register` |
-| 8 | Intent and authority classification | `TODO: preservation_matrix` and `TODO: harness_authority_map` |
-| 9 | Harness NLSpec contract pass | `harness-nlspec.md` |
-| 10 | Mechanics pass | Updated `harness-nlspec.md` |
-| 11 | Verification pass | `harness-acceptance-matrix.md` |
-| 12 | Roadmap and review packet | `harness-implementation-roadmap.md` and `harness-review-packet.md` |
+| Stage | Name | Current status | Primary output |
+|---:|---|---|---|
+| 0 | Charter and scope freeze | Complete | `recovery-charter.md` |
+| 1 | Harness inventory | Complete | `harness-inventory.md` |
+| 2 | Entrypoint and command map | Complete | `entrypoint-command-map.md` |
+| 3 | Fixtures, artifacts, and cleanup | Complete | `artifact-ownership-matrix.md`, `cleanup-lifecycle-matrix.md`, and `shared-state-hazard-list.md` |
+| 4 | Services, environments, and resources | Complete | `service-lifecycle-map.md`, `environment-contract-observations.md`, and `resource-allocation-register.md` |
+| 5 | Observable behavior and lifecycle | Complete | `observable-interface-map.md` and `harness-lifecycle-map.md` |
+| 6 | Race, timing, and resource hazards | Complete | `race-timing-resource-register.md` and `concurrency-model-notes.md` |
+| 7 | Failure-mode recovery | Complete | `failure-mode-register.md` and `failure-class-taxonomy.md` |
+| 8 | Intent and authority classification | Complete | `preservation-matrix.md` and `harness-authority-map.md` |
+| 9 | Harness NLSpec contract pass | Complete | `harness-nlspec.md` |
+| 10 | Mechanics pass | Complete with preserved source limits | Updated `harness-nlspec.md`, `structured-output-schema-notes.md`, and `harness-acceptance-matrix.md` |
+| 11 | Verification pass | Complete | `harness-acceptance-matrix.md` |
+| 12 | Roadmap and review packet | Complete | `harness-implementation-roadmap.md` and `harness-review-packet.md` |
 
 ## Stage 0: Charter and scope freeze
 
@@ -70,9 +103,9 @@ Define what counts as the testing harness, what may be inspected, what may be wr
 
 ### Expected outputs
 
-- `TODO: recovery_charter_path`
-- `TODO: source_limit_log`
-- `TODO: harness_boundary_candidate_list`
+- `recovery-charter.md`
+- `source-limit-log.md`
+- `recovery-charter.md#provisional-harness-boundary-candidate-list`
 
 ### Validation criteria
 
@@ -125,9 +158,9 @@ Inventory every file, directory, configuration surface, generated path, and exte
 
 ### Expected outputs
 
-- `TODO: harness_inventory`
-- `TODO: uninvoked_surface_list`
-- `TODO: embedded_harness_logic_list`
+- `harness-inventory.md`
+- `uninvoked-surface-list.md`
+- `embedded-harness-logic-list.md`
 
 ### Validation criteria
 
@@ -183,8 +216,8 @@ Recover every way the harness can be invoked and what each invocation promises o
 
 ### Expected outputs
 
-- `TODO: entrypoint_command_map`
-- `TODO: sequencing_assumption_list`
+- `entrypoint-command-map.md`
+- `sequencing-assumption-list.md`
 
 ### Validation criteria
 
@@ -242,9 +275,9 @@ Define ownership, authority, lifecycle, mutation, persistence, and cleanup behav
 
 ### Expected outputs
 
-- `TODO: artifact_ownership_matrix`
-- `TODO: cleanup_lifecycle_matrix`
-- `TODO: shared_state_hazard_list`
+- `artifact-ownership-matrix.md`
+- `cleanup-lifecycle-matrix.md`
+- `shared-state-hazard-list.md`
 
 ### Validation criteria
 
@@ -302,9 +335,9 @@ Recover how the harness starts, detects, uses, shares, resets, and stops runtime
 
 ### Expected outputs
 
-- `TODO: service_lifecycle_map`
-- `TODO: environment_contract_observations`
-- `TODO: resource_allocation_register`
+- `service-lifecycle-map.md`
+- `environment-contract-observations.md`
+- `resource-allocation-register.md`
 
 ### Validation criteria
 
@@ -364,12 +397,12 @@ Map what the harness exposes to callers and reconstruct major entrypoint lifecyc
 
 ### Expected outputs
 
-- `TODO: observable_interface_map`
-- `TODO: structured_output_schema_notes`
-- `TODO: output_consumer_map`
-- `TODO: harness_lifecycle_map`
-- `TODO: phase_transition_table`
-- `TODO: partial_completion_state_list`
+- `observable-interface-map.md`
+- `structured-output-schema-notes.md`
+- `output-consumer-map.md`
+- `harness-lifecycle-map.md`
+- `phase-transition-table.md`
+- `partial-completion-state-list.md`
 
 ### Validation criteria
 
@@ -426,8 +459,8 @@ Identify concurrency, timing, resource, and ordering hazards that produce or may
 
 ### Expected outputs
 
-- `TODO: race_timing_resource_register`
-- `TODO: concurrency_model_notes`
+- `race-timing-resource-register.md`
+- `concurrency-model-notes.md`
 
 ### Validation criteria
 
@@ -477,7 +510,7 @@ Document current and plausible harness failures so the future spec can make them
 
 ### Concrete agent actions
 
-- Build `TODO: failure_mode_register`.
+- Build or update `failure-mode-register.md`.
 - Separate product assertion failures from harness operational failures.
 - Separate setup failures, service failures, fixture failures, cleanup failures, missing-secret failures, unsupported-platform failures, timeout, deadlock, and resource exhaustion.
 - Record trigger, observable result, exit/report behavior, side effects, cleanup behavior, retryability, and owner.
@@ -485,8 +518,8 @@ Document current and plausible harness failures so the future spec can make them
 
 ### Expected outputs
 
-- `TODO: failure_mode_register`
-- `TODO: failure_class_taxonomy`
+- `failure-mode-register.md`
+- `failure-class-taxonomy.md`
 
 ### Validation criteria
 
@@ -543,10 +576,10 @@ Separate behavior that should become a harness contract from behavior that exist
 
 ### Expected outputs
 
-- `TODO: preservation_matrix`
-- `TODO: ambiguity_register`
-- `TODO: harness_authority_map`
-- `TODO: main_spec_conflict_list`
+- `preservation-matrix.md`
+- `ambiguity-register.md`
+- `harness-authority-map.md`
+- `main-spec-conflict-list.md`
 
 ### Validation criteria
 
@@ -579,7 +612,7 @@ Separate behavior that should become a harness contract from behavior that exist
 
 ### Objective
 
-Create the first complete contract-level draft of the dedicated harness specification.
+Maintain the contract-level draft of the dedicated harness specification.
 
 ### Inputs to inspect
 
@@ -591,7 +624,7 @@ Create the first complete contract-level draft of the dedicated harness specific
 
 ### Concrete agent actions
 
-- Copy `templates/harness-nlspec-template.md` to `harness-nlspec.md` when starting from the template; for S7 the draft now exists at that path.
+- Use the existing `harness-nlspec.md`; copy `templates/harness-nlspec-template.md` only if a future owner explicitly asks to recreate the draft from scratch.
 - Write purpose, scope, non-goals, terminology, authority relationship, and harness-owned surfaces.
 - Define entrypoint contracts, lifecycle states, artifact ownership, service lifecycle, resource policy, timing behavior, failure taxonomy, cleanup behavior, and diagnostics.
 - Mark observed behavior, intended behavior, and open decisions separately.
@@ -600,7 +633,7 @@ Create the first complete contract-level draft of the dedicated harness specific
 ### Expected outputs
 
 - `harness-nlspec.md`
-- Updated `TODO: ambiguity_register`
+- Updated `ambiguity-register.md`
 
 ### Validation criteria
 
@@ -637,7 +670,7 @@ Create the first complete contract-level draft of the dedicated harness specific
 
 ### Objective
 
-Make the harness spec implementable by defining schemas, algorithms, defaults, bounds, errors, ordering, and omitted cases.
+Maintain implementable harness mechanics by defining schemas, algorithms, defaults, bounds, errors, ordering, and omitted cases where the current evidence supports them.
 
 ### Inputs to inspect
 
@@ -659,7 +692,7 @@ Make the harness spec implementable by defining schemas, algorithms, defaults, b
 ### Expected outputs
 
 - Updated `harness-nlspec.md`
-- `TODO: mechanics_gap_list`
+- Mechanics gaps tracked in `ambiguity-register.md`, `structured-output-schema-notes.md`, and `harness-acceptance-matrix.md`
 
 ### Validation criteria
 
@@ -716,8 +749,8 @@ Bind every normative harness requirement to binary acceptance criteria.
 ### Expected outputs
 
 - `harness-acceptance-matrix.md`
-- `TODO: missing_fixture_list`
-- `TODO: future_ci_gate_list`
+- Missing fixture, golden, and snapshot review in `harness-acceptance-matrix.md`
+- Future-gate list in `harness-acceptance-matrix.md`
 - Updated `harness-nlspec.md`
 
 ### Validation criteria

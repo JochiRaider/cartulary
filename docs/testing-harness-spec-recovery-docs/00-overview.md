@@ -19,6 +19,23 @@ The project already has a testing harness whose behavior evolved through impleme
 
 This recovery effort must produce a dedicated NLSpec-style testing harness specification grounded in current implementation behavior. The output must help maintainers understand what the harness currently does, what behavior is intentional, what behavior is accidental, what must be preserved for compatibility, and what should be refactored or redesigned later.
 
+## Current recovery state
+
+As of 2026-05-09, the recovery package has moved from kickoff planning into a reviewable recovered-specification state.
+
+| Area | Current state |
+|---|---|
+| S0 through S6 recovery and register phases | Complete. Charter, inventory, command mapping, artifact ownership, service lifecycle, observable interface, failure, race, timing, resource, and gap-closure artifacts exist. |
+| S8 authority and preservation follow-up | Complete. Authority and preservation routing exists without converting owner-required questions into inferred decisions. |
+| S7 NLSpec, acceptance, roadmap, and review packet | Complete. The harness NLSpec draft, acceptance matrix, implementation roadmap, review packet, and final handoff material exist for maintainer review. |
+| Source limits and owner decisions | Preserved. Remaining gaps are bounded source limits or maintainer-decision-required items, not implicit blockers to documenting the current state. |
+
+The canonical harness command surface is `make`, per `MD-S7-0001`. Direct package scripts are developer conveniences unless they re-enter Make-owned wrappers.
+
+Generated task, schedule, Go, and TypeScript artifacts are downstream execution inputs. They may drive execution when fresh, but they do not own behavior; upstream specs, manifests, SQL, authored sources, and adopted harness specification text remain the owner inputs.
+
+This overview is orientation material. It does not replace `harness-nlspec.md`, `harness-acceptance-matrix.md`, or `harness-review-packet.md` as the current recovered specification package.
+
 ## Scope
 
 The recovery scope includes all repository surfaces that affect test orchestration or validation behavior.
@@ -71,27 +88,45 @@ The new harness specification must not redefine product behavior owned by the ma
 
 ## Recovery artifact set
 
-The recovery must produce or update these artifacts in the target repository.
+The recovery produced or updated these artifacts in the target repository.
 
 | Artifact | Purpose |
 |---|---|
-| `TODO: recovery_charter_path` | Scope, allowed writes, prohibited implementation changes, repository revision, and source limits. |
-| `TODO: harness_inventory` | File, directory, config, command, fixture, service, artifact, log, and cleanup inventory. |
-| `TODO: entrypoint_command_map` | Exact command contracts and invocation paths. |
-| `TODO: artifact_ownership_matrix` | Fixture, generated artifact, log, temp file, cache, and external state ownership. |
-| `TODO: service_lifecycle_map` | Service provisioning, readiness, reset, stop, and cleanup behavior. |
-| `TODO: observable_interface_map` | Exit codes, stdout/stderr, machine reports, logs, CI annotations, and output consumers. |
-| `TODO: harness_lifecycle_map` | Lifecycle phases, legal transitions, terminal states, and partial-completion states. |
-| `TODO: race_timing_resource_register` | Race, timing, concurrency, allocation, and ordering hazards. |
-| `TODO: failure_mode_register` | Failure classes, triggers, outputs, side effects, cleanup, retryability, and ownership. |
-| `TODO: ambiguity_register` | Open gaps, contradictions, missing defaults, and owner decisions. |
-| `TODO: preservation_matrix` | Preserve, clarify, refactor, deprecate, redesign, remove, and authority-decision classifications. |
-| `TODO: harness_authority_map` | Relationship between main spec, harness spec, implementation, tests, fixtures, CI, reports, and local policy. |
+| `recovery-charter.md` | Scope, allowed writes, prohibited implementation changes, repository revision, and source limits. |
+| `harness-inventory.md` | File, directory, config, command, fixture, service, artifact, log, and cleanup inventory. |
+| `entrypoint-command-map.md` | Exact command contracts and invocation paths. |
+| `artifact-ownership-matrix.md` | Fixture, generated artifact, log, temp file, cache, and external state ownership. |
+| `service-lifecycle-map.md` | Service provisioning, readiness, reset, stop, and cleanup behavior. |
+| `observable-interface-map.md` | Exit codes, stdout/stderr, machine reports, logs, CI annotations, and output consumers. |
+| `harness-lifecycle-map.md` | Lifecycle phases, legal transitions, terminal states, and partial-completion states. |
+| `race-timing-resource-register.md` | Race, timing, concurrency, allocation, and ordering hazards. |
+| `failure-mode-register.md` | Failure classes, triggers, outputs, side effects, cleanup, retryability, and ownership. |
+| `ambiguity-register.md` | Open gaps, contradictions, missing defaults, and owner decisions. |
+| `preservation-matrix.md` | Preserve, clarify, refactor, deprecate, redesign, remove, and authority-decision classifications. |
+| `harness-authority-map.md` | Relationship between main spec, harness spec, implementation, tests, fixtures, CI, reports, and local policy. |
 | `s0-s6-gap-closure-plan.md` | S0 through S6 gap closure, source-limit carry-forward, authority questions, minimal execution order, and S7 readiness criteria. |
+| `s7-s6-audit-gap-follow-up.md` | Focused S7 carry-forward track for remaining S6 source limits, owner questions, and later authorized evidence collection. |
+| `runtime-evidence-register.md` | Selected runtime evidence pass and evidence-selection rule for S7 claims. |
+| `cleanup-signal-evidence-register.md` | Cleanup, signal, process, reaper, and port-release evidence from selected S7 runs. |
+| `maintainer-decision-summary-2026-05-09.md` | Maintainer decisions used by S7 for command authority, generated artifacts, cleanup strength, CI scope, and related owner questions. |
 | `harness-nlspec.md` | Dedicated testing harness NLSpec draft. |
 | `harness-acceptance-matrix.md` | Binary acceptance criteria for every normative harness requirement. |
 | `harness-implementation-roadmap.md` | Future implementation remediation plan. |
 | `harness-review-packet.md` | Maintainer review packet summarizing findings, risks, decisions, and readiness. |
+
+## Preserved limits
+
+The current overview must not close the remaining source limits by inference. These boundaries remain open unless later selected evidence or maintainer decisions close them:
+
+| Boundary | Current posture |
+|---|---|
+| Environment-variable precedence | Source-limited and owner-required; document only source-observed variables and defaults. |
+| Visual snapshot refresh OS/browser/version/command | Source-limited and owner-required; visual snapshots remain validation-only. |
+| Parent-death cleanup | Source-limited; do not claim guaranteed abrupt-exit cleanup. |
+| Active DB cleanup | Source-limited; do not claim guaranteed live-connection cleanup. |
+| Detached reaper hard completion | Source-limited; cleanup scheduling evidence is not a hard completion guarantee. |
+| Provider-specific CI behavior while `.github/**` is absent | Source-limited; keep CI provider-neutral and do not invent annotations, uploads, or workflow behavior. |
+| Playwright report, trace, video, and screenshot internals | Tool-owned or schema-unknown unless later adopted as stable harness schemas. |
 
 ## Definition of done
 

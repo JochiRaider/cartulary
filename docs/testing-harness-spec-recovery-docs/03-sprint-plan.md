@@ -9,9 +9,40 @@ role: sprint-plan
 
 ## Document role
 
-This document breaks the recovery effort into practical, agent-sized sprints. Use it as the progress board across multiple sessions.
+This document is the evidence-bounded sprint ledger for the testing harness
+specification recovery package. It records recovery sprint status, completion
+evidence, preserved source limits, owner-required decisions, and handoff notes
+across agent sessions.
 
-Each sprint has explicit status, blocker, issues, and handoff fields. Agents must update those fields before stopping work.
+This document is not the harness contract. Current harness behavior is specified
+in `harness-nlspec.md`, accepted through `harness-acceptance-matrix.md`, and
+summarized for review in `harness-review-packet.md`. This sprint plan must not
+redefine product behavior owned by Core 00 through Core 04, and it must not
+close `source_limit` or `maintainer_decision_required` rows by inference.
+
+Each sprint has explicit status, blocker, issues, and handoff fields. Agents
+must update those fields before stopping work when a sprint is rerun or
+materially updated.
+
+## Current recovery state
+
+As of 2026-05-09, the recovery package is in a reviewable recovered-specification
+state.
+
+| Area | Current state | Evidence |
+| --- | --- | --- |
+| S0 through S6 recovery and register phases | `complete`; charter, inventory, command mapping, artifact ownership, service lifecycle, observable interface, failure, race, timing, resource, and gap-closure artifacts exist. | Sprint sections S0-S6; `00-overview.md`; `01-recovery-process.md` |
+| S8 authority and preservation follow-up | `complete`; authority routing exists without converting owner-required questions into inferred decisions. | `preservation-matrix.md`; `harness-authority-map.md`; `main-spec-conflict-list.md` |
+| S7 NLSpec, acceptance, roadmap, and review packet | `complete`; the NLSpec draft, acceptance matrix, roadmap, review packet, and final handoff material exist for maintainer review. | `harness-nlspec.md`; `harness-acceptance-matrix.md`; `harness-implementation-roadmap.md`; `harness-review-packet.md` |
+| Remaining gaps | Preserved as `source_limit`, `source-limited`, `maintainer_decision_required`, or owner-required items, not hidden blockers to documenting current state. | `source-limit-log.md`; `ambiguity-register.md`; `harness-review-packet.md` |
+
+The canonical harness command surface is `make`, per `MD-S7-0001`. Direct
+package scripts remain developer conveniences unless they re-enter Make-owned
+wrappers.
+
+Generated task, schedule, Go, and TypeScript artifacts are downstream execution
+inputs only, per `MD-S7-0003`. They may drive execution when fresh, but they do
+not own behavior and must not be hand-edited.
 
 ## Status vocabulary
 
@@ -22,6 +53,55 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 | `blocked`     | Work cannot proceed without a decision, missing dependency, inaccessible source, or unavailable runtime. |
 | `complete`    | Outputs exist and validation criteria pass.                                                              |
 | `superseded`  | Sprint was replaced by a revised plan.                                                                   |
+
+## Status and evidence defaults
+
+| Condition | Required treatment |
+| --- | --- |
+| A sprint has all expected outputs, validation criteria pass, and unresolved evidence gaps are explicitly routed. | Status may be `complete`. Preserved `source_limit`, `source-limited`, `maintainer_decision_required`, or owner-required rows do not by themselves reopen the sprint. |
+| A sprint lacks an expected output or contains contradictory status/checklist fields. | Status must not be `complete` until the contradiction is resolved or the missing output is routed as an explicit blocker. |
+| Source evidence is static only. | Claims may use `source_observed` for source-level behavior, but must not claim runtime success without selected runtime evidence. |
+| Selected runtime evidence exists. | Claims may use `selected_runtime_observed` only for the selected command, environment, inputs, artifacts, and exit status that were actually observed. |
+| Maintainer decisions exist. | Claims may cite `maintainer_decision` by ID when no primary owner conflicts. |
+| Maintainer or product-owner input is still required. | Claims must remain `maintainer_decision_required` or owner-required and must be routed to an ambiguity, source-limit, `HAC-GAP-*`, or roadmap row. |
+
+## Process-stage crosswalk
+
+`01-recovery-process.md` now describes the completed recovery package as S0
+through S12 stages. This sprint plan keeps the original agent-sized S0 through
+S8 sprint model. The mapping below prevents the two numbering systems from
+being treated as conflicting authorities.
+
+| Process stage | Stage name | Sprint-plan owner |
+| ---: | --- | --- |
+| 0 | Charter and scope freeze | S0 |
+| 1 | Harness inventory | S1 |
+| 2 | Entrypoint and command map | S2 |
+| 3 | Fixtures, artifacts, and cleanup | S3 |
+| 4 | Services, environments, and resources | S4 |
+| 5 | Observable behavior and lifecycle | S5 |
+| 6 | Race, timing, and resource hazards | S6 |
+| 7 | Failure-mode recovery | S5 |
+| 8 | Intent and authority classification | S8 |
+| 9 | Harness NLSpec contract pass | S7 |
+| 10 | Mechanics pass | S7 |
+| 11 | Verification pass | S7 |
+| 12 | Roadmap and review packet | S7 |
+
+## Preserved limits
+
+The sprint ledger must preserve these limits until later selected evidence or
+owner decisions close them.
+
+| Boundary | Current status | Blocking scope |
+| --- | --- | --- |
+| Environment-variable precedence | `source_limit` and owner-required through `SL-0015`, `HAC-GAP-0001`, and `MD-S7-0010`. | Blocks final precedence claims only. |
+| Visual snapshot refresh OS, browser, version, and command | `source_limit` and owner-required through `AMB-0022`, `HAC-GAP-0002`, and `MD-S7-0013`. | Blocks snapshot update workflow claims. |
+| Parent-death cleanup | `source_limit` through `MD-S7-0008` and cleanup evidence registers. | Blocks guaranteed abrupt-exit cleanup claims. |
+| Active DB cleanup | `source_limit` through `MD-S7-0008`. | Blocks guaranteed live-connection cleanup claims. |
+| Detached reaper hard completion | `source_limit`; cleanup scheduling evidence is not completion proof. | Blocks hard detached cleanup completion claims. |
+| Provider-specific CI behavior while `.github/**` is absent | `source_limit` through `SL-0001` and `MD-S7-0015`. | Blocks workflow, annotation, upload, or dashboard claims. |
+| Playwright report, trace, video, and screenshot internals | `schema_unknown` or tool-owned through `HAC-GAP-0006` and `MD-S7-0014`. | Blocks stable schema claims for tool-owned reports. |
 
 ## Sprint progress board
 
@@ -34,8 +114,8 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 | S4. Services, environments, and resources    | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md`                                                                                                                                                                                                                       |
 | S5. Lifecycle, interfaces, and failures      | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/observable-interface-map.md` and `docs/testing-harness-spec-recovery-docs/failure-mode-register.md`                                                                                                                                             |
 | S6. Hazards, resources, and timing           | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md`                                                                                                                                                                                                               |
-| S7. NLSpec, acceptance, roadmap, and handoff | `in_progress` | `none`  | `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`, `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`, `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`, and `docs/testing-harness-spec-recovery-docs/harness-review-packet.md` |
-| S8. Authority and preservation follow-up     | `in_progress` | `none`  | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`                                                                                                                                                  |
+| S8. Authority and preservation follow-up     | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`                                                                                                                                                  |
+| S7. NLSpec, acceptance, roadmap, and handoff | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`, `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`, `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`, and `docs/testing-harness-spec-recovery-docs/harness-review-packet.md` |
 
 ## S0: Charter and setup
 
@@ -595,11 +675,11 @@ harness behavior or inventing maintainer decisions.
 
 ### Concrete tasks
 
-- [ ] Classify preservation posture for S4 follow-up surfaces.
-- [ ] Record harness authority map and owner questions.
-- [ ] Record main-spec conflict risks without resolving them by inference.
-- [ ] Preserve maintainer-decision-required status where owner input is absent.
-- [ ] Keep generated artifacts as downstream execution inputs, not behavior owners.
+- [x] Classify preservation posture for S4 follow-up surfaces.
+- [x] Record harness authority map and owner questions.
+- [x] Record main-spec conflict risks without resolving them by inference.
+- [x] Preserve `maintainer_decision_required` status where owner input is absent.
+- [x] Keep generated artifacts as downstream execution inputs, not behavior owners.
 
 ### Expected outputs
 
@@ -616,9 +696,9 @@ harness behavior or inventing maintainer decisions.
 
 ### Exit criteria
 
-- [ ] Preservation matrix can drive roadmap and normative decisions.
-- [ ] Authority map is ready to include in the harness NLSpec.
-- [ ] Main-spec conflict risks are recorded.
+- [x] Preservation matrix can drive roadmap and normative decisions.
+- [x] Authority map is ready to include in the harness NLSpec.
+- [x] Main-spec conflict risks are recorded.
 
 ### Status field
 
@@ -630,18 +710,32 @@ harness behavior or inventing maintainer decisions.
 
 ### Issues or concerns field
 
-S8 did not make maintainer decisions. Reset route, package scripts, local-dev
-services, stale janitor destructive bounds, public environment contracts,
-supported platform/tool profile, and external Go cache cleanup remain
-`maintainer_decision_required`.
+S8 did not make maintainer decisions. It classified authority, preservation
+posture, and conflict risks while preserving `maintainer_decision_required`
+status where owner input was absent. Later S7 maintainer decisions settled
+selected S8-routed items, including Make command authority (`MD-S7-0001`),
+generated artifact authority (`MD-S7-0003`), reset route ownership
+(`MD-S7-0004`), local-dev verification scope (`MD-S7-0005`), logical scheduler
+lanes (`MD-S7-0006`), stale janitor safety (`MD-S7-0007`), cleanup strength
+(`MD-S7-0008`), external Go cache cleanup scope (`MD-S7-0009`), retained
+artifact identity (`MD-S7-0012`), known machine schemas (`MD-S7-0014`),
+provider-neutral CI (`MD-S7-0015`), stale extended smoke demotion
+(`MD-S7-0016`), evidence-gated final language (`MD-S7-0017`), and the Phase 6
+browser login burst as harness-only test stress margin (`MD-S7-0018`).
+
+Environment-variable precedence remains `source_limit` and owner-required
+through `SL-0015`, `HAC-GAP-0001`, and `MD-S7-0010`. Visual snapshot refresh
+OS, browser, version, and update-command bounds remain `source_limit` and
+owner-required through `AMB-0022`, `HAC-GAP-0002`, and `MD-S7-0013`.
 
 ### Findings or handoff notes for future sprints
 
 S8 created `preservation-matrix.md`, `harness-authority-map.md`,
 `main-spec-conflict-list.md`, handoff
 `handoffs/2026-05-08-s8-authority-preservation.md`, and audit
-`audits/2026-05-08-s8-authority-preservation-audit.md`. NLSpec drafting must
-not normalize owner-required items without recorded maintainer decisions.
+`audits/2026-05-08-s8-authority-preservation-audit.md`. S7 consumed S8 as
+authority input and must not normalize remaining owner-required items without
+later selected evidence or recorded maintainer decisions.
 
 ## S7: NLSpec, acceptance, roadmap, and handoff
 
@@ -663,18 +757,18 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 
 ### Concrete tasks
 
-- [ ] Create `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`.
-- [ ] Write document status, purpose, scope, non-goals, and authority relationship.
-- [ ] Define terms, actors, and harness-owned surfaces.
-- [ ] Draft entrypoint contracts.
-- [ ] Draft run lifecycle and phase transitions at the contract level while preserving source limits.
-- [ ] Draft fixture, artifact, service, environment, resource, timing, retry, timeout, cancellation, failure, cleanup, and diagnostic rules.
-- [ ] Add tables required for cleanup tiers, acceptance routing, and source-limit carry-forward.
-- [ ] Extract normative candidates into `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`.
-- [ ] Assign verification method and current coverage to every criterion.
-- [ ] Identify missing tests, missing fixtures, missing golden files, and future CI gates.
-- [ ] Create `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`.
-- [ ] Produce `docs/testing-harness-spec-recovery-docs/harness-review-packet.md`.
+- [x] Create `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`.
+- [x] Write document status, purpose, scope, non-goals, and authority relationship.
+- [x] Define terms, actors, and harness-owned surfaces.
+- [x] Draft entrypoint contracts.
+- [x] Draft run lifecycle and phase transitions at the contract level while preserving source limits.
+- [x] Draft fixture, artifact, service, environment, resource, timing, retry, timeout, cancellation, failure, cleanup, and diagnostic rules.
+- [x] Add tables required for cleanup tiers, acceptance routing, and source-limit carry-forward.
+- [x] Extract normative candidates into `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`.
+- [x] Assign verification method and current coverage to every criterion.
+- [x] Identify missing tests, missing fixtures, missing golden files, and future CI gates.
+- [x] Create `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`.
+- [x] Produce `docs/testing-harness-spec-recovery-docs/harness-review-packet.md`.
 
 ### Expected outputs
 
@@ -696,13 +790,13 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 
 ### Exit criteria
 
-- [ ] Harness NLSpec draft is complete enough for maintainer review.
-- [ ] Acceptance matrix is complete.
-- [ ] Roadmap is complete.
-- [ ] Review packet is complete.
-- [ ] Source limits are summarized.
-- [ ] Open owner decisions are consolidated.
-- [ ] Verification commands have completed and outcomes are recorded.
+- [x] Harness NLSpec draft is complete enough for maintainer review.
+- [x] Acceptance matrix is complete.
+- [x] Roadmap is complete.
+- [x] Review packet is complete.
+- [x] Source limits are summarized.
+- [x] Open owner decisions are consolidated.
+- [x] Verification commands have completed and outcomes are recorded.
 
 ### Status field
 
@@ -720,8 +814,8 @@ outputs plus `s0-s6-gap-closure-plan.md`,
 Runtime readiness, cleanup strength beyond selected evidence, retained failure
 bundle schemas, environment precedence, full platform support, visual snapshot
 refresh authority, active DB cleanup, parent-death cleanup, detached reaper hard
-completion, and CI provider workflow behavior remain source-limited or
-maintainer-decision-required.
+completion, and CI provider workflow behavior remain `source_limit` or
+`maintainer_decision_required`.
 
 Verification completed on 2026-05-09:
 `make agent-finalize`, targeted reset and stale-janitor tests,
@@ -733,14 +827,26 @@ baseline refresh because `RESULTS_DIR` was unset. Standalone
 extended-smoke phase-map accounting issue, which remains diagnostic and
 non-blocking.
 
+The S7 NLSpec package audit initially blocked acceptance on three follow-ups:
+missing final handoff material, missing explicit fixture/golden/snapshot review,
+and an unrepresented Phase 6 browser login burst change. Those follow-ups are
+closed in the current review packet and acceptance matrix: `harness-review-packet.md`
+contains the final handoff section, `harness-acceptance-matrix.md` records the
+missing fixture/golden/snapshot review result, and `MD-S7-0018` authorizes the
+Phase 6 browser login burst only as harness test stress margin without changing
+Core 04 session-cap behavior.
+
 ### Findings or handoff notes for future sprints
 
 `s0-s6-gap-closure-plan.md` is the S7 preflight closure artifact for all S0
 through S6 recovery gaps. `s7-s6-audit-gap-follow-up.md` remains the focused S6
-audit carry-forward track. S7 must not draft final normative `MUST` language for
+audit carry-forward track. S7 must not draft final normative `must` language for
 live readiness, cleanup completion beyond selected evidence, signal/timeout
 behavior, detached reaper completion, active DB cleanup, port release, visual
 snapshot refresh bounds, env precedence, CI provider annotations, Playwright
 tool report internals, or concrete scheduler capacity guarantees unless later
 authorized runtime evidence or explicit owner decisions exist. Decided S7 items
-are recorded in `maintainer-decision-summary-2026-05-09.md`.
+are recorded in `maintainer-decision-summary-2026-05-09.md`. The non-blocking
+`scripts/test-print-target-plan.sh` diagnostic failure remains tied to the
+demoted stale Phase 5 smoke phase-map accounting issue and must not be treated
+as a blocking `ci` or `release-check` result.
