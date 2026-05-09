@@ -29,7 +29,7 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 |---|---|---|---|
 | S0. Charter and setup | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/recovery-charter.md` |
 | S1. Inventory and boundary | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/harness-inventory.md` |
-| S2. Entrypoints and commands | `not_started` | `TODO:` | `TODO: entrypoint_command_map` |
+| S2. Entrypoints and commands | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md` |
 | S3. Fixtures, artifacts, and cleanup | `not_started` | `TODO:` | `TODO: artifact_ownership_matrix` |
 | S4. Services, environments, and resources | `not_started` | `TODO:` | `TODO: service_lifecycle_map` |
 | S5. Lifecycle, interfaces, and failures | `not_started` | `TODO:` | `TODO: observable_interface_map` and `TODO: failure_mode_register` |
@@ -186,22 +186,25 @@ Recover every harness invocation path and its caller-visible contract.
 
 ### Concrete tasks
 
-- [ ] Identify all local validation commands.
-- [ ] Identify all CI validation commands.
-- [ ] Identify watch and debug commands.
-- [ ] Identify fixture-update and snapshot-update commands.
-- [ ] Identify cleanup and service commands.
-- [ ] Record exact command strings.
-- [ ] Trace each command to first implementation file or external tool.
-- [ ] Record inputs, outputs, side effects, defaults, env vars, and failure behavior.
-- [ ] Record sequencing assumptions and parallel invocation constraints.
-- [ ] Map CI steps to harness entrypoints or non-harness commands.
+- [x] Identify all local validation commands.
+- [x] Identify all CI validation commands.
+- [x] Identify watch and debug commands.
+- [x] Identify fixture-update and snapshot-update commands.
+- [x] Identify cleanup and service commands.
+- [x] Record exact command strings.
+- [x] Trace each command to first implementation file or external tool.
+- [x] Record inputs, outputs, side effects, defaults, env vars, and failure behavior.
+- [x] Record sequencing assumptions and parallel invocation constraints.
+- [x] Map CI steps to harness entrypoints or non-harness commands.
 
 ### Expected outputs
 
-- `TODO: entrypoint_command_map`
-- `TODO: sequencing_assumption_list`
-- Updated `TODO: harness_inventory`
+- `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md`
+- `docs/testing-harness-spec-recovery-docs/sequencing-assumption-list.md`
+- Updated `docs/testing-harness-spec-recovery-docs/harness-inventory.md`
+- Updated `docs/testing-harness-spec-recovery-docs/ambiguity-register.md`
+- Updated `docs/testing-harness-spec-recovery-docs/source-limit-log.md`
+- `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s2-entrypoints-and-commands.md`
 
 ### Validation criteria
 
@@ -212,25 +215,25 @@ Recover every harness invocation path and its caller-visible contract.
 
 ### Exit criteria
 
-- [ ] Entrypoint map is row-complete for discovered commands.
-- [ ] Unknown command behavior is recorded, not guessed.
-- [ ] S3 and S5 can link artifacts and outputs to entrypoints.
+- [x] Entrypoint map is row-complete for discovered commands.
+- [x] Unknown command behavior is recorded, not guessed.
+- [x] S3 and S5 can link artifacts and outputs to entrypoints.
 
 ### Status field
 
-`not_started`
+`complete`
 
 ### Blocker field
 
-`TODO:`
+`none`
 
 ### Issues or concerns field
 
-`TODO:`
+S2 did not execute broad runtime gates or mutating commands. Runtime success and failure behavior remains source-limited for `make test-fast`, `make test`, `make check`, `make ci`, `make release-check`, service-backed targets, browser E2E targets, cleanup, format, generate, baseline refresh/update targets, and failure scenarios. `.github/**` remains absent, so provider CI workflow steps are still unresolved. Package scripts are mapped as alternate entrypoints that can bypass Make output and scheduler policy.
 
 ### Findings or handoff notes for future sprints
 
-`TODO:`
+S2 created `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md`, `docs/testing-harness-spec-recovery-docs/sequencing-assumption-list.md`, and handoff `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s2-entrypoints-and-commands.md`. The current command surface reconciles to 122 Make targets: 77 public, 17 check-internal, and 28 helper-only. S2 maps those targets to command families, maps root and `apps/web` package scripts separately, records `47` logical harness smoke checks, and carries forward source limits for absent `.github/**`, broad runtime behavior, static-only script usage, retained artifact provenance, and planned phase7/phase8 files. S3 should use `entrypoint-command-map.md` and `sequencing-assumption-list.md` to link artifacts, cleanup, generated outputs, and fixture update behavior back to stable entrypoint IDs.
 
 ## S3: Fixtures, artifacts, and cleanup
 

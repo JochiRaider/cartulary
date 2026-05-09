@@ -116,3 +116,12 @@ lockfile edits were made during S1.
 - Start from `task-surface-report --all` because it gives public, check-internal, helper-only, script, and harness-smoke classifications in one view.
 - Trace Make targets to scripts and package scripts before interpreting individual helper behavior.
 - Keep `internal/testutil/**`, `apps/web/e2e/**`, and `tools/testservices/**` in the candidate boundary, but do not promote product assertions inside ordinary tests to harness contract without a later authority pass.
+
+## S2 invocation addendum
+
+| Addendum ID | Surface | S2 command-flow clarification | Evidence | Evidence status | Notes |
+|---|---|---|---|---|---|
+| HI-S2-0001 | Make task surface | S2 reconciled all `122` task-surface targets to command families in `entrypoint-command-map.md`: `77` public, `17` check-internal, and `28` helper-only. | `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`; `entrypoint-command-map.md#target-row-reconciliation` | `runtime_observed` | This clarifies invocation coverage without changing S1 boundary classifications. |
+| HI-S2-0002 | Package scripts | Root and `apps/web` package scripts are alternate entrypoints that can bypass Make result-root, target-summary, scheduler, and output policy unless their child scripts re-enter harness wrappers. | `package.json`; `apps/web/package.json`; `entrypoint-command-map.md#package-scripts` | `observed` | This is an authority ambiguity for S8, not a behavior change. |
+| HI-S2-0003 | Service-backed schedules | `test-service-backed` and `check-service-backed` each have `8` work-unit sources spanning backend service-backed targets and browser stages; `test-fast-service-backed` has `4` backend-only work-unit sources. | `tools/service_backed_schedule_manifest.json`; `sequencing-assumption-list.md` | `observed` | Detailed service lifecycle remains S4 scope. |
+| HI-S2-0004 | Browser batch stages | Browser batch manifest declares `webserver-backed`, `functional`, `support`, `stateful`, `measurement`, `visual`, `resettable`, and `isolated` stages. | `tools/browser_e2e_batch_manifest.json`; browser scripts | `observed` | Artifact and reset behavior remains S3/S5 scope. |
