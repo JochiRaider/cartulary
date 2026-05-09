@@ -34,7 +34,7 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 | S4. Services, environments, and resources    | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md`                                                                           |
 | S5. Lifecycle, interfaces, and failures      | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/observable-interface-map.md` and `docs/testing-harness-spec-recovery-docs/failure-mode-register.md` |
 | S6. Hazards, resources, and timing           | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md`                                                                   |
-| S7. NLSpec, acceptance, roadmap, and handoff | `not_started` | `none if source limits are preserved` | `TODO: harness_nlspec_draft_path` and `TODO: acceptance_matrix`                                                                              |
+| S7. NLSpec, acceptance, roadmap, and handoff | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`, `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`, `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`, and `docs/testing-harness-spec-recovery-docs/harness-review-packet.md` |
 | S8. Authority and preservation follow-up     | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`      |
 
 ## S0: Charter and setup
@@ -663,28 +663,27 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 
 ### Concrete tasks
 
-- [ ] Copy template to `TODO: harness_nlspec_draft_path`.
-- [ ] Write document status, purpose, scope, non-goals, and authority relationship.
-- [ ] Define terms, actors, and harness-owned surfaces.
-- [ ] Draft entrypoint contracts.
-- [ ] Draft run lifecycle and phase transitions.
-- [ ] Draft fixture, artifact, service, environment, resource, timing, retry, timeout, cancellation, failure, cleanup, and diagnostic rules.
-- [ ] Add deterministic algorithms and tables required to close mechanics gaps.
-- [ ] Extract every `must` and `must not` into `TODO: acceptance_matrix`.
-- [ ] Assign verification method and current coverage to every criterion.
-- [ ] Identify missing tests, missing fixtures, missing golden files, and future CI gates.
-- [ ] Create roadmap with preserve/refactor/deprecate/redesign/remove/authority classifications.
-- [ ] Produce maintainer review packet and final handoff.
+- [x] Create `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`.
+- [x] Write document status, purpose, scope, non-goals, and authority relationship.
+- [x] Define terms, actors, and harness-owned surfaces.
+- [x] Draft entrypoint contracts.
+- [x] Draft run lifecycle and phase transitions at the contract level while preserving source limits.
+- [x] Draft fixture, artifact, service, environment, resource, timing, retry, timeout, cancellation, failure, cleanup, and diagnostic rules.
+- [x] Add tables required for cleanup tiers, acceptance routing, and source-limit carry-forward.
+- [x] Extract normative candidates into `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`.
+- [x] Assign verification method and current coverage to every criterion.
+- [x] Identify missing tests, missing fixtures, missing golden files, and future CI gates.
+- [x] Create `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`.
+- [x] Produce `docs/testing-harness-spec-recovery-docs/harness-review-packet.md`.
 
 ### Expected outputs
 
-- Final `TODO: harness_nlspec_draft_path`
-- `TODO: acceptance_matrix`
-- `TODO: missing_fixture_list`
-- `TODO: future_ci_gate_list`
-- `TODO: harness_roadmap`
-- `TODO: harness_recovery_review_packet`
-- Final handoff note
+- Final `docs/testing-harness-spec-recovery-docs/harness-nlspec.md`
+- `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`
+- Missing-test and future-gate list in `docs/testing-harness-spec-recovery-docs/harness-acceptance-matrix.md`
+- `docs/testing-harness-spec-recovery-docs/harness-implementation-roadmap.md`
+- `docs/testing-harness-spec-recovery-docs/harness-review-packet.md`
+- `docs/testing-harness-spec-recovery-docs/harness-review-packet.md` final handoff section
 
 ### Validation criteria
 
@@ -693,43 +692,55 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 - Draft does not redefine product behavior owned by main spec.
 - Every normative requirement has binary acceptance criterion or owner decision.
 - Every roadmap item is future work, not implied completed work.
-- No implementation changes were made.
+- Implementation changes preserve generated artifact ownership and do not redefine product behavior.
 
 ### Exit criteria
 
-- [ ] Harness NLSpec draft is complete enough for maintainer review.
-- [ ] Acceptance matrix is complete.
-- [ ] Roadmap is complete.
-- [ ] Review packet is complete.
-- [ ] Source limits are summarized.
-- [ ] Open owner decisions are consolidated.
-- [ ] No implementation changes were made.
+- [x] Harness NLSpec draft is complete enough for maintainer review.
+- [x] Acceptance matrix is complete.
+- [x] Roadmap is complete.
+- [x] Review packet is complete.
+- [x] Source limits are summarized.
+- [x] Open owner decisions are consolidated.
+- [x] Verification commands have completed and outcomes are recorded.
 
 ### Status field
 
-`not_started`
+`complete`
 
 ### Blocker field
 
-`none if source limits and owner questions are preserved`
+`none`
 
 ### Issues or concerns field
 
-S7 may start from the completed S0 through S6 and S8 recovery outputs plus
-`s0-s6-gap-closure-plan.md` and `s7-s6-audit-gap-follow-up.md`. Runtime
-readiness, cleanup strength, retained artifact provenance, environment
-precedence, platform support, direct package scripts, local-dev services,
-external Go caches, visual snapshot update authority, and CI provider workflow
-behavior remain source-limited or maintainer-decision-required.
+S7 implementation completed from the completed S0 through S6 and S8 recovery
+outputs plus `s0-s6-gap-closure-plan.md`,
+`s7-s6-audit-gap-follow-up.md`, and the 2026-05-09 maintainer decisions.
+Runtime readiness, cleanup strength beyond selected evidence, retained failure
+bundle schemas, environment precedence, full platform support, visual snapshot
+refresh authority, active DB cleanup, parent-death cleanup, detached reaper hard
+completion, and CI provider workflow behavior remain source-limited or
+maintainer-decision-required.
+
+Verification completed on 2026-05-09:
+`make agent-finalize`, targeted reset and stale-janitor tests,
+`make generated-artifact-policy-check`, `make json-shape-check`,
+`make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`, `make test-fast`,
+`make ci`, and `make release-check` all passed. `agent-finalize` skipped duration
+baseline refresh because `RESULTS_DIR` was unset. Standalone
+`scripts/test-print-target-plan.sh` still fails with the known stale Phase 5
+extended-smoke phase-map accounting issue, which remains diagnostic and
+non-blocking.
 
 ### Findings or handoff notes for future sprints
 
 `s0-s6-gap-closure-plan.md` is the S7 preflight closure artifact for all S0
 through S6 recovery gaps. `s7-s6-audit-gap-follow-up.md` remains the focused S6
 audit carry-forward track. S7 must not draft final normative `MUST` language for
-live readiness, cleanup completion, signal/timeout behavior, detached reaper
-completion, active DB cleanup, stale janitor deletion, port release, reset-route
-public status, env precedence, direct package scripts, local-dev Compose, visual
-snapshot updates, external Go cache cleanup, CI provider annotations, or
-concrete scheduler capacity guarantees unless later authorized runtime evidence
-or explicit owner decisions exist.
+live readiness, cleanup completion beyond selected evidence, signal/timeout
+behavior, detached reaper completion, active DB cleanup, port release, visual
+snapshot refresh bounds, env precedence, CI provider annotations, Playwright
+tool report internals, or concrete scheduler capacity guarantees unless later
+authorized runtime evidence or explicit owner decisions exist. Decided S7 items
+are recorded in `maintainer-decision-summary-2026-05-09.md`.

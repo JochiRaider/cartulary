@@ -85,5 +85,6 @@ services, or implementation files were modified.
 - S5 should define retained artifact freshness and run-selection rules for `ART-0013` through `ART-0018` before observable-interface or failure-mode drafting.
 - S5 should validate runtime-only failure bundle schemas for `ART-0016` and `ART-0018`.
 - S8 should decide whether package script artifacts in `ART-0030` are supported harness contracts or developer conveniences.
-- S8 should classify external Go cache paths in `ART-0024` as in-contract cleanup state or tool-managed defaults.
+- S7 maintainer decision `MD-S7-0009` classifies external Go cache paths in `ART-0024` as tool-managed defaults outside `clean` and `distclean`.
+- S7 maintainer decision `MD-S7-0013` defines controlled fixture/golden/snapshot review workflow while preserving visual snapshot refresh platform/browser/version as owner-required.
 - Rows must cite only existing inventory, artifact, cleanup, hazard, ambiguity, or source-limit IDs; future sprint IDs may be added only after those rows exist.

@@ -88,10 +88,10 @@ The recovery must produce or update these artifacts in the target repository.
 | `TODO: preservation_matrix` | Preserve, clarify, refactor, deprecate, redesign, remove, and authority-decision classifications. |
 | `TODO: harness_authority_map` | Relationship between main spec, harness spec, implementation, tests, fixtures, CI, reports, and local policy. |
 | `s0-s6-gap-closure-plan.md` | S0 through S6 gap closure, source-limit carry-forward, authority questions, minimal execution order, and S7 readiness criteria. |
-| `TODO: harness_nlspec_draft_path` | Dedicated testing harness NLSpec draft. |
-| `TODO: acceptance_matrix` | Binary acceptance criteria for every normative harness requirement. |
-| `TODO: harness_roadmap` | Future implementation remediation plan. |
-| `TODO: harness_recovery_review_packet` | Maintainer review packet summarizing findings, risks, decisions, and readiness. |
+| `harness-nlspec.md` | Dedicated testing harness NLSpec draft. |
+| `harness-acceptance-matrix.md` | Binary acceptance criteria for every normative harness requirement. |
+| `harness-implementation-roadmap.md` | Future implementation remediation plan. |
+| `harness-review-packet.md` | Maintainer review packet summarizing findings, risks, decisions, and readiness. |
 
 ## Definition of done
 

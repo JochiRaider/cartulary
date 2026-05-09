@@ -1,8 +1,9 @@
-package app
+package bootstrap
 
 import (
 	"context"
 	"io/fs"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -123,6 +124,45 @@ func TestPhase0_BootstrapManifestValidation_U_0_07(t *testing.T) {
 			})
 		}
 	})
+}
+
+func phase0RuntimeConfig(t testing.TB) config.Config {
+	t.Helper()
+
+	base := t.TempDir()
+	return config.Config{
+		ConfigSchemaID:    "cartulary.deployment_config.v1",
+		DeploymentProfile: "disconnected",
+		Application: config.ApplicationConfig{
+			PublicOrigin: "http://localhost:5173",
+		},
+		Roots: config.RootBindings{
+			DatabaseStorage: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        filepath.Join(base, "postgres"),
+			},
+			ObjectStorage: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        filepath.Join(base, "object-store"),
+			},
+			BackupStorage: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        filepath.Join(base, "backups"),
+			},
+			ReferencePackStorage: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        filepath.Join(base, "reference-packs"),
+			},
+			TemporaryWork: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        filepath.Join(base, "tmp"),
+			},
+			ExportOutputs: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        filepath.Join(base, "exports"),
+			},
+		},
+	}
 }
 
 func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {

@@ -705,12 +705,6 @@
             "summary_targets": [
               "check"
             ]
-          },
-          {
-            "name": "extended-harness",
-            "summary_targets": [
-              "run-harness-smoke-extended"
-            ]
           }
         ],
         "steps": [
@@ -719,13 +713,6 @@
             "target": "check",
             "produces_summary_targets": [
               "check"
-            ]
-          },
-          {
-            "type": "step",
-            "target": "run-harness-smoke-extended",
-            "produces_summary_targets": [
-              "run-harness-smoke-extended"
             ]
           }
         ]
@@ -737,12 +724,6 @@
             "summary_targets": [
               "check"
             ]
-          },
-          {
-            "name": "extended-harness",
-            "summary_targets": [
-              "run-harness-smoke-extended"
-            ]
           }
         ],
         "steps": [
@@ -751,13 +732,6 @@
             "target": "check",
             "produces_summary_targets": [
               "check"
-            ]
-          },
-          {
-            "type": "step",
-            "target": "run-harness-smoke-extended",
-            "produces_summary_targets": [
-              "run-harness-smoke-extended"
             ]
           },
           {

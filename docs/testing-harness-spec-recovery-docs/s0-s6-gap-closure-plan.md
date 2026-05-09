@@ -88,20 +88,26 @@ evidence exists:
 
 ## Authority questions requiring maintainer input
 
-Before final normative S7 language, maintainers must answer:
+Before final normative S7 language, maintainers must still answer:
 
-- Is Make the sole canonical harness command surface, with direct package
-  scripts as developer conveniences?
-- Is `internal/app/test_runtime_reset.go` harness-owned, and what
-  visibility/security boundary applies?
-- Which local-dev Compose and `make dev` behaviors are in or out of the harness
-  contract?
-- What proof is sufficient before stale janitors delete DBs, buckets, or
-  containers?
-- Which env vars are public harness API, and what precedence applies?
-- What platform/tool profile is supported for Linux/WSL, Docker, Compose, `ss`,
-  `curl`, `setsid`, `realpath`, Node/pnpm, browser runtime, and localhost?
-- Are `/tmp/cartulary-go-*` caches in cleanup scope?
+- What environment-variable precedence applies across Make, scripts,
+  schedulers, package scripts, Go helpers, config files, and Playwright?
+- Which exact OS, browser, version, and command may refresh visual snapshots?
+- What evidence or owner decision proves parent-death cleanup, active DB
+  cleanup, or detached reaper completion as stronger than best-effort?
+- What provider-specific CI workflow, annotations, uploads, and dashboard
+  behavior, if any, should be part of the repo contract?
+- Which Playwright report, trace, video, and screenshot internals, if any,
+  should be adopted as stable harness schemas?
+
+The 2026-05-09 maintainer decisions resolved these previously open authority
+questions for S7: Make is canonical, direct package scripts are developer
+conveniences, the former `internal/app/test_runtime_reset.go` behavior is
+harness-owned and now lives under `internal/testutil/testruntime`, local-dev
+Compose and `make dev` are local verification behavior, stale janitors require
+generated names plus metadata or lease evidence and conservative checks, WSL/Linux
+is the primary observed environment without a full platform matrix, and
+`/tmp/cartulary-go-*` caches are outside default cleanup.
 - Which OS/browser/update command owns visual snapshot refresh?
 - Which retained-artifact tools may use newest-run fallback?
 - Is CI provider behavior external, absent, or represented only by
@@ -161,4 +167,3 @@ true:
 - [x] S7 readiness criteria recorded.
 - [x] No S7 NLSpec draft started.
 - [x] No implementation behavior changed.
-

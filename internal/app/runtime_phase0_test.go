@@ -87,7 +87,7 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 		cfg := phase0RuntimeConfig(t)
 
 		var bootstrapCalls int
-		runBootstrap = func(ctx context.Context, cfg config.Config, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {
+		runBootstrap = func(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) error {
 			bootstrapCalls++
 			return config.NewDiagnosticsError(config.Diagnostic{
 				Path:       "bootstrap.first_admin_manifest_path",

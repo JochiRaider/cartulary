@@ -38,7 +38,7 @@ refreshes, or broad verification gates.
 | Scheduler and sharding code | `scripts/run-check-schedule.mjs`, `scripts/run-service-backed-schedule.mjs`, `scripts/lib/scheduler*.mjs`, `scripts/lib/scheduler/**`, `scripts/lib/go-shard-plan.mjs`, `scripts/lib/browser-shard-plan.mjs`, `scripts/lib/go-target-runner.mjs` |
 | Service setup and cleanup | `tools/testservices/main.go`, `internal/testutil/testcontainersx/testcontainersx.go`, `internal/testutil/pgtest/pgtest.go`, `internal/testutil/s3test/s3test.go`, `internal/testutil/suiteservices/**` |
 | Browser and local-dev runtime | `scripts/start-web-e2e.sh`, `scripts/reset-web-e2e-stack.sh`, `scripts/lib/process-lifecycle.sh`, `scripts/dev-services.sh`, `scripts/dev-stack.sh`, `docker-compose.dev.yml`, `apps/web/playwright*.config.ts`, `apps/web/e2e/**` |
-| Test reset and authority-sensitive hook | `internal/app/test_runtime_reset.go`, `internal/app/test_runtime_reset_integration_test.go` |
+| Test reset and authority-sensitive hook | `internal/testutil/testruntime/reset.go`, `internal/testutil/testruntime/reset_integration_test.go` |
 | Failure and timing examples | `tools/testservices/*_test.go`, `internal/testutil/testcontainersx/*_test.go`, `internal/testutil/pgtest/*_test.go`, `internal/testutil/s3test/*_test.go`, `scripts/test-*scheduler*.sh`, `scripts/test-web-e2e-lifecycle.sh`, `scripts/test-browser-shard-plan.sh`, `scripts/test-run-frontend-unit.sh` |
 
 ## Classification rules used

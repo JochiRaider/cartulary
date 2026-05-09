@@ -1,4 +1,4 @@
-package app
+package bootstrap
 
 import (
 	"context"
@@ -28,6 +28,8 @@ const (
 	bootstrapManifestSchemaID = "cartulary.bootstrap_admin.v1"
 	bootstrapManifestRootPath = "bootstrap.first_admin_manifest"
 	bootstrapManifestPathKey  = "bootstrap.first_admin_manifest_path"
+
+	ManifestSchemaID = bootstrapManifestSchemaID
 )
 
 type bootstrapManifest struct {
@@ -72,6 +74,10 @@ func (osBootstrapManifestFS) Stat(name string) (fs.FileInfo, error) {
 
 func (osBootstrapManifestFS) ReadFile(name string) ([]byte, error) {
 	return os.ReadFile(name) // #nosec G304 -- bootstrap manifests are operator-configured absolute paths validated before use.
+}
+
+func Preflight(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) error {
+	return bootstrapPreflight(ctx, cfg, postgresBootstrapStore{pool: pool}, osBootstrapManifestFS{}, deriveBootstrapPasswordHash)
 }
 
 func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {

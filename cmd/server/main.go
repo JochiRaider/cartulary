@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/testruntime"
 )
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
@@ -42,7 +43,7 @@ func main() {
 		options.Now = testClock.Now
 		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{
 			httpapi.RegisterTestClockRoutes(testClock),
-			app.RegisterTestRuntimeResetRoute(),
+			testruntime.RegisterTestRuntimeResetRoute(),
 			auth.RegisterTestRoutes(),
 			timeline.RegisterTestRoutes(),
 		}

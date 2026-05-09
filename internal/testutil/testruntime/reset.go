@@ -1,4 +1,4 @@
-package app
+package testruntime
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -80,7 +81,7 @@ func (s *testRuntimeResetService) handleReset(w http.ResponseWriter, r *http.Req
 		writeTestRuntimeResetError(w, r, "truncate mutable tables", err)
 		return
 	}
-	if err := runBootstrap(r.Context(), s.cfg, postgresBootstrapStore{pool: s.postgres}, osBootstrapManifestFS{}, deriveBootstrapPasswordHash); err != nil {
+	if err := bootstrap.Preflight(r.Context(), s.cfg, s.postgres); err != nil {
 		writeTestRuntimeResetError(w, r, "restore bootstrap admin", err)
 		return
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/viewschemas"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -30,7 +31,7 @@ var (
 	newJobsManager   = jobs.NewManager
 	setupPostgres    = postgres.SetupWithEnv
 	setupObjectStore = objectstore.SetupWithEnv
-	runBootstrap     = bootstrapPreflight
+	runBootstrap     = bootstrap.Preflight
 	newWSHub         = platformws.NewHub
 	newHTTPHandler   = httpapi.NewHandler
 )
@@ -83,7 +84,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.ObjectStore = client
 	}
 
-	if err := runBootstrap(ctx, normalizedCfg, postgresBootstrapStore{pool: runtime.Postgres}, osBootstrapManifestFS{}, deriveBootstrapPasswordHash); err != nil {
+	if err := runBootstrap(ctx, normalizedCfg, runtime.Postgres); err != nil {
 		runtime.Close()
 		return nil, err
 	}

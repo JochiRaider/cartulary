@@ -1,4 +1,4 @@
-package app
+package testruntime
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -95,7 +96,7 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 	requireTestRuntimeResetErrorEnvelope(t, loginResp, http.StatusUnauthorized, "mfa_setup_required")
 }
 
-func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar) (*Runtime, *httptest.Server) {
+func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar) (*app.Runtime, *httptest.Server) {
 	t.Helper()
 	effectiveEnv := make(map[string]string, len(env)+8)
 	for key, value := range env {
@@ -111,7 +112,7 @@ func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []h
 
 	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, effectiveEnv)
 	clock := httpapi.NewTestClock()
-	runtime, err := NewRuntime(context.Background(), cfg, Options{
+	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
 		Env: effectiveEnv,
 		Now: clock.Now,
 		HTTP: httpapi.Options{

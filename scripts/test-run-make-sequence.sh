@@ -498,16 +498,22 @@ for (const target of ["backend-unit", "frontend-typecheck", "frontend-unit", "te
   }
 }
 const ciTargets = manifest.sequences.ci.steps.flatMap((step) => step.produces_summary_targets ?? []);
-for (const target of ["check", "run-harness-smoke-extended"]) {
+for (const target of ["check"]) {
   if (!ciTargets.includes(target)) {
     throw new Error(`ci sequence must produce ${target}`);
   }
 }
+if (ciTargets.includes("run-harness-smoke-extended")) {
+  throw new Error("ci sequence must not block on run-harness-smoke-extended");
+}
 const releaseTargets = manifest.sequences["release-check"].steps.flatMap((step) => step.produces_summary_targets ?? []);
-for (const target of ["check", "run-harness-smoke-extended"]) {
+for (const target of ["check"]) {
   if (!releaseTargets.includes(target)) {
     throw new Error(`release-check sequence must produce ${target}`);
   }
+}
+if (releaseTargets.includes("run-harness-smoke-extended")) {
+  throw new Error("release-check sequence must not block on run-harness-smoke-extended");
 }
 EOF
 assert_contains "${manifest_content}" "\"harness_checks\"" "manifest logical harness checks"

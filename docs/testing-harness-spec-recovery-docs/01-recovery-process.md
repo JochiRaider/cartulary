@@ -39,10 +39,10 @@ Each stage must update the sprint plan, source-limit log, and handoff notes when
 | 6 | Race, timing, and resource hazards | `TODO: race_timing_resource_register` |
 | 7 | Failure-mode recovery | `TODO: failure_mode_register` |
 | 8 | Intent and authority classification | `TODO: preservation_matrix` and `TODO: harness_authority_map` |
-| 9 | Harness NLSpec contract pass | `TODO: harness_nlspec_draft_path` |
-| 10 | Mechanics pass | Updated `TODO: harness_nlspec_draft_path` |
-| 11 | Verification pass | `TODO: acceptance_matrix` |
-| 12 | Roadmap and review packet | `TODO: harness_roadmap` and `TODO: harness_recovery_review_packet` |
+| 9 | Harness NLSpec contract pass | `harness-nlspec.md` |
+| 10 | Mechanics pass | Updated `harness-nlspec.md` |
+| 11 | Verification pass | `harness-acceptance-matrix.md` |
+| 12 | Roadmap and review packet | `harness-implementation-roadmap.md` and `harness-review-packet.md` |
 
 ## Stage 0: Charter and scope freeze
 
@@ -591,7 +591,7 @@ Create the first complete contract-level draft of the dedicated harness specific
 
 ### Concrete agent actions
 
-- Copy `templates/harness-nlspec-template.md` to `TODO: harness_nlspec_draft_path`.
+- Copy `templates/harness-nlspec-template.md` to `harness-nlspec.md` when starting from the template; for S7 the draft now exists at that path.
 - Write purpose, scope, non-goals, terminology, authority relationship, and harness-owned surfaces.
 - Define entrypoint contracts, lifecycle states, artifact ownership, service lifecycle, resource policy, timing behavior, failure taxonomy, cleanup behavior, and diagnostics.
 - Mark observed behavior, intended behavior, and open decisions separately.
@@ -599,7 +599,7 @@ Create the first complete contract-level draft of the dedicated harness specific
 
 ### Expected outputs
 
-- `TODO: harness_nlspec_draft_path`
+- `harness-nlspec.md`
 - Updated `TODO: ambiguity_register`
 
 ### Validation criteria
@@ -658,7 +658,7 @@ Make the harness spec implementable by defining schemas, algorithms, defaults, b
 
 ### Expected outputs
 
-- Updated `TODO: harness_nlspec_draft_path`
+- Updated `harness-nlspec.md`
 - `TODO: mechanics_gap_list`
 
 ### Validation criteria
@@ -715,10 +715,10 @@ Bind every normative harness requirement to binary acceptance criteria.
 
 ### Expected outputs
 
-- `TODO: acceptance_matrix`
+- `harness-acceptance-matrix.md`
 - `TODO: missing_fixture_list`
 - `TODO: future_ci_gate_list`
-- Updated `TODO: harness_nlspec_draft_path`
+- Updated `harness-nlspec.md`
 
 ### Validation criteria
 
@@ -763,7 +763,7 @@ Prepare the recovered harness specification and artifacts for maintainer review,
 ### Concrete agent actions
 
 - Classify future work as `preserve`, `preserve_with_clarification`, `refactor_preserving_behavior`, `deprecate`, `redesign_required`, `remove_if_unused`, or `authority_decision_required`.
-- Produce `TODO: harness_roadmap`.
+- Produce `harness-implementation-roadmap.md`.
 - Perform consistency pass across recovery artifacts.
 - Remove duplicate definitions and drift-prone repetition.
 - Verify every table covers its declared scope.
@@ -772,10 +772,10 @@ Prepare the recovered harness specification and artifacts for maintainer review,
 
 ### Expected outputs
 
-- `TODO: harness_roadmap`
-- `TODO: harness_recovery_review_packet`
-- Final `TODO: harness_nlspec_draft_path`
-- Final `TODO: acceptance_matrix`
+- `harness-implementation-roadmap.md`
+- `harness-review-packet.md`
+- Final `harness-nlspec.md`
+- Final `harness-acceptance-matrix.md`
 
 ### Validation criteria
 

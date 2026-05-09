@@ -147,6 +147,10 @@ root for each row is `${RUN_ROOT}/<slug>/<run-id>`.
 - `make ci` and `make release-check` failed at `run-harness-smoke-extended`
   because `harness-smoke-print-target-plan` reported phase5 authoritative-looking
   Go tests missing from the generated smoke phase map. No phase maps were edited.
+- S7 maintainer decision `MD-S7-0016` demotes that stale extended smoke failure
+  from blocking phase advancement. The selected failure remains evidence that
+  the diagnostic target is stale, not evidence of product readiness or
+  provider-specific CI behavior.
 - `23-dev-int` demonstrated current local config failure for `make dev`:
   `/var/lib/cartulary/backups` was not writable. `23b-dev-int-writable` used
   disposable root overrides to reach the interrupt path and returned `124`.

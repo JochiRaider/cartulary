@@ -7,6 +7,8 @@ import {
   exerciseRevokedPendingReplay,
 } from "./phase6Harness";
 
+const concurrencyEvictionLoginBurst = 10;
+
 test.beforeEach(async ({ page }) => {
   await new Phase1Page(page).resetClockOffset();
 });
@@ -71,7 +73,7 @@ test("E-6-03 preserves unsaved local work after socket revocation and re-authent
         await createUntrackedLoginSessions(
           member.email,
           member.initial_password,
-          5,
+          concurrencyEvictionLoginBurst,
         );
       },
     });
