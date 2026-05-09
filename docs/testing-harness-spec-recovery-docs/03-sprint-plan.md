@@ -30,7 +30,7 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 | S0. Charter and setup | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/recovery-charter.md` |
 | S1. Inventory and boundary | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/harness-inventory.md` |
 | S2. Entrypoints and commands | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md` |
-| S3. Fixtures, artifacts, and cleanup | `not_started` | `TODO:` | `TODO: artifact_ownership_matrix` |
+| S3. Fixtures, artifacts, and cleanup | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md` |
 | S4. Services, environments, and resources | `not_started` | `TODO:` | `TODO: service_lifecycle_map` |
 | S5. Lifecycle, interfaces, and failures | `not_started` | `TODO:` | `TODO: observable_interface_map` and `TODO: failure_mode_register` |
 | S6. Hazards, intent, and authority | `not_started` | `TODO:` | `TODO: race_timing_resource_register` and `TODO: preservation_matrix` |
@@ -255,22 +255,24 @@ Recover authority, ownership, lifecycle, mutation, persistence, and cleanup rule
 
 ### Concrete tasks
 
-- [ ] Classify fixtures and golden or snapshot files.
-- [ ] Classify generated artifacts, logs, reports, caches, and temp files.
-- [ ] Identify canonical fixtures versus derived reports.
-- [ ] Identify artifacts reused across runs.
-- [ ] Identify artifacts created only on failure.
-- [ ] Record mutation authority and update commands for canonical fixtures.
-- [ ] Record cleanup trigger, cleanup owner, and idempotence expectations.
-- [ ] Record external state ownership for databases, volumes, buckets, or emulator state.
-- [ ] Identify cleanup gaps and artifact ownership ambiguities.
+- [x] Classify fixtures and golden or snapshot files.
+- [x] Classify generated artifacts, logs, reports, caches, and temp files.
+- [x] Identify canonical fixtures versus derived reports.
+- [x] Identify artifacts reused across runs.
+- [x] Identify artifacts created only on failure.
+- [x] Record mutation authority and update commands for canonical fixtures.
+- [x] Record cleanup trigger, cleanup owner, and idempotence expectations.
+- [x] Record external state ownership for databases, volumes, buckets, or emulator state.
+- [x] Identify cleanup gaps and artifact ownership ambiguities.
 
 ### Expected outputs
 
-- `TODO: artifact_ownership_matrix`
-- `TODO: cleanup_lifecycle_matrix`
-- `TODO: shared_state_hazard_list`
-- Updated `TODO: ambiguity_register`
+- `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md`
+- `docs/testing-harness-spec-recovery-docs/cleanup-lifecycle-matrix.md`
+- `docs/testing-harness-spec-recovery-docs/shared-state-hazard-list.md`
+- Updated `docs/testing-harness-spec-recovery-docs/ambiguity-register.md`
+- Updated `docs/testing-harness-spec-recovery-docs/source-limit-log.md`
+- `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s3-fixtures-artifacts-and-cleanup.md`
 
 ### Validation criteria
 
@@ -281,25 +283,37 @@ Recover authority, ownership, lifecycle, mutation, persistence, and cleanup rule
 
 ### Exit criteria
 
-- [ ] Artifact ownership matrix is usable by spec drafting.
-- [ ] Cleanup behavior is linked to entrypoints and lifecycle phases.
-- [ ] S4 can focus on runtime services without losing artifact context.
+- [x] Artifact ownership matrix is usable by spec drafting.
+- [x] Cleanup behavior is linked to entrypoints and lifecycle phases.
+- [x] S4 can focus on runtime services without losing artifact context.
 
 ### Status field
 
-`not_started`
+`complete`
 
 ### Blocker field
 
-`TODO:`
+`none`
 
 ### Issues or concerns field
 
-`TODO:`
+S3 did not execute mutating writer or cleanup commands. Fixture, golden, and visual snapshot update authority remains unresolved (`AMB-0015`, `AMB-0022`) and is recorded as `TODO: update_rule_unknown` where no supported update command was found. Runtime cleanup on timeout/interrupt, failure-only bundle schemas, retained artifact provenance, destructive stale fixture janitor boundaries, and live Postgres/MinIO/browser behavior remain source-limited (`SL-0008` through `SL-0011`).
 
 ### Findings or handoff notes for future sprints
 
-`TODO:`
+S3 created `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md`, `docs/testing-harness-spec-recovery-docs/cleanup-lifecycle-matrix.md`, `docs/testing-harness-spec-recovery-docs/shared-state-hazard-list.md`, and handoff `docs/testing-harness-spec-recovery-docs/handoffs/2026-05-08-s3-fixtures-artifacts-and-cleanup.md`. The key S4 inputs are external-state rows for Postgres databases/templates/transactions, MinIO buckets/prefixes, browser runtime roots, Playwright shared state, process groups, ports, and test runtime reset behavior. S4 should recover provision/start/ready/reset/stop/reaper details without rediscovering artifact owners or cleanup surfaces.
+
+S3 audit follow-ups are mapped below without changing S4 status.
+
+| Follow-up ID | Recovery artifact update | Target sprint or owner path | Blocking status |
+|---|---|---|---|
+| `AUD-S3-FU-0001` | `artifact-ownership-matrix.md` replaces premature future hazard references in `ART-0025` and `ART-0026` with existing `HAZ-S3-*` rows; future sprint IDs must exist before citation. | S3 follow-up complete; S4 may create later resource rows. | Blocking before S4/S6 consume those rows. |
+| `AUD-S3-FU-0002` | `ambiguity-register.md` keeps `AMB-0015` and `AMB-0022` open with owner-decision prompts and default no-refresh authority. | S8 or explicit harness/browser owner decision. | Non-blocking for S4. |
+| `AUD-S3-FU-0003` | `artifact-ownership-matrix.md`, `ambiguity-register.md`, and `source-limit-log.md` define retained-run freshness as explicit run selection, with newest-run fallback only for human investigation until S5 decides. | S5, with S8 authority if policy becomes normative. | Blocking before observable-interface, drift, or baseline rules are finalized. |
+| `AUD-S3-FU-0004` | `source-limit-log.md` assigns runner logs, watchdog JSON, Playwright traces/screenshots/videos, and reports to S5 schema recovery. | S5. | Blocking before failure-mode schema claims. |
+| `AUD-S3-FU-0005` | `cleanup-lifecycle-matrix.md`, `ambiguity-register.md`, and `source-limit-log.md` assign live cleanup, stale janitor bounds, active connections, port release, timeout, and interrupt behavior to S4/S6. | S4 service lifecycle and S6 resource/timing hazards. | Blocking before S6 hazard classification. |
+| `AUD-S3-FU-0006` | `artifact-ownership-matrix.md`, `cleanup-lifecycle-matrix.md`, and `ambiguity-register.md` keep direct package-script artifacts and cleanup authority separate from Make behavior. | S8 authority classification. | Non-blocking for S4. |
+| `AUD-S3-FU-0007` | `artifact-ownership-matrix.md` and `ambiguity-register.md` classify external Go cache cleanup as an S8 authority decision, with proposed tool-managed external default. | S8 authority classification. | Non-blocking for S4. |
 
 ## S4: Services, environments, and resources
 

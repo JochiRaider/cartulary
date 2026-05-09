@@ -111,7 +111,7 @@ No broad verification commands such as `make test-fast`, `make test`, `make chec
 
 | Hazard ID | Surface | Trigger | Severity | Next action |
 |---|---|---|---|---|
-| `HAZ-S4-0001` | Postgres, MinIO, browser stack, process slots, ports, Playwright state | Parallel service-backed/browser execution or stale retained service fixtures | `unknown` | Recover in S4/S6 using scheduler resource registry, service wrapper, and runtime artifacts. |
+| `TODO: future_service_resource_hazard` | Postgres, MinIO, browser stack, process slots, ports, Playwright state | Parallel service-backed/browser execution or stale retained service fixtures | `unknown` | Recover in S4/S6 using scheduler resource registry, service wrapper, and runtime artifacts; assign a concrete S4/S6 ID only when that row exists. |
 | `HAZ-S3-0001` | Generated/ignored artifacts and committed generated outputs | Treating generated outputs or retained reports as owner specs | `unknown` | Recover in S3 and authority pass before NLSpec drafting. |
 
 ## New or updated failure modes
