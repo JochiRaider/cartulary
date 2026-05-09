@@ -389,31 +389,37 @@ S5 may consume S4 service, env, and resource row IDs to map observable interface
 
 ### Sprint objective
 
-Map caller-visible outputs, machine interfaces, lifecycle phases, terminal states, partial states, and current failure modes.
+Recover the testing harness's caller-visible behavior by mapping stdout,
+stderr, exit codes, structured reports, logs, CI-adjacent output, failure
+artifacts, lifecycle phases, terminal states, partial-completion states, output
+consumers, and current failure modes back to S2 entrypoints, S3 artifacts, and
+S4 services/resources.
 
 ### Required inputs
 
-- S2 entrypoint map.
-- S3 artifact ownership matrix.
-- S4 service lifecycle map.
-- CLI output.
-- Exit codes.
-- Structured reports.
-- Logs.
-- CI annotations.
-- Failure artifacts.
-- Failing CI or local logs.
+- S2 entrypoint map, sequencing assumptions, S2 handoff, and S2 audit follow-ups.
+- S3 artifact ownership matrix, cleanup lifecycle matrix, shared-state hazards,
+  and S3 ambiguity/source-limit rows.
+- S4 service lifecycle map, environment observations, resource allocation
+  register, hazards, handoff, and audit follow-ups.
+- Recovery charter, registers/checklists, source-limit log, and ambiguity
+  register.
+- Static evidence from CLI/script sources, structured report helpers, logs,
+  retained-artifact readers, package manifests, CI helpers, and failure-artifact
+  writers.
 
 ### Concrete tasks
 
-- [x] Map stdout, stderr, and exit codes for S4 follow-up surfaces.
-- [x] Map structured reports and schemas for S4 follow-up surfaces.
-- [x] Map failure bundles, logs, and diagnostics tied to S4 service/resource gaps.
+- [x] Map stdout, stderr, and exit codes for major S2 entrypoint families.
+- [x] Map structured reports and schemas for machine-consumed outputs.
+- [x] Map failure bundles, logs, dashboards, retained reports, and diagnostics
+  tied to entrypoints, artifacts, services, and resources.
 - [x] Distinguish machine-consumed outputs from human diagnostics.
-- [x] Reconstruct lifecycle phases for each major S4 follow-up entrypoint.
+- [x] Reconstruct lifecycle phases for each major entrypoint family.
 - [x] Record terminal states and partial-completion states.
 - [x] Build failure-mode taxonomy.
-- [x] Populate failure-mode register with observed and plausible S4 follow-up failures.
+- [x] Populate failure-mode register with observed and plausible recurring
+  failures from S2/S3/S4/S5 evidence.
 - [x] Separate product assertion failures from harness operational failures.
 
 ### Expected outputs
@@ -437,9 +443,13 @@ Map caller-visible outputs, machine interfaces, lifecycle phases, terminal state
 
 ### Exit criteria
 
-- [x] Observable interface map is usable by the NLSpec draft for S4 follow-up surfaces.
-- [x] Failure modes are specific enough for S4 follow-up failure taxonomy writing.
-- [x] S6 can connect failures to race, timing, resource, and authority issues.
+- [x] Observable interface map and failure register are usable by NLSpec drafting.
+- [x] Lifecycle, transition, and partial-state docs cover major entrypoint
+  families.
+- [x] Structured output schema notes have no unclassified machine-consumed output.
+- [x] S6 can connect failures to race, timing, resource, cleanup, timeout, and
+  interrupt issues.
+- [x] S8 authority decisions are routed without being normalized by S5.
 
 ### Status field
 
@@ -451,20 +461,21 @@ Map caller-visible outputs, machine interfaces, lifecycle phases, terminal state
 
 ### Issues or concerns field
 
-S5 was completed for the S4 follow-up routing scope only. It did not run
-service-backed targets, browser E2E targets, Docker/testcontainers, Docker
-Compose, reset routes, cleanup paths, formatters, generators, broad gates, or
-controlled failure commands. Runtime readiness, cleanup strength, platform
-behavior, failure-only bundle schemas, and retained-run freshness remain
-source-limited unless a later authorized runtime or artifact-selection pass
-provides evidence.
+S5 was refreshed for the full lifecycle/interface/failure recovery scope. It
+did not run service-backed targets, browser E2E targets, Docker/testcontainers,
+Docker Compose, reset routes, cleanup paths, formatters, generators, baseline
+refreshes, broad gates, or controlled failure commands. Runtime readiness,
+cleanup strength, platform behavior, failure-only bundle schemas, CI provider
+annotations, and retained-run freshness remain source-limited unless a later
+authorized runtime or artifact-selection pass provides evidence.
 
 ### Findings or handoff notes for future sprints
 
-S5 created `observable-interface-map.md`, `structured-output-schema-notes.md`,
-`output-consumer-map.md`, `harness-lifecycle-map.md`,
-`phase-transition-table.md`, `partial-completion-state-list.md`,
-`failure-mode-register.md`, `failure-class-taxonomy.md`, S5 handoff
+S5 refreshed `observable-interface-map.md`,
+`structured-output-schema-notes.md`, `output-consumer-map.md`,
+`harness-lifecycle-map.md`, `phase-transition-table.md`,
+`partial-completion-state-list.md`, `failure-mode-register.md`,
+`failure-class-taxonomy.md`, S5 handoff
 `handoffs/2026-05-08-s5-lifecycle-interfaces-failures.md`, and S5 audit
 `audits/2026-05-08-s5-lifecycle-interfaces-failures-audit.md`.
 
@@ -472,6 +483,11 @@ S5 routes live readiness, cleanup guarantees, resource/capacity, timing,
 interrupt, and stale-state behavior to S6. It routes reset-route, package-script,
 local-dev, public env contract, supported platform, destructive janitor, and
 external Go cache authority decisions to S8.
+
+S5 audit follow-up `AUD-S5-BLOCK-0001` is resolved by correcting the affected
+`failure-mode-register.md` linked output/schema references. S6 and S7 may
+consume the corrected failure-mode register while preserving all existing
+source-limit and authority-routing notes.
 
 ## S6: Hazards, resources, and timing
 
