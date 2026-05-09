@@ -34,3 +34,27 @@ implementation behavior into intended contract.
 | AUTH-0014 | Visual snapshot platform/update authority | committed Playwright PNG baselines and visual target map | browser/harness owner | yes for visual validation | snapshot files are canonical evidence only under adopted platform/update policy. | platform/browser drift and missing refresh command can make snapshot mutation ambiguous. | Which OS, browser version, and command may refresh visual snapshots? | `ART-0003`; `AMB-0022`; `RTR-0021`; `MSC-0007` | `maintainer_decision_required` | Validation-only targets must not update snapshots. |
 | AUTH-0015 | CI provider workflow and annotations | `scripts/ci/**`; absent `.github/**` | CI/harness owner | conditional | provider-neutral `make ci` is recoverable; provider-specific workflow source is absent. | CI annotations and upload behavior are unavailable. | Is CI intentionally external, absent, or represented only by provider-neutral scripts? | `SL-0001`; `AMB-0001`; `FAIL-0028` | `source_limit` | Do not invent provider behavior. |
 
+## S7 authority clarification notes
+
+The 2026-05-09 S7 evidence pass records these authority clarifications for
+later NLSpec and acceptance-matrix work:
+
+- Retained artifacts are strong evidence only when selected by explicit result
+  directory and run ID. Ambient newest-run fallback is human-investigation only
+  and cannot support normative claims.
+- Generated artifacts are downstream execution inputs only. Upstream sources
+  such as specs, manifests, SQL, Make/task definitions, and the adopted harness
+  NLSpec own behavior. Drift checks prove freshness; generated files do not
+  define behavior.
+- `internal/gen/**` remains downstream of `contracts/**`, `db/queries/**`,
+  generator source, and authored SQL inputs. Freshness checks include
+  `make generate-drift`, `make generated-artifact-policy-check`, and
+  `make json-shape-check`.
+- `packages/protocol-ts/src/generated/**` remains downstream protocol code.
+  Freshness checks include generated-artifact policy checks plus
+  `make frontend-import-boundary-check` when import-boundary claims are made.
+- Generated task and schedule manifests may drive execution when fresh, but
+  concrete host/Docker/Postgres/MinIO/browser capacity claims still need
+  selected runtime evidence or maintainer decision.
+- Duration baselines are planning weights only. The S7 pass ran drift readers
+  against selected runs; no baseline refresh target was run.

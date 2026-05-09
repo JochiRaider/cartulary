@@ -208,3 +208,22 @@ decisions exist:
 - [x] No runtime, service, browser, Docker, Compose, reset, cleanup, formatter,
       generator, baseline-refresh, snapshot-update, package-test, or broad
       verification command was run for this documentation pass.
+
+## Authorized Runtime Evidence Implementation Note
+
+On 2026-05-09, a later maintainer-authorized S7 evidence pass implemented the
+runtime-evidence plan without rewriting harness code or promoting source-limited
+behavior into final `MUST` language.
+
+Evidence outputs:
+
+- `runtime-evidence-register.md`
+- `cleanup-signal-evidence-register.md`
+- `source-limit-log.md` follow-up `SL-FU-0008`
+
+The selected runs close only the rows validated by explicit
+`CARTULARY_TEST_RESULTS_DIR` and `CARTULARY_TEST_RUN_ID`. CI and release runs
+failed with current harness-smoke/phase-map accounting evidence; parent-death
+cleanup, live active-DB cleanup, stale janitor authority, local-dev contract
+status, platform matrix, CI provider behavior, and visual snapshot update
+authority remain source-limited or maintainer-decision-required.

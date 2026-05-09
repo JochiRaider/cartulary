@@ -61,3 +61,18 @@ until S6.
 | Handoff notes | S6 should probe timing, cleanup, retry, resource, and interrupt rows; S8 should resolve authority rows before NLSpec normativity. |
 | Evidence status | Rows use `observed`, `observed/source_limit`, or `source_limit`. |
 | No-change confirmation | This file records recovery documentation only and does not alter harness behavior. |
+
+## S7 selected controlled-failure evidence
+
+The 2026-05-09 S7 runtime evidence pass added selected controlled-failure
+evidence without changing harness behavior:
+
+| Evidence | Linked failure rows | Selected run | Result | Disposition |
+|---|---|---|---|---|
+| Missing `PHASE` usage failure | `FAIL-0001` through `FAIL-0004`; `SL-0007` | `s7-20260509T133109Z-25-usage-fail` | Exit `2`; stderr prints `usage: make service-backed-slice PHASE=<phaseN>`. | Supports selected usage-error shape. |
+| Invalid scheduler config | `FAIL-0001` through `FAIL-0004` | `s7-20260509T133110Z-26-scheduler-config-fail` | Exit `2`; stderr prints `CHECK_HOST_CPU_JOBS must be a positive integer`; no child work started. | Supports selected config-error shape. |
+| Missing Docker socket preflight | `FAIL-0005`; `SL-0013` | `s7-20260509T133111Z-27-docker-preflight-fail` | Exit `2` at Make surface; backend store fails before child test work. | Supports selected current-host preflight failure evidence; platform portability remains source-limited. |
+| CI harness-smoke/phase-map accounting failure | `FAIL-0017`, `FAIL-0023`, `FAIL-0028` | `s7-20260509T131418Z-05-ci` | Exit `2`; `run-harness-smoke-extended` reports phase5 authoritative-looking Go tests missing from the smoke phase map. | No CI readiness claim; provider workflow/annotation behavior remains source-limited. |
+| Release-check harness-smoke/phase-map accounting failure | `FAIL-0017`, `FAIL-0023`, `FAIL-0026` | `s7-20260509T131736Z-06-release-check` | Exit `2`; same harness-smoke/phase-map failure as CI. | No release readiness claim. |
+| Browser startup/build prerequisite failure | `FAIL-0009`, `FAIL-0021`, `RTR-0012` | `s7-20260509T133254Z-28b-browser-start-fail` | Exit `2`; `SERVER_BIN=/bin/false` fails the `build-server` prerequisite before owned-stack startup. | Supports build-prerequisite failure only; browser process-start cleanup remains source-limited. |
+| Child exit and signal runs | `FAIL-0022` | `s7-20260509T133258Z-30-child-exit`, `s7-20260509T133301Z-31-timeout`, `s7-20260509T133330Z-32-interrupt` | Exits `42`, `124`, `124`. Delayed post-check found no managed testservice containers. | Supports selected signal/resource after-state evidence; guaranteed cleanup and parent death remain source-limited. |

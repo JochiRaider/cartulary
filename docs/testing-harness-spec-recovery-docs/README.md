@@ -27,6 +27,8 @@ Start with `00-overview.md`, then use `03-sprint-plan.md` as the working progres
 | `05-agent-handoff.md` | Provides a multi-session handoff template. |
 | `s0-s6-gap-closure-plan.md` | Consolidates S0 through S6 remaining gaps, source limits, authority questions, and S7 readiness criteria. |
 | `s7-s6-audit-gap-follow-up.md` | Defines the S7 carry-forward track for remaining S6 source limits, owner questions, and later authorized evidence collection. |
+| `runtime-evidence-register.md` | Records the 2026-05-09 selected runtime evidence pass and S7 evidence-selection rule. |
+| `cleanup-signal-evidence-register.md` | Records cleanup, signal, process, reaper, and port-release evidence from selected S7 runs. |
 | `templates/harness-nlspec-template.md` | Provides a scaffold for the recovered testing harness NLSpec. |
 
 ## Implementation-change boundary
