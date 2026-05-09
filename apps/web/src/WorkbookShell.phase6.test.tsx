@@ -44,9 +44,16 @@ describe("Phase 6 workbook collaboration coverage", () => {
     input: HTMLInputElement | HTMLTextAreaElement,
     value: string,
   ) {
+    const testId = input.getAttribute("data-testid");
     fireEvent.change(input, { target: { value } });
     await waitFor(() => {
-      expect(input).toHaveProperty("value", value);
+      const currentInput =
+        testId === null
+          ? input
+          : (screen.getByTestId(testId) as
+              | HTMLInputElement
+              | HTMLTextAreaElement);
+      expect(currentInput).toHaveProperty("value", value);
     });
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   }

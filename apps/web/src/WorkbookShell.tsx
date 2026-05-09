@@ -8667,6 +8667,7 @@ const genericEditRowStyle = {
 
 const inputStyle = {
   boxSizing: "border-box" as const,
+  display: "block",
   minWidth: 0,
   width: "100%",
   borderRadius: "0.75rem",

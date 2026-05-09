@@ -6,6 +6,7 @@ import {
   assertMountedGridRowCountAtMost,
   assertRecordFieldMutationAnchor,
   changeGrouping,
+  gridAnchorCommandScenarios,
   scrollGridToBottom,
   scrollGridToOffset,
   scrollToCell,
@@ -50,11 +51,6 @@ import {
 } from "./phase6Harness";
 
 const presenceInteractionThresholdMs = 1000;
-
-type GridAnchorCommandScenario = {
-  commit: (context: { input: Locator; page: Page }) => Promise<void>;
-  name: string;
-};
 
 test("E-6-01 shows two analysts each other's workbook presence within the expected interaction window", async ({
   browser,
@@ -346,7 +342,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       const heldPatch = patchController.holdNextPatch();
       await input.focus();
       await input.fill(expectedValue);
-      await scenario.commit({ input, page });
+      await scenario.commit({ input, page, surface: "timeline" });
       const call = await heldPatch.waitForHit;
       assertRecordFieldMutationAnchor({
         actualRecordId: call.recordId,
@@ -413,18 +409,21 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       page.getByTestId(conflictMarkerTestId(alphaId, "timeline.summary")),
     ).toBeVisible();
     await assertMarkerAnchoredToGridTarget({
+      anchorKind: "cell",
       markerTestId: conflictMarkerTestId(alphaId, "timeline.summary"),
       page,
       surface: "timeline",
       targetTestId: rowCellTestId(alphaId, "summary"),
     });
     await assertMarkerAnchoredToGridTarget({
+      anchorKind: "row-gutter",
       markerTestId: rowPresenceMarkerTestId(alphaId),
       page,
       surface: "timeline",
       targetTestId: rowCellTestId(alphaId, "capture-state"),
     });
     await assertMarkerAnchoredToGridTarget({
+      anchorKind: "cell",
       markerTestId: cellPresenceMarkerTestId(alphaId, "timeline.summary"),
       page,
       surface: "timeline",
@@ -730,36 +729,6 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
     });
   });
 });
-
-function gridAnchorCommandScenarios(): readonly GridAnchorCommandScenario[] {
-  return [
-    {
-      commit: async ({ input }) => {
-        await input.press("Enter");
-      },
-      name: "enter",
-    },
-    {
-      commit: async ({ input }) => {
-        await input.press("Tab");
-      },
-      name: "tab",
-    },
-    {
-      commit: async ({ input, page }) => {
-        await input.blur();
-        await page.getByTestId("timeline-grid-shell").click();
-      },
-      name: "blur",
-    },
-    {
-      commit: async ({ input }) => {
-        await input.dispatchEvent("paste");
-      },
-      name: "paste",
-    },
-  ];
-}
 
 async function exerciseSameFieldResolver({
   action,

@@ -7,7 +7,11 @@ import {
 } from "@cartulary/ui-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { assertGridFocusContinuity, scrollGridTargetIntoView } from "./index";
+import {
+  assertGridFocusContinuity,
+  assertMarkerAnchoredToGridTarget,
+  scrollGridTargetIntoView,
+} from "./index";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -367,6 +371,119 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
   });
 });
 
+describe("@cartulary/test-utils marker anchoring", () => {
+  it("fails when visible marker geometry is detached from the target cell", async () => {
+    const { markerTestId, page, targetTestId } = installMarkerAnchorFixture({
+      markerRect: { height: 18, left: 310, top: 54, width: 28 },
+    });
+
+    await expect(
+      assertMarkerAnchoredToGridTarget({
+        anchorKind: "cell",
+        markerTestId,
+        page,
+        surface: "timeline",
+        targetTestId,
+      }),
+    ).rejects.toThrow("to be geometrically inside target cell");
+  });
+
+  it("fails when marker is visible in a different row", async () => {
+    const { markerTestId, page, targetTestId } = installMarkerAnchorFixture({
+      markerRecordId: "record-2",
+      markerRect: { height: 18, left: 110, top: 174, width: 28 },
+      markerRowRect: { height: 60, left: 0, top: 160, width: 450 },
+    });
+
+    await expect(
+      assertMarkerAnchoredToGridTarget({
+        anchorKind: "cell",
+        markerTestId,
+        page,
+        surface: "timeline",
+        targetTestId,
+      }),
+    ).rejects.toThrow(
+      "Expected marker marker-record-1 to share row record_id record-1 with target row-record-1-summary, received record-2",
+    );
+  });
+
+  it("fails when marker is visible in a different field cell", async () => {
+    const { markerTestId, page, targetTestId } = installMarkerAnchorFixture({
+      markerCellFieldKey: "timeline.details",
+      markerCellRect: { height: 60, left: 250, top: 40, width: 120 },
+      markerRect: { height: 18, left: 260, top: 54, width: 28 },
+    });
+
+    await expect(
+      assertMarkerAnchoredToGridTarget({
+        anchorKind: "cell",
+        markerTestId,
+        page,
+        surface: "timeline",
+        targetTestId,
+      }),
+    ).rejects.toThrow(
+      "Expected marker marker-record-1 to share cell field_key timeline.summary with target row-record-1-summary, received timeline.details",
+    );
+  });
+
+  it("passes when same-cell marker geometry is inside the target field cell", async () => {
+    const { markerTestId, page, targetTestId } = installMarkerAnchorFixture({
+      markerRect: { height: 18, left: 130, top: 72, width: 48 },
+    });
+
+    await expect(
+      assertMarkerAnchoredToGridTarget({
+        anchorKind: "cell",
+        markerTestId,
+        page,
+        surface: "timeline",
+        targetTestId,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("passes row-gutter markers only when vertically aligned to the intended row", async () => {
+    const anchored = installMarkerAnchorFixture({
+      markerCellFieldKey: "timeline.capture_state",
+      markerRect: { height: 18, left: 16, top: 54, width: 34 },
+      targetCellFieldKey: "timeline.capture_state",
+      targetCellRect: { height: 60, left: 0, top: 40, width: 90 },
+      targetTestId: "row-record-1-capture-state",
+    });
+
+    await expect(
+      assertMarkerAnchoredToGridTarget({
+        anchorKind: "row-gutter",
+        markerTestId: anchored.markerTestId,
+        page: anchored.page,
+        surface: "timeline",
+        targetTestId: anchored.targetTestId,
+      }),
+    ).resolves.toBeUndefined();
+
+    vi.restoreAllMocks();
+    const detached = installMarkerAnchorFixture({
+      markerCellFieldKey: "timeline.capture_state",
+      markerRect: { height: 18, left: 16, top: 154, width: 34 },
+      targetCellFieldKey: "timeline.capture_state",
+      targetCellRect: { height: 60, left: 0, top: 40, width: 90 },
+      targetTestId: "row-record-1-capture-state",
+    });
+
+    await expect(
+      assertMarkerAnchoredToGridTarget({
+        anchorKind: "row-gutter",
+        markerTestId: detached.markerTestId,
+        page: detached.page,
+        surface: "timeline",
+        targetTestId: detached.targetTestId,
+      }),
+    ).rejects.toThrow("to be vertically anchored to row record-1");
+  });
+});
+
 function installGridContinuityFixture(
   options: {
     currentScroll: { left: number; top: number };
@@ -556,6 +673,136 @@ function installGridTargetFixture(
     ),
     scrollIntoViewCalls,
     shell,
+    targetTestId,
+  };
+}
+
+function installMarkerAnchorFixture(options: {
+  markerCellFieldKey?: string;
+  markerCellRect?: { height: number; left: number; top: number; width: number };
+  markerRecordId?: string;
+  markerRect: { height: number; left: number; top: number; width: number };
+  markerRowRect?: { height: number; left: number; top: number; width: number };
+  targetCellFieldKey?: string;
+  targetCellRect?: { height: number; left: number; top: number; width: number };
+  targetRecordId?: string;
+  targetRowRect?: { height: number; left: number; top: number; width: number };
+  targetTestId?: string;
+}) {
+  const gridTestId = gridShellTestId("timeline");
+  const markerTestId = "marker-record-1";
+  const targetTestId = options.targetTestId ?? "row-record-1-summary";
+  const targetRecordId = options.targetRecordId ?? "record-1";
+  const markerRecordId = options.markerRecordId ?? targetRecordId;
+  const targetCellFieldKey = options.targetCellFieldKey ?? "timeline.summary";
+  const markerCellFieldKey = options.markerCellFieldKey ?? targetCellFieldKey;
+  const markerSameRow = markerRecordId === targetRecordId;
+  const markerSameCell =
+    markerSameRow && markerCellFieldKey === targetCellFieldKey;
+  const targetRowRect = options.targetRowRect ?? {
+    height: 60,
+    left: 0,
+    top: 40,
+    width: 450,
+  };
+  const markerRowRect =
+    options.markerRowRect ??
+    (markerSameRow
+      ? targetRowRect
+      : { height: 60, left: 0, top: 160, width: 450 });
+  const targetCellRect = options.targetCellRect ?? {
+    height: 60,
+    left: 100,
+    top: 40,
+    width: 120,
+  };
+  const markerCellRect =
+    options.markerCellRect ??
+    (markerSameCell
+      ? targetCellRect
+      : {
+          height: markerRowRect.height,
+          left: 250,
+          top: markerRowRect.top,
+          width: 120,
+        });
+  const targetInputRect = {
+    height: 24,
+    left: targetCellRect.left + 10,
+    top: targetCellRect.top + 10,
+    width: 80,
+  };
+  const rects = new Map<
+    string,
+    { height: number; left: number; top: number; width: number }
+  >([
+    ["scrollport", { height: 400, left: 0, top: 0, width: 500 }],
+    ["target-row", targetRowRect],
+    ["target-cell", targetCellRect],
+    ["target-input", targetInputRect],
+    ["marker-row", markerRowRect],
+    ["marker-cell", markerCellRect],
+    ["marker", options.markerRect],
+  ]);
+
+  const targetCellMarkup = `
+    <div data-grid-field-key="${targetCellFieldKey}" data-rect-id="target-cell">
+      <input data-testid="${targetTestId}" data-rect-id="target-input" />
+      ${markerSameCell ? `<span data-testid="${markerTestId}" data-rect-id="marker">M</span>` : ""}
+    </div>
+  `;
+  const markerCellMarkup = markerSameCell
+    ? ""
+    : `
+      <div data-grid-field-key="${markerCellFieldKey}" data-rect-id="marker-cell">
+        <span data-testid="${markerTestId}" data-rect-id="marker">M</span>
+      </div>
+    `;
+  const markerRowMarkup = markerSameRow
+    ? ""
+    : `
+      <div role="row" data-grid-record-id="${markerRecordId}" data-rect-id="marker-row">
+        ${markerCellMarkup}
+      </div>
+    `;
+
+  document.body.innerHTML = `
+    <div data-testid="${gridTestId}">
+      <div class="${gridScrollportClassName()}" data-rect-id="scrollport">
+        <div role="row" data-grid-record-id="${targetRecordId}" data-rect-id="target-row">
+          ${targetCellMarkup}
+          ${markerSameRow ? markerCellMarkup : ""}
+        </div>
+        ${markerRowMarkup}
+      </div>
+    </div>
+  `;
+  const shell = document.querySelector(`[data-testid="${gridTestId}"]`);
+  const marker = document.querySelector(`[data-testid="${markerTestId}"]`);
+  const target = document.querySelector(`[data-testid="${targetTestId}"]`);
+  if (
+    !(shell instanceof HTMLDivElement) ||
+    !(marker instanceof HTMLElement) ||
+    !(target instanceof HTMLElement)
+  ) {
+    throw new Error("Expected marker anchor fixture elements to exist");
+  }
+
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+    function mockRect(this: HTMLElement) {
+      const rectId = this.getAttribute("data-rect-id");
+      const box = rectId === null ? undefined : rects.get(rectId);
+      return rectFromBox(box ?? { height: 0, left: 0, top: 0, width: 0 });
+    },
+  );
+
+  return {
+    markerTestId,
+    page: createBrowserPage({
+      [gridTestId]: shell,
+      [markerTestId]: marker,
+      [targetTestId]: target,
+    }),
     targetTestId,
   };
 }
