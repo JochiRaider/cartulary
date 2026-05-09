@@ -44,6 +44,99 @@ const machineRejectedOutputClasses = new Set([
   "human_summary",
   "interactive_raw",
 ]);
+const schedulerResourceRegistryPath = path.join(
+  repoRoot,
+  "tools",
+  "scheduler_resource_registry.json",
+);
+const defaultHarnessConfig = Object.freeze({
+  CARTULARY_TEST_RESULTS_DIR: ".cartulary/test-results",
+  CARTULARY_TEST_RUN_ID: null,
+});
+const exactOneBooleans = Object.freeze([
+  "VERBOSE",
+  "CI_VERBOSE",
+  "CI",
+  "CARTULARY_TEST_SERVICES_ACTIVE",
+  "CARTULARY_ENABLE_TEST_ROUTES",
+  "CARTULARY_CLEANUP_DRY_RUN",
+  "LINT_SHELL_STRICT",
+]);
+const optionalPathVariables = Object.freeze([
+  "GO",
+  "GO_CACHE_DIR",
+  "GO_MOD_CACHE_DIR",
+  "GOCACHE",
+  "GOMODCACHE",
+  "NODE_RUNTIME_DIR",
+  "NODE_BIN",
+  "PNPM",
+  "COREPACK_HOME",
+  "CONFIG_FILE",
+  "CARTULARY_CONFIG_FILE",
+  "TEST_SERVICES_BIN",
+  "CARTULARY_TEST_SERVICES_BIN",
+  "CARTULARY_HARNESS_REPO_ROOT",
+  "CARTULARY_HARNESS_SCRATCH_ROOT",
+  "TMPDIR",
+  "CARTULARY_COMPOSE_FILE",
+  "CARTULARY_SERVER_BIN",
+  "CARTULARY_MIGRATE_BIN",
+]);
+const versionVariables = Object.freeze([
+  "NODE_VERSION",
+  "PNPM_VERSION",
+  "SHELLCHECK_VERSION",
+]);
+const positiveIntegerVariables = Object.freeze([
+  "BACKEND_STORE_GO_TEST_P",
+  "BACKEND_INTEGRATION_GO_TEST_P",
+  "GO_TEST_SERVICE_PACKAGE_PARALLELISM",
+  "BACKEND_INTEGRATION_SHARD_JOBS",
+  "HARNESS_SMOKE_JOBS",
+  "PLAYWRIGHT_WORKERS",
+  "VITEST_MAX_WORKERS",
+  "FIXTURE_TOP",
+]);
+const boundedPositiveIntegerVariables = Object.freeze({
+  CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS: { min: 1, max: 16 },
+  CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET: { min: 0, max: 1024 },
+  CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS: { min: 1, max: 999999999 },
+});
+const autoOrPositiveIntegerVariables = Object.freeze([
+  "BROWSER_E2E_FUNCTIONAL_SHARDS",
+]);
+const serviceAttachGroups = Object.freeze([
+  {
+    label: "Postgres attach set",
+    names: [
+      "CARTULARY_PGTEST_ADMIN_DSN",
+      "CARTULARY_PGTEST_DSN_TEMPLATE",
+      "CARTULARY_PGTEST_TEMPLATE_DB",
+    ],
+    validate(values) {
+      if (!values.CARTULARY_PGTEST_DSN_TEMPLATE.includes("{database}")) {
+        throw new HarnessConfigError(
+          "CARTULARY_PGTEST_DSN_TEMPLATE must contain {database}",
+        );
+      }
+    },
+  },
+  {
+    label: "MinIO attach set",
+    names: [
+      "CARTULARY_S3TEST_ENDPOINT",
+      "CARTULARY_S3TEST_ACCESS_KEY_ID",
+      "CARTULARY_S3TEST_SECRET_ACCESS_KEY",
+      "CARTULARY_S3TEST_SECURE",
+    ],
+    validate(values) {
+      validateBooleanToken("CARTULARY_S3TEST_SECURE", values.CARTULARY_S3TEST_SECURE);
+    },
+  },
+]);
+
+let schedulerResourceRegistry = null;
 
 export class HarnessConfigError extends Error {
   constructor(message, { reason = "configuration_error", exitCode = 2 } = {}) {
@@ -63,7 +156,75 @@ function isPresent(value) {
   return value !== undefined && value !== null && String(value) !== "";
 }
 
-export function resolveOutputMode(env = process.env, target = "") {
+function selectedSource(env, name, defaultValue = undefined) {
+  if (Object.hasOwn(env, name)) {
+    return { value: String(env[name] ?? ""), source: "env" };
+  }
+  if (defaultValue !== undefined && defaultValue !== null) {
+    return { value: String(defaultValue), source: "default" };
+  }
+  return { value: "", source: "omitted" };
+}
+
+function requireNonEmptyString(name, value) {
+  if (!isPresent(value)) {
+    throw new HarnessConfigError(`${name} must not be empty`);
+  }
+  const normalized = String(value).trim();
+  if (normalized === "") {
+    throw new HarnessConfigError(`${name} must not be empty`);
+  }
+  return normalized;
+}
+
+function validatePathToken(name, value) {
+  const normalized = requireNonEmptyString(name, value);
+  if (normalized.includes("\0")) {
+    throw new HarnessConfigError(`${name} must not contain NUL`);
+  }
+  return normalized;
+}
+
+function validateVersionToken(name, value) {
+  const normalized = requireNonEmptyString(name, value);
+  if (!/^[A-Za-z0-9._+-]+$/u.test(normalized)) {
+    throw new HarnessConfigError(`${name} must be a version token`);
+  }
+  return normalized;
+}
+
+function validatePositiveInteger(name, value, { min = 1, max = 9999 } = {}) {
+  const raw = requireNonEmptyString(name, value);
+  if (!/^[0-9]+$/u.test(raw)) {
+    throw new HarnessConfigError(`${name} must be a positive integer`);
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    if (min === 1) {
+      throw new HarnessConfigError(`${name} must be a positive integer <= ${max}`);
+    }
+    throw new HarnessConfigError(`${name} must be an integer between ${min} and ${max}`);
+  }
+  return parsed;
+}
+
+function validateAutoOrPositiveInteger(name, value, { max = 9999 } = {}) {
+  const raw = requireNonEmptyString(name, value);
+  if (raw === "auto") {
+    return raw;
+  }
+  return validatePositiveInteger(name, raw, { max });
+}
+
+function validateBooleanToken(name, value) {
+  const raw = requireNonEmptyString(name, value);
+  if (!["true", "false", "1", "0"].includes(raw)) {
+    throw new HarnessConfigError(`${name} must be true, false, 1, or 0`);
+  }
+  return raw;
+}
+
+function resolveOutputModeRecord(env = process.env, target = "") {
   if (isPresent(env.CARTULARY_OUTPUT_MODE)) {
     const raw = String(env.CARTULARY_OUTPUT_MODE).trim();
     const mode = raw.toLowerCase();
@@ -72,18 +233,22 @@ export function resolveOutputMode(env = process.env, target = "") {
         `invalid CARTULARY_OUTPUT_MODE ${JSON.stringify(raw)}; expected one of ${outputModes.join(", ")}`,
       );
     }
-    return mode;
+    return { value: mode, source: "env:CARTULARY_OUTPUT_MODE" };
   }
   if (env.VERBOSE === "1") {
-    return "verbose";
+    return { value: "verbose", source: "env:VERBOSE" };
   }
   if (env.CI_VERBOSE === "1") {
-    return "ci";
+    return { value: "ci", source: "env:CI_VERBOSE" };
   }
   if (target === "ci" || env.CI === "1") {
-    return "ci";
+    return { value: "ci", source: target === "ci" ? "target" : "env:CI" };
   }
-  return "summary";
+  return { value: "summary", source: "default" };
+}
+
+export function resolveOutputMode(env = process.env, target = "") {
+  return resolveOutputModeRecord(env, target).value;
 }
 
 export function validateRunId(value) {
@@ -97,7 +262,9 @@ export function validateRunId(value) {
 }
 
 export function validateResultRoot(value, { root = repoRoot, create = false } = {}) {
-  const configured = String(value || ".cartulary/test-results");
+  const configured = value === undefined || value === null
+    ? ".cartulary/test-results"
+    : String(value);
   if (
     configured === "" ||
     configured === "/" ||
@@ -131,58 +298,193 @@ export function targetPolicy(target, manifest = loadTaskSurfaceManifest()) {
   return manifest.targets?.find((entry) => entry.name === target) ?? null;
 }
 
-export function preflightPublicTarget(target, env = process.env) {
-  const entry = targetPolicy(target);
+function loadSchedulerResourceRegistry() {
+  if (!schedulerResourceRegistry) {
+    schedulerResourceRegistry = JSON.parse(readFileSync(schedulerResourceRegistryPath, "utf8"));
+  }
+  return schedulerResourceRegistry;
+}
+
+function declaredSchedulerOverrideEnvNames() {
+  const registry = loadSchedulerResourceRegistry();
+  return new Set(
+    (registry.resources ?? [])
+      .map((resource) => resource.capacity?.override_env)
+      .filter((name) => typeof name === "string" && name !== ""),
+  );
+}
+
+function validateDeclaredResourceLimits(env) {
+  const declaredNames = declaredSchedulerOverrideEnvNames();
+  const resolved = {};
+  for (const name of Array.from(declaredNames).sort()) {
+    if (!isPresent(env[name])) {
+      continue;
+    }
+    resolved[name] = validatePositiveInteger(name, env[name], { max: 256 });
+  }
+  return resolved;
+}
+
+function validateExactOneBooleans(env) {
+  const resolved = {};
+  for (const name of exactOneBooleans) {
+    if (!isPresent(env[name])) {
+      continue;
+    }
+    resolved[name] = env[name] === "1";
+  }
+  return resolved;
+}
+
+function validateOptionalPaths(env) {
+  const resolved = {};
+  for (const name of optionalPathVariables) {
+    if (!isPresent(env[name])) {
+      continue;
+    }
+    const normalized = validatePathToken(name, env[name]);
+    if (name === "CARTULARY_HARNESS_SCRATCH_ROOT") {
+      const scratchRoot = path.resolve(repoRoot, normalized);
+      const relative = path.relative(repoRoot, scratchRoot);
+      if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
+        throw new HarnessConfigError(
+          `CARTULARY_HARNESS_SCRATCH_ROOT must be outside the repository: ${scratchRoot}`,
+        );
+      }
+      resolved[name] = scratchRoot;
+      continue;
+    }
+    resolved[name] = normalized;
+  }
+  for (const [name, value] of Object.entries(env)) {
+    if (!/^CARTULARY__ROOTS__[A-Z0-9_]+__PATH$/u.test(name) || !isPresent(value)) {
+      continue;
+    }
+    resolved[name] = validatePathToken(name, value);
+  }
+  return resolved;
+}
+
+function validateVersionTokens(env) {
+  const resolved = {};
+  for (const name of versionVariables) {
+    if (!isPresent(env[name])) {
+      continue;
+    }
+    resolved[name] = validateVersionToken(name, env[name]);
+  }
+  return resolved;
+}
+
+function validateIntegerVariables(env) {
+  const resolved = {};
+  for (const name of positiveIntegerVariables) {
+    if (!isPresent(env[name])) {
+      continue;
+    }
+    resolved[name] = validatePositiveInteger(name, env[name]);
+  }
+  for (const [name, bounds] of Object.entries(boundedPositiveIntegerVariables)) {
+    if (!isPresent(env[name])) {
+      continue;
+    }
+    resolved[name] = validatePositiveInteger(name, env[name], bounds);
+  }
+  for (const name of autoOrPositiveIntegerVariables) {
+    if (!isPresent(env[name])) {
+      continue;
+    }
+    resolved[name] = validateAutoOrPositiveInteger(name, env[name]);
+  }
+  return resolved;
+}
+
+function validateServiceAttachGroups(env) {
+  const resolved = {};
+  for (const group of serviceAttachGroups) {
+    const present = group.names.filter((name) => isPresent(env[name]));
+    if (present.length === 0) {
+      continue;
+    }
+    if (present.length !== group.names.length) {
+      const missing = group.names.filter((name) => !isPresent(env[name]));
+      throw new HarnessConfigError(`${group.label} is incomplete; missing ${missing.join(", ")}`);
+    }
+    const values = {};
+    for (const name of group.names) {
+      values[name] = requireNonEmptyString(name, env[name]);
+    }
+    group.validate(values);
+    resolved[group.label] = Object.fromEntries(
+      Object.entries(values).map(([name, value]) => [
+        name,
+        /SECRET|KEY|DSN/u.test(name) ? "[REDACTED]" : value,
+      ]),
+    );
+  }
+  return resolved;
+}
+
+export function resolveHarnessConfig(target, env = process.env, options = {}) {
+  const manifest = options.manifest ?? loadTaskSurfaceManifest();
+  const entry = targetPolicy(target, manifest);
   if (!entry || entry.classification !== "public") {
     throw new HarnessConfigError(`unknown public target ${JSON.stringify(target)}`);
   }
-  const mode = resolveOutputMode(env, target);
+  const outputMode = resolveOutputModeRecord(env, target);
   const outputClass = entry.output_policy?.output_class ?? "";
-  if (mode === "machine" && machineRejectedOutputClasses.has(outputClass)) {
+  if (outputMode.value === "machine" && machineRejectedOutputClasses.has(outputClass)) {
     throw new HarnessConfigError(
       `target ${target} does not accept CARTULARY_OUTPUT_MODE=machine`,
       { reason: "usage_error" },
     );
   }
-  if (mode === "machine" && !machineAcceptedOutputClasses.has(outputClass)) {
+  if (outputMode.value === "machine" && !machineAcceptedOutputClasses.has(outputClass)) {
     throw new HarnessConfigError(
       `target ${target} has no machine output contract`,
       { reason: "usage_error" },
     );
   }
-  validateResultRoot(env.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results");
-  validateRunId(env.CARTULARY_TEST_RUN_ID || generateRunId());
-  validateResourceLimits(env);
-  return { target, output_mode: mode, output_class: outputClass };
+  const resultRoot = selectedSource(
+    env,
+    "CARTULARY_TEST_RESULTS_DIR",
+    defaultHarnessConfig.CARTULARY_TEST_RESULTS_DIR,
+  );
+  const runId = selectedSource(env, "CARTULARY_TEST_RUN_ID", generateRunId());
+  const resolved = {
+    target,
+    target_policy: {
+      classification: entry.classification,
+    },
+    output_class: outputClass,
+    output_mode: outputMode.value,
+    output_mode_source: outputMode.source,
+    result_root: validateResultRoot(resultRoot.value, {
+      root: options.root ?? repoRoot,
+      create: options.createResultRoot === true,
+    }),
+    result_root_source: resultRoot.source,
+    run_id: validateRunId(runId.value),
+    run_id_source: runId.source,
+    generated_run_id: runId.source === "default",
+    variables: {
+      booleans: validateExactOneBooleans(env),
+      paths: validateOptionalPaths(env),
+      versions: validateVersionTokens(env),
+      integers: validateIntegerVariables(env),
+      service_attach: validateServiceAttachGroups(env),
+    },
+    resource_limits: {
+      scheduler_overrides: validateDeclaredResourceLimits(env),
+    },
+    warnings: [],
+  };
+  return resolved;
 }
 
-function validateResourceLimits(env = process.env) {
-  for (const [name, value] of Object.entries(env)) {
-    if (
-      !name.endsWith("_JOBS") &&
-      !name.endsWith("_WORKERS") &&
-      !name.endsWith("_SHARDS") &&
-      ![
-        "BACKEND_STORE_GO_TEST_P",
-        "BACKEND_INTEGRATION_GO_TEST_P",
-        "GO_TEST_SERVICE_PACKAGE_PARALLELISM",
-      ].includes(name)
-    ) {
-      continue;
-    }
-    if (value === undefined || value === "") {
-      continue;
-    }
-    if (!/^(auto|[1-9][0-9]{0,3})$/u.test(String(value))) {
-      throw new HarnessConfigError(`${name} must be a positive integer or auto`);
-    }
-  }
-  const progress = env.CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS;
-  if (progress !== undefined && progress !== "" && !/^[1-9][0-9]{0,8}$/u.test(String(progress))) {
-    throw new HarnessConfigError(
-      "CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS must be a positive integer",
-    );
-  }
+export function preflightPublicTarget(target, env = process.env) {
+  return resolveHarnessConfig(target, env);
 }
 
 function loadRedactionManifest() {

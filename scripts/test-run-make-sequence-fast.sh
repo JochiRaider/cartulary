@@ -679,6 +679,96 @@ assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts
 assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-check-scheduler.sh" "fast check scheduler smoke backing script"
 assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-service-backed-scheduler.sh" "fast service-backed scheduler smoke backing script"
 
+"${NODE_BIN:-node}" --input-type=module <<'EOF'
+import assert from "node:assert/strict";
+
+import {
+  HarnessConfigError,
+  resolveHarnessConfig,
+  resolveOutputMode,
+} from "./scripts/lib/harness-contract.mjs";
+
+assert.equal(
+  resolveOutputMode({ CARTULARY_OUTPUT_MODE: "quiet", VERBOSE: "1" }, "backend-unit"),
+  "quiet",
+);
+assert.equal(
+  resolveOutputMode({ VERBOSE: "1", CI_VERBOSE: "1" }, "backend-unit"),
+  "verbose",
+);
+assert.equal(resolveOutputMode({ CI_VERBOSE: "1" }, "backend-unit"), "ci");
+assert.equal(resolveOutputMode({ CI: "1" }, "backend-unit"), "ci");
+assert.equal(resolveOutputMode({}, "ci"), "ci");
+
+const resolved = resolveHarnessConfig("backend-unit", {
+  CARTULARY_TEST_RESULTS_DIR: "tmp/results",
+  CARTULARY_TEST_RUN_ID: "run-a",
+  CHECK_HOST_CPU_JOBS: "2",
+  RANDOM_JOBS: "bad",
+});
+assert.equal(resolved.output_mode, "summary");
+assert.equal(resolved.resource_limits.scheduler_overrides.CHECK_HOST_CPU_JOBS, 2);
+
+assert.throws(
+  () =>
+    resolveHarnessConfig("backend-unit", {
+      CARTULARY_TEST_RESULTS_DIR: "",
+      CARTULARY_TEST_RUN_ID: "run-a",
+    }),
+  HarnessConfigError,
+);
+assert.throws(
+  () =>
+    resolveHarnessConfig("backend-unit", {
+      CARTULARY_TEST_RESULTS_DIR: "tmp/results",
+      CARTULARY_TEST_RUN_ID: "run-a",
+      CHECK_HOST_CPU_JOBS: "0",
+    }),
+  HarnessConfigError,
+);
+assert.throws(
+  () =>
+    resolveHarnessConfig("backend-unit", {
+      CARTULARY_TEST_RESULTS_DIR: "tmp/results",
+      CARTULARY_TEST_RUN_ID: "run-a",
+      CARTULARY_PGTEST_ADMIN_DSN: "postgres://admin",
+    }),
+  HarnessConfigError,
+);
+EOF
+
+verbose_ci_dry_run="$(
+  CARTULARY_TEST_RESULTS_DIR="${ROOT_DIR}/tmp/run-make-sequence-fast-output-mode-results" \
+  CARTULARY_TEST_RUN_ID="verbose-ci" \
+  VERBOSE=1 \
+  CI_VERBOSE=1 \
+    make -n --no-print-directory lint-biome \
+    2>&1
+)"
+assert_not_contains "${verbose_ci_dry_run}" "--reporter=summary" "VERBOSE must win over CI_VERBOSE in Make output mode"
+
+quiet_verbose_dry_run="$(
+  CARTULARY_TEST_RESULTS_DIR="${ROOT_DIR}/tmp/run-make-sequence-fast-output-mode-results" \
+  CARTULARY_TEST_RUN_ID="quiet-verbose" \
+  CARTULARY_OUTPUT_MODE=quiet \
+  VERBOSE=1 \
+    make -n --no-print-directory lint-biome \
+    2>&1
+)"
+assert_contains "${quiet_verbose_dry_run}" "--reporter=summary" "explicit CARTULARY_OUTPUT_MODE must win over VERBOSE in Make output mode"
+
+invalid_preflight_output="$(
+  set +e
+  CARTULARY_TEST_RESULTS_DIR="" \
+  CARTULARY_TEST_RUN_ID="empty-results" \
+    make --no-print-directory help \
+    2>&1
+  printf 'status=%s\n' "$?"
+)"
+assert_contains "${invalid_preflight_output}" "failure_reason=configuration_error" "empty result root fails in preflight"
+assert_contains "${invalid_preflight_output}" "status=2" "empty result root exits 2"
+assert_not_contains "${invalid_preflight_output}" "Cartulary compact workflow task surface" "empty result root stops child help output"
+
 for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")

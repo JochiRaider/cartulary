@@ -92,21 +92,25 @@ EFFECTIVE_BACKEND_STORE_GO_TEST_P := $(call resolve_service_go_test_p,BACKEND_ST
 EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P := $(call resolve_service_go_test_p,BACKEND_INTEGRATION_GO_TEST_P)
 
 DEFAULT_CARTULARY_TEST_RESULTS_DIR := $(CURDIR)/.cartulary/test-results
-CARTULARY_OUTPUT_MODE ?= summary
+CARTULARY_OUTPUT_MODE ?=
 CARTULARY_TEST_RESULTS_DIR ?= $(DEFAULT_CARTULARY_TEST_RESULTS_DIR)
 CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
 RELEASE_ARTIFACT_DIR ?= $(CURDIR)/.cartulary/release-artifacts
 LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
 SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cyclonedx.json
 BENCHMARK_MANIFEST ?= $(CURDIR)/.cartulary/benchmark/benchmark_manifest.json
-export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY
+export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CI CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY
 
-ifeq ($(CI_VERBOSE),1)
-EFFECTIVE_OUTPUT_MODE := ci
+ifneq ($(strip $(CARTULARY_OUTPUT_MODE)),)
+EFFECTIVE_OUTPUT_MODE := $(strip $(CARTULARY_OUTPUT_MODE))
 else ifeq ($(VERBOSE),1)
 EFFECTIVE_OUTPUT_MODE := verbose
+else ifeq ($(CI_VERBOSE),1)
+EFFECTIVE_OUTPUT_MODE := ci
+else ifeq ($(CI),1)
+EFFECTIVE_OUTPUT_MODE := ci
 else
-EFFECTIVE_OUTPUT_MODE := $(CARTULARY_OUTPUT_MODE)
+EFFECTIVE_OUTPUT_MODE := summary
 endif
 
 ifneq ($(filter $(EFFECTIVE_OUTPUT_MODE),quiet summary ci machine),)
