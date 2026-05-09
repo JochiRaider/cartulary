@@ -15,27 +15,27 @@ Each sprint has explicit status, blocker, issues, and handoff fields. Agents mus
 
 ## Status vocabulary
 
-| Status | Meaning |
-|---|---|
-| `not_started` | No material work has begun. |
-| `in_progress` | Work has begun and outputs are incomplete. |
-| `blocked` | Work cannot proceed without a decision, missing dependency, inaccessible source, or unavailable runtime. |
-| `complete` | Outputs exist and validation criteria pass. |
-| `superseded` | Sprint was replaced by a revised plan. |
+| Status        | Meaning                                                                                                  |
+| ------------- | -------------------------------------------------------------------------------------------------------- |
+| `not_started` | No material work has begun.                                                                              |
+| `in_progress` | Work has begun and outputs are incomplete.                                                               |
+| `blocked`     | Work cannot proceed without a decision, missing dependency, inaccessible source, or unavailable runtime. |
+| `complete`    | Outputs exist and validation criteria pass.                                                              |
+| `superseded`  | Sprint was replaced by a revised plan.                                                                   |
 
 ## Sprint progress board
 
-| Sprint | Status | Blocker | Primary output |
-|---|---|---|---|
-| S0. Charter and setup | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/recovery-charter.md` |
-| S1. Inventory and boundary | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/harness-inventory.md` |
-| S2. Entrypoints and commands | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md` |
-| S3. Fixtures, artifacts, and cleanup | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md` |
-| S4. Services, environments, and resources | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md` |
-| S5. Lifecycle, interfaces, and failures | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/observable-interface-map.md` and `docs/testing-harness-spec-recovery-docs/failure-mode-register.md` |
-| S6. Hazards, resources, and timing | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md` |
-| S7. NLSpec, acceptance, roadmap, and handoff | `not_started` | `TODO:` | `TODO: harness_nlspec_draft_path` and `TODO: acceptance_matrix` |
-| S8. Authority and preservation follow-up | `complete` | `none` | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md` |
+| Sprint                                       | Status        | Blocker | Primary output                                                                                                                               |
+| -------------------------------------------- | ------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| S0. Charter and setup                        | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/recovery-charter.md`                                                                                |
+| S1. Inventory and boundary                   | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/harness-inventory.md`                                                                               |
+| S2. Entrypoints and commands                 | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/entrypoint-command-map.md`                                                                          |
+| S3. Fixtures, artifacts, and cleanup         | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md`                                                                       |
+| S4. Services, environments, and resources    | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/service-lifecycle-map.md`                                                                           |
+| S5. Lifecycle, interfaces, and failures      | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/observable-interface-map.md` and `docs/testing-harness-spec-recovery-docs/failure-mode-register.md` |
+| S6. Hazards, resources, and timing           | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/race-timing-resource-register.md`                                                                   |
+| S7. NLSpec, acceptance, roadmap, and handoff | `not_started` | `TODO:` | `TODO: harness_nlspec_draft_path` and `TODO: acceptance_matrix`                                                                              |
+| S8. Authority and preservation follow-up     | `complete`    | `none`  | `docs/testing-harness-spec-recovery-docs/preservation-matrix.md` and `docs/testing-harness-spec-recovery-docs/harness-authority-map.md`      |
 
 ## S0: Charter and setup
 
@@ -306,15 +306,15 @@ S3 created `docs/testing-harness-spec-recovery-docs/artifact-ownership-matrix.md
 
 S3 audit follow-ups are mapped below without changing S4 status.
 
-| Follow-up ID | Recovery artifact update | Target sprint or owner path | Blocking status |
-|---|---|---|---|
-| `AUD-S3-FU-0001` | `artifact-ownership-matrix.md` replaces premature future hazard references in `ART-0025` and `ART-0026` with existing `HAZ-S3-*` rows; future sprint IDs must exist before citation. | S3 follow-up complete; S4 may create later resource rows. | Blocking before S4/S6 consume those rows. |
-| `AUD-S3-FU-0002` | `ambiguity-register.md` keeps `AMB-0015` and `AMB-0022` open with owner-decision prompts and default no-refresh authority. | S8 or explicit harness/browser owner decision. | Non-blocking for S4. |
-| `AUD-S3-FU-0003` | `artifact-ownership-matrix.md`, `ambiguity-register.md`, and `source-limit-log.md` define retained-run freshness as explicit run selection, with newest-run fallback only for human investigation until S5 decides. | S5, with S8 authority if policy becomes normative. | Blocking before observable-interface, drift, or baseline rules are finalized. |
-| `AUD-S3-FU-0004` | `source-limit-log.md` assigns runner logs, watchdog JSON, Playwright traces/screenshots/videos, and reports to S5 schema recovery. | S5. | Blocking before failure-mode schema claims. |
-| `AUD-S3-FU-0005` | `cleanup-lifecycle-matrix.md`, `ambiguity-register.md`, and `source-limit-log.md` assign live cleanup, stale janitor bounds, active connections, port release, timeout, and interrupt behavior to S4/S6. | S4 service lifecycle and S6 resource/timing hazards. | Blocking before S6 hazard classification. |
-| `AUD-S3-FU-0006` | `artifact-ownership-matrix.md`, `cleanup-lifecycle-matrix.md`, and `ambiguity-register.md` keep direct package-script artifacts and cleanup authority separate from Make behavior. | S8 authority classification. | Non-blocking for S4. |
-| `AUD-S3-FU-0007` | `artifact-ownership-matrix.md` and `ambiguity-register.md` classify external Go cache cleanup as an S8 authority decision, with proposed tool-managed external default. | S8 authority classification. | Non-blocking for S4. |
+| Follow-up ID     | Recovery artifact update                                                                                                                                                                                            | Target sprint or owner path                               | Blocking status                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `AUD-S3-FU-0001` | `artifact-ownership-matrix.md` replaces premature future hazard references in `ART-0025` and `ART-0026` with existing `HAZ-S3-*` rows; future sprint IDs must exist before citation.                                | S3 follow-up complete; S4 may create later resource rows. | Blocking before S4/S6 consume those rows.                                     |
+| `AUD-S3-FU-0002` | `ambiguity-register.md` keeps `AMB-0015` and `AMB-0022` open with owner-decision prompts and default no-refresh authority.                                                                                          | S8 or explicit harness/browser owner decision.            | Non-blocking for S4.                                                          |
+| `AUD-S3-FU-0003` | `artifact-ownership-matrix.md`, `ambiguity-register.md`, and `source-limit-log.md` define retained-run freshness as explicit run selection, with newest-run fallback only for human investigation until S5 decides. | S5, with S8 authority if policy becomes normative.        | Blocking before observable-interface, drift, or baseline rules are finalized. |
+| `AUD-S3-FU-0004` | `source-limit-log.md` assigns runner logs, watchdog JSON, Playwright traces/screenshots/videos, and reports to S5 schema recovery.                                                                                  | S5.                                                       | Blocking before failure-mode schema claims.                                   |
+| `AUD-S3-FU-0005` | `cleanup-lifecycle-matrix.md`, `ambiguity-register.md`, and `source-limit-log.md` assign live cleanup, stale janitor bounds, active connections, port release, timeout, and interrupt behavior to S4/S6.            | S4 service lifecycle and S6 resource/timing hazards.      | Blocking before S6 hazard classification.                                     |
+| `AUD-S3-FU-0006` | `artifact-ownership-matrix.md`, `cleanup-lifecycle-matrix.md`, and `ambiguity-register.md` keep direct package-script artifacts and cleanup authority separate from Make behavior.                                  | S8 authority classification.                              | Non-blocking for S4.                                                          |
+| `AUD-S3-FU-0007` | `artifact-ownership-matrix.md` and `ambiguity-register.md` classify external Go cache cleanup as an S8 authority decision, with proposed tool-managed external default.                                             | S8 authority classification.                              | Non-blocking for S4.                                                          |
 
 ## S4: Services, environments, and resources
 
@@ -508,14 +508,14 @@ Identify hazards and classify behavior as intentional, accidental, compatibility
 
 ### Concrete tasks
 
-- [x] Identify concurrency points for S4 follow-up surfaces.
-- [x] Identify shared mutable resources for S4 follow-up surfaces.
-- [x] Record sleeps, poll loops, timeouts, retries, debounces, and watch triggers.
-- [x] Populate race/timing/resource register.
-- [x] Connect recurring S4 follow-up failures to hazards.
-- [x] Route preservation and authority questions to S8.
-- [x] Preserve main-spec and harness authority conflicts for S8.
-- [x] Update ambiguity/source-limit routing without closing source limits.
+- [ ] Identify concurrency points for S4 follow-up surfaces.
+- [ ] Identify shared mutable resources for S4 follow-up surfaces.
+- [ ] Record sleeps, poll loops, timeouts, retries, debounces, and watch triggers.
+- [ ] Populate race/timing/resource register.
+- [ ] Connect recurring S4 follow-up failures to hazards.
+- [ ] Route preservation and authority questions to S8.
+- [ ] Preserve main-spec and harness authority conflicts for S8.
+- [ ] Update ambiguity/source-limit routing without closing source limits.
 
 ### Expected outputs
 
@@ -536,9 +536,9 @@ Identify hazards and classify behavior as intentional, accidental, compatibility
 
 ### Exit criteria
 
-- [x] Hazard register can drive spec resource and timing rules for S4 follow-up surfaces.
-- [x] Preservation and authority questions are routed to S8 rather than silently closed.
-- [x] Open runtime evidence gaps remain source-limited.
+- [ ] Hazard register can drive spec resource and timing rules for S4 follow-up surfaces.
+- [ ] Preservation and authority questions are routed to S8 rather than silently closed.
+- [ ] Open runtime evidence gaps remain source-limited.
 
 ### Status field
 
@@ -586,11 +586,11 @@ harness behavior or inventing maintainer decisions.
 
 ### Concrete tasks
 
-- [x] Classify preservation posture for S4 follow-up surfaces.
-- [x] Record harness authority map and owner questions.
-- [x] Record main-spec conflict risks without resolving them by inference.
-- [x] Preserve maintainer-decision-required status where owner input is absent.
-- [x] Keep generated artifacts as downstream execution inputs, not behavior owners.
+- [ ] Classify preservation posture for S4 follow-up surfaces.
+- [ ] Record harness authority map and owner questions.
+- [ ] Record main-spec conflict risks without resolving them by inference.
+- [ ] Preserve maintainer-decision-required status where owner input is absent.
+- [ ] Keep generated artifacts as downstream execution inputs, not behavior owners.
 
 ### Expected outputs
 
@@ -607,9 +607,9 @@ harness behavior or inventing maintainer decisions.
 
 ### Exit criteria
 
-- [x] Preservation matrix can drive roadmap and normative decisions.
-- [x] Authority map is ready to include in the harness NLSpec.
-- [x] Main-spec conflict risks are recorded.
+- [ ] Preservation matrix can drive roadmap and normative decisions.
+- [ ] Authority map is ready to include in the harness NLSpec.
+- [ ] Main-spec conflict risks are recorded.
 
 ### Status field
 
