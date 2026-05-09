@@ -101,7 +101,7 @@ const addSummaryRefs = (summaryPath) => {
   }
   seenSummaries.add(summaryPath);
   const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-  if (summary.schema_id !== "cartulary.tool_run_summary.v1") {
+  if (summary.schema_id !== "cartulary.tool_run_summary.v2") {
     throw new Error(`${targetName}: unexpected schema ${summary.schema_id}`);
   }
   if (summary.target !== targetName || summary.status !== "pass") {
@@ -111,26 +111,37 @@ const addSummaryRefs = (summaryPath) => {
   refs.push(...(summary.summary_artifacts ?? []), ...(summary.log_artifacts ?? []));
 };
 for (const resultLine of resultLines) {
-  const artifactRoot = lineField(resultLine, "artifact_root");
+  const runRoot = lineField(resultLine, "run_root");
   const summaryJson = lineField(resultLine, "summary_json");
-  if (!artifactRoot || !summaryJson) {
-    throw new Error(`${targetName}: missing artifact_root or summary_json in ${resultLine}`);
+  if (!runRoot || !summaryJson) {
+    throw new Error(`${targetName}: missing run_root or summary_json in ${resultLine}`);
   }
+  const runRootPath = resolveRepoPath(runRoot);
   const allowsRunLevelSummary =
-    target.output_policy?.artifact_policy === "run_and_target_summaries";
-  if (!allowsRunLevelSummary && !artifactRoot.endsWith(`/${targetName}`)) {
-    throw new Error(`${targetName}: artifact_root must end with target directory, got ${artifactRoot}`);
+    ["run_and_target_summaries", "scheduler_and_tool_run_summaries"].includes(
+      target.output_policy?.artifact_policy,
+    );
+  if (runRoot.endsWith(`/${targetName}`)) {
+    throw new Error(`${targetName}: run_root must identify the run, not the target directory: ${runRoot}`);
   }
-  if (!allowsRunLevelSummary && artifactRoot.endsWith(`/${targetName}/${targetName}`)) {
-    throw new Error(`${targetName}: artifact_root contains duplicated target directory ${artifactRoot}`);
+  const summaryPath = path.isAbsolute(summaryJson)
+    ? summaryJson
+    : path.resolve(runRootPath, summaryJson);
+  const relativeSummary = path.relative(runRootPath, summaryPath).replaceAll("\\", "/");
+  if (relativeSummary.startsWith("../") || relativeSummary === ".." || path.isAbsolute(relativeSummary)) {
+    throw new Error(`${targetName}: summary_json must stay under run_root, got ${summaryJson}`);
   }
-  const summaryPath =
-    summaryJson === "tool-run-summary.json" || !summaryJson.includes("/")
-      ? path.resolve(resolveRepoPath(artifactRoot), summaryJson)
-      : resolveRepoPath(summaryJson);
-  const canonicalSummaryPath = path.resolve(resolveRepoPath(artifactRoot), "tool-run-summary.json");
-  if (!allowsRunLevelSummary && summaryPath !== canonicalSummaryPath) {
-    throw new Error(`${targetName}: expected canonical target-level summary ${canonicalSummaryPath}, got ${summaryPath}`);
+  const canonicalTargetSummaryPath = path.resolve(runRootPath, targetName, "tool-run-summary.json");
+  const canonicalRunSummaryPath = path.resolve(runRootPath, "tool-run-summary.json");
+  if (!allowsRunLevelSummary && summaryPath !== canonicalTargetSummaryPath) {
+    throw new Error(`${targetName}: expected canonical target-level summary ${canonicalTargetSummaryPath}, got ${summaryPath}`);
+  }
+  if (
+    allowsRunLevelSummary &&
+    summaryPath !== canonicalTargetSummaryPath &&
+    summaryPath !== canonicalRunSummaryPath
+  ) {
+    throw new Error(`${targetName}: expected target or run summary under ${runRootPath}, got ${summaryPath}`);
   }
   if (!fs.existsSync(summaryPath)) {
     throw new Error(`${targetName}: missing tool-run summary ${summaryPath}`);
@@ -197,7 +208,7 @@ if (lines.length !== 1) {
 }
 const summary = JSON.parse(lines[0]);
 if (
-  summary.schema_id !== "cartulary.tool_run_summary.v1" ||
+  summary.schema_id !== "cartulary.tool_run_summary.v2" ||
   summary.target !== targetName ||
   summary.status !== "pass"
 ) {

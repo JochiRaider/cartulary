@@ -28,7 +28,7 @@ export function schedulerEventFiles(root, { target = "" } = {}) {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
-function parseWallTimestamp(value) {
+function parseEmittedAt(value) {
   if (typeof value !== "string" || value === "") {
     return NaN;
   }
@@ -53,11 +53,11 @@ export function validateSchedulerEventOrderFile(file) {
       return;
     }
 
-    if (!Number.isInteger(event.event_sequence) || event.event_sequence < 1) {
-      errors.push(`${file}:${lineNumber}: missing positive integer event_sequence`);
-    } else if (event.event_sequence !== previousSequence + 1) {
+    if (!Number.isInteger(event.seq) || event.seq < 1) {
+      errors.push(`${file}:${lineNumber}: missing positive integer seq`);
+    } else if (event.seq !== previousSequence + 1) {
       errors.push(
-        `${file}:${lineNumber}: event_sequence got ${event.event_sequence}, want ${previousSequence + 1}`,
+        `${file}:${lineNumber}: seq got ${event.seq}, want ${previousSequence + 1}`,
       );
     }
     if (!Number.isInteger(event.monotonic_ms) || event.monotonic_ms < 0) {
@@ -67,14 +67,14 @@ export function validateSchedulerEventOrderFile(file) {
         `${file}:${lineNumber}: monotonic_ms regressed from ${previousMonotonicMs} to ${event.monotonic_ms}`,
       );
     }
-    const wallMs = parseWallTimestamp(event.wall_timestamp);
+    const wallMs = parseEmittedAt(event.emitted_at);
     if (!Number.isFinite(wallMs)) {
-      errors.push(`${file}:${lineNumber}: missing valid wall_timestamp`);
+      errors.push(`${file}:${lineNumber}: missing valid emitted_at`);
     } else if (Number.isFinite(previousWallMs) && wallMs < previousWallMs && !lastEventWasClockSkew) {
-      errors.push(`${file}:${lineNumber}: wall_timestamp regressed without preceding clock-skew marker`);
+      errors.push(`${file}:${lineNumber}: emitted_at regressed without preceding clock-skew marker`);
     }
 
-    previousSequence = Number.isInteger(event.event_sequence) ? event.event_sequence : previousSequence;
+    previousSequence = Number.isInteger(event.seq) ? event.seq : previousSequence;
     previousMonotonicMs = Number.isInteger(event.monotonic_ms)
       ? Math.max(previousMonotonicMs, event.monotonic_ms)
       : previousMonotonicMs;
@@ -93,4 +93,3 @@ export function validateSchedulerEventOrder(root, options = {}) {
   const errors = files.flatMap((file) => validateSchedulerEventOrderFile(file));
   return { files, errors };
 }
-

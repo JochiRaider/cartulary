@@ -16,8 +16,10 @@ func TestStartWithRetryFailsFastOnPreflightError(t *testing.T) {
 	startCalls := 0
 
 	_, err := StartWithRetry(context.Background(), StartConfig{
-		Service: "postgres testcontainer",
-		Image:   "postgres:16-alpine",
+		Service:      "postgres testcontainer",
+		Image:        "postgres:16-alpine",
+		MaxAttempts:  DefaultMaxAttempts,
+		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			preflightCalls++
 			return "unix:///var/run/docker.sock", errors.New("docker ping refused")
@@ -64,8 +66,10 @@ func TestStartWithRetryRetriesTransientDockerStartupError(t *testing.T) {
 	sleepCalls := 0
 
 	value, err := StartWithRetry(context.Background(), StartConfig{
-		Service: "postgres testcontainer",
-		Image:   "postgres:16-alpine",
+		Service:      "postgres testcontainer",
+		Image:        "postgres:16-alpine",
+		MaxAttempts:  DefaultMaxAttempts,
+		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			return "unix:///var/run/docker.sock", nil
 		},
@@ -94,6 +98,49 @@ func TestStartWithRetryRetriesTransientDockerStartupError(t *testing.T) {
 	}
 }
 
+func TestStartWithRetryDoesNotRetryWithoutDeclaredAttempts(t *testing.T) {
+	t.Parallel()
+
+	startCalls := 0
+	sleepCalls := 0
+	retryableErr := errors.New(`wait until ready: get state: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.51/containers/id/json": context deadline exceeded`)
+
+	_, err := StartWithRetry(context.Background(), StartConfig{
+		Service: "postgres testcontainer",
+		Image:   "postgres:16-alpine",
+		Preflight: func(context.Context) (string, error) {
+			return "unix:///var/run/docker.sock", nil
+		},
+		Sleep: func(context.Context, time.Duration) error {
+			sleepCalls++
+			return nil
+		},
+	}, func(context.Context) (string, error) {
+		startCalls++
+		return "", retryableErr
+	})
+	if err == nil {
+		t.Fatal("expected startup failure")
+	}
+	if startCalls != 1 {
+		t.Fatalf("retry must not be implicit, got %d startup attempts", startCalls)
+	}
+	if sleepCalls != 0 {
+		t.Fatalf("retry backoff must not run without declared attempts, got %d", sleepCalls)
+	}
+
+	var startFailure *StartFailure
+	if !errors.As(err, &startFailure) {
+		t.Fatalf("expected StartFailure, got %T", err)
+	}
+	if !startFailure.Retryable {
+		t.Fatal("failure should still be classified retryable")
+	}
+	if startFailure.AttemptsStarted != 1 || startFailure.MaxAttempts != 1 {
+		t.Fatalf("unexpected attempts: got %d/%d", startFailure.AttemptsStarted, startFailure.MaxAttempts)
+	}
+}
+
 func TestStartWithRetryEmitsObserverEvents(t *testing.T) {
 	t.Parallel()
 
@@ -101,8 +148,10 @@ func TestStartWithRetryEmitsObserverEvents(t *testing.T) {
 	var events []StartEvent
 
 	value, err := StartWithRetry(context.Background(), StartConfig{
-		Service: "postgres testcontainer",
-		Image:   "postgres:16-alpine",
+		Service:      "postgres testcontainer",
+		Image:        "postgres:16-alpine",
+		MaxAttempts:  DefaultMaxAttempts,
+		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			return "unix:///var/run/docker.sock", nil
 		},
@@ -155,8 +204,10 @@ func TestStartWithRetryRetriesCustomClassifiedStartupError(t *testing.T) {
 	sleepCalls := 0
 
 	value, err := StartWithRetry(context.Background(), StartConfig{
-		Service: "minio testcontainer",
-		Image:   "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Service:      "minio testcontainer",
+		Image:        "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		MaxAttempts:  DefaultMaxAttempts,
+		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			return "unix:///var/run/docker.sock", nil
 		},
@@ -195,9 +246,10 @@ func TestStartWithRetryReportsCustomRetryMetadataAfterExhaustion(t *testing.T) {
 	startCalls := 0
 
 	_, err := StartWithRetry(context.Background(), StartConfig{
-		Service:     "minio testcontainer",
-		Image:       "minio/minio:RELEASE.2025-09-07T16-13-09Z",
-		MaxAttempts: 3,
+		Service:      "minio testcontainer",
+		Image:        "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		MaxAttempts:  3,
+		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			return "unix:///var/run/docker.sock", nil
 		},
@@ -245,8 +297,10 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 	retryableErr := errors.New(`wait until ready: get state: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.51/containers/id/json": context deadline exceeded`)
 
 	_, err := StartWithRetry(ctx, StartConfig{
-		Service: "minio testcontainer",
-		Image:   "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Service:      "minio testcontainer",
+		Image:        "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		MaxAttempts:  DefaultMaxAttempts,
+		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			return "unix:///var/run/docker.sock", nil
 		},
@@ -316,6 +370,8 @@ func TestStartWithRetryBoundsRetryableStartupAttempt(t *testing.T) {
 		Service:        "postgres testcontainer",
 		Image:          "postgres:16-alpine",
 		AttemptTimeout: 20 * time.Millisecond,
+		MaxAttempts:    DefaultMaxAttempts,
+		RetryBackoff:   DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			return "unix:///var/run/docker.sock", nil
 		},
@@ -364,8 +420,10 @@ func TestStartWithRetryDoesNotRetryLogicalReadinessFailure(t *testing.T) {
 	startCalls := 0
 
 	_, err := StartWithRetry(context.Background(), StartConfig{
-		Service: "postgres testcontainer",
-		Image:   "postgres:16-alpine",
+		Service:      "postgres testcontainer",
+		Image:        "postgres:16-alpine",
+		MaxAttempts:  DefaultMaxAttempts,
+		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			return "unix:///var/run/docker.sock", nil
 		},
@@ -396,8 +454,10 @@ func TestStartWithRetryFormatsFinalFailureWithContext(t *testing.T) {
 	t.Parallel()
 
 	_, err := StartWithRetry(context.Background(), StartConfig{
-		Service: "minio testcontainer",
-		Image:   "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Service:      "minio testcontainer",
+		Image:        "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		MaxAttempts:  DefaultMaxAttempts,
+		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
 			return "unix:///var/run/docker.sock", nil
 		},

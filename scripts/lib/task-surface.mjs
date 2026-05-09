@@ -508,10 +508,10 @@ function validateOutputPolicy(errors, entry) {
   }
   if (
     policy.summary_schema !== null &&
-    policy.summary_schema !== "cartulary.tool_run_summary.v1"
+    policy.summary_schema !== "cartulary.tool_run_summary.v2"
   ) {
     errors.push(
-      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v1 or null`,
+      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v2 or null`,
     );
   }
   if (policy.artifact_policy === "none" && policy.summary_schema !== null) {
@@ -521,10 +521,10 @@ function validateOutputPolicy(errors, entry) {
   }
   if (
     policy.artifact_policy !== "none" &&
-    policy.summary_schema !== "cartulary.tool_run_summary.v1"
+    policy.summary_schema !== "cartulary.tool_run_summary.v2"
   ) {
     errors.push(
-      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v1 when artifact_policy is ${policy.artifact_policy}`,
+      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v2 when artifact_policy is ${policy.artifact_policy}`,
     );
   }
   validateBudget(
@@ -1252,7 +1252,7 @@ function renderMakeRecipe(recipe, manifest) {
   const prefix = renderRecipePrefix(recipe, entry);
   if (recipe.type === "alias") {
     const lines = [...prefix, header, ...prerequisitePrelude];
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v1") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v2") {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
     return lines;
@@ -1397,7 +1397,7 @@ function renderMakeRecipe(recipe, manifest) {
 function shouldCentralizePrerequisiteOutput(recipe, entry = null) {
   return (
     entry?.classification === "public" &&
-    entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v1" &&
+    entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v2" &&
     (recipe.prerequisites ?? []).length > 0 &&
     !["cleanup", "print_help"].includes(recipe.type)
   );
@@ -1468,7 +1468,7 @@ function renderPhaseCommandRecipe(recipe, entry = null) {
     return [`\t$(Q)${envPrefix}$(NODE_BIN) ${recipe.script}${argsSuffix}`];
   }
   if (recipe.mode === "command") {
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v1") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v2") {
       const childPrefix = env.length > 0 ? `env ${env.join(" ")} ` : "";
       const testTarget = `CARTULARY_TEST_TARGET="$\${CARTULARY_TEST_TARGET:-${recipe.target}}"`;
       return [

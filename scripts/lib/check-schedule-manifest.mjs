@@ -15,6 +15,7 @@ const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const checkScheduleKeys = new Set(["schema_id", "schedules"]);
 const checkScheduleEntryKeys = new Set([
   "target",
+  "scheduler_kind",
   "capacity_profile",
   "resource_limits",
   "summary_groups",
@@ -26,8 +27,8 @@ const checkWorkUnitKeys = new Set([
   "target",
   "label",
   "aggregate_target",
-  "scheduler_priority",
-  "weight",
+  "priority",
+  "weight_ms",
   "needs",
   "produces_summary_targets",
   "completion_keys",
@@ -68,6 +69,10 @@ export function validateCheckScheduleManifestShape(fileOrManifest, label = fileO
       requireString(schedule.target, `${scheduleLabel}.target`, {
         pattern: makeTargetPattern,
       });
+      requireString(schedule.scheduler_kind, `${scheduleLabel}.scheduler_kind`);
+      if (schedule.scheduler_kind !== "check") {
+        throw new Error(`${scheduleLabel}.scheduler_kind must be check`);
+      }
       requireString(schedule.capacity_profile, `${scheduleLabel}.capacity_profile`);
       validateObjectArray(
         schedule.work_units,
@@ -77,9 +82,9 @@ export function validateCheckScheduleManifestShape(fileOrManifest, label = fileO
           requireString(unit.target, `${unitLabel}.target`, {
             pattern: makeTargetPattern,
           });
-          requirePositiveInteger(unit.weight, `${unitLabel}.weight`);
-          if (unit.scheduler_priority !== undefined) {
-            requireInteger(unit.scheduler_priority, `${unitLabel}.scheduler_priority`, { min: 0 });
+          requirePositiveInteger(unit.weight_ms, `${unitLabel}.weight_ms`);
+          if (unit.priority !== undefined) {
+            requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
           }
           if (unit.env !== undefined) {
             for (const name of Object.keys(requireObject(unit.env, `${unitLabel}.env`))) {

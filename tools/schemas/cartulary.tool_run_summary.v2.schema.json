@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.tool_run_summary.v1",
+  "$id": "cartulary.tool_run_summary.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,7 +13,9 @@
     "completed_at",
     "duration_ms",
     "output_mode",
-    "artifact_root",
+    "result_root",
+    "run_id",
+    "run_root",
     "summary_artifacts",
     "log_artifacts",
     "work_units",
@@ -22,7 +24,7 @@
     "counts",
     "phase_accounting",
     "failure_class",
-    "failure_origin",
+    "failure_reason",
     "failures",
     "slowest",
     "warnings",
@@ -30,7 +32,7 @@
     "extensions"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.tool_run_summary.v1" },
+    "schema_id": { "const": "cartulary.tool_run_summary.v2" },
     "target": { "type": "string", "minLength": 1 },
     "command": {
       "type": "object",
@@ -49,7 +51,9 @@
     "completed_at": { "type": "string", "minLength": 1, "format": "date-time" },
     "duration_ms": { "type": "integer", "minimum": 0 },
     "output_mode": { "enum": ["summary", "ci", "verbose", "debug", "machine"] },
-    "artifact_root": { "type": "string" },
+    "result_root": { "type": "string" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "run_root": { "type": "string" },
     "summary_artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
     "log_artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
     "work_units": { "type": "array", "items": { "$ref": "#/$defs/work_unit" } },
@@ -57,8 +61,29 @@
     "helper_units": { "type": "array", "items": { "$ref": "#/$defs/target_ref" } },
     "counts": { "$ref": "#/$defs/counts" },
     "phase_accounting": { "$ref": "#/$defs/phase_accounting" },
-    "failure_class": { "enum": [null, "test", "infra", "helper", "timing", "artifact"] },
-    "failure_origin": { "enum": [null, "product", "infrastructure", "helper", "timing", "artifact"] },
+    "failure_class": {
+      "enum": [null, "product", "config", "infra", "harness", "artifact", "timing", "interrupted", "unknown"]
+    },
+    "failure_reason": {
+      "enum": [
+        null,
+        "usage_error",
+        "configuration_error",
+        "preflight_error",
+        "service_start_error",
+        "service_readiness_timeout",
+        "fixture_error",
+        "resource_conflict",
+        "test_assertion_failure",
+        "child_target_failure",
+        "scheduler_accounting_error",
+        "artifact_error",
+        "cleanup_error",
+        "timeout_failure",
+        "cancelled_or_interrupted",
+        "unknown_failure"
+      ]
+    },
     "failures": { "type": "array", "items": { "type": "object" } },
     "slowest": { "type": "array", "items": { "$ref": "#/$defs/slowest" } },
     "warnings": { "type": "array", "items": { "type": "object" } },
@@ -96,7 +121,7 @@
       "properties": {
         "target": { "type": "string", "minLength": 1 },
         "status": { "type": "string", "minLength": 1 },
-        "artifact_root": { "type": "string" }
+        "run_root": { "type": "string" }
       }
     },
     "counts": {

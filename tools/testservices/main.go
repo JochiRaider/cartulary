@@ -142,15 +142,26 @@ type suitePreflightResult struct {
 }
 
 type serviceLease struct {
-	SchemaID  string               `json:"schema_id"`
-	SuiteID   string               `json:"suite_id"`
-	RunID     string               `json:"run_id"`
-	Target    string               `json:"target"`
-	CreatedAt string               `json:"created_at"`
-	Services  []serviceLeaseRecord `json:"services"`
+	SchemaID      string                 `json:"schema_id"`
+	LeaseID       string                 `json:"lease_id"`
+	SuiteID       string                 `json:"suite_id"`
+	RunID         string                 `json:"run_id"`
+	ResultRoot    string                 `json:"result_root"`
+	RunRoot       string                 `json:"run_root"`
+	Target        string                 `json:"target"`
+	Mode          string                 `json:"mode"`
+	OwnershipMode string                 `json:"ownership_mode"`
+	OwnerPID      int                    `json:"owner_pid"`
+	CreatedAt     string                 `json:"created_at"`
+	ExpiresAt     string                 `json:"expires_at,omitempty"`
+	Resources     []serviceLeaseResource `json:"resources"`
+	ProofLabels   map[string]string      `json:"proof_labels"`
+	ProofPrefixes map[string]string      `json:"proof_prefixes"`
+	CleanupState  string                 `json:"cleanup_state"`
 }
 
-type serviceLeaseRecord struct {
+type serviceLeaseResource struct {
+	Kind        string            `json:"kind"`
 	Service     string            `json:"service"`
 	ContainerID string            `json:"container_id"`
 	Name        string            `json:"name,omitempty"`
@@ -936,14 +947,35 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, minio
 		return "", fmt.Errorf("create suite service artifact dir: %w", err)
 	}
 
+	resultRoot, err := suiteservices.ResolveResultsRoot(env)
+	if err != nil {
+		return "", err
+	}
+	runID := suiteservices.ResolveRunID(env)
+	runRoot := filepath.Join(resultRoot, runID)
+	leaseID, err := generateLeaseID()
+	if err != nil {
+		return "", err
+	}
+	proofLabels := suiteServiceLabels(env, "")
+	delete(proofLabels, testServiceLabelService)
+	now := time.Now().UTC()
 	lease := serviceLease{
-		SchemaID:  "cartulary.test_services.lease.v1",
-		SuiteID:   suiteservices.SuiteID(env),
-		RunID:     suiteservices.ResolveRunID(env),
-		Target:    suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
-		CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
-		Services: []serviceLeaseRecord{
+		SchemaID:      "cartulary.test_services.lease.v1",
+		LeaseID:       leaseID,
+		SuiteID:       suiteservices.SuiteID(env),
+		RunID:         runID,
+		ResultRoot:    resultRoot,
+		RunRoot:       runRoot,
+		Target:        suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+		Mode:          "owned",
+		OwnershipMode: "owned",
+		OwnerPID:      os.Getpid(),
+		CreatedAt:     now.Format(time.RFC3339Nano),
+		ExpiresAt:     now.Add(24 * time.Hour).Format(time.RFC3339Nano),
+		Resources: []serviceLeaseResource{
 			{
+				Kind:        "container",
 				Service:     suiteservices.ServicePostgres,
 				ContainerID: postgresSvc.containerID,
 				Name:        postgresSvc.name,
@@ -951,6 +983,7 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, minio
 				Labels:      cloneStringMap(postgresSvc.labels),
 			},
 			{
+				Kind:        "container",
 				Service:     suiteservices.ServiceMinIO,
 				ContainerID: minioSvc.containerID,
 				Name:        minioSvc.name,
@@ -958,13 +991,19 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, minio
 				Labels:      cloneStringMap(minioSvc.labels),
 			},
 		},
+		ProofLabels: proofLabels,
+		ProofPrefixes: map[string]string{
+			"database": "ct_",
+			"bucket":   "ct-",
+		},
+		CleanupState: "not_started",
 	}
 	payload, err := json.MarshalIndent(lease, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("encode suite service lease: %w", err)
 	}
 	leasePath := filepath.Join(suiteDir, "service-lease.json")
-	if err := os.WriteFile(leasePath, append(payload, '\n'), 0o600); err != nil {
+	if err := writeFileAtomic(leasePath, append(payload, '\n'), 0o600); err != nil {
 		return "", fmt.Errorf("write suite service lease: %w", err)
 	}
 	return leasePath, nil
@@ -984,6 +1023,18 @@ func readServiceLease(path string) (serviceLease, error) {
 	}
 	if strings.TrimSpace(lease.SuiteID) == "" {
 		return serviceLease{}, errors.New("suite service lease missing suite_id")
+	}
+	if strings.TrimSpace(lease.LeaseID) == "" {
+		return serviceLease{}, errors.New("suite service lease missing lease_id")
+	}
+	if strings.TrimSpace(lease.OwnershipMode) == "" {
+		lease.OwnershipMode = lease.Mode
+	}
+	if strings.TrimSpace(lease.OwnershipMode) == "" {
+		return serviceLease{}, errors.New("suite service lease missing ownership_mode")
+	}
+	if lease.OwnershipMode == "owned" && len(lease.Resources) == 0 {
+		return serviceLease{}, errors.New("owned suite service lease missing resources")
 	}
 	return lease, nil
 }
@@ -2070,13 +2121,16 @@ func cleanupServices(ctx context.Context, postgresSvc postgresService, minioSvc 
 }
 
 func terminateSuiteServices(parent context.Context, lease serviceLease) []serviceCleanupResult {
+	if lease.OwnershipMode == "attach" {
+		return nil
+	}
 	ctx, cancel := context.WithTimeout(parent, cleanupTimeout)
 	defer cancel()
 
 	cli, err := dockerclient.New(dockerclient.FromEnv)
 	if err != nil {
-		results := make([]serviceCleanupResult, 0, len(lease.Services))
-		for _, service := range lease.Services {
+		results := make([]serviceCleanupResult, 0, len(lease.Resources))
+		for _, service := range lease.Resources {
 			results = append(results, serviceCleanupResult{
 				service: service.Service,
 				stage:   cleanupStageForService(service.Service),
@@ -2090,8 +2144,8 @@ func terminateSuiteServices(parent context.Context, lease serviceLease) []servic
 	}
 	defer cli.Close()
 
-	results := make([]serviceCleanupResult, 0, len(lease.Services))
-	for _, service := range lease.Services {
+	results := make([]serviceCleanupResult, 0, len(lease.Resources))
+	for _, service := range lease.Resources {
 		start := time.Now().UTC()
 		err := terminateLeasedService(ctx, cli, lease, service)
 		results = append(results, serviceCleanupResult{
@@ -2109,7 +2163,7 @@ func terminateSuiteServices(parent context.Context, lease serviceLease) []servic
 	return results
 }
 
-func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease serviceLease, service serviceLeaseRecord) error {
+func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease serviceLease, service serviceLeaseResource) error {
 	containers, err := leasedServiceContainers(ctx, cli, lease, service)
 	if err != nil {
 		return err
@@ -2130,7 +2184,7 @@ func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease
 	return errors.Join(errs...)
 }
 
-func leasedServiceContainers(ctx context.Context, cli *dockerclient.Client, lease serviceLease, service serviceLeaseRecord) ([]string, error) {
+func leasedServiceContainers(ctx context.Context, cli *dockerclient.Client, lease serviceLease, service serviceLeaseResource) ([]string, error) {
 	filters := dockerclient.Filters{}
 	for key, value := range requiredLeaseLabels(lease, service) {
 		if strings.TrimSpace(value) == "" {
@@ -2242,7 +2296,7 @@ func safeArtifactComponent(value string) bool {
 		!strings.Contains(trimmed, string(filepath.Separator))
 }
 
-func requiredLeaseLabels(lease serviceLease, service serviceLeaseRecord) map[string]string {
+func requiredLeaseLabels(lease serviceLease, service serviceLeaseResource) map[string]string {
 	labels := map[string]string{
 		testServiceLabelManaged: testServiceManagedValue,
 		testServiceLabelSuiteID: lease.SuiteID,
@@ -2437,8 +2491,50 @@ func generateSuiteID() (string, error) {
 	return hex.EncodeToString(data[:]), nil
 }
 
+func generateLeaseID() (string, error) {
+	var data [16]byte
+	if _, err := rand.Read(data[:]); err != nil {
+		return "", fmt.Errorf("read random lease id bytes: %w", err)
+	}
+	return hex.EncodeToString(data[:]), nil
+}
+
 func templateDatabaseName(suiteID string) string {
 	return fmt.Sprintf("ct_tpl_%s", suiteservices.ShortHash(suiteID, 12))
+}
+
+func writeFileAtomic(path string, payload []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create %s parent: %w", path, err)
+	}
+	temp, err := os.CreateTemp(dir, ".tmp-"+filepath.Base(path)+".*")
+	if err != nil {
+		return fmt.Errorf("create temp file for %s: %w", path, err)
+	}
+	tempPath := temp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tempPath)
+		}
+	}()
+	if err := temp.Chmod(mode); err != nil {
+		_ = temp.Close()
+		return fmt.Errorf("chmod temp file for %s: %w", path, err)
+	}
+	if _, err := temp.Write(payload); err != nil {
+		_ = temp.Close()
+		return fmt.Errorf("write temp file for %s: %w", path, err)
+	}
+	if err := temp.Close(); err != nil {
+		return fmt.Errorf("close temp file for %s: %w", path, err)
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		return fmt.Errorf("rename temp file for %s: %w", path, err)
+	}
+	cleanup = false
+	return nil
 }
 
 func copyFile(source string, destination string, mode os.FileMode) error {

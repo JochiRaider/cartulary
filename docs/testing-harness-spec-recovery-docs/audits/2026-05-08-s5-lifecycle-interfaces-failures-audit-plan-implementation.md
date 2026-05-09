@@ -79,7 +79,7 @@ and Vite config, and root/app package manifests.
 Representative schema markers were observed in source or generated manifests,
 including `cartulary.test_phase_summary.v3`,
 `cartulary.test_target_summary.v4`, `cartulary.test_run_summary.v6`,
-`cartulary.tool_run_summary.v1`, check and service-backed scheduler summary
+`cartulary.tool_run_summary.v2`, check and service-backed scheduler summary
 and event schemas, `cartulary.web_e2e_stack.v1`,
 `cartulary.web_e2e_session_lease.v1`, `cartulary.test_services.lease.v1`,
 `cartulary.test.runtime_reset.v1`, `cartulary.fixture_report.v1`, and

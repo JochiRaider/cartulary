@@ -1185,11 +1185,13 @@ function writePhaseArtifacts(context, details) {
     manifest_mismatch: details.manifestMismatch,
   };
   writeJson(path.join(context.phaseDir, "phase-summary.json"), summary);
-  const targetArtifactRoot =
+  const runRootAbs = path.join(resultsRoot, runId);
+  const runRoot = relToRepo(runRootAbs);
+  const targetRunRoot =
     context.target === "adhoc"
       ? context.phaseDir
       : path.dirname(context.phaseDir);
-  const toolSummaryFile = toolSummaryPath(targetArtifactRoot);
+  const toolSummaryFile = toolSummaryPath(targetRunRoot);
   const toolSummaryRel = relToRepo(toolSummaryFile);
   const shellcheckInventoryPath = artifacts.shellcheck_inventory
     ? resolveArtifactPath(artifacts.shellcheck_inventory)
@@ -1221,7 +1223,9 @@ function writePhaseArtifacts(context, details) {
     completedAt: context.endTime,
     durationMs: context.wallDurationMs,
     outputMode: resolveOutputMode(),
-    artifactRoot: relToRepo(targetArtifactRoot),
+    resultRoot: relToRepo(resultsRoot),
+    runId,
+    runRoot,
     summaryArtifacts: [
       artifactRef("tool_run_summary", toolSummaryRel),
       artifactRef(
@@ -1255,7 +1259,7 @@ function writePhaseArtifacts(context, details) {
       {
         target: context.target,
         status: details.status,
-        artifact_root: relToRepo(targetArtifactRoot),
+        run_root: runRoot,
       },
     ],
     helperUnits: [],
@@ -1285,10 +1289,10 @@ function writePhaseArtifacts(context, details) {
         "-";
       const failure = failureRecords[0] ?? {};
       process.stderr.write(
-        `[FAIL] target=${context.target} exit_code=${toolSummary.exit_code} failure_class=${toolSummary.failure_class ?? "helper"} failure_origin=${toolSummary.failure_origin ?? "helper"} work_unit=- child_target=- duration_ms=${toolSummary.duration_ms} headline="${failure.headline ?? `${context.label} failed`}"\n`,
+        `[FAIL] target=${context.target} exit_code=${toolSummary.exit_code} failure_class=${toolSummary.failure_class ?? "harness"} reason=${toolSummary.failure_reason ?? "unknown_failure"} work_unit=- child_target=- duration_ms=${toolSummary.duration_ms} headline="${failure.headline ?? `${context.label} failed`}"\n`,
       );
       process.stderr.write(
-        `[ARTIFACTS] target=${context.target} root=${toolSummary.artifact_root} summary_json=${terminalArtifactPath(toolSummary.artifact_root, toolSummaryRel)} log_artifact=${terminalArtifactPath(toolSummary.artifact_root, logArtifact)} scheduler_json=- progress_log=-\n`,
+        `[ARTIFACTS] target=${context.target} root=${toolSummary.run_root} summary_json=${terminalArtifactPath(toolSummary.run_root, toolSummaryRel)} log_artifact=${terminalArtifactPath(toolSummary.run_root, logArtifact)} scheduler_json=- progress_log=-\n`,
       );
       process.stderr.write(`[RERUN] command="${context.command}"\n`);
       process.stderr.write(
@@ -1816,7 +1820,7 @@ function buildSharedExecutionGroups() {
         failed
           ? [
               {
-                failure_class: "helper",
+                failure_class: "harness",
                 kind: "shared",
                 source: "shared-execution",
                 label: name,
@@ -2356,7 +2360,7 @@ function sectionFromFlatSummary(summary, fallbackTarget) {
       failedTests > 0
         ? [
             {
-              failure_class: "test",
+              failure_class: "product",
               kind: "test",
               target: summary?.target ?? fallbackTarget,
               message: "reported test failure",
@@ -2659,19 +2663,20 @@ function writeTargetLine(stream, label, targetSummary) {
 function targetToolSummary(targetSummary, summaryJsonPath) {
   const totals = targetSummary.totals ?? {};
   const counts = totals.counts ?? {};
-  const artifactRoot =
+  const targetArtifactRoot =
     targetSummary.artifacts?.dir ?? targetSummary.own?.artifacts?.dir ?? "";
   const missingChildren = targetSummary.children?.missing ?? [];
-  const runArtifactRoot = path.join(resultsRoot, runId);
-  const runSummaryFile = path.join(runArtifactRoot, "run-summary.json");
-  const runToolSummaryFile = toolSummaryPath(runArtifactRoot);
+  const runRunRoot = path.join(resultsRoot, runId);
+  const runRoot = relToRepo(runRunRoot);
+  const runSummaryFile = path.join(runRunRoot, "run-summary.json");
+  const runToolSummaryFile = toolSummaryPath(runRunRoot);
   const schedulerSummaryFile = schedulerSummaryPath(targetSummary.target);
   const schedulerSummary = existsSync(schedulerSummaryFile)
     ? loadSchedulerSummary(targetSummary.target)
     : null;
   const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
   const schedulerArtifacts = schedulerSummary?.artifacts ?? {};
-  const serviceMetadata = serviceSharedMetadata(runArtifactRoot);
+  const serviceMetadata = serviceSharedMetadata(runRunRoot);
   const workUnits =
     targetSummary.kind === "aggregate"
       ? [
@@ -2696,12 +2701,14 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
       targetSummary.wall_duration_ms ??
       schedulerTiming?.scheduler_total_duration_ms,
     outputMode: resolveOutputMode(),
-    artifactRoot,
+    resultRoot: relToRepo(resultsRoot),
+    runId,
+    runRoot,
     summaryArtifacts: [
       artifactRef("tool_run_summary", summaryJsonPath),
       artifactRef(
         "target_summary",
-        path.join(artifactRoot, "target-summary.json"),
+        path.join(targetArtifactRoot, "target-summary.json"),
       ),
       artifactRef("target_timing", targetSummary.artifacts?.timing_json),
       existsSync(runSummaryFile)
@@ -2716,7 +2723,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
       schedulerArtifacts.events_jsonl
         ? artifactRef("scheduler_events", schedulerArtifacts.events_jsonl, "jsonl")
         : null,
-      ...serviceSharedSummaryArtifacts(runArtifactRoot),
+      ...serviceSharedSummaryArtifacts(runRunRoot),
     ],
     logArtifacts: [
       schedulerArtifacts.progress_summary_log
@@ -2725,7 +2732,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
       schedulerArtifacts.scheduler_logs_dir
         ? artifactRef("scheduler_logs", schedulerArtifacts.scheduler_logs_dir, "directory")
         : null,
-      ...serviceSharedLogArtifacts(runArtifactRoot),
+      ...serviceSharedLogArtifacts(runRunRoot),
     ],
     workUnits,
     evidenceTargets:
@@ -2733,13 +2740,13 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
         ? (targetSummary.children?.present ?? []).map((summary) => ({
             target: summary.target,
             status: summary.status,
-            artifact_root: summary.artifacts?.dir ?? "",
+            run_root: runRoot,
           }))
         : [
             {
               target: targetSummary.target,
               status: targetSummary.status,
-              artifact_root: artifactRoot,
+              run_root: runRoot,
             },
           ],
     helperUnits: [],
@@ -2748,6 +2755,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
       missing: missingChildren.length,
     },
     failureClass: targetSummary.failure_class,
+    failureReason: targetSummary.failure_reason,
     failures: targetSummary.failures ?? [],
     slowest: slowest ? [slowest] : [],
     rerunCommands: [`make ${targetSummary.target}`],
@@ -2758,8 +2766,8 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
   });
 }
 
-function serviceSharedLogArtifacts(runArtifactRoot) {
-  const serviceRoot = path.join(runArtifactRoot, "_shared", "test-services");
+function serviceSharedLogArtifacts(runRunRoot) {
+  const serviceRoot = path.join(runRunRoot, "_shared", "test-services");
   if (!existsSync(serviceRoot)) {
     return [];
   }
@@ -2781,8 +2789,8 @@ function serviceSharedLogArtifacts(runArtifactRoot) {
     });
 }
 
-function serviceSharedSummaryArtifacts(runArtifactRoot) {
-  const serviceRoot = path.join(runArtifactRoot, "_shared", "test-services");
+function serviceSharedSummaryArtifacts(runRunRoot) {
+  const serviceRoot = path.join(runRunRoot, "_shared", "test-services");
   if (!existsSync(serviceRoot)) {
     return [];
   }
@@ -2811,8 +2819,8 @@ function statusFromBooleans(values) {
   return values.every(Boolean) ? "pass" : "fail";
 }
 
-function serviceSharedMetadata(runArtifactRoot) {
-  const serviceRoot = path.join(runArtifactRoot, "_shared", "test-services");
+function serviceSharedMetadata(runRunRoot) {
+  const serviceRoot = path.join(runRunRoot, "_shared", "test-services");
   if (!existsSync(serviceRoot)) {
     return null;
   }
@@ -2880,7 +2888,8 @@ function writeTargetResult(stream, targetSummary, summaryJsonPath) {
 
 function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
   const summary = targetToolSummary(targetSummary, summaryJsonPath);
-  const failureClass = summary.failure_class ?? "helper";
+  const failureClass = summary.failure_class ?? "harness";
+  const failureReason = summary.failure_reason ?? "unknown_failure";
   const headline = targetSummary.failure_headline ?? "target failed";
   const failedChildTarget = targetSummary.children?.failed_targets?.[0] ?? "";
   const schedulerSummary = loadSchedulerSummary(summary.target);
@@ -2914,10 +2923,10 @@ function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
     ? relToRepo(schedulerSummaryPath(summary.target))
     : "-";
   stream.write(
-    `[FAIL] target=${summary.target} exit_code=${summary.exit_code} failure_class=${failureClass} failure_origin=${summary.failure_origin ?? "helper"} work_unit=${failedWorkUnit || "-"} child_target=${childTarget || "-"} duration_ms=${summary.duration_ms} headline="${headline}"\n`,
+    `[FAIL] target=${summary.target} exit_code=${summary.exit_code} failure_class=${failureClass} reason=${failureReason} work_unit=${failedWorkUnit || "-"} child_target=${childTarget || "-"} duration_ms=${summary.duration_ms} headline="${headline}"\n`,
   );
   stream.write(
-    `[ARTIFACTS] target=${summary.target} root=${summary.artifact_root} summary_json=${terminalArtifactPath(summary.artifact_root, summaryJsonPath)} log_artifact=${terminalArtifactPath(summary.artifact_root, logArtifact)} scheduler_json=${terminalArtifactPath(summary.artifact_root, schedulerJson)} progress_log=${terminalArtifactPath(summary.artifact_root, progressLog)}\n`,
+    `[ARTIFACTS] target=${summary.target} root=${summary.run_root} summary_json=${terminalArtifactPath(summary.run_root, summaryJsonPath)} log_artifact=${terminalArtifactPath(summary.run_root, logArtifact)} scheduler_json=${terminalArtifactPath(summary.run_root, schedulerJson)} progress_log=${terminalArtifactPath(summary.run_root, progressLog)}\n`,
   );
   stream.write(`[RERUN] command="make ${summary.target}"\n`);
   stream.write(
@@ -3499,11 +3508,24 @@ function summarizeTargetSummaries(
     }
   }
 
-  if (requestedStatus === "fail" && aggregate.failed === 0) {
+  const abortedAfter = failureContext.abortedAfter ?? "";
+  const recordsMissingTargetFailures =
+    missingTargetSummaries.length > 0 &&
+    !(requestedStatus === "fail" && abortedAfter && abortedAfter !== "-");
+  if (requestedStatus === "fail" && aggregate.failed === 0 && recordsMissingTargetFailures) {
     aggregate.phases += 1;
     aggregate.failed += 1;
     aggregate.non_test += 1;
     aggregate.non_test_failed += 1;
+  }
+
+  if (requestedStatus === "fail" && failures.length === 0 && !recordsMissingTargetFailures) {
+    if (aggregate.failed === 0) {
+      aggregate.phases += 1;
+      aggregate.failed += 1;
+      aggregate.non_test += 1;
+      aggregate.non_test_failed += 1;
+    }
     const failureTarget =
       failureContext.abortedAfter && failureContext.abortedAfter !== "-"
         ? failureContext.abortedAfter
@@ -3523,7 +3545,6 @@ function summarizeTargetSummaries(
         : "run failed before a test failure was attributed",
     });
   }
-  const abortedAfter = failureContext.abortedAfter ?? "";
   for (const missingTarget of missingTargetSummaries) {
     if (requestedStatus === "fail" && abortedAfter && abortedAfter !== "-") {
       continue;
@@ -3666,7 +3687,9 @@ function runToolSummary(runSummary, summaryJsonPath) {
       schedulerTiming?.scheduler_total_duration_ms ??
       runSummary.wall_duration_ms,
     outputMode: resolveOutputMode(),
-    artifactRoot: runSummary.artifacts?.dir ?? "",
+    resultRoot: relToRepo(resultsRoot),
+    runId,
+    runRoot: runSummary.artifacts?.dir ?? "",
     summaryArtifacts: [
       artifactRef("tool_run_summary", summaryJsonPath),
       artifactRef(
@@ -3695,6 +3718,7 @@ function runToolSummary(runSummary, summaryJsonPath) {
       missing: runSummary.summary_targets?.missing?.length ?? 0,
     },
     failureClass: runSummary.failure_class,
+    failureReason: runSummary.failure_reason,
     failures: runSummary.failures ?? [],
     slowest: slowest ? [slowest] : [],
     extensions: {
@@ -3709,14 +3733,15 @@ function writeRunResult(stream, runSummary, summaryJsonPath) {
   stream.write(resultLine(summary, summaryJsonPath));
   stream.write(
     artifactLine(summary, summaryJsonPath, {
-      investigate: `make explain-run RESULTS_DIR=${summary.artifact_root}`,
+      investigate: `make explain-run RESULTS_DIR=${summary.run_root}`,
     }),
   );
 }
 
 function writeRunFailure(stream, runSummary, summaryJsonPath) {
   const summary = runToolSummary(runSummary, summaryJsonPath);
-  const failureClass = summary.failure_class ?? "helper";
+  const failureClass = summary.failure_class ?? "harness";
+  const failureReason = summary.failure_reason ?? "unknown_failure";
   const headline = runSummary.failure_headline ?? "run failed";
   const abortedAfter = runSummary.work_units?.aborted_after || "";
   const failedTarget =
@@ -3729,14 +3754,14 @@ function writeRunFailure(stream, runSummary, summaryJsonPath) {
       runSummary.failures?.find((failure) => failure.raw)?.raw,
   );
   stream.write(
-    `[FAIL] target=${summary.target} exit_code=${summary.exit_code} failure_class=${failureClass} failure_origin=${summary.failure_origin ?? "helper"} work_unit=${abortedAfter || "-"} child_target=${failedTarget || "-"} duration_ms=${summary.duration_ms} headline="${headline}"\n`,
+    `[FAIL] target=${summary.target} exit_code=${summary.exit_code} failure_class=${failureClass} reason=${failureReason} work_unit=${abortedAfter || "-"} child_target=${failedTarget || "-"} duration_ms=${summary.duration_ms} headline="${headline}"\n`,
   );
   stream.write(
-    `[ARTIFACTS] target=${summary.target} root=${summary.artifact_root} summary_json=${terminalArtifactPath(summary.artifact_root, summaryJsonPath)} log_artifact=${terminalArtifactPath(summary.artifact_root, logArtifact)} scheduler_json=- progress_log=-\n`,
+    `[ARTIFACTS] target=${summary.target} root=${summary.run_root} summary_json=${terminalArtifactPath(summary.run_root, summaryJsonPath)} log_artifact=${terminalArtifactPath(summary.run_root, logArtifact)} scheduler_json=- progress_log=-\n`,
   );
   stream.write(`[RERUN] command="make ${summary.target}"\n`);
   stream.write(
-    `[INVESTIGATE] command="make explain-run RESULTS_DIR=${summary.artifact_root}"\n`,
+    `[INVESTIGATE] command="make explain-run RESULTS_DIR=${summary.run_root}"\n`,
   );
 }
 
@@ -5608,7 +5633,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
       .map((error) => error?.message)
       .find((entry) => typeof entry === "string" && entry.trim() !== "");
     dossiers.push({
-      failure_class: "helper",
+      failure_class: "harness",
       coverage,
       phase: inferPhaseFromText(phaseLabel),
       id: "",
@@ -5633,7 +5658,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
   const topLevelErrorSummary = summarizePlaywrightErrors(report);
   if (topLevelErrorSummary !== "") {
     dossiers.push({
-      failure_class: "helper",
+      failure_class: "harness",
       coverage: "non_test",
       phase: inferPhaseFromText(phaseLabel),
       id: "",

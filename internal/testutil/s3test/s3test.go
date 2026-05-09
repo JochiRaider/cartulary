@@ -168,7 +168,9 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
 		Service:        "minio testcontainer",
 		Image:          minioImage,
+		MaxAttempts:    testcontainersx.DefaultMaxAttempts,
 		AttemptTimeout: options.AttemptTimeout,
+		RetryBackoff:   testcontainersx.DefaultRetryBackoff,
 		Preflight:      startPreflightFn,
 		Retryable:      isRetryableMinIOStartupFailure,
 		Sleep:          startSleepFn,

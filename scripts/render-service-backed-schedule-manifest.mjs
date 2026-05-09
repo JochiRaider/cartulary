@@ -28,9 +28,9 @@ import { collectTargetPlanRows, findTargetDescriptor } from "./lib/target-plan.m
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const scheduleSchemaID = "cartulary.service_backed_schedule.v10";
+const scheduleSchemaID = "cartulary.service_backed_schedule.v11";
 const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
-const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v1";
+const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
 const defaultBrowserFunctionalMinShards = 2;
 const defaultBrowserFunctionalMaxShards = 4;
 const browserCriticalPathPriority = 100;
@@ -173,10 +173,10 @@ function loadMakeTargetDurationBaselines(profile, topologyPath) {
     if (key !== expectedKey) {
       throw new Error(`${path.relative(repoRoot, resolved)} work_units.${key} must match scheduler context key ${expectedKey}`);
     }
-    if (!Number.isInteger(entry.duration_ms) || entry.duration_ms <= 0) {
-      throw new Error(`${path.relative(repoRoot, resolved)} work_units.${key}.duration_ms must be positive integer weight ms`);
+    if (!Number.isInteger(entry.weight_ms) || entry.weight_ms <= 0) {
+      throw new Error(`${path.relative(repoRoot, resolved)} work_units.${key}.weight_ms must be positive integer`);
     }
-    workUnits.set(key, entry.duration_ms);
+    workUnits.set(key, entry.weight_ms);
   }
   return {
     path: resolved,
@@ -358,7 +358,7 @@ function backendSource(profile, timing, scheduleTarget, target) {
     type: "make_target",
     class: "backend",
     target,
-    weight: makeTargetWeight(timing, scheduleTarget, target),
+    weight_ms: makeTargetWeight(timing, scheduleTarget, target),
     resource_claims: cloneObject(claims[target]),
   };
 }
@@ -439,8 +439,8 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
           shard_count: plan.shard_count,
           phases: shard.phases,
           entry_ids: shard.entries.map((entry) => entry.id),
-          scheduler_priority: browserCriticalPathPriority,
-          weight: shard.weight_ms,
+          priority: browserCriticalPathPriority,
+          weight_ms: shard.weight_ms,
           resource_claims: {
             go_cpu: 1,
             go_io: 1,
@@ -455,8 +455,8 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
         aggregate_target: stage.target,
         coverage: "supplemental",
         execution_dependency: "browser_support",
-        scheduler_priority: browserCriticalPathPriority,
-        weight: browserGroupWeight(timing, scheduleTarget, `${stage.target}:support`, stage.target),
+        priority: browserCriticalPathPriority,
+        weight_ms: browserGroupWeight(timing, scheduleTarget, `${stage.target}:support`, stage.target),
         resource_claims: {
           go_cpu: 1,
           go_io: 1,
@@ -474,8 +474,8 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
       aggregate_target: stage.target,
       coverage: group.coverage,
       execution_dependency: group.executionDependency,
-      scheduler_priority: browserCriticalPathPriority,
-      weight: browserGroupWeight(timing, scheduleTarget, id, stage.target, makeTargetWeight(timing, scheduleTarget, group.target)),
+      priority: browserCriticalPathPriority,
+      weight_ms: browserGroupWeight(timing, scheduleTarget, id, stage.target, makeTargetWeight(timing, scheduleTarget, group.target)),
       resource_claims: {
         go_cpu: 1,
         go_io: 1,
@@ -502,9 +502,9 @@ function browserSource(profile, timing, scheduleTarget, stage, selectedTargets, 
     target: stage.target,
     browser_stage: stageName,
     ...(needs.length > 0 ? { needs } : {}),
-    scheduler_priority: browserCriticalPathPriority,
-    weight: browserGroupSources(profile, timing, scheduleTarget, stage)
-      .reduce((sum, group) => sum + group.weight, 0),
+    priority: browserCriticalPathPriority,
+    weight_ms: browserGroupSources(profile, timing, scheduleTarget, stage)
+      .reduce((sum, group) => sum + group.weight_ms, 0),
     resource_claims: claims,
     groups: browserGroupSources(profile, timing, scheduleTarget, stage),
   };
@@ -628,6 +628,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   }
   return {
     target,
+    scheduler_kind: "service_backed",
     capacity_profile: capacityProfile,
     resource_limits: resourceLimits,
     work_unit_sources: sources,

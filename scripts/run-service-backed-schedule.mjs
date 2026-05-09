@@ -47,8 +47,8 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-const supportedSchemaID = "cartulary.service_backed_schedule.v10";
-const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v5";
+const supportedSchemaID = "cartulary.service_backed_schedule.v11";
+const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v9";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
@@ -170,14 +170,14 @@ function validateBrowserGroup(source, group, groupIndex, label, resourceLimits) 
   if (group.aggregate_target.trim() !== source.target.trim()) {
     throw new Error(`${groupLabel}.aggregate_target must match ${source.target}`);
   }
-  if (!Number.isFinite(group.weight) || group.weight < 0) {
-    throw new Error(`${groupLabel}.weight must be non-negative`);
+  if (!Number.isFinite(group.weight_ms) || group.weight_ms < 0) {
+    throw new Error(`${groupLabel}.weight_ms must be non-negative`);
   }
   if (
-    group.scheduler_priority !== undefined &&
-    (!Number.isInteger(group.scheduler_priority) || group.scheduler_priority < 0)
+    group.priority !== undefined &&
+    (!Number.isInteger(group.priority) || group.priority < 0)
   ) {
-    throw new Error(`${groupLabel}.scheduler_priority must be a non-negative integer`);
+    throw new Error(`${groupLabel}.priority must be a non-negative integer`);
   }
   if (!validBrowserGroupKinds.has(group.kind.trim())) {
     throw new Error(`${groupLabel}.kind must be one of ${Array.from(validBrowserGroupKinds).join(", ")}`);
@@ -212,8 +212,8 @@ function validateBrowserGroup(source, group, groupIndex, label, resourceLimits) 
     shardCount: Number.isInteger(group.shard_count) ? group.shard_count : 0,
     phases: Array.isArray(group.phases) ? group.phases.filter((entry) => typeof entry === "string") : [],
     entryIDs: Array.isArray(group.entry_ids) ? group.entry_ids.filter((entry) => typeof entry === "string") : [],
-    schedulerPriority: group.scheduler_priority ?? 0,
-    weight: group.weight,
+    priority: group.priority ?? 0,
+    weightMs: group.weight_ms,
     resourceClaims: normalizeResourceClaims(
       group.resource_claims ?? {},
       groupLabel,
@@ -242,10 +242,10 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
   }
   const target = source.target.trim();
   if (
-    source.scheduler_priority !== undefined &&
-    (!Number.isInteger(source.scheduler_priority) || source.scheduler_priority < 0)
+    source.priority !== undefined &&
+    (!Number.isInteger(source.priority) || source.priority < 0)
   ) {
-    throw new Error(`${label} ${target} scheduler_priority must be a non-negative integer`);
+    throw new Error(`${label} ${target} priority must be a non-negative integer`);
   }
   const resourceClaims = normalizeResourceClaims(
     source.resource_claims,
@@ -273,7 +273,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
       class: source.class,
       target,
       needs,
-      schedulerPriority: source.scheduler_priority ?? 0,
+      priority: source.priority ?? 0,
       resourceClaims,
       rawResourceClaims: source.resource_claims,
       order: index,
@@ -298,8 +298,8 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
       target,
       browserStage: source.browser_stage.trim(),
       needs,
-      schedulerPriority: source.scheduler_priority ?? 0,
-      weight: source.weight,
+      priority: source.priority ?? 0,
+      weightMs: source.weight_ms,
       resourceClaims,
       rawResourceClaims: source.resource_claims,
       groups,
@@ -307,16 +307,16 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
     };
   }
 
-  if (!Number.isFinite(source.weight) || source.weight < 0) {
-    throw new Error(`${label} ${target} must declare non-negative weight`);
+  if (!Number.isFinite(source.weight_ms) || source.weight_ms < 0) {
+    throw new Error(`${label} ${target} must declare non-negative weight_ms`);
   }
   return {
     type: source.type,
     class: source.class,
     target,
     needs,
-    schedulerPriority: source.scheduler_priority ?? 0,
-    weight: source.weight,
+    priority: source.priority ?? 0,
+    weightMs: source.weight_ms,
     resourceClaims,
     rawResourceClaims: source.resource_claims,
     order: index,
@@ -464,8 +464,8 @@ function expandSchedule(schedule) {
         needs: [...source.needs],
         completionKeys: [browserStageSessionKey(source.target)],
         failureKeys: [browserStageSessionKey(source.target)],
-        weight: source.weight,
-        schedulerPriority: source.schedulerPriority,
+        weightMs: source.weightMs,
+        priority: source.priority,
         resourceClaims: cloneResourceClaims(source.resourceClaims),
         retainedResourceClaims: retainedClaims,
         order: source.order,
@@ -487,7 +487,7 @@ function expandSchedule(schedule) {
         countsStarted: false,
         resourceClaims: new Map(),
         releaseRetainedResourceClaims: retainedClaims,
-        weight: 0,
+        weightMs: 0,
         order: source.order,
       });
       for (const group of source.groups) {
@@ -506,8 +506,8 @@ function expandSchedule(schedule) {
           needs: browserGroupNeeds(browserStageSessionKey(source.target)),
           completionKeys: [browserGroupCompletionKey(group.id)],
           failureKeys: [browserGroupCompletionKey(group.id)],
-          weight: group.weight,
-          schedulerPriority: group.schedulerPriority,
+          weightMs: group.weightMs,
+          priority: group.priority,
           resourceClaims: cloneResourceClaims(group.resourceClaims),
           rawResourceClaims: group.rawResourceClaims,
           order: source.order,
@@ -529,8 +529,8 @@ function expandSchedule(schedule) {
         needs: [...source.needs],
         completionKeys: [source.target],
         failureKeys: [source.target],
-        weight: source.weight,
-        schedulerPriority: source.schedulerPriority,
+        weightMs: source.weightMs,
+        priority: source.priority,
         resourceClaims: cloneResourceClaims(source.resourceClaims),
         rawResourceClaims: source.rawResourceClaims,
         order: source.order,
@@ -559,7 +559,7 @@ function expandSchedule(schedule) {
       resourceClaims: new Map(),
       shardNames: shards.map((shard) => shard.name),
       unblockLabel: source.target,
-      weight: 0,
+      weightMs: 0,
       order: source.order,
     });
     for (const shard of shards) {
@@ -582,8 +582,8 @@ function expandSchedule(schedule) {
         completeOnFailure: true,
         shard: shard.name,
         schedulerProfile: shard.scheduler_profile,
-        weight: shard.weight_ms,
-        schedulerPriority: source.schedulerPriority,
+        weightMs: shard.weight_ms,
+        priority: source.priority,
         resourceClaims: mergeResourceClaims(
           source.resourceClaims,
           schedulerClaimsForShard(shard, schedule.resourceLimits),
@@ -597,8 +597,8 @@ function expandSchedule(schedule) {
 
   countedWorkUnits.sort(
     (left, right) =>
-      right.schedulerPriority - left.schedulerPriority ||
-      right.weight - left.weight ||
+      right.priority - left.priority ||
+      right.weightMs - left.weightMs ||
       left.order - right.order ||
       left.label.localeCompare(right.label),
   );
@@ -652,8 +652,8 @@ function estimateGoCPULimit(goShardUnits) {
   if (goShardUnits.length === 0) {
     return 1;
   }
-  const totalWeight = goShardUnits.reduce((sum, unit) => sum + Math.max(1, unit.weight), 0);
-  const maxWeight = Math.max(...goShardUnits.map((unit) => Math.max(1, unit.weight)));
+  const totalWeight = goShardUnits.reduce((sum, unit) => sum + Math.max(1, unit.weightMs), 0);
+  const maxWeight = Math.max(...goShardUnits.map((unit) => Math.max(1, unit.weightMs)));
   const weightedConcurrency = Math.ceil(totalWeight / Math.max(30_000, maxWeight));
   const cpuCount = availableCPUCount();
   const hostConcurrency = cpuCount <= 4 ? Math.max(2, cpuCount - 1) : Math.floor(cpuCount * 0.75);
@@ -907,7 +907,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
 
   return {
     ...schedule,
-    kind: "service-backed",
+    kind: "service_backed",
     prefix: "SCHEDULER",
     eventSchemaID: schedulerEventSchemaID,
     summarySchemaID: schedulerSummarySchemaID,
@@ -1043,7 +1043,7 @@ async function main() {
       repoRoot,
       schedule: {
         ...schedule,
-        kind: "service-backed",
+        kind: "service_backed",
         resourceScheduler: "service_backed",
       },
       manifestPath,

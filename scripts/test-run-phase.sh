@@ -315,9 +315,9 @@ assert_equals "$(json_field "$short_failure_summary" "counts.failed")" "1" "shor
 assert_equals "$(json_field "$short_failure_summary" "counts.non_test")" "1" "short failure non-test count"
 assert_equals "$(json_field "$short_failure_summary" "counts.non_test_failed")" "1" "short failure non-test failed count"
 assert_equals "$(json_field "$short_failure_summary" "counts.unmapped_failed")" "0" "short failure unmapped failed count"
-assert_equals "$(json_field "$short_failure_summary" "failure_class")" "helper" "short failure class"
-assert_equals "$(json_field "$short_failure_summary" "failure_classes.helper")" "1" "short failure helper count"
-assert_equals "$(json_field "$short_failure_summary" "failures.0.failure_class")" "helper" "short failure record class"
+assert_equals "$(json_field "$short_failure_summary" "failure_class")" "harness" "short failure class"
+assert_equals "$(json_field "$short_failure_summary" "failure_classes.harness")" "1" "short failure helper count"
+assert_equals "$(json_field "$short_failure_summary" "failures.0.failure_class")" "harness" "short failure record class"
 assert_matches "$(json_field "$short_failure_summary" "start_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond start time"
 assert_matches "$(json_field "$short_failure_summary" "end_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond end time"
 
@@ -399,7 +399,7 @@ cat >"$single_span_phase_dir/phase-summary.json" <<'JSON'
     "non_test_failed": 0
   },
   "failure_class": null,
-  "failure_classes": { "test": 0, "infra": 0, "timing": 0, "artifact": 0, "helper": 0 },
+  "failure_classes": { "product": 0, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
   "failures": [],
   "failure_headline": "",
   "owners": [],
@@ -481,7 +481,7 @@ cat >"$infra_phase_dir/phase-summary.json" <<'JSON'
     "packages": 1
   },
   "failure_class": null,
-  "failure_classes": { "test": 0, "infra": 0, "timing": 0, "artifact": 0, "helper": 0 },
+  "failure_classes": { "product": 0, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
   "failures": [],
   "failure_headline": "",
   "owners": [],
@@ -513,7 +513,7 @@ infra_timing_output="$(
     2>&1
 )"
 assert_contains "$infra_timing_output" "failure_class=infra" "infra timing target failure class"
-assert_contains "$infra_timing_output" "tests passed; infra timing failure: test-services start minio" "infra timing target headline"
+assert_contains "$infra_timing_output" "tests passed; infra reason=preflight_error timing failure: test-services start minio" "infra timing target headline"
 infra_timing_summary="$infra_timing_results/infra-timing/infra-target/target-summary.json"
 assert_equals "$(json_field "$infra_timing_summary" "failure_class")" "infra" "infra timing JSON failure class"
 assert_equals "$(json_field "$infra_timing_summary" "failure_classes.infra")" "1" "infra timing JSON class count"
@@ -584,7 +584,7 @@ assert_not_contains "$skipped_after_failure_output" "missing_summary_targets=ski
 skipped_after_failure_summary="$skipped_after_failure_results/skipped-after-failure/run-summary.json"
 assert_equals "$(json_field "$skipped_after_failure_summary" "counts.failed")" "1" "skipped after failure failed count"
 assert_equals "$(json_field "$skipped_after_failure_summary" "counts.non_test_failed")" "1" "skipped after failure non-test failed count"
-assert_equals "$(json_field "$skipped_after_failure_summary" "failure_class")" "helper" "skipped after failure class"
+assert_equals "$(json_field "$skipped_after_failure_summary" "failure_class")" "harness" "skipped after failure class"
 assert_equals "$(json_field "$skipped_after_failure_summary" "work_units.aborted_after")" "failed-check" "skipped after failure aborted target"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_targets.missing.length")" "0" "skipped after failure missing target count"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_targets.skipped_after_failure.0")" "skipped-check" "skipped after failure summary list"
@@ -1072,9 +1072,9 @@ cat >"$skipped_child_run/failed-backend/target-summary.json" <<'JSON'
   "teardown_duration_ms": 0,
   "accounting_modes": { "actual": 1, "reused": 0, "derived": 0 },
   "counts": { "phases": 1, "tests": 1, "failed": 1, "authoritative": 1, "support": 0, "unmapped": 0, "non_test": 0, "authoritative_failed": 1, "support_failed": 0, "unmapped_failed": 0, "non_test_failed": 0, "packages": 1 },
-  "failure_class": "test",
-  "failure_classes": { "test": 1, "infra": 0, "timing": 0, "artifact": 0, "helper": 0 },
-  "failures": [{ "failure_class": "test", "kind": "test", "target": "failed-backend", "message": "reported test failure" }],
+  "failure_class": "product",
+  "failure_classes": { "product": 1, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failures": [{ "failure_class": "product", "kind": "test", "target": "failed-backend", "message": "reported test failure" }],
   "failure_headline": "test: reported test failure",
   "artifacts": { "dir": ".cartulary/test-results/skipped-child/failed-backend" }
 }
@@ -1104,12 +1104,12 @@ skipped_child_output="$(
     2>&1
 )"
 assert_contains "$skipped_child_output" "[FAIL] parent-with-skipped" "skipped child parent output"
-assert_contains "$skipped_child_output" "[CHILD] parent-with-skipped failed-backend status=fail failure_class=test" "skipped child failed dependency output"
+assert_contains "$skipped_child_output" "[CHILD] parent-with-skipped failed-backend status=fail failure_class=product" "skipped child failed dependency output"
 assert_contains "$skipped_child_output" "[CHILD-SKIPPED] parent-with-skipped skipped-browser reason=dependency_failure failed_dependency=failed-backend" "skipped child cascade output"
 assert_not_contains "$skipped_child_output" "[CHILD-MISSING] parent-with-skipped skipped-browser" "skipped child is not missing output"
 skipped_child_summary="$skipped_child_run/parent-with-skipped/target-summary.json"
 assert_equals "$(json_field "$skipped_child_summary" "status")" "fail" "skipped child status"
-assert_equals "$(json_field "$skipped_child_summary" "failure_class")" "test" "skipped child preserves root failure class"
+assert_equals "$(json_field "$skipped_child_summary" "failure_class")" "product" "skipped child preserves root failure class"
 assert_equals "$(json_field "$skipped_child_summary" "children.failed_targets.0")" "failed-backend" "skipped child failed target"
 assert_equals "$(json_field "$skipped_child_summary" "children.skipped.0.target")" "skipped-browser" "skipped child summary target"
 assert_equals "$(json_field "$skipped_child_summary" "children.skipped.0.failed_dependency")" "failed-backend" "skipped child summary dependency"
@@ -1165,7 +1165,7 @@ explicit_skipped_child_output="$(
     2>&1
 )"
 assert_contains "$explicit_skipped_child_output" "[FAIL] parent-with-explicit-skipped" "explicit skipped child parent output"
-assert_contains "$explicit_skipped_child_output" "[CHILD] parent-with-explicit-skipped failed-backend status=fail failure_class=test" "explicit skipped child failed dependency output"
+assert_contains "$explicit_skipped_child_output" "[CHILD] parent-with-explicit-skipped failed-backend status=fail failure_class=product" "explicit skipped child failed dependency output"
 assert_contains "$explicit_skipped_child_output" "[CHILD-SKIPPED] parent-with-explicit-skipped explicit-skipped reason=schedule_stopped_after_failure failed_dependency=failed-backend" "explicit skipped child cascade output"
 assert_not_contains "$explicit_skipped_child_output" "[CHILD-MISSING] parent-with-explicit-skipped explicit-skipped" "explicit skipped child is not missing output"
 explicit_skipped_child_summary="$skipped_child_run/parent-with-explicit-skipped/target-summary.json"
@@ -1205,7 +1205,7 @@ imported_skipped_child_output="$(
     2>&1
 )"
 assert_contains "$imported_skipped_child_output" "[FAIL] parent-with-imported-skipped" "imported skipped child parent output"
-assert_contains "$imported_skipped_child_output" "[CHILD] parent-with-imported-skipped failed-backend status=fail failure_class=test" "imported skipped child failed dependency output"
+assert_contains "$imported_skipped_child_output" "[CHILD] parent-with-imported-skipped failed-backend status=fail failure_class=product" "imported skipped child failed dependency output"
 assert_contains "$imported_skipped_child_output" "[CHILD-SKIPPED] parent-with-imported-skipped imported-skipped reason=schedule_stopped_after_failure failed_dependency=failed-backend work_unit=imported-work-unit" "imported skipped child output"
 assert_not_contains "$imported_skipped_child_output" "[CHILD-MISSING] parent-with-imported-skipped imported-skipped" "imported skipped child is not missing output"
 assert_not_contains "$imported_skipped_child_output" "missing child target summary: imported-skipped" "imported skipped child avoids artifact failure"

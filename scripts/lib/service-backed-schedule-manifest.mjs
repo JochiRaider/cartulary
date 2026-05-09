@@ -16,6 +16,7 @@ const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const serviceScheduleKeys = new Set(["schema_id", "generated", "schedules"]);
 const serviceScheduleEntryKeys = new Set([
   "target",
+  "scheduler_kind",
   "capacity_profile",
   "resource_limits",
   "work_unit_sources",
@@ -25,8 +26,8 @@ const serviceSourceKeys = new Set([
   "class",
   "target",
   "needs",
-  "scheduler_priority",
-  "weight",
+  "priority",
+  "weight_ms",
   "resource_claims",
   "browser_stage",
   "groups",
@@ -44,8 +45,8 @@ const serviceBrowserGroupKeys = new Set([
   "shard_count",
   "phases",
   "entry_ids",
-  "scheduler_priority",
-  "weight",
+  "priority",
+  "weight_ms",
   "resource_claims",
 ]);
 const browserGroupKinds = new Set(["functional_shard", "support", "stateful", "measurement", "visual"]);
@@ -83,6 +84,10 @@ export function validateServiceBackedScheduleManifestShape(
       requireString(schedule.target, `${scheduleLabel}.target`, {
         pattern: makeTargetPattern,
       });
+      requireString(schedule.scheduler_kind, `${scheduleLabel}.scheduler_kind`);
+      if (schedule.scheduler_kind !== "service_backed") {
+        throw new Error(`${scheduleLabel}.scheduler_kind must be service_backed`);
+      }
       requireString(schedule.capacity_profile, `${scheduleLabel}.capacity_profile`);
       validateObjectArray(
         schedule.work_unit_sources,
@@ -103,10 +108,10 @@ export function validateServiceBackedScheduleManifestShape(
             pattern: makeTargetPattern,
           });
           if (source.type === "make_target" || source.type === "browser_stage") {
-            requirePositiveInteger(source.weight, `${sourceLabel}.weight`);
+            requirePositiveInteger(source.weight_ms, `${sourceLabel}.weight_ms`);
           }
-          if (source.scheduler_priority !== undefined) {
-            requireInteger(source.scheduler_priority, `${sourceLabel}.scheduler_priority`, { min: 0 });
+          if (source.priority !== undefined) {
+            requireInteger(source.priority, `${sourceLabel}.priority`, { min: 0 });
           }
           if (source.type === "browser_stage") {
             validateObjectArray(
@@ -123,9 +128,9 @@ export function validateServiceBackedScheduleManifestShape(
                 requireString(group.aggregate_target, `${groupLabel}.aggregate_target`, {
                   pattern: makeTargetPattern,
                 });
-                requirePositiveInteger(group.weight, `${groupLabel}.weight`);
-                if (group.scheduler_priority !== undefined) {
-                  requireInteger(group.scheduler_priority, `${groupLabel}.scheduler_priority`, { min: 0 });
+                requirePositiveInteger(group.weight_ms, `${groupLabel}.weight_ms`);
+                if (group.priority !== undefined) {
+                  requireInteger(group.priority, `${groupLabel}.priority`, { min: 0 });
                 }
                 if (group.kind === "functional_shard") {
                   requireString(group.shard_name, `${groupLabel}.shard_name`);

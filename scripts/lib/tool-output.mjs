@@ -1,8 +1,17 @@
 import path from "node:path";
 
-export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v1";
+import {
+  defaultReasonForFailureClass,
+  failureClassOrder,
+  failureReasonOrder,
+  normalizeFailureClass,
+  normalizeFailureReason,
+} from "./failure-taxonomy.mjs";
 
-export const failureClasses = ["test", "infra", "helper", "timing", "artifact"];
+export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v2";
+
+export const failureClasses = failureClassOrder;
+export const failureReasons = failureReasonOrder;
 
 export function normalizeOutputMode(env = process.env) {
   if (env.VERBOSE === "1" || env.CI_VERBOSE === "1") {
@@ -44,22 +53,6 @@ export function suppressChildSuccess(env = process.env) {
   return env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1";
 }
 
-export function failureOrigin(failureClass) {
-  switch (failureClass) {
-    case "test":
-      return "product";
-    case "infra":
-      return "infrastructure";
-    case "timing":
-      return "timing";
-    case "artifact":
-      return "artifact";
-    case "helper":
-    default:
-      return failureClass ? "helper" : null;
-  }
-}
-
 export function artifactRef(role, file, kind = "json") {
   if (!file) {
     return null;
@@ -71,11 +64,11 @@ function normalizeArtifactPath(value) {
   return String(value ?? "").replaceAll("\\", "/");
 }
 
-export function terminalArtifactPath(artifactRoot, file) {
+export function terminalArtifactPath(runRoot, file) {
   if (!file) {
     return "-";
   }
-  const root = normalizeArtifactPath(artifactRoot).replace(/\/+$/u, "");
+  const root = normalizeArtifactPath(runRoot).replace(/\/+$/u, "");
   const target = normalizeArtifactPath(file);
   if (root && target === `${root}/tool-run-summary.json`) {
     return "tool-run-summary.json";
@@ -232,6 +225,7 @@ function sortTargetRefs(targets = []) {
 function failureSortKey(failure) {
   return [
     failure.failure_class ?? "",
+    failure.failure_reason ?? "",
     failure.target ?? "",
     failure.work_unit ?? "",
     failure.child_target ?? "",
@@ -266,7 +260,9 @@ export function buildToolRunSummary({
   completedAt,
   durationMs,
   outputMode = normalizeOutputMode(),
-  artifactRoot,
+  resultRoot = "",
+  runId = "",
+  runRoot,
   summaryArtifacts = [],
   logArtifacts = [],
   workUnits = [],
@@ -275,17 +271,20 @@ export function buildToolRunSummary({
   counts = {},
   phaseAccounting = {},
   failureClass = null,
+  failureReason = null,
   failures = [],
   slowest = [],
   warnings = [],
   rerunCommands = [],
   extensions = {},
 }) {
-  const normalizedFailureClass = failureClass && failureClasses.includes(failureClass)
-    ? failureClass
-    : failureClass
-      ? "helper"
-      : null;
+  const normalizedFailureClass = normalizeFailureClass(failureClass, "");
+  const normalizedFailureReason = normalizedFailureClass
+    ? normalizeFailureReason(
+        failureReason ?? failures.find((failure) => failure?.failure_reason)?.failure_reason,
+        defaultReasonForFailureClass(normalizedFailureClass),
+      )
+    : null;
   const normalizedCompletedAt = normalizeTimestamp(completedAt, startedAt);
   const normalizedStartedAt = normalizeTimestamp(startedAt, normalizedCompletedAt);
   return {
@@ -298,7 +297,9 @@ export function buildToolRunSummary({
     completed_at: normalizedCompletedAt,
     duration_ms: compactDurationMs(durationMs),
     output_mode: outputMode,
-    artifact_root: artifactRoot,
+    result_root: resultRoot,
+    run_id: runId,
+    run_root: runRoot,
     summary_artifacts: sortArtifacts(summaryArtifacts),
     log_artifacts: sortArtifacts(logArtifacts),
     work_units: sortWorkUnits(workUnits),
@@ -310,7 +311,7 @@ export function buildToolRunSummary({
       ...phaseAccounting,
     },
     failure_class: normalizedFailureClass,
-    failure_origin: failureOrigin(normalizedFailureClass),
+    failure_reason: normalizedFailureReason,
     failures: sortFailures(failures),
     slowest: sortSlowest(slowest),
     warnings,
@@ -319,8 +320,8 @@ export function buildToolRunSummary({
   };
 }
 
-export function toolSummaryPath(artifactRoot) {
-  return path.join(artifactRoot, "tool-run-summary.json");
+export function toolSummaryPath(runRoot) {
+  return path.join(runRoot, "tool-run-summary.json");
 }
 
 export function resultLine(summary, summaryJsonPath) {
@@ -341,15 +342,15 @@ export function resultLine(summary, summaryJsonPath) {
   ].some((key) => Number(phase[key] ?? 0) > 0);
   const missing = phaseApplicable ? (phase.missing ?? 0) : "-";
   const unmapped = phaseApplicable && phase.unmapped > 0 ? phase.unmapped : "-";
-  return `[RESULT] target=${summary.target} status=${summary.status} duration_ms=${summary.duration_ms} work_units=${workUnits} tests=${tests} failed=${counts.failed ?? 0} missing=${missing} unmapped=${unmapped} slowest=${slowestText(summary.slowest?.[0])} artifact_root=${summary.artifact_root} summary_json=${terminalArtifactPath(summary.artifact_root, summaryJsonPath)}\n`;
+  return `[RESULT] target=${summary.target} status=${summary.status} duration_ms=${summary.duration_ms} work_units=${workUnits} tests=${tests} failed=${counts.failed ?? 0} missing=${missing} unmapped=${unmapped} slowest=${slowestText(summary.slowest?.[0])} run_root=${summary.run_root} summary_json=${terminalArtifactPath(summary.run_root, summaryJsonPath)}\n`;
 }
 
 export function artifactLine(summary, summaryJsonPath, { investigate = null, log = null } = {}) {
   const fields = [
     `[ARTIFACTS] target=${summary.target}`,
-    `root=${summary.artifact_root}`,
-    `summary_json=${terminalArtifactPath(summary.artifact_root, summaryJsonPath)}`,
-    `logs=${terminalArtifactPath(summary.artifact_root, log)}`,
+    `root=${summary.run_root}`,
+    `summary_json=${terminalArtifactPath(summary.run_root, summaryJsonPath)}`,
+    `logs=${terminalArtifactPath(summary.run_root, log)}`,
   ];
   if (investigate) {
     fields.push(`investigate="${investigate}"`);

@@ -43,14 +43,20 @@ assert_fails_with() {
 phase_stdout_from_result() {
   local output="$1"
   local root
-  root="$(printf '%s\n' "$output" | sed -n 's/.* artifact_root=\([^ ]*\) .*/\1/p' | head -n 1)"
+  root="$(printf '%s\n' "$output" | sed -n 's/.* run_root=\([^ ]*\) .*/\1/p' | head -n 1)"
   if [[ -z "$root" ]]; then
-    fail "missing artifact_root in output: $output"
+    fail "missing run_root in output: $output"
   fi
   if [[ "$root" = /* ]]; then
-    cat "$root/stdout.log"
+    local dir="$root"
   else
-    cat "$ROOT_DIR/$root/stdout.log"
+    local dir="$ROOT_DIR/$root"
+  fi
+  local target
+  target="$(printf '%s\n' "$output" | sed -n 's/.* target=\([^ ]*\) .*/\1/p' | head -n 1)"
+  [[ -f "$dir/stdout.log" ]] && cat "$dir/stdout.log"
+  if [[ -n "$target" ]]; then
+    [[ -f "$dir/$target/stdout.log" ]] && cat "$dir/$target/stdout.log"
   fi
 }
 

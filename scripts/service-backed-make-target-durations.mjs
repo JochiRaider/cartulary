@@ -25,8 +25,8 @@ import {
 } from "./lib/target-duration-baselines.mjs";
 
 const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
-const baselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v1";
-const scheduleSchemaID = "cartulary.service_backed_schedule.v10";
+const baselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
+const scheduleSchemaID = "cartulary.service_backed_schedule.v11";
 const defaultBaselineFile = path.join(
   repoRoot,
   "tools",
@@ -95,7 +95,8 @@ function baselineKey({ schedulerKind, scheduleTarget, workUnitID, aggregateTarge
 }
 
 function normalizeSchedulerKind(value) {
-  return String(value ?? "").trim();
+  const normalized = String(value ?? "").trim();
+  return normalized === "service-backed" ? "service_backed" : normalized;
 }
 
 function normalizeWorkUnitType(value) {
@@ -124,7 +125,7 @@ function observedEntryFromEvents(summary, start, finish) {
     schedule_target: scheduleTarget,
     work_unit_id: workUnitID,
     aggregate_target: aggregateTarget,
-    duration_ms: durationMs,
+    weight_ms: durationMs,
   };
 }
 
@@ -134,7 +135,7 @@ function collectObservedWorkUnitDurations(resultsDir) {
   for (const summaryFile of schedulerSummaryFiles(resultsDir)) {
     const summary = readJSON(repoRoot, summaryFile);
     const schedulerKind = normalizeSchedulerKind(summary.scheduler_kind);
-    if (!["service-backed", "check"].includes(schedulerKind) || summary.status !== "pass") {
+    if (!["service_backed", "check"].includes(schedulerKind) || summary.status !== "pass") {
       continue;
     }
     const events = readSchedulerEvents(path.join(path.dirname(summaryFile), "scheduler-events.jsonl"));
@@ -167,7 +168,7 @@ function collectObservedWorkUnitDurations(resultsDir) {
         aggregateTarget: entry.aggregate_target,
       });
       const previous = observed.get(key);
-      if (!previous || entry.duration_ms > previous.duration_ms) {
+      if (!previous || entry.weight_ms > previous.weight_ms) {
         observed.set(key, entry);
       }
     }
@@ -195,8 +196,8 @@ function validateBaselineDocument(baseline, label) {
     if (key !== expectedKey) {
       throw new Error(`${label} work_units.${key} must match scheduler context key ${expectedKey}`);
     }
-    if (!Number.isInteger(entry.duration_ms) || entry.duration_ms <= 0) {
-      throw new Error(`${label} work_units.${key}.duration_ms must be positive integer weight ms`);
+    if (!Number.isInteger(entry.weight_ms) || entry.weight_ms <= 0) {
+      throw new Error(`${label} work_units.${key}.weight_ms must be positive integer`);
     }
   }
 }
@@ -249,7 +250,7 @@ function readScheduledWorkUnits(topologyFile, scheduleManifestFile) {
     for (const source of schedule.work_unit_sources ?? []) {
       if (source?.type === "make_target" && typeof source.target === "string") {
         add({
-          scheduler_kind: "service-backed",
+          scheduler_kind: "service_backed",
           schedule_target: schedule.target,
           work_unit_id: source.target,
           aggregate_target: source.target,
@@ -260,7 +261,7 @@ function readScheduledWorkUnits(topologyFile, scheduleManifestFile) {
             continue;
           }
           add({
-            scheduler_kind: "service-backed",
+            scheduler_kind: "service_backed",
             schedule_target: schedule.target,
             work_unit_id: group.id,
             aggregate_target: source.target,
@@ -344,8 +345,8 @@ function plannedWeight(entry, baseline, overrides) {
     aggregateTarget: entry.aggregate_target,
   });
   const baselineEntry = baselineEntryForKey(baseline, key);
-  if (baselineEntry && Number.isInteger(baselineEntry.duration_ms) && baselineEntry.duration_ms > 0) {
-    return baselineEntry.duration_ms;
+  if (baselineEntry && Number.isInteger(baselineEntry.weight_ms) && baselineEntry.weight_ms > 0) {
+    return baselineEntry.weight_ms;
   }
   return null;
 }
@@ -405,7 +406,7 @@ function checkDrift(argv) {
     if (!scheduledWorkUnits.has(key)) {
       continue;
     }
-    const actual = entry.duration_ms;
+    const actual = entry.weight_ms;
     const planned = plannedWeight(entry, baseline, overrides);
     if (!planned) {
       missingBaselines.push(`missing scheduler work-unit baseline ${formatSubject(entry)} actual_ms=${actual}`);

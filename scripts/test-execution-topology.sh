@@ -362,7 +362,7 @@ assert.deepEqual(
   "scheduled lint-shell must run ShellCheck in strict mode",
 );
 assert.deepEqual(
-  checkSchedule.work_units.map((unit) => [unit.target, unit.weight]),
+  checkSchedule.work_units.map((unit) => [unit.target, unit.priority]),
   [
     ["toolchain-drift", 50000],
     ["codegen-toolchain", 49900],
@@ -408,6 +408,10 @@ assert.deepEqual(
     ["generate-drift", 11000],
   ],
   "profile-expanded check schedule must preserve setup fanout and DAG priority order",
+);
+assert.ok(
+  checkSchedule.work_units.every((unit) => Number.isInteger(unit.weight_ms) && unit.weight_ms > 0),
+  "profile-expanded check schedule must assign advisory weight_ms values",
 );
 
 const rows = targetPlanModule.collectTargetPlanRows(root);

@@ -59,8 +59,8 @@ const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
-  "cartulary.scheduler_work_unit_duration_baselines.v1";
-const toolRunSummarySchemaID = "cartulary.tool_run_summary.v1";
+  "cartulary.scheduler_work_unit_duration_baselines.v2";
+const toolRunSummarySchemaID = "cartulary.tool_run_summary.v2";
 
 const phaseStatusValues = new Set(["active", "planned", "retired"]);
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
@@ -106,7 +106,9 @@ const toolRunSummaryKeys = new Set([
   "completed_at",
   "duration_ms",
   "output_mode",
-  "artifact_root",
+  "result_root",
+  "run_id",
+  "run_root",
   "summary_artifacts",
   "log_artifacts",
   "work_units",
@@ -115,7 +117,7 @@ const toolRunSummaryKeys = new Set([
   "counts",
   "phase_accounting",
   "failure_class",
-  "failure_origin",
+  "failure_reason",
   "failures",
   "slowest",
   "warnings",
@@ -133,18 +135,31 @@ const toolRunOutputModes = new Set([
   "machine",
 ]);
 const toolRunFailureClasses = new Set([
-  "test",
-  "infra",
-  "helper",
-  "timing",
-  "artifact",
-]);
-const toolRunFailureOrigins = new Set([
   "product",
-  "infrastructure",
-  "helper",
-  "timing",
+  "config",
+  "infra",
+  "harness",
   "artifact",
+  "timing",
+  "interrupted",
+  "unknown",
+]);
+const toolRunFailureReasons = new Set([
+  "usage_error",
+  "configuration_error",
+  "preflight_error",
+  "service_start_error",
+  "service_readiness_timeout",
+  "fixture_error",
+  "resource_conflict",
+  "test_assertion_failure",
+  "child_target_failure",
+  "scheduler_accounting_error",
+  "artifact_error",
+  "cleanup_error",
+  "timeout_failure",
+  "cancelled_or_interrupted",
+  "unknown_failure",
 ]);
 const toolRunCountKeys = new Set([
   "phases",
@@ -179,9 +194,9 @@ const toolRunWorkUnitKeys = new Set([
 const toolRunEvidenceTargetKeys = new Set([
   "target",
   "status",
-  "artifact_root",
+  "run_root",
 ]);
-const toolRunHelperUnitKeys = new Set(["target", "status", "artifact_root"]);
+const toolRunHelperUnitKeys = new Set(["target", "status", "run_root"]);
 const toolRunSlowestKeys = new Set(["id", "duration_ms", "kind"]);
 const rfc3339TimestampPattern =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
@@ -665,8 +680,8 @@ function validateDurationBaselineShape(file) {
       throw new Error(`${file}.work_units.${key} must match scheduler context key ${expectedKey}`);
     }
     requirePositiveInteger(
-      entry.duration_ms,
-      `${file}.work_units.${key}.duration_ms`,
+      entry.weight_ms,
+      `${file}.work_units.${key}.weight_ms`,
     );
   }
 }
@@ -689,6 +704,7 @@ function artifactStableKey(artifact) {
 function failureStableKey(failure) {
   return [
     failure.failure_class ?? "",
+    failure.failure_reason ?? "",
     failure.target ?? "",
     failure.work_unit ?? "",
     failure.child_target ?? "",
@@ -762,8 +778,8 @@ function validateToolRunTargetRefs(value, label, keys) {
     if (target.status !== undefined) {
       requireString(target.status, `${targetLabel}.status`);
     }
-    if (target.artifact_root !== undefined) {
-      requireString(target.artifact_root, `${targetLabel}.artifact_root`);
+    if (target.run_root !== undefined) {
+      requireString(target.run_root, `${targetLabel}.run_root`);
     }
   }
   requireSorted(targets, label, (target) => target.target, "target id");
@@ -817,7 +833,9 @@ function validateToolRunSummaryShape(file) {
   requireRFC3339Timestamp(summary.completed_at, `${file}.completed_at`);
   requireInteger(summary.duration_ms, `${file}.duration_ms`, { min: 0 });
   requireEnum(summary.output_mode, `${file}.output_mode`, toolRunOutputModes);
-  requireString(summary.artifact_root, `${file}.artifact_root`);
+  requireString(summary.result_root, `${file}.result_root`);
+  requireString(summary.run_id, `${file}.run_id`);
+  requireString(summary.run_root, `${file}.run_root`);
   validateToolRunArtifacts(
     summary.summary_artifacts,
     `${file}.summary_artifacts`,
@@ -850,9 +868,9 @@ function validateToolRunSummaryShape(file) {
     toolRunFailureClasses,
   );
   requireNullableEnum(
-    summary.failure_origin,
-    `${file}.failure_origin`,
-    toolRunFailureOrigins,
+    summary.failure_reason,
+    `${file}.failure_reason`,
+    toolRunFailureReasons,
   );
   requireSorted(
     requireObjectArray(summary.failures, `${file}.failures`),

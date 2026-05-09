@@ -47,8 +47,8 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v11";
-const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
+const supportedSchemaID = "cartulary.check_schedule.v12";
+const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v9";
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const schedulerOwnedEnvNames = new Set([
@@ -124,12 +124,12 @@ function normalizeMakeJobs(value, label, resourceClaims) {
   return value;
 }
 
-function normalizeSchedulerPriority(value, label) {
+function normalizePriority(value, label) {
   if (value === undefined) {
     return 0;
   }
   if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${label} scheduler_priority must be a non-negative integer`);
+    throw new Error(`${label} priority must be a non-negative integer`);
   }
   return value;
 }
@@ -334,8 +334,8 @@ function findSchedule(manifest, target, overrides) {
     if (typeof unit.target !== "string" || unit.target.trim() === "") {
       throw new Error(`${label} must declare target`);
     }
-    if (!Number.isFinite(unit.weight) || unit.weight < 0) {
-      throw new Error(`${label} ${unit.target} must declare non-negative weight`);
+    if (!Number.isFinite(unit.weight_ms) || unit.weight_ms < 0) {
+      throw new Error(`${label} ${unit.target} must declare non-negative weight_ms`);
     }
     const unitTarget = unit.target.trim();
     const unitKind = typeof unit.kind === "string" && unit.kind.trim() !== ""
@@ -387,8 +387,8 @@ function findSchedule(manifest, target, overrides) {
         unit.running_dependency_keys,
         `${label} ${unitTarget} running_dependency_keys`,
       ),
-      schedulerPriority: normalizeSchedulerPriority(unit.scheduler_priority, `${label} ${unitTarget}`),
-      weight: unit.weight,
+      priority: normalizePriority(unit.priority, `${label} ${unitTarget}`),
+      weightMs: unit.weight_ms,
       needs: normalizeNeeds(unit.needs, `${label} ${unitTarget}`),
       producesSummaryTargets: normalizeTargetList(
         unit.produces_summary_targets,
@@ -440,8 +440,8 @@ function findSchedule(manifest, target, overrides) {
   validateCheckWorkUnitDependencyGraph(units, `check schedule ${target}`);
   const sortedUnits = units.sort(
     (left, right) =>
-      right.schedulerPriority - left.schedulerPriority ||
-      right.weight - left.weight ||
+      right.priority - left.priority ||
+      right.weightMs - left.weightMs ||
       left.order - right.order ||
       left.target.localeCompare(right.target),
   );
@@ -589,9 +589,9 @@ class NestedSchedulerProgressReader {
     return {
       work_unit: this.workUnit,
       nested_target: this.nestedTarget,
-      event_sequence: Number.isInteger(event.event_sequence) ? event.event_sequence : 0,
+      seq: Number.isInteger(event.seq) ? event.seq : 0,
       monotonic_ms: integerOrZero(event.monotonic_ms),
-      wall_timestamp: typeof event.wall_timestamp === "string" ? event.wall_timestamp : "",
+      emitted_at: typeof event.emitted_at === "string" ? event.emitted_at : "",
       completed: integerOrZero(event.completed),
       total_work_units: integerOrZero(event.total_work_units),
       running: integerOrZero(event.running),
@@ -658,9 +658,9 @@ function createNestedProgressSupport(schedule) {
             const key = JSON.stringify({
               work_unit: progress.work_unit,
               nested_target: progress.nested_target,
-              event_sequence: progress.event_sequence,
+              seq: progress.seq,
               monotonic_ms: progress.monotonic_ms,
-              wall_timestamp: progress.wall_timestamp,
+              emitted_at: progress.emitted_at,
               completed: progress.completed,
               running: progress.running,
               pending: progress.pending,

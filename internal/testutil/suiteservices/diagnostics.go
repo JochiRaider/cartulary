@@ -67,7 +67,7 @@ const (
 
 const (
 	FailureClassInfra    = "infra"
-	FailureClassHelper   = "helper"
+	FailureClassHelper   = "harness"
 	FailureClassArtifact = "artifact"
 )
 

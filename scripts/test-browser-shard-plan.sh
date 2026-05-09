@@ -57,9 +57,9 @@ assert_contains() {
 tool_logs_from_result() {
   local output="$1"
   local root
-  root="$(printf '%s\n' "$output" | sed -n 's/.* artifact_root=\([^ ]*\) .*/\1/p' | head -n 1)"
+  root="$(printf '%s\n' "$output" | sed -n 's/.* run_root=\([^ ]*\) .*/\1/p' | head -n 1)"
   if [[ -z "$root" ]]; then
-    fail "missing artifact_root in output: $output"
+    fail "missing run_root in output: $output"
   fi
   local dir
   if [[ "$root" = /* ]]; then
@@ -67,8 +67,14 @@ tool_logs_from_result() {
   else
     dir="$ROOT_DIR/$root"
   fi
+  local target
+  target="$(printf '%s\n' "$output" | sed -n 's/.* target=\([^ ]*\) .*/\1/p' | head -n 1)"
   [[ -f "$dir/stdout.log" ]] && cat "$dir/stdout.log"
   [[ -f "$dir/stderr.log" ]] && cat "$dir/stderr.log"
+  if [[ -n "$target" ]]; then
+    [[ -f "$dir/$target/stdout.log" ]] && cat "$dir/$target/stdout.log"
+    [[ -f "$dir/$target/stderr.log" ]] && cat "$dir/$target/stderr.log"
+  fi
 }
 
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/browser-shard-plan.XXXXXX")"

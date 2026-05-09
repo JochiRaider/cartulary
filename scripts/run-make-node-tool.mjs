@@ -133,10 +133,11 @@ function addUniqueArtifacts(existing, additions) {
 function runWrapped(target, invocation) {
   const resultsRoot = resolveResultsRoot();
   const runID = resolveRunID();
-  const artifactRootAbs = path.join(resultsRoot, runID, target);
-  mkdirSync(artifactRootAbs, { recursive: true });
-  const stdoutLog = path.join(artifactRootAbs, "stdout.log");
-  const stderrLog = path.join(artifactRootAbs, "stderr.log");
+  const runRootAbs = path.join(resultsRoot, runID);
+  const targetRootAbs = path.join(runRootAbs, target);
+  mkdirSync(targetRootAbs, { recursive: true });
+  const stdoutLog = path.join(targetRootAbs, "stdout.log");
+  const stderrLog = path.join(targetRootAbs, "stderr.log");
   const startedAt = nowUTC();
   const startedMs = monotonicMs();
   const child = spawnSync(process.execPath, [invocation.script, ...invocation.args], {
@@ -155,8 +156,8 @@ function runWrapped(target, invocation) {
   const stderrFile = quietLikeOutput()
     ? writeIfNonEmpty(stderrLog, child.stderr ?? "")
     : null;
-  const artifactRoot = relToCwd(artifactRootAbs);
-  const summaryFile = toolSummaryPath(artifactRootAbs);
+  const runRoot = relToCwd(runRootAbs);
+  const summaryFile = toolSummaryPath(targetRootAbs);
   const summaryRel = relToCwd(summaryFile);
   const childSummary = readToolSummary(summaryFile, target);
   const summary = childSummary ?? buildToolRunSummary({
@@ -168,10 +169,13 @@ function runWrapped(target, invocation) {
     completedAt: nowUTC(),
     durationMs: monotonicMs() - startedMs,
     outputMode: normalizeOutputMode(),
-    artifactRoot,
+    resultRoot: relToCwd(resultsRoot),
+    runId: runID,
+    runRoot,
     summaryArtifacts: [artifactRef("tool_run_summary", summaryRel)],
     counts: {},
-    failureClass: status === 0 ? null : "helper",
+    failureClass: status === 0 ? null : "harness",
+    failureReason: status === 0 ? null : "unknown_failure",
     failures:
       status === 0
         ? []
@@ -179,7 +183,8 @@ function runWrapped(target, invocation) {
             {
               target,
               label: target,
-              failure_class: "helper",
+              failure_class: "harness",
+              failure_reason: "unknown_failure",
               headline: `${target} failed`,
               artifact: stderrFile ? relToCwd(stderrFile) : "",
             },
@@ -193,6 +198,9 @@ function runWrapped(target, invocation) {
     artifactIfExists("stdout_log", stdoutFile),
     artifactIfExists("stderr_log", stderrFile),
   ]);
+  summary.result_root ||= relToCwd(resultsRoot);
+  summary.run_id ||= runID;
+  summary.run_root ||= runRoot;
   summary.output_mode = normalizeOutputMode();
   writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`);
 
@@ -209,10 +217,10 @@ function runWrapped(target, invocation) {
   } else {
     const logArtifact = stderrFile ? relToCwd(stderrFile) : stdoutFile ? relToCwd(stdoutFile) : "-";
     process.stderr.write(
-      `[FAIL] target=${target} exit_code=${summary.exit_code} failure_class=${summary.failure_class ?? "helper"} failure_origin=${summary.failure_origin ?? "helper"} work_unit=- child_target=- duration_ms=${summary.duration_ms} headline="${target} failed"\n`,
+      `[FAIL] target=${target} exit_code=${summary.exit_code} failure_class=${summary.failure_class ?? "harness"} reason=${summary.failure_reason ?? "unknown_failure"} work_unit=- child_target=- duration_ms=${summary.duration_ms} headline="${target} failed"\n`,
     );
     process.stderr.write(
-      `[ARTIFACTS] target=${target} root=${summary.artifact_root} summary_json=${terminalArtifactPath(summary.artifact_root, summaryRel)} log_artifact=${terminalArtifactPath(summary.artifact_root, logArtifact)} scheduler_json=- progress_log=-\n`,
+      `[ARTIFACTS] target=${target} root=${summary.run_root} summary_json=${terminalArtifactPath(summary.run_root, summaryRel)} log_artifact=${terminalArtifactPath(summary.run_root, logArtifact)} scheduler_json=- progress_log=-\n`,
     );
     process.stderr.write(`[RERUN] command="make ${target}"\n`);
     process.stderr.write(

@@ -135,8 +135,11 @@ func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T
 	if err != nil {
 		t.Fatalf("read reaper lease: %v", err)
 	}
-	if lease.SuiteID != "suite-redaction" || len(lease.Services) != 2 {
+	if lease.SuiteID != "suite-redaction" || len(lease.Resources) != 2 {
 		t.Fatalf("unexpected lease: %#v", lease)
+	}
+	if lease.LeaseID == "" || lease.RunRoot == "" || lease.OwnerPID == 0 || lease.CleanupState != "not_started" {
+		t.Fatalf("lease missing cleanup-proof fields: %#v", lease)
 	}
 	if loadScope(t, deps).Failure != nil {
 		t.Fatal("non-zero child exit after a successful start must not populate startup failure summary")

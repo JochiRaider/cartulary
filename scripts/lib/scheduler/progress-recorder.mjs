@@ -63,9 +63,9 @@ export class SchedulerProgressRecorder {
 
   recordProgress({
     line,
-    eventSequence,
+    seq,
     monotonicMs,
-    wallTimestamp,
+    emittedAt,
     completed,
     total,
     running,
@@ -81,9 +81,9 @@ export class SchedulerProgressRecorder {
     nestedProgress = [],
   }) {
     const snapshot = {
-      event_sequence: eventSequence,
+      seq,
       monotonic_ms: monotonicMs,
-      wall_timestamp: wallTimestamp,
+      emitted_at: emittedAt,
       completed,
       total_work_units: total,
       running,
@@ -125,9 +125,9 @@ export class SchedulerProgressRecorder {
       workUnit: "",
       nestedTarget: "",
       value: snapshot.slowest_running,
-      eventSequence,
+      seq,
       monotonicMs,
-      wallTimestamp,
+      emittedAt,
     });
     for (const progress of snapshot.nested_scheduler_progress) {
       this.recordSlowest({
@@ -136,15 +136,15 @@ export class SchedulerProgressRecorder {
         workUnit: progress.work_unit,
         nestedTarget: progress.nested_target,
         value: progress.slowest_running,
-        eventSequence,
+        seq,
         monotonicMs,
-        wallTimestamp,
+        emittedAt,
       });
     }
     this.appendLine(line);
   }
 
-  recordSlowest({ source, target, workUnit, nestedTarget, value, eventSequence, monotonicMs, wallTimestamp }) {
+  recordSlowest({ source, target, workUnit, nestedTarget, value, seq, monotonicMs, emittedAt }) {
     if (!value) {
       return;
     }
@@ -160,9 +160,9 @@ export class SchedulerProgressRecorder {
       nested_target: nestedTarget || null,
       label: value.label,
       duration_ms: value.duration_ms,
-      event_sequence: eventSequence,
+      seq,
       monotonic_ms: monotonicMs,
-      wall_timestamp: wallTimestamp,
+      emitted_at: emittedAt,
     });
   }
 

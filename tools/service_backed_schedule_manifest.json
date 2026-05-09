@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule.v10",
+  "schema_id": "cartulary.service_backed_schedule.v11",
   "generated": {
     "generator": "scripts/render-service-backed-schedule-manifest.mjs",
     "topology": "tools/execution_topology_manifest.json",
@@ -9,6 +9,7 @@
   "schedules": [
     {
       "target": "test-service-backed",
+      "scheduler_kind": "service_backed",
       "capacity_profile": "service_backed_full",
       "resource_limits": {
         "postgres": 32,
@@ -55,7 +56,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 6739,
+          "weight_ms": 10000,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -69,8 +70,8 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 71101,
+          "priority": 100,
+          "weight_ms": 71101,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -103,8 +104,8 @@
                 "E-5-03",
                 "E-6-05"
               ],
-              "scheduler_priority": 100,
-              "weight": 15493,
+              "priority": 100,
+              "weight_ms": 15493,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -138,8 +139,8 @@
                 "E-5-01",
                 "E-6-01"
               ],
-              "scheduler_priority": 100,
-              "weight": 15272,
+              "priority": 100,
+              "weight_ms": 15272,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -174,8 +175,8 @@
                 "E-5-05",
                 "E-6-04"
               ],
-              "scheduler_priority": 100,
-              "weight": 15268,
+              "priority": 100,
+              "weight_ms": 15268,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -207,8 +208,8 @@
                 "E-4-03",
                 "E-6-02"
               ],
-              "scheduler_priority": 100,
-              "weight": 15068,
+              "priority": 100,
+              "weight_ms": 15068,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -222,8 +223,8 @@
               "aggregate_target": "browser-e2e-webserver-backed",
               "coverage": "supplemental",
               "execution_dependency": "browser_support",
-              "scheduler_priority": 100,
-              "weight": 10000,
+              "priority": 100,
+              "weight_ms": 10000,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -236,8 +237,8 @@
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
-          "scheduler_priority": 100,
-          "weight": 10167,
+          "priority": 100,
+          "weight_ms": 10000,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -254,8 +255,8 @@
               "aggregate_target": "browser-e2e-stateful",
               "coverage": "authoritative",
               "execution_dependency": "browser_stateful",
-              "scheduler_priority": 100,
-              "weight": 10167,
+              "priority": 100,
+              "weight_ms": 10000,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -273,8 +274,8 @@
             "browser-e2e-stateful",
             "browser-e2e-visual"
           ],
-          "scheduler_priority": 100,
-          "weight": 11098,
+          "priority": 100,
+          "weight_ms": 10000,
           "resource_claims": {
             "postgres": "limit",
             "minio": "limit",
@@ -293,8 +294,8 @@
               "aggregate_target": "browser-e2e-measurement",
               "coverage": "authoritative",
               "execution_dependency": "browser_measurement",
-              "scheduler_priority": 100,
-              "weight": 11098,
+              "priority": 100,
+              "weight_ms": 10000,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -307,8 +308,8 @@
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
-          "scheduler_priority": 100,
-          "weight": 11143,
+          "priority": 100,
+          "weight_ms": 10000,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -325,8 +326,8 @@
               "aggregate_target": "browser-e2e-visual",
               "coverage": "authoritative",
               "execution_dependency": "browser_visual",
-              "scheduler_priority": 100,
-              "weight": 11143,
+              "priority": 100,
+              "weight_ms": 10000,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -338,6 +339,7 @@
     },
     {
       "target": "test-fast-service-backed",
+      "scheduler_kind": "service_backed",
       "capacity_profile": "service_backed_backend",
       "resource_limits": {
         "postgres": 32,
@@ -379,7 +381,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 6739,
+          "weight_ms": 10000,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -392,6 +394,7 @@
     },
     {
       "target": "check-service-backed",
+      "scheduler_kind": "service_backed",
       "capacity_profile": "service_backed_full",
       "resource_limits": {
         "postgres": 32,
@@ -438,7 +441,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 6739,
+          "weight_ms": 10000,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -452,8 +455,8 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 70239,
+          "priority": 100,
+          "weight_ms": 70239,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -486,8 +489,8 @@
                 "E-5-03",
                 "E-6-05"
               ],
-              "scheduler_priority": 100,
-              "weight": 15493,
+              "priority": 100,
+              "weight_ms": 15493,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -521,8 +524,8 @@
                 "E-5-01",
                 "E-6-01"
               ],
-              "scheduler_priority": 100,
-              "weight": 15272,
+              "priority": 100,
+              "weight_ms": 15272,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -557,8 +560,8 @@
                 "E-5-05",
                 "E-6-04"
               ],
-              "scheduler_priority": 100,
-              "weight": 15268,
+              "priority": 100,
+              "weight_ms": 15268,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -590,8 +593,8 @@
                 "E-4-03",
                 "E-6-02"
               ],
-              "scheduler_priority": 100,
-              "weight": 15068,
+              "priority": 100,
+              "weight_ms": 15068,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -605,8 +608,8 @@
               "aggregate_target": "browser-e2e-webserver-backed",
               "coverage": "supplemental",
               "execution_dependency": "browser_support",
-              "scheduler_priority": 100,
-              "weight": 9138,
+              "priority": 100,
+              "weight_ms": 9138,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -619,8 +622,8 @@
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
-          "scheduler_priority": 100,
-          "weight": 5435,
+          "priority": 100,
+          "weight_ms": 5435,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -637,8 +640,8 @@
               "aggregate_target": "browser-e2e-stateful",
               "coverage": "authoritative",
               "execution_dependency": "browser_stateful",
-              "scheduler_priority": 100,
-              "weight": 5435,
+              "priority": 100,
+              "weight_ms": 5435,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -656,8 +659,8 @@
             "browser-e2e-stateful",
             "browser-e2e-visual"
           ],
-          "scheduler_priority": 100,
-          "weight": 5834,
+          "priority": 100,
+          "weight_ms": 5834,
           "resource_claims": {
             "postgres": "limit",
             "minio": "limit",
@@ -676,8 +679,8 @@
               "aggregate_target": "browser-e2e-measurement",
               "coverage": "authoritative",
               "execution_dependency": "browser_measurement",
-              "scheduler_priority": 100,
-              "weight": 5834,
+              "priority": 100,
+              "weight_ms": 5834,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1
@@ -690,8 +693,8 @@
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
-          "scheduler_priority": 100,
-          "weight": 29367,
+          "priority": 100,
+          "weight_ms": 29367,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -708,8 +711,8 @@
               "aggregate_target": "browser-e2e-visual",
               "coverage": "authoritative",
               "execution_dependency": "browser_visual",
-              "scheduler_priority": 100,
-              "weight": 29367,
+              "priority": 100,
+              "weight_ms": 29367,
               "resource_claims": {
                 "go_cpu": 1,
                 "go_io": 1

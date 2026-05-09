@@ -603,9 +603,9 @@ class SchedulerReporter {
     });
     this.progressRecorder.recordProgress({
       line: humanProgressLine,
-      eventSequence: this.lastEventSequence,
+      seq: this.lastEventSequence,
       monotonicMs: this.lastEventMonotonicMs,
-      wallTimestamp: this.clock.wallTimestamp(this.lastEventMonotonicMs),
+      emittedAt: this.clock.wallTimestamp(this.lastEventMonotonicMs),
       completed: progressLine.completed,
       total: progressLine.total,
       running: progressLine.running,
@@ -714,6 +714,7 @@ class SchedulerReporter {
       total: this.schedule.totalWorkUnits,
       failed,
       failureClass,
+      failureReason: failureFields.failure_reason,
       skipped,
       finalizerFailures: this.finalizerFailures,
       totalWallTimeMs: this.schedule.summaryTotalWallTime
@@ -819,10 +820,11 @@ class SchedulerReporter {
     const base = {
       schema_id: this.schedule.eventSchemaID,
       target: this.schedule.target,
+      scheduler_kind: this.schedule.kind,
+      seq: eventSequence,
       event,
-      event_sequence: eventSequence,
       monotonic_ms: monotonicMs,
-      wall_timestamp: this.clock.wallTimestamp(monotonicMs),
+      emitted_at: this.clock.wallTimestamp(monotonicMs),
       pending: visiblePendingCount(state.pending),
       running: visibleRunningCount(state.running),
       total_work_units: this.schedule.totalWorkUnits,

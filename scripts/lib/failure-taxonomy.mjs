@@ -1,9 +1,76 @@
-export const failureClassOrder = ["test", "infra", "timing", "artifact", "helper"];
+export const failureClassOrder = [
+  "product",
+  "config",
+  "infra",
+  "harness",
+  "artifact",
+  "timing",
+  "interrupted",
+  "unknown",
+];
+
+export const failureReasonOrder = [
+  "usage_error",
+  "configuration_error",
+  "preflight_error",
+  "service_start_error",
+  "service_readiness_timeout",
+  "fixture_error",
+  "resource_conflict",
+  "test_assertion_failure",
+  "child_target_failure",
+  "scheduler_accounting_error",
+  "artifact_error",
+  "cleanup_error",
+  "timeout_failure",
+  "cancelled_or_interrupted",
+  "unknown_failure",
+];
 
 const failureClassSet = new Set(failureClassOrder);
+const failureReasonSet = new Set(failureReasonOrder);
+
+const legacyFailureClassMap = new Map([
+  ["test", "product"],
+  ["helper", "harness"],
+  ["infrastructure", "infra"],
+]);
+
+const reasonClassMap = new Map([
+  ["usage_error", "config"],
+  ["configuration_error", "config"],
+  ["preflight_error", "infra"],
+  ["service_start_error", "infra"],
+  ["service_readiness_timeout", "infra"],
+  ["fixture_error", "harness"],
+  ["resource_conflict", "infra"],
+  ["test_assertion_failure", "product"],
+  ["child_target_failure", "harness"],
+  ["scheduler_accounting_error", "harness"],
+  ["artifact_error", "artifact"],
+  ["cleanup_error", "harness"],
+  ["timeout_failure", "timing"],
+  ["cancelled_or_interrupted", "interrupted"],
+  ["unknown_failure", "unknown"],
+]);
+
+const classDefaultReasonMap = new Map([
+  ["product", "test_assertion_failure"],
+  ["config", "configuration_error"],
+  ["infra", "preflight_error"],
+  ["harness", "unknown_failure"],
+  ["artifact", "artifact_error"],
+  ["timing", "timeout_failure"],
+  ["interrupted", "cancelled_or_interrupted"],
+  ["unknown", "unknown_failure"],
+]);
 
 export function createFailureClassCounts() {
   return Object.fromEntries(failureClassOrder.map((failureClass) => [failureClass, 0]));
+}
+
+export function createFailureReasonCounts() {
+  return Object.fromEntries(failureReasonOrder.map((reason) => [reason, 0]));
 }
 
 export function normalizeFailureClass(value, fallback = "helper") {
@@ -11,10 +78,36 @@ export function normalizeFailureClass(value, fallback = "helper") {
   if (failureClassSet.has(normalized)) {
     return normalized;
   }
+  if (legacyFailureClassMap.has(normalized)) {
+    return legacyFailureClassMap.get(normalized);
+  }
   if (fallback === "" || fallback === null) {
     return null;
   }
-  return failureClassSet.has(fallback) ? fallback : "helper";
+  const normalizedFallback = String(fallback).trim().toLowerCase();
+  if (failureClassSet.has(normalizedFallback)) {
+    return normalizedFallback;
+  }
+  return legacyFailureClassMap.get(normalizedFallback) ?? "harness";
+}
+
+export function normalizeFailureReason(value, fallback = "unknown_failure") {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (failureReasonSet.has(normalized)) {
+    return normalized;
+  }
+  if (fallback === "" || fallback === null) {
+    return null;
+  }
+  return failureReasonSet.has(fallback) ? fallback : "unknown_failure";
+}
+
+export function failureClassForReason(reason, fallback = "unknown") {
+  return reasonClassMap.get(normalizeFailureReason(reason)) ?? normalizeFailureClass(fallback, "unknown");
+}
+
+export function defaultReasonForFailureClass(failureClass) {
+  return classDefaultReasonMap.get(normalizeFailureClass(failureClass, "unknown")) ?? "unknown_failure";
 }
 
 export function primaryFailureClass(failureClasses = createFailureClassCounts()) {
@@ -27,9 +120,15 @@ export function primaryFailureClass(failureClasses = createFailureClassCounts())
 }
 
 export function normalizeFailureRecord(record = {}, defaults = {}) {
-  const failureClass = normalizeFailureClass(record.failure_class ?? defaults.failure_class);
+  const explicitReason = record.failure_reason ?? record.reason ?? defaults.failure_reason;
+  const failureReason = normalizeFailureReason(explicitReason, "");
+  const failureClass = normalizeFailureClass(
+    record.failure_class ?? defaults.failure_class ?? failureClassForReason(failureReason, "unknown"),
+  );
+  const normalizedReason = failureReason ?? defaultReasonForFailureClass(failureClass);
   return {
     failure_class: failureClass,
+    failure_reason: normalizedReason,
     kind: String(record.kind ?? defaults.kind ?? "failure"),
     source: String(record.source ?? defaults.source ?? ""),
     target: String(record.target ?? defaults.target ?? ""),
@@ -47,16 +146,23 @@ export function summarizeFailures(failures = [], counts = {}) {
     .map((failure) => normalizeFailureRecord(failure))
     .filter((failure) => failure.failure_class);
   const failureClasses = createFailureClassCounts();
+  const failureReasons = createFailureReasonCounts();
   for (const failure of normalized) {
     failureClasses[failure.failure_class] += 1;
+    failureReasons[failure.failure_reason] += 1;
   }
   const failureClass = primaryFailureClass(failureClasses);
+  const failureReason =
+    normalized.find((failure) => failure.failure_class === failureClass)?.failure_reason ??
+    null;
   const headline = failureClass
     ? formatFailureHeadline({ failureClass, failures: normalized, counts })
     : "";
   return {
     failure_class: failureClass,
+    failure_reason: failureReason,
     failure_classes: failureClasses,
+    failure_reasons: failureReasons,
     failures: normalized,
     failure_headline: headline,
   };
@@ -75,7 +181,7 @@ export function classifyDossierFailure(dossier = {}, context = {}) {
     return normalizeFailureClass(dossier.failure_class);
   }
   if (dossier.coverage && dossier.coverage !== "non_test") {
-    return "test";
+    return "product";
   }
   return classifyExecutionFailure(context.target ?? "", context.label ?? "", context.command ?? "");
 }
@@ -104,7 +210,7 @@ export function classifyExecutionFailure(target = "", label = "", command = "") 
   if (joined.includes("duration-baseline-drift") || joined.includes("duration baseline drift")) {
     return "timing";
   }
-  return "helper";
+  return "harness";
 }
 
 export function classifyTimingFailure(span = {}) {
@@ -149,6 +255,7 @@ export function artifactFailureRecord(message, defaults = {}) {
   return normalizeFailureRecord(
     {
       failure_class: "artifact",
+      failure_reason: "artifact_error",
       kind: "artifact",
       message,
       label: message,
@@ -200,5 +307,6 @@ export function formatFailureHeadline({ failureClass, failures = [], counts = {}
     primary.source ||
     primary.target ||
     "unclassified failure";
-  return `${testsPassedPrefix}${normalizedClass} ${kind}failure: ${detail}`;
+  const reason = primary.failure_reason ? ` reason=${primary.failure_reason}` : "";
+  return `${testsPassedPrefix}${normalizedClass}${reason} ${kind}failure: ${detail}`;
 }

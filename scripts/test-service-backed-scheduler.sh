@@ -129,14 +129,14 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
 if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v9") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
-if (summary.scheduler_kind !== "service-backed") {
-  throw new Error(`summary scheduler_kind got ${summary.scheduler_kind} want service-backed`);
+if (summary.scheduler_kind !== "service_backed") {
+  throw new Error(`summary scheduler_kind got ${summary.scheduler_kind} want service_backed`);
 }
 if (summary.status !== expectedStatus) {
   throw new Error(`summary status got ${summary.status} want ${expectedStatus}`);
 }
-if (expectedStatus === "fail" && summary.failure_class !== "helper") {
-  throw new Error(`summary failure_class got ${summary.failure_class} want helper`);
+if (expectedStatus === "fail" && summary.failure_class !== "harness") {
+  throw new Error(`summary failure_class got ${summary.failure_class} want harness`);
 }
 if (expectedStatus === "pass" && summary.failure_class !== null) {
   throw new Error(`passing summary failure_class got ${summary.failure_class}`);
@@ -242,12 +242,12 @@ if (events[0]?.event !== "scheduler-start") {
 if (events[events.length - 1]?.event !== "scheduler-finish") {
   throw new Error(`final scheduler event got ${events[events.length - 1]?.event} want scheduler-finish`);
 }
-if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v5")) {
+if (!events.every((event) => event.schema_id === "cartulary.scheduler_event.v6")) {
   throw new Error("unexpected scheduler event schema");
 }
 events.forEach((event, index) => {
-  if (event.event_sequence !== index + 1) {
-    throw new Error(`event ${index} sequence got ${event.event_sequence} want ${index + 1}`);
+  if (event.seq !== index + 1) {
+    throw new Error(`event ${index} sequence got ${event.seq} want ${index + 1}`);
   }
   if (!Number.isInteger(event.monotonic_ms) || event.monotonic_ms < 0) {
     throw new Error(`event ${index} missing monotonic_ms`);
@@ -255,8 +255,8 @@ events.forEach((event, index) => {
   if (index > 0 && event.monotonic_ms < events[index - 1].monotonic_ms) {
     throw new Error(`event ${index} monotonic_ms regressed`);
   }
-  if (typeof event.wall_timestamp !== "string" || Number.isNaN(Date.parse(event.wall_timestamp))) {
-    throw new Error(`event ${index} missing wall_timestamp`);
+  if (typeof event.emitted_at !== "string" || Number.isNaN(Date.parse(event.emitted_at))) {
+    throw new Error(`event ${index} missing emitted_at`);
   }
   if (Object.hasOwn(event, "timestamp")) {
     throw new Error(`event ${index} must not emit legacy timestamp`);
@@ -321,7 +321,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v1") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v2") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {
@@ -815,7 +815,7 @@ write_manifest() {
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v10",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule.v11",\n'
     printf '  "schedules": [\n'
     printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
@@ -834,7 +834,7 @@ write_manifest() {
 	          group_kind="support"
 	          group_name="support"
 	        fi
-	        printf '      { "type": "browser_stage", "class": "browser", "target": "%s", "browser_stage": "%s", "weight": %s, "resource_claims": {%s}, "groups": [{ "id": "%s:%s", "name": "%s", "kind": "%s", "target": "%s", "aggregate_target": "%s", "coverage": "authoritative", "execution_dependency": "browser_%s", "weight": %s, "resource_claims": { "go_cpu": 1, "go_io": 1 } }]' \
+	        printf '      { "type": "browser_stage", "class": "browser", "target": "%s", "browser_stage": "%s", "weight_ms": %s, "resource_claims": {%s}, "groups": [{ "id": "%s:%s", "name": "%s", "kind": "%s", "target": "%s", "aggregate_target": "%s", "coverage": "authoritative", "execution_dependency": "browser_%s", "weight_ms": %s, "resource_claims": { "go_cpu": 1, "go_io": 1 } }]' \
 	          "$name" "$browser_stage" "$weight" "$claims" "$name" "$group_name" "$group_name" "$group_kind" "$name" "$name" "${browser_stage//-/_}" "$weight"
 	        if [[ -n "${needs:-}" ]]; then
 	          printf ', "needs": ['
@@ -852,7 +852,7 @@ write_manifest() {
 	        fi
 	        printf ' }'
 	      elif [[ "$type" == "make_target" ]]; then
-	        printf '      { "type": "make_target", "class": "%s", "target": "%s", "weight": %s, "resource_claims": {%s}' \
+	        printf '      { "type": "make_target", "class": "%s", "target": "%s", "weight_ms": %s, "resource_claims": {%s}' \
 	          "$class" "$name" "$weight" "$claims"
         if [[ -n "${browser_stage:-}" ]]; then
           printf ', "browser_stage": "%s"' "$browser_stage"
@@ -928,7 +928,7 @@ write_legacy_manifest() {
       "target": "test-fast-service-backed",
       "resource_limits": { "postgres": 32, "minio": 32, "backend": 4 },
       "children": [
-        { "target": "backend-integration", "kind": "backend", "weight": 1, "resource_claims": ["postgres", "minio", "backend"] }
+        { "target": "backend-integration", "kind": "backend", "weight_ms": 1, "resource_claims": ["postgres", "minio", "backend"] }
       ]
     }
   ]
@@ -1051,7 +1051,7 @@ write_fake_make "$auto_capacity_dir"
 auto_capacity_manifest="${auto_capacity_dir}/manifest.json"
 cat >"$auto_capacity_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v10",
+  "schema_id": "cartulary.service_backed_schedule.v11",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -1066,7 +1066,7 @@ cat >"$auto_capacity_manifest" <<'JSON'
         "browser_stack": "auto"
       },
       "work_unit_sources": [
-        { "type": "make_target", "class": "backend", "target": "backend-process", "weight": 1, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
+        { "type": "make_target", "class": "backend", "target": "backend-process", "weight_ms": 1, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
       ]
     }
   ]
@@ -1202,7 +1202,7 @@ write_fake_go_target_runner "$eager_finalizer_dir"
 eager_finalizer_manifest="${eager_finalizer_dir}/manifest.json"
 cat >"$eager_finalizer_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v10",
+  "schema_id": "cartulary.service_backed_schedule.v11",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -1214,10 +1214,10 @@ cat >"$eager_finalizer_manifest" <<'JSON'
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 9,
+          "weight_ms": 9,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 },
           "groups": [
-            { "id": "browser-e2e-webserver-backed:support", "name": "support", "kind": "support", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_support", "weight": 9, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
+            { "id": "browser-e2e-webserver-backed:support", "name": "support", "kind": "support", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_support", "weight_ms": 9, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
         }
       ]
@@ -1349,7 +1349,7 @@ write_fake_make "$browser_auto_dir"
 browser_auto_manifest="${browser_auto_dir}/manifest.json"
 cat >"$browser_auto_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v10",
+  "schema_id": "cartulary.service_backed_schedule.v11",
   "schedules": [
     {
       "target": "check-service-backed",
@@ -1371,12 +1371,12 @@ cat >"$browser_auto_manifest" <<'JSON'
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 40,
+          "weight_ms": 40,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 },
           "groups": [
-            { "id": "browser-e2e-webserver-backed:browser-functional-shard-01", "name": "browser-functional-shard-01", "kind": "functional_shard", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_functional", "shard_name": "browser-functional-shard-01", "shard_index": 0, "shard_count": 2, "entry_ids": ["E-1-01"], "weight": 41, "resource_claims": { "go_cpu": 1, "go_io": 1 } },
-            { "id": "browser-e2e-webserver-backed:browser-functional-shard-02", "name": "browser-functional-shard-02", "kind": "functional_shard", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_functional", "shard_name": "browser-functional-shard-02", "shard_index": 1, "shard_count": 2, "entry_ids": ["E-1-02"], "weight": 40, "resource_claims": { "go_cpu": 1, "go_io": 1 } },
-            { "id": "browser-e2e-webserver-backed:support", "name": "support", "kind": "support", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_support", "weight": 40, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
+            { "id": "browser-e2e-webserver-backed:browser-functional-shard-01", "name": "browser-functional-shard-01", "kind": "functional_shard", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_functional", "shard_name": "browser-functional-shard-01", "shard_index": 0, "shard_count": 2, "entry_ids": ["E-1-01"], "weight_ms": 41, "resource_claims": { "go_cpu": 1, "go_io": 1 } },
+            { "id": "browser-e2e-webserver-backed:browser-functional-shard-02", "name": "browser-functional-shard-02", "kind": "functional_shard", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_functional", "shard_name": "browser-functional-shard-02", "shard_index": 1, "shard_count": 2, "entry_ids": ["E-1-02"], "weight_ms": 40, "resource_claims": { "go_cpu": 1, "go_io": 1 } },
+            { "id": "browser-e2e-webserver-backed:support", "name": "support", "kind": "support", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_support", "weight_ms": 40, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
         },
         {
@@ -1384,10 +1384,10 @@ cat >"$browser_auto_manifest" <<'JSON'
           "class": "browser",
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
-          "weight": 30,
+          "weight_ms": 30,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 },
           "groups": [
-            { "id": "browser-e2e-stateful:stateful", "name": "stateful", "kind": "stateful", "target": "browser-e2e-stateful", "aggregate_target": "browser-e2e-stateful", "coverage": "authoritative", "execution_dependency": "browser_stateful", "weight": 30, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
+            { "id": "browser-e2e-stateful:stateful", "name": "stateful", "kind": "stateful", "target": "browser-e2e-stateful", "aggregate_target": "browser-e2e-stateful", "coverage": "authoritative", "execution_dependency": "browser_stateful", "weight_ms": 30, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
         },
         {
@@ -1396,10 +1396,10 @@ cat >"$browser_auto_manifest" <<'JSON'
           "target": "browser-e2e-measurement",
           "browser_stage": "measurement",
           "needs": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-visual"],
-          "weight": 20,
+          "weight_ms": 20,
           "resource_claims": { "postgres": "limit", "minio": "limit", "process": "limit", "browser_stack": "limit", "go_cpu": "limit", "go_io": "limit", "browser_stage_measurement": 1 },
           "groups": [
-            { "id": "browser-e2e-measurement:measurement", "name": "measurement", "kind": "measurement", "target": "browser-e2e-measurement", "aggregate_target": "browser-e2e-measurement", "coverage": "authoritative", "execution_dependency": "browser_measurement", "weight": 20, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
+            { "id": "browser-e2e-measurement:measurement", "name": "measurement", "kind": "measurement", "target": "browser-e2e-measurement", "aggregate_target": "browser-e2e-measurement", "coverage": "authoritative", "execution_dependency": "browser_measurement", "weight_ms": 20, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
         },
         {
@@ -1407,10 +1407,10 @@ cat >"$browser_auto_manifest" <<'JSON'
           "class": "browser",
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
-          "weight": 10,
+          "weight_ms": 10,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_visual": 1 },
           "groups": [
-            { "id": "browser-e2e-visual:visual", "name": "visual", "kind": "visual", "target": "browser-e2e-visual", "aggregate_target": "browser-e2e-visual", "coverage": "authoritative", "execution_dependency": "browser_visual", "weight": 10, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
+            { "id": "browser-e2e-visual:visual", "name": "visual", "kind": "visual", "target": "browser-e2e-visual", "aggregate_target": "browser-e2e-visual", "coverage": "authoritative", "execution_dependency": "browser_visual", "weight_ms": 10, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
         }
       ]
@@ -1505,14 +1505,14 @@ write_fake_make "$scheduler_priority_dir"
 scheduler_priority_manifest="${scheduler_priority_dir}/manifest.json"
 cat >"$scheduler_priority_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v10",
+  "schema_id": "cartulary.service_backed_schedule.v11",
   "schedules": [
     {
       "target": "check-service-backed",
       "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 1, "go_io": 1, "process": 2 },
       "work_unit_sources": [
-        { "type": "make_target", "class": "backend", "target": "backend-store", "scheduler_priority": 0, "weight": 100, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } },
-        { "type": "make_target", "class": "backend", "target": "backend-process", "scheduler_priority": 10, "weight": 1, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
+        { "type": "make_target", "class": "backend", "target": "backend-store", "priority": 0, "weight_ms": 100, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } },
+        { "type": "make_target", "class": "backend", "target": "backend-process", "priority": 10, "weight_ms": 1, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
       ]
     }
   ]
@@ -1527,7 +1527,7 @@ const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
 const processStart = lines.findIndex((line) => line.includes("start backend-process"));
 const storeStart = lines.findIndex((line) => line.includes("start backend-store"));
 if (processStart === -1 || storeStart === -1 || processStart > storeStart) {
-  throw new Error(`scheduler_priority must outrank duration weight, got\n${lines.join("\n")}`);
+  throw new Error(`priority must outrank duration weight, got\n${lines.join("\n")}`);
 }
 EOF
 
@@ -1753,17 +1753,17 @@ failure_status=$?
 set -e
 assert_equals "$failure_status" "7" "child failure status"
 assert_contains "$failure_output" "fake failure for backend-store" "child failure output"
-assert_contains "$failure_output" "[SUMMARY] target=test-fast-service-backed status=fail failure_class=helper work_units=2/2 failed=backend-store" "failure scheduler summary"
+assert_contains "$failure_output" "[SUMMARY] target=test-fast-service-backed status=fail failure_class=harness reason=unknown_failure work_units=2/2 failed=backend-store" "failure scheduler summary"
 assert_contains "$failure_output" "[FAIL] target=test-fast-service-backed" "failure target summary"
 assert_occurrences "$failure_output" "[FAIL] target=test-fast-service-backed" "1" "failure single target failure block"
 assert_contains "$failure_output" "[FAIL] target=test-fast-service-backed exit_code=1 failure_class=" "failure target class"
-assert_contains "$failure_output" "failure_origin=" "failure target origin"
+assert_contains "$failure_output" "reason=" "failure target origin"
 assert_contains "$failure_output" "work_unit=backend-store" "failure target work unit"
 assert_contains "$failure_output" "child_target=backend-store" "failure target child"
 assert_contains "$failure_output" "duration_ms=" "failure target duration"
-assert_contains "$failure_output" "summary_json=tool-run-summary.json" "failure summary json"
-assert_contains "$failure_output" "log_artifact=progress-summary.log" "failure log artifact"
-assert_contains "$failure_output" "scheduler_json=scheduler-summary.json" "failure scheduler json"
+assert_contains "$failure_output" "summary_json=test-fast-service-backed/tool-run-summary.json" "failure summary json"
+assert_contains "$failure_output" "log_artifact=test-fast-service-backed/progress-summary.log" "failure log artifact"
+assert_contains "$failure_output" "scheduler_json=test-fast-service-backed/scheduler-summary.json" "failure scheduler json"
 assert_contains "$failure_output" "[RERUN] command=\"make test-fast-service-backed\"" "failure rerun command"
 assert_contains "$failure_output" "[INVESTIGATE] command=\"make explain-target TARGET=test-fast-service-backed DETAIL=artifacts\"" "failure investigate command"
 assert_scheduler_artifacts "$failure_dir" failure test-fast-service-backed fail - finish
@@ -2001,7 +2001,7 @@ const functionalShardCount = Math.max(
 if (functionalShardCount !== 4) {
   throw new Error(`browser-e2e-webserver-backed functional shard count got ${functionalShardCount}`);
 }
-if ((webserverSource?.groups ?? []).some((group) => group.scheduler_priority !== 100)) {
+if ((webserverSource?.groups ?? []).some((group) => group.priority !== 100)) {
   throw new Error("browser-e2e-webserver-backed groups must carry critical-path scheduler priority");
 }
 for (const target of ["browser-e2e-stateful", "browser-e2e-visual"]) {
@@ -2148,7 +2148,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v10" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v11" "legacy manifest output"
 
 if [[ "$SUITE" != "fast" ]]; then
 unknown_option_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-option.XXXXXX")"

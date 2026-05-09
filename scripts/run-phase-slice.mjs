@@ -27,7 +27,7 @@ import { createRunnerContext, runnerEnv } from "./lib/runner-context.mjs";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const validModes = new Set(["phase", "service-backed"]);
-const schedulerEventSchemaID = "cartulary.phase_slice_scheduler_event.v1";
+const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.phase_slice_scheduler_summary.v3";
 
 function usage() {
@@ -187,6 +187,7 @@ function attachRuntime(plan, context, metadataDir) {
   const resourceLimits = resourceLimitsMap(plan);
   for (const unit of plan.work_units) {
     unit.resourceClaims = new Map(Object.entries(unit.resource_claims ?? Object.fromEntries(unit.resourceClaims ?? [])));
+    unit.weightMs = unit.weight_ms;
     if (unit.kind === "finalizer") {
       unit.resourceClaims = new Map();
       unit.command = () => ({
@@ -249,7 +250,7 @@ function attachRuntime(plan, context, metadataDir) {
 
   return {
     target: plan.target,
-    kind: "phase-slice",
+    kind: "phase_slice",
     prefix: "PHASE-SCHEDULER",
     eventSchemaID: schedulerEventSchemaID,
     summarySchemaID: schedulerSummarySchemaID,

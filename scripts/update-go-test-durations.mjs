@@ -132,7 +132,7 @@ function hasPassingFullServiceBackedSchedulerSummary(resultsDir) {
       summary &&
       fullServiceBackedTargets.has(summary.target) &&
       summary.status === "pass" &&
-      summary.scheduler_kind === "service-backed"
+      (summary.scheduler_kind === "service_backed" || summary.scheduler_kind === "service-backed")
     ) {
       return true;
     }

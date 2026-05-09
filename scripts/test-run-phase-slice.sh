@@ -244,7 +244,7 @@ try {
       target,
       kind: "phase-slice",
       prefix: "PHASE-SCHEDULER",
-      eventSchemaID: "cartulary.phase_slice_scheduler_event.v1",
+      eventSchemaID: "cartulary.scheduler_event.v6",
       summarySchemaID: "cartulary.phase_slice_scheduler_summary.v3",
       resourceLimits: new Map(),
       resourceLimitSources: new Map(),

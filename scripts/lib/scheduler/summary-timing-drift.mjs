@@ -71,12 +71,12 @@ function checkElapsedSummary({ errors, file, summary, timing, finalEvent }) {
     return;
   }
   const completedAtMs = summaryEndMs(summary);
-  const finalEventMs = timestampMs(finalEvent.wall_timestamp);
+  const finalEventMs = timestampMs(finalEvent.emitted_at);
   if (!Number.isFinite(completedAtMs)) {
     errors.push(`${file}: missing valid completed_at/end_time`);
   } else if (Number.isFinite(finalEventMs) && completedAtMs < finalEventMs) {
     errors.push(
-      `${file}: summary completed before final scheduler event ${finalEvent.wall_timestamp}`,
+      `${file}: summary completed before final scheduler event `,
     );
   }
 
@@ -297,10 +297,10 @@ function checkSchedulerDirectory(eventsFile) {
   }
 
   const schedulerCompletedAtMs = timestampMs(timing.completedAt);
-  const finalEventMs = timestampMs(finalEvent.wall_timestamp);
+  const finalEventMs = timestampMs(finalEvent.emitted_at);
   if (Number.isFinite(finalEventMs) && schedulerCompletedAtMs < finalEventMs) {
     errors.push(
-      `${schedulerSummaryFile}: scheduler_completed_at is before final scheduler event ${finalEvent.wall_timestamp}`,
+      `${schedulerSummaryFile}: scheduler_completed_at is before final scheduler event `,
     );
   }
 
@@ -419,7 +419,7 @@ function checkParentWorkUnitSummaries(eventsFile) {
       continue;
     }
     const nestedSchedulerSummary = readJSON(nestedSchedulerSummaryFile);
-    if (nestedSchedulerSummary?.scheduler_kind !== "service-backed") {
+    if (nestedSchedulerSummary?.scheduler_kind !== "service_backed") {
       continue;
     }
     const durationMs = integerField(event, "duration_ms");

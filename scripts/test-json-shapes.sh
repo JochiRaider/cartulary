@@ -145,10 +145,11 @@ write_valid_check_schedule() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
+      "scheduler_kind": "check",
       "capacity_profile": "check_default",
       "resource_limits": {
         "host_cpu": 1
@@ -157,7 +158,7 @@ write_valid_check_schedule() {
       "work_units": [
         {
           "target": "json-shape-check",
-          "weight": 1,
+          "weight_ms": 1,
           "needs": [],
           "resource_claims": {
             "host_cpu": 1
@@ -176,7 +177,7 @@ write_valid_service_backed_schedule() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v10",
+  "schema_id": "cartulary.service_backed_schedule.v11",
   "generated": {
     "generator": "synthetic",
     "topology": "tools/execution_topology_manifest.json",
@@ -186,6 +187,7 @@ write_valid_service_backed_schedule() {
   "schedules": [
     {
       "target": "test",
+      "scheduler_kind": "service_backed",
       "capacity_profile": "service_backed_default",
       "resource_limits": {
         "go_cpu": 1
@@ -196,7 +198,7 @@ write_valid_service_backed_schedule() {
           "class": "backend",
           "target": "backend-store",
           "needs": [],
-          "weight": 1,
+          "weight_ms": 1,
           "resource_claims": {}
         }
       ]
@@ -290,7 +292,7 @@ write_valid_tool_run_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v1",
+  "schema_id": "cartulary.tool_run_summary.v2",
   "target": "json-shape-check",
   "command": {
     "cwd": "/repo",
@@ -304,7 +306,9 @@ write_valid_tool_run_summary() {
   "completed_at": "2026-01-01T00:00:01Z",
   "duration_ms": 1000,
   "output_mode": "summary",
-  "artifact_root": ".cartulary/test-results/run/json-shape-check",
+  "result_root": ".cartulary/test-results",
+  "run_id": "run",
+  "run_root": ".cartulary/test-results/run",
   "summary_artifacts": [
     {
       "role": "tool_run_summary",
@@ -340,7 +344,7 @@ write_valid_tool_run_summary() {
     "missing": 0
   },
   "failure_class": null,
-  "failure_origin": null,
+  "failure_reason": null,
   "failures": [],
   "slowest": [],
   "warnings": [],
@@ -528,7 +532,7 @@ stale_schedule="$tmp_dir/check_schedule_stale.json"
 write_valid_check_schedule "$stale_schedule"
 mutate_json_fixture check-schedule-schema-v6 "$stale_schedule"
 stale_schedule_output="$(assert_fails "stale generated schedule shape" run_shape_check check-schedule "$stale_schedule")"
-assert_contains "$stale_schedule_output" "must declare schema_id cartulary.check_schedule.v11" "stale generated schedule shape"
+assert_contains "$stale_schedule_output" "must declare schema_id cartulary.check_schedule.v12" "stale generated schedule shape"
 
 unknown_work_unit_key="$tmp_dir/check_schedule_unknown_work_unit_key.json"
 write_valid_check_schedule "$unknown_work_unit_key"

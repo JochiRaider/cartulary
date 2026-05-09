@@ -238,7 +238,7 @@ function addGoUnits(plan, target, rows) {
       needs: [],
       completionKeys: [target],
       failureKeys: [target],
-      weight: targetWeight(rows),
+      weightMs: targetWeight(rows),
       resourceClaims: new Map([[goCPUResource, 1], [goIOResource, 1]]),
       order: plan.nextOrder++,
     });
@@ -270,7 +270,7 @@ function addGoUnits(plan, target, rows) {
     resourceClaims: new Map(),
     shardNames: shards.map((shard) => shard.name),
     unblockLabel: target,
-    weight: 0,
+    weightMs: 0,
     order: plan.nextOrder++,
   });
   for (const shard of shards) {
@@ -290,7 +290,7 @@ function addGoUnits(plan, target, rows) {
       completeOnFailure: true,
       shard: shard.name,
       schedulerProfile: shard.scheduler_profile,
-      weight: shard.weight_ms,
+      weightMs: shard.weight_ms,
       resourceClaims: mergeClaims(sourceClaims, schedulerClaimsForShard(shard, plan.resourceLimits)),
       order: plan.nextOrder++,
     });
@@ -310,7 +310,7 @@ function addFrontendUnit(plan, target, rows) {
     needs: [],
     completionKeys: [target],
     failureKeys: [target],
-    weight: targetWeight(rows),
+    weightMs: targetWeight(rows),
     resourceClaims: new Map([["process", 1]]),
     order: plan.nextOrder++,
   });
@@ -342,7 +342,7 @@ function addBrowserUnit(plan, target, rows, stageByTarget) {
     needs: browserNeeds(plan, stage),
     completionKeys: [target],
     failureKeys: [target],
-    weight: targetWeight(rows),
+    weightMs: targetWeight(rows),
     resourceClaims: claims,
     order: plan.nextOrder++,
   });
@@ -367,9 +367,10 @@ function resourceLimitObject(resourceLimits) {
 }
 
 function serializeWorkUnit(unit) {
-  const { resourceClaims, ...rest } = unit;
+  const { resourceClaims, weightMs: _weightMs, ...rest } = unit;
   return {
     ...rest,
+    weight_ms: unit.weightMs,
     resource_claims: resourceLimitObject(resourceClaims ?? new Map()),
   };
 }
@@ -470,7 +471,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot } =
   const counted = plan.workUnits.filter((unit) => unit.countInTotal !== false);
   counted.sort(
     (left, right) =>
-      right.weight - left.weight ||
+      right.weightMs - left.weightMs ||
       left.order - right.order ||
       left.label.localeCompare(right.label),
   );

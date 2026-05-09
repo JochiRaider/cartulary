@@ -11,7 +11,7 @@ This NLSpec owns only harness mechanics: command invocation, target selection, s
 Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-002**
-A harness conformance claim MUST identify this NLSpec version, the exact public Make target or target set under evaluation, the conformance environment from Section 14, and the retained artifact root/run ID when artifacts are used as evidence.
+A harness conformance claim MUST identify this NLSpec version, the exact public Make target or target set under evaluation, the conformance environment from Section 14, and the retained result root/run ID/run root when retained harness artifacts are used as evidence.
 Verified by: TH-HARNESS-AC-015, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-003**
@@ -19,7 +19,7 @@ The canonical public command surface is Make. A public command is canonical only
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005
 
 **TH-HARNESS-REQ-004**
-Generated files under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, generated task/schedule artifacts, and generated Make includes are downstream artifacts. They MUST NOT be hand-edited and MUST NOT become behavior owners unless a later adopted NLSpec explicitly promotes one of them.
+Generated files under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, generated task/schedule artifacts, and generated Make includes are downstream generated artifacts. They MUST NOT be hand-edited and MUST NOT become behavior owners unless a later adopted NLSpec explicitly promotes one of them.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-005**
@@ -62,8 +62,8 @@ Verified by: TH-HARNESS-AC-006
 | scheduler                | A harness runner that executes a manifest-defined DAG using logical resource claims and emits scheduler events and summaries.                              |
 | result root              | The root directory that contains run artifacts. The default is `.cartulary/test-results`.                                                                  |
 | run ID                   | The run directory name under the result root. The default format is defined in Section 6.                                                                  |
-| artifact root            | The directory `normalize_result_root(CARTULARY_TEST_RESULTS_DIR) / normalize_run_id(CARTULARY_TEST_RUN_ID)`.                                               |
-| artifact                 | A file or directory produced by a harness run, child command, service, scheduler, test runner, or diagnostic tool.                                         |
+| run root                 | The directory `normalize_result_root(CARTULARY_TEST_RESULTS_DIR) / normalize_run_id(CARTULARY_TEST_RUN_ID)`.                                               |
+| harness artifact         | A file or directory produced by a harness run, child command, service, scheduler, test runner, or diagnostic tool.                                         |
 | retained artifact        | An artifact preserved after command exit for a specific result root, run ID, and target.                                                                   |
 | generated artifact       | A file produced from owner inputs by a generator and checked for drift.                                                                                    |
 | fixture                  | Test setup state created for a test, package, target, scheduler group, browser stack, or service suite.                                                    |
@@ -71,8 +71,8 @@ Verified by: TH-HARNESS-AC-006
 | backing services         | Postgres, MinIO, Docker/testcontainers, Compose services, backend processes, frontend processes, and browser runtime dependencies used by harness targets. |
 | output mode              | The resolved mode from Section 7 that controls stdout, stderr, and artifact summary behavior.                                                              |
 | machine output           | The `machine` output mode defined in Section 7. For public Make targets that accept it, stdout is exactly one UTF-8 JSON object followed by LF.            |
-| failure class            | A normalized classification of why a harness command failed.                                                                                               |
-| failure origin           | The owner area of a failure: product, infrastructure, helper, timing, artifact, or unknown.                                                                |
+| failure class            | A coarse normalized grouping for failed harness commands: `product`, `config`, `infra`, `harness`, `artifact`, `timing`, `interrupted`, or `unknown`.      |
+| failure reason           | A detailed snake-case reason code used for diagnostics, exit-code mapping, automation, and handoff.                                                        |
 | cleanup tier             | A named cleanup scope such as repo-local clean, repo-local distclean, service-suite cleanup, browser-stack cleanup, or stale janitor cleanup.              |
 | stale janitor            | A cleanup routine that removes previously generated DBs, buckets, containers, or browser fixtures only when proof predicates match.                        |
 | diagnostic-only artifact | An artifact retained for human investigation whose internal shape is not a machine-readable harness conformance contract.                                  |
@@ -102,8 +102,9 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004
 | Root/package `pnpm` scripts                              |                                          no | Developer convenience unless invoked by a Make-owned public target.                    |
 | Raw `scripts/*.mjs` and `scripts/*.sh`                   | no, except wrapper-owned observable effects | May change when public Make behavior remains unchanged.                                |
 | `tools/testservices` binary path                         |                                          no | Service lifecycle behavior is normative; binary path is an implementation realization. |
-| JSON schema IDs listed in Section 8                      |                                         yes | Required artifact validation targets.                                                  |
+| Public output classes and schema IDs listed in Section 8 |                                         yes | Required machine-output and artifact validation contracts.                              |
 | Docker image tag for Postgres or MinIO                   | no unless declared in a service fixture row | Exact tag is not normative unless it defines fixture semantics in Section 11.          |
+| Generated Make include names, helper binaries, helper classifications, priority-band names, and generator constants | no | Implementation detail unless promoted by an explicit requirement.                      |
 
 ### 4.2 Command Family Defaults
 
@@ -130,79 +131,79 @@ Every command below inherits the matching family defaults. `Included in` is the 
 | ---------------------------------------------------- | ----------------- | -------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------- |
 | `help`                                               | helper_only       | human_summary                    | none                                               | Compact public command help.                                                |
 | `help-all`                                           | helper_only       | human_summary                    | none                                               | Exhaustive public help.                                                     |
-| `doctor`                                             | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Tool readiness check.                                                       |
-| `bootstrap`                                          | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Installs pinned tooling and dependencies.                                   |
-| `bootstrap-node-runtime`                             | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Installs repo-local Node runtime.                                           |
-| `frontend-toolchain`                                 | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Prepares Node/pnpm toolchain.                                               |
-| `frontend-install`                                   | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Installs workspace dependencies.                                            |
-| `playwright-install`                                 | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Installs Playwright browser runtime.                                        |
-| `db-up`                                              | helper_only       | service_summary_with_artifacts   | `cartulary.tool_run_summary.v1`                    | Starts local Postgres.                                                      |
-| `db-reset`                                           | helper_only       | service_summary_with_artifacts   | `cartulary.tool_run_summary.v1`                    | Resets local database only; object storage is not reset by this target.     |
-| `services-up`                                        | helper_only       | service_summary_with_artifacts   | `cartulary.tool_run_summary.v1`                    | Starts local backing services.                                              |
-| `minio-init`                                         | helper_only       | service_summary_with_artifacts   | `cartulary.tool_run_summary.v1`                    | Initializes local MinIO bucket.                                             |
+| `doctor`                                             | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Tool readiness check.                                                       |
+| `bootstrap`                                          | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Installs pinned tooling and dependencies.                                   |
+| `bootstrap-node-runtime`                             | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Installs repo-local Node runtime.                                           |
+| `frontend-toolchain`                                 | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Prepares Node/pnpm toolchain.                                               |
+| `frontend-install`                                   | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Installs workspace dependencies.                                            |
+| `playwright-install`                                 | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Installs Playwright browser runtime.                                        |
+| `db-up`                                              | helper_only       | service_summary_with_artifacts   | `cartulary.tool_run_summary.v2`                    | Starts local Postgres.                                                      |
+| `db-reset`                                           | helper_only       | service_summary_with_artifacts   | `cartulary.tool_run_summary.v2`                    | Resets local database only; object storage is not reset by this target.     |
+| `services-up`                                        | helper_only       | service_summary_with_artifacts   | `cartulary.tool_run_summary.v2`                    | Starts local backing services.                                              |
+| `minio-init`                                         | helper_only       | service_summary_with_artifacts   | `cartulary.tool_run_summary.v2`                    | Initializes local MinIO bucket.                                             |
 | `dev`                                                | helper_only       | interactive_raw                  | none                                               | Local interactive dev stack.                                                |
-| `generate`                                           | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Runs generation commands.                                                   |
-| `generate-drift`                                     | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks generated drift.                                                     |
-| `generated-artifact-policy-check`                    | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks generated artifact policy.                                           |
-| `json-shape-check`                                   | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks JSON manifest shapes.                                                |
-| `toolchain-drift`                                    | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks toolchain pins.                                                      |
-| `migration-drift`                                    | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks migrations.                                                          |
-| `phase-ledgers`                                      | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Regenerates phase ledgers.                                                  |
-| `phase-ledger-drift`                                 | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks phase ledger drift.                                                  |
-| `phase-schedules`                                    | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Regenerates phase schedules.                                                |
-| `phase-schedule-drift`                               | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks schedule drift.                                                      |
-| `agent-finalize`                                     | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | End-of-run maintenance surface.                                             |
-| `benchmark-claim-check`                              | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks benchmark claim artifacts.                                           |
+| `generate`                                           | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Runs generation commands.                                                   |
+| `generate-drift`                                     | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks generated drift.                                                     |
+| `generated-artifact-policy-check`                    | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks generated artifact policy.                                           |
+| `json-shape-check`                                   | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks JSON manifest shapes.                                                |
+| `toolchain-drift`                                    | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks toolchain pins.                                                      |
+| `migration-drift`                                    | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks migrations.                                                          |
+| `phase-ledgers`                                      | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Regenerates phase ledgers.                                                  |
+| `phase-ledger-drift`                                 | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks phase ledger drift.                                                  |
+| `phase-schedules`                                    | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Regenerates phase schedules.                                                |
+| `phase-schedule-drift`                               | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks schedule drift.                                                      |
+| `agent-finalize`                                     | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | End-of-run maintenance surface.                                             |
+| `benchmark-claim-check`                              | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks benchmark claim artifacts.                                           |
 | `task-surface-report`                                | helper_only       | human_summary                    | none                                               | Prints target surface report.                                               |
 | `task-guide`                                         | helper_only       | human_summary                    | none                                               | Prints role/phase guidance.                                                 |
-| `phase-slice`                                        | helper_only       | scheduler_summary_with_artifacts | `cartulary.tool_run_summary.v1`                    | Runs selected phase target slice.                                           |
-| `service-backed-slice`                               | helper_only       | scheduler_summary_with_artifacts | `cartulary.tool_run_summary.v1`                    | Runs selected phase service-backed slice or explicit no-op.                 |
-| `backend-unit`                                       | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Pure backend unit evidence.                                                 |
-| `backend-store`                                      | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Service-backed store slice.                                                 |
-| `backend-integration`                                | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Service-backed integration slice.                                           |
-| `backend-process`                                    | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Service-backed process slice.                                               |
+| `phase-slice`                                        | helper_only       | scheduler_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Runs selected phase target slice.                                           |
+| `service-backed-slice`                               | helper_only       | scheduler_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Runs selected phase service-backed slice or explicit no-op.                 |
+| `backend-unit`                                       | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Pure backend unit evidence.                                                 |
+| `backend-store`                                      | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Service-backed store slice.                                                 |
+| `backend-integration`                                | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Service-backed integration slice.                                           |
+| `backend-process`                                    | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Service-backed process slice.                                               |
 | `target-plan`                                        | helper_only       | human_summary                    | none                                               | Prints Go target plan.                                                      |
 | `target-plan-json`                                   | helper_only       | machine_stdout_json              | command-specific JSON                              | Prints Go target plan JSON.                                                 |
 | `fixture-report`                                     | helper_only       | human_summary                    | `cartulary.fixture_report.v1` where JSON requested | Reads retained fixture artifacts.                                           |
 | `explain-run`                                        | helper_only       | human_summary                    | command-specific JSON where JSON requested         | Reads retained run artifacts.                                               |
 | `explain-phase`                                      | helper_only       | human_summary                    | none                                               | Explains phase manifest.                                                    |
 | `explain-target`                                     | helper_only       | human_summary                    | none                                               | Explains target plan/artifacts/logs.                                        |
-| `go-test-duration-baselines`                         | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Refreshes Go duration baselines from a selected run.                        |
-| `go-test-duration-baseline-coverage`                 | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks baseline coverage.                                                   |
-| `go-test-duration-baseline-drift`                    | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks Go duration baseline drift against selected run.                     |
-| `browser-e2e-duration-baselines`                     | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Refreshes browser duration baselines.                                       |
-| `browser-e2e-duration-baseline-drift`                | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks browser duration drift.                                              |
-| `service-backed-make-target-duration-baselines`      | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Refreshes service-backed target durations.                                  |
-| `service-backed-make-target-duration-baseline-drift` | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks service-backed target duration drift.                                |
-| `harness-smoke-duration-baselines`                   | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Refreshes harness smoke durations.                                          |
-| `harness-smoke-duration-baseline-drift`              | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks harness smoke duration drift.                                        |
-| `scheduler-event-order-drift`                        | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks scheduler event ordering.                                            |
-| `scheduler-summary-timing-drift`                     | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Checks scheduler summary timing.                                            |
-| `frontend-typecheck`                                 | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Frontend TypeScript check.                                                  |
-| `frontend-unit`                                      | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Frontend unit suite.                                                        |
-| `frontend-import-boundary-check`                     | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Frontend import boundary check.                                             |
-| `lint-biome`                                         | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Frontend authored-source lint.                                              |
-| `lint-scripts`                                       | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Script lint.                                                                |
-| `lint-shell`                                         | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | ShellCheck wrapper; direct target is warning-only unless strict env is set. |
-| `format`                                             | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Mutating formatter target.                                                  |
-| `browser-e2e`                                        | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Isolated browser E2E aggregate.                                             |
-| `browser-e2e-webserver-backed`                       | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Shared-stack browser stage.                                                 |
-| `browser-e2e-stateful`                               | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Stateful browser stage.                                                     |
-| `browser-e2e-measurement`                            | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Measurement browser stage.                                                  |
-| `browser-e2e-visual`                                 | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Visual validation stage.                                                    |
-| `test-fast`                                          | test,check,ci     | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v1`                    | Fast local verification aggregate.                                          |
-| `test`                                               | test,check,ci     | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v1`                    | Full-corpus test aggregate.                                                 |
-| `lint`                                               | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Aggregate lint wrapper.                                                     |
-| `go-vulncheck`                                       | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Govulncheck wrapper.                                                        |
-| `go-gosec-targeted`                                  | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Blocking targeted Gosec wrapper.                                            |
-| `go-gosec-audit`                                     | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Warning-only audit profile wrapper.                                         |
-| `check`                                              | check             | scheduler_summary_with_artifacts | `cartulary.tool_run_summary.v1`                    | Developer gate through check scheduler.                                     |
-| `ci`                                                 | ci                | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v1`                    | Provider-neutral CI entrypoint.                                             |
-| `release-check`                                      | release-check     | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v1`                    | Release gate aggregate.                                                     |
-| `build`                                              | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Build aggregate.                                                            |
-| `build-server`                                       | check,helper_only | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Server build.                                                               |
-| `build-migrate`                                      | check,helper_only | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Migration binary build.                                                     |
-| `build-web`                                          | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v1`                    | Web build.                                                                  |
+| `go-test-duration-baselines`                         | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Refreshes Go duration baselines from a selected run.                        |
+| `go-test-duration-baseline-coverage`                 | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks baseline coverage.                                                   |
+| `go-test-duration-baseline-drift`                    | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks Go duration baseline drift against selected run.                     |
+| `browser-e2e-duration-baselines`                     | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Refreshes browser duration baselines.                                       |
+| `browser-e2e-duration-baseline-drift`                | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks browser duration drift.                                              |
+| `service-backed-make-target-duration-baselines`      | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Refreshes service-backed target durations.                                  |
+| `service-backed-make-target-duration-baseline-drift` | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks service-backed target duration drift.                                |
+| `harness-smoke-duration-baselines`                   | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Refreshes harness smoke durations.                                          |
+| `harness-smoke-duration-baseline-drift`              | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks harness smoke duration drift.                                        |
+| `scheduler-event-order-drift`                        | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks scheduler event ordering.                                            |
+| `scheduler-summary-timing-drift`                     | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Checks scheduler summary timing.                                            |
+| `frontend-typecheck`                                 | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Frontend TypeScript check.                                                  |
+| `frontend-unit`                                      | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Frontend unit suite.                                                        |
+| `frontend-import-boundary-check`                     | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Frontend import boundary check.                                             |
+| `lint-biome`                                         | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Frontend authored-source lint.                                              |
+| `lint-scripts`                                       | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Script lint.                                                                |
+| `lint-shell`                                         | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | ShellCheck wrapper; direct target is warning-only unless strict env is set. |
+| `format`                                             | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Mutating formatter target.                                                  |
+| `browser-e2e`                                        | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Isolated browser E2E aggregate.                                             |
+| `browser-e2e-webserver-backed`                       | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Shared-stack browser stage.                                                 |
+| `browser-e2e-stateful`                               | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Stateful browser stage.                                                     |
+| `browser-e2e-measurement`                            | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Measurement browser stage.                                                  |
+| `browser-e2e-visual`                                 | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Visual validation stage.                                                    |
+| `test-fast`                                          | test,check,ci     | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Fast local verification aggregate.                                          |
+| `test`                                               | test,check,ci     | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Full-corpus test aggregate.                                                 |
+| `lint`                                               | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Aggregate lint wrapper.                                                     |
+| `go-vulncheck`                                       | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Govulncheck wrapper.                                                        |
+| `go-gosec-targeted`                                  | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Blocking targeted Gosec wrapper.                                            |
+| `go-gosec-audit`                                     | check             | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Warning-only audit profile wrapper.                                         |
+| `check`                                              | check             | scheduler_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Developer gate through check scheduler.                                     |
+| `ci`                                                 | ci                | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Provider-neutral CI entrypoint.                                             |
+| `release-check`                                      | release-check     | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Release gate aggregate.                                                     |
+| `build`                                              | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Build aggregate.                                                            |
+| `build-server`                                       | check,helper_only | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Server build.                                                               |
+| `build-migrate`                                      | check,helper_only | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Migration binary build.                                                     |
+| `build-web`                                          | helper_only       | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Web build.                                                                  |
 | `clean`                                              | helper_only       | destructive_human                | none                                               | Repo-local cleanup.                                                         |
 | `distclean`                                          | helper_only       | destructive_human                | none                                               | Repo-local cleanup plus repo-local tool/runtime caches.                     |
 
@@ -218,7 +219,7 @@ Every command below inherits the matching family defaults. `Included in` is the 
 ## 5. Configuration Resolution Contract
 
 **TH-HARNESS-REQ-100**
-Every public Make target MUST resolve harness configuration through `resolve_harness_config()` before child work begins. A target that cannot resolve or validate configuration MUST fail with `failure_class=configuration_error` and public exit code `2`.
+Every public Make target MUST resolve harness configuration through `resolve_harness_config()` before child work begins. A target that cannot resolve or validate configuration MUST fail with `failure_class=config`, `failure_reason=configuration_error`, and public exit code `2`.
 Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-014
 
 **TH-HARNESS-REQ-101**
@@ -322,7 +323,7 @@ resolve_harness_config(target, raw_make_vars, raw_env, wrapper_cli_args):
 A public Make target that emits retained artifacts MUST compute artifact identity as:
 
 ```text
-artifact_root = normalize_result_root(CARTULARY_TEST_RESULTS_DIR) / normalize_run_id(CARTULARY_TEST_RUN_ID)
+run_root = normalize_result_root(CARTULARY_TEST_RESULTS_DIR) / normalize_run_id(CARTULARY_TEST_RUN_ID)
 ```
 Verified by: TH-HARNESS-AC-003, TH-HARNESS-AC-015
 
@@ -407,10 +408,10 @@ resolve_output_mode(CARTULARY_OUTPUT_MODE, VERBOSE, CI_VERBOSE, CI, target):
 
 | Output class                       | Public targets                                                                                    | `machine` accepted? | `machine` stdout                                        | `machine` stderr                                                                      | Success artifacts                                         | Failure behavior                                                       |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------: | ------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `summary_with_artifacts`           | Leaf, toolchain, build, lint, drift, browser-stage, and formatting targets with wrapper summaries |                 yes | One `cartulary.tool_run_summary.v1` JSON object plus LF | Empty after wrapper starts; pre-wrapper diagnostics allowed only before JSON emission | Tool-run summary required                                 | Same schema with failure fields and nonzero exit                       |
-| `service_summary_with_artifacts`   | `db-up`, `db-reset`, `services-up`, `minio-init`                                                  |                 yes | One `cartulary.tool_run_summary.v1` JSON object plus LF | Empty after wrapper starts                                                            | Tool-run summary and service diagnostics where applicable | Same schema with service failure fields                                |
-| `aggregate_summary_with_artifacts` | `test-fast`, `test`, `lint`, `ci`, `release-check`, `build`                                       |                 yes | One `cartulary.tool_run_summary.v1` JSON object plus LF | Empty after wrapper starts                                                            | Aggregate summary plus child references                   | Same schema with primary failure                                       |
-| `scheduler_summary_with_artifacts` | `check`, `phase-slice`, `service-backed-slice`                                                    |                 yes | One `cartulary.tool_run_summary.v1` JSON object plus LF | Empty after wrapper starts; no scheduler progress prose                               | Scheduler summary/events and run summary                  | Same schema with scheduler or child failure                            |
+| `summary_with_artifacts`           | Leaf, toolchain, build, lint, drift, browser-stage, and formatting targets with wrapper summaries |                 yes | One `cartulary.tool_run_summary.v2` JSON object plus LF | Empty after wrapper starts; pre-wrapper diagnostics allowed only before JSON emission | Tool-run summary required                                 | Same schema with failure fields and nonzero exit                       |
+| `service_summary_with_artifacts`   | `db-up`, `db-reset`, `services-up`, `minio-init`                                                  |                 yes | One `cartulary.tool_run_summary.v2` JSON object plus LF | Empty after wrapper starts                                                            | Tool-run summary and service diagnostics where applicable | Same schema with service failure fields                                |
+| `aggregate_summary_with_artifacts` | `test-fast`, `test`, `lint`, `ci`, `release-check`, `build`                                       |                 yes | One `cartulary.tool_run_summary.v2` JSON object plus LF | Empty after wrapper starts                                                            | Aggregate summary plus child references                   | Same schema with primary failure                                       |
+| `scheduler_summary_with_artifacts` | `check`, `phase-slice`, `service-backed-slice`                                                    |                 yes | One `cartulary.tool_run_summary.v2` JSON object plus LF | Empty after wrapper starts; no scheduler progress prose                               | Scheduler summary/events and run summary                  | Same schema with scheduler or child failure                            |
 | `machine_stdout_json`              | `target-plan-json` and other explicitly declared JSON discovery targets                           |                 yes | One target-specific JSON object plus LF                 | Empty on success                                                                      | None unless target declares artifacts                     | Invalid input exits `2`; target-specific error JSON only when declared |
 | `human_summary`                    | `help`, `help-all`, text discovery/explanation targets                                            |                  no | Empty                                                   | Bounded diagnostic allowed on failure                                                 | None unless target row declares diagnostic artifacts      | `machine` rejected as `usage_error`, exit `2`                          |
 | `interactive_raw`                  | `dev`                                                                                             |                  no | Empty when `machine` requested                          | Diagnostic allowed                                                                    | None                                                      | `machine` rejected as `usage_error`, exit `2`                          |
@@ -433,7 +434,7 @@ For every public target whose output class accepts `machine`, stdout MUST be exa
 Verified by: TH-HARNESS-AC-004
 
 **TH-HARNESS-REQ-202**
-For every public target whose output class rejects `machine`, setting `CARTULARY_OUTPUT_MODE=machine` MUST fail before child work with `failure_class=usage_error`, public exit code `2`, empty stdout, and bounded stderr diagnostic.
+For every public target whose output class rejects `machine`, setting `CARTULARY_OUTPUT_MODE=machine` MUST fail before child work with `failure_class=config`, `failure_reason=usage_error`, public exit code `2`, empty stdout, and bounded stderr diagnostic.
 Verified by: TH-HARNESS-AC-005
 
 ## 8. Artifact and Schema Contract
@@ -442,40 +443,42 @@ Verified by: TH-HARNESS-AC-005
 A public Make-owned command that declares a stable schema ID MUST emit JSON that validates against the matching normative schema attachment before command success. If required artifact validation fails, the public target MUST fail with `artifact_error` or `scheduler_accounting_error` according to Section 9.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-004
 
-The following file paths are the required normative attachment paths for this NLSpec. Their presence is an implementation deliverable; this table does not assert that each file already exists in the repository snapshot.
+The following schema IDs are public contracts. Schema file paths are repository attachments, not behavioral owners. A missing file in the current repository snapshot MUST be marked as a future attachment here rather than implied by prose.
 
-| Schema ID                                       | Required attachment path                                                  | Producer class           | Required validation point                 |
-| ----------------------------------------------- | ------------------------------------------------------------------------- | ------------------------ | ----------------------------------------- |
-| `cartulary.tool_run_summary.v1`                 | `tools/schemas/cartulary.tool_run_summary.v1.schema.json`                 | Centralized wrappers     | Before wrapper exits.                     |
-| `cartulary.test_phase_summary.v3`               | `tools/schemas/cartulary.test_phase_summary.v3.schema.json`               | Phase handlers           | Before target summary consumes it.        |
-| `cartulary.test_target_summary.v4`              | `tools/schemas/cartulary.test_target_summary.v4.schema.json`              | Target summary generator | Before aggregate/run summary consumes it. |
-| `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | Run summary generator    | Before public aggregate success.          |
-| `cartulary.check_scheduler_summary.v9`          | `tools/schemas/cartulary.check_scheduler_summary.v9.schema.json`          | Check scheduler          | Before scheduler target success.          |
-| `cartulary.service_backed_scheduler_summary.v9` | `tools/schemas/cartulary.service_backed_scheduler_summary.v9.schema.json` | Service-backed scheduler | Before scheduler target success.          |
-| `cartulary.scheduler_event.v5`                  | `tools/schemas/cartulary.scheduler_event.v5.schema.json`                  | Scheduler                | During scheduler JSONL validation.        |
-| `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | Service suite            | Before attach or cleanup relies on lease. |
-| `cartulary.web_e2e_stack.v1`                    | `tools/schemas/cartulary.web_e2e_stack.v1.schema.json`                    | Browser stack            | Before browser target starts Playwright.  |
-| `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | Reset route/wrapper      | Before browser reset success is accepted. |
-| `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | Fixture report target    | Before machine JSON is emitted.           |
+| Schema ID                                       | Repository attachment path                                               | Status            | Producer class           | Required validation point                 |
+| ----------------------------------------------- | ------------------------------------------------------------------------- | ----------------- | ------------------------ | ----------------------------------------- |
+| `cartulary.tool_run_summary.v2`                 | `tools/schemas/cartulary.tool_run_summary.v2.schema.json`                 | present           | Centralized wrappers     | Before wrapper exits.                     |
+| `cartulary.test_phase_summary.v3`               | `tools/schemas/cartulary.test_phase_summary.v3.schema.json`               | future attachment | Phase handlers           | Before target summary consumes it.        |
+| `cartulary.test_target_summary.v4`              | `tools/schemas/cartulary.test_target_summary.v4.schema.json`              | future attachment | Target summary generator | Before aggregate/run summary consumes it. |
+| `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | future attachment | Run summary generator    | Before public aggregate success.          |
+| `cartulary.check_scheduler_summary.v9`          | `tools/schemas/cartulary.check_scheduler_summary.v9.schema.json`          | future attachment | Check scheduler          | Before scheduler target success.          |
+| `cartulary.service_backed_scheduler_summary.v9` | `tools/schemas/cartulary.service_backed_scheduler_summary.v9.schema.json` | future attachment | Service-backed scheduler | Before scheduler target success.          |
+| `cartulary.scheduler_event.v6`                  | `tools/schemas/cartulary.scheduler_event.v6.schema.json`                  | future attachment | Scheduler                | During scheduler JSONL validation.        |
+| `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | future attachment | Service suite            | Before attach or cleanup relies on lease. |
+| `cartulary.web_e2e_stack.v1`                    | `tools/schemas/cartulary.web_e2e_stack.v1.schema.json`                    | future attachment | Browser stack            | Before browser target starts Playwright.  |
+| `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | future attachment | Reset route/wrapper      | Before browser reset success is accepted. |
+| `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | future attachment | Fixture report target    | Before machine JSON is emitted.           |
 
 **TH-HARNESS-REQ-251**
 Schema-owned artifacts MUST be closed by default. Unknown top-level fields are invalid unless the schema declares an explicit extension container.
 Verified by: TH-HARNESS-AC-000
 
 **TH-HARNESS-REQ-252**
-Every retained summary artifact MUST include normalized `result_root`, `run_id`, `artifact_root`, `target`, `output_mode`, public `exit_code`, primary `failure_class`, primary `failure_origin`, `started_at`, and `completed_at`. Timestamps MUST be RFC3339 UTC strings with non-null values.
+Every retained summary artifact MUST include normalized `result_root`, `run_id`, `run_root`, `target`, `output_mode`, public `exit_code`, primary `failure_class`, primary `failure_reason`, `started_at`, and `completed_at`. Timestamps MUST be RFC3339 UTC strings with non-null values.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-015
+
+Public and machine summaries SHOULD print or serialize `run_root` once per summary and SHOULD express retained artifact references relative to `run_root` when the referenced path is under that directory. Absolute paths remain allowed only for external diagnostics that are not under the retained run root.
 
 ### 8.1 Artifact Families
 
-| Artifact family                                      | Producer                                        | Path under artifact root                                        | Schema policy                                                 | Ordering and nullability                                                              | Retention and cleanup                                        |
+| Artifact family                                      | Producer                                        | Path under run root                                             | Schema policy                                                 | Ordering and nullability                                                              | Retention and cleanup                                        |
 | ---------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Tool-run summary                                     | Centralized wrappers                            | `<target>/tool-run-summary.json` or target-specific summary dir | `cartulary.tool_run_summary.v1`                               | Required non-null timestamps, target, exit code, output mode, artifact refs, failures | Retained; removed by cleanup only under default result root. |
+| Tool-run summary                                     | Centralized wrappers                            | `<target>/tool-run-summary.json` or target-specific summary dir | `cartulary.tool_run_summary.v2`                               | Required non-null timestamps, target, exit code, output mode, artifact refs, failures | Retained; removed by cleanup only under default result root. |
 | Phase summary                                        | Phase handlers                                  | target phase dirs                                               | `cartulary.test_phase_summary.v3`                             | Stable phase/target/runner/status/count fields                                        | Retained.                                                    |
 | Target summary                                       | Target summary generator                        | `<target>/target-summary.json`                                  | `cartulary.test_target_summary.v4`                            | Child/totals rollups ordered by registry order                                        | Retained.                                                    |
 | Run summary                                          | Run summary generator                           | `run-summary.json` or aggregate dir                             | `cartulary.test_run_summary.v6`                               | Work units and artifact dirs ordered deterministically                                | Retained.                                                    |
 | Scheduler summary                                    | Scheduler                                       | `<target>/scheduler-summary.json`                               | Scheduler summary schema by scheduler type                    | Work units by manifest ordinal; resources by registry order                           | Retained.                                                    |
-| Scheduler event stream                               | Scheduler                                       | `<target>/scheduler-events.jsonl`                               | `cartulary.scheduler_event.v5`                                | `seq` strictly increases with no gaps                                                 | Retained.                                                    |
+| Scheduler event stream                               | Scheduler                                       | `<target>/scheduler-events.jsonl`                               | `cartulary.scheduler_event.v6`                                | `seq` strictly increases with no gaps                                                 | Retained.                                                    |
 | Scheduler progress summary                           | Scheduler reporter                              | `<target>/progress-summary.log`                                 | diagnostic-only                                               | Bounded progress snapshots                                                            | Retained.                                                    |
 | Service scope artifacts                              | Service suite                                   | `_shared/test-services/<suite-id>/...`                          | lease schema required; other service logs diagnostic-only     | Lease fields closed by Section 11                                                     | Retained; cleanup may append diagnostics.                    |
 | Browser stack metadata                               | Browser stack                                   | browser target support dir                                      | `cartulary.web_e2e_stack.v1`                                  | Origins, ports, runtime root, log paths required                                      | Retained for browser target.                                 |
@@ -489,27 +492,51 @@ Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-015
 ## 9. Failure Classes and Exit Codes
 
 **TH-HARNESS-REQ-300**
-Public Make-owned wrappers MUST expose exact public exit codes according to the table below. Raw child process exit codes MAY be preserved in summaries but MUST NOT define the public wrapper exit code except where `child_target_failure` explicitly delegates to a normalized child failure class.
+Public Make-owned wrappers MUST expose exact public exit codes according to the failure-reason table below. Raw child process exit codes MAY be preserved in summaries but MUST NOT define the public wrapper exit code except where `child_target_failure` explicitly delegates to a normalized child failure class.
 Verified by: TH-HARNESS-AC-014
 
-| Primary failure class        | Trigger                                                            |                                    Public exit code | Failure origin default   |
-| ---------------------------- | ------------------------------------------------------------------ | --------------------------------------------------: | ------------------------ |
-| success                      | No failure                                                         |                                                 `0` | none                     |
-| `usage_error`                | Invalid arguments, missing required flags, unsupported output mode |                                                 `2` | helper                   |
-| `configuration_error`        | Missing/invalid tool, path, env, config, manifest, resource limit  |                                                 `2` | helper or infrastructure |
-| `preflight_error`            | Docker/platform/tool preflight fails before managed services       |                                                 `3` | infrastructure           |
-| `service_start_error`        | Backing service or browser process fails to start                  |                                                 `3` | infrastructure           |
-| `service_readiness_timeout`  | Started service fails readiness before deadline                    |                                                 `3` | infrastructure           |
-| `fixture_error`              | DB/bucket/template/reset/janitor/fixture operation fails           |                                                 `3` | helper or infrastructure |
-| `resource_conflict`          | Logical resource, port, lock, DB/bucket name, or host conflict     |                                                 `4` | infrastructure           |
-| `test_assertion_failure`     | Test runner assertion fails after harness setup                    |                                                `10` | product                  |
-| `child_target_failure`       | Aggregate child exits nonzero                                      |                         normalized child class exit | child failure origin     |
-| `scheduler_accounting_error` | Manifest, summary, timing, event, or accounting mismatch           |                                                `11` | artifact or helper       |
-| `artifact_error`             | Required artifact missing, invalid, unredacted, or schema-invalid  |                                                `11` | artifact                 |
-| `cleanup_error`              | Cleanup command/finalizer/leak check/reaper scheduling fails       |         `12` when no earlier primary failure exists | helper or infrastructure |
-| `timeout_failure`            | Command, readiness, watchdog, cleanup, or lock exceeds deadline    |                                                `13` | timing                   |
-| `cancelled_or_interrupted`   | Signal, cancellation, abort                                        | `130` for SIGINT, `143` for SIGTERM, otherwise `15` | unknown                  |
-| `unknown_failure`            | Failure cannot be classified                                       |                                                 `1` | unknown                  |
+Failure classification uses two layers:
+
+- `failure_class`: coarse stable grouping for humans and automation.
+- `failure_reason`: detailed snake-case reason for diagnosis, exit-code mapping, and handoff.
+
+| Failure class | Meaning                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `product`     | The product behavior under test failed after harness setup completed.                   |
+| `config`      | Caller input, environment, manifest, or local tool configuration was invalid or missing. |
+| `infra`       | Required backing infrastructure failed preflight, startup, readiness, or capacity.      |
+| `harness`     | Harness orchestration, fixture, scheduler, child aggregation, or cleanup failed.        |
+| `artifact`    | Required retained evidence was missing, malformed, invalid, or unsafe.                 |
+| `timing`      | A deadline, timeout, or timing-accounting guard failed.                                |
+| `interrupted` | The command was cancelled or interrupted.                                               |
+| `unknown`     | The wrapper could not classify the failure.                                             |
+
+| Failure reason                | Default class | Trigger                                                            |                                    Public exit code |
+| ----------------------------- | ------------- | ------------------------------------------------------------------ | --------------------------------------------------: |
+| success                       | none          | No failure                                                         |                                                 `0` |
+| `usage_error`                 | `config`      | Invalid arguments, missing required flags, unsupported output mode |                                                 `2` |
+| `configuration_error`         | `config`      | Missing/invalid tool, path, env, config, manifest, resource limit  |                                                 `2` |
+| `preflight_error`             | `infra`       | Docker/platform/tool preflight fails before managed services       |                                                 `3` |
+| `service_start_error`         | `infra`       | Backing service or browser process fails to start                  |                                                 `3` |
+| `service_readiness_timeout`   | `infra`       | Started service fails readiness before deadline                    |                                                 `3` |
+| `fixture_error`               | `harness`     | DB/bucket/template/reset/janitor/fixture operation fails           |                                                 `3` |
+| `resource_conflict`           | `infra`       | Logical resource, port, lock, DB/bucket name, or host conflict     |                                                 `4` |
+| `test_assertion_failure`      | `product`     | Test runner assertion fails after harness setup                    |                                                `10` |
+| `child_target_failure`        | `harness`     | Aggregate child exits nonzero                                      |                         normalized child class exit |
+| `scheduler_accounting_error`  | `harness`     | Manifest, summary, timing, event, or accounting mismatch           |                                                `11` |
+| `artifact_error`              | `artifact`    | Required artifact missing, invalid, unredacted, or schema-invalid  |                                                `11` |
+| `cleanup_error`               | `harness`     | Cleanup command/finalizer/leak check/reaper scheduling fails       |         `12` when no earlier primary failure exists |
+| `timeout_failure`             | `timing`      | Command, readiness, watchdog, cleanup, or lock exceeds deadline    |                                                `13` |
+| `cancelled_or_interrupted`    | `interrupted` | Signal, cancellation, abort                                        | `130` for SIGINT, `143` for SIGTERM, otherwise `15` |
+| `unknown_failure`             | `unknown`     | Failure cannot be classified                                       |                                                 `1` |
+
+Default human output SHOULD expose dense failure fields and avoid full failure records unless verbose output is requested. The canonical compact shape is:
+
+```text
+failure_class=infra reason=service_readiness_timeout failed=<unit>
+```
+
+Full failure records belong in retained JSON summaries and investigation commands.
 
 ### 9.1 Primary Failure Selection
 
@@ -531,7 +558,7 @@ Cleanup failure after an earlier product or operational failure MUST be recorded
 Verified by: TH-HARNESS-AC-014
 
 **TH-HARNESS-REQ-302**
-Harness setup, readiness, fixture, artifact, scheduler, timeout, and cleanup failures MUST be classified as harness operational failures. A failing assertion after successful harness setup MUST be classified as `test_assertion_failure` with product origin.
+Harness setup, readiness, fixture, artifact, scheduler, timeout, and cleanup failures MUST NOT use `failure_class=product`. A failing assertion after successful harness setup MUST be classified with `failure_class=product` and `failure_reason=test_assertion_failure`.
 Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-014
 
 ## 10. Scheduler Contract
@@ -544,21 +571,28 @@ Verified by: TH-HARNESS-AC-006
 
 | Field                              | Type                 | Required | Default                      | Rule                                                        |
 | ---------------------------------- | -------------------- | -------: | ---------------------------- | ----------------------------------------------------------- |
-| `scheduler_schema_id`              | string               |      yes | none                         | Must match declared scheduler schema.                       |
+| `schema_id`                        | string               |      yes | none                         | Must match declared scheduler manifest schema.              |
 | `target`                           | string               |      yes | none                         | Public target or scheduler target identity.                 |
+| `scheduler_kind`                   | string               |      yes | target-specific              | `check`, `service_backed`, `phase_slice`, or future family. |
 | `stop_on_first_failure`            | boolean              |      yes | target-specific              | Check scheduler: `true`; service-backed scheduler: `false`. |
 | `progress_tick_seconds`            | integer              |       no | `30`                         | Must be `5..300`; affects reporting only.                   |
 | `validate_timing`                  | boolean              |       no | `true`                       | Must be `true` for conformance runs.                        |
 | `work_units[]`                     | array                |      yes | none                         | Ordered by manifest ordinal.                                |
 | `work_units[].id`                  | string               |      yes | none                         | Unique within manifest.                                     |
 | `work_units[].command`             | string or argv array |      yes | none                         | Child execution command.                                    |
+| `work_units[].priority`            | integer              |       no | `0`                          | Higher integer wins among ready work.                       |
+| `work_units[].weight_ms`           | positive integer     |       no | scheduler default            | Advisory duration estimate only.                            |
 | `work_units[].dependencies[]`      | string array         |       no | `[]`                         | IDs or completion keys required before start.               |
 | `work_units[].completion_keys[]`   | string array         |       no | `[work_unit.id]`             | Added on success.                                           |
 | `work_units[].failure_keys[]`      | string array         |       no | `[work_unit.id + ":failed"]` | Added on failure.                                           |
 | `work_units[].complete_on_failure` | boolean              |       no | `false`                      | Adds completion keys even when command fails.               |
-| `work_units[].resources[]`         | array                |       no | `[]`                         | Logical claims only.                                        |
+| `work_units[].resource_claims`     | object               |       no | `{}`                         | Logical claims only.                                        |
 | `work_units[].timeout_seconds`     | integer              |       no | target-family default        | Must be positive and bounded by registry.                   |
+| `work_units[].retained_resource_claims` | object         |       no | `{}`                         | Claims kept after work-unit exit until explicit release.    |
+| `work_units[].release_retained_resource_claims` | object |       no | `{}`                         | Retained claims to release after work-unit exit.            |
 | `finalizers[]`                     | array                |       no | `[]`                         | Always run after scheduler drains or stops.                 |
+
+`weight_ms` is an advisory scheduling estimate. It MUST NOT be treated as a logical resource claim, timeout, benchmark claim, pass/fail threshold, or product performance conformance statement.
 
 ### 10.2 Logical Resource Registry
 
@@ -592,12 +626,12 @@ while pending is not empty or running is not empty:
   ready = pending units whose dependencies are all in completed_keys
           and whose dependencies are not in failed_keys
 
-  for unit in ready by manifest ordinal:
+  for unit in ready by priority DESC, weight_ms DESC, manifest ordinal ASC, id ASC:
     if scheduler_stopped:
       break
-    if any earlier ready unit is resource-blocked and overlaps unit.resources:
+    if any earlier ready unit is resource-blocked and overlaps unit.resource_claims:
       continue
-    if resources_available(unit.resources):
+    if resources_available(unit.resource_claims):
       start unit
       remove unit from pending
       add unit to running
@@ -640,13 +674,19 @@ exit with selected primary failure
 
 Finalizer failure becomes primary only when no earlier non-finalizer failure exists.
 
+Dependencies outrank priority: a work unit is not ready until its dependencies are satisfied. Priority affects only ready work and MUST NOT preempt work that is already running.
+
 ### 10.4 Event Ordering
 
 | Event field             | Rule                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------- |
+| `schema_id`             | `cartulary.scheduler_event.v6`.                                              |
+| `target`                | Public target or scheduler target identity.                                  |
+| `scheduler_kind`        | Scheduler family such as `check`, `service_backed`, or `phase_slice`.        |
 | `seq`                   | Starts at `1`, increments by `1`, no gaps.                                   |
-| `observed_monotonic_ms` | Non-decreasing.                                                              |
-| `emitted_at`            | RFC3339 UTC. Wall-clock regressions require `clock_skew_detected=true`.      |
+| `event`                 | Compact event token such as `scheduler-started`, `unit-started`, or `progress`. |
+| `monotonic_ms`          | Non-decreasing scheduler-relative monotonic time.                            |
+| `emitted_at`            | RFC3339 UTC. Wall-clock regressions require a `clock-skew` marker event.     |
 | Work-unit ordering      | Manifest ordinal unless completion tie rule applies.                         |
 | Completion tie          | `observed_monotonic_finished_at` ascending, then manifest ordinal ascending. |
 | Artifact ordering       | Lexicographic by normalized artifact path.                                   |
@@ -674,23 +714,31 @@ cleaning -> cleanup_failed
 
 ### 11.2 Lease Fields
 
-| Field           | Type                                                               |                        Required |
-| --------------- | ------------------------------------------------------------------ | ------------------------------: |
-| `schema_id`     | string, `cartulary.test_services.lease.v1`                         |                             yes |
-| `suite_id`      | 24 lowercase hex chars                                             |                             yes |
-| `target`        | string                                                             |                             yes |
-| `mode`          | `owned` or `attach`                                                |                             yes |
-| `result_root`   | normalized path                                                    |                             yes |
-| `run_id`        | normalized run ID                                                  |                             yes |
-| `created_at`    | RFC3339 UTC                                                        |                             yes |
-| `postgres`      | object                                                             |          yes when Postgres used |
-| `minio`         | object                                                             |             yes when MinIO used |
-| `containers[]`  | array                                                              | yes in owned mode, may be empty |
-| `cleanup_state` | `not_started`, `in_progress`, `completed`, `failed`, or `deferred` |                             yes |
+Lease files MUST be written before child work starts, MUST be redacted before retention, and MUST be written atomically as a complete JSON file. A lease is evidence for cleanup only when its resource proof matches the actual resource state; cleanup MUST verify labels, prefixes, generated names, or equivalent proof and MUST NOT trust the lease path alone.
+
+| Field              | Type                                                               |                        Required |
+| ------------------ | ------------------------------------------------------------------ | ------------------------------: |
+| `schema_id`        | string, `cartulary.test_services.lease.v1`                         |                             yes |
+| `lease_id`         | non-empty opaque lease identifier                                  |                             yes |
+| `suite_id`         | 24 lowercase hex chars                                             |                             yes |
+| `target`           | string                                                             |                             yes |
+| `mode`             | `owned` or `attach`                                                |                             yes |
+| `ownership_mode`   | `owned` or `attach`                                                |                             yes |
+| `result_root`      | normalized path                                                    |                             yes |
+| `run_id`           | normalized run ID                                                  |                             yes |
+| `run_root`         | normalized run-root path                                           |                             yes |
+| `owner_pid`        | integer process ID for the owning wrapper                          |                             yes |
+| `created_at`       | RFC3339 UTC                                                        |                             yes |
+| `heartbeat_at`     | RFC3339 UTC                                                        |                              no |
+| `expires_at`       | RFC3339 UTC                                                        |                              no |
+| `resources[]`      | redacted resource records with service kind, logical ID, and proof | yes in owned mode, may be empty |
+| `proof_labels`     | object of required labels used to prove container ownership        |           yes for container use |
+| `proof_prefixes`   | object of generated DB/bucket/path prefixes used to prove ownership | yes for DB, bucket, or path use |
+| `cleanup_state`    | `not_started`, `in_progress`, `completed`, `failed`, or `deferred` |                             yes |
 
 ### 11.3 Readiness Deadlines
 
-| Resource                     | Deadline | Poll interval | Failure class                        |
+| Resource                     | Deadline | Poll interval | Failure reason                       |
 | ---------------------------- | -------: | ------------: | ------------------------------------ |
 | Docker preflight             |    `15s` |          `1s` | `preflight_error`                    |
 | Postgres container readiness |   `180s` |       `500ms` | `service_readiness_timeout`          |
@@ -703,12 +751,37 @@ cleaning -> cleanup_failed
 ### 11.4 Retry and Teardown Rules
 
 **TH-HARNESS-REQ-401**
-No hidden startup retry is allowed unless a row in this section declares it. Readiness polling within a deadline is not a retry.
+No hidden startup retry is allowed. Retry is allowed only when a resource row declares `max_attempts`, bounded backoff, retryable failure reasons, and an overall deadline. Readiness polling within a deadline is not a retry.
 Verified by: TH-HARNESS-AC-007
 
 **TH-HARNESS-REQ-402**
 Owned teardown order MUST be: browser child processes, browser fixtures, reset-tainted runtime roots, test databases, object buckets or prefixes, service containers, lease finalization. Attach mode MUST record diagnostics but MUST NOT delete container-level resources or external services.
 Verified by: TH-HARNESS-AC-007, TH-HARNESS-AC-010
+
+Destructive reset, cleanup, attach-mode service mutation, and non-idempotent operations MUST NOT be retried unless a resource row explicitly declares the operation safe to retry.
+
+| Resource operation          | `max_attempts` | Backoff | Retryable failure reasons                                  | Overall deadline | Safe retry scope                                  |
+| --------------------------- | -------------: | ------- | ---------------------------------------------------------- | ---------------- | ------------------------------------------------- |
+| Docker preflight            |            `1` | none    | none                                                       | `15s`            | none                                              |
+| Postgres owned startup      |            `3` | `500ms` | transient Docker startup/readiness transport timeout only  | `120s`           | Failed attempt container is terminated first.     |
+| MinIO owned startup         |            `2` | `250ms` | transient Docker startup/readiness transport timeout only  | `300s`           | Failed attempt container is terminated first.     |
+| Template DB migration       |            `1` | none    | none                                                       | `180s`           | none                                              |
+| Browser backend startup     |            `1` | none    | none                                                       | `120s`           | readiness polling only                            |
+| Browser frontend startup    |            `1` | none    | none                                                       | `120s`           | readiness polling only                            |
+| Runtime reset route         |            `1` | none    | none                                                       | `30s`            | none                                              |
+| Owned teardown and cleanup  |            `1` | none    | none                                                       | cleanup-specific | cleanup records failure and leaves proof for janitor |
+
+Attach mode MAY write diagnostic records and lease observations. It MUST NOT delete externally supplied services, containers, databases, buckets, or object prefixes.
+
+### 11.5 Duration Baselines
+
+Duration baselines are advisory scheduler planning data only. They MUST NOT become benchmark claims, product performance conformance, timeout policy, or evidence that product behavior is fast enough.
+
+Baseline values MUST be positive integer `weight_ms` values derived only from successful, uncontaminated retained runs. Missing entries MUST use explicit default weights and MUST be reported as defaulted, not silently ignored.
+
+Baseline refresh MUST reject contaminated evidence, including failed scheduler runs, service startup retries, service failures, reset taint, missing timing events, or interrupted runs.
+
+Duration-baseline drift checks MAY fail only for severe stale planning. Compact drift diagnostics MUST include `subject`, `planned_ms`, `actual_ms`, `ratio`, and `kind`.
 
 ## 12. Test-Only Reset Route
 
@@ -922,7 +995,7 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-001 | Sections 1, 4      | Command registry                 | Current tree                                                                 | `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` plus registry parity checker    | `0` when registry matches exactly                              | Bounded report                                         | Empty on success                                             | Public target registry parity report                                                               | Extra/missing public target fails                                            | none                                                    |
 | TH-HARNESS-AC-002 | Section 5          | Config precedence                | Fixture target with CLI, Make var, env, manifest, config, default candidates | Dedicated config resolver test target or unit harness                                     | `0`                                                            | Machine or bounded summary                             | Empty on success                                             | Resolver summary showing CLI > Make var > env > manifest > config file > default                   | Non-positive scheduler limit exits `2` with `configuration_error`            | no child work                                           |
 | TH-HARNESS-AC-003 | Sections 5, 6      | Result root and run ID           | No child work required                                                       | Invalid result root and invalid run ID fixtures                                           | `2`                                                            | Empty or failure JSON according to target output class | Bounded config diagnostic                                    | Failure summary when wrapper starts                                                                | Slash, backslash, whitespace, `.`, `..`, existing non-empty run dir all fail | no child work                                           |
-| TH-HARNESS-AC-004 | Sections 7, 8      | Machine output accepted          | Toolchain ready; explicit result root/run ID                                 | `CARTULARY_OUTPUT_MODE=machine make backend-unit`; `... make test-fast`; `... make check` | Target status                                                  | Exactly one JSON object plus LF                        | Empty after wrapper starts                                   | `cartulary.tool_run_summary.v1` and target artifacts                                               | Progress prose or duplicate JSON fails                                       | normal target cleanup                                   |
+| TH-HARNESS-AC-004 | Sections 7, 8      | Machine output accepted          | Toolchain ready; explicit result root/run ID                                 | `CARTULARY_OUTPUT_MODE=machine make backend-unit`; `... make test-fast`; `... make check` | Target status                                                  | Exactly one JSON object plus LF                        | Empty after wrapper starts                                   | `cartulary.tool_run_summary.v2` and target artifacts                                               | Progress prose or duplicate JSON fails                                       | normal target cleanup                                   |
 | TH-HARNESS-AC-005 | Section 7          | Machine output rejected          | No child work                                                                | `CARTULARY_OUTPUT_MODE=machine make clean`; `... make dev`; `... make help`               | `2`                                                            | Empty                                                  | Bounded `usage_error` diagnostic                             | None required                                                                                      | Child work starts despite rejection                                          | no deletion or service start                            |
 | TH-HARNESS-AC-006 | Section 10         | Scheduler determinism            | Controlled manifest with simultaneous child completions                      | Run scheduler fixture twice with same manifest                                            | `0`                                                            | Bounded summary or machine object                      | Empty on success                                             | Byte-identical scheduler events after dynamic timestamp normalization allowed only by schema rules | Event sequence differs                                                       | finalizers run                                          |
 | TH-HARNESS-AC-007 | Section 11         | Service modes                    | Owned and attach fixtures                                                    | Owned service target; attach target missing one required var                              | owned success; attach failure `2`                              | Bounded summary                                        | Empty on owned success; config diagnostic for attach failure | Owned lease before child work; attach failure summary                                              | Attach mode deletes container-level resource                                 | owned teardown recorded                                 |
@@ -931,9 +1004,9 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-010 | Section 13         | Stale janitor proof gates        | Fake DB, bucket, container, and browser fixtures with/without proof          | Focused stale-janitor tests                                                               | `0`                                                            | Bounded summary                                        | Empty on success                                             | Evidence that unproven resources retained and proven stale fixtures deleted only outside dry-run   | Resource lacking generated name/proof deleted                                | unproven resources retained                             |
 | TH-HARNESS-AC-011 | Section 15         | Redaction                        | Fake DSN, object-store secret, token, and private-key fixtures               | Redaction unit plus one wrapper log capture                                               | `0`                                                            | No unredacted secret in machine JSON                   | No unredacted secret in captured stderr                      | Summaries/logs contain required redaction tokens                                                   | Any secret pattern appears unredacted                                        | none                                                    |
 | TH-HARNESS-AC-012 | Section 14         | Platform matrix                  | Platform claim checker fixture                                               | Platform matrix checker                                                                   | `0` for allowed profiles; nonzero for unsupported claim        | Bounded summary                                        | Diagnostic on unsupported claim                              | Matrix report                                                                                      | macOS/Windows-native/Podman claimed as current conformance                   | none                                                    |
-| TH-HARNESS-AC-013 | Sections 9, 16     | Product versus harness failure   | One known failing assertion and one harness setup failure                    | Canonical test target under each fixture                                                  | Product failure exits `10`; setup failure exits Section 9 code | Failure headline names class                           | Bounded diagnostic                                           | Target/tool summary with failure class and origin                                                  | Setup failure classified as product                                          | harness cleanup attempted                               |
+| TH-HARNESS-AC-013 | Sections 9, 16     | Product versus harness failure   | One known failing assertion and one harness setup failure                    | Canonical test target under each fixture                                                  | Product failure exits `10`; setup failure exits Section 9 code | Failure headline names class and reason                | Bounded diagnostic                                           | Target/tool summary with failure class and reason                                                  | Setup failure classified as product                                          | harness cleanup attempted                               |
 | TH-HARNESS-AC-014 | Section 9          | Exit-code matrix                 | Controlled failure fixtures                                                  | Exit matrix test target                                                                   | Exact Section 9 code for every class                           | Per output mode                                        | Per output mode                                              | Failure summaries with primary failure selection                                                   | Cleanup failure overrides earlier product failure                            | cleanup failure recorded but primary exit preserved     |
-| TH-HARNESS-AC-015 | Sections 6, 8      | Retained artifact identity       | Explicit result root/run ID                                                  | `CARTULARY_TEST_RESULTS_DIR=<dir> CARTULARY_TEST_RUN_ID=<id> make backend-unit`           | `0`                                                            | Summary names artifact root                            | Empty                                                        | Artifacts under `<dir>/<id>` with target, run ID, artifact root                                    | Newest-run fallback accepted as proof                                        | custom absolute result root not removed by `make clean` |
+| TH-HARNESS-AC-015 | Sections 6, 8      | Retained artifact identity       | Explicit result root/run ID                                                  | `CARTULARY_TEST_RESULTS_DIR=<dir> CARTULARY_TEST_RUN_ID=<id> make backend-unit`           | `0`                                                            | Summary names run root                                 | Empty                                                        | Artifacts under `<dir>/<id>` with target, run ID, run root                                         | Newest-run fallback accepted as proof                                        | custom absolute result root not removed by `make clean` |
 | TH-HARNESS-AC-016 | Sections 1, 18, 19 | Editorial and adoption readiness | Revised document                                                             | Editorial lint and future-decision scanner                                                | `0`                                                            | Bounded summary                                        | Empty on success                                             | No prohibited evidence markers in Sections 1-17; no current blockers in Section 19                 | Current-profile blocker appears in future section                            | none                                                    |
 
 ### 17.1 Requirement-to-Acceptance Traceability
@@ -975,9 +1048,12 @@ The following evidence categories remain non-normative in this document unless p
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Recovery docs under `docs/testing-harness-spec-recovery-docs/**` | Historical traceability and diagnostic context.                                   |
 | Raw package scripts and tool output                              | Developer convenience or child-command evidence.                                  |
+| Script paths, generated Make include names, helper binaries, `helper_only`, `check_internal`, priority-band names, and generator-only constants | Implementation details unless a requirement above explicitly promotes one. |
 | Playwright screenshots, videos, traces, HTML reports             | Diagnostic secret-bearing artifacts.                                              |
 | Hosted CI provider workflows                                     | Outside current conformance unless provider source is supplied and later adopted. |
 | Visual snapshot refresh process                                  | Future-only unless refresh authority is later adopted.                            |
+
+Exact numeric constants are normative only when they protect security, cleanup safety, bounded output, or deterministic scheduling. Other numeric values in generated manifests, helper names, priority bands, and generator-only constants are implementation details unless this NLSpec gives them a requirement.
 
 The editorial lint for TH-HARNESS-AC-016 rejects the forbidden evidence markers listed in this non-normative section when they appear in Sections 1 through 17. The forbidden markers are: `TODO`, `source_limited`, `source-limited`, `source-observed`, `current code`, `selected evidence`, `recovery evidence`, and `maintainer_decision_required`.
 

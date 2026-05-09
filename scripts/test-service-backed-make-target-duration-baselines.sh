@@ -40,14 +40,20 @@ assert_fails_with() {
 phase_stdout_from_result() {
   local output="$1"
   local root
-  root="$(printf '%s\n' "$output" | sed -n 's/.* artifact_root=\([^ ]*\) .*/\1/p' | head -n 1)"
+  root="$(printf '%s\n' "$output" | sed -n 's/.* run_root=\([^ ]*\) .*/\1/p' | head -n 1)"
   if [[ -z "$root" ]]; then
-    fail "missing artifact_root in output: $output"
+    fail "missing run_root in output: $output"
   fi
   if [[ "$root" = /* ]]; then
-    cat "$root/stdout.log"
+    local dir="$root"
   else
-    cat "$ROOT_DIR/$root/stdout.log"
+    local dir="$ROOT_DIR/$root"
+  fi
+  local target
+  target="$(printf '%s\n' "$output" | sed -n 's/.* target=\([^ ]*\) .*/\1/p' | head -n 1)"
+  [[ -f "$dir/stdout.log" ]] && cat "$dir/stdout.log"
+  if [[ -n "$target" ]]; then
+    [[ -f "$dir/$target/stdout.log" ]] && cat "$dir/$target/stdout.log"
   fi
 }
 
@@ -62,7 +68,7 @@ cat >"$results_dir/run-a/check-service-backed/scheduler-summary.json" <<'JSON'
   "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "check-service-backed",
   "status": "pass",
-  "scheduler_kind": "service-backed"
+  "scheduler_kind": "service_backed"
 }
 JSON
 cat >"$results_dir/run-a/check-service-backed/scheduler-events.jsonl" <<'JSONL'
@@ -82,7 +88,7 @@ cat >"$results_dir/run-b/test-service-backed/scheduler-summary.json" <<'JSON'
   "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "test-service-backed",
   "status": "pass",
-  "scheduler_kind": "service-backed"
+  "scheduler_kind": "service_backed"
 }
 JSON
 cat >"$results_dir/run-b/test-service-backed/scheduler-events.jsonl" <<'JSONL'
@@ -95,7 +101,7 @@ cat >"$results_dir/run-c/check-service-backed/scheduler-summary.json" <<'JSON'
   "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "check-service-backed",
   "status": "fail",
-  "scheduler_kind": "service-backed"
+  "scheduler_kind": "service_backed"
 }
 JSON
 cat >"$results_dir/run-c/check-service-backed/scheduler-events.jsonl" <<'JSONL'
@@ -118,7 +124,7 @@ JSONL
 
 cat >"$tmp_dir/baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
+  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
   "default_work_unit_weight_ms": 10000,
   "work_units": {}
 }
@@ -128,7 +134,7 @@ cp "$ROOT_DIR/tools/service_backed_make_target_duration_baselines.json" \
   "$tmp_dir/service_backed_make_target_duration_baselines.json"
 cat >"$tmp_dir/schedule.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v10",
+  "schema_id": "cartulary.service_backed_schedule.v11",
   "schedules": [
     {
       "target": "check-service-backed",
@@ -165,18 +171,18 @@ assert_fails_with \
 const fs = require("node:fs");
 const [baselineFile] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
-if (baseline.schema_id !== "cartulary.scheduler_work_unit_duration_baselines.v1") {
+if (baseline.schema_id !== "cartulary.scheduler_work_unit_duration_baselines.v2") {
   throw new Error(`unexpected schema ${baseline.schema_id}`);
 }
-const read = (key) => baseline.work_units[key]?.duration_ms;
-if (read("service-backed|test-service-backed|backend-process|backend-process") !== 9000) {
-  throw new Error(`expected test-service-backed backend-process duration 9000, got ${read("service-backed|test-service-backed|backend-process|backend-process")}`);
+const read = (key) => baseline.work_units[key]?.weight_ms;
+if (read("service_backed|test-service-backed|backend-process|backend-process") !== 9000) {
+  throw new Error(`expected test-service-backed backend-process duration 9000, got ${read("service_backed|test-service-backed|backend-process|backend-process")}`);
 }
-if (read("service-backed|check-service-backed|backend-process|backend-process") !== 7000) {
-  throw new Error(`expected check-service-backed backend-process duration 7000, got ${read("service-backed|check-service-backed|backend-process|backend-process")}`);
+if (read("service_backed|check-service-backed|backend-process|backend-process") !== 7000) {
+  throw new Error(`expected check-service-backed backend-process duration 7000, got ${read("service_backed|check-service-backed|backend-process|backend-process")}`);
 }
-if (read("service-backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed") !== 27600) {
-  throw new Error(`expected browser duration 27600, got ${read("service-backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed")}`);
+if (read("service_backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed") !== 27600) {
+  throw new Error(`expected browser duration 27600, got ${read("service_backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed")}`);
 }
 if (read("check|check|check-service-backed|check-service-backed") !== 121233) {
   throw new Error(`expected parent check-service-backed duration 121233, got ${read("check|check|check-service-backed|check-service-backed")}`);
@@ -192,7 +198,7 @@ EOF
 
 cat >"$tmp_dir/make-baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
+  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
   "default_work_unit_weight_ms": 10000,
   "work_units": {}
 }
@@ -212,7 +218,7 @@ SERVICE_BACKED_SCHEDULE_MANIFEST="$tmp_dir/schedule.json" \
 
 cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
+  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
   "default_work_unit_weight_ms": 10000,
   "work_units": {
     "check|check|check-service-backed|check-service-backed": {
@@ -220,21 +226,21 @@ cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
       "schedule_target": "check",
       "work_unit_id": "check-service-backed",
       "aggregate_target": "check-service-backed",
-      "duration_ms": 121233
+      "weight_ms": 121233
     },
-    "service-backed|check-service-backed|backend-process|backend-process": {
-      "scheduler_kind": "service-backed",
+    "service_backed|check-service-backed|backend-process|backend-process": {
+      "scheduler_kind": "service_backed",
       "schedule_target": "check-service-backed",
       "work_unit_id": "backend-process",
       "aggregate_target": "backend-process",
-      "duration_ms": 9000
+      "weight_ms": 9000
     },
-    "service-backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
-      "scheduler_kind": "service-backed",
+    "service_backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
+      "scheduler_kind": "service_backed",
       "schedule_target": "check-service-backed",
       "work_unit_id": "browser-e2e-webserver-backed",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "duration_ms": 12000
+      "weight_ms": 12000
     }
   }
 }
@@ -243,7 +249,7 @@ JSON
 
 cat >"$tmp_dir/missing.json" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
+  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
   "default_work_unit_weight_ms": 10000,
   "work_units": {
     "check|check|check-service-backed|check-service-backed": {
@@ -251,14 +257,14 @@ cat >"$tmp_dir/missing.json" <<'JSON'
       "schedule_target": "check",
       "work_unit_id": "check-service-backed",
       "aggregate_target": "check-service-backed",
-      "duration_ms": 121233
+      "weight_ms": 121233
     },
-    "service-backed|check-service-backed|backend-process|backend-process": {
-      "scheduler_kind": "service-backed",
+    "service_backed|check-service-backed|backend-process|backend-process": {
+      "scheduler_kind": "service_backed",
       "schedule_target": "check-service-backed",
       "work_unit_id": "backend-process",
       "aggregate_target": "backend-process",
-      "duration_ms": 9000
+      "weight_ms": 9000
     }
   }
 }
@@ -270,11 +276,11 @@ set -e
 if [[ "$missing_status" -eq 0 ]]; then
   fail "missing baseline drift should fail"
 fi
-assert_contains "$missing_output" "missing scheduler work-unit baseline scheduler=service-backed schedule=check-service-backed work_unit=browser-e2e-webserver-backed aggregate=browser-e2e-webserver-backed" "missing baseline drift"
+assert_contains "$missing_output" "missing scheduler work-unit baseline scheduler=service_backed schedule=check-service-backed work_unit=browser-e2e-webserver-backed aggregate=browser-e2e-webserver-backed" "missing baseline drift"
 
 cat >"$tmp_dir/underplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
+  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
   "default_work_unit_weight_ms": 10000,
   "work_units": {
     "check|check|check-service-backed|check-service-backed": {
@@ -282,21 +288,21 @@ cat >"$tmp_dir/underplanned.json" <<'JSON'
       "schedule_target": "check",
       "work_unit_id": "check-service-backed",
       "aggregate_target": "check-service-backed",
-      "duration_ms": 121233
+      "weight_ms": 121233
     },
-    "service-backed|check-service-backed|backend-process|backend-process": {
-      "scheduler_kind": "service-backed",
+    "service_backed|check-service-backed|backend-process|backend-process": {
+      "scheduler_kind": "service_backed",
       "schedule_target": "check-service-backed",
       "work_unit_id": "backend-process",
       "aggregate_target": "backend-process",
-      "duration_ms": 9000
+      "weight_ms": 9000
     },
-    "service-backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
-      "scheduler_kind": "service-backed",
+    "service_backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
+      "scheduler_kind": "service_backed",
       "schedule_target": "check-service-backed",
       "work_unit_id": "browser-e2e-webserver-backed",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "duration_ms": 100
+      "weight_ms": 100
     }
   }
 }
@@ -308,7 +314,7 @@ set -e
 if [[ "$underplanned_status" -eq 0 ]]; then
   fail "underplanned baseline drift should fail"
 fi
-assert_contains "$underplanned_output" "underplanned scheduler=service-backed schedule=check-service-backed work_unit=browser-e2e-webserver-backed aggregate=browser-e2e-webserver-backed" "underplanned baseline drift"
+assert_contains "$underplanned_output" "underplanned scheduler=service_backed schedule=check-service-backed work_unit=browser-e2e-webserver-backed aggregate=browser-e2e-webserver-backed" "underplanned baseline drift"
 
 contaminated_results_dir="$tmp_dir/contaminated-results"
 cp -R "$results_dir" "$contaminated_results_dir"
@@ -331,7 +337,7 @@ cat >"$contaminated_results_dir/run-a/_shared/test-services/suite-retry/service-
 JSON
 cat >"$tmp_dir/contaminated-update-baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
+  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
   "default_work_unit_weight_ms": 10000,
   "work_units": {}
 }
@@ -347,12 +353,12 @@ assert_contains "$contaminated_update_output" "Refusing to refresh service-backe
 assert_contains "$contaminated_update_output" "service_startup_retry service=postgres retries=1" "contaminated service-backed refresh reason"
 
 contaminated_drift_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/underplanned.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$contaminated_results_dir" 2>&1 >/dev/null)"
-assert_contains "$contaminated_drift_output" "ignored underplanned contaminated scheduler=service-backed schedule=check-service-backed work_unit=browser-e2e-webserver-backed aggregate=browser-e2e-webserver-backed" "contaminated service-backed underplanned drift warning"
+assert_contains "$contaminated_drift_output" "ignored underplanned contaminated scheduler=service_backed schedule=check-service-backed work_unit=browser-e2e-webserver-backed aggregate=browser-e2e-webserver-backed" "contaminated service-backed underplanned drift warning"
 assert_contains "$contaminated_drift_output" "service_timing_contamination=[service_startup_retry service=postgres retries=1" "contaminated service-backed warning reason"
 
 cat >"$tmp_dir/overplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v1",
+  "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
   "default_work_unit_weight_ms": 10000,
   "work_units": {
     "check|check|check-service-backed|check-service-backed": {
@@ -360,21 +366,21 @@ cat >"$tmp_dir/overplanned.json" <<'JSON'
       "schedule_target": "check",
       "work_unit_id": "check-service-backed",
       "aggregate_target": "check-service-backed",
-      "duration_ms": 121233
+      "weight_ms": 121233
     },
-    "service-backed|check-service-backed|backend-process|backend-process": {
-      "scheduler_kind": "service-backed",
+    "service_backed|check-service-backed|backend-process|backend-process": {
+      "scheduler_kind": "service_backed",
       "schedule_target": "check-service-backed",
       "work_unit_id": "backend-process",
       "aggregate_target": "backend-process",
-      "duration_ms": 9000
+      "weight_ms": 9000
     },
-    "service-backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
-      "scheduler_kind": "service-backed",
+    "service_backed|check-service-backed|browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
+      "scheduler_kind": "service_backed",
       "schedule_target": "check-service-backed",
       "work_unit_id": "browser-e2e-webserver-backed",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "duration_ms": 150000
+      "weight_ms": 150000
     }
   }
 }
@@ -386,7 +392,7 @@ set -e
 if [[ "$overplanned_status" -eq 0 ]]; then
   fail "overplanned baseline drift should fail"
 fi
-assert_contains "$overplanned_output" "overplanned scheduler=service-backed schedule=check-service-backed work_unit=browser-e2e-webserver-backed aggregate=browser-e2e-webserver-backed" "overplanned baseline drift"
+assert_contains "$overplanned_output" "overplanned scheduler=service_backed schedule=check-service-backed work_unit=browser-e2e-webserver-backed aggregate=browser-e2e-webserver-backed" "overplanned baseline drift"
 
 "$NODE_BIN" - "$tmp_dir/topology.json" "$tmp_dir/expired-topology.json" <<'EOF'
 const fs = require("node:fs");

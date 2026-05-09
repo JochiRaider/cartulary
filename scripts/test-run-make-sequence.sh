@@ -327,8 +327,8 @@ assert_equals "$(json_field "${failure_summary}" "work_units.completed")" "1" "f
 assert_equals "$(json_field "${failure_summary}" "work_units.total")" "3" "failure total work units"
 assert_equals "$(json_field "${failure_summary}" "work_units.aborted_after")" "fail-step" "failure aborted_after"
 assert_equals "$(json_field "${failure_summary}" "counts.non_test_failed")" "1" "failure non-test count"
-assert_equals "$(json_field "${failure_summary}" "failure_class")" "helper" "failure class"
-assert_equals "$(json_field "${failure_summary}" "failure_classes.helper")" "1" "failure helper count"
+assert_equals "$(json_field "${failure_summary}" "failure_class")" "harness" "failure class"
+assert_equals "$(json_field "${failure_summary}" "failure_classes.harness")" "1" "failure helper count"
 assert_contains "$(cat "${failure_dir}/make-env.log")" "target=fail-step test_target=" "sequence failing helper target env not forwarded"
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-dry-run.XXXXXX")"

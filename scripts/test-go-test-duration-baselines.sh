@@ -26,9 +26,9 @@ assert_contains() {
 tool_logs_from_result() {
   local output="$1"
   local root
-  root="$(printf '%s\n' "$output" | sed -n 's/.* artifact_root=\([^ ]*\) .*/\1/p' | head -n 1)"
+  root="$(printf '%s\n' "$output" | sed -n 's/.* run_root=\([^ ]*\) .*/\1/p' | head -n 1)"
   if [[ -z "$root" ]]; then
-    fail "missing artifact_root in output: $output"
+    fail "missing run_root in output: $output"
   fi
   local dir
   if [[ "$root" = /* ]]; then
@@ -36,8 +36,14 @@ tool_logs_from_result() {
   else
     dir="$ROOT_DIR/$root"
   fi
+  local target
+  target="$(printf '%s\n' "$output" | sed -n 's/.* target=\([^ ]*\) .*/\1/p' | head -n 1)"
   [[ -f "$dir/stdout.log" ]] && cat "$dir/stdout.log"
   [[ -f "$dir/stderr.log" ]] && cat "$dir/stderr.log"
+  if [[ -n "$target" ]]; then
+    [[ -f "$dir/$target/stdout.log" ]] && cat "$dir/$target/stdout.log"
+    [[ -f "$dir/$target/stderr.log" ]] && cat "$dir/$target/stderr.log"
+  fi
 }
 
 write_empty_baseline() {
@@ -131,7 +137,7 @@ cat >"$results_dir/test-service-backed/scheduler-summary.json" <<'JSON'
   "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "test-service-backed",
   "status": "pass",
-  "scheduler_kind": "service-backed",
+  "scheduler_kind": "service_backed",
   "total_work_units": 4,
   "completed_work_units": 4
 }

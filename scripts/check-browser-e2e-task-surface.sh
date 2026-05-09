@@ -169,8 +169,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v10") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v10");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v11") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v11");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -195,8 +195,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v10") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v10");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v11") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v11");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -234,7 +234,7 @@ const child = schedule.work_unit_sources.find((entry) => entry.target === childT
 if (!child) {
   throw new Error(`missing child ${childTarget} in ${scheduleTarget}`);
 }
-process.stdout.write(`${child.weight ?? 0}\n`);
+process.stdout.write(`${child.weight_ms ?? 0}\n`);
 EOF
 }
 
@@ -244,8 +244,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v11") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v11");
+if (manifest.schema_id !== "cartulary.check_schedule.v12") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v12");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -265,8 +265,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v11") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v11");
+if (manifest.schema_id !== "cartulary.check_schedule.v12") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v12");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {

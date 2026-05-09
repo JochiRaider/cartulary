@@ -1,8 +1,9 @@
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
+      "scheduler_kind": "check",
       "capacity_profile": "check_default",
       "resource_limits": {
         "host_cpu": "auto",
@@ -55,7 +56,8 @@
       "work_units": [
         {
           "target": "toolchain-drift",
-          "weight": 50000,
+          "priority": 50000,
+          "weight_ms": 10000,
           "needs": [],
           "resource_claims": {
             "host_cpu": 1
@@ -64,7 +66,8 @@
         },
         {
           "target": "codegen-toolchain",
-          "weight": 49900,
+          "priority": 49900,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -76,7 +79,8 @@
         },
         {
           "target": "go-lint-toolchain",
-          "weight": 49800,
+          "priority": 49800,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -88,7 +92,8 @@
         },
         {
           "target": "govulncheck-toolchain",
-          "weight": 49700,
+          "priority": 49700,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -100,7 +105,8 @@
         },
         {
           "target": "gosec-toolchain",
-          "weight": 49600,
+          "priority": 49600,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -112,7 +118,8 @@
         },
         {
           "target": "shell-lint-toolchain",
-          "weight": 49500,
+          "priority": 49500,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -124,7 +131,8 @@
         },
         {
           "target": "check-frontend-install",
-          "weight": 49400,
+          "priority": 49400,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -136,7 +144,8 @@
         },
         {
           "target": "build-server",
-          "weight": 40000,
+          "priority": 40000,
+          "weight_ms": 10000,
           "needs": [
             "check-frontend-install"
           ],
@@ -148,7 +157,8 @@
         },
         {
           "target": "build-migrate",
-          "weight": 39000,
+          "priority": 39000,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -160,7 +170,8 @@
         },
         {
           "target": "test-service-images",
-          "weight": 38000,
+          "priority": 38000,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -176,8 +187,8 @@
           "target": "browser-e2e-webserver-backed",
           "label": "browser-e2e-webserver-backed/stage-session",
           "aggregate_target": "browser-e2e-webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 70239,
+          "priority": 100,
+          "weight_ms": 70239,
           "needs": [
             "service_session:check-service-backed",
             "build-server"
@@ -215,8 +226,8 @@
           "target": "browser-e2e-visual",
           "label": "browser-e2e-visual/visual",
           "aggregate_target": "browser-e2e-visual",
-          "scheduler_priority": 100,
-          "weight": 29367,
+          "priority": 100,
+          "weight_ms": 29367,
           "needs": [
             "browser_stage_session:browser-e2e-visual"
           ],
@@ -242,8 +253,8 @@
             "aggregate_target": "browser-e2e-visual",
             "coverage": "authoritative",
             "execution_dependency": "browser_visual",
-            "scheduler_priority": 100,
-            "weight": 29367,
+            "priority": 100,
+            "weight_ms": 29367,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -257,8 +268,8 @@
           "target": "browser-e2e-visual",
           "label": "browser-e2e-visual/stage-session",
           "aggregate_target": "browser-e2e-visual",
-          "scheduler_priority": 100,
-          "weight": 29367,
+          "priority": 100,
+          "weight_ms": 29367,
           "needs": [
             "service_session:check-service-backed",
             "build-server"
@@ -296,8 +307,8 @@
           "target": "browser-e2e-webserver-backed",
           "label": "browser-e2e-webserver-backed/browser-functional-shard-01",
           "aggregate_target": "browser-e2e-webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 15493,
+          "priority": 100,
+          "weight_ms": 15493,
           "needs": [
             "browser_stage_session:browser-e2e-webserver-backed"
           ],
@@ -339,8 +350,8 @@
               "E-5-03",
               "E-6-05"
             ],
-            "scheduler_priority": 100,
-            "weight": 15493,
+            "priority": 100,
+            "weight_ms": 15493,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -357,8 +368,8 @@
           "target": "browser-e2e-webserver-backed",
           "label": "browser-e2e-webserver-backed/browser-functional-shard-02",
           "aggregate_target": "browser-e2e-webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 15272,
+          "priority": 100,
+          "weight_ms": 15272,
           "needs": [
             "browser_stage_session:browser-e2e-webserver-backed"
           ],
@@ -404,8 +415,8 @@
               "E-5-01",
               "E-6-01"
             ],
-            "scheduler_priority": 100,
-            "weight": 15272,
+            "priority": 100,
+            "weight_ms": 15272,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -422,8 +433,8 @@
           "target": "browser-e2e-webserver-backed",
           "label": "browser-e2e-webserver-backed/browser-functional-shard-03",
           "aggregate_target": "browser-e2e-webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 15268,
+          "priority": 100,
+          "weight_ms": 15268,
           "needs": [
             "browser_stage_session:browser-e2e-webserver-backed"
           ],
@@ -470,8 +481,8 @@
               "E-5-05",
               "E-6-04"
             ],
-            "scheduler_priority": 100,
-            "weight": 15268,
+            "priority": 100,
+            "weight_ms": 15268,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -488,8 +499,8 @@
           "target": "browser-e2e-webserver-backed",
           "label": "browser-e2e-webserver-backed/browser-functional-shard-04",
           "aggregate_target": "browser-e2e-webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 15068,
+          "priority": 100,
+          "weight_ms": 15068,
           "needs": [
             "browser_stage_session:browser-e2e-webserver-backed"
           ],
@@ -533,8 +544,8 @@
               "E-4-03",
               "E-6-02"
             ],
-            "scheduler_priority": 100,
-            "weight": 15068,
+            "priority": 100,
+            "weight_ms": 15068,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -551,8 +562,8 @@
           "target": "browser-e2e-webserver-backed",
           "label": "browser-e2e-webserver-backed/support",
           "aggregate_target": "browser-e2e-webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 9138,
+          "priority": 100,
+          "weight_ms": 9138,
           "needs": [
             "browser_stage_session:browser-e2e-webserver-backed"
           ],
@@ -578,8 +589,8 @@
             "aggregate_target": "browser-e2e-webserver-backed",
             "coverage": "supplemental",
             "execution_dependency": "browser_support",
-            "scheduler_priority": 100,
-            "weight": 9138,
+            "priority": 100,
+            "weight_ms": 9138,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -597,8 +608,8 @@
           "target": "browser-e2e-measurement",
           "label": "browser-e2e-measurement/measurement",
           "aggregate_target": "browser-e2e-measurement",
-          "scheduler_priority": 100,
-          "weight": 5834,
+          "priority": 100,
+          "weight_ms": 5834,
           "needs": [
             "browser_stage_session:browser-e2e-measurement"
           ],
@@ -624,8 +635,8 @@
             "aggregate_target": "browser-e2e-measurement",
             "coverage": "authoritative",
             "execution_dependency": "browser_measurement",
-            "scheduler_priority": 100,
-            "weight": 5834,
+            "priority": 100,
+            "weight_ms": 5834,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -639,8 +650,8 @@
           "target": "browser-e2e-measurement",
           "label": "browser-e2e-measurement/stage-session",
           "aggregate_target": "browser-e2e-measurement",
-          "scheduler_priority": 100,
-          "weight": 5834,
+          "priority": 100,
+          "weight_ms": 5834,
           "needs": [
             "service_session:check-service-backed",
             "build-server",
@@ -681,8 +692,8 @@
           "target": "browser-e2e-stateful",
           "label": "browser-e2e-stateful/stateful",
           "aggregate_target": "browser-e2e-stateful",
-          "scheduler_priority": 100,
-          "weight": 5435,
+          "priority": 100,
+          "weight_ms": 5435,
           "needs": [
             "browser_stage_session:browser-e2e-stateful"
           ],
@@ -708,8 +719,8 @@
             "aggregate_target": "browser-e2e-stateful",
             "coverage": "authoritative",
             "execution_dependency": "browser_stateful",
-            "scheduler_priority": 100,
-            "weight": 5435,
+            "priority": 100,
+            "weight_ms": 5435,
             "resource_claims": {
               "go_cpu": 1,
               "go_io": 1
@@ -723,8 +734,8 @@
           "target": "browser-e2e-stateful",
           "label": "browser-e2e-stateful/stage-session",
           "aggregate_target": "browser-e2e-stateful",
-          "scheduler_priority": 100,
-          "weight": 5435,
+          "priority": 100,
+          "weight_ms": 5435,
           "needs": [
             "service_session:check-service-backed",
             "build-server"
@@ -762,8 +773,8 @@
           "target": "browser-e2e-webserver-backed",
           "label": "browser-e2e-webserver-backed/complete",
           "aggregate_target": "browser-e2e-webserver-backed",
-          "scheduler_priority": 100,
-          "weight": 1,
+          "priority": 100,
+          "weight_ms": 1,
           "needs": [
             "browser_group:browser-e2e-webserver-backed:browser-functional-shard-01",
             "browser_group:browser-e2e-webserver-backed:browser-functional-shard-02",
@@ -798,8 +809,8 @@
           "target": "browser-e2e-stateful",
           "label": "browser-e2e-stateful/complete",
           "aggregate_target": "browser-e2e-stateful",
-          "scheduler_priority": 100,
-          "weight": 1,
+          "priority": 100,
+          "weight_ms": 1,
           "needs": [
             "browser_group:browser-e2e-stateful:stateful"
           ],
@@ -830,8 +841,8 @@
           "target": "browser-e2e-measurement",
           "label": "browser-e2e-measurement/complete",
           "aggregate_target": "browser-e2e-measurement",
-          "scheduler_priority": 100,
-          "weight": 1,
+          "priority": 100,
+          "weight_ms": 1,
           "needs": [
             "browser_group:browser-e2e-measurement:measurement"
           ],
@@ -862,8 +873,8 @@
           "target": "browser-e2e-visual",
           "label": "browser-e2e-visual/complete",
           "aggregate_target": "browser-e2e-visual",
-          "scheduler_priority": 100,
-          "weight": 1,
+          "priority": 100,
+          "weight_ms": 1,
           "needs": [
             "browser_group:browser-e2e-visual:visual"
           ],
@@ -889,38 +900,13 @@
           "browser_stage": "visual"
         },
         {
-          "id": "check-service-backed:service-session",
-          "kind": "service_session",
-          "target": "check-service-backed",
-          "label": "check-service-backed/service-session",
-          "weight": 30000,
-          "needs": [
-            "build-migrate",
-            "test-service-images"
-          ],
-          "completion_keys": [
-            "service_session:check-service-backed"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1,
-            "suite_service_stack": 1
-          },
-          "retained_resource_claims": {
-            "suite_service_stack": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-integration-support:backend-integration-entities-shard-02",
           "kind": "go_shard",
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-entities-shard-02",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 29429,
+          "priority": 0,
+          "weight_ms": 29429,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -952,8 +938,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-entities-shard-03",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 28879,
+          "priority": 0,
+          "weight_ms": 28879,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -985,8 +971,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-entities-shard-04",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 28509,
+          "priority": 0,
+          "weight_ms": 28509,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1018,8 +1004,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-entities-shard-05",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 21119,
+          "priority": 0,
+          "weight_ms": 21119,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1051,8 +1037,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-entities-shard-06",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 20789,
+          "priority": 0,
+          "weight_ms": 20789,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1084,8 +1070,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-entities-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 18000,
+          "priority": 0,
+          "weight_ms": 18000,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1117,8 +1103,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-incidents-shard-04",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 17983,
+          "priority": 0,
+          "weight_ms": 17983,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1150,8 +1136,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-incidents-shard-06",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 17983,
+          "priority": 0,
+          "weight_ms": 17983,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1183,8 +1169,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-incidents-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 17910,
+          "priority": 0,
+          "weight_ms": 17910,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1216,8 +1202,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-incidents-shard-05",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 17823,
+          "priority": 0,
+          "weight_ms": 17823,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1249,8 +1235,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-auth-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 17821,
+          "priority": 0,
+          "weight_ms": 17821,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1282,8 +1268,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-incidents-shard-02",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 17810,
+          "priority": 0,
+          "weight_ms": 17810,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1315,8 +1301,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-timeline-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 17727,
+          "priority": 0,
+          "weight_ms": 17727,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1348,8 +1334,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-auth-shard-03",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 17717,
+          "priority": 0,
+          "weight_ms": 17717,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1381,8 +1367,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-evidence-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 17682,
+          "priority": 0,
+          "weight_ms": 17682,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1414,8 +1400,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-timeline-shard-02",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 16707,
+          "priority": 0,
+          "weight_ms": 16707,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1447,8 +1433,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-entities-shard-07",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 16489,
+          "priority": 0,
+          "weight_ms": 16489,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1480,8 +1466,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-testutil-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 11902,
+          "priority": 0,
+          "weight_ms": 11902,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1513,8 +1499,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-auth-shard-04",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 11727,
+          "priority": 0,
+          "weight_ms": 11727,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1546,8 +1532,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-timeline-shard-03",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 11087,
+          "priority": 0,
+          "weight_ms": 11087,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1579,8 +1565,8 @@
           "target": "backend-store",
           "label": "backend-store/backend-store-shard-01",
           "aggregate_target": "backend-store",
-          "scheduler_priority": 0,
-          "weight": 11009,
+          "priority": 0,
+          "weight_ms": 11009,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1607,13 +1593,66 @@
           }
         },
         {
+          "id": "check-service-backed:service-session",
+          "kind": "service_session",
+          "target": "check-service-backed",
+          "label": "check-service-backed/service-session",
+          "weight_ms": 10000,
+          "needs": [
+            "build-migrate",
+            "test-service-images"
+          ],
+          "completion_keys": [
+            "service_session:check-service-backed"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
+            "suite_service_stack": 1
+          },
+          "retained_resource_claims": {
+            "suite_service_stack": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-process",
+          "kind": "service_make_target",
+          "target": "backend-process",
+          "label": "backend-process",
+          "aggregate_target": "backend-process",
+          "priority": 0,
+          "weight_ms": 10000,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "backend-process"
+          ],
+          "failure_keys": [
+            "backend-process"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          }
+        },
+        {
           "id": "check-service-backed:backend-integration:backend-integration-workbook-shard-01",
           "kind": "go_shard",
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-workbook-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 9546,
+          "priority": 0,
+          "weight_ms": 9546,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1645,8 +1684,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-timeline-shard-04",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 9447,
+          "priority": 0,
+          "weight_ms": 9447,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1678,8 +1717,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-app-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 9230,
+          "priority": 0,
+          "weight_ms": 9230,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1711,8 +1750,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-auth-shard-02",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 8471,
+          "priority": 0,
+          "weight_ms": 8471,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1744,8 +1783,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-evidence-shard-02",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 7992,
+          "priority": 0,
+          "weight_ms": 7992,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1777,8 +1816,8 @@
           "target": "backend-store",
           "label": "backend-store/backend-store-collaboration-shard-01",
           "aggregate_target": "backend-store",
-          "scheduler_priority": 0,
-          "weight": 7482,
+          "priority": 0,
+          "weight_ms": 7482,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1810,8 +1849,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-incidents-shard-03",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 7240,
+          "priority": 0,
+          "weight_ms": 7240,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1838,41 +1877,13 @@
           }
         },
         {
-          "id": "check-service-backed:backend-process",
-          "kind": "service_make_target",
-          "target": "backend-process",
-          "label": "backend-process",
-          "aggregate_target": "backend-process",
-          "scheduler_priority": 0,
-          "weight": 6739,
-          "needs": [
-            "service_session:check-service-backed"
-          ],
-          "completion_keys": [
-            "backend-process"
-          ],
-          "failure_keys": [
-            "backend-process"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1,
-            "minio": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-integration-support:backend-integration-timeline-shard-05",
           "kind": "go_shard",
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-timeline-shard-05",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 6672,
+          "priority": 0,
+          "weight_ms": 6672,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1904,8 +1915,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-platform-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 5893,
+          "priority": 0,
+          "weight_ms": 5893,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1937,8 +1948,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-collaboration-shard-02",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 4022,
+          "priority": 0,
+          "weight_ms": 4022,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1970,8 +1981,8 @@
           "target": "backend-integration",
           "label": "backend-integration/backend-integration-collaboration-shard-01",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 3142,
+          "priority": 0,
+          "weight_ms": 3142,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2003,8 +2014,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-workbook-shard-02",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 3008,
+          "priority": 0,
+          "weight_ms": 3008,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2036,8 +2047,8 @@
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-platform-shard-02",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 2425,
+          "priority": 0,
+          "weight_ms": 2425,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2068,7 +2079,7 @@
           "kind": "service_complete",
           "target": "check-service-backed",
           "label": "check-service-backed/complete",
-          "weight": 1,
+          "weight_ms": 1,
           "needs": [
             "backend-store",
             "backend-integration",
@@ -2101,8 +2112,8 @@
           "target": "backend-store",
           "label": "finalize/backend-store",
           "aggregate_target": "backend-store",
-          "scheduler_priority": 0,
-          "weight": 1,
+          "priority": 0,
+          "weight_ms": 1,
           "needs": [
             "go_shard:backend-store-shard-01",
             "go_shard:backend-store-collaboration-shard-01"
@@ -2131,8 +2142,8 @@
           "target": "backend-integration",
           "label": "finalize/backend-integration",
           "aggregate_target": "backend-integration",
-          "scheduler_priority": 0,
-          "weight": 1,
+          "priority": 0,
+          "weight_ms": 1,
           "needs": [
             "go_shard:backend-integration-entities-shard-01",
             "go_shard:backend-integration-incidents-shard-01",
@@ -2191,8 +2202,8 @@
           "target": "backend-integration-support",
           "label": "finalize/backend-integration-support",
           "aggregate_target": "backend-integration-support",
-          "scheduler_priority": 0,
-          "weight": 1,
+          "priority": 0,
+          "weight_ms": 1,
           "needs": [
             "go_shard:backend-integration-entities-shard-02",
             "go_shard:backend-integration-entities-shard-03",
@@ -2243,7 +2254,8 @@
         },
         {
           "target": "check-go-test-duration-baseline-drift",
-          "weight": 29000,
+          "priority": 29000,
+          "weight_ms": 10000,
           "needs": [
             "backend-store",
             "backend-integration",
@@ -2260,7 +2272,8 @@
         },
         {
           "target": "check-browser-e2e-duration-baseline-drift",
-          "weight": 28000,
+          "priority": 28000,
+          "weight_ms": 10000,
           "needs": [
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",
@@ -2277,7 +2290,8 @@
         },
         {
           "target": "check-service-backed-make-target-duration-baseline-drift",
-          "weight": 27900,
+          "priority": 27900,
+          "weight_ms": 10000,
           "needs": [
             "backend-process",
             "browser-e2e-webserver-backed",
@@ -2295,7 +2309,8 @@
         },
         {
           "target": "migration-drift",
-          "weight": 27000,
+          "priority": 27000,
+          "weight_ms": 10000,
           "needs": [
             "build-migrate"
           ],
@@ -2308,7 +2323,8 @@
         },
         {
           "target": "deployable-shape",
-          "weight": 26000,
+          "priority": 26000,
+          "weight_ms": 10000,
           "needs": [
             "build-server",
             "build-migrate"
@@ -2321,7 +2337,8 @@
         },
         {
           "target": "backend-unit",
-          "weight": 25000,
+          "priority": 25000,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2335,7 +2352,8 @@
         },
         {
           "target": "frontend-typecheck",
-          "weight": 24000,
+          "priority": 24000,
+          "weight_ms": 10000,
           "needs": [
             "check-frontend-install"
           ],
@@ -2349,7 +2367,8 @@
         },
         {
           "target": "lint-go",
-          "weight": 23000,
+          "priority": 23000,
+          "weight_ms": 10000,
           "needs": [
             "go-lint-toolchain"
           ],
@@ -2360,7 +2379,8 @@
         },
         {
           "target": "go-vulncheck",
-          "weight": 22000,
+          "priority": 22000,
+          "weight_ms": 10000,
           "needs": [
             "govulncheck-toolchain"
           ],
@@ -2372,7 +2392,8 @@
         },
         {
           "target": "go-gosec-targeted",
-          "weight": 21900,
+          "priority": 21900,
+          "weight_ms": 10000,
           "needs": [
             "gosec-toolchain"
           ],
@@ -2384,7 +2405,8 @@
         },
         {
           "target": "go-gosec-audit",
-          "weight": 21800,
+          "priority": 21800,
+          "weight_ms": 10000,
           "needs": [
             "gosec-toolchain"
           ],
@@ -2396,7 +2418,8 @@
         },
         {
           "target": "frontend-unit",
-          "weight": 15000,
+          "priority": 15000,
+          "weight_ms": 10000,
           "needs": [
             "check-frontend-install"
           ],
@@ -2410,7 +2433,8 @@
         },
         {
           "target": "check-harness-smoke",
-          "weight": 14000,
+          "priority": 14000,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2424,7 +2448,8 @@
         },
         {
           "target": "check-harness-smoke-duration-baseline-drift",
-          "weight": 13990,
+          "priority": 13990,
+          "weight_ms": 10000,
           "needs": [
             "check-harness-smoke"
           ],
@@ -2438,7 +2463,8 @@
         },
         {
           "target": "lint-biome",
-          "weight": 13000,
+          "priority": 13000,
+          "weight_ms": 10000,
           "needs": [
             "check-frontend-install"
           ],
@@ -2450,7 +2476,8 @@
         },
         {
           "target": "frontend-import-boundary-check",
-          "weight": 12950,
+          "priority": 12950,
+          "weight_ms": 10000,
           "needs": [
             "check-frontend-install"
           ],
@@ -2462,7 +2489,8 @@
         },
         {
           "target": "json-shape-check",
-          "weight": 12925,
+          "priority": 12925,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2474,7 +2502,8 @@
         },
         {
           "target": "lint-scripts",
-          "weight": 12900,
+          "priority": 12900,
+          "weight_ms": 10000,
           "needs": [
             "check-frontend-install"
           ],
@@ -2486,7 +2515,8 @@
         },
         {
           "target": "lint-shell",
-          "weight": 12850,
+          "priority": 12850,
+          "weight_ms": 10000,
           "needs": [
             "shell-lint-toolchain"
           ],
@@ -2501,7 +2531,8 @@
         },
         {
           "target": "phase-test-name-check",
-          "weight": 12000,
+          "priority": 12000,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2512,7 +2543,8 @@
         },
         {
           "target": "task-surface-check",
-          "weight": 11900,
+          "priority": 11900,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2523,7 +2555,8 @@
         },
         {
           "target": "browser-e2e-task-surface-check",
-          "weight": 11800,
+          "priority": 11800,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2534,7 +2567,8 @@
         },
         {
           "target": "frontend-task-surface-check",
-          "weight": 11700,
+          "priority": 11700,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2545,7 +2579,8 @@
         },
         {
           "target": "backend-task-surface-check",
-          "weight": 11600,
+          "priority": 11600,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2556,7 +2591,8 @@
         },
         {
           "target": "phase-map-check",
-          "weight": 11500,
+          "priority": 11500,
+          "weight_ms": 10000,
           "needs": [
             "check-frontend-install"
           ],
@@ -2567,7 +2603,8 @@
         },
         {
           "target": "go-test-duration-baseline-coverage",
-          "weight": 11400,
+          "priority": 11400,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2578,7 +2615,8 @@
         },
         {
           "target": "phase-ledger-drift",
-          "weight": 11300,
+          "priority": 11300,
+          "weight_ms": 10000,
           "needs": [
             "check-frontend-install"
           ],
@@ -2590,7 +2628,8 @@
         },
         {
           "target": "phase-schedule-drift",
-          "weight": 11200,
+          "priority": 11200,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2602,7 +2641,8 @@
         },
         {
           "target": "service-backed-unit-check",
-          "weight": 11100,
+          "priority": 11100,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2613,7 +2653,8 @@
         },
         {
           "target": "generated-artifact-policy-check",
-          "weight": 11050,
+          "priority": 11050,
+          "weight_ms": 10000,
           "needs": [
             "toolchain-drift"
           ],
@@ -2625,7 +2666,8 @@
         },
         {
           "target": "generate-drift",
-          "weight": 11000,
+          "priority": 11000,
+          "weight_ms": 10000,
           "needs": [
             "codegen-toolchain"
           ],

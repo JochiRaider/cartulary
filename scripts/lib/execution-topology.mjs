@@ -19,11 +19,12 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "execution_topology_manifest.json",
 );
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
-export const checkScheduleSchemaID = "cartulary.check_schedule.v11";
-export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v10";
+export const checkScheduleSchemaID = "cartulary.check_schedule.v12";
+export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v11";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
 export const makeTargetBaselineSchemaID =
-  "cartulary.scheduler_work_unit_duration_baselines.v1";
+  "cartulary.scheduler_work_unit_duration_baselines.v2";
+const defaultCheckWorkUnitWeightMs = 10_000;
 
 const validDependencyCategories = new Set(["backend", "frontend", "browser"]);
 const validShardModes = new Set(["none", "go_shards"]);
@@ -434,11 +435,11 @@ function normalizeCheckScheduleRoot(topology, taskTargets) {
   }
 
   const priorityBands = new Map();
-  for (const [name, weight] of Object.entries(rawPriorityBands)) {
+  for (const [name, priority] of Object.entries(rawPriorityBands)) {
     const bandName = requireString(name, "check_schedules.defaults.priority_bands key");
     priorityBands.set(
       bandName,
-      requirePositiveInteger(weight, `check_schedules.defaults.priority_bands.${bandName}`),
+      requirePositiveInteger(priority, `check_schedules.defaults.priority_bands.${bandName}`),
     );
   }
 
@@ -609,9 +610,9 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         );
       }
       usedOrders.set(orderKey, target);
-      const weight = priorityBase - metadata.order;
-      if (weight < 1) {
-        throw new Error(`${target}.check_schedule order ${metadata.order} exhausts ${metadata.priorityBand} weight`);
+      const priority = priorityBase - metadata.order;
+      if (priority < 1) {
+        throw new Error(`${target}.check_schedule order ${metadata.order} exhausts ${metadata.priorityBand} priority`);
       }
       const claims = normalizeResourceClaims(profile.resourceClaims, `${target}.check_schedule profile ${profile.name}`, resourceLimits, {
         scheduler: "check",
@@ -628,7 +629,8 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
       }
       const unit = {
         target,
-        weight,
+        priority,
+        weight_ms: defaultCheckWorkUnitWeightMs,
         needs: clone(metadata.needs),
         ...(metadata.expandedNeeds.length > 0 ? { expanded_needs: clone(metadata.expandedNeeds) } : {}),
         ...(metadata.producesSummaryTargets.length > 0
@@ -647,10 +649,14 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
     assertAcyclicUnits(schedule.target, units);
     units.sort(
       (left, right) =>
-        right.weight - left.weight || left.order - right.order || left.target.localeCompare(right.target),
+        right.priority - left.priority ||
+        right.weight_ms - left.weight_ms ||
+        left.order - right.order ||
+        left.target.localeCompare(right.target),
     );
     return {
       target: schedule.target,
+      scheduler_kind: "check",
       capacity_profile: schedule.capacityProfile,
       resource_limits: clone(schedule.resourceLimits),
       summary_groups: clone(schedule.summaryGroups),

@@ -301,10 +301,10 @@ export function topWeightedUnits(workUnits, limit = 5) {
   return [...workUnits]
     .sort(
       (left, right) =>
-        right.weight - left.weight || left.label.localeCompare(right.label),
+        right.weightMs - left.weightMs || left.label.localeCompare(right.label),
     )
     .slice(0, limit)
-    .map((unit) => `${unit.label}:${unit.weight}`)
+    .map((unit) => `${unit.label}:${unit.weightMs}`)
     .join(",");
 }
 
@@ -517,6 +517,7 @@ export function schedulerSummaryLine({
   total,
   failed,
   failureClass = null,
+  failureReason = null,
   skipped = 0,
   finalizerFailures = 0,
   totalWallTimeMs = null,
@@ -526,7 +527,8 @@ export function schedulerSummaryLine({
   const fields = [
     `target=${target}`,
     `status=${status}`,
-    status === "pass" ? null : `failure_class=${failureClass ?? "helper"}`,
+    status === "pass" ? null : `failure_class=${failureClass ?? "harness"}`,
+    status === "pass" ? null : `reason=${failureReason ?? "unknown_failure"}`,
     `work_units=${completed}/${total}`,
     Number.isFinite(totalWallTimeMs)
       ? `total_wall_time=${formatDurationMs(totalWallTimeMs)}`

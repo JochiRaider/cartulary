@@ -139,8 +139,8 @@ if (summary.scheduler_kind !== "check") {
 if (summary.status !== expectedStatus) {
   throw new Error(`summary status got ${summary.status} want ${expectedStatus}`);
 }
-if (expectedStatus === "fail" && summary.failure_class !== "helper") {
-  throw new Error(`summary failure_class got ${summary.failure_class} want helper`);
+if (expectedStatus === "fail" && summary.failure_class !== "harness") {
+  throw new Error(`summary failure_class got ${summary.failure_class} want harness`);
 }
 if (expectedStatus === "pass" && summary.failure_class !== null) {
   throw new Error(`passing summary failure_class got ${summary.failure_class}`);
@@ -258,12 +258,12 @@ if (events[0]?.event !== "scheduler-start") {
 if (events[events.length - 1]?.event !== "scheduler-finish") {
   throw new Error(`final scheduler event got ${events[events.length - 1]?.event} want scheduler-finish`);
 }
-if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v5")) {
+if (!events.every((event) => event.schema_id === "cartulary.scheduler_event.v6")) {
   throw new Error("unexpected scheduler event schema");
 }
 events.forEach((event, index) => {
-  if (event.event_sequence !== index + 1) {
-    throw new Error(`event ${index} sequence got ${event.event_sequence} want ${index + 1}`);
+  if (event.seq !== index + 1) {
+    throw new Error(`event ${index} sequence got ${event.seq} want ${index + 1}`);
   }
   if (!Number.isInteger(event.monotonic_ms) || event.monotonic_ms < 0) {
     throw new Error(`event ${index} missing monotonic_ms`);
@@ -271,8 +271,8 @@ events.forEach((event, index) => {
   if (index > 0 && event.monotonic_ms < events[index - 1].monotonic_ms) {
     throw new Error(`event ${index} monotonic_ms regressed`);
   }
-  if (typeof event.wall_timestamp !== "string" || Number.isNaN(Date.parse(event.wall_timestamp))) {
-    throw new Error(`event ${index} missing wall_timestamp`);
+  if (typeof event.emitted_at !== "string" || Number.isNaN(Date.parse(event.emitted_at))) {
+    throw new Error(`event ${index} missing emitted_at`);
   }
   if (Object.hasOwn(event, "timestamp")) {
     throw new Error(`event ${index} must not emit legacy timestamp`);
@@ -397,7 +397,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v1") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v2") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {
@@ -612,12 +612,12 @@ write_nested_scheduler_progress() {
   local nested_dir="${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
   mkdir -p "$nested_dir"
   if [[ "$target" == "partial-service" ]]; then
-    printf '{"schema_id":"cartulary.service_backed_scheduler_event.v5","target":"partial-service","event":"progress","event_sequence":1,"monotonic_ms":1,"wall_timestamp":"2026-01-01T00:00:00.001Z"' >"${nested_dir}/scheduler-events.jsonl"
+    printf '{"schema_id":"cartulary.scheduler_event.v6","target":"partial-service","event":"progress","seq":1,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z"' >"${nested_dir}/scheduler-events.jsonl"
     return 0
   fi
   {
     printf 'not-json-diagnostic\n'
-    printf '%s\n' '{"schema_id":"cartulary.service_backed_scheduler_event.v5","target":"service","event":"progress","event_sequence":1,"monotonic_ms":1,"wall_timestamp":"2026-01-01T00:00:00.001Z","pending":2,"running":1,"total_work_units":6,"blocked":2,"completed":3,"pending_finalizers":0,"running_finalizers":0,"blocked_reason":"resources","blocked_resources":["go_io"],"waiting_on":["backend-store"],"blocked_units":[],"active_resource_claims":{"go_cpu":1},"resource_limits":{"go_cpu":1,"go_io":1},"active_groups":{"backend-integration":1},"blocked_by":["go_io"],"unblocks_after":"backend-integration/shard-a","slowest_running":{"label":"backend-integration/shard-a","duration_ms":1234}}'
+    printf '%s\n' '{"schema_id":"cartulary.scheduler_event.v6","target":"service","event":"progress","seq":1,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z","pending":2,"running":1,"total_work_units":6,"blocked":2,"completed":3,"pending_finalizers":0,"running_finalizers":0,"blocked_reason":"resources","blocked_resources":["go_io"],"waiting_on":["backend-store"],"blocked_units":[],"active_resource_claims":{"go_cpu":1},"resource_limits":{"go_cpu":1,"go_io":1},"active_groups":{"backend-integration":1},"blocked_by":["go_io"],"unblocks_after":"backend-integration/shard-a","slowest_running":{"label":"backend-integration/shard-a","duration_ms":1234}}'
   } >"${nested_dir}/scheduler-events.jsonl"
 }
 
@@ -685,7 +685,7 @@ write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"
 cat >"$smoke_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -695,9 +695,9 @@ cat >"$smoke_manifest" <<'JSON'
         { "name": "check-work", "summary_targets": ["local", "meta"] }
       ],
       "work_units": [
-        { "target": "setup", "weight": 30, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "local", "weight": 20, "needs": ["setup"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "meta", "weight": 10, "needs": ["setup"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "setup", "weight_ms": 30, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "local", "weight_ms": 20, "needs": ["setup"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "meta", "weight_ms": 10, "needs": ["setup"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -888,25 +888,25 @@ event_order_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-event-order.XXXXXX")"
 cleanup_paths+=("$event_order_dir")
 mkdir -p "${event_order_dir}/valid/check" "${event_order_dir}/sequence/check" "${event_order_dir}/monotonic/check" "${event_order_dir}/wall/check" "${event_order_dir}/skew/check"
 cat >"${event_order_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":2,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:00.005Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
 JSONL
 cat >"${event_order_dir}/sequence/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":3,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:00.005Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
 JSONL
 cat >"${event_order_dir}/monotonic/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":10,"wall_timestamp":"2026-01-01T00:00:00.010Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":2,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:00.005Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":10,"emitted_at":"2026-01-01T00:00:00.010Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:00.005Z"}
 JSONL
 cat >"${event_order_dir}/wall/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:02.000Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":2,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:01.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:02.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":2,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:01.000Z"}
 JSONL
 cat >"${event_order_dir}/skew/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:02.000Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"clock-skew","event_sequence":2,"monotonic_ms":1,"wall_timestamp":"2026-01-01T00:00:03.000Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":3,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:01.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:02.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"clock-skew","seq":2,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:03.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:01.000Z"}
 JSONL
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.mjs" "${event_order_dir}/valid" 2>&1)" "scheduler event order verified" "valid scheduler event order drift fixture"
 set +e
@@ -918,19 +918,19 @@ wall_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.
 wall_status=$?
 set -e
 assert_equals "$sequence_status" "1" "event sequence drift fixture status"
-assert_contains "$sequence_output" "event_sequence got 3, want 2" "event sequence drift fixture output"
+assert_contains "$sequence_output" "seq got 3, want 2" "event sequence drift fixture output"
 assert_equals "$monotonic_status" "1" "monotonic drift fixture status"
 assert_contains "$monotonic_output" "monotonic_ms regressed" "monotonic drift fixture output"
 assert_equals "$wall_status" "1" "wall drift fixture status"
-assert_contains "$wall_output" "wall_timestamp regressed without preceding clock-skew marker" "wall drift fixture output"
+assert_contains "$wall_output" "emitted_at regressed without preceding clock-skew marker" "wall drift fixture output"
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.mjs" "${event_order_dir}/skew" 2>&1)" "scheduler event order verified" "clock skew marker drift fixture"
 
 summary_timing_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-summary-timing.XXXXXX")"
 cleanup_paths+=("$summary_timing_dir")
 mkdir -p "${summary_timing_dir}/valid/check" "${summary_timing_dir}/stale/check"
 cat >"${summary_timing_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-finish","event_sequence":2,"monotonic_ms":120000,"wall_timestamp":"2026-01-01T00:02:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-finish","seq":2,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z"}
 JSONL
 cat >"${summary_timing_dir}/valid/check/scheduler-summary.json" <<'JSON'
 {
@@ -962,7 +962,7 @@ cat >"${summary_timing_dir}/valid/check/target-summary.json" <<'JSON'
 JSON
 cat >"${summary_timing_dir}/valid/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v1",
+  "schema_id": "cartulary.tool_run_summary.v2",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:00.000Z",
@@ -986,7 +986,7 @@ cat >"${summary_timing_dir}/valid/run-summary.json" <<'JSON'
 JSON
 cat >"${summary_timing_dir}/valid/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v1",
+  "schema_id": "cartulary.tool_run_summary.v2",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:00.000Z",
@@ -1004,7 +1004,7 @@ cp "${summary_timing_dir}/valid/check/target-summary.json" "${summary_timing_dir
 cp "${summary_timing_dir}/valid/run-summary.json" "${summary_timing_dir}/stale/run-summary.json"
 cat >"${summary_timing_dir}/stale/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v1",
+  "schema_id": "cartulary.tool_run_summary.v2",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:01:10.000Z",
@@ -1020,12 +1020,12 @@ cp "${summary_timing_dir}/valid/tool-run-summary.json" "${summary_timing_dir}/st
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" "${summary_timing_dir}/valid" 2>&1)" "scheduler summary timing verified" "valid scheduler summary timing fixture"
 mkdir -p "${summary_timing_dir}/critical/linked/check" "${summary_timing_dir}/critical/unlinked/check"
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":2,"monotonic_ms":1,"wall_timestamp":"2026-01-01T00:00:00.001Z","work_unit_id":"setup","work_unit":"setup"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":3,"monotonic_ms":50000,"wall_timestamp":"2026-01-01T00:00:50.000Z","work_unit_id":"setup","work_unit":"setup","status":0,"duration_ms":50000}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":4,"monotonic_ms":50000,"wall_timestamp":"2026-01-01T00:00:50.000Z","work_unit_id":"build","work_unit":"build"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":5,"monotonic_ms":120000,"wall_timestamp":"2026-01-01T00:02:00.000Z","work_unit_id":"build","work_unit":"build","status":0,"duration_ms":70000}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-finish","event_sequence":6,"monotonic_ms":120000,"wall_timestamp":"2026-01-01T00:02:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":2,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:00.001Z","work_unit_id":"setup","work_unit":"setup"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":50000,"emitted_at":"2026-01-01T00:00:50.000Z","work_unit_id":"setup","work_unit":"setup","status":0,"duration_ms":50000}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":4,"monotonic_ms":50000,"emitted_at":"2026-01-01T00:00:50.000Z","work_unit_id":"build","work_unit":"build"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":5,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z","work_unit_id":"build","work_unit":"build","status":0,"duration_ms":70000}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-finish","seq":6,"monotonic_ms":120000,"emitted_at":"2026-01-01T00:02:00.000Z"}
 JSONL
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-summary.json" <<'JSON'
 {
@@ -1085,10 +1085,10 @@ parent_work_unit_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-parent-work-unit.XX
 cleanup_paths+=("$parent_work_unit_dir")
 mkdir -p "${parent_work_unit_dir}/stale/check" "${parent_work_unit_dir}/stale/check-service-backed"
 cat >"${parent_work_unit_dir}/stale/check/scheduler-events.jsonl" <<'JSONL'
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":2,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","work_unit_type":"make_target","aggregate_target":"check-service-backed","nested_scheduler":{"type":"service_backed","target":"check-service-backed"}}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":3,"monotonic_ms":121233,"wall_timestamp":"2026-01-01T00:02:01.233Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","status":0,"duration_ms":121233}
-{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"scheduler-finish","event_sequence":4,"monotonic_ms":121233,"wall_timestamp":"2026-01-01T00:02:01.233Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"start","seq":2,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","work_unit_type":"make_target","aggregate_target":"check-service-backed","nested_scheduler":{"type":"service_backed","target":"check-service-backed"}}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":121233,"emitted_at":"2026-01-01T00:02:01.233Z","work_unit_id":"check-service-backed","work_unit":"check-service-backed","status":0,"duration_ms":121233}
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-finish","seq":4,"monotonic_ms":121233,"emitted_at":"2026-01-01T00:02:01.233Z"}
 JSONL
 cat >"${parent_work_unit_dir}/stale/check/scheduler-summary.json" <<'JSON'
 {
@@ -1116,7 +1116,7 @@ cat >"${parent_work_unit_dir}/stale/check/target-summary.json" <<'JSON'
 JSON
 cat >"${parent_work_unit_dir}/stale/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v1",
+  "schema_id": "cartulary.tool_run_summary.v2",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:01.233Z",
@@ -1144,7 +1144,7 @@ cat >"${parent_work_unit_dir}/stale/check-service-backed/scheduler-summary.json"
   "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "check-service-backed",
   "status": "pass",
-  "scheduler_kind": "service-backed",
+  "scheduler_kind": "service_backed",
   "scheduler_started_monotonic_ms": 64292,
   "scheduler_completed_monotonic_ms": 121233,
   "scheduler_total_duration_ms": 56941,
@@ -1171,7 +1171,7 @@ cat >"${full_envelope_dir}/results/envelope/check-service-backed/scheduler-summa
   "schema_id": "cartulary.service_backed_scheduler_summary.v9",
   "target": "check-service-backed",
   "status": "pass",
-  "scheduler_kind": "service-backed",
+  "scheduler_kind": "service_backed",
   "scheduler_started_monotonic_ms": 0,
   "scheduler_completed_monotonic_ms": 56941,
   "scheduler_total_duration_ms": 56941,
@@ -1244,7 +1244,7 @@ check_auto_cpu="${check_auto_capacity%,*}"
 check_auto_io="${check_auto_capacity#*,}"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -1254,12 +1254,12 @@ cat >"$success_manifest" <<'JSON'
         { "name": "check-work", "summary_targets": ["local", "service", "meta"] }
       ],
       "work_units": [
-        { "target": "setup", "weight": 50, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "build", "weight": 40, "needs": ["setup"], "resource_claims": { "host_cpu": "limit" }, "make_jobs": "host_cpu" },
-        { "target": "local", "weight": 30, "needs": ["build"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "env": { "LINT_SHELL_STRICT": "1" } },
+        { "target": "setup", "weight_ms": 50, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "build", "weight_ms": 40, "needs": ["setup"], "resource_claims": { "host_cpu": "limit" }, "make_jobs": "host_cpu" },
+        { "target": "local", "weight_ms": 30, "needs": ["build"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "env": { "LINT_SHELL_STRICT": "1" } },
         {
           "target": "service",
-          "weight": 20,
+          "weight_ms": 20,
           "needs": ["build"],
           "produces_summary_targets": ["service"],
           "resource_claims": {
@@ -1269,7 +1269,7 @@ cat >"$success_manifest" <<'JSON'
           },
           "make_jobs": "host_cpu"
         },
-        { "target": "meta", "weight": 10, "needs": ["build"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "meta", "weight_ms": 10, "needs": ["build"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -1308,7 +1308,7 @@ write_fake_make "$browser_auto_dir"
 browser_auto_manifest="${browser_auto_dir}/manifest.json"
 cat >"$browser_auto_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -1328,10 +1328,10 @@ cat >"$browser_auto_manifest" <<'JSON'
         { "name": "browser", "summary_targets": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] }
       ],
       "work_units": [
-        { "target": "browser-e2e-webserver-backed", "weight": 40, "needs": [], "produces_summary_targets": ["browser-e2e-webserver-backed"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 }, "make_jobs": "host_cpu" },
-        { "target": "browser-e2e-stateful", "weight": 30, "needs": [], "produces_summary_targets": ["browser-e2e-stateful"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 }, "make_jobs": "host_cpu" },
-        { "target": "browser-e2e-measurement", "weight": 20, "needs": [], "produces_summary_targets": ["browser-e2e-measurement"], "resource_claims": { "host_cpu": "limit", "host_io": "limit", "process": "limit", "browser_stack": "limit", "browser_stage_measurement": 1 }, "make_jobs": "host_cpu" },
-        { "target": "browser-e2e-visual", "weight": 10, "needs": [], "produces_summary_targets": ["browser-e2e-visual"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_visual": 1 }, "make_jobs": "host_cpu" }
+        { "target": "browser-e2e-webserver-backed", "weight_ms": 40, "needs": [], "produces_summary_targets": ["browser-e2e-webserver-backed"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 }, "make_jobs": "host_cpu" },
+        { "target": "browser-e2e-stateful", "weight_ms": 30, "needs": [], "produces_summary_targets": ["browser-e2e-stateful"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 }, "make_jobs": "host_cpu" },
+        { "target": "browser-e2e-measurement", "weight_ms": 20, "needs": [], "produces_summary_targets": ["browser-e2e-measurement"], "resource_claims": { "host_cpu": "limit", "host_io": "limit", "process": "limit", "browser_stack": "limit", "browser_stage_measurement": 1 }, "make_jobs": "host_cpu" },
+        { "target": "browser-e2e-visual", "weight_ms": 10, "needs": [], "produces_summary_targets": ["browser-e2e-visual"], "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1, "browser_stack": 1, "browser_stage_visual": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -1368,7 +1368,7 @@ write_fake_make "$priority_reservation_dir"
 priority_reservation_manifest="${priority_reservation_dir}/manifest.json"
 cat >"$priority_reservation_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -1377,10 +1377,10 @@ cat >"$priority_reservation_manifest" <<'JSON'
         { "name": "priority-reservation", "summary_targets": ["alpha", "build-server", "low-cpu", "low-io"] }
       ],
       "work_units": [
-        { "target": "alpha", "weight": 50, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "build-server", "weight": 40, "needs": [], "produces_summary_targets": ["build-server"], "resource_claims": { "host_cpu": 2 }, "make_jobs": "host_cpu" },
-        { "target": "low-cpu", "weight": 30, "needs": [], "produces_summary_targets": ["low-cpu"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "low-io", "weight": 20, "needs": [], "produces_summary_targets": ["low-io"], "resource_claims": { "host_io": 1 }, "make_jobs": 1 }
+        { "target": "alpha", "weight_ms": 50, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "build-server", "weight_ms": 40, "needs": [], "produces_summary_targets": ["build-server"], "resource_claims": { "host_cpu": 2 }, "make_jobs": "host_cpu" },
+        { "target": "low-cpu", "weight_ms": 30, "needs": [], "produces_summary_targets": ["low-cpu"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "low-io", "weight_ms": 20, "needs": [], "produces_summary_targets": ["low-io"], "resource_claims": { "host_io": 1 }, "make_jobs": 1 }
       ]
     }
   ]
@@ -1419,7 +1419,7 @@ write_fake_make "$scheduler_priority_dir"
 scheduler_priority_manifest="${scheduler_priority_dir}/manifest.json"
 cat >"$scheduler_priority_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -1428,8 +1428,8 @@ cat >"$scheduler_priority_manifest" <<'JSON'
         { "name": "scheduler-priority", "summary_targets": ["alpha", "beta"] }
       ],
       "work_units": [
-        { "target": "alpha", "scheduler_priority": 0, "weight": 100, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "beta", "scheduler_priority": 10, "weight": 1, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "alpha", "priority": 0, "weight_ms": 100, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "beta", "priority": 10, "weight_ms": 1, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -1444,7 +1444,7 @@ const lines = fs.readFileSync(eventLog, "utf8").trim().split(/\n/).filter(Boolea
 const startBeta = lines.findIndex((line) => line.startsWith("start beta "));
 const startAlpha = lines.findIndex((line) => line.startsWith("start alpha "));
 if (startBeta === -1 || startAlpha === -1 || startBeta > startAlpha) {
-  throw new Error(`scheduler_priority must outrank duration weight, got\n${lines.join("\n")}`);
+  throw new Error(`priority must outrank duration weight, got\n${lines.join("\n")}`);
 }
 EOF
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
@@ -1605,7 +1605,7 @@ write_fake_make "$blocker_clarity_dir"
 blocker_clarity_manifest="${blocker_clarity_dir}/manifest.json"
 cat >"$blocker_clarity_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -1614,9 +1614,9 @@ cat >"$blocker_clarity_manifest" <<'JSON'
         { "name": "blocker-clarity", "summary_targets": ["alpha", "beta", "meta"] }
       ],
       "work_units": [
-        { "target": "alpha", "weight": 3, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "beta", "weight": 2, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "meta", "weight": 1, "needs": ["alpha"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "alpha", "weight_ms": 3, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "beta", "weight_ms": 2, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "meta", "weight_ms": 1, "needs": ["alpha"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -1657,13 +1657,13 @@ write_fake_make "$success_budget_dir"
 success_budget_manifest="${success_budget_dir}/manifest.json"
 cat >"$success_budget_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
       "resource_limits": { "host_cpu": 1 },
       "work_units": [
-        { "target": "alpha", "weight": 1, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "alpha", "weight_ms": 1, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -1686,7 +1686,7 @@ write_fake_make "$split_lane_dir"
 split_lane_manifest="${split_lane_dir}/manifest.json"
 cat >"$split_lane_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -1702,14 +1702,14 @@ cat >"$split_lane_manifest" <<'JSON'
       "work_units": [
         {
           "target": "build-migrate",
-          "weight": 30,
+          "weight_ms": 30,
           "needs": [],
           "resource_claims": { "host_cpu": 1 },
           "make_jobs": "host_cpu"
         },
         {
           "target": "check-service-backed",
-          "weight": 20,
+          "weight_ms": 20,
           "needs": ["build-migrate"],
           "produces_summary_targets": ["check-service-backed"],
           "resource_claims": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
@@ -1717,7 +1717,7 @@ cat >"$split_lane_manifest" <<'JSON'
         },
         {
           "target": "migration-drift",
-          "weight": 10,
+          "weight_ms": 10,
           "needs": ["build-migrate"],
           "produces_summary_targets": ["migration-drift"],
           "resource_claims": { "host_cpu": 1, "host_io": 1, "migration_scratch_postgres": 1 },
@@ -1774,7 +1774,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -1782,7 +1782,7 @@ cat >"$partial_manifest" <<'JSON'
       "work_units": [
         {
           "target": "partial-service",
-          "weight": 1,
+          "weight_ms": 1,
           "needs": [],
           "produces_summary_targets": ["partial-service"],
           "resource_claims": { "host_cpu": 1, "host_io": 1 },
@@ -1803,13 +1803,13 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
       "resource_limits": { "host_cpu": 1 },
       "work_units": [
-        { "target": "alpha", "weight": 1, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "alpha", "weight_ms": 1, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -1832,16 +1832,16 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
       "resource_limits": { "host_cpu": 2, "suite_service_stack": 1 },
       "work_units": [
-        { "target": "alpha", "weight": 30, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "beta", "weight": 20, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "gamma", "weight": 10, "needs": [], "produces_summary_targets": ["gamma", "external-summary"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "delta", "weight": 5, "needs": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "alpha", "weight_ms": 30, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "beta", "weight_ms": 20, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "gamma", "weight_ms": 10, "needs": [], "produces_summary_targets": ["gamma", "external-summary"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "delta", "weight_ms": 5, "needs": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -1861,7 +1861,7 @@ assert_contains "$failure_output" "fake failure for beta" "failure child output"
 assert_contains "$failure_output" "[FAIL] target=check" "failure summary"
 assert_occurrences "$failure_output" "[FAIL] target=check" "1" "failure single check failure block"
 assert_contains "$failure_output" "[SUMMARY] target=check status=fail" "failure scheduler status summary"
-assert_contains "$failure_output" "failure_class=helper" "failure scheduler class output"
+assert_contains "$failure_output" "failure_class=harness" "failure scheduler class output"
 assert_contains "$failure_output" " total_wall_time=" "failure scheduler wall time output"
 assert_contains "$failure_output" "failed=beta" "failure scheduler failed work unit"
 failure_events="$(cat "${failure_dir}/events.log")"
@@ -1874,7 +1874,7 @@ assert_equals "$(json_field "$failure_summary" "status")" "fail" "failure summar
 assert_file_present "$failure_target_summary" "failure check target summary"
 assert_equals "$(json_field "$failure_target_summary" "target")" "check" "failure check target summary identity"
 assert_equals "$(json_field "$failure_target_summary" "status")" "fail" "failure check target summary status"
-assert_equals "$(json_field "$failure_summary" "failure_class")" "helper" "failure summary class"
+assert_equals "$(json_field "$failure_summary" "failure_class")" "harness" "failure summary class"
 assert_equals "$(json_field "$failure_summary" "work_units.aborted_after")" "beta" "failure aborted after"
 assert_equals "$(json_field "$failure_summary" "summary_targets.skipped_after_failure.0")" "gamma" "failure skipped target"
 assert_equals "$(json_field "$failure_summary" "summary_targets.skipped_after_failure.1")" "external-summary" "failure skipped mapped summary target"
@@ -1887,13 +1887,13 @@ if (summary.summary_targets.missing.includes("external-summary")) {
 }
 EOF
 failure_scheduler_summary="${failure_dir}/results/failure/check/scheduler-summary.json"
-assert_equals "$(json_field "$failure_scheduler_summary" "failure_class")" "helper" "failure scheduler summary class"
+assert_equals "$(json_field "$failure_scheduler_summary" "failure_class")" "harness" "failure scheduler summary class"
 FAILURE_OUTPUT="$failure_output" "$NODE_BIN" - "$failure_scheduler_summary" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const output = process.env.FAILURE_OUTPUT ?? "";
-const match = output.match(/\[SUMMARY\] target=check status=fail failure_class=helper work_units=\d+\/4 total_wall_time=([0-9]+\.[0-9]{2}s) failed=beta/);
+const match = output.match(/\[SUMMARY\] target=check status=fail failure_class=harness reason=unknown_failure work_units=\d+\/4 total_wall_time=([0-9]+\.[0-9]{2}s) failed=beta/);
 if (!match) {
   throw new Error("failure scheduler summary must include total_wall_time before failed");
 }
@@ -1952,7 +1952,7 @@ write_fake_make "$service_skip_dir"
 service_skip_manifest="${service_skip_dir}/manifest.json"
 cat >"$service_skip_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -1961,19 +1961,19 @@ cat >"$service_skip_manifest" <<'JSON'
         { "name": "check-work", "summary_targets": ["lint-biome", "check-service-backed"] }
       ],
       "work_units": [
-        { "target": "setup", "weight": 110, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "lint-biome", "weight": 100, "needs": ["setup"], "produces_summary_targets": ["lint-biome"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "backend-store", "weight": 80, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
-        { "target": "backend-integration", "weight": 70, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
-        { "target": "backend-integration-support", "weight": 60, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
-        { "target": "backend-process", "weight": 50, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
-        { "target": "browser-e2e-webserver-backed", "weight": 40, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
-        { "target": "browser-e2e-stateful", "weight": 30, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
-        { "target": "browser-e2e-measurement", "weight": 20, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
-        { "target": "browser-e2e-visual", "weight": 10, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "setup", "weight_ms": 110, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "lint-biome", "weight_ms": 100, "needs": ["setup"], "produces_summary_targets": ["lint-biome"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "backend-store", "weight_ms": 80, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "backend-integration", "weight_ms": 70, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "backend-integration-support", "weight_ms": 60, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "backend-process", "weight_ms": 50, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-webserver-backed", "weight_ms": 40, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-stateful", "weight_ms": 30, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-measurement", "weight_ms": 20, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-visual", "weight_ms": 10, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         {
           "target": "check-service-backed",
-          "weight": 1,
+          "weight_ms": 1,
           "needs": [
             "backend-store",
             "backend-integration",
@@ -2044,7 +2044,7 @@ chmod +x "${service_no_lease_dir}/fake-test-services"
 service_no_lease_manifest="${service_no_lease_dir}/manifest.json"
 cat >"$service_no_lease_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -2058,7 +2058,7 @@ cat >"$service_no_lease_manifest" <<'JSON'
           "kind": "service_session",
           "target": "service-no-lease-suite",
           "label": "service-no-lease-suite/service-session",
-          "weight": 10,
+          "weight_ms": 10,
           "needs": [],
           "completion_keys": ["service_session:service-no-lease-suite"],
           "resource_claims": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
@@ -2070,7 +2070,7 @@ cat >"$service_no_lease_manifest" <<'JSON'
           "kind": "service_complete",
           "target": "service-no-lease-suite",
           "label": "service-no-lease-suite/complete",
-          "weight": 1,
+          "weight_ms": 1,
           "needs": ["service_session:service-no-lease-suite"],
           "completion_keys": ["service-no-lease-suite"],
           "failure_keys": ["service-no-lease-suite"],
@@ -2106,13 +2106,13 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
       "resource_limits": { "host_cpu": 1 },
       "work_units": [
-        { "target": "alpha", "weight": 1, "needs": ["missing"], "resource_claims": { "host_cpu": 1 } }
+        { "target": "alpha", "weight_ms": 1, "needs": ["missing"], "resource_claims": { "host_cpu": 1 } }
       ]
     }
   ]
@@ -2128,13 +2128,13 @@ assert_contains "$invalid_output" "depends on unknown completion key missing" "i
 invalid_env_manifest="${invalid_dir}/invalid-env-manifest.json"
 cat >"$invalid_env_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
       "resource_limits": { "host_cpu": 1 },
       "work_units": [
-        { "target": "alpha", "weight": 1, "env": { "CARTULARY_TEST_TARGET": "beta" }, "resource_claims": { "host_cpu": 1 } }
+        { "target": "alpha", "weight_ms": 1, "env": { "CARTULARY_TEST_TARGET": "beta" }, "resource_claims": { "host_cpu": 1 } }
       ]
     }
   ]
@@ -2150,7 +2150,7 @@ assert_contains "$invalid_env_output" "env.CARTULARY_TEST_TARGET is scheduler-ow
 invalid_retained_manifest="${invalid_dir}/invalid-retained-manifest.json"
 cat >"$invalid_retained_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -2158,7 +2158,7 @@ cat >"$invalid_retained_manifest" <<'JSON'
       "work_units": [
         {
           "target": "service",
-          "weight": 1,
+          "weight_ms": 1,
           "needs": [],
           "resource_claims": { "host_cpu": 1 },
           "retained_resource_claims": { "host_io": 1 }
@@ -2178,7 +2178,7 @@ assert_contains "$invalid_retained_output" "resource_claims entry host_io is not
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v11",
+  "schema_id": "cartulary.check_schedule.v12",
   "schedules": [
     {
       "target": "check",
@@ -2186,7 +2186,7 @@ cat >"$invalid_bounded_manifest" <<'JSON'
       "work_units": [
         {
           "target": "alpha",
-          "weight": 1,
+          "weight_ms": 1,
           "needs": [],
           "resource_claims": {
             "host_cpu": { "mode": "bounded_limit", "reserve": 1, "min": 1, "max": 2, "legacy": true }

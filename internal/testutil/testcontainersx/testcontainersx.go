@@ -157,14 +157,14 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 		preflightTimeout = DefaultPreflightTimeout
 	}
 
-	retryBackoff := config.RetryBackoff
-	if retryBackoff <= 0 {
-		retryBackoff = DefaultRetryBackoff
-	}
-
 	maxAttempts := config.MaxAttempts
 	if maxAttempts <= 0 {
-		maxAttempts = DefaultMaxAttempts
+		maxAttempts = 1
+	}
+
+	retryBackoff := config.RetryBackoff
+	if maxAttempts > 1 && retryBackoff <= 0 {
+		return zero, errors.New("testcontainersx: retry backoff is required when max attempts is greater than 1")
 	}
 
 	preflightStart := time.Now().UTC()
