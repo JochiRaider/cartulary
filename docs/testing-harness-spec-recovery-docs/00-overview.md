@@ -87,6 +87,7 @@ The recovery must produce or update these artifacts in the target repository.
 | `TODO: ambiguity_register` | Open gaps, contradictions, missing defaults, and owner decisions. |
 | `TODO: preservation_matrix` | Preserve, clarify, refactor, deprecate, redesign, remove, and authority-decision classifications. |
 | `TODO: harness_authority_map` | Relationship between main spec, harness spec, implementation, tests, fixtures, CI, reports, and local policy. |
+| `s0-s6-gap-closure-plan.md` | S0 through S6 gap closure, source-limit carry-forward, authority questions, minimal execution order, and S7 readiness criteria. |
 | `TODO: harness_nlspec_draft_path` | Dedicated testing harness NLSpec draft. |
 | `TODO: acceptance_matrix` | Binary acceptance criteria for every normative harness requirement. |
 | `TODO: harness_roadmap` | Future implementation remediation plan. |

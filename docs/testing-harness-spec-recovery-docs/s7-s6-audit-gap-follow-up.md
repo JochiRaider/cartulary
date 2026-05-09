@@ -22,10 +22,16 @@ runtime guarantees. The default S7 posture is:
 This track implements the follow-up plan for the S6 audit verdict
 `pass_with_source_limits_preserved`.
 
+Companion preflight input: `s0-s6-gap-closure-plan.md` consolidates S0 through
+S6 completion evidence, remaining source limits, open owner questions, and
+readiness criteria. S7 must use it together with this S6-focused follow-up
+track before drafting normative harness requirements.
+
 ## Scope and Non-Scope
 
 In scope:
 
+- S0 through S6 readiness criteria from `s0-s6-gap-closure-plan.md`.
 - S7 drafting rules for carrying S6 source limits and owner questions forward.
 - A grouped inventory of remaining S6 gaps.
 - Later evidence-collection phases and scenarios, all marked as requiring
@@ -64,6 +70,7 @@ runtime behavior owner.
 
 | Gap group | Controlling rows | Remaining gap | S7 handling |
 |---|---|---|---|
+| S0-S6 closure preflight | `s0-s6-gap-closure-plan.md`, S0-S6 handoffs and audits | S0-S6 are complete only if source limits, named TODOs, and owner questions remain preserved. | Use the closure plan as the S7 preflight gate before drafting requirements. |
 | Runtime readiness and services | `SL-0012`, `SL-FU-0001`, `RTR-0004`, `SVC-0001..SVC-0015` | Live Docker/testcontainers, Postgres, MinIO, Compose, browser stack, service-backed targets, reset route, and readiness behavior remain unobserved. | Draft as source-observed lifecycle and keep live behavior `source_limit` unless later authorized evidence exists. |
 | Cleanup and timing guarantees | `SL-0014`, `SL-FU-0002`, `RTR-0007`, `RTR-0008`, `RTR-0012` | Timeout, interrupt, parent-death, detached reaper completion, active DB connection cleanup, stale janitor execution, and port release remain source-limited. | Do not claim guaranteed cleanup completion; distinguish cleanup path, cleanup scheduling, best effort, and verified completion. |
 | Artifact provenance | `SL-0004`, `SL-0009`, `SL-0010`, `SL-FU-0005`, `RTR-0016`, `PRES-0017` | Retained artifact freshness, failure-only bundles, and newest-run fallback need explicit selected-run provenance. | Normative or durable claims require explicit `RESULTS_DIR`, `RUN_ID`, command, platform/tool profile, and artifact paths. |
@@ -174,6 +181,8 @@ decisions exist:
 
 ## S7 Carry-Forward Checklist
 
+- [ ] Use `s0-s6-gap-closure-plan.md` as the S7 preflight gate for all S0
+      through S6 remaining gaps.
 - [ ] Carry `SL-0012..SL-0015`, `SL-FU-0001..SL-FU-0007`, and relevant
       `AMB-FU-*` rows into S7.
 - [ ] Mark runtime readiness and cleanup guarantees as source-limited unless

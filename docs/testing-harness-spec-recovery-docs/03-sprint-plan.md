@@ -657,6 +657,7 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 - Ambiguity register.
 - Preservation matrix.
 - Authority map.
+- `s0-s6-gap-closure-plan.md`.
 - `s7-s6-audit-gap-follow-up.md`.
 - Existing tests and CI.
 
@@ -715,19 +716,20 @@ Produce the harness NLSpec draft, acceptance matrix, roadmap, review packet, and
 ### Issues or concerns field
 
 S7 may start from the completed S0 through S6 and S8 recovery outputs plus
-`s7-s6-audit-gap-follow-up.md`. Runtime readiness, cleanup strength, retained
-artifact provenance, environment precedence, platform support, direct package
-scripts, local-dev services, external Go caches, visual snapshot update
-authority, and CI provider workflow behavior remain source-limited or
-maintainer-decision-required.
+`s0-s6-gap-closure-plan.md` and `s7-s6-audit-gap-follow-up.md`. Runtime
+readiness, cleanup strength, retained artifact provenance, environment
+precedence, platform support, direct package scripts, local-dev services,
+external Go caches, visual snapshot update authority, and CI provider workflow
+behavior remain source-limited or maintainer-decision-required.
 
 ### Findings or handoff notes for future sprints
 
-`s7-s6-audit-gap-follow-up.md` is the S7 carry-forward track for remaining S6
-audit gaps. S7 must not draft final normative `MUST` language for live
-readiness, cleanup completion, signal/timeout behavior, detached reaper
+`s0-s6-gap-closure-plan.md` is the S7 preflight closure artifact for all S0
+through S6 recovery gaps. `s7-s6-audit-gap-follow-up.md` remains the focused S6
+audit carry-forward track. S7 must not draft final normative `MUST` language for
+live readiness, cleanup completion, signal/timeout behavior, detached reaper
 completion, active DB cleanup, stale janitor deletion, port release, reset-route
-public status, env precedence, direct package scripts, local-dev Compose,
-visual snapshot updates, external Go cache cleanup, CI provider annotations, or
+public status, env precedence, direct package scripts, local-dev Compose, visual
+snapshot updates, external Go cache cleanup, CI provider annotations, or
 concrete scheduler capacity guarantees unless later authorized runtime evidence
 or explicit owner decisions exist.
