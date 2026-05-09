@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.fixture_report.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "results_dir",
+    "results_root",
+    "run_dir",
+    "run_id",
+    "threshold_ms",
+    "targets",
+    "aggregate"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.fixture_report.v1" },
+    "results_dir": { "type": "string", "minLength": 1 },
+    "results_root": { "type": "string", "minLength": 1 },
+    "run_dir": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "threshold_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+    "targets": { "type": "array", "items": { "$ref": "#/$defs/fixture_summary" } },
+    "aggregate": { "$ref": "#/$defs/fixture_summary" },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  },
+  "$defs": {
+    "fixture_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "total_count", "total_duration_ms", "by_package", "by_test", "by_strategy", "slowest"],
+      "properties": {
+        "target": { "type": "string", "minLength": 1 },
+        "total_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
+        "total_duration_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
+        "by_package": { "type": "array", "items": { "type": "object" } },
+        "by_test": { "type": "array", "items": { "type": "object" } },
+        "by_strategy": { "type": "array", "items": { "type": "object" } },
+        "slowest": { "type": "array", "items": { "type": "object" } }
+      }
+    }
+  }
+}

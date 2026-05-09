@@ -20,6 +20,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
+const testRuntimeResetToken = "0123456789abcdef0123456789abcdef"
+
 func TestTestRuntimeResetRouteDisabledByDefault(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-reset-disabled")
@@ -65,7 +67,9 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 		t.Fatalf("put reset proof object: %v", err)
 	}
 
-	resp := doTestRuntimeResetRequest(t, server.Client(), newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil))
+	requireTestRuntimeResetForbiddenOrInvalidRequests(t, server)
+
+	resp := doTestRuntimeResetRequest(t, server.Client(), authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil)))
 	body := requireTestRuntimeResetSuccessEnvelope(t, resp, http.StatusOK)
 	data := body["data"].(map[string]any)
 	if data["schema_id"] != testRuntimeResetSchemaID {
@@ -79,6 +83,9 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 	}
 	if data["object_count_removed"] != float64(1) || data["object_count_after"] != float64(0) {
 		t.Fatalf("unexpected object reset evidence: %#v", data)
+	}
+	if data["partial_failure"] != false {
+		t.Fatalf("reset success must not report partial failure: %#v", data)
 	}
 
 	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM goose_db_version`, beforeGooseVersions)
@@ -96,6 +103,34 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 	requireTestRuntimeResetErrorEnvelope(t, loginResp, http.StatusUnauthorized, "mfa_setup_required")
 }
 
+func TestTestRuntimeResetRouteRejectsConcurrentReset(t *testing.T) {
+	service := &testRuntimeResetService{token: testRuntimeResetToken}
+	service.resetMu.Lock()
+	defer service.resetMu.Unlock()
+
+	req := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, "/api/v1/test/runtime/reset", nil))
+	recorder := httptest.NewRecorder()
+	service.handleReset(recorder, req)
+
+	resp := recorder.Result()
+	requireTestRuntimeResetErrorEnvelope(t, resp, http.StatusConflict, "test_runtime_reset_in_progress")
+}
+
+func requireTestRuntimeResetForbiddenOrInvalidRequests(t testing.TB, server *httptest.Server) {
+	t.Helper()
+	missing := doTestRuntimeResetRequest(t, server.Client(), newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil))
+	requireTestRuntimeResetErrorEnvelope(t, missing, http.StatusForbidden, "test_route_forbidden")
+
+	wrong := newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil)
+	wrong.Header.Set(testRouteTokenHeader, "wrong-token-wrong-token-wrong-token")
+	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), wrong), http.StatusForbidden, "test_route_forbidden")
+
+	invalidBody := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", map[string]any{
+		"unexpected": true,
+	}))
+	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), invalidBody), http.StatusBadRequest, "invalid_test_reset_request")
+}
+
 func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar) (*app.Runtime, *httptest.Server) {
 	t.Helper()
 	effectiveEnv := make(map[string]string, len(env)+8)
@@ -107,6 +142,15 @@ func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []h
 		if _, exists := effectiveEnv[key]; !exists {
 			effectiveEnv[key] = value
 		}
+	}
+	if _, exists := effectiveEnv[testRoutesEnabledEnv]; !exists {
+		effectiveEnv[testRoutesEnabledEnv] = "1"
+	}
+	if _, exists := effectiveEnv[testRuntimeMarkerEnv]; !exists {
+		effectiveEnv[testRuntimeMarkerEnv] = testRuntimeMarkerValue
+	}
+	if _, exists := effectiveEnv[testRouteTokenEnv]; !exists {
+		effectiveEnv[testRouteTokenEnv] = testRuntimeResetToken
 	}
 	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv)
 
@@ -145,6 +189,11 @@ func newTestRuntimeResetJSONRequest(t testing.TB, method string, url string, bod
 		t.Fatalf("create request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
+func authorizeTestRuntimeResetRequest(req *http.Request) *http.Request {
+	req.Header.Set(testRouteTokenHeader, testRuntimeResetToken)
 	return req
 }
 

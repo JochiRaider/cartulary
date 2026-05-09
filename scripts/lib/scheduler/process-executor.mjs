@@ -1,5 +1,16 @@
 import { spawn } from "node:child_process";
 import { createReadStream, createWriteStream } from "node:fs";
+import { Transform } from "node:stream";
+
+import { redactString } from "../harness-contract.mjs";
+
+function redactionTransform() {
+  return new Transform({
+    transform(chunk, _encoding, callback) {
+      callback(null, redactString(chunk.toString()));
+    },
+  });
+}
 
 export function isDryRunFromMakeFlags(env = process.env) {
   const flags = ` ${env.MAKEFLAGS ?? ""} `;
@@ -63,8 +74,8 @@ export function runLifecycle(repoRoot, testOutputScript, args, stream = process.
       env,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    child.stdout.pipe(stream, { end: false });
-    child.stderr.pipe(process.stderr, { end: false });
+    child.stdout.pipe(redactionTransform()).pipe(stream, { end: false });
+    child.stderr.pipe(redactionTransform()).pipe(process.stderr, { end: false });
     child.stdout.on("end", () => {
       stdoutEnded = true;
       maybeSettle();
@@ -103,10 +114,10 @@ export function runCommand(repoRoot, command, args, logFile, env = process.env) 
       env,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    child.stdout.pipe(log, { end: false });
-    child.stderr.pipe(log, { end: false });
+    child.stdout.pipe(redactionTransform()).pipe(log, { end: false });
+    child.stderr.pipe(redactionTransform()).pipe(log, { end: false });
     child.on("error", (error) => {
-      log.write(`${error.message}\n`);
+      log.write(`${redactString(error.message)}\n`);
       finish(127);
     });
     child.on("close", (status) => {
@@ -120,6 +131,6 @@ export async function replayLog(file, stream) {
     const reader = createReadStream(file);
     reader.on("error", reject);
     reader.on("end", resolve);
-    reader.pipe(stream, { end: false });
+    reader.pipe(redactionTransform()).pipe(stream, { end: false });
   });
 }

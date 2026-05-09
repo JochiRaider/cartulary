@@ -22,6 +22,8 @@ WEB_LOG=""
 STACK_ENV_FILE=""
 STACK_JSON_FILE=""
 PLAYWRIGHT_STATE_DIR=""
+TEST_ROUTE_TOKEN=""
+TEST_ROUTE_TOKEN_FILE=""
 TEST_SERVICES_ENV_FILE=""
 TEST_SERVICES_METADATA_FILE=""
 E2E_DB=""
@@ -144,6 +146,7 @@ prepare_runtime_root() {
   E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
   TEST_SERVICES_ENV_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.env"
   TEST_SERVICES_METADATA_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.json"
+  TEST_ROUTE_TOKEN_FILE="${RUNTIME_ROOT_BASE}/test-route-token"
 
   mkdir -p \
     "${RUNTIME_ROOT_BASE}/database-storage" \
@@ -158,6 +161,24 @@ prepare_runtime_root() {
   export CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}"
   export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
   export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
+  export CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
+}
+
+generate_test_route_token() {
+  od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+}
+
+prepare_test_route_token() {
+  TEST_ROUTE_TOKEN="$(generate_test_route_token)"
+  if [[ -z "${TEST_ROUTE_TOKEN}" ]]; then
+    echo "failed to generate test route token" >&2
+    return 1
+  fi
+  local previous_umask
+  previous_umask="$(umask)"
+  umask 077
+  printf '%s\n' "${TEST_ROUTE_TOKEN}" >"${TEST_ROUTE_TOKEN_FILE}"
+  umask "${previous_umask}"
 }
 
 validate_port_number() {
@@ -247,6 +268,7 @@ CARTULARY_WEB_E2E_FRONTEND_PORT=${FRONTEND_PORT}
 CARTULARY_WEB_E2E_RUNTIME_ROOT=${RUNTIME_ROOT_BASE}
 CARTULARY_WEB_E2E_SERVER_LOG=${SERVER_LOG}
 CARTULARY_WEB_E2E_WEB_LOG=${WEB_LOG}
+CARTULARY_TEST_ROUTE_TOKEN_FILE=${TEST_ROUTE_TOKEN_FILE}
 EOF
 
   CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}" \
@@ -257,6 +279,7 @@ EOF
   CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
   CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
   CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
+  CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}" \
     "${node_bin}" <<'EOF'
 const fs = require("node:fs");
 
@@ -269,6 +292,7 @@ const payload = {
   runtime_root: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
   server_log: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
   web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
+  test_route_token_file: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
 };
 
 fs.writeFileSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`);
@@ -480,6 +504,7 @@ write_session_files() {
   CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
   CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
   CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
+  CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}" \
   CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
   CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
   CARTULARY_WEB_E2E_KEEP_RUNTIME_ROOT="${KEEP_RUNTIME_ROOT}" \
@@ -499,6 +524,7 @@ const env = {
   CARTULARY_WEB_E2E_RUNTIME_ROOT: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
   CARTULARY_WEB_E2E_SERVER_LOG: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
   CARTULARY_WEB_E2E_WEB_LOG: process.env.CARTULARY_WEB_E2E_WEB_LOG,
+  CARTULARY_TEST_ROUTE_TOKEN_FILE: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
 };
 const lease = {
   schema_id: "cartulary.web_e2e_session_lease.v1",
@@ -539,6 +565,7 @@ console.log(`FRONTEND_PORT=${q(lease.frontend_port)}`);
 console.log(`RUNTIME_ROOT_BASE=${q(lease.runtime_root)}`);
 console.log(`SERVER_LOG=${q(lease.server_log)}`);
 console.log(`WEB_LOG=${q(lease.web_log)}`);
+console.log(`CARTULARY_TEST_ROUTE_TOKEN_FILE=${q(lease.env?.CARTULARY_TEST_ROUTE_TOKEN_FILE)}`);
 console.log(`KEEP_RUNTIME_ROOT=${lease.keep_runtime_root ? "1" : "0"}`);
 console.log(`E2E_DB=${q(lease.e2e_db)}`);
 console.log(`TEST_SERVICES_METADATA_FILE=${q(lease.test_services_metadata_file)}`);
@@ -546,6 +573,7 @@ console.log(`CARTULARY_TEST_SERVICES_ACTIVE=${lease.test_services_active ? "1" :
 EOF
   )"
   export CARTULARY_TEST_SERVICES_ACTIVE
+  export CARTULARY_TEST_ROUTE_TOKEN_FILE
 }
 
 stop_session() {
@@ -768,6 +796,7 @@ main() {
   fi
 
   CARTULARY_PHASE_TIMING_BUCKET=setup run_phase_command "browser-e2e allocate ports" resolve_owned_stack_ports
+  CARTULARY_PHASE_TIMING_BUCKET=setup run_phase_command "browser-e2e prepare test route token" prepare_test_route_token
   run_timing_span "setup" "browser-e2e write stack metadata" write_stack_metadata
 
   CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services" browser_start_services
@@ -790,6 +819,8 @@ main() {
     CARTULARY_S3_OBJECT_PRIMARY_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE:-false}" \
     CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:-cartulary}" \
     CARTULARY_ENABLE_TEST_ROUTES=1 \
+    CARTULARY_TEST_RUNTIME_MARKER=harness-owned \
+    CARTULARY_TEST_ROUTE_TOKEN="${TEST_ROUTE_TOKEN}" \
     CARTULARY__ROOTS__BACKUP_STORAGE__PATH="${RUNTIME_ROOT_BASE}/backup-storage" \
     CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH="${RUNTIME_ROOT_BASE}/reference-pack-storage" \
     CARTULARY__ROOTS__TEMPORARY_WORK__PATH="${RUNTIME_ROOT_BASE}/temporary-work" \

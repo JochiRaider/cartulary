@@ -1,6 +1,10 @@
 import path from "node:path";
 
 import {
+  redactValue,
+  resolveOutputMode as resolveHarnessOutputMode,
+} from "./harness-contract.mjs";
+import {
   defaultReasonForFailureClass,
   failureClassOrder,
   failureReasonOrder,
@@ -14,30 +18,12 @@ export const failureClasses = failureClassOrder;
 export const failureReasons = failureReasonOrder;
 
 export function normalizeOutputMode(env = process.env) {
-  if (env.VERBOSE === "1" || env.CI_VERBOSE === "1") {
-    return "verbose";
-  }
-  const raw = String(env.CARTULARY_OUTPUT_MODE || "summary").trim();
-  switch (raw) {
-    case "":
-    case "quiet":
-    case "summary":
-      return "summary";
-    case "normal":
-    case "verbose":
-      return "verbose";
-    case "debug":
-    case "ci":
-    case "machine":
-      return raw;
-    default:
-      return "summary";
-  }
+  return resolveHarnessOutputMode(env, env.CARTULARY_TEST_TARGET || "");
 }
 
 export function quietLikeOutput(env = process.env) {
   const mode = normalizeOutputMode(env);
-  return mode === "summary" || mode === "ci" || mode === "machine";
+  return mode === "quiet" || mode === "summary" || mode === "ci" || mode === "machine";
 }
 
 export function machineOutput(env = process.env) {
@@ -174,15 +160,15 @@ export function commandInfo({
       : process.argv.slice(1);
   return {
     cwd,
-    argv,
+    argv: redactValue(argv),
     make_target: target ?? null,
-    env: {
+    env: redactValue({
       CARTULARY_OUTPUT_MODE: env.CARTULARY_OUTPUT_MODE ?? null,
       VERBOSE: env.VERBOSE ?? null,
       CI_VERBOSE: env.CI_VERBOSE ?? null,
       CARTULARY_TEST_RESULTS_DIR: env.CARTULARY_TEST_RESULTS_DIR ?? null,
       CARTULARY_TEST_RUN_ID: env.CARTULARY_TEST_RUN_ID ?? null,
-    },
+    }),
   };
 }
 

@@ -1256,13 +1256,20 @@ assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "childre
 assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "children.missing.length")" "0" "scheduler imported skipped child not missing"
 assert_equals "$(json_field "$scheduler_imported_skipped_child_summary" "own.counts.non_test_failed")" "0" "scheduler imported skipped child does not create artifact failure"
 
-verbose_override_output="$(
+explicit_quiet_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   VERBOSE=1 \
     "$HELPER" "verbose override" -- bash -lc 'echo verbose-stream'
 )"
-assert_contains "$verbose_override_output" "== verbose override ==" "verbose override banner"
-assert_contains "$verbose_override_output" "verbose-stream" "verbose override output"
+assert_not_contains "$explicit_quiet_output" "== verbose override ==" "explicit quiet suppresses verbose override banner"
+assert_not_contains "$explicit_quiet_output" "verbose-stream" "explicit quiet suppresses verbose override output"
+
+verbose_default_output="$(
+  VERBOSE=1 \
+    "$HELPER" "verbose default" -- bash -lc 'echo verbose-stream'
+)"
+assert_contains "$verbose_default_output" "== verbose default ==" "verbose default banner"
+assert_contains "$verbose_default_output" "verbose-stream" "verbose default output"
 
 go_smoke_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-phase-smoke.XXXXXX")"
 cleanup_paths+=("$go_smoke_dir")

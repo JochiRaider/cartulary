@@ -188,16 +188,26 @@ render_command_argv_json() {
 }
 
 resolve_output_mode() {
-  local output_mode="${CARTULARY_OUTPUT_MODE:-summary}"
-  if [[ "${VERBOSE:-0}" == "1" || "${CI_VERBOSE:-0}" == "1" ]]; then
-    output_mode="normal"
+  local output_mode="${CARTULARY_OUTPUT_MODE:-}"
+  if [[ -z "${output_mode}" ]]; then
+    if [[ "${VERBOSE:-0}" == "1" ]]; then
+      output_mode="verbose"
+    elif [[ "${CI_VERBOSE:-0}" == "1" || "${CI:-0}" == "1" || "${CARTULARY_TEST_TARGET:-}" == "ci" ]]; then
+      output_mode="ci"
+    else
+      output_mode="summary"
+    fi
   fi
   case "$output_mode" in
-    "" | quiet | summary | ci | machine)
+    quiet | summary | ci | machine)
       output_mode="quiet"
       ;;
     verbose | debug)
       output_mode="normal"
+      ;;
+    *)
+      echo "invalid CARTULARY_OUTPUT_MODE ${output_mode}; expected quiet, summary, ci, verbose, debug, or machine" >&2
+      return 2
       ;;
   esac
   printf '%s\n' "$output_mode"

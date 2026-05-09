@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness.defs.v1",
+  "$defs": {
+    "non_negative_integer": { "type": "integer", "minimum": 0 },
+    "non_negative_number": { "type": "number", "minimum": 0 },
+    "timestamp": { "type": "string", "minLength": 1, "format": "date-time" },
+    "status": { "enum": ["pass", "fail"] },
+    "failure_class": {
+      "enum": [null, "product", "config", "infra", "harness", "artifact", "timing", "interrupted", "unknown"]
+    },
+    "failure_reason": {
+      "enum": [
+        null,
+        "usage_error",
+        "configuration_error",
+        "preflight_error",
+        "service_start_error",
+        "service_readiness_timeout",
+        "fixture_error",
+        "resource_conflict",
+        "test_assertion_failure",
+        "child_target_failure",
+        "scheduler_accounting_error",
+        "artifact_error",
+        "cleanup_error",
+        "timeout_failure",
+        "cancelled_or_interrupted",
+        "unknown_failure"
+      ]
+    },
+    "string_map": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "free_object": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "kind", "path"],
+      "properties": {
+        "role": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/non_negative_integer" }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

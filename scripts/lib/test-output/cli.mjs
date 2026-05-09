@@ -63,6 +63,11 @@ import {
   verboseOutput,
 } from "../tool-output.mjs";
 import {
+  compactJSONString,
+  prettyJSONString,
+  validateSchemaSync,
+} from "../harness-contract.mjs";
+import {
   phaseSummarySchemaID,
   repoRoot,
   resolveResultsRoot,
@@ -216,7 +221,7 @@ function ensureDir(dir) {
 
 function writeJson(file, value) {
   ensureDir(path.dirname(file));
-  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+  writeFileSync(file, prettyJSONString(value));
 }
 
 function createCounts() {
@@ -1281,7 +1286,7 @@ function writePhaseArtifacts(context, details) {
 
   if (details.status !== "pass" && !suppressChildSuccess()) {
     if (machineOutput()) {
-      process.stdout.write(`${JSON.stringify(toolSummary)}\n`);
+      process.stdout.write(compactJSONString(toolSummary));
     } else if (!verboseOutput()) {
       const logArtifact =
         toolSummary.log_artifacts?.find((artifact) => artifact.role === "stderr_log")?.path ??
@@ -1303,7 +1308,7 @@ function writePhaseArtifacts(context, details) {
 
   if (details.status === "pass" && !suppressChildSuccess()) {
     if (machineOutput()) {
-      process.stdout.write(`${JSON.stringify(toolSummary)}\n`);
+      process.stdout.write(compactJSONString(toolSummary));
     } else {
       process.stdout.write(resultLine(toolSummary, toolSummaryRel));
       process.stdout.write(
@@ -2870,6 +2875,7 @@ function serviceSharedMetadata(runRunRoot) {
 }
 
 function writeToolSummary(file, summary) {
+  validateSchemaSync(summary.schema_id, summary);
   writeJson(file, summary);
   return relToRepo(file);
 }
@@ -3275,9 +3281,7 @@ function handleTargetSummary(args) {
   if (status === "PASS") {
     if (machineOutput()) {
       if (!shouldSuppressMachineOutput) {
-        process.stdout.write(
-          `${JSON.stringify(targetToolSummary(targetSummary, targetToolSummaryRel))}\n`,
-        );
+        process.stdout.write(compactJSONString(targetToolSummary(targetSummary, targetToolSummaryRel)));
       }
       return 0;
     }
@@ -3301,9 +3305,7 @@ function handleTargetSummary(args) {
 
   if (machineOutput()) {
     if (!shouldSuppressMachineOutput) {
-      process.stdout.write(
-        `${JSON.stringify(targetToolSummary(targetSummary, targetToolSummaryRel))}\n`,
-      );
+      process.stdout.write(compactJSONString(targetToolSummary(targetSummary, targetToolSummaryRel)));
     }
     return 0;
   }
@@ -3675,6 +3677,7 @@ function writeSharedExecutionGroupLines(stream, label, sharedExecutionGroups) {
 function runToolSummary(runSummary, summaryJsonPath) {
   const slowest = slowestTargetRef(runSummary);
   const schedulerTiming = runSummary.scheduler_timing ?? null;
+  const targetDir = runSummaryTargetDir(runSummary);
   return buildToolRunSummary({
     target: runSummary.label,
     command: ["make", runSummary.label],
@@ -3696,8 +3699,9 @@ function runToolSummary(runSummary, summaryJsonPath) {
         "run_summary",
         path.join(runSummary.artifacts?.dir ?? "", "run-summary.json"),
       ),
+      ...runTargetSummaryArtifacts(targetDir),
     ],
-    logArtifacts: [],
+    logArtifacts: runTargetLogArtifacts(targetDir),
     workUnits: [
       {
         id: runSummary.label,
@@ -3726,6 +3730,46 @@ function runToolSummary(runSummary, summaryJsonPath) {
     },
     rerunCommands: [`make ${runSummary.label}`],
   });
+}
+
+function runSummaryTargetDir(runSummary) {
+  const runDir = runSummary.artifacts?.dir ?? "";
+  const target = runSummary.label ?? "";
+  if (!runDir || !target) {
+    return "";
+  }
+  const targetDir = path.join(runDir, target);
+  return existsSync(targetDir) ? targetDir : "";
+}
+
+function runTargetSummaryArtifacts(targetDir) {
+  if (!targetDir) {
+    return [];
+  }
+  return [
+    artifactRef("target_summary", path.join(targetDir, "target-summary.json")),
+    artifactRef("target_timing", path.join(targetDir, "target-timing.json")),
+    existsSync(path.join(targetDir, "scheduler-summary.json"))
+      ? artifactRef("scheduler_summary", path.join(targetDir, "scheduler-summary.json"))
+      : null,
+    existsSync(path.join(targetDir, "scheduler-events.jsonl"))
+      ? artifactRef("scheduler_events", path.join(targetDir, "scheduler-events.jsonl"), "jsonl")
+      : null,
+  ];
+}
+
+function runTargetLogArtifacts(targetDir) {
+  if (!targetDir) {
+    return [];
+  }
+  return [
+    existsSync(path.join(targetDir, "progress-summary.log"))
+      ? artifactRef("scheduler_progress", path.join(targetDir, "progress-summary.log"), "log")
+      : null,
+    existsSync(path.join(targetDir, "scheduler-logs"))
+      ? artifactRef("scheduler_logs", path.join(targetDir, "scheduler-logs"), "directory")
+      : null,
+  ];
 }
 
 function writeRunResult(stream, runSummary, summaryJsonPath) {
@@ -3952,9 +3996,7 @@ function handleRunSummary(args) {
   if (!failed) {
     if (machineOutput()) {
       if (!shouldSuppressMachineOutput) {
-        process.stdout.write(
-          `${JSON.stringify(runToolSummary(runSummary, runToolSummaryRel))}\n`,
-        );
+        process.stdout.write(compactJSONString(runToolSummary(runSummary, runToolSummaryRel)));
       }
       return 0;
     }
@@ -3976,9 +4018,7 @@ function handleRunSummary(args) {
 
   if (machineOutput()) {
     if (!shouldSuppressMachineOutput) {
-      process.stdout.write(
-        `${JSON.stringify(runToolSummary(runSummary, runToolSummaryRel))}\n`,
-      );
+      process.stdout.write(compactJSONString(runToolSummary(runSummary, runToolSummaryRel)));
     }
     return 1;
   }

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.runtime_reset.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "reset_id",
+    "tables_reset",
+    "mutable_table_count",
+    "object_count_removed",
+    "object_count_after",
+    "migration_metadata_preserved",
+    "bootstrap_admin_restored",
+    "partial_failure",
+    "post_reset_counts"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test.runtime_reset.v1" },
+    "reset_id": { "type": "string", "minLength": 1 },
+    "tables_reset": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "mutable_table_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+    "object_count_removed": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+    "object_count_after": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+    "migration_metadata_preserved": { "type": "boolean" },
+    "bootstrap_admin_restored": { "type": "boolean" },
+    "partial_failure": { "type": "boolean" },
+    "partial_failure_details": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
+    "post_reset_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "active_deployment_admins",
+        "bootstrap_markers",
+        "incidents",
+        "records",
+        "user_sessions",
+        "route_idempotency"
+      ],
+      "properties": {
+        "active_deployment_admins": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "bootstrap_markers": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "incidents": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "records": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "user_sessions": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "route_idempotency": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" }
+      }
+    },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}

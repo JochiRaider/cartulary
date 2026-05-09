@@ -22,6 +22,7 @@ import {
   resetTableAssignments,
 } from "./go-target-aggregate.mjs";
 import { collectGoShardPlan } from "./go-shard-plan.mjs";
+import { resolveOutputMode as resolveHarnessOutputMode } from "./harness-contract.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -98,14 +99,8 @@ function resolveRunID(env) {
 }
 
 function resolveOutputMode(env) {
-  if (env.VERBOSE === "1" || env.CI_VERBOSE === "1") {
-    return "normal";
-  }
-  const mode = env.CARTULARY_OUTPUT_MODE || "summary";
-  if (mode === "verbose" || mode === "debug" || mode === "normal") {
-    return "normal";
-  }
-  return "quiet";
+  const mode = resolveHarnessOutputMode(env, env.CARTULARY_TEST_TARGET || "");
+  return mode === "verbose" || mode === "debug" ? "normal" : "quiet";
 }
 
 function shellQuote(value) {

@@ -24,6 +24,8 @@ SCRATCH_CONTROL_INPUTS=(
   "tools/service_backed_schedule_manifest.json"
   "tools/browser_e2e_batch_manifest.json"
   "tools/contractgen"
+  "tools/harness_redaction_manifest.json"
+  "tools/schemas"
 )
 SCRATCH_CODEGEN_INPUTS=(
   "contracts"

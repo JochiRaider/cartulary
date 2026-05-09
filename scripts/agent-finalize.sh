@@ -9,7 +9,7 @@ run_make_target() {
   local output
 
   set +e
-  output="$(env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_OUTPUT_MODE=normal "${MAKE_BIN}" --no-print-directory "${target}" 2>&1)"
+  output="$(env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_OUTPUT_MODE=verbose "${MAKE_BIN}" --no-print-directory "${target}" 2>&1)"
   local status=$?
   set -e
 

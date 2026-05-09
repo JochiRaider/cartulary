@@ -657,7 +657,7 @@ while [[ "$#" -gt 0 ]]; do
       output_file="$2"
       shift 2
       ;;
-    -w|-X|-H)
+    -w|-X|-H|--max-time)
       shift 2
       ;;
     -sS)
@@ -672,7 +672,7 @@ done
 
 printf '%s\n' "$url" >"${FAKE_CURL_URL_FILE:?}"
 cat >"$output_file" <<JSON
-{"data":{"schema_id":"cartulary.test.runtime_reset.v1","reset_id":"reset-smoke","tables_reset":["incidents"],"migration_metadata_preserved":true,"bootstrap_admin_restored":true,"object_count_after":0,"post_reset_counts":{"active_deployment_admins":1,"bootstrap_markers":1,"incidents":0,"records":0,"user_sessions":0,"route_idempotency":0}}}
+{"data":{"schema_id":"cartulary.test.runtime_reset.v1","reset_id":"reset-smoke","tables_reset":["incidents"],"mutable_table_count":1,"object_count_removed":0,"object_count_after":0,"migration_metadata_preserved":true,"bootstrap_admin_restored":true,"partial_failure":false,"post_reset_counts":{"active_deployment_admins":1,"bootstrap_markers":1,"incidents":0,"records":0,"user_sessions":0,"route_idempotency":0}}}
 JSON
 printf '200'
 EOF
@@ -683,6 +683,7 @@ CARTULARY_TEST_RESULTS_DIR="$tmp_dir/reset-results" \
 CARTULARY_TEST_RUN_ID="reset-smoke" \
 CARTULARY_TEST_TARGET="browser-e2e-resettable" \
 CARTULARY_WEB_E2E_API_ORIGIN="http://127.0.0.1:${dynamic_backend_port}" \
+CARTULARY_TEST_ROUTE_TOKEN="0123456789abcdef0123456789abcdef" \
 NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
   "$ROOT_DIR/scripts/reset-web-e2e-stack.sh" --label dynamic-origin
 assert_equals "$(tr -d '\n' <"$fake_curl_url_file")" "http://127.0.0.1:${dynamic_backend_port}/api/v1/test/runtime/reset" "reset helper dynamic API origin"

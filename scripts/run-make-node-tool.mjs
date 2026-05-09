@@ -17,6 +17,12 @@ import {
   UsageError,
 } from "./lib/make-node-tools.mjs";
 import {
+  compactJSONString,
+  prettyJSONString,
+  redactString,
+  validateSchema,
+} from "./lib/harness-contract.mjs";
+import {
   artifactLine,
   artifactRef,
   buildToolRunSummary,
@@ -79,7 +85,7 @@ function shouldWrapTarget(target) {
 }
 
 function writeIfNonEmpty(file, content) {
-  writeFileSync(file, content);
+  writeFileSync(file, redactString(content));
   if (!content) {
     return null;
   }
@@ -130,7 +136,7 @@ function addUniqueArtifacts(existing, additions) {
   );
 }
 
-function runWrapped(target, invocation) {
+async function runWrapped(target, invocation) {
   const resultsRoot = resolveResultsRoot();
   const runID = resolveRunID();
   const runRootAbs = path.join(resultsRoot, runID);
@@ -202,10 +208,11 @@ function runWrapped(target, invocation) {
   summary.run_id ||= runID;
   summary.run_root ||= runRoot;
   summary.output_mode = normalizeOutputMode();
-  writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`);
+  await validateSchema(toolRunSummarySchemaID, summary);
+  writeFileSync(summaryFile, prettyJSONString(summary));
 
   if (machineOutput()) {
-    process.stdout.write(`${JSON.stringify(summary)}\n`);
+    process.stdout.write(compactJSONString(summary));
   } else if (summary.status === "pass") {
     process.stdout.write(resultLine(summary, summaryRel));
     process.stdout.write(
@@ -272,7 +279,7 @@ try {
       invocation = null;
     }
     if (invocation && shouldWrapTarget(target)) {
-      process.exit(runWrapped(target, invocation));
+      process.exit(await runWrapped(target, invocation));
     }
   }
   process.exit(main(process.argv.slice(2)));

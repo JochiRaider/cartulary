@@ -1091,6 +1091,9 @@ fi
 if ! grep -Fq '/api/v1/test/runtime/reset' "$reset_script"; then
   fail "scripts/reset-web-e2e-stack.sh must call the test runtime reset route"
 fi
+if ! grep -Fq 'X-Cartulary-Test-Route-Token' "$reset_script"; then
+  fail "scripts/reset-web-e2e-stack.sh must authorize reset calls with the test route token header"
+fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_STATE_DIR' "$reset_script"; then
   fail "scripts/reset-web-e2e-stack.sh must clear shared Playwright state after backend reset"
 fi

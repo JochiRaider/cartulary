@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.lease.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "lease_id",
+    "suite_id",
+    "run_id",
+    "result_root",
+    "run_root",
+    "target",
+    "mode",
+    "ownership_mode",
+    "owner_pid",
+    "created_at",
+    "resources",
+    "proof_labels",
+    "proof_prefixes",
+    "cleanup_state"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.lease.v1" },
+    "lease_id": { "type": "string", "minLength": 1 },
+    "suite_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "result_root": { "type": "string", "minLength": 1 },
+    "run_root": { "type": "string", "minLength": 1 },
+    "target": { "type": "string" },
+    "mode": { "enum": ["owned", "attach"] },
+    "ownership_mode": { "enum": ["owned", "attach"] },
+    "owner_pid": { "type": "integer", "minimum": 1 },
+    "created_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "expires_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "service", "container_id", "image", "labels"],
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "service": { "type": "string", "minLength": 1 },
+          "container_id": { "type": "string" },
+          "name": { "type": "string" },
+          "image": { "type": "string" },
+          "labels": { "$ref": "cartulary.harness.defs.v1#/$defs/string_map" }
+        }
+      }
+    },
+    "proof_labels": { "$ref": "cartulary.harness.defs.v1#/$defs/string_map" },
+    "proof_prefixes": { "$ref": "cartulary.harness.defs.v1#/$defs/string_map" },
+    "cleanup_state": { "type": "string", "minLength": 1 },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}

@@ -31,6 +31,11 @@ import {
   classifyExecutionFailure,
   failureFieldsForJSON,
 } from "../failure-taxonomy.mjs";
+import {
+  compactJSONString,
+  prettyJSONString,
+  validateSchemaSync,
+} from "../harness-contract.mjs";
 import { SchedulerClock } from "./clock.mjs";
 import {
   addTopBlockerObservations,
@@ -777,17 +782,12 @@ class SchedulerReporter {
       },
     };
     const extra = this.schedule.summaryExtra ? this.schedule.summaryExtra({ reporter: this, started }) : {};
-    await writeFile(
-      this.summaryPath,
-      `${JSON.stringify(
-        {
-          ...baseSummary,
-          ...extra,
-        },
-        null,
-        2,
-      )}\n`,
-    );
+    const schedulerSummary = {
+      ...baseSummary,
+      ...extra,
+    };
+    validateSchemaSync(schedulerSummary.schema_id, schedulerSummary);
+    await writeFile(this.summaryPath, prettyJSONString(schedulerSummary));
   }
 
   writeEvent(event, state, detail) {
@@ -843,7 +843,8 @@ class SchedulerReporter {
       base.running_finalizers = runningFinalizerCount(state.running);
     }
     const record = { ...base, ...detail };
-    this.events.write(`${JSON.stringify(record)}\n`);
+    validateSchemaSync(record.schema_id, record);
+    this.events.write(compactJSONString(record));
     return record;
   }
 

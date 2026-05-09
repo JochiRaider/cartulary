@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { resolveOutputMode as resolveHarnessOutputMode } from "./harness-contract.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "..", "..");
 
@@ -62,12 +64,11 @@ export function createRunnerContext(options = {}) {
     ),
     testOutputScript: envPath("TEST_OUTPUT_SCRIPT", "scripts/lib/test-output.mjs", repoRoot),
     testServicesBin: process.env.TEST_SERVICES_BIN || "",
-    outputMode:
-      process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1"
-        ? "normal"
-        : ["verbose", "debug", "normal"].includes(process.env.CARTULARY_OUTPUT_MODE ?? "")
-          ? "normal"
-          : "quiet",
+    outputMode: ["verbose", "debug"].includes(
+      resolveHarnessOutputMode(process.env, process.env.CARTULARY_TEST_TARGET || ""),
+    )
+      ? "normal"
+      : "quiet",
     resultsDir: envPath("CARTULARY_TEST_RESULTS_DIR", ".cartulary/test-results", repoRoot),
     runId: process.env.CARTULARY_TEST_RUN_ID || "adhoc",
   };

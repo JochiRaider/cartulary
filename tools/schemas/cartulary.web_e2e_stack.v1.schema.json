@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.web_e2e_stack.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "api_origin",
+    "public_origin",
+    "backend_port",
+    "frontend_port",
+    "runtime_root",
+    "server_log",
+    "web_log"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.web_e2e_stack.v1" },
+    "api_origin": { "type": "string", "minLength": 1 },
+    "public_origin": { "type": "string", "minLength": 1 },
+    "backend_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "frontend_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "runtime_root": { "type": "string", "minLength": 1 },
+    "server_log": { "type": "string", "minLength": 1 },
+    "web_log": { "type": "string", "minLength": 1 },
+    "test_route_token_file": { "type": "string" },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}

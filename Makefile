@@ -79,7 +79,10 @@ RUN_HARNESS_SMOKE_SCRIPT := $(CURDIR)/scripts/run-harness-smoke.mjs
 RUN_SERVICE_BACKED_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-service-backed-schedule.mjs
 RUN_CHECK_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-check-schedule.mjs
 BUILD_INPUTS_SCRIPT := $(CURDIR)/scripts/list-build-inputs.sh
+HARNESS_CONTRACT_SCRIPT := $(CURDIR)/scripts/harness-contract.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
+RUN_HARNESS_PREFLIGHT = $(Q)$(HARNESS_CONTRACT_SCRIPT) preflight
+RUN_HARNESS_CLEANUP = $(Q)$(HARNESS_CONTRACT_SCRIPT) cleanup
 
 define resolve_service_go_test_p
 $(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))
@@ -88,8 +91,9 @@ endef
 EFFECTIVE_BACKEND_STORE_GO_TEST_P := $(call resolve_service_go_test_p,BACKEND_STORE_GO_TEST_P)
 EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P := $(call resolve_service_go_test_p,BACKEND_INTEGRATION_GO_TEST_P)
 
+DEFAULT_CARTULARY_TEST_RESULTS_DIR := $(CURDIR)/.cartulary/test-results
 CARTULARY_OUTPUT_MODE ?= summary
-CARTULARY_TEST_RESULTS_DIR ?= $(CURDIR)/.cartulary/test-results
+CARTULARY_TEST_RESULTS_DIR ?= $(DEFAULT_CARTULARY_TEST_RESULTS_DIR)
 CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
 RELEASE_ARTIFACT_DIR ?= $(CURDIR)/.cartulary/release-artifacts
 LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
@@ -98,9 +102,9 @@ BENCHMARK_MANIFEST ?= $(CURDIR)/.cartulary/benchmark/benchmark_manifest.json
 export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY
 
 ifeq ($(CI_VERBOSE),1)
-EFFECTIVE_OUTPUT_MODE := normal
+EFFECTIVE_OUTPUT_MODE := ci
 else ifeq ($(VERBOSE),1)
-EFFECTIVE_OUTPUT_MODE := normal
+EFFECTIVE_OUTPUT_MODE := verbose
 else
 EFFECTIVE_OUTPUT_MODE := $(CARTULARY_OUTPUT_MODE)
 endif
@@ -137,7 +141,7 @@ WEB_BUILD_INPUTS = package.json pnpm-lock.yaml pnpm-workspace.yaml $(call discov
 TEST_SERVICES_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres db/migrations)
 EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
-CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(RELEASE_ARTIFACT_DIR) $(CURDIR)/test-results $(CURDIR)/apps/web/test-results $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage $(CURDIR)/.vite $(CURDIR)/apps/web/.vite $(CURDIR)/node_modules/.vite* $(CURDIR)/apps/web/node_modules/.vite* $(CURDIR)/packages/*/node_modules/.vite*
+CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(DEFAULT_CARTULARY_TEST_RESULTS_DIR) $(RELEASE_ARTIFACT_DIR) $(CURDIR)/test-results $(CURDIR)/apps/web/test-results $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage $(CURDIR)/.vite $(CURDIR)/apps/web/.vite $(CURDIR)/node_modules/.vite* $(CURDIR)/apps/web/node_modules/.vite* $(CURDIR)/packages/*/node_modules/.vite*
 DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(CURDIR)/tmp/node-archives $(TOOLBIN_DIR) $(SHELLCHECK_ARCHIVE_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store
 CLEAN_TMP_PRESERVE_NAMES := node-runtime node-archives toolbin shellcheck-archives frontend-install frontend-toolchain playwright frontend-embed
 

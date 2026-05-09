@@ -4,12 +4,17 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildFixtureReport,
+  fixtureReportSchemaID,
   fixtureSummaryLine,
   fixtureSummaryLines,
   normalizeFixtureThreshold,
   normalizeFixtureTop,
   resolveFixtureResultLocation,
 } from "./lib/fixture-reporting.mjs";
+import {
+  prettyJSONString,
+  validateSchemaSync,
+} from "./lib/harness-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -96,7 +101,8 @@ function main() {
   });
 
   if (options.json) {
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    validateSchemaSync(fixtureReportSchemaID, report);
+    process.stdout.write(prettyJSONString(report));
     return;
   }
 

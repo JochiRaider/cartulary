@@ -128,6 +128,7 @@ const toolRunCommandKeys = new Set(["cwd", "argv", "make_target", "env"]);
 const toolRunArtifactKeys = new Set(["role", "kind", "path"]);
 const toolRunStatusValues = new Set(["pass", "fail"]);
 const toolRunOutputModes = new Set([
+  "quiet",
   "summary",
   "ci",
   "verbose",

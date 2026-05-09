@@ -135,8 +135,16 @@ func TestSupportPhase4Integration_VerboseSmoke(t *testing.T) {
 EOF
 
 verbose_go_rel="./${verbose_go_dir#"$ROOT_DIR"/}"
-verbose_output="$(
+explicit_quiet_verbose_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  VERBOSE=1 \
+    "$GO_PHASE_HELPER" "run-go-target verbose smoke" '^(TestSupportPhase4Integration_VerboseSmoke)$' -- "$go_bin" test "$verbose_go_rel" \
+    2>&1
+)"
+assert_not_contains "$explicit_quiet_verbose_output" "== run-go-target verbose smoke ==" "explicit quiet suppresses verbose go banner"
+assert_not_contains "$explicit_quiet_verbose_output" "support verbose line" "explicit quiet suppresses verbose go human output"
+
+verbose_output="$(
   VERBOSE=1 \
     "$GO_PHASE_HELPER" "run-go-target verbose smoke" '^(TestSupportPhase4Integration_VerboseSmoke)$' -- "$go_bin" test "$verbose_go_rel" \
     2>&1

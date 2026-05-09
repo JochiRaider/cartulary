@@ -22,13 +22,25 @@ support_dir="$(prepare_target_support_dir reset-boundary)"
 response_file="${support_dir}/${label}.json"
 status_file="${support_dir}/${label}.status"
 state_marker_file="${support_dir}/${label}.state-reset"
+taint_marker_file="${support_dir}/${label}.tainted"
+data_file="${support_dir}/${label}.data.json"
 api_origin="${CARTULARY_WEB_E2E_API_ORIGIN:-http://127.0.0.1:8080}"
 api_origin="${api_origin%/}"
+test_route_token="${CARTULARY_TEST_ROUTE_TOKEN:-}"
+if [[ -z "${test_route_token}" && -n "${CARTULARY_TEST_ROUTE_TOKEN_FILE:-}" && -f "${CARTULARY_TEST_ROUTE_TOKEN_FILE}" ]]; then
+  test_route_token="$(tr -d '\r\n' <"${CARTULARY_TEST_ROUTE_TOKEN_FILE}")"
+fi
+if [[ -z "${test_route_token}" ]]; then
+  echo "CARTULARY_TEST_ROUTE_TOKEN or CARTULARY_TEST_ROUTE_TOKEN_FILE is required for reset" >&2
+  exit 2
+fi
 
 status="$(
   curl -sS \
+    --max-time 35 \
     -X POST \
     -H 'Content-Type: application/json' \
+    -H "X-Cartulary-Test-Route-Token: ${test_route_token}" \
     -o "$response_file" \
     -w '%{http_code}' \
     "${api_origin}/api/v1/test/runtime/reset"
@@ -36,15 +48,33 @@ status="$(
 printf '%s\n' "$status" >"$status_file"
 
 if [[ "$status" != "200" ]]; then
+  "${NODE_BIN:-node}" - "$response_file" "$taint_marker_file" "${CARTULARY_WEB_E2E_RUNTIME_ROOT:-}" <<'EOF' || true
+const fs = require("node:fs");
+const responsePath = process.argv[2];
+const taintMarker = process.argv[3];
+const runtimeRoot = process.argv[4] || "";
+let partial = false;
+try {
+  const envelope = JSON.parse(fs.readFileSync(responsePath, "utf8"));
+  partial = envelope?.error?.details?.partial_failure === true;
+} catch {}
+if (partial) {
+  fs.writeFileSync(taintMarker, "partial_failure\n");
+  if (runtimeRoot) {
+    fs.writeFileSync(`${runtimeRoot.replace(/\/+$/u, "")}/stack.tainted`, "partial_failure\n");
+  }
+}
+EOF
   echo "test runtime reset returned HTTP ${status}" >&2
   cat "$response_file" >&2 || true
   exit 1
 fi
 
-"${NODE_BIN:-node}" - "$response_file" <<'EOF'
+"${NODE_BIN:-node}" - "$response_file" "$data_file" <<'EOF'
 const fs = require("node:fs");
 
 const responsePath = process.argv[2];
+const dataPath = process.argv[3];
 const envelope = JSON.parse(fs.readFileSync(responsePath, "utf8"));
 const data = envelope.data ?? {};
 const counts = data.post_reset_counts ?? {};
@@ -52,6 +82,9 @@ const failures = [];
 
 if (data.schema_id !== "cartulary.test.runtime_reset.v1") {
   failures.push(`unexpected schema_id ${data.schema_id}`);
+}
+if (data.partial_failure !== false) {
+  failures.push("partial_failure must be false on successful reset");
 }
 if (typeof data.reset_id !== "string" || data.reset_id.trim() === "") {
   failures.push("missing reset_id");
@@ -85,7 +118,9 @@ if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
+fs.writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
 EOF
+"$ROOT_DIR/scripts/harness-contract.sh" validate-schema cartulary.test.runtime_reset.v1 "$data_file"
 
 if [[ -n "${CARTULARY_PLAYWRIGHT_STATE_DIR:-}" ]]; then
   mkdir -p "$CARTULARY_PLAYWRIGHT_STATE_DIR"

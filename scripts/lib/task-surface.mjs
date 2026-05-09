@@ -1221,6 +1221,7 @@ export function renderTaskSurfaceMake(manifest) {
   lines.push(
     'RUN_MAKE_NODE_TOOL = env NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)',
   );
+  lines.push("RUN_PUBLIC_PREFLIGHT = $(RUN_HARNESS_PREFLIGHT) $(1)");
   lines.push(
     "RUN_TARGET_SUMMARY = $(Q)env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2)",
   );
@@ -1244,6 +1245,7 @@ function checkSchedulerOverrideEnvExpression() {
 function renderMakeRecipe(recipe, manifest) {
   const entry = targetEntryMap(manifest).get(recipe.target);
   const prerequisitePrelude = renderPrerequisitePrelude(recipe, entry);
+  const preflightPrelude = renderPreflightPrelude(recipe, entry);
   const prerequisites =
     prerequisitePrelude.length > 0 ? "" : (recipe.prerequisites ?? []).join(" ");
   const header = prerequisites
@@ -1251,7 +1253,7 @@ function renderMakeRecipe(recipe, manifest) {
     : `${recipe.target}:`;
   const prefix = renderRecipePrefix(recipe, entry);
   if (recipe.type === "alias") {
-    const lines = [...prefix, header, ...prerequisitePrelude];
+    const lines = [...prefix, header, ...preflightPrelude, ...prerequisitePrelude];
     if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v2") {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
@@ -1262,18 +1264,15 @@ function renderMakeRecipe(recipe, manifest) {
       return [
         ...prefix,
         header,
-        "\t$(Q)$(call print_cleanup_paths,$(DISTCLEAN_PATHS))",
-        "\t$(Q)$(call guarded_remove_paths,$(DISTCLEAN_PATHS))",
-        "\t$(Q)$(clean_tmp_scratch)",
-        "\t$(Q)$(clean_embedded_web_assets)",
+        ...preflightPrelude,
+        "\t$(RUN_HARNESS_CLEANUP) distclean $(DISTCLEAN_PATHS)",
       ];
     }
     return [
       ...prefix,
       header,
-      "\t$(Q)$(call guarded_remove_paths,$(CLEAN_PATHS))",
-      "\t$(Q)$(clean_tmp_scratch)",
-      "\t$(Q)$(clean_embedded_web_assets)",
+      ...preflightPrelude,
+      "\t$(RUN_HARNESS_CLEANUP) clean $(CLEAN_PATHS)",
     ];
   }
   if (recipe.type === "print_help") {
@@ -1281,7 +1280,12 @@ function renderMakeRecipe(recipe, manifest) {
       recipe.scope === "all"
         ? "TASK_SURFACE_HELP_ALL_LINES"
         : "TASK_SURFACE_HELP_LINES";
-    return [...prefix, header, `\t$(Q)printf '%s\\n' $(${variable})`];
+    return [
+      ...prefix,
+      header,
+      ...preflightPrelude,
+      `\t$(Q)printf '%s\\n' $(${variable})`,
+    ];
   }
   if (recipe.type === "sequence") {
     const sequence = sequenceDefinition(manifest, recipe.sequence);
@@ -1299,6 +1303,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       `\t$(Q)${env.join(" ")} $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ${recipe.sequence}`,
     ];
@@ -1307,6 +1312,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env MAKE="$(MAKE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"`,
     ];
@@ -1315,6 +1321,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${goTargetEnv(recipe).join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
     ];
@@ -1323,6 +1330,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${goTargetEnv(recipe).join(" ")} $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
     ];
@@ -1331,6 +1339,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
     ];
@@ -1343,6 +1352,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ${wrapper}./scripts/run-browser-e2e-target.sh ${recipe.stage}`,
     ];
@@ -1351,6 +1361,7 @@ function renderMakeRecipe(recipe, manifest) {
     const lines = [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       ...renderPhaseCommandRecipe(recipe, entry),
     ];
@@ -1376,6 +1387,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
     ];
@@ -1387,6 +1399,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
+      ...preflightPrelude,
       ...prerequisitePrelude,
       `\t$(Q)$(call RUN_MAKE_NODE_TOOL,${recipe.target},${env})`,
     ];
@@ -1397,10 +1410,16 @@ function renderMakeRecipe(recipe, manifest) {
 function shouldCentralizePrerequisiteOutput(recipe, entry = null) {
   return (
     entry?.classification === "public" &&
-    entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v2" &&
     (recipe.prerequisites ?? []).length > 0 &&
     !["cleanup", "print_help"].includes(recipe.type)
   );
+}
+
+function renderPreflightPrelude(recipe, entry = null) {
+  if (entry?.classification !== "public") {
+    return [];
+  }
+  return [`\t$(call RUN_PUBLIC_PREFLIGHT,${recipe.target})`];
 }
 
 function renderPrerequisitePrelude(recipe, entry = null) {

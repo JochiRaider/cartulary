@@ -167,10 +167,10 @@ assert.match(
   /phase -> target -> scheduler work unit -> artifact/,
   "help-all must explain the task evidence concept hierarchy",
 );
-assert.match(renderedMake, /^help:\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m, "help recipe must be generated");
+assert.match(renderedMake, /^help:\n\t\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m, "help recipe must be generated");
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\)/,
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\)/,
   "test_target self must render target-specific export and centralized prerequisite prelude",
 );
 assert.match(

@@ -1,0 +1,41 @@
+{
+  "schema_id": "cartulary.harness_redaction_manifest.v1",
+  "replacement": "[REDACTED]",
+  "sensitive_key_patterns": [
+    "authorization",
+    "cookie",
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "api[_-]?key",
+    "access[_-]?key",
+    "private[_-]?key",
+    "client[_-]?secret",
+    "dsn"
+  ],
+  "value_patterns": [
+    {
+      "name": "bearer_token",
+      "pattern": "(?i)\\bBearer\\s+[-._~+/A-Za-z0-9]+=*"
+    },
+    {
+      "name": "basic_auth",
+      "pattern": "(?i)\\bBasic\\s+[-._~+/A-Za-z0-9]+=*"
+    },
+    {
+      "name": "postgres_password",
+      "pattern": "(?i)postgres(?:ql)?://([^:\\s/@]+):([^@\\s]+)@",
+      "replacement": "postgres://$1:[REDACTED]@"
+    },
+    {
+      "name": "generic_password_assignment",
+      "pattern": "(?i)\\b(password|passwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret)=([^\\s&]+)",
+      "replacement": "$1=[REDACTED]"
+    },
+    {
+      "name": "private_key_block",
+      "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----"
+    }
+  ]
+}

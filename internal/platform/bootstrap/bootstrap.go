@@ -61,6 +61,10 @@ type postgresBootstrapStore struct {
 	pool *pgxpool.Pool
 }
 
+type txBootstrapStore struct {
+	tx pgx.Tx
+}
+
 type bootstrapManifestFS interface {
 	Stat(name string) (fs.FileInfo, error)
 	ReadFile(name string) ([]byte, error)
@@ -78,6 +82,10 @@ func (osBootstrapManifestFS) ReadFile(name string) ([]byte, error) {
 
 func Preflight(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) error {
 	return bootstrapPreflight(ctx, cfg, postgresBootstrapStore{pool: pool}, osBootstrapManifestFS{}, deriveBootstrapPasswordHash)
+}
+
+func PreflightTx(ctx context.Context, cfg config.Config, tx pgx.Tx) error {
+	return bootstrapPreflight(ctx, cfg, txBootstrapStore{tx: tx}, osBootstrapManifestFS{}, deriveBootstrapPasswordHash)
 }
 
 func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {
@@ -306,6 +314,34 @@ func (s postgresBootstrapStore) CreateBootstrapAdmin(ctx context.Context, reques
 		_ = tx.Rollback(ctx)
 	}()
 
+	if err := createBootstrapAdminInTx(ctx, tx, request); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "commit bootstrap transaction", err)
+	}
+
+	return nil
+}
+
+func (s txBootstrapStore) ReadBootstrapState(ctx context.Context) (bootstrapState, error) {
+	var state bootstrapState
+	if err := s.tx.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true),
+			EXISTS(SELECT 1 FROM deployment_bootstrap_state)
+	`).Scan(&state.ActiveDeploymentAdmins, &state.BootstrapCompleted); err != nil {
+		return bootstrapState{}, err
+	}
+	return state, nil
+}
+
+func (s txBootstrapStore) CreateBootstrapAdmin(ctx context.Context, request bootstrapCreateRequest) error {
+	return createBootstrapAdminInTx(ctx, s.tx, request)
+}
+
+func createBootstrapAdminInTx(ctx context.Context, tx pgx.Tx, request bootstrapCreateRequest) error {
 	var emailExists bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`, request.Manifest.Email).Scan(&emailExists); err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "check bootstrap email uniqueness", err)
@@ -350,10 +386,6 @@ func (s postgresBootstrapStore) CreateBootstrapAdmin(ctx context.Context, reques
 		VALUES (NULL, $1, $2, $3, NULL, $4)
 	`, userID, "bootstrap_manifest", "bootstrap_admin_created", afterJSON); err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "persist bootstrap audit event", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "commit bootstrap transaction", err)
 	}
 
 	return nil
