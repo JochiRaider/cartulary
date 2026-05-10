@@ -450,16 +450,16 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | Schema ID                                       | Repository attachment path                                               | Status            | Producer class           | Required validation point                 |
 | ----------------------------------------------- | ------------------------------------------------------------------------- | ----------------- | ------------------------ | ----------------------------------------- |
 | `cartulary.tool_run_summary.v2`                 | `tools/schemas/cartulary.tool_run_summary.v2.schema.json`                 | present           | Centralized wrappers     | Before wrapper exits.                     |
-| `cartulary.test_phase_summary.v3`               | `tools/schemas/cartulary.test_phase_summary.v3.schema.json`               | future attachment | Phase handlers           | Before target summary consumes it.        |
-| `cartulary.test_target_summary.v4`              | `tools/schemas/cartulary.test_target_summary.v4.schema.json`              | future attachment | Target summary generator | Before aggregate/run summary consumes it. |
-| `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | future attachment | Run summary generator    | Before public aggregate success.          |
-| `cartulary.check_scheduler_summary.v9`          | `tools/schemas/cartulary.check_scheduler_summary.v9.schema.json`          | future attachment | Check scheduler          | Before scheduler target success.          |
-| `cartulary.service_backed_scheduler_summary.v9` | `tools/schemas/cartulary.service_backed_scheduler_summary.v9.schema.json` | future attachment | Service-backed scheduler | Before scheduler target success.          |
-| `cartulary.scheduler_event.v6`                  | `tools/schemas/cartulary.scheduler_event.v6.schema.json`                  | future attachment | Scheduler                | During scheduler JSONL validation.        |
-| `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | future attachment | Service suite            | Before attach or cleanup relies on lease. |
-| `cartulary.web_e2e_stack.v1`                    | `tools/schemas/cartulary.web_e2e_stack.v1.schema.json`                    | future attachment | Browser stack            | Before browser target starts Playwright.  |
-| `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | future attachment | Reset route/wrapper      | Before browser reset success is accepted. |
-| `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | future attachment | Fixture report target    | Before machine JSON is emitted.           |
+| `cartulary.test_phase_summary.v3`               | `tools/schemas/cartulary.test_phase_summary.v3.schema.json`               | present           | Phase handlers           | Before target summary consumes it.        |
+| `cartulary.test_target_summary.v4`              | `tools/schemas/cartulary.test_target_summary.v4.schema.json`              | present           | Target summary generator | Before aggregate/run summary consumes it. |
+| `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | present           | Run summary generator    | Before public aggregate success.          |
+| `cartulary.check_scheduler_summary.v9`          | `tools/schemas/cartulary.check_scheduler_summary.v9.schema.json`          | present           | Check scheduler          | Before scheduler target success.          |
+| `cartulary.service_backed_scheduler_summary.v9` | `tools/schemas/cartulary.service_backed_scheduler_summary.v9.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
+| `cartulary.scheduler_event.v6`                  | `tools/schemas/cartulary.scheduler_event.v6.schema.json`                  | present           | Scheduler                | During scheduler JSONL validation.        |
+| `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
+| `cartulary.web_e2e_stack.v1`                    | `tools/schemas/cartulary.web_e2e_stack.v1.schema.json`                    | present           | Browser stack            | Before browser target starts Playwright.  |
+| `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | present           | Reset route/wrapper      | Before browser reset success is accepted. |
+| `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
 
 **TH-HARNESS-REQ-251**
 Schema-owned artifacts MUST be closed by default. Unknown top-level fields are invalid unless the schema declares an explicit extension container.

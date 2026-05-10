@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:d63a308b0b6ae22cb540830ed637e5cf730e507c2d62e766b1e5f365590df44b",
+  "input_digest": "sha256:78e3dceb8c9b03f91361ec262dd9f8ecdd90cbe9b145c059310217504ff4193b",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -87,7 +87,7 @@
     {
       "path": "scripts/lib/go-target-runner.mjs",
       "role": "renderer_source",
-      "hash": "sha256:93b433e79e534ee4e515da125279abb1dcf3a540cac5eaca4d76f9ce651b9454"
+      "hash": "sha256:bd5689a6c5c8e3178389fe5dfa7e8acdc6f76e2ae062497f4fe939450b009dd7"
     },
     {
       "path": "scripts/lib/harness-artifact-assert.mjs",
@@ -97,7 +97,7 @@
     {
       "path": "scripts/lib/harness-contract.mjs",
       "role": "renderer_source",
-      "hash": "sha256:d19afd464a8e291a0172d889be73cc4558de155c07ba206b97043ff7cbf28377"
+      "hash": "sha256:e73aabcf602ce55cbe9cb87a01fe9a78ed78e86f3de80651e89ee857bcb95d8c"
     },
     {
       "path": "scripts/lib/json-shape.mjs",
@@ -262,12 +262,12 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:57f08aeff086bab11865aaebc9a138bf1c554e28d156ffb44ef49bebbb551ee8"
+      "hash": "sha256:15ec49ad365b4a8e250c8788ad8c76db5bd8962baf9aa35c79383d23ed60b3ff"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:5375ad4021b8fb631dfe56e3f4a625e66debdcd80de66161619dc37cbb655a60"
+      "hash": "sha256:c337266adfa13595c870f4730455aae6c6b15063c5c888bbebeeaf7e50c871e3"
     },
     {
       "path": "scripts/lib/tool-output.mjs",

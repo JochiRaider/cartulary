@@ -681,11 +681,22 @@ assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts
 
 "${NODE_BIN:-node}" --input-type=module <<'EOF'
 import assert from "node:assert/strict";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import path from "node:path";
 
 import {
   HarnessConfigError,
+  generateRunId,
   resolveHarnessConfig,
   resolveOutputMode,
+  validateSchemaSync,
 } from "./scripts/lib/harness-contract.mjs";
 
 assert.equal(
@@ -735,6 +746,89 @@ assert.throws(
     }),
   HarnessConfigError,
 );
+
+const tempRoot = mkdtempSync(path.join(process.cwd(), "tmp", "harness-contract."));
+try {
+  const resultRoot = path.join(tempRoot, "results");
+  const staleRunRoot = path.join(resultRoot, "stale-run");
+  mkdirSync(staleRunRoot, { recursive: true });
+  writeFileSync(path.join(staleRunRoot, "stale.txt"), "stale\n");
+  assert.throws(
+    () =>
+      resolveHarnessConfig(
+        "bootstrap-node-runtime",
+        {
+          CARTULARY_TEST_RESULTS_DIR: resultRoot,
+          CARTULARY_TEST_RUN_ID: "stale-run",
+        },
+        { prepareRetainedArtifacts: true },
+      ),
+    HarnessConfigError,
+  );
+  const nestedResolved = resolveHarnessConfig(
+    "bootstrap-node-runtime",
+    {
+      CARTULARY_TEST_RESULTS_DIR: resultRoot,
+      CARTULARY_TEST_RUN_ID: "stale-run",
+      CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+    },
+    { prepareRetainedArtifacts: true },
+  );
+  assert.equal(nestedResolved.run_root, staleRunRoot);
+
+  const emptyRunRoot = path.join(resultRoot, "empty-run");
+  mkdirSync(emptyRunRoot, { recursive: true });
+  const emptyResolved = resolveHarnessConfig(
+    "bootstrap-node-runtime",
+    {
+      CARTULARY_TEST_RESULTS_DIR: resultRoot,
+      CARTULARY_TEST_RUN_ID: "empty-run",
+    },
+    { prepareRetainedArtifacts: true },
+  );
+  assert.equal(emptyResolved.run_root, emptyRunRoot);
+  assert.equal(existsSync(emptyRunRoot), true);
+
+  const generatedAt = new Date("2026-01-02T03:04:05Z");
+  const generatedBase = generateRunId(generatedAt, 1234);
+  mkdirSync(path.join(resultRoot, generatedBase), { recursive: true });
+  mkdirSync(path.join(resultRoot, `${generatedBase}-n1`), { recursive: true });
+  const generatedResolved = resolveHarnessConfig(
+    "bootstrap-node-runtime",
+    { CARTULARY_TEST_RESULTS_DIR: resultRoot },
+    {
+      prepareRetainedArtifacts: true,
+      materializeGeneratedRunId: true,
+      now: generatedAt,
+      pid: 1234,
+    },
+  );
+  assert.equal(generatedResolved.run_id, `${generatedBase}-n2`);
+  assert.equal(existsSync(generatedResolved.run_root), true);
+} finally {
+  rmSync(tempRoot, { recursive: true, force: true });
+}
+
+assert.throws(
+  () => validateSchemaSync("cartulary.test_phase_summary.v3", {
+    schema_id: "cartulary.test_phase_summary.v3",
+  }),
+  /validation failed/u,
+);
+
+const testOutputSource = readFileSync("scripts/lib/test-output/cli.mjs", "utf8");
+assert.match(
+  testOutputSource,
+  /writeValidatedJson\(\s*path\.join\(context\.phaseDir, "phase-summary\.json"\),\s*phaseSummarySchemaID,\s*summary,\s*\)/u,
+);
+assert.match(
+  testOutputSource,
+  /writeValidatedJson\(\s*path\.join\(summary\.targetDir, "target-summary\.json"\),\s*targetSummarySchemaID,\s*targetSummary,\s*\)/u,
+);
+assert.match(
+  testOutputSource,
+  /writeValidatedJson\(\s*path\.join\(resultsRoot, runId, "run-summary\.json"\),\s*runSummarySchemaID,\s*runSummary,\s*\)/u,
+);
 EOF
 
 verbose_ci_dry_run="$(
@@ -768,6 +862,23 @@ invalid_preflight_output="$(
 assert_contains "${invalid_preflight_output}" "failure_reason=configuration_error" "empty result root fails in preflight"
 assert_contains "${invalid_preflight_output}" "status=2" "empty result root exits 2"
 assert_not_contains "${invalid_preflight_output}" "Cartulary compact workflow task surface" "empty result root stops child help output"
+
+collision_preflight_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-run-root-collision.XXXXXX")"
+cleanup_paths+=("${collision_preflight_dir}")
+mkdir -p "${collision_preflight_dir}/results/stale-run"
+printf 'stale\n' >"${collision_preflight_dir}/results/stale-run/stale.txt"
+collision_preflight_output="$(
+  set +e
+  CARTULARY_TEST_RESULTS_DIR="${collision_preflight_dir}/results" \
+  CARTULARY_TEST_RUN_ID="stale-run" \
+    make --no-print-directory bootstrap-node-runtime \
+    2>&1
+  printf 'status=%s\n' "$?"
+)"
+assert_contains "${collision_preflight_output}" "failure_reason=configuration_error" "non-empty run root fails in preflight"
+assert_contains "${collision_preflight_output}" "non-empty run root" "non-empty run root diagnostic"
+assert_contains "${collision_preflight_output}" "status=2" "non-empty run root exits 2"
+assert_file_absent "${collision_preflight_dir}/results/stale-run/tool-run-summary.json" "collision preflight stops wrapper summary"
 
 for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-make-n-${target}.XXXXXX")"

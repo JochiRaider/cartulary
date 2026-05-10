@@ -66,8 +66,8 @@
     "failure_reasons": { "$ref": "cartulary.harness.defs.v1#/$defs/counts" },
     "failures": { "type": "array", "items": { "type": "object" } },
     "failure_headline": { "type": "string" },
-    "owners": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
-    "inventory": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
+    "owners": { "type": "array", "items": { "type": "string" } },
+    "inventory": { "type": "array", "items": { "type": "object" } },
     "dossiers": { "type": "array", "items": { "type": "object" } },
     "manifest_mismatch": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
     "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }

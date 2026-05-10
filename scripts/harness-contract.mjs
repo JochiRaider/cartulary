@@ -9,13 +9,14 @@ import {
   preflightPublicTarget,
   redactString,
   redactValue,
+  resolveArtifactIdentityForTarget,
   runCleanup,
   validateSchema,
 } from "./lib/harness-contract.mjs";
 
 function usage() {
   process.stderr.write(
-    "usage: harness-contract.mjs preflight <target> | cleanup <clean|distclean> <path...> | validate-schema <schema-id> <json-file> | redact | generate-test-route-token\n",
+    "usage: harness-contract.mjs preflight <target> | retained-artifact-env <target> | cleanup <clean|distclean> <path...> | validate-schema <schema-id> <json-file> | redact | generate-test-route-token\n",
   );
 }
 
@@ -28,6 +29,16 @@ async function main(argv) {
       return 2;
     }
     preflightPublicTarget(target);
+    return 0;
+  }
+  if (command === "retained-artifact-env") {
+    const [target, ...extra] = args;
+    if (!target || extra.length > 0) {
+      usage();
+      return 2;
+    }
+    const identity = resolveArtifactIdentityForTarget(target);
+    process.stdout.write(`${identity.result_root}\n${identity.run_id}\n`);
     return 0;
   }
   if (command === "cleanup") {

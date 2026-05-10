@@ -285,8 +285,85 @@ export function validateResultRoot(value, { root = repoRoot, create = false } = 
   return resolved;
 }
 
-export function generateRunId(now = new Date()) {
-  return `${now.toISOString().replace(/[-:]/gu, "").replace(/\..+$/u, "Z")}-r${randomBytes(6).toString("hex")}`;
+export function generateRunId(now = new Date(), pid = process.pid) {
+  return `${now.toISOString().replace(/[-:]/gu, "").replace(/\..+$/u, "Z")}-p${pid}`;
+}
+
+function targetEmitsRetainedArtifacts(entry) {
+  return (entry?.output_policy?.artifact_policy ?? "none") !== "none";
+}
+
+function runRootFor(resultRoot, runId) {
+  return path.join(resultRoot, runId);
+}
+
+function pathExists(value) {
+  return existsSync(value);
+}
+
+function assertReusableCallerRunRoot(
+  runRoot,
+  runId,
+  { allowExistingRunRoot = false } = {},
+) {
+  if (!pathExists(runRoot)) {
+    mkdirSync(runRoot, { recursive: true });
+    return;
+  }
+  const stat = lstatSync(runRoot);
+  if (!stat.isDirectory()) {
+    throw new HarnessConfigError(
+      `CARTULARY_TEST_RUN_ID ${JSON.stringify(runId)} resolves to a non-directory run root`,
+    );
+  }
+  const entries = readdirSync(runRoot);
+  if (entries.length > 0) {
+    if (allowExistingRunRoot) {
+      return;
+    }
+    throw new HarnessConfigError(
+      `CARTULARY_TEST_RUN_ID ${JSON.stringify(runId)} resolves to a non-empty run root`,
+    );
+  }
+}
+
+function firstAvailableGeneratedRunId(resultRoot, baseRunId) {
+  if (!pathExists(runRootFor(resultRoot, baseRunId))) {
+    return baseRunId;
+  }
+  for (let suffix = 1; suffix < 1_000_000; suffix += 1) {
+    const candidate = `${baseRunId}-n${suffix}`;
+    validateRunId(candidate);
+    if (!pathExists(runRootFor(resultRoot, candidate))) {
+      return candidate;
+    }
+  }
+  throw new HarnessConfigError(
+    `could not allocate a non-colliding generated CARTULARY_TEST_RUN_ID for ${baseRunId}`,
+  );
+}
+
+function prepareRetainedArtifactRunRoot(
+  resolved,
+  { allowExistingRunRoot = false, materializeGeneratedRunId = false } = {},
+) {
+  if (resolved.generated_run_id && !materializeGeneratedRunId) {
+    return resolved;
+  }
+  const runId = resolved.generated_run_id
+    ? firstAvailableGeneratedRunId(resolved.result_root, resolved.run_id)
+    : resolved.run_id;
+  const runRoot = runRootFor(resolved.result_root, runId);
+  if (resolved.generated_run_id) {
+    mkdirSync(runRoot, { recursive: true });
+  } else {
+    assertReusableCallerRunRoot(runRoot, runId, { allowExistingRunRoot });
+  }
+  return {
+    ...resolved,
+    run_id: runId,
+    run_root: runRoot,
+  };
 }
 
 function loadTaskSurfaceManifest(manifestPath = process.env.TASK_SURFACE_MANIFEST) {
@@ -451,18 +528,26 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
     "CARTULARY_TEST_RESULTS_DIR",
     defaultHarnessConfig.CARTULARY_TEST_RESULTS_DIR,
   );
-  const runId = selectedSource(env, "CARTULARY_TEST_RUN_ID", generateRunId());
+  const runId = selectedSource(
+    env,
+    "CARTULARY_TEST_RUN_ID",
+    generateRunId(options.now ?? new Date(), options.pid ?? process.pid),
+  );
+  const emitsRetainedArtifacts = targetEmitsRetainedArtifacts(entry);
+  const shouldPrepareRetainedArtifacts =
+    options.prepareRetainedArtifacts === true && emitsRetainedArtifacts;
   const resolved = {
     target,
     target_policy: {
       classification: entry.classification,
     },
     output_class: outputClass,
+    artifact_policy: entry.output_policy?.artifact_policy ?? "none",
     output_mode: outputMode.value,
     output_mode_source: outputMode.source,
     result_root: validateResultRoot(resultRoot.value, {
       root: options.root ?? repoRoot,
-      create: options.createResultRoot === true,
+      create: options.createResultRoot === true || shouldPrepareRetainedArtifacts,
     }),
     result_root_source: resultRoot.source,
     run_id: validateRunId(runId.value),
@@ -480,11 +565,57 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
     },
     warnings: [],
   };
-  return resolved;
+  resolved.run_root = runRootFor(resolved.result_root, resolved.run_id);
+  if (!shouldPrepareRetainedArtifacts) {
+    return resolved;
+  }
+  return prepareRetainedArtifactRunRoot(resolved, {
+    allowExistingRunRoot:
+      options.allowExistingRunRoot === true ||
+      env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1",
+    materializeGeneratedRunId: options.materializeGeneratedRunId === true,
+  });
 }
 
 export function preflightPublicTarget(target, env = process.env) {
-  return resolveHarnessConfig(target, env);
+  return resolveHarnessConfig(target, env, {
+    prepareRetainedArtifacts: true,
+    materializeGeneratedRunId: false,
+  });
+}
+
+export function resolveRetainedArtifactIdentity(target, env = process.env, options = {}) {
+  return resolveHarnessConfig(target, env, {
+    ...options,
+    prepareRetainedArtifacts: true,
+    materializeGeneratedRunId: true,
+  });
+}
+
+export function resolveArtifactIdentityForTarget(target, env = process.env, options = {}) {
+  const manifest = options.manifest ?? loadTaskSurfaceManifest();
+  const entry = targetPolicy(target, manifest);
+  if (entry?.classification === "public") {
+    return resolveRetainedArtifactIdentity(target, env, { ...options, manifest });
+  }
+  const resultRoot = validateResultRoot(env.CARTULARY_TEST_RESULTS_DIR, {
+    root: options.root ?? repoRoot,
+    create: true,
+  });
+  const runId = Object.hasOwn(env, "CARTULARY_TEST_RUN_ID")
+    ? validateRunId(env.CARTULARY_TEST_RUN_ID)
+    : generateRunId(options.now ?? new Date(), options.pid ?? process.pid);
+  const runRoot = runRootFor(resultRoot, runId);
+  mkdirSync(runRoot, { recursive: true });
+  return {
+    target,
+    result_root: resultRoot,
+    result_root_source: Object.hasOwn(env, "CARTULARY_TEST_RESULTS_DIR") ? "env" : "default",
+    run_id: runId,
+    run_id_source: Object.hasOwn(env, "CARTULARY_TEST_RUN_ID") ? "env" : "default",
+    generated_run_id: !Object.hasOwn(env, "CARTULARY_TEST_RUN_ID"),
+    run_root: runRoot,
+  };
 }
 
 function loadRedactionManifest() {

@@ -20,6 +20,7 @@ import {
   compactJSONString,
   prettyJSONString,
   redactString,
+  resolveRetainedArtifactIdentity,
   validateSchema,
 } from "./lib/harness-contract.mjs";
 import {
@@ -41,20 +42,6 @@ function nowUTC() {
 
 function monotonicMs() {
   return Number(process.hrtime.bigint() / 1_000_000n);
-}
-
-function resolveResultsRoot(env = process.env) {
-  const configured = env.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results";
-  return path.isAbsolute(configured)
-    ? configured
-    : path.join(process.cwd(), configured);
-}
-
-function resolveRunID(env = process.env) {
-  return (
-    env.CARTULARY_TEST_RUN_ID ||
-    `${new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z")}-p${process.pid}`
-  );
 }
 
 function relToCwd(value) {
@@ -137,8 +124,11 @@ function addUniqueArtifacts(existing, additions) {
 }
 
 async function runWrapped(target, invocation) {
-  const resultsRoot = resolveResultsRoot();
-  const runID = resolveRunID();
+  const identity = resolveRetainedArtifactIdentity(target, process.env);
+  const resultsRoot = identity.result_root;
+  const runID = identity.run_id;
+  process.env.CARTULARY_TEST_RESULTS_DIR = resultsRoot;
+  process.env.CARTULARY_TEST_RUN_ID = runID;
   const runRootAbs = path.join(resultsRoot, runID);
   const targetRootAbs = path.join(runRootAbs, target);
   mkdirSync(targetRootAbs, { recursive: true });

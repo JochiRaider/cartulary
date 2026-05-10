@@ -1,6 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  validateResultRoot,
+  validateRunId,
+} from "../harness-contract.mjs";
+
 export const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 
@@ -36,15 +41,14 @@ export const timingBucketSet = new Set(timingBucketOrder);
 export const validPhaseCountingModes = new Set(["counted", "none"]);
 
 export function resolveResultsRoot(env = process.env) {
-  const configured = env.CARTULARY_TEST_RESULTS_DIR;
-  if (configured) {
-    return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
-  }
-  return path.join(repoRoot, ".cartulary", "test-results");
+  return validateResultRoot(env.CARTULARY_TEST_RESULTS_DIR, { root: repoRoot });
 }
 
 export function resolveRunId(env = process.env) {
-  return env.CARTULARY_TEST_RUN_ID || "adhoc";
+  if (Object.hasOwn(env, "CARTULARY_TEST_RUN_ID")) {
+    return validateRunId(env.CARTULARY_TEST_RUN_ID);
+  }
+  return "adhoc";
 }
 
 export function createTestOutputContext(env = process.env) {

@@ -367,6 +367,41 @@ slugify_phase_label() {
   printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/--+/-/g'
 }
 
+resolve_harness_node() {
+  if [[ -n "${NODE_BIN:-}" && -x "${NODE_BIN}" ]]; then
+    printf '%s\n' "${NODE_BIN}"
+    return
+  fi
+  if [[ -x "${RUN_PHASE_REPO_ROOT}/tmp/node-runtime/bin/node" ]]; then
+    printf '%s\n' "${RUN_PHASE_REPO_ROOT}/tmp/node-runtime/bin/node"
+    return
+  fi
+  printf '%s\n' "node"
+}
+
+ensure_harness_artifact_identity() {
+  if [[ -n "${CARTULARY_HARNESS_IDENTITY_PREPARED:-}" ]]; then
+    return 0
+  fi
+
+  local target
+  target="$(resolve_test_target)"
+  if [[ "${target}" == "adhoc" ]]; then
+    CARTULARY_HARNESS_IDENTITY_PREPARED=1
+    export CARTULARY_HARNESS_IDENTITY_PREPARED
+    return 0
+  fi
+
+  local node_bin
+  local output
+  node_bin="$(resolve_harness_node)"
+  output="$(CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${node_bin}" "${RUN_PHASE_REPO_ROOT}/scripts/harness-contract.mjs" retained-artifact-env "${target}")" || return "$?"
+  CARTULARY_TEST_RESULTS_DIR="$(printf '%s\n' "${output}" | sed -n '1p')"
+  CARTULARY_TEST_RUN_ID="$(printf '%s\n' "${output}" | sed -n '2p')"
+  CARTULARY_HARNESS_IDENTITY_PREPARED=1
+  export CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_HARNESS_IDENTITY_PREPARED
+}
+
 resolve_results_root() {
   if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" ]]; then
     if [[ "${CARTULARY_TEST_RESULTS_DIR}" = /* ]]; then
@@ -399,6 +434,7 @@ ensure_target_artifact_dir() {
   local results_root
   local run_id
   local target
+  ensure_harness_artifact_identity
   results_root="$(resolve_results_root)"
   run_id="$(resolve_test_run_id)"
   target="$(resolve_test_target)"
@@ -424,6 +460,7 @@ prepare_shared_artifact_dir() {
     return 2
   fi
 
+  ensure_harness_artifact_identity
   results_root="$(resolve_results_root)"
   run_id="$(resolve_test_run_id)"
   mkdir -p "${results_root}/${run_id}/_shared/${name}"

@@ -224,6 +224,11 @@ function writeJson(file, value) {
   writeFileSync(file, prettyJSONString(value));
 }
 
+function writeValidatedJson(file, schemaID, value) {
+  validateSchemaSync(schemaID, value);
+  writeJson(file, value);
+}
+
 function createCounts() {
   const counts = {
     tests: 0,
@@ -1184,12 +1189,16 @@ function writePhaseArtifacts(context, details) {
     artifacts,
     counts: details.counts,
     ...failureFields,
-    owners: details.owners,
-    inventory: details.inventory,
-    dossiers: details.dossiers,
-    manifest_mismatch: details.manifestMismatch,
+    owners: details.owners ?? [],
+    inventory: details.inventory ?? [],
+    dossiers: details.dossiers ?? [],
+    manifest_mismatch: details.manifestMismatch ?? null,
   };
-  writeJson(path.join(context.phaseDir, "phase-summary.json"), summary);
+  writeValidatedJson(
+    path.join(context.phaseDir, "phase-summary.json"),
+    phaseSummarySchemaID,
+    summary,
+  );
   const runRootAbs = path.join(resultsRoot, runId);
   const runRoot = relToRepo(runRootAbs);
   const targetRunRoot =
@@ -1921,6 +1930,11 @@ function summarizeTargetTiming(
     ...phaseSpans,
     ...lifecycleSpans,
   ]);
+  const summaryWindow = {
+    ...accountableWindow,
+    startTime: accountableWindow.startTime || reportCollationSpan.start_time,
+    endTime: accountableWindow.endTime || reportCollationSpan.end_time,
+  };
 
   const bucketList = timingBucketOrder
     .map((name) => buckets.get(name))
@@ -1945,14 +1959,14 @@ function summarizeTargetTiming(
     target,
     status,
     generated_at: new Date().toISOString(),
-    start_time: accountableWindow.startTime,
-    end_time: accountableWindow.endTime,
+    start_time: summaryWindow.startTime,
+    end_time: summaryWindow.endTime,
     buckets: bucketList,
     slowest_lifecycle_bucket: slowest,
   };
   const timingPath = path.join(targetDir, "target-timing.json");
   writeJson(timingPath, timing);
-  return { timing, timingPath, accountableWindow };
+  return { timing, timingPath, accountableWindow: summaryWindow };
 }
 
 function summarizeTargetDir(target) {
@@ -2875,8 +2889,7 @@ function serviceSharedMetadata(runRunRoot) {
 }
 
 function writeToolSummary(file, summary) {
-  validateSchemaSync(summary.schema_id, summary);
-  writeJson(file, summary);
+  writeValidatedJson(file, summary.schema_id, summary);
   return relToRepo(file);
 }
 
@@ -3269,7 +3282,11 @@ function handleTargetSummary(args) {
     },
     scheduler_timing: schedulerTiming,
   };
-  writeJson(path.join(summary.targetDir, "target-summary.json"), targetSummary);
+  writeValidatedJson(
+    path.join(summary.targetDir, "target-summary.json"),
+    targetSummarySchemaID,
+    targetSummary,
+  );
   const targetToolSummaryFile = toolSummaryPath(summary.targetDir);
   const targetToolSummaryRel = writeToolSummary(
     targetToolSummaryFile,
@@ -3984,7 +4001,11 @@ function handleRunSummary(args) {
     shared_execution_groups: sharedExecutionGroups,
     ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
   };
-  writeJson(path.join(resultsRoot, runId, "run-summary.json"), runSummary);
+  writeValidatedJson(
+    path.join(resultsRoot, runId, "run-summary.json"),
+    runSummarySchemaID,
+    runSummary,
+  );
   const runToolSummaryFile = toolSummaryPath(path.join(resultsRoot, runId));
   const runToolSummaryRel = writeToolSummary(
     runToolSummaryFile,

@@ -22,7 +22,11 @@ import {
   resetTableAssignments,
 } from "./go-target-aggregate.mjs";
 import { collectGoShardPlan } from "./go-shard-plan.mjs";
-import { resolveOutputMode as resolveHarnessOutputMode } from "./harness-contract.mjs";
+import {
+  resolveOutputMode as resolveHarnessOutputMode,
+  resolveRetainedArtifactIdentity,
+  targetPolicy,
+} from "./harness-contract.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -98,6 +102,22 @@ function resolveRunID(env) {
   );
 }
 
+function resolveGoArtifactIdentity(repoRoot, env) {
+  if (targetPolicy(env.CARTULARY_TEST_TARGET)?.classification === "public") {
+    const identity = resolveRetainedArtifactIdentity(env.CARTULARY_TEST_TARGET, env, {
+      root: repoRoot,
+    });
+    return {
+      resultsRoot: identity.result_root,
+      runId: identity.run_id,
+    };
+  }
+  return {
+    resultsRoot: resolveResultsRoot(repoRoot, env),
+    runId: resolveRunID(env),
+  };
+}
+
 function resolveOutputMode(env) {
   const mode = resolveHarnessOutputMode(env, env.CARTULARY_TEST_TARGET || "");
   return mode === "verbose" || mode === "debug" ? "normal" : "quiet";
@@ -126,8 +146,7 @@ function slugifyLabel(label) {
 export function createGoTargetContext(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? defaultRepoRoot);
   const baseEnv = { ...process.env, ...(options.env ?? {}) };
-  const runId = resolveRunID(baseEnv);
-  const resultsRoot = resolveResultsRoot(repoRoot, baseEnv);
+  const { resultsRoot, runId } = resolveGoArtifactIdentity(repoRoot, baseEnv);
   const env = {
     ...baseEnv,
     CARTULARY_TEST_RUN_ID: runId,
