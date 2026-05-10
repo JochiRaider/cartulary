@@ -126,7 +126,7 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
     throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
   }
 }
-for (const required of ["toolchain-drift", "check-frontend-install", "frontend-typecheck", "frontend-unit", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
+for (const required of ["toolchain-drift", "check-frontend-install", "frontend-typecheck", "frontend-unit", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "harness-contract-tests", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
   if (!targets.has(required)) {
     throw new Error(`check schedule must include ${required}`);
   }

@@ -53,7 +53,7 @@ function resolveBrowserStageByTarget(root = repoRoot) {
   return byTarget;
 }
 
-function phaseRows(phase, mode, root = repoRoot) {
+function phaseRows(phase, mode, root = repoRoot, taskSurfaceManifest = null) {
   const registryEntry = phaseRegistryEntry(root, phase);
   if (!registryEntry) {
     throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
@@ -61,7 +61,11 @@ function phaseRows(phase, mode, root = repoRoot) {
   if (!activePhaseRegistryEntry(root, phase)) {
     throw new Error(`phase ${phase} is ${registryEntry.status} and is not executable`);
   }
-  const info = phaseGuidance(phase, { root, includeExecutionMap: false });
+  const info = phaseGuidance(phase, {
+    root,
+    includeExecutionMap: false,
+    taskSurfaceManifest,
+  });
   if (!info) {
     throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
   }
@@ -71,11 +75,16 @@ function phaseRows(phase, mode, root = repoRoot) {
   return info.rows.filter((row) => executionDependencyInfo(row.execution_dependency)?.service_backed === true);
 }
 
-function childTargetsForRows(rows, phase, mode, root = repoRoot) {
+function childTargetsForRows(rows, phase, mode, root = repoRoot, taskSurfaceManifest = null) {
   const rowTargets = new Set(rows.map((row) => row.target));
   return (guidancePhaseSlice(
     phase,
-    { root, serviceBackedOnly: mode === "service_backed", includeExecutionMap: false },
+    {
+      root,
+      serviceBackedOnly: mode === "service_backed",
+      includeExecutionMap: false,
+      taskSurfaceManifest,
+    },
   )?.child_targets ?? [])
     .filter((target) => rowTargets.has(target.target));
 }
@@ -402,14 +411,14 @@ function planResourceLimits(rows, root) {
   return resourceLimits;
 }
 
-export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot } = {}) {
+export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, taskSurfaceManifest = null } = {}) {
   if (!validPhaseName(phase)) {
     throw new Error(`invalid phase ${phase}; expected phaseN`);
   }
   if (!["phase", "service_backed"].includes(mode)) {
     throw new Error(`invalid phase slice mode ${mode}`);
   }
-  const rows = phaseRows(phase, mode, root);
+  const rows = phaseRows(phase, mode, root, taskSurfaceManifest);
   const target = mode === "service_backed" ? "service-backed-slice" : "phase-slice";
   const resourceLimits = planResourceLimits(rows, root);
   const plan = {
@@ -422,7 +431,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot } =
     no_op: rows.length === 0,
     rows,
     row_groups: rowGroups(rows),
-    child_targets: childTargetsForRows(rows, phase, mode, root),
+    child_targets: childTargetsForRows(rows, phase, mode, root, taskSurfaceManifest),
     child_target_names: [],
     service_requirements: serviceRequirementsForRows(rows),
     resourceLimits,
@@ -496,11 +505,11 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot } =
   };
 }
 
-export function validateAllPhaseSlicePlans({ root = repoRoot } = {}) {
+export function validateAllPhaseSlicePlans({ root = repoRoot, taskSurfaceManifest = null } = {}) {
   const known = phaseManifestNames(root);
   for (const phase of known) {
-    buildPhaseSlicePlan(phase, { mode: "phase", root });
-    buildPhaseSlicePlan(phase, { mode: "service_backed", root });
+    buildPhaseSlicePlan(phase, { mode: "phase", root, taskSurfaceManifest });
+    buildPhaseSlicePlan(phase, { mode: "service_backed", root, taskSurfaceManifest });
   }
 }
 

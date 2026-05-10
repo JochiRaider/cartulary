@@ -85,7 +85,13 @@ function collectPhaseRows(root = repoRoot) {
   return collectExecutionPhaseRows(root);
 }
 
-function loadTaskSurface(root = repoRoot) {
+function loadTaskSurface(root = repoRoot, taskSurfaceManifest = null) {
+  if (taskSurfaceManifest) {
+    return {
+      manifest: taskSurfaceManifest,
+      targets: targetEntryMap(taskSurfaceManifest),
+    };
+  }
   const manifestFile =
     process.env.CARTULARY_TASK_SURFACE_MANIFEST ?? path.join(root, "tools", "task_surface_manifest.json");
   const { manifest } = loadTaskSurfaceManifest(manifestFile);
@@ -198,7 +204,7 @@ export function allTargetNames({ root = repoRoot } = {}) {
   return Array.from(targets.keys()).sort(compareStrings);
 }
 
-export function phaseGuidance(phase, { root = repoRoot, includeExecutionMap = true } = {}) {
+export function phaseGuidance(phase, { root = repoRoot, includeExecutionMap = true, taskSurfaceManifest = null } = {}) {
   const registryEntry = phaseRegistryEntry(root, phase);
   if (!registryEntry) {
     return null;
@@ -232,7 +238,7 @@ export function phaseGuidance(phase, { root = repoRoot, includeExecutionMap = tr
   const rows = collectPhaseRows(root).filter((row) => row.phase === phase);
   const counts = sectionCounts(rows);
   const byTarget = uniqueSorted(rows.map((row) => row.target));
-  const { targets } = loadTaskSurface(root);
+  const { targets } = loadTaskSurface(root, taskSurfaceManifest);
   const targetSummaries = byTarget.map((target) => {
     const entry = targets.get(target);
     const rowsForTarget = rows.filter((row) => row.target === target);
@@ -280,9 +286,9 @@ export function phaseGuidance(phase, { root = repoRoot, includeExecutionMap = tr
 
 export function phaseSlice(
   phase,
-  { root = repoRoot, serviceBackedOnly = false, includeExecutionMap = true } = {},
+  { root = repoRoot, serviceBackedOnly = false, includeExecutionMap = true, taskSurfaceManifest = null } = {},
 ) {
-  const phaseInfo = phaseGuidance(phase, { root, includeExecutionMap: false });
+  const phaseInfo = phaseGuidance(phase, { root, includeExecutionMap: false, taskSurfaceManifest });
   if (!phaseInfo) {
     return null;
   }

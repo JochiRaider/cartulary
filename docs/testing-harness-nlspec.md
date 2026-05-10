@@ -99,6 +99,10 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005
 A Make-owned wrapper MAY invoke package scripts, raw scripts, or external tools as implementation mechanisms. The wrapper remains responsible for the public target's configuration, output, artifact, failure, exit-code, and cleanup contract.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004
 
+**TH-HARNESS-REQ-053**
+The default `check-harness-smoke` gate MUST remain a small semantic smoke surface rather than a broad harness regression suite. Its fast tier MUST contain exactly one check for each gate role: public Make/wrapper projection, check-scheduler semantics, and service-backed scheduler semantics. Broader field-shape, topology-rendering, and sequence-detail checks MUST live in owner-aligned validation such as `json-shape-check`, generated drift checks, module-level harness contract tests, or non-default diagnostic smoke tiers.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-006
+
 ### 4.1 Mechanism Boundary
 
 | Surface                                                  |                                  Normative? | Required contract                                                                      |

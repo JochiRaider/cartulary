@@ -458,12 +458,15 @@ harness_manifest="${harness_quiet_dir}/manifest.json"
 const fs = require("node:fs");
 const [source, destination, scriptDir] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
+for (const check of manifest.harness_checks) {
+  delete check.gate_smoke_role;
+}
 const checks = ["harness-quiet-a", "harness-quiet-b", "harness-quiet-env"];
 manifest.harness_tiers.fast = { checks };
 manifest.harness_checks.push(
-  { name: "harness-quiet-a", backing_scripts: [`${scriptDir}/check-a.sh`] },
-  { name: "harness-quiet-b", backing_scripts: [`${scriptDir}/check-b.sh`] },
-  { name: "harness-quiet-env", backing_scripts: [`${scriptDir}/check-env.sh`] },
+  { name: "harness-quiet-a", gate_smoke_role: "public_make_wrapper", backing_scripts: [`${scriptDir}/check-a.sh`] },
+  { name: "harness-quiet-b", gate_smoke_role: "check_scheduler_semantic", backing_scripts: [`${scriptDir}/check-b.sh`] },
+  { name: "harness-quiet-env", gate_smoke_role: "service_backed_scheduler_semantic", backing_scripts: [`${scriptDir}/check-env.sh`] },
 );
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
@@ -512,11 +515,15 @@ harness_failure_manifest="${harness_failure_dir}/manifest.json"
 const fs = require("node:fs");
 const [source, destination, scriptDir] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
-const checks = ["harness-fail-a", "harness-skipped-b"];
+for (const check of manifest.harness_checks) {
+  delete check.gate_smoke_role;
+}
+const checks = ["harness-fail-a", "harness-skipped-b", "harness-skipped-c"];
 manifest.harness_tiers.fast = { checks };
 manifest.harness_checks.push(
-  { name: "harness-fail-a", backing_scripts: [`${scriptDir}/check-fail.sh`] },
-  { name: "harness-skipped-b", backing_scripts: [`${scriptDir}/check-skipped.sh`] },
+  { name: "harness-fail-a", gate_smoke_role: "public_make_wrapper", backing_scripts: [`${scriptDir}/check-fail.sh`] },
+  { name: "harness-skipped-b", gate_smoke_role: "check_scheduler_semantic", backing_scripts: [`${scriptDir}/check-skipped.sh`] },
+  { name: "harness-skipped-c", gate_smoke_role: "service_backed_scheduler_semantic", backing_scripts: [`${scriptDir}/check-skipped.sh`] },
 );
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
@@ -619,10 +626,7 @@ for (const check of fullOnlyChecks) {
 }
 
 const expectedFast = [
-  "harness-smoke-execution-topology",
-  "harness-smoke-task-surface-report",
-  "harness-smoke-run-make-sequence-fast",
-  "harness-smoke-cartulary-runner-service-backed-target",
+  "harness-smoke-public-make-wrapper",
   "harness-smoke-check-scheduler-smoke",
   "harness-smoke-service-backed-scheduler-smoke",
 ];

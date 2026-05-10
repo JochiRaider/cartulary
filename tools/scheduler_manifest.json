@@ -2409,6 +2409,22 @@
           }
         },
         {
+          "target": "harness-contract-tests",
+          "priority": 12980,
+          "weight_ms": 10000,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu",
+          "command": {
+            "type": "make_target",
+            "target": "harness-contract-tests"
+          }
+        },
+        {
           "target": "frontend-import-boundary-check",
           "priority": 12950,
           "weight_ms": 10000,

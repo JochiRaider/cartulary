@@ -1597,6 +1597,20 @@
         ],
         "test_target": "self"
       },
+      "harness-contract-tests": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "harness-contract-tests",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "./scripts/test-harness-contracts.mjs"
+        ],
+        "test_target": "self"
+      },
       "lint-shell": {
         "prerequisites": [
           "shell-lint-toolchain"
@@ -4187,6 +4201,27 @@
         }
       },
       {
+        "name": "harness-contract-tests",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/test-harness-contracts.mjs"
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "static_validation",
+          "order": 20,
+          "needs": [
+            "toolchain-drift"
+          ]
+        }
+      },
+      {
         "name": "lint-shell",
         "classification": "public",
         "included_in": [
@@ -5250,16 +5285,17 @@
     "harness_tiers": {
       "fast": {
         "checks": [
-          "harness-smoke-execution-topology",
-          "harness-smoke-task-surface-report",
-          "harness-smoke-run-make-sequence-fast",
-          "harness-smoke-cartulary-runner-service-backed-target",
+          "harness-smoke-public-make-wrapper",
           "harness-smoke-check-scheduler-smoke",
           "harness-smoke-service-backed-scheduler-smoke"
         ]
       },
       "extended": {
         "checks": [
+          "harness-smoke-execution-topology",
+          "harness-smoke-task-surface-report",
+          "harness-smoke-run-make-sequence-fast",
+          "harness-smoke-cartulary-runner-service-backed-target",
           "harness-smoke-toolchain-pins",
           "harness-smoke-bootstrap-node-runtime",
           "harness-smoke-bootstrap-shellcheck",
@@ -5308,12 +5344,13 @@
       },
       "full": {
         "checks": [
+          "harness-smoke-public-make-wrapper",
+          "harness-smoke-check-scheduler-smoke",
+          "harness-smoke-service-backed-scheduler-smoke",
           "harness-smoke-execution-topology",
           "harness-smoke-task-surface-report",
           "harness-smoke-run-make-sequence-fast",
           "harness-smoke-cartulary-runner-service-backed-target",
-          "harness-smoke-check-scheduler-smoke",
-          "harness-smoke-service-backed-scheduler-smoke",
           "harness-smoke-toolchain-pins",
           "harness-smoke-bootstrap-node-runtime",
           "harness-smoke-bootstrap-shellcheck",
@@ -5359,6 +5396,13 @@
       }
     },
     "harness_checks": [
+      {
+        "name": "harness-smoke-public-make-wrapper",
+        "gate_smoke_role": "public_make_wrapper",
+        "backing_scripts": [
+          "scripts/test-public-make-wrapper-smoke.sh"
+        ]
+      },
       {
         "name": "harness-smoke-toolchain-pins",
         "backing_scripts": [
@@ -5585,6 +5629,7 @@
       },
       {
         "name": "harness-smoke-service-backed-scheduler-smoke",
+        "gate_smoke_role": "service_backed_scheduler_semantic",
         "backing_scripts": [
           "scripts/test-service-backed-scheduler.sh",
           "scripts/run-service-backed-schedule.mjs"
@@ -5616,6 +5661,7 @@
       },
       {
         "name": "harness-smoke-check-scheduler-smoke",
+        "gate_smoke_role": "check_scheduler_semantic",
         "backing_scripts": [
           "scripts/test-check-scheduler.sh",
           "scripts/run-check-schedule.mjs"

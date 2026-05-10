@@ -344,8 +344,8 @@ export function quickCheckRenderIndex(options = {}) {
 
 function renderArtifacts(options) {
   const topology = loadExecutionTopology({ manifestPath: options.topology });
-  validateAllPhaseSlicePlans({ root: repoRoot });
   const taskSurfaceManifest = renderTaskSurfaceManifest(topology);
+  validateAllPhaseSlicePlans({ root: repoRoot, taskSurfaceManifest });
   const browserBatchManifest = renderBrowserBatchManifest(topology);
   const serviceBackedScheduleManifest = renderServiceBackedScheduleManifest({
     topology: options.topology,

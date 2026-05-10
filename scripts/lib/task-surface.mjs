@@ -69,6 +69,11 @@ const validRawStreamPolicies = new Set([
   "machine_json_stdout",
   "never_default",
 ]);
+const validGateSmokeRoles = new Set([
+  "public_make_wrapper",
+  "check_scheduler_semantic",
+  "service_backed_scheduler_semantic",
+]);
 const standardSuccessBudgetKeys = new Set([
   "stdout_lines",
   "stdout_bytes",
@@ -347,6 +352,16 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       validateCommandTokens(errors, entry.command, `${entry.name}.command`, {
         required: false,
       });
+      if (entry.gate_smoke_role !== undefined) {
+        if (
+          typeof entry.gate_smoke_role !== "string" ||
+          !validGateSmokeRoles.has(entry.gate_smoke_role)
+        ) {
+          errors.push(
+            `${entry.name}.gate_smoke_role must be one of ${[...validGateSmokeRoles].join("|")}`,
+          );
+        }
+      }
     }
   }
 
@@ -1013,6 +1028,7 @@ function validateHarnessTiers(errors, harnessChecks, tiers) {
     errors.push("harness_tiers must be an object");
     return;
   }
+  const fastChecks = new Set();
   for (const [name, tier] of Object.entries(tiers)) {
     const checks = tier?.checks;
     if (!Array.isArray(checks) || checks.length === 0) {
@@ -1036,6 +1052,54 @@ function validateHarnessTiers(errors, harnessChecks, tiers) {
           `harness_tiers.${name}.checks references unknown harness check ${check}`,
         );
       }
+      if (name === "fast") {
+        fastChecks.add(check);
+      }
+    }
+  }
+  validateFastHarnessGateSmokeRoles(errors, harnessChecks, fastChecks);
+}
+
+function validateFastHarnessGateSmokeRoles(errors, harnessChecks, fastChecks) {
+  if (fastChecks.size === 0) {
+    errors.push("harness_tiers.fast.checks must declare gate smoke checks");
+    return;
+  }
+  if (fastChecks.size !== validGateSmokeRoles.size) {
+    errors.push(
+      `harness_tiers.fast.checks must contain exactly ${validGateSmokeRoles.size} gate smoke checks`,
+    );
+  }
+  const roles = new Map();
+  for (const check of fastChecks) {
+    const entry = harnessChecks.get(check);
+    if (!entry) {
+      continue;
+    }
+    const role = entry.gate_smoke_role;
+    if (role === undefined) {
+      errors.push(`${check}.gate_smoke_role is required for fast harness smoke`);
+      continue;
+    }
+    if (!validGateSmokeRoles.has(role)) {
+      continue;
+    }
+    if (roles.has(role)) {
+      errors.push(
+        `harness_tiers.fast.checks has duplicate gate smoke role ${role}`,
+      );
+      continue;
+    }
+    roles.set(role, check);
+  }
+  for (const role of validGateSmokeRoles) {
+    if (!roles.has(role)) {
+      errors.push(`harness_tiers.fast.checks missing gate smoke role ${role}`);
+    }
+  }
+  for (const [name, entry] of harnessChecks) {
+    if (entry.gate_smoke_role !== undefined && !fastChecks.has(name)) {
+      errors.push(`${name}.gate_smoke_role is only allowed on fast harness smoke checks`);
     }
   }
 }
