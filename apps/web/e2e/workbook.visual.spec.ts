@@ -112,7 +112,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
       timelineApiViewSchemaId,
       {
         client_txn_id: uniqueTxn("V3GRID02-ROW"),
-        "timeline.occurred_at": "2025-02-17T10:30:00Z",
+        "timeline.occurred_at": "2025-01-01T00:00:00Z",
         "timeline.summary": "Editable visual row",
       },
     )) as ViewRow;
