@@ -888,6 +888,8 @@ async function setWorkbookGridScroll(
         left === "left" ? 0 : left === "right" ? maxLeft : left;
       const expectedTop = Math.min(Math.max(0, top), maxTop);
       scrollport.scrollTop = expectedTop;
+      // "right" means the live computed maximum, so visual goldens track the
+      // far-right grid contract instead of a historical pixel offset.
       scrollport.scrollLeft = Math.min(Math.max(0, expectedLeft), maxLeft);
       return {
         top: scrollport.scrollTop,
