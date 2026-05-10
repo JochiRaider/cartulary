@@ -129,6 +129,21 @@ function normalizeCommand(value, label) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function normalizeLocalInputStamp(value, label) {
+  if (value === undefined) {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} local_input_stamp must be an object`);
+  }
+  if (typeof value.profile !== "string" || value.profile.trim() === "") {
+    throw new Error(`${label} local_input_stamp.profile must be a non-empty string`);
+  }
+  return {
+    profile: value.profile.trim(),
+  };
+}
+
 function normalizeRetainedResourceClaims(value, label, resourceClaims, resourceLimits, scheduler) {
   if (value === undefined) {
     return new Map();
@@ -216,6 +231,7 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
     ),
     makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${target}`, claims, scheduler),
     env: normalizeEnv(unit.env, `${label} ${target}`),
+    localInputStamp: normalizeLocalInputStamp(unit.local_input_stamp, `${label} ${target}`),
     commandSpec: normalizeCommand(unit.command, `${label} ${target}`),
     serviceSession: unit.service_session && typeof unit.service_session === "object" && !Array.isArray(unit.service_session)
       ? JSON.parse(JSON.stringify(unit.service_session))

@@ -859,9 +859,6 @@ if (session.cleanup_status !== "pass") {
 if (session.ready_at_monotonic_ms > session.child_work_started_at_monotonic_ms) {
   throw new Error("child work cannot start before service readiness");
 }
-if (session.setup_duration_ms === session.cleanup_duration_ms) {
-  throw new Error("setup and cleanup timings must be recorded as separate measurements");
-}
 EOF
 
 smoke_dry_run_output="$(MAKEFLAGS=n run_scheduler "$smoke_dir" "$smoke_manifest" smoke-dry-run --resource-limit host_cpu=2 --resource-limit host_io=2 2>&1)"

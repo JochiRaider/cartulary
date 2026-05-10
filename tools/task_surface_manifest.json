@@ -512,6 +512,10 @@
           "produces_summary_targets": [
             "check"
           ]
+        },
+        {
+          "type": "step",
+          "target": "duration-baseline-drift-suite"
         }
       ]
     },
@@ -1040,22 +1044,6 @@
       "type": "node_tool",
       "prerequisites": []
     },
-    "task-surface-check": {
-      "type": "phase_command",
-      "prerequisites": [
-        "$(NODE_BIN)"
-      ],
-      "mode": "run_phase",
-      "phase_label": "task-surface-check",
-      "command": [
-        "$(NODE_BIN)",
-        "./scripts/print-task-surface-report.mjs"
-      ],
-      "args": [
-        "--check"
-      ],
-      "test_target": "self"
-    },
     "backend-unit": {
       "type": "go_target",
       "prerequisites": [
@@ -1184,20 +1172,6 @@
     "scheduler-summary-timing-drift": {
       "type": "node_tool",
       "prerequisites": []
-    },
-    "backend-task-surface-check": {
-      "type": "phase_command",
-      "prerequisites": [
-        "$(NODE_BIN)"
-      ],
-      "mode": "run_phase",
-      "phase_label": "backend-task-surface-check",
-      "command": [
-        "env",
-        "NODE_BIN=$(NODE_BIN)",
-        "./scripts/check-backend-task-surface.sh"
-      ],
-      "test_target": "self"
     },
     "service-backed-unit-check": {
       "type": "phase_command",
@@ -1333,20 +1307,6 @@
       },
       "command": [
         "./scripts/run-frontend-unit.sh"
-      ],
-      "test_target": "self"
-    },
-    "frontend-task-surface-check": {
-      "type": "phase_command",
-      "prerequisites": [
-        "$(NODE_BIN)"
-      ],
-      "mode": "run_phase",
-      "phase_label": "frontend-task-surface-check",
-      "command": [
-        "env",
-        "NODE_BIN=$(NODE_BIN)",
-        "./scripts/check-frontend-task-surface.sh"
       ],
       "test_target": "self"
     },
@@ -1574,16 +1534,6 @@
       "service_wrapper": "direct",
       "test_target": "self"
     },
-    "browser-e2e-task-surface-check": {
-      "type": "phase_command",
-      "prerequisites": [],
-      "mode": "run_phase",
-      "phase_label": "browser-e2e-task-surface-check",
-      "command": [
-        "./scripts/check-browser-e2e-task-surface.sh"
-      ],
-      "test_target": "self"
-    },
     "test-local": {
       "prerequisites": [
         "backend-unit",
@@ -1795,34 +1745,6 @@
       "projection": "check-harness-smoke",
       "test_target": "self"
     },
-    "check-go-test-duration-baseline-drift": {
-      "type": "summary_target",
-      "prerequisites": [],
-      "child_target": "go-test-duration-baseline-drift",
-      "status": "pass",
-      "test_target": "self"
-    },
-    "check-browser-e2e-duration-baseline-drift": {
-      "type": "summary_target",
-      "prerequisites": [],
-      "child_target": "browser-e2e-duration-baseline-drift",
-      "status": "pass",
-      "test_target": "self"
-    },
-    "check-service-backed-make-target-duration-baseline-drift": {
-      "type": "summary_target",
-      "prerequisites": [],
-      "child_target": "service-backed-make-target-duration-baseline-drift",
-      "status": "pass",
-      "test_target": "self"
-    },
-    "check-harness-smoke-duration-baseline-drift": {
-      "type": "summary_target",
-      "prerequisites": [],
-      "child_target": "harness-smoke-duration-baseline-drift",
-      "status": "pass",
-      "test_target": "self"
-    },
     "check-service-backed": {
       "type": "service_backed_schedule",
       "prerequisites": [
@@ -1920,6 +1842,16 @@
       "prerequisites": [],
       "type": "cleanup",
       "scope": "distclean"
+    },
+    "duration-baseline-drift-suite": {
+      "prerequisites": [],
+      "type": "phase_command",
+      "mode": "run_phase",
+      "phase_label": "duration-baseline-drift-suite",
+      "command": [
+        "./scripts/duration-baseline-drift-suite.sh"
+      ],
+      "test_target": "self"
     }
   },
   "targets": [
@@ -2844,17 +2776,6 @@
       }
     },
     {
-      "name": "task-surface-check",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ],
-      "backing_scripts": [
-        "scripts/print-task-surface-report.mjs",
-        "scripts/render-task-surface-make.mjs"
-      ]
-    },
-    {
       "name": "backend-unit",
       "classification": "public",
       "included_in": [
@@ -3388,6 +3309,16 @@
       }
     },
     {
+      "name": "duration-baseline-drift-suite",
+      "classification": "check_internal",
+      "included_in": [
+        "ci"
+      ],
+      "backing_scripts": [
+        "scripts/duration-baseline-drift-suite.sh"
+      ]
+    },
+    {
       "name": "harness-smoke-duration-baseline-drift",
       "classification": "public",
       "included_in": [
@@ -3472,17 +3403,6 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v2"
       }
-    },
-    {
-      "name": "backend-task-surface-check",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ],
-      "backing_scripts": [
-        "scripts/check-backend-task-surface.sh",
-        "scripts/lib/task-surface-check-common.sh"
-      ]
     },
     {
       "name": "service-backed-unit-check",
@@ -3598,17 +3518,6 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v2"
       }
-    },
-    {
-      "name": "frontend-task-surface-check",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ],
-      "backing_scripts": [
-        "scripts/check-frontend-task-surface.sh",
-        "scripts/lib/task-surface-check-common.sh"
-      ]
     },
     {
       "name": "frontend-import-boundary-check",
@@ -3992,17 +3901,6 @@
       }
     },
     {
-      "name": "browser-e2e-task-surface-check",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ],
-      "backing_scripts": [
-        "scripts/check-browser-e2e-task-surface.sh",
-        "scripts/lib/task-surface-check-common.sh"
-      ]
-    },
-    {
       "name": "test-local",
       "classification": "check_internal",
       "included_in": [
@@ -4280,46 +4178,6 @@
       "classification": "check_internal",
       "included_in": [
         "check"
-      ]
-    },
-    {
-      "name": "check-go-test-duration-baseline-drift",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ],
-      "backing_scripts": [
-        "scripts/check-go-test-duration-baseline-drift.mjs"
-      ]
-    },
-    {
-      "name": "check-browser-e2e-duration-baseline-drift",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ],
-      "backing_scripts": [
-        "scripts/lib/browser-shard-plan.mjs"
-      ]
-    },
-    {
-      "name": "check-service-backed-make-target-duration-baseline-drift",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ],
-      "backing_scripts": [
-        "scripts/service-backed-make-target-durations.mjs"
-      ]
-    },
-    {
-      "name": "check-harness-smoke-duration-baseline-drift",
-      "classification": "check_internal",
-      "included_in": [
-        "check"
-      ],
-      "backing_scripts": [
-        "scripts/harness-smoke-durations.mjs"
       ]
     },
     {

@@ -61,6 +61,19 @@ const schedulerOwnedEnvNames = new Set([
   "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT",
 ]);
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
+const checkInputStampScript = path.join(repoRoot, "scripts", "check-input-stamp.mjs");
+const schedulerReadinessTargets = new Set([
+  "toolchain-drift",
+  "codegen-toolchain",
+  "go-lint-toolchain",
+  "govulncheck-toolchain",
+  "gosec-toolchain",
+  "shell-lint-toolchain",
+  "check-frontend-install",
+  "build-server",
+  "build-migrate",
+  "test-service-images",
+]);
 
 function usage() {
   process.stderr.write(
@@ -158,6 +171,21 @@ function normalizeUnitEnv(value, label) {
     entries.push([envName, rawValue]);
   }
   return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function normalizeLocalInputStamp(value, label) {
+  if (value === undefined) {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} local_input_stamp must be an object`);
+  }
+  if (typeof value.profile !== "string" || value.profile.trim() === "") {
+    throw new Error(`${label} local_input_stamp.profile must be a non-empty string`);
+  }
+  return {
+    profile: value.profile.trim(),
+  };
 }
 
 function normalizeNestedScheduler(value, label, unitTarget, resourceClaims) {
@@ -398,6 +426,7 @@ function _findSchedule(manifest, target, overrides) {
       releaseRetainedResourceClaims,
       makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unitTarget}`, claims),
       env: normalizeUnitEnv(unit.env, `${label} ${unitTarget}`),
+      localInputStamp: normalizeLocalInputStamp(unit.local_input_stamp, `${label} ${unitTarget}`),
       nestedScheduler,
       serviceSession: unit.service_session ?? null,
       browserStage: typeof unit.browser_stage === "string" ? unit.browser_stage : "",
@@ -1018,16 +1047,35 @@ function attachRuntime(schedule, {
       });
       continue;
     }
-    unit.command = () => ({
-      command: makeBin,
-      args: ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target],
-      env: makeChildEnv({
+    unit.command = () => {
+      const args = ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target];
+      const env = makeChildEnv({
         ...nestedSchedulerEnv(unit),
         ...unit.env,
         CARTULARY_TEST_TARGET: unit.target,
         CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-      }),
-    });
+        ...(schedulerReadinessTargets.has(unit.target)
+          ? {}
+          : { CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES: "1" }),
+      });
+      if (!unit.localInputStamp) {
+        return { command: makeBin, args, env };
+      }
+      return {
+        command: process.execPath,
+        args: [
+          checkInputStampScript,
+          "--stamp-id",
+          unit.id,
+          "--profile",
+          unit.localInputStamp.profile,
+          "--",
+          makeBin,
+          ...args,
+        ],
+        env,
+      };
+    };
   }
   return {
     ...schedule,

@@ -103,6 +103,14 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004
 The default `check-harness-smoke` gate MUST remain a small semantic smoke surface rather than a broad harness regression suite. Its fast tier MUST contain exactly one check for each gate role: public Make/wrapper projection, check-scheduler semantics, and service-backed scheduler semantics. Broader field-shape, topology-rendering, and sequence-detail checks MUST live in owner-aligned validation such as `json-shape-check`, generated drift checks, module-level harness contract tests, or non-default diagnostic smoke tiers.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-006
 
+**TH-HARNESS-REQ-054**
+The default local `check` gate MUST prioritize correctness evidence and MUST NOT enforce duration-baseline drift. Duration-baseline coverage MAY remain in `check` because it validates scheduler input completeness. Duration-baseline drift MUST remain available through explicit duration drift targets and MUST be enforced by CI, `agent-finalize RESULTS_DIR=<dir>`, or another timing-maintenance surface.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-006
+
+**TH-HARNESS-REQ-055**
+The check scheduler MAY skip selected local-only static validation units through input-hash stamps when `CI!=1`. Such stamps MUST be disabled when `CARTULARY_CHECK_DISABLE_INPUT_STAMPS=1`, MUST live under `tmp/check-stamps/`, MUST be scoped to scheduler-invoked `check` work, and MUST NOT change direct public target behavior. Product tests, service-backed tests, browser tests, vulnerability scans, and security scans MUST NOT use local input stamps.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-006
+
 ### 4.1 Mechanism Boundary
 
 | Surface                                                  |                                  Normative? | Required contract                                                                      |
@@ -637,6 +645,8 @@ unconditional scheduler finalizer.
 Retained resource claims represent continuing logical capacity pressure after a work unit exits. They MUST NOT be used to preserve historical ownership for resources that no longer constrain future work. A browser stage session MAY retain browser stack, stage-lane, and process claims while the stage remains live, but it MUST NOT retain broad database or object-store capacity solely because the stage used those services during readiness.
 
 For the `check` scheduler, a service-backed suite session SHOULD start as soon as the suite's own readiness prerequisites are satisfied. Browser build artifacts such as server and migration binaries MUST be modeled as dependencies of browser stage sessions that require them, not as prerequisites of the shared service-suite readiness unit. Backend service-backed shards that use the suite template database MAY depend only on the service-session readiness completion key when they do not require those browser build artifacts.
+
+For the `check` scheduler, readiness work such as frontend install, pinned tool bootstrap, binary builds, and service-image warmup SHOULD be represented as first-class scheduler work units with completion keys. Scheduler-invoked child targets MAY suppress recursive Make prerequisite setup only when their declared readiness keys are already satisfied. Direct public Make target invocation MUST continue to run its normal prerequisites.
 
 ### 10.2 Logical Resource Registry
 

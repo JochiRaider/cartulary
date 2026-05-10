@@ -1493,7 +1493,8 @@ function renderPrerequisitePrelude(recipe, entry = null) {
     return [];
   }
   return [
-    `\t$(Q)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory ${(recipe.prerequisites ?? []).join(" ")}`,
+    "\t$(Q)if [ \"$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}\" != \"1\" ]; then env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory " +
+      `${(recipe.prerequisites ?? []).join(" ")}; fi`,
   ];
 }
 

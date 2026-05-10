@@ -41,10 +41,7 @@ run_make_target phase-schedule-drift >/dev/null
 run_make_target json-shape-check >/dev/null
 
 if [[ -n "${RESULTS_DIR}" ]]; then
-  run_make_target go-test-duration-baseline-drift >/dev/null
-  run_make_target browser-e2e-duration-baseline-drift >/dev/null
-  run_make_target service-backed-make-target-duration-baseline-drift >/dev/null
-  run_make_target harness-smoke-duration-baseline-drift >/dev/null
+  run_make_target duration-baseline-drift-suite >/dev/null
   printf 'agent-finalize: duration baselines checked from %s\n' "${RESULTS_DIR}"
 fi
 
