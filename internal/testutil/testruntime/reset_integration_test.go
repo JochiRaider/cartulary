@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -38,6 +39,73 @@ func TestTestRuntimeResetRouteDisabledByDefault(t *testing.T) {
 	resp := doTestRuntimeResetRequest(t, server.Client(), newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil))
 	defer resp.Body.Close()
 	requireTestRuntimeResetStatus(t, resp, http.StatusNotFound)
+
+	identityResp := doTestRuntimeResetRequest(t, server.Client(), newTestRuntimeResetJSONRequest(t, http.MethodGet, server.URL+"/api/v1/test/runtime/identity", nil))
+	defer identityResp.Body.Close()
+	requireTestRuntimeResetStatus(t, identityResp, http.StatusNotFound)
+}
+
+func TestTestRuntimeIdentityRouteRequiresHarnessAuthorization(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-identity")
+	s3Harness := s3test.Start(t)
+	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-identity")
+
+	env := testDB.Env()
+	for key, value := range s3Harness.Env(bucket) {
+		env[key] = value
+	}
+	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+
+	_, server := startTestRuntimeResetServer(t, env, []httpapi.RouteRegistrar{RegisterTestRuntimeResetRoute()})
+
+	missing := doTestRuntimeResetRequest(t, server.Client(), newTestRuntimeResetJSONRequest(t, http.MethodGet, server.URL+"/api/v1/test/runtime/identity", nil))
+	requireTestRuntimeResetErrorEnvelope(t, missing, http.StatusForbidden, "test_route_forbidden")
+
+	wrong := newTestRuntimeResetJSONRequest(t, http.MethodGet, server.URL+"/api/v1/test/runtime/identity", nil)
+	wrong.Header.Set(testRouteTokenHeader, "wrong-token-wrong-token-wrong-token")
+	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), wrong), http.StatusForbidden, "test_route_forbidden")
+
+	success := doTestRuntimeResetRequest(t, server.Client(), authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodGet, server.URL+"/api/v1/test/runtime/identity", nil)))
+	body := requireTestRuntimeResetSuccessEnvelope(t, success, http.StatusOK)
+	data := body["data"].(map[string]any)
+	if data["schema_id"] != testRuntimeIdentitySchemaID {
+		t.Fatalf("unexpected identity schema id: %#v", data["schema_id"])
+	}
+	if data["runtime_marker"] != testRuntimeMarkerValue {
+		t.Fatalf("unexpected runtime marker: %#v", data["runtime_marker"])
+	}
+	if data["test_routes_enabled"] != true {
+		t.Fatalf("identity route must report test routes enabled: %#v", data)
+	}
+	if _, ok := data["server_pid"].(float64); !ok {
+		t.Fatalf("identity route must report server_pid: %#v", data)
+	}
+}
+
+func TestTestRuntimeResetRouteRejectsInvalidHarnessPredicates(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-invalid-predicates")
+	s3Harness := s3test.Start(t)
+	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-invalid-predicates")
+
+	env := testDB.Env()
+	for key, value := range s3Harness.Env(bucket) {
+		env[key] = value
+	}
+	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+
+	wrongMarker := cloneTestRuntimeResetEnv(env)
+	wrongMarker[testRoutesEnabledEnv] = "1"
+	wrongMarker[testRouteTokenEnv] = testRuntimeResetToken
+	wrongMarker[testRuntimeMarkerEnv] = "not-owned"
+	requireTestRuntimeResetStartupError(t, wrongMarker, "must be \"harness-owned\"")
+
+	weakToken := cloneTestRuntimeResetEnv(env)
+	weakToken[testRoutesEnabledEnv] = "1"
+	weakToken[testRuntimeMarkerEnv] = testRuntimeMarkerValue
+	weakToken[testRouteTokenEnv] = "short"
+	requireTestRuntimeResetStartupError(t, weakToken, "must be a harness-generated token")
 }
 
 func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
@@ -195,6 +263,26 @@ func newTestRuntimeResetJSONRequest(t testing.TB, method string, url string, bod
 func authorizeTestRuntimeResetRequest(req *http.Request) *http.Request {
 	req.Header.Set(testRouteTokenHeader, testRuntimeResetToken)
 	return req
+}
+
+func cloneTestRuntimeResetEnv(env map[string]string) map[string]string {
+	clone := make(map[string]string, len(env))
+	for key, value := range env {
+		clone[key] = value
+	}
+	return clone
+}
+
+func requireTestRuntimeResetStartupError(t testing.TB, env map[string]string, want string) {
+	t.Helper()
+	registrar := RegisterTestRuntimeResetRoute()
+	err := registrar(http.NewServeMux(), httpapi.DependencySet{Env: env})
+	if err == nil {
+		t.Fatalf("expected route registration to fail with %q", want)
+	}
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("unexpected route registration error: got %q want containing %q", err.Error(), want)
+	}
 }
 
 func doTestRuntimeResetRequest(t testing.TB, client *http.Client, req *http.Request) *http.Response {

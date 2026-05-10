@@ -26,13 +26,14 @@ import (
 )
 
 const (
-	testRuntimeResetSchemaID = "cartulary.test.runtime_reset.v1"
-	testRoutesEnabledEnv     = "CARTULARY_ENABLE_TEST_ROUTES"
-	testRouteTokenEnv        = "CARTULARY_TEST_ROUTE_TOKEN"
-	testRuntimeMarkerEnv     = "CARTULARY_TEST_RUNTIME_MARKER"
-	testRuntimeMarkerValue   = "harness-owned"
-	testRouteTokenHeader     = "X-Cartulary-Test-Route-Token"
-	testRuntimeResetTimeout  = 30 * time.Second
+	testRuntimeResetSchemaID    = "cartulary.test.runtime_reset.v1"
+	testRuntimeIdentitySchemaID = "cartulary.test.runtime_identity.v1"
+	testRoutesEnabledEnv        = "CARTULARY_ENABLE_TEST_ROUTES"
+	testRouteTokenEnv           = "CARTULARY_TEST_ROUTE_TOKEN"
+	testRuntimeMarkerEnv        = "CARTULARY_TEST_RUNTIME_MARKER"
+	testRuntimeMarkerValue      = "harness-owned"
+	testRouteTokenHeader        = "X-Cartulary-Test-Route-Token"
+	testRuntimeResetTimeout     = 30 * time.Second
 )
 
 type testRuntimeResetService struct {
@@ -67,6 +68,13 @@ type testRuntimeCounts struct {
 	RouteIdempotency       int `json:"route_idempotency"`
 }
 
+type testRuntimeIdentityResult struct {
+	SchemaID      string `json:"schema_id"`
+	RuntimeMarker string `json:"runtime_marker"`
+	ServerPID     int    `json:"server_pid"`
+	TestRoutes    bool   `json:"test_routes_enabled"`
+}
+
 func RegisterTestRuntimeResetRoute() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		if lookupTestRuntimeEnv(deps.Env, testRoutesEnabledEnv) != "1" {
@@ -92,9 +100,23 @@ func RegisterTestRuntimeResetRoute() httpapi.RouteRegistrar {
 			objectStore: deps.ObjectStore,
 			token:       token,
 		}
+		mux.HandleFunc("GET /api/v1/test/runtime/identity", service.handleIdentity)
 		mux.HandleFunc("POST /api/v1/test/runtime/reset", service.handleReset)
 		return nil
 	}
+}
+
+func (s *testRuntimeResetService) handleIdentity(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(r) {
+		_ = httpapi.WriteError(w, r, http.StatusForbidden, "test_route_forbidden", "test route token is required", map[string]any{})
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, testRuntimeIdentityResult{
+		SchemaID:      testRuntimeIdentitySchemaID,
+		RuntimeMarker: testRuntimeMarkerValue,
+		ServerPID:     os.Getpid(),
+		TestRoutes:    true,
+	})
 }
 
 func (s *testRuntimeResetService) handleReset(w http.ResponseWriter, r *http.Request) {

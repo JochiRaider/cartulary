@@ -1,13 +1,23 @@
 // @vitest-environment node
 
-import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   ordinaryMeasurementSamplePolicy,
   parseServerTiming,
   percentile95,
   reconcileSuiteAdminTotpState,
+  verifyOwnedHarnessRuntime,
 } from "./helpers";
+
+afterEach(() => {
+  delete process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE;
+  delete process.env.CARTULARY_WEB_E2E_SERVER_LOG;
+  vi.unstubAllGlobals();
+});
 
 describe("reconcileSuiteAdminTotpState", () => {
   it("reuses the stored suite-admin secret when it still authenticates", async () => {
@@ -81,6 +91,79 @@ describe("reconcileSuiteAdminTotpState", () => {
         stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
       }),
     ).rejects.toThrow("CARTULARY_PLAYWRIGHT_STATE_DIR=/tmp/cartulary-shared");
+  });
+});
+
+describe("verifyOwnedHarnessRuntime", () => {
+  it("skips the identity probe when the owned-stack token file is not configured", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await verifyOwnedHarnessRuntime();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("verifies the token-protected harness identity before suite admin login", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "cartulary-identity-"));
+    try {
+      const tokenFile = join(tempDir, "token");
+      writeFileSync(tokenFile, "0123456789abcdef0123456789abcdef\n", "utf8");
+      process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE = tokenFile;
+      const fetchMock = vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            schema_id: "cartulary.test.runtime_identity.v1",
+            runtime_marker: "harness-owned",
+            server_pid: 12345,
+            test_routes_enabled: true,
+          },
+        }),
+      }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await verifyOwnedHarnessRuntime();
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://127.0.0.1:8080/api/v1/test/runtime/identity",
+        expect.objectContaining({
+          headers: {
+            "X-Cartulary-Test-Route-Token": "0123456789abcdef0123456789abcdef",
+          },
+        }),
+      );
+    } finally {
+      rmSync(tempDir, { force: true, recursive: true });
+    }
+  });
+
+  it("fails before admin login when the identity endpoint is not the harness-owned runtime", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "cartulary-identity-"));
+    try {
+      const tokenFile = join(tempDir, "token");
+      writeFileSync(tokenFile, "0123456789abcdef0123456789abcdef\n", "utf8");
+      process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE = tokenFile;
+      process.env.CARTULARY_WEB_E2E_SERVER_LOG = "/tmp/server.log";
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => ({
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+        })),
+      );
+
+      await expect(verifyOwnedHarnessRuntime()).rejects.toThrow(
+        "browser harness identity check failed",
+      );
+      await expect(verifyOwnedHarnessRuntime()).rejects.toThrow(
+        "server_log=/tmp/server.log",
+      );
+    } finally {
+      rmSync(tempDir, { force: true, recursive: true });
+    }
   });
 });
 

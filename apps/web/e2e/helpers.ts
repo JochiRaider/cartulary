@@ -883,6 +883,57 @@ export async function waitForPageRequestAPIReady(page: Page) {
   throw new Error(`timed out waiting for API readiness at ${apiBase}/readyz`);
 }
 
+export async function verifyOwnedHarnessRuntime() {
+  const tokenFile = process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE?.trim();
+  if (!tokenFile) {
+    return;
+  }
+  let token = "";
+  try {
+    token = readFileSync(tokenFile, "utf8").trim();
+  } catch (error) {
+    throw new Error(
+      `browser harness identity check could not read token file ${tokenFile}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (token === "") {
+    throw new Error(
+      `browser harness identity check found an empty token file at ${tokenFile}`,
+    );
+  }
+
+  const response = await fetch(`${apiBase}/api/v1/test/runtime/identity`, {
+    headers: {
+      "X-Cartulary-Test-Route-Token": token,
+    },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `browser harness identity check failed for ${apiBase}: HTTP ${response.status} token_file=${tokenFile} server_log=${process.env.CARTULARY_WEB_E2E_SERVER_LOG ?? ""}`,
+    );
+  }
+  const body = (await response.json()) as {
+    data?: {
+      schema_id?: unknown;
+      runtime_marker?: unknown;
+      server_pid?: unknown;
+      test_routes_enabled?: unknown;
+    };
+  };
+  const data = body.data;
+  if (
+    data?.schema_id !== "cartulary.test.runtime_identity.v1" ||
+    data.runtime_marker !== "harness-owned" ||
+    data.test_routes_enabled !== true ||
+    !Number.isInteger(data.server_pid)
+  ) {
+    throw new Error(
+      `browser harness identity check received an unexpected payload from ${apiBase} token_file=${tokenFile} server_log=${process.env.CARTULARY_WEB_E2E_SERVER_LOG ?? ""}`,
+    );
+  }
+}
+
 export function currentSuiteAdminStateContext(): SuiteAdminStateContext {
   return {
     externalServerMode: isExternalServerHarnessMode(),

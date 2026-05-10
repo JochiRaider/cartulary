@@ -6,7 +6,11 @@ import {
   resolvePlaywrightStateDirectory,
   usesSharedPlaywrightState,
 } from "./harnessState";
-import { clearSuiteAdminTotpSecret, prepareSuiteAdminState } from "./helpers";
+import {
+  clearSuiteAdminTotpSecret,
+  prepareSuiteAdminState,
+  verifyOwnedHarnessRuntime,
+} from "./helpers";
 import { clearWorkerAdminSuiteState } from "./sessionSupport";
 
 export default async function globalSetup(config: FullConfig) {
@@ -22,6 +26,7 @@ export default async function globalSetup(config: FullConfig) {
     configuredWorkerCount ?? 1,
   );
   await withSharedGlobalSetupLock(async () => {
+    await verifyOwnedHarnessRuntime();
     await prepareSuiteAdminState();
     await prepareWorkerAdminSuite(workerCount);
   });

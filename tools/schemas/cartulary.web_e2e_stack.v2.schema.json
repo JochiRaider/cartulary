@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.web_e2e_stack.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "api_origin",
+    "public_origin",
+    "backend_port",
+    "frontend_port",
+    "runtime_root",
+    "server_log",
+    "web_log"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.web_e2e_stack.v2" },
+    "api_origin": { "type": "string", "minLength": 1 },
+    "public_origin": { "type": "string", "minLength": 1 },
+    "backend_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "frontend_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "runtime_root": { "type": "string", "minLength": 1 },
+    "server_log": { "type": "string", "minLength": 1 },
+    "web_log": { "type": "string", "minLength": 1 },
+    "test_route_token_file": { "type": "string" },
+    "backend_process_group_id": { "type": "integer", "minimum": 1 },
+    "frontend_process_group_id": { "type": "integer", "minimum": 1 },
+    "backend_ready_at": { "type": "string", "minLength": 1 },
+    "frontend_ready_at": { "type": "string", "minLength": 1 },
+    "backend_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "status", "server_pid"],
+      "properties": {
+        "schema_id": { "const": "cartulary.test.runtime_identity.v1" },
+        "status": { "const": "pass" },
+        "server_pid": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "frontend_ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "const": "pass" }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_id", "source"],
+      "properties": {
+        "logical_id": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["standalone", "testservices"] },
+        "bucket": { "type": "string", "minLength": 1 }
+      }
+    },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}

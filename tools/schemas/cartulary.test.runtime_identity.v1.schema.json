@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.runtime_identity.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "runtime_marker",
+    "server_pid",
+    "test_routes_enabled"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test.runtime_identity.v1" },
+    "runtime_marker": { "const": "harness-owned" },
+    "server_pid": { "type": "integer", "minimum": 1 },
+    "test_routes_enabled": { "const": true },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}

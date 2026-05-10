@@ -24,6 +24,11 @@ STACK_JSON_FILE=""
 PLAYWRIGHT_STATE_DIR=""
 TEST_ROUTE_TOKEN=""
 TEST_ROUTE_TOKEN_FILE=""
+BACKEND_READY_AT=""
+FRONTEND_READY_AT=""
+BACKEND_IDENTITY_STATUS=""
+BACKEND_IDENTITY_SERVER_PID=""
+FRONTEND_OWNERSHIP_STATUS=""
 TEST_SERVICES_ENV_FILE=""
 TEST_SERVICES_METADATA_FILE=""
 E2E_DB=""
@@ -280,11 +285,23 @@ EOF
   CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
   CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}" \
+  CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
+  CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
+  CARTULARY_WEB_E2E_BACKEND_READY_AT="${BACKEND_READY_AT}" \
+  CARTULARY_WEB_E2E_FRONTEND_READY_AT="${FRONTEND_READY_AT}" \
+  CARTULARY_WEB_E2E_BACKEND_IDENTITY_STATUS="${BACKEND_IDENTITY_STATUS}" \
+  CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID="${BACKEND_IDENTITY_SERVER_PID}" \
+  CARTULARY_WEB_E2E_FRONTEND_OWNERSHIP_STATUS="${FRONTEND_OWNERSHIP_STATUS}" \
+  CARTULARY_WEB_E2E_DB="${E2E_DB}" \
+  CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="${TEST_SERVICES_METADATA_FILE}" \
+  CARTULARY_TEST_SERVICES_ACTIVE="${CARTULARY_TEST_SERVICES_ACTIVE:-}" \
     "${node_bin}" <<'EOF'
 const fs = require("node:fs");
 
+const fixtureIdentity = resolveFixtureIdentity();
+
 const payload = {
-  schema_id: "cartulary.web_e2e_stack.v1",
+  schema_id: "cartulary.web_e2e_stack.v2",
   api_origin: process.env.CARTULARY_WEB_E2E_API_ORIGIN,
   public_origin: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN,
   backend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_BACKEND_PORT ?? "", 10),
@@ -293,7 +310,68 @@ const payload = {
   server_log: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
   web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
   test_route_token_file: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
+  backend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_PGID),
+  frontend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_VITE_PGID),
+  backend_ready_at: stringOrUndefined(process.env.CARTULARY_WEB_E2E_BACKEND_READY_AT),
+  frontend_ready_at: stringOrUndefined(process.env.CARTULARY_WEB_E2E_FRONTEND_READY_AT),
+  backend_identity: process.env.CARTULARY_WEB_E2E_BACKEND_IDENTITY_STATUS
+    ? {
+        status: process.env.CARTULARY_WEB_E2E_BACKEND_IDENTITY_STATUS,
+        server_pid: numberOrUndefined(process.env.CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID),
+        schema_id: "cartulary.test.runtime_identity.v1",
+      }
+    : undefined,
+  frontend_ownership: process.env.CARTULARY_WEB_E2E_FRONTEND_OWNERSHIP_STATUS
+    ? {
+        status: process.env.CARTULARY_WEB_E2E_FRONTEND_OWNERSHIP_STATUS,
+      }
+    : undefined,
+  database: fixtureIdentity,
 };
+
+function stringOrUndefined(value) {
+  const normalized = value?.trim() ?? "";
+  return normalized === "" ? undefined : normalized;
+}
+
+function numberOrUndefined(value) {
+  const normalized = value?.trim() ?? "";
+  if (normalized === "") {
+    return undefined;
+  }
+  const parsed = Number.parseInt(normalized, 10);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function resolveFixtureIdentity() {
+  if (process.env.CARTULARY_TEST_SERVICES_ACTIVE === "1") {
+    const metadataFile = process.env.CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE;
+    if (metadataFile && fs.existsSync(metadataFile)) {
+      const metadata = JSON.parse(fs.readFileSync(metadataFile, "utf8"));
+      if (metadata.database_name) {
+        return {
+          logical_id: metadata.database_name,
+          source: "testservices",
+          bucket: metadata.bucket,
+        };
+      }
+    }
+    return undefined;
+  }
+  if (process.env.CARTULARY_WEB_E2E_DB) {
+    return {
+      logical_id: process.env.CARTULARY_WEB_E2E_DB,
+      source: "standalone",
+    };
+  }
+  return undefined;
+}
+
+for (const key of Object.keys(payload)) {
+  if (payload[key] === undefined) {
+    delete payload[key];
+  }
+}
 
 fs.writeFileSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`);
 EOF
@@ -617,14 +695,95 @@ exit_for_requested_shutdown() {
   return "$(lifecycle_signal_exit_status)"
 }
 
+port_owned_by_process_group() {
+  local port="$1"
+  local group_id="$2"
+  local pids
+  local pid
+  local pgid
+
+  if [[ -z "${group_id}" ]]; then
+    return 1
+  fi
+  if ! command -v ss >/dev/null 2>&1 || ! command -v ps >/dev/null 2>&1; then
+    return 0
+  fi
+
+  pids="$(ss -ltnp "sport = :${port}" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u || true)"
+  if [[ -z "${pids}" ]]; then
+    return 1
+  fi
+
+  while IFS= read -r pid; do
+    [[ -n "${pid}" ]] || continue
+    pgid="$(ps -o pgid= -p "${pid}" 2>/dev/null | tr -d ' ' || true)"
+    if [[ "${pgid}" == "${group_id}" ]]; then
+      return 0
+    fi
+  done <<<"${pids}"
+
+  return 1
+}
+
+print_port_diagnostics() {
+  local port="$1"
+  local name="$2"
+
+  if command -v ss >/dev/null 2>&1; then
+    echo "${name} port ${port} listener diagnostics:" >&2
+    ss -ltnp "sport = :${port}" >&2 || true
+  fi
+}
+
+probe_backend_identity() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+
+  CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
+  CARTULARY_TEST_ROUTE_TOKEN="${TEST_ROUTE_TOKEN}" \
+    "${node_bin}" <<'EOF'
+const apiOrigin = process.env.CARTULARY_WEB_E2E_API_ORIGIN;
+const token = process.env.CARTULARY_TEST_ROUTE_TOKEN;
+
+(async () => {
+  if (!apiOrigin || !token) {
+    throw new Error("missing browser harness identity probe inputs");
+  }
+
+  const response = await fetch(`${apiOrigin}/api/v1/test/runtime/identity`, {
+    headers: {
+      "X-Cartulary-Test-Route-Token": token,
+    },
+    signal: AbortSignal.timeout(1000),
+  });
+  if (!response.ok) {
+    throw new Error(`identity probe returned HTTP ${response.status}`);
+  }
+  const body = await response.json();
+  const data = body?.data;
+  if (
+    data?.schema_id !== "cartulary.test.runtime_identity.v1" ||
+    data?.runtime_marker !== "harness-owned" ||
+    data?.test_routes_enabled !== true ||
+    !Number.isInteger(data?.server_pid)
+  ) {
+    throw new Error(`identity probe returned unexpected payload ${JSON.stringify(body)}`);
+  }
+  process.stdout.write(`${data.server_pid}\n`);
+})().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
+EOF
+}
+
 wait_for_http() {
   local url="$1"
   local name="$2"
 
   for _ in $(seq 1 180); do
-    if curl -fsS "$url" >/dev/null 2>&1; then
-      return 0
-    fi
     if exit_for_requested_shutdown "${name} readiness"; then
       :
     else
@@ -639,6 +798,9 @@ wait_for_http() {
       echo "frontend exited before ${name} readiness" >&2
       cat "${WEB_LOG}" >&2 || true
       return 1
+    fi
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      return 0
     fi
     sleep 1
   done
@@ -710,11 +872,70 @@ browser_prepare_database() {
 }
 
 browser_wait_backend_ready() {
-  wait_for_http "${API_ORIGIN}/readyz" "backend"
+  local identity_pid=""
+
+  for _ in $(seq 1 240); do
+    if exit_for_requested_shutdown "backend readiness"; then
+      :
+    else
+      return "$?"
+    fi
+    if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
+      echo "backend exited before readiness" >&2
+      cat "${SERVER_LOG}" >&2 || true
+      return 1
+    fi
+    if port_owned_by_process_group "${BACKEND_PORT}" "${SERVER_PGID}" && identity_pid="$(probe_backend_identity 2>/dev/null)"; then
+      if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
+        echo "backend exited immediately after readiness identity probe" >&2
+        cat "${SERVER_LOG}" >&2 || true
+        return 1
+      fi
+      BACKEND_IDENTITY_STATUS="pass"
+      BACKEND_IDENTITY_SERVER_PID="${identity_pid}"
+      BACKEND_READY_AT="$(phase_now_utc)"
+      write_stack_metadata
+      return 0
+    fi
+    sleep 0.5
+  done
+
+  echo "timed out waiting for backend owned-runtime identity at ${API_ORIGIN}/api/v1/test/runtime/identity" >&2
+  print_port_diagnostics "${BACKEND_PORT}" "backend"
+  cat "${SERVER_LOG}" >&2 || true
+  return 1
 }
 
 browser_wait_frontend_ready() {
-  wait_for_http "${PUBLIC_ORIGIN}" "frontend"
+  for _ in $(seq 1 180); do
+    if exit_for_requested_shutdown "frontend readiness"; then
+      :
+    else
+      return "$?"
+    fi
+    if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+      echo "frontend exited before readiness" >&2
+      cat "${WEB_LOG}" >&2 || true
+      return 1
+    fi
+    if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
+      if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+        echo "frontend exited immediately after readiness probe" >&2
+        cat "${WEB_LOG}" >&2 || true
+        return 1
+      fi
+      FRONTEND_OWNERSHIP_STATUS="pass"
+      FRONTEND_READY_AT="$(phase_now_utc)"
+      write_stack_metadata
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "timed out waiting for frontend owned listener at ${PUBLIC_ORIGIN}" >&2
+  print_port_diagnostics "${FRONTEND_PORT}" "frontend"
+  cat "${WEB_LOG}" >&2 || true
+  return 1
 }
 
 wait_for_process_status() {
@@ -804,11 +1025,16 @@ main() {
 
   local -a server_command=()
   resolve_runtime_command server_command "backend" "${SERVER_BIN}" "${ROOT_DIR}/server" ./cmd/server
+  local -a backend_listen_command=(
+    "${GO_BIN}" run ./tools/webstacklisten
+    --listen "127.0.0.1:${BACKEND_PORT}"
+    --
+    "${server_command[@]}"
+  )
 
   run_timing_span "server_startup" "browser-e2e start backend process" \
   start_process_group SERVER_PGID "${SERVER_LOG}" \
     env \
-    CARTULARY_HTTP_ADDR="127.0.0.1:${BACKEND_PORT}" \
     CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
     CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
@@ -827,7 +1053,8 @@ main() {
     CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
     GOCACHE=/tmp/cartulary-go-build \
     GOMODCACHE=/tmp/cartulary-go-mod \
-    "${server_command[@]}"
+    "${backend_listen_command[@]}"
+  write_stack_metadata
 
   run_timing_span "frontend_startup" "browser-e2e start frontend process" \
   start_process_group VITE_PGID "${WEB_LOG}" \
@@ -837,6 +1064,7 @@ main() {
     CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
     CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
     "${pnpm_bin}" --dir apps/web dev --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
+  write_stack_metadata
 
   CARTULARY_PHASE_TIMING_BUCKET=server_startup run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
   CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready

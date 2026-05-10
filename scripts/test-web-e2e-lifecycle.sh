@@ -4,9 +4,14 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 LIFECYCLE_HELPER="$ROOT_DIR/scripts/lib/web-e2e-lifecycle.sh"
 cleanup_paths=()
+cleanup_pgroups=()
 
 cleanup_test_paths() {
   local path
+  local pgid
+  for pgid in "${cleanup_pgroups[@]}"; do
+    stop_process_group "$pgid" >/dev/null 2>&1 || true
+  done
   for path in "${cleanup_paths[@]}"; do
     rm -rf "$path"
   done
@@ -128,6 +133,8 @@ assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMIN
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database"' "browser lifecycle migration timing bucket"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "server_startup" "browser-e2e start backend process"' "browser lifecycle backend startup span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "frontend_startup" "browser-e2e start frontend process"' "browser lifecycle frontend startup span"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '/api/v1/test/runtime/identity' "browser lifecycle backend identity readiness"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" './tools/webstacklisten' "browser lifecycle inherited listener helper"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e stop owned processes"' "browser lifecycle process teardown span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e cleanup standalone database"' "browser lifecycle standalone database teardown span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e remove runtime root"' "browser lifecycle runtime root teardown span"
@@ -618,6 +625,9 @@ const fs = require("node:fs");
 const [path, backendPort, frontendPort, serverLog, webLog] = process.argv.slice(2);
 const payload = JSON.parse(fs.readFileSync(path, "utf8"));
 const failures = [];
+if (payload.schema_id !== "cartulary.web_e2e_stack.v2") {
+  failures.push(`unexpected schema_id ${payload.schema_id}`);
+}
 if (payload.api_origin !== `http://127.0.0.1:${backendPort}`) {
   failures.push(`unexpected api_origin ${payload.api_origin}`);
 }
@@ -641,6 +651,101 @@ if (failures.length > 0) {
   process.exit(1);
 }
 EOF
+
+identity_server="$tmp_dir/identity-server.mjs"
+cat >"$identity_server" <<'EOF'
+import fs from "node:fs";
+import http from "node:http";
+
+const mode = process.env.IDENTITY_MODE ?? "valid";
+const token = process.env.IDENTITY_TOKEN ?? "";
+const portFile = process.env.IDENTITY_PORT_FILE;
+
+const server = http.createServer((request, response) => {
+  if (request.url === "/readyz") {
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end("ready\n");
+    return;
+  }
+  if (request.url !== "/api/v1/test/runtime/identity" || mode !== "valid") {
+    response.writeHead(404, { "content-type": "text/plain" });
+    response.end("not found\n");
+    return;
+  }
+  if (request.headers["x-cartulary-test-route-token"] !== token) {
+    response.writeHead(403, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: { code: "test_route_forbidden" } }));
+    return;
+  }
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify({
+    data: {
+      schema_id: "cartulary.test.runtime_identity.v1",
+      runtime_marker: "harness-owned",
+      server_pid: process.pid,
+      test_routes_enabled: true
+    }
+  }));
+});
+
+server.listen(0, "127.0.0.1", () => {
+  fs.writeFileSync(portFile, `${server.address().port}\n`);
+});
+EOF
+
+identity_port_file="$tmp_dir/identity.port"
+start_process_group IDENTITY_PGID "" \
+  env \
+  IDENTITY_MODE=valid \
+  IDENTITY_TOKEN=0123456789abcdef0123456789abcdef \
+  IDENTITY_PORT_FILE="$identity_port_file" \
+  "${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" "$identity_server"
+cleanup_pgroups+=("$IDENTITY_PGID")
+wait_for_path "$identity_port_file" "identity server port"
+BACKEND_PORT="$(tr -d '\n' <"$identity_port_file")"
+API_ORIGIN="http://127.0.0.1:${BACKEND_PORT}"
+TEST_ROUTE_TOKEN="0123456789abcdef0123456789abcdef"
+if ! port_owned_by_process_group "$BACKEND_PORT" "$IDENTITY_PGID"; then
+  fail "identity server listener must be owned by its process group"
+fi
+if port_owned_by_process_group "$BACKEND_PORT" "$$"; then
+  fail "identity server listener must not be owned by the test shell process group"
+fi
+identity_pid="$(probe_backend_identity)"
+if [[ -z "$identity_pid" ]]; then
+  fail "identity probe must return the backend server pid"
+fi
+
+stale_port_file="$tmp_dir/stale.port"
+start_process_group STALE_PGID "" \
+  env \
+  IDENTITY_MODE=ready-only \
+  IDENTITY_TOKEN=0123456789abcdef0123456789abcdef \
+  IDENTITY_PORT_FILE="$stale_port_file" \
+  "${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" "$identity_server"
+cleanup_pgroups+=("$STALE_PGID")
+wait_for_path "$stale_port_file" "stale listener port"
+BACKEND_PORT="$(tr -d '\n' <"$stale_port_file")"
+API_ORIGIN="http://127.0.0.1:${BACKEND_PORT}"
+if probe_backend_identity >/dev/null 2>&1; then
+  fail "ready-only stale listener must not satisfy backend identity readiness"
+fi
+
+occupied_backend_stderr="$tmp_dir/occupied-backend.stderr"
+CARTULARY_WEB_E2E_BACKEND_PORT="$BACKEND_PORT"
+CARTULARY_WEB_E2E_FRONTEND_PORT=""
+if resolve_owned_stack_ports 2>"$occupied_backend_stderr"; then
+  fail "occupied explicit backend port must fail before stack startup"
+fi
+if ! grep -Fq "already in use" "$occupied_backend_stderr"; then
+  fail "occupied backend port failure must mention that the port is already in use"
+fi
+unset CARTULARY_WEB_E2E_BACKEND_PORT
+unset CARTULARY_WEB_E2E_FRONTEND_PORT
+BACKEND_PORT="$dynamic_backend_port"
+FRONTEND_PORT="$dynamic_frontend_port"
+API_ORIGIN="http://127.0.0.1:${BACKEND_PORT}"
+PUBLIC_ORIGIN="http://127.0.0.1:${FRONTEND_PORT}"
 
 fake_curl_dir="$tmp_dir/fake-curl-bin"
 mkdir -p "$fake_curl_dir"
