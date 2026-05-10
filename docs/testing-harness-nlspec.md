@@ -523,6 +523,8 @@ Public exit-code selection is reason-based. Wrappers MUST derive the
 process exit status from the normalized `failure_reason` and primary-failure
 rules in this section, not from the raw process status of a child command.
 
+Scheduler summaries MUST propagate the normalized primary failure from a failed child target summary when that retained child summary is available. The scheduler's own fallback classification is used only when no child summary exists, the child summary is unreadable, or the failure belongs to scheduler orchestration rather than completed child target work. A child target assertion failure therefore remains `failure_class=product` and `failure_reason=test_assertion_failure` at the scheduler summary layer.
+
 Failure classification uses two layers:
 
 - `failure_class`: coarse stable grouping for humans and automation.

@@ -103,6 +103,8 @@ assert_scheduler_artifacts() {
   local expected_status="$4"
   local expected_blocked="$5"
   local expected_event="$6"
+  local expected_failure_class="${7:-harness}"
+  local expected_failure_reason="${8:-}"
   local summary_file="${dir}/results/${run_id}/${target}/scheduler-summary.json"
   local events_file="${dir}/results/${run_id}/${target}/scheduler-events.jsonl"
   local progress_file="${dir}/results/${run_id}/${target}/progress-summary.log"
@@ -110,10 +112,10 @@ assert_scheduler_artifacts() {
   assert_file_present "$summary_file" "$target scheduler summary"
   assert_file_present "$events_file" "$target scheduler events"
   assert_file_present "$progress_file" "$target progress summary"
-  "$NODE_BIN" - "$summary_file" "$events_file" "$progress_file" "$expected_status" "$expected_blocked" "$expected_event" "$ROOT_DIR" <<'EOF'
+  "$NODE_BIN" - "$summary_file" "$events_file" "$progress_file" "$expected_status" "$expected_blocked" "$expected_event" "$ROOT_DIR" "$expected_failure_class" "$expected_failure_reason" <<'EOF'
 const fs = require("node:fs");
 const path = require("node:path");
-const [summaryFile, eventsFile, progressFile, expectedStatus, expectedBlocked, expectedEvent, repoRoot] = process.argv.slice(2);
+const [summaryFile, eventsFile, progressFile, expectedStatus, expectedBlocked, expectedEvent, repoRoot, expectedFailureClass, expectedFailureReason] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
 const progressLog = fs.readFileSync(progressFile, "utf8");
@@ -135,8 +137,11 @@ if (summary.scheduler_kind !== "service_backed") {
 if (summary.status !== expectedStatus) {
   throw new Error(`summary status got ${summary.status} want ${expectedStatus}`);
 }
-if (expectedStatus === "fail" && summary.failure_class !== "harness") {
-  throw new Error(`summary failure_class got ${summary.failure_class} want harness`);
+if (expectedStatus === "fail" && summary.failure_class !== expectedFailureClass) {
+  throw new Error(`summary failure_class got ${summary.failure_class} want ${expectedFailureClass}`);
+}
+if (expectedStatus === "fail" && expectedFailureReason && summary.failure_reason !== expectedFailureReason) {
+  throw new Error(`summary failure_reason got ${summary.failure_reason} want ${expectedFailureReason}`);
 }
 if (expectedStatus === "pass" && summary.failure_class !== null) {
   throw new Error(`passing summary failure_class got ${summary.failure_class}`);
@@ -424,6 +429,56 @@ write_summary() {
 JSON
 }
 
+write_failure_summary() {
+  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+  local failure_class="${FAKE_FAIL_FAILURE_CLASS:-product}"
+  local failure_reason="${FAKE_FAIL_FAILURE_REASON:-test_assertion_failure}"
+  mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
+  cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/target-summary.json" <<JSON
+{
+  "target": "${target}",
+  "status": "fail",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": 1,
+  "logical_duration_ms": 1,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1,
+  "critical_path_wall_duration_ms": 1,
+  "teardown_duration_ms": 0,
+  "counts": {
+    "phases": 1,
+    "tests": 1,
+    "failed": 1,
+    "authoritative": 1,
+    "support": 0,
+    "unmapped": 0,
+    "non_test": 0,
+    "authoritative_failed": 1,
+    "support_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 0,
+    "packages": 1
+  },
+  "failure_class": "${failure_class}",
+  "failure_reason": "${failure_reason}",
+  "failures": [
+    {
+      "failure_class": "${failure_class}",
+      "failure_reason": "${failure_reason}",
+      "kind": "test",
+      "target": "${target}",
+      "label": "${target} assertion",
+      "message": "fake assertion failure for ${target}"
+    }
+  ]
+}
+JSON
+}
+
 sleep_key="${target//-/_}"
 sleep_key="${sleep_key^^}"
 sleep_var="FAKE_SCHEDULER_SLEEP_${sleep_key}"
@@ -436,6 +491,9 @@ sleep "$sleep_duration"
 change_active -1
 
 if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
+  if [[ "${FAKE_FAIL_WRITES_SUMMARY:-}" == "1" ]]; then
+    write_failure_summary
+  fi
   echo "fake failure for $target" >&2
   exit 7
 fi
@@ -1000,6 +1058,9 @@ run_scheduler() {
   FAKE_SCHEDULER_MAX="${dir}/max" \
   FAKE_SCHEDULER_LOG="${dir}/make.log" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
+  FAKE_FAIL_WRITES_SUMMARY="${FAKE_FAIL_WRITES_SUMMARY:-}" \
+  FAKE_FAIL_FAILURE_CLASS="${FAKE_FAIL_FAILURE_CLASS:-}" \
+  FAKE_FAIL_FAILURE_REASON="${FAKE_FAIL_FAILURE_REASON:-}" \
   FAKE_SCHEDULER_SLEEP="${FAKE_SCHEDULER_SLEEP:-0.2}" \
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS="${FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS:-}" \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED:-}" \
@@ -1228,7 +1289,7 @@ write_manifest "$browser_manifest" test-service-backed \
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_not_contains "$browser_output" "[STEP] test-service-backed" "browser schedule hides default scheduler steps"
 assert_contains "$browser_output" "[RESULT] target=test-service-backed status=pass" "browser schedule aggregate child tests"
-assert_contains "$browser_output" "[SCHEDULER] test-service-backed start work_units=3 finalizers=1" "browser quiet scheduler shows aggregate start"
+assert_contains "$browser_output" "[SCHEDULER] test-service-backed start work_units=3 finalizers=0" "browser quiet scheduler shows aggregate start"
 assert_contains "$browser_output" "[SUMMARY] target=test-service-backed status=pass" "browser quiet scheduler shows success summary"
 assert_not_contains "$browser_output" "claims={browser_stack:1" "browser default output hides resource claims"
 assert_scheduler_artifacts "$browser_dir" browser test-service-backed pass - start
@@ -1784,17 +1845,18 @@ write_manifest "$failure_manifest" test-fast-service-backed \
   'make_target|backend-store|9|"postgres": 1, "minio": 1'
 set +e
 failure_output="$(
+  FAKE_FAIL_WRITES_SUMMARY=1 \
   FAKE_FAIL_TARGET=backend-store \
     run_scheduler "$failure_dir" "$failure_manifest" test-fast-service-backed failure 2>&1
 )"
 failure_status=$?
 set -e
-assert_equals "$failure_status" "7" "child failure status"
+assert_equals "$failure_status" "10" "child failure status"
 assert_contains "$failure_output" "fake failure for backend-store" "child failure output"
-assert_contains "$failure_output" "[SUMMARY] target=test-fast-service-backed status=fail failure_class=harness reason=unknown_failure work_units=2/2 failed=backend-store" "failure scheduler summary"
+assert_contains "$failure_output" "[SUMMARY] target=test-fast-service-backed status=fail failure_class=product reason=test_assertion_failure work_units=2/2 failed=backend-store" "failure scheduler summary"
 assert_contains "$failure_output" "[FAIL] target=test-fast-service-backed" "failure target summary"
 assert_occurrences "$failure_output" "[FAIL] target=test-fast-service-backed" "1" "failure single target failure block"
-assert_contains "$failure_output" "[FAIL] target=test-fast-service-backed exit_code=1 failure_class=" "failure target class"
+assert_contains "$failure_output" "[FAIL] target=test-fast-service-backed exit_code=10 failure_class=product" "failure target class"
 assert_contains "$failure_output" "reason=" "failure target origin"
 assert_contains "$failure_output" "work_unit=backend-store" "failure target work unit"
 assert_contains "$failure_output" "child_target=backend-store" "failure target child"
@@ -1804,7 +1866,7 @@ assert_contains "$failure_output" "log_artifact=test-fast-service-backed/progres
 assert_contains "$failure_output" "scheduler_json=test-fast-service-backed/scheduler-summary.json" "failure scheduler json"
 assert_contains "$failure_output" "[RERUN] command=\"make test-fast-service-backed\"" "failure rerun command"
 assert_contains "$failure_output" "[INVESTIGATE] command=\"make explain-target TARGET=test-fast-service-backed DETAIL=artifacts\"" "failure investigate command"
-assert_scheduler_artifacts "$failure_dir" failure test-fast-service-backed fail - finish
+assert_scheduler_artifacts "$failure_dir" failure test-fast-service-backed fail - finish product test_assertion_failure
 
 if [[ "$SUITE" != "fast" ]]; then
 failed_shard_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failed-shard.XXXXXX")"

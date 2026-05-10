@@ -1,5 +1,5 @@
 import { createWriteStream } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -30,6 +30,7 @@ import {
 import {
   classifyExecutionFailure,
   failureFieldsForJSON,
+  primaryPublicFailure,
 } from "../failure-taxonomy.mjs";
 import {
   compactJSONString,
@@ -204,6 +205,59 @@ function criticalPathSummary(completedWork, schedulerStartedMonotonicMs, schedul
     critical_path_units: units,
     critical_path_blockers: topBlockers.slice(0, 5),
     critical_path_terminal_unit: terminalUnit,
+  };
+}
+
+async function readSchedulerChildFailureRecord({
+  failed,
+  failedDetail,
+  repoRoot,
+  scheduleTarget,
+}) {
+  const childTarget =
+    typeof failedDetail?.aggregate_target === "string"
+      ? failedDetail.aggregate_target
+      : "";
+  if (!childTarget || childTarget === scheduleTarget) {
+    return null;
+  }
+  const summaryFile = path.join(
+    schedulerTargetDir(repoRoot, childTarget),
+    "target-summary.json",
+  );
+  let summary;
+  try {
+    summary = JSON.parse(await readFile(summaryFile, "utf8"));
+  } catch {
+    return null;
+  }
+  const failureSource = summary?.totals ?? summary;
+  const failures = Array.isArray(failureSource?.failures)
+    ? failureSource.failures
+    : Array.isArray(summary?.failures)
+      ? summary.failures
+      : [];
+  const propagated = primaryPublicFailure(failures, {
+    failure_class: failureSource?.failure_class ?? summary?.failure_class,
+    failure_reason: failureSource?.failure_reason ?? summary?.failure_reason,
+    target: childTarget,
+    label: failed ?? childTarget,
+  });
+  if (!propagated) {
+    return null;
+  }
+  return {
+    ...propagated,
+    kind: propagated.kind || "child_target",
+    source: "scheduler",
+    target: scheduleTarget,
+    child_target: childTarget,
+    work_unit: failedDetail?.id ?? failed ?? childTarget,
+    label: failed ?? propagated.label ?? childTarget,
+    message:
+      propagated.message ||
+      `scheduler child target failed: ${childTarget}`,
+    artifact: propagated.artifact || relToRepo(repoRoot, summaryFile),
   };
 }
 
@@ -686,25 +740,35 @@ class SchedulerReporter {
     const slowest = slowestWork(this.completedWork);
     const topBlockers = topBlockerRecords(this.topBlockerCounts);
     const skipped = this.skippedWork.length;
-    const failureClass =
+    const fallbackFailureRecord =
       status === "pass"
         ? null
-        : classifyExecutionFailure(failed ?? this.schedule.target, this.schedule.target);
+        : {
+            failure_class: classifyExecutionFailure(
+              failed ?? this.schedule.target,
+              this.schedule.target,
+            ),
+            kind: "scheduler",
+            source: "scheduler",
+            target: this.schedule.target,
+            label: failed ?? this.schedule.target,
+            message: failed
+              ? `scheduler work unit failed: ${failed}`
+              : `scheduler target failed: ${this.schedule.target}`,
+          };
+    const propagatedFailureRecord =
+      status === "pass"
+        ? null
+        : await readSchedulerChildFailureRecord({
+            failed,
+            failedDetail,
+            repoRoot: this.repoRoot,
+            scheduleTarget: this.schedule.target,
+          });
     const failureFields = failureFieldsForJSON(
       status === "pass"
         ? []
-        : [
-            {
-              failure_class: failureClass,
-              kind: "scheduler",
-              source: "scheduler",
-              target: this.schedule.target,
-              label: failed ?? this.schedule.target,
-              message: failed
-                ? `scheduler work unit failed: ${failed}`
-                : `scheduler target failed: ${this.schedule.target}`,
-            },
-          ],
+        : [propagatedFailureRecord ?? fallbackFailureRecord],
     );
     const timing = this.timingEnvelope();
     const criticalPath = criticalPathSummary(
@@ -720,7 +784,7 @@ class SchedulerReporter {
       completed: this.completedCount,
       total: this.schedule.totalWorkUnits,
       failed,
-      failureClass,
+      failureClass: failureFields.failure_class,
       failureReason: failureFields.failure_reason,
       skipped,
       finalizerFailures: this.finalizerFailures,

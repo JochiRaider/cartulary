@@ -7,6 +7,7 @@ import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   gridGroupRowTestId,
+  gridScrollportSelector,
   gridShellTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
@@ -48,6 +49,13 @@ type ViewRow = {
   record_id: string;
   row_version: number;
   cells: Record<string, unknown>;
+};
+
+type GridVisualScrollLeft = "left" | "right" | number;
+
+type GridVisualScrollState = {
+  top: number;
+  left: GridVisualScrollLeft;
 };
 
 test.describe("Phase 3 workbook visual evidence", () => {
@@ -121,10 +129,11 @@ test.describe("Phase 3 workbook visual evidence", () => {
     await expect(saveState).toHaveText("Saved");
     await summaryInput.focus();
     await summaryInput.fill("Active visual edit");
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-3-grid-02-active-edit-cell",
-      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
 
     const patchUrl = `**/api/v1/records/${timelineRow.record_id}`;
@@ -240,10 +249,11 @@ test.describe("Phase 3 workbook visual evidence", () => {
       ),
     ).toBeVisible();
 
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-3-grid-03-grouped-grid",
-      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
   });
 });
@@ -302,10 +312,11 @@ test.describe("Phase 4 workbook visual evidence", () => {
         .getByLabel("Resolved WS-023"),
     ).toBeVisible();
 
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-4-grid-01-mention-chips",
-      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
   });
 
@@ -345,10 +356,11 @@ test.describe("Phase 4 workbook visual evidence", () => {
       page.getByTestId(`evidence-access-message-${evidenceRow.record_id}`),
     ).toContainText("Blocked");
 
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-4-grid-02-evidence-access",
-      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+      evidenceViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
   });
 
@@ -385,10 +397,11 @@ test.describe("Phase 4 workbook visual evidence", () => {
       page.getByTestId(rowCellTestId(taskRow.record_id, "task.status")),
     ).toHaveText("open");
 
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-4-grid-03-task-requests",
-      page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
+      taskRequestsViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
   });
 });
@@ -425,10 +438,11 @@ test.describe("Phase 5 workbook visual evidence", () => {
         rowCellTestId(evidenceRow.record_id, "evidence.lifecycle_state"),
       ),
     ).toHaveText("requested");
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-5-grid-01-requested-evidence",
-      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+      evidenceViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
 
     await page
@@ -448,10 +462,11 @@ test.describe("Phase 5 workbook visual evidence", () => {
         rowCellTestId(evidenceRow.record_id, "evidence.upload_state"),
       ),
     ).toHaveText("available");
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-5-grid-01-available-evidence",
-      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+      evidenceViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
   });
 
@@ -493,10 +508,11 @@ test.describe("Phase 5 workbook visual evidence", () => {
     await expect(
       page.getByTestId(`evidence-access-message-${blocked.record_id}`),
     ).toContainText("Blocked");
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-5-grid-02-blocked-preview",
-      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+      evidenceViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
 
     await page.goto(
@@ -527,10 +543,11 @@ test.describe("Phase 5 workbook visual evidence", () => {
         rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
       ),
     ).toHaveText("true");
-    await assertVisualRegression(
+    await assertWorkbookGridVisualRegression(
       page,
       "v-5-grid-02-timeline-evidence-badge",
-      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "right" } },
     );
   });
 });
@@ -608,10 +625,11 @@ test.describe("Phase 6 workbook visual evidence", () => {
         targetTestId: rowCellTestId(timelineRow.record_id, "summary"),
       });
 
-      await assertVisualRegression(
+      await assertWorkbookGridVisualRegression(
         page,
         "v-6-grid-01-presence-markers",
-        page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+        timelineViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
       );
     } finally {
       await remotePage?.context().close();
@@ -802,6 +820,116 @@ async function assertVisualRegression(
     animations: "disabled",
     caret: "hide",
   });
+}
+
+async function assertWorkbookGridVisualRegression(
+  page: Page,
+  name: string,
+  surface: string,
+  options: { scroll: GridVisualScrollState },
+) {
+  await normalizeWorkbookGridVisualState(page, surface, options.scroll);
+  await assertVisualRegression(
+    page,
+    name,
+    page.getByTestId(gridShellTestId(surface)),
+  );
+}
+
+async function normalizeWorkbookGridVisualState(
+  page: Page,
+  surface: string,
+  scroll: GridVisualScrollState,
+) {
+  const expected = await setWorkbookGridScroll(page, surface, scroll);
+  await expect
+    .poll(() => readWorkbookGridScroll(page, surface))
+    .toEqual(expected);
+  await page.evaluate(() => {
+    return new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+  });
+}
+
+async function setWorkbookGridScroll(
+  page: Page,
+  surface: string,
+  scroll: GridVisualScrollState,
+) {
+  return page.evaluate(
+    ({ left, scrollportSelector, surface, top }) => {
+      const shell = document.querySelector<HTMLElement>(
+        `[data-testid="${surface}-grid-shell"]`,
+      );
+      if (shell === null) {
+        throw new Error(`Expected ${surface} grid shell to exist`);
+      }
+      const scrollports = Array.from(
+        shell.querySelectorAll<HTMLElement>(scrollportSelector),
+      );
+      if (scrollports.length !== 1 || scrollports[0] === undefined) {
+        throw new Error(
+          `Expected ${surface} grid shell to contain exactly one ${scrollportSelector} scrollport, received ${scrollports.length}`,
+        );
+      }
+      const scrollport = scrollports[0];
+      const maxLeft = Math.max(
+        0,
+        scrollport.scrollWidth - scrollport.clientWidth,
+      );
+      const maxTop = Math.max(
+        0,
+        scrollport.scrollHeight - scrollport.clientHeight,
+      );
+      const expectedLeft =
+        left === "left" ? 0 : left === "right" ? maxLeft : left;
+      const expectedTop = Math.min(Math.max(0, top), maxTop);
+      scrollport.scrollTop = expectedTop;
+      scrollport.scrollLeft = Math.min(Math.max(0, expectedLeft), maxLeft);
+      return {
+        top: scrollport.scrollTop,
+        left: scrollport.scrollLeft,
+      };
+    },
+    {
+      left: scroll.left,
+      scrollportSelector: gridScrollportSelector(),
+      surface,
+      top: scroll.top,
+    },
+  );
+}
+
+async function readWorkbookGridScroll(page: Page, surface: string) {
+  return page.evaluate(
+    ({ scrollportSelector, surface }) => {
+      const shell = document.querySelector<HTMLElement>(
+        `[data-testid="${surface}-grid-shell"]`,
+      );
+      if (shell === null) {
+        throw new Error(`Expected ${surface} grid shell to exist`);
+      }
+      const scrollports = Array.from(
+        shell.querySelectorAll<HTMLElement>(scrollportSelector),
+      );
+      if (scrollports.length !== 1 || scrollports[0] === undefined) {
+        throw new Error(
+          `Expected ${surface} grid shell to contain exactly one ${scrollportSelector} scrollport, received ${scrollports.length}`,
+        );
+      }
+      return {
+        top: scrollports[0].scrollTop,
+        left: scrollports[0].scrollLeft,
+      };
+    },
+    {
+      scrollportSelector: gridScrollportSelector(),
+      surface,
+    },
+  );
 }
 
 async function maskVisualDynamicText(page: Page) {

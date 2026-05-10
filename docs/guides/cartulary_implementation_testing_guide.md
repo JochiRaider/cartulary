@@ -1105,6 +1105,8 @@ The repository must provide one browser visual-regression harness for workbook s
 
 The default viewport for this harness is `1440x900` CSS pixels unless the repo-local visual-test configuration declares a stricter fixed viewport. Visual regression is a developer gate for changes to the grid adapter, renderer, editor, workbook shell, theme, presence UI, conflict UI, saved-view UI, and coordination-surface grid UI. Visual regression results are implementation-quality evidence only. Public timed or fixture-sensitive claims still require Core 05 publication controls.
 
+Workbook grid visual fixtures must declare the intended capture state before the screenshot is taken. At minimum, a grid-shell capture must make the viewport size, grid scroll top/left position or named scroll anchor, focus/editor state, inspector state, dynamic masks, and post-scroll settle wait explicit in the test. A fixture must not depend on incidental scroll state inherited from a prior click, editor open, inspector action, or viewport-continuity restoration. Visual baselines may be refreshed only after the deterministic capture state has been encoded and reviewed; a baseline update is not a substitute for removing nondeterminism from the fixture.
+
 The repository uses one owned-stack Playwright screenshot suite for this harness. It MUST NOT introduce a second visual runner just to satisfy workbook screenshot coverage.
 
 | Fixture ID     | Required visible state                                                                                      |
