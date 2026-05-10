@@ -4,12 +4,13 @@ set -euo pipefail
 MAKE_BIN="${MAKE:-make}"
 RESULTS_DIR="${RESULTS_DIR:-}"
 
-run_make_target() {
+run_make_target_with_env() {
   local target="$1"
+  shift
   local output
 
   set +e
-  output="$(env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_OUTPUT_MODE=verbose "${MAKE_BIN}" --no-print-directory "${target}" 2>&1)"
+  output="$(env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_OUTPUT_MODE=verbose "$@" "${MAKE_BIN}" --no-print-directory "${target}" 2>&1)"
   local status=$?
   set -e
 
@@ -20,6 +21,11 @@ run_make_target() {
   fi
 
   printf '%s\n' "${output}"
+}
+
+run_make_target() {
+  local target="$1"
+  run_make_target_with_env "${target}"
 }
 
 if [[ -n "${RESULTS_DIR}" ]]; then
@@ -43,6 +49,11 @@ run_make_target json-shape-check >/dev/null
 if [[ -n "${RESULTS_DIR}" ]]; then
   run_make_target duration-baseline-drift-suite >/dev/null
   printf 'agent-finalize: duration baselines checked from %s\n' "${RESULTS_DIR}"
+  run_make_target_with_env scheduler-summary-timing-drift \
+    TARGET=check \
+    SCHEDULER_WARM_CHECK_BUDGET_MS=60000 \
+    SCHEDULER_WARM_CHECK_BALANCE_RATIO=1.25 >/dev/null
+  printf 'agent-finalize: warm check-service-backed health checked from %s\n' "${RESULTS_DIR}"
 fi
 
 case "${phase_schedule_summary}" in

@@ -50,6 +50,16 @@ const renderedServiceBacked = serviceRendererModule.renderServiceBackedScheduleM
   topology: "tools/execution_topology_manifest.json",
   topologyObject: topology,
 });
+const renderedCheckServiceBacked = renderedServiceBacked.schedules.find((schedule) => schedule.target === "check-service-backed");
+const renderedTestServiceBacked = renderedServiceBacked.schedules.find((schedule) => schedule.target === "test-service-backed");
+assert.ok(
+  !(renderedCheckServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "browser-e2e-measurement"),
+  "check-service-backed must exclude ordinary measurement from default local check",
+);
+assert.ok(
+  (renderedTestServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "browser-e2e-measurement"),
+  "test-service-backed must retain ordinary measurement evidence",
+);
 const renderedTaskSurfaceErrors = taskSurfaceModule.collectTaskSurfaceManifestErrors(renderedTaskSurface, {
   browserBatchManifest: renderedBrowserBatch,
   serviceBackedScheduleManifest: renderedServiceBacked,
@@ -358,7 +368,7 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 43, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 35, "check schedule must render the current check work-unit set");
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -378,9 +388,6 @@ assert.deepEqual(
     ["build-migrate", 39000],
     ["test-service-images", 38000],
     ["check-service-backed", 30000],
-    ["check-go-test-duration-baseline-drift", 29000],
-    ["check-browser-e2e-duration-baseline-drift", 28000],
-    ["check-service-backed-make-target-duration-baseline-drift", 27900],
     ["migration-drift", 27000],
     ["deployable-shape", 26000],
     ["backend-unit", 25000],
@@ -391,7 +398,6 @@ assert.deepEqual(
     ["go-gosec-audit", 21800],
     ["frontend-unit", 15000],
     ["check-harness-smoke", 14000],
-    ["check-harness-smoke-duration-baseline-drift", 13990],
     ["lint-biome", 13000],
     ["harness-contract-tests", 12980],
     ["frontend-import-boundary-check", 12950],
@@ -399,10 +405,6 @@ assert.deepEqual(
     ["lint-scripts", 12900],
     ["lint-shell", 12850],
     ["phase-test-name-check", 12000],
-    ["task-surface-check", 11900],
-    ["browser-e2e-task-surface-check", 11800],
-    ["frontend-task-surface-check", 11700],
-    ["backend-task-surface-check", 11600],
     ["phase-map-check", 11500],
     ["go-test-duration-baseline-coverage", 11400],
     ["phase-ledger-drift", 11300],
@@ -455,17 +457,10 @@ assert.deepEqual(
   "browser stage retained claims must model only live browser stack ownership",
 );
 const measurementStageSession = expandedUnit("check-service-backed:browser-stage-session:measurement");
-assert.deepEqual(
-  measurementStageSession?.needs,
-  [
-    "service_session:check-service-backed",
-    "build-server",
-    "build-migrate",
-    "browser-e2e-webserver-backed",
-    "browser-e2e-stateful",
-    "browser-e2e-visual",
-  ],
-  "measurement isolation must remain explicit dependency-driven scheduler ordering",
+assert.equal(
+  measurementStageSession,
+  undefined,
+  "default local check must not expand the ordinary measurement browser stage",
 );
 
 const rows = targetPlanModule.collectTargetPlanRows(root);
@@ -567,7 +562,7 @@ case "\${target}" in
   phase-schedules)
     printf 'phase-schedules: unchanged\\n'
     ;;
-  go-test-duration-baselines|browser-e2e-duration-baselines|service-backed-make-target-duration-baselines|harness-smoke-duration-baselines|go-test-duration-baseline-coverage|phase-schedule-drift|json-shape-check|go-test-duration-baseline-drift|browser-e2e-duration-baseline-drift|service-backed-make-target-duration-baseline-drift|harness-smoke-duration-baseline-drift)
+  go-test-duration-baselines|browser-e2e-duration-baselines|service-backed-make-target-duration-baselines|harness-smoke-duration-baselines|go-test-duration-baseline-coverage|phase-schedule-drift|json-shape-check|duration-baseline-drift-suite|scheduler-summary-timing-drift)
     ;;
   *)
     printf 'unexpected target %s\\n' "\${target}" >&2
@@ -591,6 +586,7 @@ assert.equal(
   [
     `agent-finalize: duration baselines refreshed from ${agentFinalizeResultsDir}`,
     `agent-finalize: duration baselines checked from ${agentFinalizeResultsDir}`,
+    `agent-finalize: warm check-service-backed health checked from ${agentFinalizeResultsDir}`,
     "agent-finalize: ran, unchanged",
   ].join("\n"),
   "agent-finalize must report duration baseline refresh and drift status when RESULTS_DIR is supplied",
@@ -606,10 +602,8 @@ assert.deepEqual(
     "phase-schedules",
     "phase-schedule-drift",
     "json-shape-check",
-    "go-test-duration-baseline-drift",
-    "browser-e2e-duration-baseline-drift",
-    "service-backed-make-target-duration-baseline-drift",
-    "harness-smoke-duration-baseline-drift",
+    "duration-baseline-drift-suite",
+    "scheduler-summary-timing-drift",
   ],
   "agent-finalize must refresh baselines before schedule rendering and duration drift checks",
 );

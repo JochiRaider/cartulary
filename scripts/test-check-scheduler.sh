@@ -926,7 +926,7 @@ const validSchedulerRegistry = () => ({
 if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed") {
   fail("browser stage lane derivation changed");
 }
-if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,minio,postgres,process,postgres_reset") {
+if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,minio,postgres,process,postgres_reset,postgres_clone") {
   fail("check resource display order changed");
 }
 if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT") {
@@ -952,7 +952,7 @@ if (
 }
 const expectedCheckCPU = estimateCheckHostCPULimit();
 const expectedCheckIO = estimateCheckHostIOLimit(new Map([["host_cpu", expectedCheckCPU]]));
-if (expectedCheckCPU < 1 || expectedCheckCPU > 10 || expectedCheckIO !== expectedCheckCPU) {
+if (expectedCheckCPU < 1 || expectedCheckCPU > 12 || expectedCheckIO !== expectedCheckCPU) {
   fail("check host auto-limit estimates changed");
 }
 if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
@@ -1218,6 +1218,172 @@ cat >"${summary_timing_dir}/stale/check/tool-run-summary.json" <<'JSON'
 JSON
 cp "${summary_timing_dir}/valid/tool-run-summary.json" "${summary_timing_dir}/stale/tool-run-summary.json"
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" "${summary_timing_dir}/valid" 2>&1)" "scheduler summary timing verified" "valid scheduler summary timing fixture"
+"$NODE_BIN" --input-type=module - "${summary_timing_dir}/warm" <<'EOF'
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+const [root] = process.argv.slice(2);
+const schemaID = "cartulary.scheduler_event.v6";
+const startWallMs = Date.parse("2026-01-01T00:00:00.000Z");
+const emittedAt = (ms) => new Date(startWallMs + ms).toISOString();
+
+function writeJSON(file, value) {
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function writeEvents(file, events) {
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
+}
+
+function baseSummary(target, durationMs) {
+  return {
+    schema_id: "cartulary.target_summary.v5",
+    target,
+    status: "pass",
+    start_time: emittedAt(0),
+    end_time: emittedAt(durationMs),
+    wall_duration_ms: durationMs,
+    critical_path_wall_duration_ms: durationMs,
+  };
+}
+
+function toolSummary(target, durationMs) {
+  return {
+    schema_id: "cartulary.tool_run_summary.v2",
+    target,
+    status: "pass",
+    completed_at: emittedAt(durationMs),
+    duration_ms: durationMs,
+    extensions: {
+      scheduler_timing: {
+        scheduler_total_duration_ms: durationMs,
+      },
+    },
+  };
+}
+
+function writeWarmRun(name, { serviceMs = 58000, measurement = false, browserSkew = false } = {}) {
+  const runDir = path.join(root, name);
+  const checkDir = path.join(runDir, "check");
+  const serviceDir = path.join(runDir, "check-service-backed");
+  const events = [];
+  let seq = 1;
+  const push = (event) => events.push({ schema_id: schemaID, target: "check", seq: seq++, ...event });
+  const start = (id, monotonicMs, extra = {}) =>
+    push({
+      event: "start",
+      monotonic_ms: monotonicMs,
+      emitted_at: emittedAt(monotonicMs),
+      work_unit_id: id,
+      work_unit: id,
+      ...extra,
+    });
+  const finish = (id, monotonicMs, durationMs = monotonicMs) =>
+    push({
+      event: "finish",
+      monotonic_ms: monotonicMs,
+      emitted_at: emittedAt(monotonicMs),
+      work_unit_id: id,
+      work_unit: id,
+      status: 0,
+      duration_ms: durationMs,
+    });
+
+  push({ event: "scheduler-start", monotonic_ms: 0, emitted_at: emittedAt(0) });
+  start("check-service-backed", 0, {
+    work_unit_type: "make_target",
+    aggregate_target: "check-service-backed",
+    nested_scheduler: { type: "service_backed", target: "check-service-backed" },
+  });
+
+  const goDurations = [10000, 11000, 12000];
+  for (const [index, durationMs] of goDurations.entries()) {
+    start(`check-service-backed:backend-integration:backend-integration-shard-${index + 1}`, 0, {
+      work_unit_type: "go_shard",
+      aggregate_target: "backend-integration",
+    });
+    finish(`check-service-backed:backend-integration:backend-integration-shard-${index + 1}`, durationMs, durationMs);
+  }
+
+  if (measurement) {
+    start("check-service-backed:browser-stage-session:measurement", 0, {
+      work_unit_type: "browser_stage_session",
+      aggregate_target: "browser-e2e-measurement",
+    });
+    finish("check-service-backed:browser-stage-session:measurement", 13000, 13000);
+  }
+
+  const browserDurations = browserSkew ? [20000, 21000, 30000] : [20000, 21000, 22000];
+  for (const [index, durationMs] of browserDurations.entries()) {
+    start(`check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-${index + 1}`, 0, {
+      work_unit_type: "browser_group",
+      aggregate_target: "browser-e2e-webserver-backed",
+    });
+    finish(
+      `check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-${index + 1}`,
+      durationMs,
+      durationMs,
+    );
+  }
+
+  finish("check-service-backed", serviceMs, serviceMs);
+  push({ event: "scheduler-finish", monotonic_ms: serviceMs, emitted_at: emittedAt(serviceMs) });
+  writeEvents(path.join(checkDir, "scheduler-events.jsonl"), events);
+  writeJSON(path.join(checkDir, "scheduler-summary.json"), {
+    schema_id: "cartulary.check_scheduler_summary.v9",
+    target: "check",
+    status: "pass",
+    scheduler_kind: "check",
+    scheduler_started_monotonic_ms: 0,
+    scheduler_completed_monotonic_ms: serviceMs,
+    scheduler_total_duration_ms: serviceMs,
+    scheduler_started_at: emittedAt(0),
+    scheduler_completed_at: emittedAt(serviceMs),
+    critical_path_wall_duration_ms: serviceMs,
+    critical_path_units: [],
+    critical_path_blockers: [],
+    critical_path_terminal_unit: null,
+  });
+  writeJSON(path.join(checkDir, "target-summary.json"), baseSummary("check", serviceMs));
+  writeJSON(path.join(checkDir, "tool-run-summary.json"), toolSummary("check", serviceMs));
+  writeJSON(path.join(runDir, "run-summary.json"), {
+    schema_id: "cartulary.test_run_summary.v6",
+    label: "check",
+    status: "pass",
+    end_time: emittedAt(serviceMs),
+    wall_duration_ms: serviceMs,
+    critical_path_wall_duration_ms: serviceMs,
+  });
+  writeJSON(path.join(runDir, "tool-run-summary.json"), toolSummary("check", serviceMs));
+  writeJSON(path.join(serviceDir, "target-summary.json"), baseSummary("check-service-backed", serviceMs));
+}
+
+writeWarmRun("valid");
+writeWarmRun("overbudget", { serviceMs: 70000 });
+writeWarmRun("measurement", { measurement: true });
+writeWarmRun("skewed", { browserSkew: true });
+EOF
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/valid" 2>&1)" "warm check scheduler health verified" "valid warm check health fixture"
+set +e
+warm_overbudget_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/overbudget" 2>&1)"
+warm_overbudget_status=$?
+set -e
+assert_equals "$warm_overbudget_status" "1" "warm check overbudget fixture status"
+assert_contains "$warm_overbudget_output" "warm duration 70000ms exceeds budget 60000ms" "warm check overbudget fixture output"
+set +e
+warm_measurement_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/measurement" 2>&1)"
+warm_measurement_status=$?
+set -e
+assert_equals "$warm_measurement_status" "1" "warm check measurement fixture status"
+assert_contains "$warm_measurement_output" "default warm check includes ordinary browser measurement" "warm check measurement fixture output"
+set +e
+warm_skew_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/skewed" 2>&1)"
+warm_skew_status=$?
+set -e
+assert_equals "$warm_skew_status" "1" "warm check skew fixture status"
+assert_contains "$warm_skew_output" "browser-e2e-webserver-backed functional" "warm check skew fixture output"
 mkdir -p "${summary_timing_dir}/critical/linked/check" "${summary_timing_dir}/critical/unlinked/check"
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" <<'JSONL'
 {"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}

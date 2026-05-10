@@ -637,7 +637,7 @@ function availableParallelism() {
 }
 
 export function estimateCheckHostCPULimit() {
-  return Math.max(1, Math.min(10, Math.floor(availableParallelism() / 2)));
+  return Math.max(1, Math.min(14, Math.ceil(availableParallelism() * 0.7)));
 }
 
 export function estimateCheckHostIOLimit(resourceLimits = new Map()) {

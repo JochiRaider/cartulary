@@ -359,13 +359,16 @@ export const makeNodeTools = {
     },
   },
   "scheduler-summary-timing-drift": {
-    inputs: ["TARGET"],
+    inputs: ["TARGET", "SCHEDULER_WARM_CHECK_BUDGET_MS", "SCHEDULER_WARM_CHECK_BALANCE_RATIO"],
     script: "./scripts/check-scheduler-summary-timing-drift.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
-    usage: "usage: make scheduler-summary-timing-drift [RESULTS_DIR=<dir>] [TARGET=<target>]",
+    usage:
+      "usage: make scheduler-summary-timing-drift [RESULTS_DIR=<dir>] [TARGET=<target>] [SCHEDULER_WARM_CHECK_BUDGET_MS=<ms>] [SCHEDULER_WARM_CHECK_BALANCE_RATIO=<ratio>]",
     buildArgs(env) {
       const args = [];
       optionalFlag(args, env, "TARGET", "--target");
+      optionalFlag(args, env, "SCHEDULER_WARM_CHECK_BUDGET_MS", "--warm-check-budget-ms");
+      optionalFlag(args, env, "SCHEDULER_WARM_CHECK_BALANCE_RATIO", "--warm-check-balance-ratio");
       return args;
     },
   },

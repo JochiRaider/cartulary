@@ -423,25 +423,35 @@ const expectedBrowser = [
   webserverBackedStage.target,
   ...(isolatedStage.summaryChildren.length > 0 ? isolatedStage.summaryChildren : [isolatedStage.target]),
 ].sort();
+const expectedCheckBrowser = expectedBrowser.filter((target) => target !== "browser-e2e-measurement").sort();
 const expectedBackend = ["backend-integration", "backend-integration-support", "backend-process", "backend-store"];
 const testGroups = resolveSummaryGroups(context, manifest.sequences?.test?.summary_groups ?? []);
 const checkGroups = resolveSummaryGroups(context, (checkSchedule.schedules ?? []).find((entry) => entry.target === "check")?.summary_groups ?? []);
-for (const [label, groups] of [["test", testGroups], ["check", checkGroups]]) {
+for (const [label, groups, browserTargets] of [
+  ["test", testGroups, expectedBrowser],
+  ["check", checkGroups, expectedCheckBrowser],
+]) {
   const browser = groups.find((group) => group.name === "browser");
   const backend = groups.find((group) => group.name === "backend-service-backed");
-  if (JSON.stringify([...(browser?.summaryTargets ?? [])].sort()) !== JSON.stringify(expectedBrowser)) {
+  if (JSON.stringify([...(browser?.summaryTargets ?? [])].sort()) !== JSON.stringify(browserTargets)) {
     throw new Error(`${label} browser summary group must derive service-backed browser leaves`);
   }
   if (JSON.stringify([...(backend?.summaryTargets ?? [])].sort()) !== JSON.stringify(expectedBackend)) {
     throw new Error(`${label} backend-service-backed summary group must derive backend service targets`);
   }
 }
-for (const target of ["test-service-backed", "check-service-backed"]) {
+for (const [target, browserTargets] of [
+  ["test-service-backed", expectedBrowser],
+  ["check-service-backed", expectedCheckBrowser],
+]) {
   const children = serviceBackedScheduleChildren(context, target);
-  for (const child of expectedBrowser) {
+  for (const child of browserTargets) {
     if (!children.includes(child)) {
       throw new Error(`${target} service-backed schedule must include ${child}`);
     }
+  }
+  if (target === "check-service-backed" && children.includes("browser-e2e-measurement")) {
+    throw new Error("check-service-backed service-backed schedule must exclude ordinary measurement");
   }
   if (children.includes(isolatedStage.target)) {
     throw new Error(`${target} service-backed schedule must not include aggregate ${isolatedStage.target}`);
@@ -508,9 +518,6 @@ for scheduled_target in \
   build-migrate \
   test-service-images \
   check-service-backed \
-  check-go-test-duration-baseline-drift \
-  check-browser-e2e-duration-baseline-drift \
-  check-service-backed-make-target-duration-baseline-drift \
   migration-drift \
   deployable-shape \
   backend-unit \
@@ -527,10 +534,6 @@ for scheduled_target in \
   lint-scripts \
   lint-shell \
   phase-test-name-check \
-  task-surface-check \
-  browser-e2e-task-surface-check \
-  frontend-task-surface-check \
-  backend-task-surface-check \
   phase-map-check \
   go-test-duration-baseline-coverage \
   phase-ledger-drift \
@@ -567,8 +570,6 @@ const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entr
 for (const [target, profile] of [
   ["check-frontend-install", "setup_cpu_io"],
   ["check-service-backed", "service_session_start"],
-  ["check-browser-e2e-duration-baseline-drift", "post_service_duration_check"],
-  ["browser-e2e-task-surface-check", "after_setup_cpu"],
 ]) {
   const metadata = topologyTargets.get(target)?.check_schedule;
   if (!metadata?.schedules?.includes("check") || metadata.profile !== profile) {
@@ -595,22 +596,6 @@ const service = (schedule.work_units ?? []).find((entry) => entry.kind === "serv
 if (!service) {
   throw new Error("missing check-service-backed work unit");
 }
-const browserDrift = (schedule.work_units ?? []).find((entry) => entry.target === "check-browser-e2e-duration-baseline-drift");
-if (!browserDrift) {
-  throw new Error("missing check-browser-e2e-duration-baseline-drift work unit");
-}
-const expectedBrowserEvidence = [
-  "browser-e2e-webserver-backed",
-  "browser-e2e-stateful",
-  "browser-e2e-measurement",
-  "browser-e2e-visual",
-];
-if (JSON.stringify(browserDrift.needs ?? []) !== JSON.stringify(expectedBrowserEvidence)) {
-  throw new Error("check-browser-e2e-duration-baseline-drift must depend on browser evidence targets");
-}
-if (browserDrift.resource_claims?.host_cpu !== 1 || Object.keys(browserDrift.resource_claims ?? {}).length !== 1) {
-  throw new Error("check-browser-e2e-duration-baseline-drift must claim only host_cpu=1");
-}
 const claims = service.resource_claims ?? {};
 if (JSON.stringify(claims) !== JSON.stringify({ host_cpu: 1, host_io: 1, suite_service_stack: 1 })) {
   throw new Error(`check-service-backed service session has unexpected claims ${JSON.stringify(claims)}`);
@@ -621,6 +606,11 @@ if (service.retained_resource_claims?.suite_service_stack !== 1) {
 if ((schedule.work_units ?? []).some((entry) => entry.nested_scheduler)) {
   throw new Error("check schedule must not use nested service-backed scheduler metadata");
 }
+const expectedBrowserEvidence = [
+  "browser-e2e-webserver-backed",
+  "browser-e2e-stateful",
+  "browser-e2e-visual",
+];
 for (const expectedLeaf of expectedBrowserEvidence) {
   const session = (schedule.work_units ?? []).find((entry) =>
     entry.target === expectedLeaf &&
@@ -696,21 +686,8 @@ for (const group of webserverGroups) {
 const measurementSession = (schedule.work_units ?? []).find((entry) =>
   entry.target === "browser-e2e-measurement" && entry.kind === "browser_stage_session"
 );
-const expectedMeasurementNeeds = [
-  "service_session:check-service-backed",
-  "build-server",
-  "build-migrate",
-  "browser-e2e-webserver-backed",
-  "browser-e2e-stateful",
-  "browser-e2e-visual",
-];
-if (JSON.stringify(measurementSession?.needs ?? []) !== JSON.stringify(expectedMeasurementNeeds)) {
-  throw new Error(`browser-e2e-measurement stage needs got ${JSON.stringify(measurementSession?.needs ?? [])}`);
-}
-for (const retiredNeed of ["backend-store", "backend-integration", "backend-integration-support", "backend-process"]) {
-  if ((measurementSession?.needs ?? []).includes(retiredNeed)) {
-    throw new Error(`browser-e2e-measurement stage must not depend on ${retiredNeed}`);
-  }
+if (measurementSession) {
+  throw new Error("default local check must not include browser-e2e-measurement stage work");
 }
 const webserverComplete = (schedule.work_units ?? []).find((entry) =>
   entry.target === "browser-e2e-webserver-backed" && entry.kind === "browser_stage_complete"
@@ -842,7 +819,7 @@ const byName = new Map((manifest.stages ?? []).map((stage) => [stage.name, stage
 if ((manifest.stages ?? []).some((stage) => stage.scheduler_dependency_policy !== undefined)) {
   throw new Error("browser stages must not use obsolete scheduler_dependency_policy");
 }
-for (const name of ["stateful", "measurement", "visual"]) {
+for (const name of ["webserver-backed", "stateful", "visual"]) {
   const stage = byName.get(name);
   if (!stage) {
     throw new Error(`missing ${name} stage`);
@@ -850,9 +827,25 @@ for (const name of ["stateful", "measurement", "visual"]) {
   if (!(stage.schedule_tags ?? []).includes("service_backed_full")) {
     throw new Error(`${name} must be tagged service_backed_full`);
   }
+  if (!(stage.schedule_tags ?? []).includes("service_backed_check")) {
+    throw new Error(`${name} must be tagged service_backed_check`);
+  }
   if ((stage.scheduler_needs ?? []).length !== 0) {
     throw new Error(`${name} must not declare broad service-backed scheduler needs`);
   }
+}
+const measurement = byName.get("measurement");
+if (!measurement) {
+  throw new Error("missing measurement stage");
+}
+if (!(measurement.schedule_tags ?? []).includes("service_backed_full")) {
+  throw new Error("measurement must be tagged service_backed_full");
+}
+if ((measurement.schedule_tags ?? []).includes("service_backed_check")) {
+  throw new Error("measurement must not be tagged service_backed_check");
+}
+if ((measurement.scheduler_needs ?? []).length !== 0) {
+  throw new Error("measurement must not declare broad service-backed scheduler needs");
 }
 const isolated = byName.get("isolated");
 if (!isolated || (isolated.schedule_tags ?? []).length > 0 || (isolated.scheduler_needs ?? []).length > 0) {

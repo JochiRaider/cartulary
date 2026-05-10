@@ -111,6 +111,14 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-006
 The check scheduler MAY skip selected local-only static validation units through input-hash stamps when `CI!=1`. Such stamps MUST be disabled when `CARTULARY_CHECK_DISABLE_INPUT_STAMPS=1`, MUST live under `tmp/check-stamps/`, MUST be scoped to scheduler-invoked `check` work, and MUST NOT change direct public target behavior. Product tests, service-backed tests, browser tests, vulnerability scans, and security scans MUST NOT use local input stamps.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-006
 
+**TH-HARNESS-REQ-056**
+The default local `check` gate MUST keep ordinary browser measurement evidence out of the warm `check-service-backed` critical path. `browser-e2e-measurement` MUST remain available as an explicit public target and MAY remain required by CI, release, or explicit browser aggregate targets, but default local `make check` MUST NOT schedule the measurement browser stage as a `check-service-backed` child.
+Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
+
+**TH-HARNESS-REQ-057**
+Warm steady-state `check-service-backed` timing is a harness health contract, not product performance evidence. For the supported WSL2 compatibility profile, a successful warm `check` run used for harness maintenance SHOULD keep `check-service-backed` wall time at or below `60000ms`. Backend and browser scheduler lanes SHOULD remain duration-balanced: no non-isolated peer lane should materially exceed `125%` of its peer median. A lane MAY be excluded from peer balance only when it is explicitly isolated by the shard plan or is the only lane in its peer group, and the checker MAY apply a bounded materiality floor so normal fixture jitter does not fail otherwise healthy retained runs.
+Verified by: TH-HARNESS-AC-018
+
 ### 4.1 Mechanism Boundary
 
 | Surface                                                  |                                  Normative? | Required contract                                                                      |
@@ -207,7 +215,7 @@ Every command below inherits the matching family defaults. `Included in` is the 
 | `browser-e2e`                                        | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Isolated browser E2E aggregate.                                             |
 | `browser-e2e-webserver-backed`                       | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Shared-stack browser stage.                                                 |
 | `browser-e2e-stateful`                               | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Stateful browser stage.                                                     |
-| `browser-e2e-measurement`                            | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Measurement browser stage.                                                  |
+| `browser-e2e-measurement`                            | test,ci           | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Explicit ordinary measurement browser stage; not a default local `check` child. |
 | `browser-e2e-visual`                                 | test,check,ci     | summary_with_artifacts           | `cartulary.tool_run_summary.v2`                    | Visual validation stage.                                                    |
 | `test-fast`                                          | test,check,ci     | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Fast local verification aggregate.                                          |
 | `test`                                               | test,check,ci     | aggregate_summary_with_artifacts | `cartulary.tool_run_summary.v2`                    | Full-corpus test aggregate.                                                 |
@@ -918,6 +926,8 @@ Baseline refresh MUST reject contaminated evidence, including failed scheduler r
 
 Duration-baseline drift checks MAY fail only for severe stale planning. Compact drift diagnostics MUST include `subject`, `planned_ms`, `actual_ms`, `ratio`, and `kind`.
 
+Warm scheduler health checks MAY consume retained timing artifacts from a successful warm run. Such checks MUST remain harness-maintenance evidence and MUST NOT be described as claim-bearing product benchmark evidence. When a warm `check` artifact is evaluated, the check MUST fail if default local `check-service-backed` includes ordinary browser measurement work, if `check-service-backed` exceeds the configured warm budget, or if non-isolated backend/browser peer lanes exceed the configured balance ratio.
+
 ## 12. Test-Only Reset Route
 
 **TH-HARNESS-REQ-450**
@@ -1144,19 +1154,20 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-015 | Sections 6, 8      | Retained artifact identity       | Explicit result root/run ID                                                  | `CARTULARY_TEST_RESULTS_DIR=<dir> CARTULARY_TEST_RUN_ID=<id> make backend-unit`           | `0`                                                            | Summary names run root                                 | Empty                                                        | Artifacts under `<dir>/<id>` with target, run ID, run root                                         | Newest-run fallback accepted as proof                                        | custom absolute result root not removed by `make clean` |
 | TH-HARNESS-AC-016 | Sections 1, 18, 19 | Editorial and adoption readiness | Revised document                                                             | Editorial lint and future-decision scanner                                                | `0`                                                            | Bounded summary                                        | Empty on success                                             | No prohibited evidence markers in Sections 1-17; no current blockers in Section 19                 | Current-profile blocker appears in future section                            | none                                                    |
 | TH-HARNESS-AC-017 | Section 11         | Lifecycle-machine conformance    | Service-suite fixtures for happy path, startup failure, interrupted child, cleanup failure, illegal transition, and crash/rerun | Lifecycle-machine conformance target or unit harness                                      | Happy path `0`; failure fixtures use exact Section 9 code      | Bounded summary or machine object                      | Empty on happy path; bounded diagnostic on failure fixture | `cartulary.test_services.lifecycle.v1` stream with sequential events, valid transitions, terminal state, Section 9 failure mapping, and cleanup proof behavior | Unlisted `(state,event)` mutates state, terminal state accepts later event, or lifecycle stream validates with a sequence gap | normal suite cleanup; unproven resources retained       |
+| TH-HARNESS-AC-018 | Sections 4, 10, 11 | Warm scheduler health            | Retained warm `check` fixture plus over-budget, measurement-in-default-check, and skewed-lane fixtures | `make scheduler-summary-timing-drift RESULTS_DIR=<dir> TARGET=check SCHEDULER_WARM_CHECK_BUDGET_MS=60000 SCHEDULER_WARM_CHECK_BALANCE_RATIO=1.25` | Success only for in-budget balanced fixtures                    | Bounded summary                                        | Bounded diagnostic on failure fixture                  | Scheduler and target summaries identify `check-service-backed` wall time and evaluated lanes       | Measurement stage or skewed non-isolated lane passes unnoticed                    | none                                                    |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
 | Requirement range         | Owner section                      | Acceptance criteria                                     |
 | ------------------------- | ---------------------------------- | ------------------------------------------------------- |
 | `TH-HARNESS-REQ-001..049` | Status, scope, authority, purpose  | TH-HARNESS-AC-013, TH-HARNESS-AC-015, TH-HARNESS-AC-016 |
-| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005 |
+| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018 |
 | `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003                    |
 | `TH-HARNESS-REQ-150..199` | Result roots and artifact identity | TH-HARNESS-AC-003, TH-HARNESS-AC-015                    |
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005                    |
 | `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015 |
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014                    |
-| `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006                                       |
+| `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018                    |
 | `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017 |
 | `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008                                       |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010                    |

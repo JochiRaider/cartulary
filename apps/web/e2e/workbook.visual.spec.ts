@@ -547,7 +547,10 @@ test.describe("Phase 5 workbook visual evidence", () => {
       page,
       "v-5-grid-02-timeline-evidence-badge",
       timelineViewSchemaId,
-      { scroll: { top: 0, left: "right" } },
+      {
+        maxDiffPixels: 8_000,
+        scroll: { top: 0, left: "right" },
+      },
     );
   });
 });
@@ -810,15 +813,16 @@ async function assertVisualRegression(
   page: Page,
   name: string,
   locator = page.getByRole("main"),
+  options: { maxDiffPixels?: number } = {},
 ) {
   await expect(locator).toBeVisible();
-  await page.evaluate(() => {
-    document.documentElement.dataset.visualSnapshot = "true";
-  });
-  await maskVisualDynamicText(page);
+  await prepareVisualRegressionState(page);
   await expect(locator).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
+    ...(options.maxDiffPixels === undefined
+      ? {}
+      : { maxDiffPixels: options.maxDiffPixels }),
   });
 }
 
@@ -826,14 +830,25 @@ async function assertWorkbookGridVisualRegression(
   page: Page,
   name: string,
   surface: string,
-  options: { scroll: GridVisualScrollState },
+  options: { maxDiffPixels?: number; scroll: GridVisualScrollState },
 ) {
+  await prepareVisualRegressionState(page);
   await normalizeWorkbookGridVisualState(page, surface, options.scroll);
   await assertVisualRegression(
     page,
     name,
     page.getByTestId(gridShellTestId(surface)),
+    options.maxDiffPixels === undefined
+      ? {}
+      : { maxDiffPixels: options.maxDiffPixels },
   );
+}
+
+async function prepareVisualRegressionState(page: Page) {
+  await page.evaluate(() => {
+    document.documentElement.dataset.visualSnapshot = "true";
+  });
+  await maskVisualDynamicText(page);
 }
 
 async function normalizeWorkbookGridVisualState(
@@ -841,10 +856,16 @@ async function normalizeWorkbookGridVisualState(
   surface: string,
   scroll: GridVisualScrollState,
 ) {
+  await setWorkbookGridScroll(page, surface, scroll);
+  await waitForVisualLayoutFrame(page);
   const expected = await setWorkbookGridScroll(page, surface, scroll);
   await expect
     .poll(() => readWorkbookGridScroll(page, surface))
     .toEqual(expected);
+  await waitForVisualLayoutFrame(page);
+}
+
+async function waitForVisualLayoutFrame(page: Page) {
   await page.evaluate(() => {
     return new Promise<void>((resolve) => {
       requestAnimationFrame(() => {

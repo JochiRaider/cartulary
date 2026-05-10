@@ -3837,7 +3837,6 @@
       "classification": "public",
       "included_in": [
         "test",
-        "check",
         "ci"
       ],
       "backing_scripts": [

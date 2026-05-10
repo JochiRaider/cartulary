@@ -4344,7 +4344,6 @@
         "classification": "public",
         "included_in": [
           "test",
-          "check",
           "ci"
         ],
         "backing_scripts": [
@@ -5708,7 +5707,7 @@
           },
           "browser": {
             "schedule_tags": [
-              "service_backed_full"
+              "service_backed_check"
             ]
           }
         }
@@ -5721,7 +5720,8 @@
         "name": "webserver-backed",
         "target": "browser-e2e-webserver-backed",
         "schedule_tags": [
-          "service_backed_full"
+          "service_backed_full",
+          "service_backed_check"
         ],
         "groups": [
           {
@@ -5766,7 +5766,8 @@
         "name": "stateful",
         "target": "browser-e2e-stateful",
         "schedule_tags": [
-          "service_backed_full"
+          "service_backed_full",
+          "service_backed_check"
         ],
         "groups": [
           {
@@ -5800,7 +5801,8 @@
         "name": "visual",
         "target": "browser-e2e-visual",
         "schedule_tags": [
-          "service_backed_full"
+          "service_backed_full",
+          "service_backed_check"
         ],
         "groups": [
           {

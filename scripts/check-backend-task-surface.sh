@@ -395,8 +395,14 @@ assert_target_prereq govulncheck-toolchain '$(GOVULNCHECK_BIN)' "govulncheck-too
 assert_target_prereq gosec-toolchain '$(GOSEC_BIN)' "gosec-toolchain must own pinned Gosec readiness"
 assert_target_prereq go-security-toolchain govulncheck-toolchain "go-security-toolchain must aggregate Govulncheck readiness for direct use"
 assert_target_prereq go-security-toolchain gosec-toolchain "go-security-toolchain must aggregate Gosec readiness for direct use"
-assert_target_prereq go-vulncheck govulncheck-toolchain "go-vulncheck must prepare only the pinned Govulncheck toolchain"
-assert_target_prereq go-gosec-targeted gosec-toolchain "go-gosec-targeted must prepare only the pinned Gosec toolchain"
+go_vulncheck_block="$(extract_target_block go-vulncheck)"
+if ! text_contains "$go_vulncheck_block" 'govulncheck-toolchain'; then
+  fail "go-vulncheck must prepare only the pinned Govulncheck toolchain"
+fi
+go_gosec_targeted_block="$(extract_target_block go-gosec-targeted)"
+if ! text_contains "$go_gosec_targeted_block" 'gosec-toolchain'; then
+  fail "go-gosec-targeted must prepare only the pinned Gosec toolchain"
+fi
 go_gosec_block="$(extract_target_block go-gosec-targeted)"
 if ! text_contains "$go_gosec_block" 'scripts/run-go-gosec-targeted.sh'; then
   fail "go-gosec-targeted must run the curated targeted Gosec wrapper"
@@ -416,7 +422,10 @@ fi
 if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_PATTERNS="$(GOSEC_TARGETED_RUNTIME_PATTERNS)"'; then
   fail "go-gosec-targeted must pass the configured runtime Gosec package patterns"
 fi
-assert_target_prereq go-gosec-audit gosec-toolchain "go-gosec-audit must prepare only the pinned Gosec toolchain"
+go_gosec_audit_block="$(extract_target_block go-gosec-audit)"
+if ! text_contains "$go_gosec_audit_block" 'gosec-toolchain'; then
+  fail "go-gosec-audit must prepare only the pinned Gosec toolchain"
+fi
 go_gosec_audit_block="$(extract_target_block go-gosec-audit)"
 if ! text_contains "$go_gosec_audit_block" 'scripts/run-go-gosec-audit.sh'; then
   fail "go-gosec-audit must run the curated warning-only Gosec audit wrapper"
@@ -427,8 +436,10 @@ fi
 if ! text_contains "$go_gosec_audit_block" 'GOSEC_AUDIT_SUPPORT_PATTERNS="$(GOSEC_AUDIT_SUPPORT_PATTERNS)"'; then
   fail "go-gosec-audit must pass the configured support Gosec audit package patterns"
 fi
-assert_target_prereq lint-shell shell-lint-toolchain "lint-shell must prepare the pinned ShellCheck toolchain"
 lint_shell_block="$(extract_target_block lint-shell)"
+if ! text_contains "$lint_shell_block" 'shell-lint-toolchain'; then
+  fail "lint-shell must prepare the pinned ShellCheck toolchain"
+fi
 if ! text_contains "$lint_shell_block" 'scripts/run-shellcheck.sh'; then
   fail "lint-shell must run the curated warning-only ShellCheck wrapper"
 fi
@@ -447,9 +458,6 @@ for scheduled_target in \
   build-migrate \
   test-service-images \
   check-service-backed \
-  check-go-test-duration-baseline-drift \
-  check-browser-e2e-duration-baseline-drift \
-  check-service-backed-make-target-duration-baseline-drift \
   migration-drift \
   deployable-shape \
   backend-unit \
@@ -466,10 +474,6 @@ for scheduled_target in \
   lint-scripts \
   lint-shell \
   phase-test-name-check \
-  task-surface-check \
-  browser-e2e-task-surface-check \
-  frontend-task-surface-check \
-  backend-task-surface-check \
   go-test-duration-baseline-coverage \
   phase-schedule-drift \
   service-backed-unit-check \
@@ -637,10 +641,6 @@ for scheduled_target in \
   check-harness-smoke \
   harness-contract-tests \
   phase-test-name-check \
-  task-surface-check \
-  browser-e2e-task-surface-check \
-  frontend-task-surface-check \
-  backend-task-surface-check \
   go-test-duration-baseline-coverage \
   phase-schedule-drift \
   service-backed-unit-check \
@@ -657,10 +657,6 @@ assert_check_needs lint-shell "shell-lint-toolchain"
 for scheduled_target in frontend-typecheck frontend-unit frontend-import-boundary-check lint-biome lint-scripts phase-map-check phase-ledger-drift; do
   assert_check_needs "$scheduled_target" "check-frontend-install"
 done
-assert_check_needs check-go-test-duration-baseline-drift "backend-store,backend-integration,backend-integration-support,backend-process"
-assert_check_needs check-browser-e2e-duration-baseline-drift "browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual"
-assert_check_needs check-service-backed-make-target-duration-baseline-drift "backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual"
-assert_check_needs check-harness-smoke-duration-baseline-drift "check-harness-smoke"
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,suite_service_stack" ]]; then
   fail "check-service-backed must claim host_cpu, host_io, and suite_service_stack resources in the check schedule"
 fi

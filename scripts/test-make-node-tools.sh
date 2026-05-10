@@ -154,6 +154,8 @@ const expectedMakeEnvVars = {
   ],
   "scheduler-summary-timing-drift": [
     "TARGET",
+    "SCHEDULER_WARM_CHECK_BUDGET_MS",
+    "SCHEDULER_WARM_CHECK_BALANCE_RATIO",
     "RESULTS_DIR",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
