@@ -40,7 +40,7 @@ The harness MUST provide all of the following for public Make targets:
 - retained artifact identity when a target declares artifacts;
 - failure classification that separates product assertion failures from harness operational failures;
 - cleanup predicates for every destructive operation.
-Verified by: TH-HARNESS-AC-001..TH-HARNESS-AC-016
+Verified by: TH-HARNESS-AC-001..TH-HARNESS-AC-017
 
 **TH-HARNESS-REQ-007**
 The harness MUST NOT claim provider-specific hosted CI behavior, benchmark publication, release publication readiness, visual-snapshot refresh authority, macOS support, Windows-native support, Podman support, or Playwright artifact schema stability unless those areas are explicitly included in this NLSpec's current conformance profile or in a later adopted NLSpec.
@@ -60,6 +60,12 @@ Verified by: TH-HARNESS-AC-006
 | child target             | A target invoked by an aggregate, sequence, scheduler, or wrapper target.                                                                                  |
 | work unit                | One scheduler-visible executable unit with an identity, dependencies, resource claims, logs, status, and optional completion keys.                         |
 | scheduler                | A harness runner that executes a manifest-defined DAG using logical resource claims and emits scheduler events and summaries.                              |
+| lifecycle machine        | A normative finite state contract for one harness lifecycle, including its closed states, closed events, allowed transitions, failure mapping, and evidence. |
+| representational lifecycle diagram | A non-normative diagram or list that explains an existing lifecycle without adding requirements.                                                   |
+| state                    | One named lifecycle condition inside a lifecycle machine.                                                                                                  |
+| event                    | One named input signal that can be presented to a lifecycle machine.                                                                                       |
+| transition               | One allowed movement from a source state to a destination state for a specific event and guard.                                                            |
+| terminal state           | A state that ends a lifecycle machine instance. No later transition is allowed from a terminal state.                                                      |
 | result root              | The root directory that contains run artifacts. The default is `.cartulary/test-results`.                                                                  |
 | run ID                   | The run directory name under the result root. The default format is defined in Section 6.                                                                  |
 | run root                 | The directory `normalize_result_root(CARTULARY_TEST_RESULTS_DIR) / normalize_run_id(CARTULARY_TEST_RUN_ID)`.                                               |
@@ -457,6 +463,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.service_backed_scheduler_summary.v9` | `tools/schemas/cartulary.service_backed_scheduler_summary.v9.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
 | `cartulary.scheduler_event.v6`                  | `tools/schemas/cartulary.scheduler_event.v6.schema.json`                  | present           | Scheduler                | During scheduler JSONL validation.        |
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
+| `cartulary.test_services.lifecycle.v1`          | `tools/schemas/cartulary.test_services.lifecycle.v1.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
 | `cartulary.web_e2e_stack.v1`                    | `tools/schemas/cartulary.web_e2e_stack.v1.schema.json`                    | present           | Browser stack            | Before browser target starts Playwright.  |
 | `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | present           | Reset route/wrapper      | Before browser reset success is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
@@ -482,7 +489,8 @@ Public and machine summaries SHOULD print or serialize `run_root` once per summa
 | Scheduler summary                                    | Scheduler                                       | `<target>/scheduler-summary.json`                               | Scheduler summary schema by scheduler type                    | Work units by manifest ordinal; resources by registry order                           | Retained.                                                    |
 | Scheduler event stream                               | Scheduler                                       | `<target>/scheduler-events.jsonl`                               | `cartulary.scheduler_event.v6`                                | `seq` strictly increases with no gaps                                                 | Retained.                                                    |
 | Scheduler progress summary                           | Scheduler reporter                              | `<target>/progress-summary.log`                                 | diagnostic-only                                               | Bounded progress snapshots                                                            | Retained.                                                    |
-| Service scope artifacts                              | Service suite                                   | `_shared/test-services/<suite-id>/...`                          | lease schema required; other service logs diagnostic-only     | Lease fields closed by Section 11                                                     | Retained; cleanup may append diagnostics.                    |
+| Service scope artifacts                              | Service suite                                   | `_shared/test-services/<suite-id>/...`                          | lease and lifecycle schemas required; other service logs diagnostic-only | Lease fields and lifecycle events closed by Section 11                                  | Retained; cleanup may append diagnostics.                    |
+| Service lifecycle event stream                       | Service suite                                   | `_shared/test-services/<suite-id>/lifecycle-events.jsonl`        | `cartulary.test_services.lifecycle.v1`                        | `seq` strictly increases; transitions match Section 11.2                               | Retained; not cleanup proof.                                |
 | Browser stack metadata                               | Browser stack                                   | browser target support dir                                      | `cartulary.web_e2e_stack.v1`                                  | Origins, ports, runtime root, log paths required                                      | Retained for browser target.                                 |
 | Reset response/status/state                          | Reset route/wrapper                             | `reset-boundary/*.json`, `*.status`, `*.state-reset`            | `cartulary.test.runtime_reset.v1` for reset data              | Reset ID, table list, migration/admin flags, object count required                    | Retained for browser target.                                 |
 | Generated manifest summaries                         | Generation/drift scripts                        | tool-specific target dirs                                       | JSON schemas declared by generated artifacts                  | Unknown fields rejected where shape tools enforce closure                             | Generated files remain checked in; summaries retained.       |
@@ -725,16 +733,77 @@ Verified by: TH-HARNESS-AC-007
 | `owned`  | `CARTULARY_TEST_SERVICES_ACTIVE` omitted or not `1`. | Not applicable.                                                        | Harness starts and cleans suite resources.                                    |
 | `attach` | `CARTULARY_TEST_SERVICES_ACTIVE=1`.                  | Any missing required attach variable fails with `configuration_error`. | Harness uses supplied services and MUST NOT delete container-level resources. |
 
-### 11.1 Suite State Machine
+### 11.1 Lifecycle Machine Contract
 
-```text
-requested -> starting -> ready -> running_child -> cleaning -> cleaned
-requested -> starting -> failed_start
-ready -> running_child -> interrupted -> cleaning
-cleaning -> cleanup_failed
-```
+**TH-HARNESS-REQ-403**
+A lifecycle machine is normative only when this NLSpec explicitly labels it normative. A representational lifecycle diagram MUST be labeled non-normative, MUST cite its owning requirements, and MUST NOT add behavior. A normative harness lifecycle machine MUST define scope, instance key, closed state set, closed event set, terminal states, transition table, guard precedence, failure mapping, authoritative state derivation, observable evidence, and conformance criteria. Illegal transitions MUST NOT mutate state, MUST fail closed with Section 9 failure classification, and MUST emit retained evidence. State-advancing artifact writes MUST be atomic and idempotent, or the machine MUST define guardrails that prevent unsafe re-execution. Parent lifecycle logic MUST depend only on child terminal status and retained artifacts, not on child in-memory state.
+Verified by: TH-HARNESS-AC-017
 
-### 11.2 Lease Fields
+Implementations MAY realize a normative lifecycle machine with ordinary control flow, tables, generated code, or a state-machine library. The runtime mechanism is not normative. The closed states, events, transitions, failure mapping, and observable evidence are normative.
+
+Normative lifecycle-machine state and event names MUST be ASCII `lower_snake_case`. A transition table is closed by default: any `(state, event)` pair not listed by the owning machine is illegal.
+
+### 11.2 Normative Service Suite Lifecycle Machine
+
+**TH-HARNESS-REQ-404**
+The service suite lifecycle machine is normative for every service-backed suite in `owned` or `attach` mode. The machine ID is `test_services_suite_lifecycle_v1`. The machine instance key is `suite_id`. The authoritative transition record is `_shared/test-services/<suite-id>/lifecycle-events.jsonl`, where every line MUST validate as `cartulary.test_services.lifecycle.v1`. The current state is `requested` before the first lifecycle event and otherwise the `to_state` of the last valid lifecycle event. A missing, malformed, non-sequential, or transition-invalid lifecycle event stream after a suite directory or lease exists MUST fail closed with `failure_class=artifact` and `failure_reason=artifact_error`. The service lease remains cleanup-proof evidence and MUST NOT be interpreted as a transition log.
+Verified by: TH-HARNESS-AC-007, TH-HARNESS-AC-017
+
+Lifecycle event `seq` starts at `1`, increments by `1`, and has no gaps. Events MUST be processed in emitted sequence order. When competing conditions are observed before the next event is emitted, guard precedence is:
+
+| State           | Precedence rule                                      |
+| --------------- | ---------------------------------------------------- |
+| `starting`      | `startup_failed` before `readiness_passed`.          |
+| `running_child` | `interrupt_received` before `child_finished`.        |
+| `cleaning`      | `cleanup_failed` before `cleanup_succeeded`.         |
+| all others      | The transition table has at most one allowed event.  |
+
+#### States
+
+| State           | Kind         | Invariants                                                                 | Observable signals                                                                 |
+| --------------- | ------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `requested`     | initial      | Suite setup has been requested but no lifecycle event has been emitted.    | No lifecycle event stream exists for the selected `suite_id`.                      |
+| `starting`      | intermediate | Suite setup or attach-mode validation is in progress; child work has not started. | Latest lifecycle event has `to_state=starting`; lease or startup diagnostics exist when the suite writes them. |
+| `ready`         | intermediate | Required services or supplied attach endpoints have passed readiness.      | Latest lifecycle event has `to_state=ready`; readiness diagnostics are retained when produced. |
+| `running_child` | intermediate | One child command is executing under the suite.                            | Latest lifecycle event has `to_state=running_child`; the event references child logs or target artifacts when known. |
+| `interrupted`   | intermediate | Cancellation or interruption was observed while child work was active.     | Latest lifecycle event has `to_state=interrupted` and `failure_reason=cancelled_or_interrupted`. |
+| `cleaning`      | intermediate | Owned teardown or attach-mode diagnostic finalization is in progress.      | Latest lifecycle event has `to_state=cleaning`; lease `cleanup_state=in_progress` when a lease exists. |
+| `cleaned`       | terminal     | Required cleanup or attach-mode finalization completed.                   | Latest lifecycle event has `to_state=cleaned`; lease `cleanup_state=completed` or `deferred`. |
+| `failed_start`  | terminal     | Startup, attach validation, preflight, or readiness failed before child work started. | Latest lifecycle event has `to_state=failed_start`; failure summary records the Section 9 reason. |
+| `cleanup_failed` | terminal   | Cleanup or finalization failed and retained proof remains for investigation or stale janitor handling. | Latest lifecycle event has `to_state=cleanup_failed`; lease `cleanup_state=failed` when a lease exists. |
+
+#### Events
+
+| Event                | Definition                                                                 |
+| -------------------- | -------------------------------------------------------------------------- |
+| `start_services`     | Begin owned suite startup or attach-mode suite validation.                 |
+| `readiness_passed`   | All readiness predicates required by Section 11.4 passed before deadline.  |
+| `startup_failed`     | Startup, attach validation, preflight, fixture preparation, or readiness failed before child work started. |
+| `child_started`      | A child target or child command started under a ready suite.               |
+| `child_finished`     | The active child target or child command exited and its status was recorded. |
+| `interrupt_received` | The wrapper observed cancellation or process interruption while child work was active. |
+| `cleanup_started`    | Teardown, cleanup, or attach-mode diagnostic finalization started.         |
+| `cleanup_succeeded`  | Teardown, cleanup, or attach-mode diagnostic finalization completed.       |
+| `cleanup_failed`     | Teardown, cleanup, or attach-mode diagnostic finalization failed.          |
+
+#### Transition Rules
+
+| From state      | Event                | Guard                                      | To state         | Required actions                                                              | Failure mapping                                                                 | Observable evidence |
+| --------------- | -------------------- | ------------------------------------------ | ---------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------- |
+| `requested`     | `start_services`     | Configuration resolved; `suite_id` allocated; no prior lifecycle event exists. | `starting`       | Create suite directory as needed; write initial lease or attach diagnostic when applicable; append lifecycle event. | If setup cannot begin, fail before mutation with `configuration_error`, `preflight_error`, or `fixture_error` according to the failed predicate. | Lifecycle event `seq=1`; lease or diagnostic artifact refs when present. |
+| `starting`      | `readiness_passed`   | All required readiness predicates passed.  | `ready`          | Append lifecycle event and retain readiness diagnostics when produced.         | none                                                                            | Lifecycle event with readiness artifact refs. |
+| `starting`      | `startup_failed`     | Any startup, attach validation, preflight, fixture, or readiness predicate failed before child start. | `failed_start`   | Append lifecycle event; record failure summary; terminate known partial resources or leave proof for stale janitor. | `preflight_error`, `service_start_error`, `service_readiness_timeout`, `fixture_error`, or `configuration_error` according to Sections 9 and 11.4. | Lifecycle event with failure fields and proof artifact refs. |
+| `ready`         | `child_started`      | Child command selected and no child is already running. | `running_child`  | Append lifecycle event; retain child log or target artifact refs when known.  | Child start failure before process launch is `child_target_failure` or `fixture_error` according to the wrapper boundary. | Lifecycle event with child artifact refs when known. |
+| `running_child` | `child_finished`     | Active child status has been recorded and no interruption wins by guard precedence. | `ready`          | Append lifecycle event; retain child status and artifacts.                    | Child failure is recorded for primary failure selection by Section 9.1; the lifecycle state itself is not terminal. | Lifecycle event with child status artifact refs. |
+| `running_child` | `interrupt_received` | Cancellation or signal wins by guard precedence. | `interrupted`    | Append lifecycle event and preserve child/interruption diagnostics when available. | `failure_class=interrupted`, `failure_reason=cancelled_or_interrupted`.         | Lifecycle event with interruption fields. |
+| `ready`         | `cleanup_started`    | No child is running and cleanup/finalization is required. | `cleaning`       | Set lease `cleanup_state=in_progress` when a lease exists; append lifecycle event. | Cleanup start failure is recorded as `cleanup_error` without deleting unproven resources. | Lifecycle event and updated lease. |
+| `interrupted`   | `cleanup_started`    | Interruption has been recorded and cleanup/finalization is required. | `cleaning`       | Set lease `cleanup_state=in_progress` when a lease exists; append lifecycle event. | Primary interruption failure is preserved by Section 9.1.                       | Lifecycle event and updated lease. |
+| `cleaning`      | `cleanup_succeeded`  | Required cleanup or finalization completed. | `cleaned`        | Set lease `cleanup_state=completed` or `deferred`; append lifecycle event.     | Success unless an earlier primary failure exists.                               | Lifecycle event and final lease. |
+| `cleaning`      | `cleanup_failed`     | Cleanup or finalization failed.            | `cleanup_failed` | Set lease `cleanup_state=failed`; append lifecycle event; retain proof for stale janitor. | `cleanup_error`; Section 9.1 decides whether it becomes the public exit-code driver. | Lifecycle event, final lease, and cleanup diagnostics. |
+
+Any listed event presented in an unlisted state MUST append a lifecycle event with `transition_status=illegal`, `from_state` equal to `to_state`, `failure_class=harness`, and `failure_reason=scheduler_accounting_error`, then fail without mutating suite state. An unrecognized event token MUST be rejected before lifecycle mutation and MUST NOT be appended to the schema-valid lifecycle event stream. A terminal state MUST reject every later event as illegal.
+
+### 11.3 Lease Fields
 
 Lease files MUST be written before child work starts, MUST be redacted before retention, and MUST be written atomically as a complete JSON file. A lease is evidence for cleanup only when its resource proof matches the actual resource state; cleanup MUST verify labels, prefixes, generated names, or equivalent proof and MUST NOT trust the lease path alone.
 
@@ -758,7 +827,7 @@ Lease files MUST be written before child work starts, MUST be redacted before re
 | `proof_prefixes`   | object of generated DB/bucket/path prefixes used to prove ownership | yes for DB, bucket, or path use |
 | `cleanup_state`    | `not_started`, `in_progress`, `completed`, `failed`, or `deferred` |                             yes |
 
-### 11.3 Readiness Deadlines
+### 11.4 Readiness Deadlines
 
 | Resource                     | Deadline | Poll interval | Failure reason                       |
 | ---------------------------- | -------: | ------------: | ------------------------------------ |
@@ -770,7 +839,7 @@ Lease files MUST be written before child work starts, MUST be redacted before re
 | Browser frontend readiness   |   `120s` |       `500ms` | `service_readiness_timeout`          |
 | Reset route success          |    `30s` |           n/a | `fixture_error` or `timeout_failure` |
 
-### 11.4 Retry and Teardown Rules
+### 11.5 Retry and Teardown Rules
 
 **TH-HARNESS-REQ-401**
 No hidden startup retry is allowed. Retry is allowed only when a resource row declares `max_attempts`, bounded backoff, retryable failure reasons, and an overall deadline. Readiness polling within a deadline is not a retry.
@@ -795,7 +864,7 @@ Destructive reset, cleanup, attach-mode service mutation, and non-idempotent ope
 
 Attach mode MAY write diagnostic records and lease observations. It MUST NOT delete externally supplied services, containers, databases, buckets, or object prefixes.
 
-### 11.5 Duration Baselines
+### 11.6 Duration Baselines
 
 Duration baselines are advisory scheduler planning data only. They MUST NOT become benchmark claims, product performance conformance, timeout policy, or evidence that product behavior is fast enough.
 
@@ -1030,6 +1099,7 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-014 | Section 9          | Exit-code matrix                 | Controlled failure fixtures                                                  | Exit matrix test target                                                                   | Exact Section 9 code for every class                           | Per output mode                                        | Per output mode                                              | Failure summaries with primary failure selection                                                   | Cleanup failure overrides earlier product failure                            | cleanup failure recorded but primary exit preserved     |
 | TH-HARNESS-AC-015 | Sections 6, 8      | Retained artifact identity       | Explicit result root/run ID                                                  | `CARTULARY_TEST_RESULTS_DIR=<dir> CARTULARY_TEST_RUN_ID=<id> make backend-unit`           | `0`                                                            | Summary names run root                                 | Empty                                                        | Artifacts under `<dir>/<id>` with target, run ID, run root                                         | Newest-run fallback accepted as proof                                        | custom absolute result root not removed by `make clean` |
 | TH-HARNESS-AC-016 | Sections 1, 18, 19 | Editorial and adoption readiness | Revised document                                                             | Editorial lint and future-decision scanner                                                | `0`                                                            | Bounded summary                                        | Empty on success                                             | No prohibited evidence markers in Sections 1-17; no current blockers in Section 19                 | Current-profile blocker appears in future section                            | none                                                    |
+| TH-HARNESS-AC-017 | Section 11         | Lifecycle-machine conformance    | Service-suite fixtures for happy path, startup failure, interrupted child, cleanup failure, illegal transition, and crash/rerun | Lifecycle-machine conformance target or unit harness                                      | Happy path `0`; failure fixtures use exact Section 9 code      | Bounded summary or machine object                      | Empty on happy path; bounded diagnostic on failure fixture | `cartulary.test_services.lifecycle.v1` stream with sequential events, valid transitions, terminal state, Section 9 failure mapping, and cleanup proof behavior | Unlisted `(state,event)` mutates state, terminal state accepts later event, or lifecycle stream validates with a sequence gap | normal suite cleanup; unproven resources retained       |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
@@ -1043,7 +1113,7 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015 |
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014                    |
 | `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006                                       |
-| `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010                    |
+| `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017 |
 | `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008                                       |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010                    |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012                                       |

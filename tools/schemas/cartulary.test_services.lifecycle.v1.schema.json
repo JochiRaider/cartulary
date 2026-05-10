@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.lifecycle.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "target",
+    "run_id",
+    "run_root",
+    "suite_id",
+    "mode",
+    "machine_id",
+    "seq",
+    "event",
+    "from_state",
+    "to_state",
+    "transition_status",
+    "failure_class",
+    "failure_reason",
+    "emitted_at",
+    "monotonic_ms",
+    "artifact_refs"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.lifecycle.v1" },
+    "target": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "run_root": { "type": "string", "minLength": 1 },
+    "suite_id": { "type": "string", "pattern": "^[0-9a-f]{24}$" },
+    "mode": { "enum": ["owned", "attach"] },
+    "machine_id": { "const": "test_services_suite_lifecycle_v1" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "event": {
+      "enum": [
+        "start_services",
+        "readiness_passed",
+        "startup_failed",
+        "child_started",
+        "child_finished",
+        "interrupt_received",
+        "cleanup_started",
+        "cleanup_succeeded",
+        "cleanup_failed"
+      ]
+    },
+    "from_state": { "$ref": "#/$defs/state" },
+    "to_state": { "$ref": "#/$defs/state" },
+    "transition_status": { "enum": ["applied", "illegal"] },
+    "failure_class": { "$ref": "cartulary.harness.defs.v1#/$defs/failure_class" },
+    "failure_reason": { "$ref": "cartulary.harness.defs.v1#/$defs/failure_reason" },
+    "emitted_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "monotonic_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
+    "artifact_refs": {
+      "type": "array",
+      "items": { "$ref": "cartulary.harness.defs.v1#/$defs/artifact_ref" }
+    },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  },
+  "$defs": {
+    "state": {
+      "enum": [
+        "requested",
+        "starting",
+        "ready",
+        "running_child",
+        "interrupted",
+        "cleaning",
+        "cleaned",
+        "failed_start",
+        "cleanup_failed"
+      ]
+    }
+  }
+}
