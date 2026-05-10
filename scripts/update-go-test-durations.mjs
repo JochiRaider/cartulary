@@ -179,6 +179,8 @@ function main(argv) {
   const { baseline } = readGoDurationBaseline(repoRoot, baselineFile, { allowMissing: true });
   const testDurations = new Map();
   const packageOverheads = new Map();
+  const fixtureOverheadsByPackage = new Map();
+  const fixtureOverheadsByTest = new Map();
   const commandOverheads = new Map();
   const rawAggregateDurations = new Map();
   const observedRawAggregatePrefixes = new Set();
@@ -228,10 +230,22 @@ function main(argv) {
         Math.max(packageOverheads.get(observedPackage.key) ?? 0, observedPackage.overheadMs),
       );
     }
+    for (const observedPackage of artifact.observedFixturePackages ?? []) {
+      fixtureOverheadsByPackage.set(
+        observedPackage.key,
+        Math.max(fixtureOverheadsByPackage.get(observedPackage.key) ?? 0, observedPackage.fixtureMs),
+      );
+    }
     for (const observedTest of artifact.observedTests) {
       testDurations.set(
         observedTest.key,
         Math.max(testDurations.get(observedTest.key) ?? 0, observedTest.elapsedMs),
+      );
+    }
+    for (const observedTest of artifact.observedFixtureTests ?? []) {
+      fixtureOverheadsByTest.set(
+        observedTest.key,
+        Math.max(fixtureOverheadsByTest.get(observedTest.key) ?? 0, observedTest.fixtureMs),
       );
     }
   }
@@ -246,6 +260,8 @@ function main(argv) {
   baseline.default_item_weight_ms ??= defaultItemWeightMs;
   baseline.command_overheads_by_target ??= {};
   baseline.package_overheads ??= {};
+  baseline.fixture_overheads_by_package ??= {};
+  baseline.fixture_overheads_by_test ??= {};
   baseline.raw_aggregates ??= {};
   baseline.tests ??= {};
 
@@ -261,6 +277,19 @@ function main(argv) {
       const targetPackages = observedPackagesByTarget.get(target);
       if (targetPackages && !targetPackages.has(packageName)) {
         delete baseline.package_overheads[key];
+      }
+    }
+    for (const key of Object.keys(baseline.fixture_overheads_by_package)) {
+      const [target, packageName] = key.split("::");
+      const targetPackages = observedPackagesByTarget.get(target);
+      if (targetPackages && !targetPackages.has(packageName)) {
+        delete baseline.fixture_overheads_by_package[key];
+      }
+    }
+    for (const key of Object.keys(baseline.fixture_overheads_by_test)) {
+      const [packageName] = key.split("::", 1);
+      if (observedPackages.has(packageName) && !fixtureOverheadsByTest.has(key)) {
+        delete baseline.fixture_overheads_by_test[key];
       }
     }
     for (const key of Object.keys(baseline.raw_aggregates)) {
@@ -290,6 +319,12 @@ function main(argv) {
   for (const [key, overheadMs] of packageOverheads) {
     baseline.package_overheads[key] = overheadMs;
   }
+  for (const [key, fixtureMs] of fixtureOverheadsByPackage) {
+    baseline.fixture_overheads_by_package[key] = fixtureMs;
+  }
+  for (const [key, fixtureMs] of fixtureOverheadsByTest) {
+    baseline.fixture_overheads_by_test[key] = fixtureMs;
+  }
   for (const [key, durationMs] of rawAggregateDurations) {
     baseline.raw_aggregates[key] = durationMs;
   }
@@ -298,6 +333,8 @@ function main(argv) {
   baseline.shard_target_ms_by_target = sortedObject(baseline.shard_target_ms_by_target);
   baseline.command_overheads_by_target = sortedObject(baseline.command_overheads_by_target);
   baseline.package_overheads = sortedObject(baseline.package_overheads);
+  baseline.fixture_overheads_by_package = sortedObject(baseline.fixture_overheads_by_package);
+  baseline.fixture_overheads_by_test = sortedObject(baseline.fixture_overheads_by_test);
   baseline.raw_aggregates = sortedObject(baseline.raw_aggregates);
   baseline.tests = sortedObject(baseline.tests);
 

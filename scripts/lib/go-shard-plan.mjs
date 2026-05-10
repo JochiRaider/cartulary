@@ -11,6 +11,7 @@ import { collectTargetPlanRows } from "./target-plan.mjs";
 
 const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
+const cloneHeavyFixturePolicies = new Set(["template_clone"]);
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 
@@ -144,6 +145,7 @@ function buildExecutionItems(root, { phase = "" } = {}) {
       addAggregate(aggregates, row, "raw");
       const aggregateKey = rawAggregateBaselineKey(row.target, row.execution_family);
       for (const pkg of row.packages) {
+        const isPgtestRawPackage = pkg === "./internal/testutil/pgtest";
         const importPath = toGoImportPath(modulePath, pkg);
         const key = rawPackageBaselineKey(row.target, row.execution_family, importPath);
         const { weightMs, weightSource } = rawItemWeight(
@@ -166,9 +168,12 @@ function buildExecutionItems(root, { phase = "" } = {}) {
           weight_source: weightSource,
           baseline_key: key,
           legacy_baseline_key: aggregateKey,
-          shard_isolation: row.shard_isolation === true,
+          shard_isolation: row.shard_isolation === true || isPgtestRawPackage,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
-          postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
+          postgres_fixture_budget: {
+            ...(row.fixture_budget?.postgres ?? {}),
+            reset_conformance: isPgtestRawPackage,
+          },
         });
       }
       continue;
@@ -297,18 +302,48 @@ function packShardLane(aggregateName, items, targetMs, baselines) {
   return bins;
 }
 
+function fixtureLaneKey(item) {
+  if (item.postgres_fixture_budget?.reset_conformance === true) {
+    return "reset_conformance";
+  }
+  return item.postgres_fixture_policy || "none";
+}
+
 function packAggregateItems(aggregateName, items, targetMs, baselines) {
   if (items.length === 0) {
     return [];
   }
   const lanes = new Map();
   for (const item of items) {
-    if (!lanes.has(item.kind)) {
-      lanes.set(item.kind, []);
+    const laneKey = `${item.kind}:${fixtureLaneKey(item)}`;
+    if (!lanes.has(laneKey)) {
+      lanes.set(laneKey, []);
     }
-    lanes.get(item.kind).push(item);
+    lanes.get(laneKey).push(item);
   }
-  const laneOrder = ["raw", "authoritative", "support"];
+  const laneOrder = [
+    "raw:reset_conformance",
+    "raw:template_clone",
+    "raw:group_clone",
+    "raw:migration_scratch",
+    "raw:package_reset",
+    "raw:transaction",
+    "raw:none",
+    "authoritative:reset_conformance",
+    "authoritative:template_clone",
+    "authoritative:group_clone",
+    "authoritative:migration_scratch",
+    "authoritative:package_reset",
+    "authoritative:transaction",
+    "authoritative:none",
+    "support:reset_conformance",
+    "support:template_clone",
+    "support:group_clone",
+    "support:migration_scratch",
+    "support:package_reset",
+    "support:transaction",
+    "support:none",
+  ];
   const bins = [];
   for (const kind of laneOrder) {
     bins.push(...packShardLane(aggregateName, lanes.get(kind) ?? [], targetMs, baselines));
@@ -373,18 +408,28 @@ function shardName(aggregateName, index, phase = "") {
 function schedulerProfileForShard(items, weightMs) {
   const hasResetHeavyFixture = items.some(
     (item) =>
-      item.postgres_fixture_policy === "package_reset" &&
-      ((item.postgres_fixture_budget?.max_package_resets ?? 0) > 0 ||
-        (item.postgres_fixture_budget?.max_reset_duration_ms ?? 0) > 0),
+      item.postgres_fixture_budget?.reset_conformance === true ||
+      (item.postgres_fixture_policy === "package_reset" &&
+        ((item.postgres_fixture_budget?.max_package_resets ?? 0) > 0 ||
+          (item.postgres_fixture_budget?.max_reset_duration_ms ?? 0) > 0)),
   );
   if (hasResetHeavyFixture) {
     return "reset_heavy";
+  }
+  const hasCloneHeavyFixture = items.some((item) =>
+    cloneHeavyFixturePolicies.has(item.postgres_fixture_policy),
+  );
+  if (hasCloneHeavyFixture) {
+    return "clone_heavy";
   }
   const hasIOHeavyFixture = items.some((item) =>
     ioHeavyFixturePolicies.has(item.postgres_fixture_policy),
   );
   if (hasIOHeavyFixture) {
     return "io_heavy";
+  }
+  if (items.length > 0 && items.every((item) => item.postgres_fixture_policy === "transaction")) {
+    return "transaction_heavy";
   }
   if (weightMs >= cpuHeavyShardWeightMs) {
     return "cpu_heavy";
@@ -446,6 +491,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
         has_support: hasSupport,
         has_raw: hasRaw,
         shared_across_targets: false,
+        shard_isolation: bin.isolated === true,
         item_count: bin.items.length,
         items: bin.items
           .map((item) => ({

@@ -43,6 +43,8 @@ export function emptyGoDurationBaseline() {
     default_item_weight_ms: defaultItemWeightMs,
     command_overheads_by_target: {},
     package_overheads: {},
+    fixture_overheads_by_package: {},
+    fixture_overheads_by_test: {},
     raw_aggregates: {},
     tests: {},
   };
@@ -79,6 +81,8 @@ export function toGoDurationBaselineMaps(baseline) {
     defaultItemWeightMs: normalizePositiveInteger(baseline.default_item_weight_ms, defaultItemWeightMs),
     commandOverheadsByTarget: new Map(Object.entries(baseline.command_overheads_by_target ?? {})),
     packageOverheads: new Map(Object.entries(baseline.package_overheads ?? {})),
+    fixtureOverheadsByPackage: new Map(Object.entries(baseline.fixture_overheads_by_package ?? {})),
+    fixtureOverheadsByTest: new Map(Object.entries(baseline.fixture_overheads_by_test ?? {})),
     rawAggregates: new Map(Object.entries(baseline.raw_aggregates ?? {})),
     tests: new Map(Object.entries(baseline.tests ?? {})),
   };

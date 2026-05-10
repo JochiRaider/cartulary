@@ -155,7 +155,9 @@ export function loadServiceFixtureActivities(options = {}) {
       name: event.name ?? "",
       strategy: details.strategy ?? details.preparation_strategy ?? "",
       fixture_policy: details.fixture_policy ?? "",
+      fixture_class: details.fixture_class ?? "",
       reuse_scope: details.reuse_scope ?? "per-test",
+      reuse_group: details.reuse_group ?? "",
       caller_package: details.caller_package ?? "",
       caller_file: details.caller_file ?? "",
       test_name: details.test_name ?? "",
@@ -207,12 +209,14 @@ export function summarizeFixtureActivityList(target, activities) {
       activity.operation,
       activity.reuse_scope,
       activity.fixture_policy,
+      activity.fixture_class,
       activity.caller_package,
     ], activity, {
       service: activity.service,
       operation: activity.operation,
       reuse_scope: activity.reuse_scope,
       fixture_policy: activity.fixture_policy,
+      fixture_class: activity.fixture_class,
       caller_package: activity.caller_package,
     });
     addFixtureAggregate(byTest, [
@@ -220,12 +224,14 @@ export function summarizeFixtureActivityList(target, activities) {
       activity.operation,
       activity.reuse_scope,
       activity.fixture_policy,
+      activity.fixture_class,
       activity.test_name,
     ], activity, {
       service: activity.service,
       operation: activity.operation,
       reuse_scope: activity.reuse_scope,
       fixture_policy: activity.fixture_policy,
+      fixture_class: activity.fixture_class,
       test_name: activity.test_name,
     });
     addFixtureAggregate(byStrategy, [
@@ -234,12 +240,14 @@ export function summarizeFixtureActivityList(target, activities) {
       activity.reuse_scope,
       activity.strategy,
       activity.fixture_policy,
+      activity.fixture_class,
     ], activity, {
       service: activity.service,
       operation: activity.operation,
       reuse_scope: activity.reuse_scope,
       strategy: activity.strategy,
       fixture_policy: activity.fixture_policy,
+      fixture_class: activity.fixture_class,
     });
   }
 
@@ -304,7 +312,9 @@ export function fixtureSortKey(value) {
     value.operation ?? "",
     value.strategy ?? "",
     value.fixture_policy ?? "",
+    value.fixture_class ?? "",
     value.reuse_scope ?? "",
+    value.reuse_group ?? "",
     value.caller_package ?? "",
     value.test_name ?? "",
   ].join("\u001f");

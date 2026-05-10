@@ -25,6 +25,7 @@ export const phaseSlicePlanSchemaID = "cartulary.phase_slice_plan.v1";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const postgresResetResource = "postgres_reset";
+const postgresCloneResource = "postgres_clone";
 const browserStackResource = "browser_stack";
 
 function compareStrings(left, right) {
@@ -205,6 +206,22 @@ function schedulerClaimsForShard(shard, resourceLimits) {
         [goCPUResource, 1],
         [goIOResource, 3],
         [postgresResetResource, 1],
+      ]);
+    case "clone_heavy":
+      if (!resourceLimits.has(postgresCloneResource)) {
+        throw new Error(
+          `go shard ${shard.name} has clone_heavy profile but phase slice is missing ${postgresCloneResource}`,
+        );
+      }
+      return new Map([
+        [goCPUResource, 1],
+        [goIOResource, 2],
+        [postgresCloneResource, 1],
+      ]);
+    case "transaction_heavy":
+      return new Map([
+        [goCPUResource, 1],
+        [goIOResource, 1],
       ]);
     default:
       return new Map([
@@ -401,6 +418,7 @@ function planResourceLimits(rows, root) {
   }
   if (rows.some((row) => row.runner === "go_test" && findTargetDescriptor(row.target, root)?.sharding === "go_shards")) {
     resourceLimits.set(postgresResetResource, 1);
+    resourceLimits.set(postgresCloneResource, 4);
   }
   if (hasProcess || hasBrowser) {
     resourceLimits.set("process", 4);

@@ -26,10 +26,18 @@ const harnessPackageResetBudgets = [
   {
     target: "backend-integration",
     package: "internal/testutil/pgtest",
-    test: "TestPreparePackageDatabaseTReusesAndResetsMutableTables",
+    test: "TestPreparePackageDatabaseTTargetedResetReusesCachedStatement",
     maxPackageResetCreates: 1,
     maxPackageResets: 2,
-    maxResetDurationMS: 10000,
+    maxResetDurationMS: 3000,
+  },
+  {
+    target: "backend-integration",
+    package: "internal/testutil/pgtest",
+    test: "TestPreparePackageDatabaseTFullResetPreservesMigrationMetadata",
+    maxPackageResetCreates: 1,
+    maxPackageResets: 1,
+    maxResetDurationMS: 7000,
   },
 ];
 const harnessGroupCloneBudgets = [

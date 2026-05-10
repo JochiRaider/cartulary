@@ -21,6 +21,7 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -61,11 +62,14 @@ type Harness struct {
 	adminDSN    string
 	dsnTemplate string
 	templateDB  string
+	schemaHash  string
 	suiteHash   string
 	processHash string
 	counter     uint64
 	shared      bool
 	attached    bool
+
+	templateMu sync.Mutex
 
 	packageDBMu sync.Mutex
 	packageDBs  map[string]*packageDatabase
@@ -108,11 +112,15 @@ type fixtureAttribution struct {
 	HarnessPackage        string
 	PostgresFixturePolicy string
 	PostgresResetTables   []string
+	ReuseGroup            string
 }
 
 var (
 	sharedHarnessMu   sync.Mutex
 	sharedHarness     *Harness
+	schemaHashOnce    sync.Once
+	schemaHashValue   string
+	schemaHashErr     error
 	startOwnedHarness = StartOwned
 	startContainerFn  = testcontainers.GenericContainer
 	waitReadyFn       = func(ctx context.Context, harness *Harness) error {
@@ -124,6 +132,7 @@ var (
 	migrateDatabaseFn   = postgres.Migrate
 	createDatabaseFn    = createDatabase
 	dropDatabaseFn      = dropDatabase
+	markTemplateDBFn    = markTemplateDatabase
 	listMutableTablesFn = listMutableTables
 )
 
@@ -257,6 +266,7 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		Port:        port.Port(),
 		User:        "cartulary",
 		Password:    "cartulary",
+		schemaHash:  pgschema.MustHash(),
 		suiteHash:   resolveSuiteHash(),
 		processHash: suiteservices.ProcessHash(),
 	}
@@ -291,14 +301,23 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 		adminDSN:    adminDSN,
 		dsnTemplate: dsnTemplate,
 		templateDB:  strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGTemplateDBEnv)),
+		schemaHash:  pgschema.MustHash(),
 		suiteHash:   resolveSuiteHash(),
 		processHash: suiteservices.ProcessHash(),
 		attached:    true,
 	}
+	if advertisedHash := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGSchemaHashEnv)); advertisedHash != "" && advertisedHash != harness.schemaHash {
+		return nil, false, fmt.Errorf("attach postgres harness: %s mismatch: got %s want %s", suiteservices.PGSchemaHashEnv, advertisedHash, harness.schemaHash)
+	}
 	if err := pingAdminDSNFn(ctx, adminDSN); err != nil {
 		return nil, false, fmt.Errorf("attach postgres harness: ping admin dsn: %w", err)
 	}
-	recordSuiteEvent(suiteservices.Event{Type: suiteservices.EventPostgresAttach})
+	recordSuiteEvent(suiteservices.Event{
+		Type: suiteservices.EventPostgresAttach,
+		Details: map[string]any{
+			"schema_hash": harness.schemaHash,
+		},
+	})
 	return harness, true, nil
 }
 
@@ -434,6 +453,11 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 }
 
 func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, postgres.MigrationStatus, error) {
+	if h.templateDB == "" && !h.attached {
+		if err := h.ensureLocalTemplateDatabase(ctx); err != nil {
+			return nil, postgres.MigrationStatus{}, err
+		}
+	}
 	if h.templateDB != "" {
 		name := h.nextDatabaseName(prefix)
 		start := time.Now()
@@ -490,6 +514,63 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 	})
 
 	return testDB, status, nil
+}
+
+func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
+	h.templateMu.Lock()
+	defer h.templateMu.Unlock()
+
+	if h.templateDB != "" {
+		return nil
+	}
+	if h.schemaHash == "" {
+		hash, err := pgschema.Hash()
+		if err != nil {
+			return err
+		}
+		h.schemaHash = hash
+	}
+
+	name := templateDatabaseName(h.suiteHash, h.schemaHash)
+	if err := h.createDatabase(ctx, name, ""); err != nil {
+		return fmt.Errorf("create local postgres template database: %w", err)
+	}
+	templateDSN := h.dsnFor(name)
+	db, err := sql.Open("pgx", templateDSN)
+	if err != nil {
+		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
+		return fmt.Errorf("open local postgres template database: %w", err)
+	}
+	migrateStart := time.Now()
+	if _, err := migrateDatabaseFn(ctx, db, dbmigrations.Source(), "up"); err != nil {
+		_ = db.Close()
+		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
+		return fmt.Errorf("migrate local postgres template database: %w", err)
+	}
+	if err := db.Close(); err != nil {
+		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
+		return fmt.Errorf("close local postgres template database: %w", err)
+	}
+	if err := markTemplateDBFn(ctx, h.adminDSN, name); err != nil {
+		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
+		return err
+	}
+
+	attribution := fixtureAttribution{PostgresFixturePolicy: "suite_template"}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBCreated,
+		Name:    name,
+		Kind:    "template",
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplate, name, suiteservices.FixtureReuseSuiteTemplate, attribution, 0),
+	})
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBMigrated,
+		Name:    name,
+		Kind:    "template",
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplate, name, suiteservices.FixtureReuseSuiteTemplate, attribution, time.Since(migrateStart)),
+	})
+	h.templateDB = name
+	return nil
 }
 
 func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
@@ -601,6 +682,7 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 	if key == "" {
 		key = sanitizeIdentifier(prefix)
 	}
+	attribution.ReuseGroup = key
 	fixture := h.packageDatabase(key)
 	fixture.mu.Lock()
 
@@ -631,6 +713,7 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	if key == "" {
 		key = sanitizeIdentifier(prefix)
 	}
+	attribution.ReuseGroup = key
 	fixture := h.packageDatabase(key)
 	fixture.mu.Lock()
 
@@ -679,6 +762,7 @@ func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey st
 	if key == "::" {
 		key = sanitizeIdentifier(prefix)
 	}
+	attribution.ReuseGroup = key
 	fixture := h.groupDatabase(key)
 	fixture.mu.Lock()
 	defer fixture.mu.Unlock()
@@ -1142,6 +1226,32 @@ func createDatabase(ctx context.Context, adminDSN string, name string, templateD
 	return nil
 }
 
+func markTemplateDatabase(ctx context.Context, adminDSN string, name string) error {
+	admin, err := sql.Open("pgx", adminDSN)
+	if err != nil {
+		return fmt.Errorf("open postgres admin handle: %w", err)
+	}
+	defer admin.Close()
+
+	if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, name); err != nil {
+		return fmt.Errorf("terminate template database connections: %w", err)
+	}
+	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, name)); err != nil {
+		return fmt.Errorf("disable template database connections: %w", err)
+	}
+	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, name)); err != nil {
+		return fmt.Errorf("mark template database as template: %w", err)
+	}
+	return nil
+}
+
+func templateDatabaseName(suiteHash string, schemaHash string) string {
+	if suiteHash == "" {
+		suiteHash = resolveSuiteHash()
+	}
+	return truncateIdentifier(fmt.Sprintf("ct_tpl_%s_%s", suiteHash, pgschema.ShortHash(schemaHash)), 63)
+}
+
 func recordSuiteEvent(event suiteservices.Event) {
 	_ = suiteservices.RecordEvent(nil, event)
 }
@@ -1185,7 +1295,51 @@ func postgresFixtureDetails(strategy string, reuseScope string, attribution fixt
 	if len(attribution.PostgresResetTables) > 0 {
 		details["reset_tables"] = strings.Join(attribution.PostgresResetTables, ",")
 	}
+	if hash := fixtureSchemaHash(); hash != "" {
+		details["schema_hash"] = hash
+	}
+	if fixtureClass := postgresFixtureClass(attribution.PostgresFixturePolicy, reuseScope); fixtureClass != "" {
+		details["fixture_class"] = fixtureClass
+	}
+	if attribution.ReuseGroup != "" {
+		details["reuse_group"] = attribution.ReuseGroup
+	}
 	return details
+}
+
+func fixtureSchemaHash() string {
+	if hash := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGSchemaHashEnv)); hash != "" {
+		return hash
+	}
+	schemaHashOnce.Do(func() {
+		schemaHashValue, schemaHashErr = pgschema.Hash()
+	})
+	if schemaHashErr != nil {
+		return ""
+	}
+	return schemaHashValue
+}
+
+func postgresFixtureClass(policy string, reuseScope string) string {
+	switch policy {
+	case postgresFixturePolicyTransaction:
+		return "transaction"
+	case postgresFixturePolicyPackageReset, postgresFixturePolicyGroupClone:
+		return "reusable_database"
+	case postgresFixturePolicyTemplateClone:
+		return "isolated_clone"
+	case "suite_template":
+		return "suite_template"
+	}
+	switch reuseScope {
+	case suiteservices.FixtureReuseMigrationScratch:
+		return "migration_scratch"
+	case suiteservices.FixtureReuseTransaction:
+		return "transaction"
+	case suiteservices.FixtureReusePackage, suiteservices.FixtureReuseGroup:
+		return "reusable_database"
+	}
+	return ""
 }
 
 func resolvePostgresFixturePolicy(attribution fixtureAttribution) string {

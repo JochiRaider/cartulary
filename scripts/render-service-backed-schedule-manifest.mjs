@@ -395,6 +395,27 @@ function browserStageResourceClaims(profile, stageName) {
   return cloneObject(stageClaims);
 }
 
+function isRetainedBrowserStageResource(resource) {
+  return resource === "browser_stack" || resource === "process" || resource.startsWith("browser_stage_");
+}
+
+function browserGroupResourceClaims(profile, stageName) {
+  const claims = {
+    go_cpu: 1,
+    go_io: 1,
+  };
+  if (stageName !== "measurement") {
+    return claims;
+  }
+  for (const [resource, amount] of Object.entries(browserStageResourceClaims(profile, stageName))) {
+    if (isRetainedBrowserStageResource(resource)) {
+      continue;
+    }
+    claims[resource] = amount;
+  }
+  return claims;
+}
+
 function browserFunctionalSharding(profile) {
   const raw = profile.defaults.browser_functional_sharding ?? {};
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -441,10 +462,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
           entry_ids: shard.entries.map((entry) => entry.id),
           priority: browserCriticalPathPriority,
           weight_ms: shard.weight_ms,
-          resource_claims: {
-            go_cpu: 1,
-            go_io: 1,
-          },
+          resource_claims: browserGroupResourceClaims(profile, stage.name),
         });
       }
       groups.push({
@@ -457,10 +475,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
         execution_dependency: "browser_support",
         priority: browserCriticalPathPriority,
         weight_ms: browserGroupWeight(timing, scheduleTarget, `${stage.target}:support`, stage.target),
-        resource_claims: {
-          go_cpu: 1,
-          go_io: 1,
-        },
+        resource_claims: browserGroupResourceClaims(profile, stage.name),
       });
       continue;
     }
@@ -476,10 +491,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
       execution_dependency: group.executionDependency,
       priority: browserCriticalPathPriority,
       weight_ms: browserGroupWeight(timing, scheduleTarget, id, stage.target, makeTargetWeight(timing, scheduleTarget, group.target)),
-      resource_claims: {
-        go_cpu: 1,
-        go_io: 1,
-      },
+      resource_claims: browserGroupResourceClaims(profile, stage.name),
     });
   }
   return groups;

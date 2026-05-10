@@ -54,6 +54,7 @@ const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v9"
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const postgresResetResource = "postgres_reset";
+const postgresCloneResource = "postgres_clone";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const validSourceTypes = new Set(["go_shards", "make_target", "browser_stage"]);
 const validSourceClasses = new Set(["backend", "browser"]);
@@ -416,6 +417,22 @@ function schedulerClaimsForShard(shard, resourceLimits) {
         [goIOResource, 3],
         [postgresResetResource, 1],
       ]);
+    case "clone_heavy":
+      if (!resourceLimits.has(postgresCloneResource)) {
+        throw new Error(
+          `go shard ${shard.name} has clone_heavy profile but schedule is missing resource_limits.${postgresCloneResource}`,
+        );
+      }
+      return new Map([
+        [goCPUResource, 1],
+        [goIOResource, 2],
+        [postgresCloneResource, 1],
+      ]);
+    case "transaction_heavy":
+      return new Map([
+        [goCPUResource, 1],
+        [goIOResource, 1],
+      ]);
     default:
       return new Map([
         [goCPUResource, 1],
@@ -668,8 +685,11 @@ function estimateGoIOLimit(goShardUnits, goCPULimit) {
   const balanced = goShardUnits.filter((unit) => unit.schedulerProfile === "balanced").length;
   const ioHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "io_heavy").length;
   const resetHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "reset_heavy").length;
+  const cloneHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "clone_heavy").length;
+  const transactionHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "transaction_heavy").length;
   const cpuHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "cpu_heavy").length;
-  const profileConcurrency = balanced + ioHeavy * 2 + resetHeavy * 3 + Math.ceil(cpuHeavy / 2);
+  const profileConcurrency =
+    balanced + transactionHeavy + ioHeavy * 2 + cloneHeavy * 2 + resetHeavy * 3 + Math.ceil(cpuHeavy / 2);
   return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 24);
 }
 

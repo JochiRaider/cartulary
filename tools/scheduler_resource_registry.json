@@ -115,6 +115,16 @@
         "default_limit": 1,
         "max_limit": 256
       }
+    },
+    {
+      "name": "postgres_clone",
+      "display_name": "Postgres clone",
+      "schedulers": ["check", "service_backed"],
+      "display_order": 175,
+      "capacity": {
+        "default_limit": 4,
+        "max_limit": 8
+      }
     }
   ],
   "templates": [
@@ -147,6 +157,7 @@
         "go_cpu",
         "go_io",
         "postgres_reset",
+        "postgres_clone",
         "process",
         "browser_stack"
       ]
@@ -154,7 +165,7 @@
     {
       "name": "service_backed_backend",
       "scheduler": "service_backed",
-      "resources": ["postgres", "minio", "go_cpu", "go_io", "postgres_reset", "process"]
+      "resources": ["postgres", "minio", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "process"]
     }
   ],
   "forwarding_profiles": []

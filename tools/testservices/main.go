@@ -27,6 +27,7 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -344,7 +345,13 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, leasePath, cleanupStatus, childExitCode)
 	}()
 
-	templateDB := templateDatabaseName(suiteID)
+	schemaHash, err := pgschema.Hash()
+	if err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
+		return 1
+	}
+	ownedEnv[suiteservices.PGSchemaHashEnv] = schemaHash
+	templateDB := templateDatabaseName(suiteID, schemaHash)
 	deps.recordEvent(ownedEnv, suiteservices.Event{
 		Type:    suiteservices.EventServiceStarted,
 		Service: suiteservices.ServicePostgres,
@@ -425,6 +432,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	childEnv[suiteservices.PGAdminDSNEnv] = postgresSvc.adminDSN
 	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
 	childEnv[suiteservices.PGTemplateDBEnv] = templateDB
+	childEnv[suiteservices.PGSchemaHashEnv] = schemaHash
 	childEnv[suiteservices.S3EndpointEnv] = minioSvc.endpoint
 	childEnv[suiteservices.S3AccessKeyEnv] = minioSvc.accessKey
 	childEnv[suiteservices.S3SecretKeyEnv] = minioSvc.secretKey
@@ -509,7 +517,14 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 		return 1
 	}
 
-	templateDB := templateDatabaseName(suiteID)
+	schemaHash, err := pgschema.Hash()
+	if err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		return 1
+	}
+	ownedEnv[suiteservices.PGSchemaHashEnv] = schemaHash
+	templateDB := templateDatabaseName(suiteID, schemaHash)
 	deps.recordEvent(ownedEnv, suiteservices.Event{
 		Type:    suiteservices.EventServiceStarted,
 		Service: suiteservices.ServicePostgres,
@@ -597,6 +612,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	childEnv[suiteservices.PGAdminDSNEnv] = postgresSvc.adminDSN
 	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
 	childEnv[suiteservices.PGTemplateDBEnv] = templateDB
+	childEnv[suiteservices.PGSchemaHashEnv] = schemaHash
 	childEnv[suiteservices.S3EndpointEnv] = minioSvc.endpoint
 	childEnv[suiteservices.S3AccessKeyEnv] = minioSvc.accessKey
 	childEnv[suiteservices.S3SecretKeyEnv] = minioSvc.secretKey
@@ -1330,6 +1346,12 @@ func postgresPreparationDetails(env map[string]string, strategy string, template
 	}
 	if templateDB != "" {
 		details["template_database"] = templateDB
+	}
+	if schemaHash := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.PGSchemaHashEnv)); schemaHash != "" {
+		details["schema_hash"] = schemaHash
+	}
+	if strategy == suiteservices.PostgresPreparationTemplate {
+		details["fixture_class"] = "suite_template"
 	}
 	return details
 }
@@ -2499,8 +2521,8 @@ func generateLeaseID() (string, error) {
 	return hex.EncodeToString(data[:]), nil
 }
 
-func templateDatabaseName(suiteID string) string {
-	return fmt.Sprintf("ct_tpl_%s", suiteservices.ShortHash(suiteID, 12))
+func templateDatabaseName(suiteID string, schemaHash string) string {
+	return fmt.Sprintf("ct_tpl_%s_%s", suiteservices.ShortHash(suiteID, 8), pgschema.ShortHash(schemaHash))
 }
 
 func writeFileAtomic(path string, payload []byte, mode os.FileMode) error {

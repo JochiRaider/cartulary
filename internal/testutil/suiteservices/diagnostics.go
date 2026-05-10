@@ -152,6 +152,8 @@ type PostgresDatabasePreparation struct {
 	Name             string `json:"name"`
 	Strategy         string `json:"strategy"`
 	TemplateDatabase string `json:"template_database,omitempty"`
+	SchemaHash       string `json:"schema_hash,omitempty"`
+	FixtureClass     string `json:"fixture_class,omitempty"`
 	Target           string `json:"target,omitempty"`
 	PID              int    `json:"pid"`
 	Timestamp        string `json:"timestamp"`
@@ -226,7 +228,9 @@ type FixtureActivity struct {
 	Operation       string `json:"operation,omitempty"`
 	Strategy        string `json:"strategy,omitempty"`
 	FixturePolicy   string `json:"fixture_policy,omitempty"`
+	FixtureClass    string `json:"fixture_class,omitempty"`
 	ReuseScope      string `json:"reuse_scope,omitempty"`
+	ReuseGroup      string `json:"reuse_group,omitempty"`
 	CallerPackage   string `json:"caller_package,omitempty"`
 	CallerFile      string `json:"caller_file,omitempty"`
 	TestName        string `json:"test_name,omitempty"`
@@ -572,7 +576,9 @@ func fixtureActivityFromEvent(event Event) FixtureActivity {
 		Operation:       fixtureOperationForEvent(event.Type),
 		Strategy:        firstNonEmpty(stringDetail(event.Details, "strategy"), stringDetail(event.Details, "preparation_strategy")),
 		FixturePolicy:   stringDetail(event.Details, "fixture_policy"),
+		FixtureClass:    stringDetail(event.Details, "fixture_class"),
 		ReuseScope:      firstNonEmpty(stringDetail(event.Details, "reuse_scope"), FixtureReusePerTest),
+		ReuseGroup:      stringDetail(event.Details, "reuse_group"),
 		CallerPackage:   stringDetail(event.Details, "caller_package"),
 		CallerFile:      stringDetail(event.Details, "caller_file"),
 		TestName:        stringDetail(event.Details, "test_name"),
@@ -746,6 +752,12 @@ func upsertPostgresPreparation(preparations map[string]PostgresDatabasePreparati
 	}
 	if templateDB := stringDetail(event.Details, "template_database"); templateDB != "" {
 		existing.TemplateDatabase = templateDB
+	}
+	if schemaHash := stringDetail(event.Details, "schema_hash"); schemaHash != "" {
+		existing.SchemaHash = schemaHash
+	}
+	if fixtureClass := stringDetail(event.Details, "fixture_class"); fixtureClass != "" {
+		existing.FixtureClass = fixtureClass
 	}
 	preparations[event.Name] = existing
 }

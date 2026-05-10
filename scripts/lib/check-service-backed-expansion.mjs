@@ -13,6 +13,7 @@ const goIOResource = "go_io";
 const hostCPUResource = "host_cpu";
 const hostIOResource = "host_io";
 const postgresResetResource = "postgres_reset";
+const postgresCloneResource = "postgres_clone";
 const buildServerTarget = "build-server";
 const buildMigrateTarget = "build-migrate";
 const testServiceImagesTarget = "test-service-images";
@@ -86,6 +87,15 @@ function checkClaimsForShard(sourceClaims, shard) {
       addClaim(claims, hostCPUResource, 1);
       addClaim(claims, hostIOResource, 3);
       addClaim(claims, postgresResetResource, 1);
+      break;
+    case "clone_heavy":
+      addClaim(claims, hostCPUResource, 1);
+      addClaim(claims, hostIOResource, 2);
+      addClaim(claims, postgresCloneResource, 1);
+      break;
+    case "transaction_heavy":
+      addClaim(claims, hostCPUResource, 1);
+      addClaim(claims, hostIOResource, 1);
       break;
     default:
       addClaim(claims, hostCPUResource, 1);
@@ -393,6 +403,17 @@ function schedulerClaimsForShard(shard) {
         [goCPUResource]: 1,
         [goIOResource]: 3,
         [postgresResetResource]: 1,
+      };
+    case "clone_heavy":
+      return {
+        [goCPUResource]: 1,
+        [goIOResource]: 2,
+        [postgresCloneResource]: 1,
+      };
+    case "transaction_heavy":
+      return {
+        [goCPUResource]: 1,
+        [goIOResource]: 1,
       };
     default:
       return {

@@ -83,6 +83,7 @@ const validFixtureBudgetPostgresKeys = new Set([
   "max_transactions",
   "max_migration_scratch",
   "dirty_tables",
+  "reset_conformance",
 ]);
 const defaultPackageResetBudget = Object.freeze({
   max_package_resets_per_symbol: 8,
@@ -278,6 +279,13 @@ function explicitPostgresFixtureBudget(entry, label) {
     }
     budget.dirty_tables = [...dirtyTables].sort();
   }
+  if (entry.fixture_budget.postgres.reset_conformance !== undefined) {
+    const resetConformance = entry.fixture_budget.postgres.reset_conformance;
+    if (typeof resetConformance !== "boolean") {
+      throw new Error(`${label} fixture_budget.postgres.reset_conformance must be a boolean`);
+    }
+    budget.reset_conformance = resetConformance;
+  }
   return budget;
 }
 
@@ -407,10 +415,16 @@ function validatePostgresFixtureBudget(entry, policy, budget, label) {
       entry.fixture_policy?.postgres === postgresFixturePolicyPackageReset &&
       entry.fixture_budget?.postgres !== undefined
     ) {
-      if (!Array.isArray(budget.dirty_tables) || budget.dirty_tables.length === 0) {
+      if (
+        budget.reset_conformance !== true &&
+        (!Array.isArray(budget.dirty_tables) || budget.dirty_tables.length === 0)
+      ) {
         throw new Error(`${label} explicit package_reset budgets must declare fixture_budget.postgres.dirty_tables`);
       }
-      if (typeof entry.package_reset_reason !== "string" || entry.package_reset_reason.trim() === "") {
+      if (
+        budget.reset_conformance !== true &&
+        (typeof entry.package_reset_reason !== "string" || entry.package_reset_reason.trim() === "")
+      ) {
         throw new Error(`${label} explicit package_reset budgets must declare package_reset_reason`);
       }
     }

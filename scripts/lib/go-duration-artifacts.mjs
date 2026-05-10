@@ -6,6 +6,7 @@ import {
   rawPackageBaselineKey,
 } from "./go-duration-baselines.mjs";
 import { collectGoShardPlan } from "./go-shard-plan.mjs";
+import { loadServiceFixtureActivities } from "./fixture-reporting.mjs";
 
 const shardNamePattern = /-shard-\d+$/;
 
@@ -180,6 +181,56 @@ function observedPackageNames(topLevelEvents, packageEvents) {
   return packages;
 }
 
+function topLevelTestName(testName) {
+  return String(testName ?? "").split("/", 1)[0];
+}
+
+function fixtureTimingIndex(root, resultsDir) {
+  const runId = path.basename(path.resolve(resultsDir));
+  const resultsRoot = path.dirname(path.resolve(resultsDir));
+  const byTest = new Map();
+  const byPackage = new Map();
+  for (const activity of loadServiceFixtureActivities({ resultsRoot, runId, repoRoot: root })) {
+    if (!activity.target) {
+      continue;
+    }
+    if (activity.test_name) {
+      const key = `${activity.target}::${topLevelTestName(activity.test_name)}`;
+      byTest.set(key, (byTest.get(key) ?? 0) + activity.duration_ms);
+    }
+    if (activity.caller_package) {
+      const key = `${activity.target}::${activity.caller_package}`;
+      byPackage.set(key, (byPackage.get(key) ?? 0) + activity.duration_ms);
+    }
+  }
+  return { byTest, byPackage };
+}
+
+function observedFixtureTests(target, observedTestEntries, fixtureIndex) {
+  return observedTestEntries
+    .map((test) => ({
+      key: test.key,
+      target,
+      packageName: test.packageName,
+      testName: test.testName,
+      fixtureMs: fixtureIndex.byTest.get(`${target}::${test.testName}`) ?? 0,
+    }))
+    .filter((entry) => entry.fixtureMs > 0)
+    .sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function observedFixturePackages(target, packages, fixtureIndex) {
+  return [...packages]
+    .map((packageName) => ({
+      key: `${target}::${packageName}`,
+      target,
+      packageName,
+      fixtureMs: fixtureIndex.byPackage.get(`${target}::${packageName.replace(/^github\.com\/JochiRaider\/cartulary\//, "")}`) ?? 0,
+    }))
+    .filter((entry) => entry.fixtureMs > 0)
+    .sort((left, right) => left.key.localeCompare(right.key));
+}
+
 function observedRawPackages(target, aggregateName, durationMs, topLevelEvents, packageEvents) {
   if (!aggregateName) {
     return [];
@@ -246,6 +297,7 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
   }
 
   const metadata = shardMetadata(root);
+  const fixtures = fixtureTimingIndex(root, absoluteResultsDir);
   const shardDirs = walkDirs(absoluteResultsDir).filter((dir) => {
     const shardName = path.basename(dir);
     return (
@@ -290,6 +342,7 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     if (!shardMetadataEntry) {
       throw new Error(`no Go shard plan metadata for observed shard ${shardName}`);
     }
+    const observedPackages = observedPackageNames(topLevelEvents, packageEvents);
     artifacts.push({
       dir,
       shardName,
@@ -306,7 +359,9 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
       ),
       observedTests: observedTestEntries,
       observedPackageOverheads: observedPackageOverheads(shardMetadataEntry.target, topLevelEvents, packageEvents),
-      observedPackages: observedPackageNames(topLevelEvents, packageEvents),
+      observedFixtureTests: observedFixtureTests(shardMetadataEntry.target, observedTestEntries, fixtures),
+      observedFixturePackages: observedFixturePackages(shardMetadataEntry.target, observedPackages, fixtures),
+      observedPackages,
       commandOverhead: commandOverhead(shardMetadataEntry.target, durationMs, packageEvents, topLevelEvents),
       ...contamination,
     });

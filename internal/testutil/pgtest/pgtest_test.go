@@ -864,8 +864,9 @@ func TestBeginRollbackDBTIsolatesRowsWithoutPackageReset(t *testing.T) {
 	}
 }
 
-func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
+func TestPreparePackageDatabaseTTargetedResetReusesCachedStatement(t *testing.T) {
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
+	t.Setenv(postgresResetTablesTestsEnv, "TestPreparePackageDatabaseTTargetedResetReusesCachedStatement=local_reset_probe")
 	harness := Start(t)
 
 	oldListMutableTables := listMutableTablesFn
@@ -889,7 +890,10 @@ func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
 		}
 		defer db.Close()
 
-		if _, err := db.ExecContext(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "package-reset@example.test", "Package Reset", "hash"); err != nil {
+		if _, err := db.ExecContext(context.Background(), `CREATE TABLE IF NOT EXISTS local_reset_probe (id bigserial PRIMARY KEY, value text NOT NULL)`); err != nil {
+			t.Fatalf("create targeted reset probe: %v", err)
+		}
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO local_reset_probe (value) VALUES ($1)`, "first"); err != nil {
 			t.Fatalf("seed package database: %v", err)
 		}
 	})
@@ -904,12 +908,12 @@ func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
 		}
 		defer db.Close()
 
-		var userCount int
-		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
-			t.Fatalf("count reset users: %v", err)
+		var probeCount int
+		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM local_reset_probe`).Scan(&probeCount); err != nil {
+			t.Fatalf("count reset probe rows: %v", err)
 		}
-		if userCount != 0 {
-			t.Fatalf("expected package reset to clear users, got %d", userCount)
+		if probeCount != 0 {
+			t.Fatalf("expected package reset to clear probe rows, got %d", probeCount)
 		}
 
 		var gooseCount int
@@ -920,7 +924,7 @@ func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
 			t.Fatal("expected package reset to preserve migration metadata")
 		}
 
-		if _, err := db.ExecContext(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "package-reset-again@example.test", "Package Reset Again", "hash"); err != nil {
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO local_reset_probe (value) VALUES ($1)`, "second"); err != nil {
 			t.Fatalf("seed package database for cached reset: %v", err)
 		}
 	})
@@ -942,12 +946,60 @@ func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
 		}
 		defer db.Close()
 
+		var probeCount int
+		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM local_reset_probe`).Scan(&probeCount); err != nil {
+			t.Fatalf("count probe rows after cached reset: %v", err)
+		}
+		if probeCount != 0 {
+			t.Fatalf("expected cached package reset to clear probe rows, got %d", probeCount)
+		}
+	})
+}
+
+func TestPreparePackageDatabaseTFullResetPreservesMigrationMetadata(t *testing.T) {
+	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
+	harness := Start(t)
+
+	var firstName string
+	t.Run("first use seeds rows", func(t *testing.T) {
+		first := harness.PreparePackageDatabaseT(t, "package-reset-full")
+		firstName = first.Name
+
+		db, err := sql.Open("pgx", first.DSN)
+		if err != nil {
+			t.Fatalf("open package database: %v", err)
+		}
+		defer db.Close()
+
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "package-reset-full@example.test", "Package Reset Full", "hash"); err != nil {
+			t.Fatalf("seed package database: %v", err)
+		}
+	})
+	t.Run("second use full reset clears mutable rows", func(t *testing.T) {
+		second := harness.PreparePackageDatabaseT(t, "package-reset-full")
+		if second.Name != firstName {
+			t.Fatalf("expected package database reuse, got %q want %q", second.Name, firstName)
+		}
+		db, err := sql.Open("pgx", second.DSN)
+		if err != nil {
+			t.Fatalf("open reused package database: %v", err)
+		}
+		defer db.Close()
+
 		var userCount int
 		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
-			t.Fatalf("count users after cached reset: %v", err)
+			t.Fatalf("count reset users: %v", err)
 		}
 		if userCount != 0 {
-			t.Fatalf("expected cached package reset to clear users, got %d", userCount)
+			t.Fatalf("expected full package reset to clear users, got %d", userCount)
+		}
+
+		var gooseCount int
+		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM goose_db_version`).Scan(&gooseCount); err != nil {
+			t.Fatalf("count goose versions: %v", err)
+		}
+		if gooseCount == 0 {
+			t.Fatal("expected package reset to preserve migration metadata")
 		}
 	})
 }
