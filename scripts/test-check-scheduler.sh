@@ -718,6 +718,152 @@ assert_contains "$smoke_output" "[SUMMARY] target=check status=pass work_units=3
 assert_not_contains "$smoke_output" "[STEP] check" "smoke output hides per-unit steps"
 assert_check_scheduler_artifacts "$smoke_dir" smoke check pass - 3 finish
 
+smoke_service_timing_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-smoke-service-timing.XXXXXX")"
+cleanup_paths+=("$smoke_service_timing_dir")
+write_fake_make "$smoke_service_timing_dir"
+cat >"${smoke_service_timing_dir}/fake-test-services" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="${1:-}"
+shift || true
+
+env_file=""
+lease_file=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --env-file)
+      env_file="${2:-}"
+      shift 2
+      ;;
+    --lease-file | --lease)
+      lease_file="${2:-}"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+case "$mode" in
+  start-suite)
+    mkdir -p "$(dirname "$env_file")" "$(dirname "$lease_file")"
+    sleep 0.03
+    printf '{"CARTULARY_TEST_SERVICES_ACTIVE":"1","CARTULARY_FAKE_SERVICE_READY":"1"}\n' >"$env_file"
+    printf '{"schema_id":"cartulary.test_services.lease.v1","lease_id":"fake","suite_id":"fake","target":"service-timing-suite","cleanup_state":"ready","resources":[]}\n' >"$lease_file"
+    ;;
+  terminate-suite)
+    sleep 0.02
+    ;;
+  *)
+    echo "unexpected fake test-services mode ${mode}" >&2
+    exit 2
+    ;;
+esac
+EOF
+chmod +x "${smoke_service_timing_dir}/fake-test-services"
+smoke_service_timing_manifest="${smoke_service_timing_dir}/manifest.json"
+cat >"$smoke_service_timing_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "generated": {
+    "generator": "scripts/test-check-scheduler.sh",
+    "source": "smoke service timing fixture"
+  },
+  "schedules": [
+    {
+      "target": "check",
+      "scheduler_kind": "check",
+      "capacity_profile": "check_default",
+      "resource_limits": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
+      "stop_on_first_failure": true,
+      "progress_tick_seconds": 30,
+      "validate_timing": true,
+      "summary_groups": [
+        { "name": "check-work", "summary_targets": ["service-timing-suite"] }
+      ],
+      "work_units": [
+        {
+          "id": "service-timing-suite:service-session",
+          "kind": "service_session",
+          "target": "service-timing-suite",
+          "label": "service-timing-suite/service-session",
+          "weight_ms": 10,
+          "needs": [],
+          "completion_keys": ["service_session:service-timing-suite"],
+          "resource_claims": { "host_cpu": 1, "host_io": 1, "suite_service_stack": 1 },
+          "retained_resource_claims": { "suite_service_stack": 1 },
+          "service_session": { "target": "service-timing-suite" },
+          "command": { "type": "service_session_start", "service_target": "service-timing-suite" }
+        },
+        {
+          "id": "service-timing-suite:service-child",
+          "kind": "service_make_target",
+          "target": "service-timing-suite",
+          "label": "service-timing-suite/child",
+          "aggregate_target": "service-timing-suite",
+          "weight_ms": 10,
+          "needs": ["service_session:service-timing-suite"],
+          "completion_keys": ["service-child"],
+          "failure_keys": ["service-child"],
+          "resource_claims": { "host_cpu": 1 },
+          "service_session": { "target": "service-timing-suite" },
+          "command": { "type": "make_target", "target": "service-timing-suite", "service_target": "service-timing-suite" }
+        },
+        {
+          "id": "service-timing-suite:complete",
+          "kind": "service_complete",
+          "target": "service-timing-suite",
+          "label": "service-timing-suite/complete",
+          "weight_ms": 1,
+          "needs": ["service-child"],
+          "completion_keys": ["service-timing-suite"],
+          "failure_keys": ["service-timing-suite"],
+          "produces_summary_targets": ["service-timing-suite"],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "service_session": { "target": "service-timing-suite" },
+          "command": { "type": "service_complete", "service_target": "service-timing-suite" }
+        }
+      ],
+      "finalizers": []
+    }
+  ]
+}
+JSON
+smoke_service_timing_output="$(
+  TEST_SERVICES_BIN="${smoke_service_timing_dir}/fake-test-services" \
+    run_scheduler "$smoke_service_timing_dir" "$smoke_service_timing_manifest" smoke-service-timing 2>&1
+)"
+assert_contains "$smoke_service_timing_output" "[SUMMARY] target=check status=pass" "smoke service timing scheduler success"
+smoke_service_timing_summary="${smoke_service_timing_dir}/results/smoke-service-timing/check/scheduler-summary.json"
+assert_file_present "$smoke_service_timing_summary" "smoke service timing scheduler summary"
+"$NODE_BIN" - "$smoke_service_timing_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const session = summary.service_sessions?.find((entry) => entry.target === "service-timing-suite");
+if (!session) {
+  throw new Error("missing service timing session summary");
+}
+for (const field of ["setup_duration_ms", "ready_at_monotonic_ms", "child_work_started_at_monotonic_ms", "cleanup_duration_ms"]) {
+  if (!Number.isFinite(session[field]) || session[field] < 0) {
+    throw new Error(`${field} must be a non-negative number, got ${session[field]}`);
+  }
+}
+if (session.cleanup_status !== "pass") {
+  throw new Error(`cleanup_status got ${session.cleanup_status}`);
+}
+if (session.ready_at_monotonic_ms > session.child_work_started_at_monotonic_ms) {
+  throw new Error("child work cannot start before service readiness");
+}
+if (session.setup_duration_ms === session.cleanup_duration_ms) {
+  throw new Error("setup and cleanup timings must be recorded as separate measurements");
+}
+EOF
+
 smoke_dry_run_output="$(MAKEFLAGS=n run_scheduler "$smoke_dir" "$smoke_manifest" smoke-dry-run --resource-limit host_cpu=2 --resource-limit host_io=2 2>&1)"
 assert_contains "$smoke_dry_run_output" "[DRY-RUN] check manifest=" "smoke dry-run output"
 assert_contains "$smoke_dry_run_output" "resource_limits={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1} work_units=3 dependencies=2 classes={:3} types={make_target:3} top_weighted=setup:30,local:20,meta:10" "smoke dry-run compact summary"

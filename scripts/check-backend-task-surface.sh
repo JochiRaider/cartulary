@@ -629,7 +629,7 @@ done
 assert_check_needs build-server "check-frontend-install"
 assert_check_needs build-migrate "toolchain-drift"
 assert_check_needs test-service-images "toolchain-drift"
-assert_check_needs check-service-backed "build-migrate,test-service-images"
+assert_check_needs check-service-backed "test-service-images"
 assert_check_needs migration-drift "build-migrate"
 assert_check_needs deployable-shape "build-server,build-migrate"
 for scheduled_target in \

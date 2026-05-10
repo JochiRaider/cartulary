@@ -99,9 +99,43 @@
     "mode": { "type": "string" },
     "child_targets": { "type": "array", "items": { "type": "string" } },
     "started_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
-    "service_sessions": { "type": "array", "items": { "type": "object" } },
+    "service_sessions": { "type": "array", "items": { "$ref": "#/$defs/service_session" } },
     "browser_stage_sessions": { "type": "array", "items": { "type": "object" } },
     "artifacts": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
     "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  },
+  "$defs": {
+    "nullable_non_negative_number": {
+      "oneOf": [
+        { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
+        { "type": "null" }
+      ]
+    },
+    "service_session": {
+      "type": "object",
+      "required": [
+        "target",
+        "env_file",
+        "lease_file",
+        "metadata_dir",
+        "cleanup_status",
+        "setup_duration_ms",
+        "ready_at_monotonic_ms",
+        "child_work_started_at_monotonic_ms",
+        "cleanup_duration_ms"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "target": { "type": "string", "minLength": 1 },
+        "env_file": { "type": "string", "minLength": 1 },
+        "lease_file": { "type": "string", "minLength": 1 },
+        "metadata_dir": { "type": "string", "minLength": 1 },
+        "cleanup_status": { "type": "string", "minLength": 1 },
+        "setup_duration_ms": { "$ref": "#/$defs/nullable_non_negative_number" },
+        "ready_at_monotonic_ms": { "$ref": "#/$defs/nullable_non_negative_number" },
+        "child_work_started_at_monotonic_ms": { "$ref": "#/$defs/nullable_non_negative_number" },
+        "cleanup_duration_ms": { "$ref": "#/$defs/nullable_non_negative_number" }
+      }
+    }
   }
 }

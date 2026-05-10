@@ -20,6 +20,9 @@ const targetPlanModule = await import(pathToFileURL(path.join(root, "scripts/lib
 const serviceRendererModule = await import(
   pathToFileURL(path.join(root, "scripts/render-service-backed-schedule-manifest.mjs"))
 );
+const checkServiceBackedExpansionModule = await import(
+  pathToFileURL(path.join(root, "scripts/lib/check-service-backed-expansion.mjs"))
+);
 const topologyRendererModule = await import(
   pathToFileURL(path.join(root, "scripts/render-execution-topology-artifacts.mjs"))
 );
@@ -413,6 +416,56 @@ assert.deepEqual(
 assert.ok(
   checkSchedule.work_units.every((unit) => Number.isInteger(unit.weight_ms) && unit.weight_ms > 0),
   "profile-expanded check schedule must assign advisory weight_ms values",
+);
+
+const renderedExpandedCheckSchedule = renderCheckScheduleManifest(topology, {
+  serviceBackedScheduleManifest: renderedServiceBacked,
+  expandServiceBackedScheduleForCheck: checkServiceBackedExpansionModule.expandServiceBackedScheduleForCheck,
+});
+const expandedCheckSchedule = renderedExpandedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
+assert.ok(expandedCheckSchedule, "expanded check schedule must include check");
+const expandedUnit = (id) => expandedCheckSchedule.work_units.find((unit) => unit.id === id);
+const serviceSessionUnit = expandedUnit("check-service-backed:service-session");
+assert.deepEqual(
+  serviceSessionUnit?.needs,
+  ["test-service-images"],
+  "check service session must start after service images and before build artifacts finish",
+);
+const webserverStageSession = expandedUnit("check-service-backed:browser-stage-session:webserver-backed");
+assert.deepEqual(
+  webserverStageSession?.needs,
+  ["service_session:check-service-backed", "build-server", "build-migrate"],
+  "browser stage sessions must wait for service readiness and browser build artifacts",
+);
+const backendShard = expandedCheckSchedule.work_units.find(
+  (unit) => unit.kind === "go_shard" && unit.target === "backend-store",
+);
+assert.deepEqual(
+  backendShard?.needs,
+  ["service_session:check-service-backed"],
+  "backend service-backed shards must depend only on the ready service session",
+);
+assert.deepEqual(
+  webserverStageSession?.retained_resource_claims,
+  {
+    browser_stack: 1,
+    browser_stage_webserver_backed: 1,
+    process: 1,
+  },
+  "browser stage retained claims must model only live browser stack ownership",
+);
+const measurementStageSession = expandedUnit("check-service-backed:browser-stage-session:measurement");
+assert.deepEqual(
+  measurementStageSession?.needs,
+  [
+    "service_session:check-service-backed",
+    "build-server",
+    "build-migrate",
+    "browser-e2e-webserver-backed",
+    "browser-e2e-stateful",
+    "browser-e2e-visual",
+  ],
+  "measurement isolation must remain explicit dependency-driven scheduler ordering",
 );
 
 const rows = targetPlanModule.collectTargetPlanRows(root);

@@ -503,6 +503,8 @@ Public and machine summaries SHOULD print or serialize `run_root` once per summa
 | Playwright screenshots, videos, traces, HTML reports | Playwright                                      | Playwright report/test-results dirs                             | diagnostic-only secret-bearing                                | Tool-defined                                                                          | Removed by `make clean` when under registered paths.         |
 | Visual snapshots and goldens                         | Browser/fixture tools                           | source and tool-specific dirs                                   | validation-only unless future profile adopts refresh contract | Tool-defined                                                                          | Refresh is outside current conformance.                      |
 
+Check scheduler summaries that include service sessions MUST report service-suite setup timing separately from child test timing. Each `service_sessions[]` entry MUST include `setup_duration_ms`, `ready_at_monotonic_ms`, `child_work_started_at_monotonic_ms`, and `cleanup_duration_ms`; fields MAY be `null` only when the corresponding lifecycle segment did not run or did not reach readiness. Duration baselines for backend, browser, and service-backed child work MUST be derived from child work-unit timings, not from service-suite setup or cleanup timing.
+
 ## 9. Failure Classes and Exit Codes
 
 **TH-HARNESS-REQ-300**
@@ -631,6 +633,10 @@ aggregation, MUST remain in `work_units[]` and MUST NOT be modeled as an
 unconditional scheduler finalizer.
 
 `weight_ms` is an advisory scheduling estimate. It MUST NOT be treated as a logical resource claim, timeout, benchmark claim, pass/fail threshold, or product performance conformance statement.
+
+Retained resource claims represent continuing logical capacity pressure after a work unit exits. They MUST NOT be used to preserve historical ownership for resources that no longer constrain future work. A browser stage session MAY retain browser stack, stage-lane, and process claims while the stage remains live, but it MUST NOT retain broad database or object-store capacity solely because the stage used those services during readiness.
+
+For the `check` scheduler, a service-backed suite session SHOULD start as soon as the suite's own readiness prerequisites are satisfied. Browser build artifacts such as server and migration binaries MUST be modeled as dependencies of browser stage sessions that require them, not as prerequisites of the shared service-suite readiness unit. Backend service-backed shards that use the suite template database MAY depend only on the service-session readiness completion key when they do not require those browser build artifacts.
 
 ### 10.2 Logical Resource Registry
 

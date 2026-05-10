@@ -635,8 +635,18 @@ for (const expectedLeaf of expectedBrowserEvidence) {
   if (!session || !complete) {
     throw new Error(`check schedule must expose ${expectedLeaf} as browser stage session and completion work`);
   }
-  if (!session.needs?.includes("service_session:check-service-backed") || !session.needs?.includes("build-server")) {
-    throw new Error(`${expectedLeaf} browser stage session must depend on the service session and build-server`);
+  if (
+    !session.needs?.includes("service_session:check-service-backed") ||
+    !session.needs?.includes("build-server") ||
+    !session.needs?.includes("build-migrate")
+  ) {
+    throw new Error(`${expectedLeaf} browser stage session must depend on the service session, build-server, and build-migrate`);
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(session.retained_resource_claims ?? {}, "postgres") ||
+    Object.prototype.hasOwnProperty.call(session.retained_resource_claims ?? {}, "minio")
+  ) {
+    throw new Error(`${expectedLeaf} browser stage session must not retain broad Postgres or MinIO claims`);
   }
 }
 const webserverGroups = (schedule.work_units ?? []).filter((entry) =>
@@ -689,6 +699,7 @@ const measurementSession = (schedule.work_units ?? []).find((entry) =>
 const expectedMeasurementNeeds = [
   "service_session:check-service-backed",
   "build-server",
+  "build-migrate",
   "browser-e2e-webserver-backed",
   "browser-e2e-stateful",
   "browser-e2e-visual",

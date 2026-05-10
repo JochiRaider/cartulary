@@ -390,6 +390,8 @@ class SchedulerReporter {
       id: result.id,
       aggregate_target: unit.aggregateTarget ?? null,
       kind: finalizer(unit) ? "finalizer" : "work_unit",
+      work_unit_type: unit.kind ?? null,
+      service_session_target: typeof unit.serviceSession?.target === "string" ? unit.serviceSession.target : null,
       status: result.status,
       duration_ms: durationMs,
       started_monotonic_ms: startedMonotonicMs,

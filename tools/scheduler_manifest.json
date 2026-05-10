@@ -230,6 +230,35 @@
           }
         },
         {
+          "id": "check-service-backed:service-session",
+          "kind": "service_session",
+          "target": "check-service-backed",
+          "label": "check-service-backed/service-session",
+          "priority": 30000,
+          "weight_ms": 10000,
+          "needs": [
+            "test-service-images"
+          ],
+          "completion_keys": [
+            "service_session:check-service-backed"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
+            "suite_service_stack": 1
+          },
+          "retained_resource_claims": {
+            "suite_service_stack": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "command": {
+            "type": "service_session_start",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
           "id": "check-service-backed:browser-stage-session:webserver-backed",
           "kind": "browser_stage_session",
           "target": "browser-e2e-webserver-backed",
@@ -239,7 +268,8 @@
           "weight_ms": 80632,
           "needs": [
             "service_session:check-service-backed",
-            "build-server"
+            "build-server",
+            "build-migrate"
           ],
           "completion_keys": [
             "browser_stage_session:browser-e2e-webserver-backed"
@@ -259,8 +289,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "service_session": {
@@ -331,7 +359,8 @@
           "weight_ms": 31128,
           "needs": [
             "service_session:check-service-backed",
-            "build-server"
+            "build-server",
+            "build-migrate"
           ],
           "completion_keys": [
             "browser_stage_session:browser-e2e-visual"
@@ -351,8 +380,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_visual": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "service_session": {
@@ -423,7 +450,8 @@
           "weight_ms": 18198,
           "needs": [
             "service_session:check-service-backed",
-            "build-server"
+            "build-server",
+            "build-migrate"
           ],
           "completion_keys": [
             "browser_stage_session:browser-e2e-stateful"
@@ -443,8 +471,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_stateful": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "service_session": {
@@ -845,6 +871,7 @@
           "needs": [
             "service_session:check-service-backed",
             "build-server",
+            "build-migrate",
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",
             "browser-e2e-visual"
@@ -867,8 +894,6 @@
           "retained_resource_claims": {
             "browser_stack": "limit",
             "browser_stage_measurement": 1,
-            "minio": "limit",
-            "postgres": "limit",
             "process": "limit"
           },
           "service_session": {
@@ -908,8 +933,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "service_session": {
@@ -945,8 +968,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_stateful": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "service_session": {
@@ -982,8 +1003,6 @@
           "release_retained_resource_claims": {
             "browser_stack": "limit",
             "browser_stage_measurement": 1,
-            "minio": "limit",
-            "postgres": "limit",
             "process": "limit"
           },
           "service_session": {
@@ -1019,8 +1038,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_visual": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "service_session": {
@@ -1459,35 +1476,6 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "backend-store-collaboration-shard-01",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:service-session",
-          "kind": "service_session",
-          "target": "check-service-backed",
-          "label": "check-service-backed/service-session",
-          "weight_ms": 10000,
-          "needs": [
-            "build-migrate",
-            "test-service-images"
-          ],
-          "completion_keys": [
-            "service_session:check-service-backed"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1,
-            "suite_service_stack": 1
-          },
-          "retained_resource_claims": {
-            "suite_service_stack": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "service_session_start",
             "service_target": "check-service-backed"
           }
         },
@@ -2745,8 +2733,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "webserver-backed",
@@ -3140,8 +3126,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_stateful": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "stateful",
@@ -3227,8 +3211,6 @@
           "retained_resource_claims": {
             "browser_stack": "limit",
             "browser_stage_measurement": 1,
-            "minio": "limit",
-            "postgres": "limit",
             "process": "limit"
           },
           "browser_stage": "measurement",
@@ -3308,8 +3290,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_visual": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "visual",
@@ -4250,8 +4230,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "webserver-backed",
@@ -4284,8 +4262,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_stateful": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "stateful",
@@ -4318,8 +4294,6 @@
           "release_retained_resource_claims": {
             "browser_stack": "limit",
             "browser_stage_measurement": 1,
-            "minio": "limit",
-            "postgres": "limit",
             "process": "limit"
           },
           "browser_stage": "measurement",
@@ -4352,8 +4326,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_visual": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "visual",
@@ -5337,8 +5309,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "webserver-backed",
@@ -5418,8 +5388,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_visual": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "visual",
@@ -5499,8 +5467,6 @@
           "retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_stateful": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "stateful",
@@ -5900,8 +5866,6 @@
           "retained_resource_claims": {
             "browser_stack": "limit",
             "browser_stage_measurement": 1,
-            "minio": "limit",
-            "postgres": "limit",
             "process": "limit"
           },
           "browser_stage": "measurement",
@@ -6842,8 +6806,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "webserver-backed",
@@ -6876,8 +6838,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_stateful": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "stateful",
@@ -6910,8 +6870,6 @@
           "release_retained_resource_claims": {
             "browser_stack": "limit",
             "browser_stage_measurement": 1,
-            "minio": "limit",
-            "postgres": "limit",
             "process": "limit"
           },
           "browser_stage": "measurement",
@@ -6944,8 +6902,6 @@
           "release_retained_resource_claims": {
             "browser_stack": 1,
             "browser_stage_visual": 1,
-            "minio": 1,
-            "postgres": 1,
             "process": 1
           },
           "browser_stage": "visual",

@@ -14,6 +14,8 @@ const hostCPUResource = "host_cpu";
 const hostIOResource = "host_io";
 const postgresResetResource = "postgres_reset";
 const buildServerTarget = "build-server";
+const buildMigrateTarget = "build-migrate";
+const testServiceImagesTarget = "test-service-images";
 const defaultSchedulerPriority = 0;
 
 function clone(value) {
@@ -102,20 +104,28 @@ function sourceNeeds(source, serviceSessionKey, extraNeeds = []) {
 }
 
 function serviceSessionNeeds(parentNeeds) {
-  return parentNeeds.filter((need) => need !== buildServerTarget);
+  return parentNeeds.filter((need) => need === testServiceImagesTarget);
 }
 
 function browserStageExtraNeeds(parentNeeds) {
-  return parentNeeds.includes(buildServerTarget) ? [buildServerTarget] : [];
+  return [buildServerTarget, buildMigrateTarget].filter((need) => parentNeeds.includes(need));
+}
+
+function isRetainedBrowserStageResource(resource) {
+  return resource === "browser_stack" || resource === "process" || resource.startsWith("browser_stage_");
+}
+
+function retainedBrowserStageClaimsFromEntries(entries) {
+  return resourceClaimsObject(
+    Object.fromEntries(
+      entries.filter(([resource]) => isRetainedBrowserStageResource(resource)),
+    ),
+  );
 }
 
 function retainedBrowserStageClaims(rawClaims) {
   const mapped = mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost: true });
-  return resourceClaimsObject(
-    Object.fromEntries(
-      Object.entries(mapped).filter(([resource]) => resource !== hostCPUResource && resource !== hostIOResource),
-    ),
-  );
+  return retainedBrowserStageClaimsFromEntries(Object.entries(mapped));
 }
 
 function browserGroupClaims(rawClaims) {
@@ -146,6 +156,7 @@ export function expandServiceBackedScheduleForCheck({
       kind: "service_session",
       target: scheduleTarget,
       label: `${scheduleTarget}/service-session`,
+      priority: priority(parentUnit.priority),
       weight_ms: serviceWeightMs,
       needs: serviceNeeds,
       completion_keys: [serviceSessionKey],
@@ -400,13 +411,7 @@ function mergeClaims(left, right) {
 }
 
 function directRetainedBrowserStageClaims(rawClaims) {
-  return resourceClaimsObject(
-    Object.fromEntries(
-      Object.entries(rawClaims ?? {}).filter(
-        ([resource]) => resource !== goCPUResource && resource !== goIOResource,
-      ),
-    ),
-  );
+  return retainedBrowserStageClaimsFromEntries(Object.entries(rawClaims ?? {}));
 }
 
 export function expandServiceBackedSchedule({

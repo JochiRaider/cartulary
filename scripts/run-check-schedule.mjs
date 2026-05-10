@@ -769,6 +769,9 @@ function attachRuntime(schedule, {
   const serviceSessionCleanupStatus = new Map(
     serviceSessionTargets.map((target) => [target, "not_started"]),
   );
+  const serviceSessionCleanupDurationMs = new Map(
+    serviceSessionTargets.map((target) => [target, null]),
+  );
   const browserSessionTargets = Array.from(
     new Set(
       schedule.workUnits
@@ -1081,6 +1084,7 @@ function attachRuntime(schedule, {
           continue;
         }
         serviceSessionCleanupStatus.set(target, "running");
+        const cleanupStartedAt = Date.now();
         const result = await runLifecycle(repoRoot, testServicesBin, [
           "terminate-suite",
           "--lease",
@@ -1089,6 +1093,7 @@ function attachRuntime(schedule, {
           () => 0,
           () => 1,
         );
+        serviceSessionCleanupDurationMs.set(target, Math.max(0, Date.now() - cleanupStartedAt));
         if (result !== 0 && !cleanupFailure) {
           serviceSessionCleanupStatus.set(target, "failed");
           cleanupFailure = { status: result, label: `${target}:terminate-suite` };
@@ -1098,15 +1103,32 @@ function attachRuntime(schedule, {
       }
       return cleanupFailure;
     },
-    summaryExtra: () => ({
+    summaryExtra: ({ reporter }) => ({
       service_sessions: serviceSessionTargets.map((target) => {
         const files = serviceSessionFiles.get(target);
+        const setupRecord = reporter.completedWork.find(
+          (record) =>
+            record.service_session_target === target &&
+            record.work_unit_type === "service_session",
+        );
+        const childWork = reporter.completedWork.filter(
+          (record) =>
+            record.service_session_target === target &&
+            !["service_session", "service_complete"].includes(record.work_unit_type),
+        );
+        const childWorkStartedAt = childWork.length > 0
+          ? Math.min(...childWork.map((record) => record.started_monotonic_ms))
+          : null;
         return {
           target,
           env_file: relToRepoPath(repoRoot, files.envFile),
           lease_file: relToRepoPath(repoRoot, files.leaseFile),
           metadata_dir: relToRepoPath(repoRoot, files.metadataDir),
           cleanup_status: serviceSessionCleanupStatus.get(target) ?? "unknown",
+          setup_duration_ms: setupRecord?.duration_ms ?? null,
+          ready_at_monotonic_ms: setupRecord?.status === 0 ? setupRecord.finished_monotonic_ms : null,
+          child_work_started_at_monotonic_ms: childWorkStartedAt,
+          cleanup_duration_ms: serviceSessionCleanupDurationMs.get(target) ?? null,
         };
       }),
       browser_stage_sessions: browserSessionTargets.map((target) => {
