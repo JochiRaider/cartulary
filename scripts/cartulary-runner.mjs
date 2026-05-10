@@ -102,7 +102,7 @@ function serviceBackedTarget(context, argv) {
     "--target",
     target,
     "--manifest",
-    context.serviceBackedScheduleManifest,
+    context.schedulerManifest,
     "--defer-summary",
   ];
 
@@ -132,7 +132,7 @@ function serviceBackedTarget(context, argv) {
 
   const requested = status === 0 ? "pass" : "fail";
   const topologyContext = loadSummaryTopologyContext({
-    serviceBackedScheduleManifestPath: context.serviceBackedScheduleManifest,
+    schedulerManifestPath: context.schedulerManifest,
   });
   const children = serviceBackedScheduleChildren(topologyContext, target);
   if (children.length === 0) {

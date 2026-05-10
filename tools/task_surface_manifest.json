@@ -1763,8 +1763,8 @@
         "$(NODE_BIN)"
       ],
       "target": "check",
-      "schedule_manifest": "tools/check_schedule_manifest.json",
-      "manifest_variable": "CHECK_SCHEDULE_MANIFEST"
+      "schedule_manifest": "tools/scheduler_manifest.json",
+      "manifest_variable": "SCHEDULER_MANIFEST"
     },
     "check-frontend-install": {
       "prerequisites": [

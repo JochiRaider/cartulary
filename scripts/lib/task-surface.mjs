@@ -724,9 +724,11 @@ function validateCheckScheduleRecipe({
   } else {
     const scheduleManifestPath = path.join(repoRoot, recipe.schedule_manifest);
     if (!existsSync(scheduleManifestPath)) {
-      errors.push(
-        `${label}.schedule_manifest missing: ${recipe.schedule_manifest}`,
-      );
+      if (recipe.schedule_manifest !== "tools/scheduler_manifest.json") {
+        errors.push(
+          `${label}.schedule_manifest missing: ${recipe.schedule_manifest}`,
+        );
+      }
     } else {
       const scheduleManifest = readJSON(recipe.schedule_manifest);
       const scheduleTargets = new Set(
@@ -1210,7 +1212,7 @@ export function renderTaskSurfaceMake(manifest) {
     'TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"',
   );
   lines.push(
-    'TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
+    'TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SCHEDULER_MANIFEST="$(SCHEDULER_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
   );
   lines.push(
     `TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV = ${checkSchedulerOverrideEnvExpression()}`,

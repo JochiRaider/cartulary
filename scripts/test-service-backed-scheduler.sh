@@ -811,11 +811,12 @@ EOF
 write_manifest() {
   local file="$1"
   local target="$2"
+  local source_file="${file}.sources"
   shift 2
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v11",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule_sources.v1",\n'
     printf '  "schedules": [\n'
     printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
@@ -895,7 +896,44 @@ write_manifest() {
     printf '\n    ] }\n'
     printf '  ]\n'
     printf '}\n'
-  } >"$file"
+  } >"$source_file"
+
+  "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$source_file" "$file" <<'EOF'
+import fs from "node:fs";
+import {
+  expandServiceBackedSchedule,
+} from "./scripts/lib/check-service-backed-expansion.mjs";
+
+const [repoRoot, sourceFile, outputFile] = process.argv.slice(2);
+const sourceManifest = JSON.parse(fs.readFileSync(sourceFile, "utf8"));
+const schedules = sourceManifest.schedules.map((sourceSchedule) => {
+  const { work_unit_sources: _workUnitSources, ...schedule } = sourceSchedule;
+  return {
+    ...schedule,
+    scheduler_kind: "service_backed",
+    stop_on_first_failure: false,
+    progress_tick_seconds: 30,
+    validate_timing: true,
+    work_units: expandServiceBackedSchedule({
+      repoRoot,
+      serviceSchedule: sourceSchedule,
+    }),
+    finalizers: [],
+  };
+});
+fs.writeFileSync(
+  outputFile,
+  `${JSON.stringify({
+    schema_id: "cartulary.scheduler_manifest.v1",
+    generated: {
+      generator: "scripts/test-service-backed-scheduler.sh",
+      source: "smoke fixture",
+    },
+    schedules,
+  }, null, 2)}\n`,
+);
+EOF
+  rm -f "$source_file"
 }
 
 assert_no_shared_backend_integration_shards() {
@@ -2148,7 +2186,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v11" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.scheduler_manifest.v1" "legacy manifest output"
 
 if [[ "$SUITE" != "fast" ]]; then
 unknown_option_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-option.XXXXXX")"

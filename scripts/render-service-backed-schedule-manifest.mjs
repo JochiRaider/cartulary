@@ -28,8 +28,8 @@ import { collectTargetPlanRows, findTargetDescriptor } from "./lib/target-plan.m
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const scheduleSchemaID = "cartulary.service_backed_schedule.v11";
-const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
+const scheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
+const defaultOutputPath = path.join(repoRoot, "tools", "scheduler_service_sources.json");
 const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
 const defaultBrowserFunctionalMinShards = 2;
 const defaultBrowserFunctionalMaxShards = 4;

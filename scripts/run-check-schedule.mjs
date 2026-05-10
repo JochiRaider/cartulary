@@ -37,17 +37,15 @@ import {
   summaryGroupsSpec,
 } from "./lib/summary-topology.mjs";
 import {
-  loadScheduleManifest,
-  normalizeNeeds,
-  normalizeStringList as normalizeTargetList,
+  loadSchedulerManifest,
+  normalizeSchedulerSchedule,
   parseResourceLimitOverride,
-  selectSingleSchedule,
 } from "./lib/scheduler-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v12";
+const defaultManifestPath = path.join(repoRoot, "tools", "scheduler_manifest.json");
+const supportedSchemaID = "cartulary.scheduler_manifest.v1";
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v9";
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -314,7 +312,7 @@ function normalizeReleaseRetainedResourceClaims(value, label, resourceLimits) {
   return normalizeResourceClaims(value, label, resourceLimits);
 }
 
-function findSchedule(manifest, target, overrides) {
+function _findSchedule(manifest, target, overrides) {
   const schedule = selectSingleSchedule(manifest, target, { label: "check schedule" });
   if (!Array.isArray(schedule.work_units) || schedule.work_units.length === 0) {
     throw new Error(`check schedule ${target} must declare work_units[]`);
@@ -981,7 +979,7 @@ function attachRuntime(schedule, {
       });
       continue;
     }
-    if (unit.kind === "finalizer") {
+    if (unit.kind === "aggregate_finalize") {
       const files = serviceSessionFiles.get(serviceSessionTarget(unit) || serviceSessionTargets[0]);
       unit.command = () => ({
         command: goTargetRunner,
@@ -1223,14 +1221,26 @@ function attachRuntime(schedule, {
 async function main() {
   const context = createRunnerContext({ repoRoot });
   const options = parseArgs(process.argv.slice(2));
-  const { manifest, manifestPath } = await loadScheduleManifest(options.manifest, {
+  const { manifest, manifestPath } = await loadSchedulerManifest(options.manifest, {
     repoRoot,
     schemaID: supportedSchemaID,
   });
-  const schedule = findSchedule(manifest, options.target, options.resourceLimitOverrides);
+  const schedule = normalizeSchedulerSchedule(manifest, options.target, {
+    scheduler: "check",
+    resourceLimitOverrides: options.resourceLimitOverrides,
+    label: "scheduler schedule",
+    autoLimitResolvers: (provisionalUnits) => ({
+      check_host_cpu: () => estimateCheckHostCPULimit(),
+      check_host_io: ({ resourceLimits: currentLimits }) =>
+        estimateCheckHostIOLimit(currentLimits),
+      service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
+        estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, { cpuResources: ["host_cpu"] }),
+    }),
+  });
+  schedule.summaryTargets = schedule.workUnits.flatMap((unit) => unit.producesSummaryTargets);
   const topologyContext = loadSummaryTopologyContext({
     taskSurfaceManifestPath: process.env.TASK_SURFACE_MANIFEST ?? path.join(repoRoot, "tools", "task_surface_manifest.json"),
-    serviceBackedScheduleManifestPath: process.env.SERVICE_BACKED_SCHEDULE_MANIFEST,
+    schedulerManifestPath: process.env.SCHEDULER_MANIFEST ?? options.manifest,
     browserBatchManifestPath: process.env.BROWSER_E2E_BATCH_MANIFEST,
   });
   const summaryTargets = schedule.summaryTargets;

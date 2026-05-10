@@ -19,8 +19,9 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "execution_topology_manifest.json",
 );
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
-export const checkScheduleSchemaID = "cartulary.check_schedule.v12";
-export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v11";
+export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
+export const checkScheduleSchemaID = "cartulary.check_schedule_sources.v1";
+export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
 export const makeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
@@ -154,8 +155,7 @@ function validateOutputPaths(root, outputs) {
   for (const key of [
     "task_surface_manifest",
     "task_surface_make",
-    "check_schedule_manifest",
-    "service_backed_schedule_manifest",
+    "scheduler_manifest",
     "browser_e2e_batch_manifest",
     "execution_topology_render_index",
   ]) {
@@ -638,6 +638,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
           : {}),
         resource_claims: clone(profile.resourceClaims),
         make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${target}.check_schedule profile ${profile.name}`, claims),
+        command: { type: "make_target", target },
         ...(Object.keys(metadata.env).length > 0 ? { env: clone(metadata.env) } : {}),
         ...(metadata.serviceBackedSchedule ? { service_backed_schedule: metadata.serviceBackedSchedule } : {}),
       };

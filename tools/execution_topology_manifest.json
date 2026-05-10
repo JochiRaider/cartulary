@@ -3,8 +3,7 @@
   "generated_outputs": {
     "task_surface_manifest": "tools/task_surface_manifest.json",
     "task_surface_make": "tools/task_surface.generated.mk",
-    "check_schedule_manifest": "tools/check_schedule_manifest.json",
-    "service_backed_schedule_manifest": "tools/service_backed_schedule_manifest.json",
+    "scheduler_manifest": "tools/scheduler_manifest.json",
     "browser_e2e_batch_manifest": "tools/browser_e2e_batch_manifest.json",
     "execution_topology_render_index": "tools/execution_topology_render_index.json"
   },
@@ -1965,8 +1964,8 @@
           "$(NODE_BIN)"
         ],
         "target": "check",
-        "schedule_manifest": "tools/check_schedule_manifest.json",
-        "manifest_variable": "CHECK_SCHEDULE_MANIFEST"
+        "schedule_manifest": "tools/scheduler_manifest.json",
+        "manifest_variable": "SCHEDULER_MANIFEST"
       },
       "check-frontend-install": {
         "prerequisites": [

@@ -20,7 +20,10 @@ import {
 } from "./lib/execution-topology.mjs";
 import { validateAllPhaseSlicePlans } from "./lib/phase-slice-plan.mjs";
 import { collectTaskSurfaceManifestErrors, renderTaskSurfaceMake } from "./lib/task-surface.mjs";
-import { expandServiceBackedScheduleForCheck } from "./lib/check-service-backed-expansion.mjs";
+import {
+  expandServiceBackedSchedule,
+  expandServiceBackedScheduleForCheck,
+} from "./lib/check-service-backed-expansion.mjs";
 import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -31,9 +34,8 @@ const generatorVersion = 1;
 const cacheDir = path.join(repoRoot, ".cache", "cartulary", "execution-topology-render");
 const renderedOutputKeys = [
   "task_surface_manifest",
-  "check_schedule_manifest",
   "browser_e2e_batch_manifest",
-  "service_backed_schedule_manifest",
+  "scheduler_manifest",
   "task_surface_make",
 ];
 
@@ -349,6 +351,10 @@ function renderArtifacts(options) {
     topology: options.topology,
     topologyObject: topology,
   });
+  const schedulerManifest = renderSchedulerManifest({
+    topology,
+    serviceBackedScheduleManifest,
+  });
   const taskSurfaceErrors = collectTaskSurfaceManifestErrors(taskSurfaceManifest, {
     browserBatchManifest,
     serviceBackedScheduleManifest,
@@ -361,22 +367,53 @@ function renderArtifacts(options) {
   return [
     outputEntry(topology.generatedOutputs.task_surface_manifest, serializeJSON(taskSurfaceManifest)),
     outputEntry(
-      topology.generatedOutputs.check_schedule_manifest,
-      serializeJSON(renderCheckScheduleManifest(topology, {
-        serviceBackedScheduleManifest,
-        expandServiceBackedScheduleForCheck,
-      })),
+      topology.generatedOutputs.scheduler_manifest,
+      serializeJSON(schedulerManifest),
     ),
     outputEntry(
       topology.generatedOutputs.browser_e2e_batch_manifest,
       serializeJSON(browserBatchManifest),
     ),
-    outputEntry(
-      topology.generatedOutputs.service_backed_schedule_manifest,
-      serializeJSON(serviceBackedScheduleManifest),
-    ),
     outputEntry(topology.generatedOutputs.task_surface_make, renderTaskSurfaceMake(taskSurfaceManifest)),
   ];
+}
+
+function renderSchedulerManifest({ topology, serviceBackedScheduleManifest }) {
+  const checkManifest = renderCheckScheduleManifest(topology, {
+    serviceBackedScheduleManifest,
+    expandServiceBackedScheduleForCheck,
+  });
+  const serviceSchedules = serviceBackedScheduleManifest.schedules.map((schedule) => ({
+    target: schedule.target,
+    scheduler_kind: schedule.scheduler_kind,
+    capacity_profile: schedule.capacity_profile,
+    resource_limits: schedule.resource_limits,
+    stop_on_first_failure: false,
+    progress_tick_seconds: 30,
+    validate_timing: true,
+    summary_groups: [],
+    work_units: expandServiceBackedSchedule({ repoRoot, serviceSchedule: schedule }),
+    finalizers: [],
+  }));
+  const checkSchedules = checkManifest.schedules.map((schedule) => ({
+    ...schedule,
+    stop_on_first_failure: true,
+    progress_tick_seconds: 30,
+    validate_timing: true,
+    finalizers: [],
+  }));
+  return {
+    schema_id: "cartulary.scheduler_manifest.v1",
+    generated: {
+      generator: "scripts/render-execution-topology-artifacts.mjs",
+      topology: repoDisplayPath(topology.manifestPath),
+      source_authoring: {
+        check_schedules: "tools/execution_topology_manifest.json",
+        service_backed_schedules: "tools/execution_topology_manifest.json",
+      },
+    },
+    schedules: [...checkSchedules, ...serviceSchedules],
+  };
 }
 
 function cachePath(inputDigest) {
@@ -502,6 +539,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`execution topology render failed: ${message}`);
+    if (process.env.CARTULARY_DEBUG_RENDER_STACK === "1" && error instanceof Error && error.stack) {
+      console.error(error.stack);
+    }
     process.exit(1);
   }
 }

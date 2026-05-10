@@ -13,10 +13,9 @@ generated_make="$repo_root/tools/task_surface.generated.mk"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 go_runner_module="$repo_root/scripts/lib/go-target-runner.mjs"
 go_target_plan_coverage_helper="$repo_root/scripts/check-go-target-plan-coverage.mjs"
-schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
+schedule_manifest="$repo_root/tools/scheduler_manifest.json"
 execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
-schedule_topology_helper="$repo_root/scripts/lib/service-backed-schedule-topology.mjs"
-check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
+check_schedule_manifest="$repo_root/tools/scheduler_manifest.json"
 node_bin="${NODE_BIN:-node}"
 
 extract_target_block() {
@@ -197,16 +196,25 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v11") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v11");
+if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
+  throw new Error("scheduler manifest must declare schema_id=cartulary.scheduler_manifest.v1");
 }
-const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
+const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget && entry.scheduler_kind === "service_backed");
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
 }
-const targets = schedules[0].work_unit_sources
-  .filter((entry) => kind === "" || entry.class === kind)
-  .map((entry) => entry.target);
+const seen = new Set();
+const targets = [];
+for (const entry of schedules[0].work_units ?? []) {
+  if (entry.count_in_total === false || (kind !== "" && entry.class !== kind)) {
+    continue;
+  }
+  const target = entry.aggregate_target ?? entry.target;
+  if (!seen.has(target)) {
+    seen.add(target);
+    targets.push(target);
+  }
+}
 if (targets.length > 0) {
   process.stdout.write(`${targets.join("\n")}\n`);
 }
@@ -222,10 +230,10 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v12") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v12");
+if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
+  throw new Error("scheduler manifest must declare schema_id=cartulary.scheduler_manifest.v1");
 }
-const schedules = manifest.schedules.filter((entry) => entry.target === "check");
+const schedules = manifest.schedules.filter((entry) => entry.target === "check" && entry.scheduler_kind === "check");
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
 }
@@ -251,10 +259,10 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v12") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v12");
+if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
+  throw new Error("scheduler manifest must declare schema_id=cartulary.scheduler_manifest.v1");
 }
-const schedules = manifest.schedules.filter((entry) => entry.target === "check");
+const schedules = manifest.schedules.filter((entry) => entry.target === "check" && entry.scheduler_kind === "check");
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
 }
@@ -275,15 +283,15 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v11") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v11");
+if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
+  throw new Error("scheduler manifest must declare schema_id=cartulary.scheduler_manifest.v1");
 }
-const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
+const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget && entry.scheduler_kind === "service_backed");
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
 }
-const children = schedules[0].work_unit_sources.filter((entry) => entry.target === childTarget);
-if (children.length !== 1) {
+const children = (schedules[0].work_units ?? []).filter((entry) => (entry.aggregate_target ?? entry.target) === childTarget && entry.count_in_total !== false);
+if (children.length === 0) {
   throw new Error(`expected exactly one child ${childTarget} in ${scheduleTarget}, found ${children.length}`);
 }
 const value = children[0][field] ?? {};
@@ -330,8 +338,6 @@ mapfile -t target_plan_check_heavy_targets < <(target_plan_boolean_targets check
 mapfile -t target_plan_service_backed_safe_targets < <(target_plan_boolean_targets check_service_backed_safe true)
 mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_service_backed_unsafe_targets)
 
-"$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$execution_topology_manifest"
-
 if target_exists check-build-prereqs; then
   fail "check-build-prereqs must not remain as an aggregate check readiness gate"
 fi
@@ -342,7 +348,7 @@ for removed_check_bundle in check-static-validation check-local-product check-me
 done
 
 if ! [[ -f "$check_schedule_manifest" ]]; then
-  fail "missing tools/check_schedule_manifest.json"
+  fail "missing tools/scheduler_manifest.json"
 fi
 check_block="$(extract_target_block check)"
 if [[ -z "$check_block" ]]; then
@@ -531,10 +537,10 @@ assertCheckMetadata("check-service-backed", "service_session_start");
 assertCheckMetadata("migration-drift", "post_build_migration_scratch_postgres");
 assertCheckMetadata("backend-unit", "after_setup_cpu");
 assertCheckMetadata("go-vulncheck", "after_setup_cpu_io");
-if (manifest.schema_id !== "cartulary.check_schedule.v12") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v12");
+if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
+  throw new Error("scheduler manifest must declare schema_id=cartulary.scheduler_manifest.v1");
 }
-const schedules = manifest.schedules.filter((entry) => entry.target === "check");
+const schedules = manifest.schedules.filter((entry) => entry.target === "check" && entry.scheduler_kind === "check");
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
 }

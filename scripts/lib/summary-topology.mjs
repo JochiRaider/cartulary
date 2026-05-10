@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,13 +12,13 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
 export const defaultTaskSurfaceManifestPath = path.join(repoRoot, "tools", "task_surface_manifest.json");
-export const defaultServiceBackedScheduleManifestPath = path.join(
+export const defaultSchedulerManifestPath = path.join(
   repoRoot,
   "tools",
-  "service_backed_schedule_manifest.json",
+  "scheduler_manifest.json",
 );
 export const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v11";
+export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
 
 function resolveRepoPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);
@@ -50,10 +50,14 @@ function requireTargetList(value, label) {
   });
 }
 
-function loadServiceBackedScheduleManifest(file = defaultServiceBackedScheduleManifestPath) {
+function loadSchedulerManifest(file = defaultSchedulerManifestPath) {
+  const resolved = resolveRepoPath(file);
+  if (!existsSync(resolved) && resolved === defaultSchedulerManifestPath) {
+    return { schema_id: schedulerManifestSchemaID, schedules: [] };
+  }
   const manifest = readJSON(file);
-  if (manifest.schema_id !== serviceBackedScheduleSchemaID) {
-    throw new Error(`${resolveRepoPath(file)} must declare schema_id ${serviceBackedScheduleSchemaID}`);
+  if (manifest.schema_id !== schedulerManifestSchemaID) {
+    throw new Error(`${resolveRepoPath(file)} must declare schema_id ${schedulerManifestSchemaID}`);
   }
   if (!Array.isArray(manifest.schedules)) {
     throw new Error(`${resolveRepoPath(file)} must declare schedules[]`);
@@ -65,10 +69,14 @@ export function loadSummaryTopologyContext(options = {}) {
   const taskSurfaceManifest =
     options.taskSurfaceManifest ??
     (configuredPath(options.taskSurfaceManifestPath, "") ? readJSON(options.taskSurfaceManifestPath) : null);
-  const serviceBackedScheduleManifest =
+  const schedulerManifest =
+    options.schedulerManifest ??
     options.serviceBackedScheduleManifest ??
-    loadServiceBackedScheduleManifest(
-      configuredPath(options.serviceBackedScheduleManifestPath, defaultServiceBackedScheduleManifestPath),
+    loadSchedulerManifest(
+      configuredPath(
+        options.schedulerManifestPath ?? options.serviceBackedScheduleManifestPath,
+        defaultSchedulerManifestPath,
+      ),
     );
   const browserStages =
     options.browserStages ??
@@ -85,14 +93,14 @@ export function loadSummaryTopologyContext(options = {}) {
           ));
   return {
     taskSurfaceManifest,
-    serviceBackedScheduleManifest,
+    schedulerManifest,
     browserStages,
   };
 }
 
 function findServiceBackedSchedule(context, target) {
-  const matches = (context.serviceBackedScheduleManifest?.schedules ?? []).filter(
-    (schedule) => schedule?.target === target,
+  const matches = (context.schedulerManifest?.schedules ?? []).filter(
+    (schedule) => schedule?.target === target && schedule?.scheduler_kind === "service_backed",
   );
   if (matches.length === 0) {
     return null;
@@ -104,21 +112,37 @@ function findServiceBackedSchedule(context, target) {
 }
 
 function scheduleSources(schedule, target) {
-  if (!Array.isArray(schedule?.work_unit_sources)) {
-    throw new Error(`service-backed schedule ${target} must declare work_unit_sources[]`);
+  if (Array.isArray(schedule?.work_unit_sources)) {
+    return schedule.work_unit_sources.map((source, index) => {
+      if (!source || typeof source !== "object" || Array.isArray(source)) {
+        throw new Error(`service-backed schedule ${target} work_unit_sources[${index + 1}] must be an object`);
+      }
+      if (typeof source.target !== "string" || source.target.trim() === "") {
+        throw new Error(`service-backed schedule ${target} work_unit_sources[${index + 1}] must declare target`);
+      }
+      return {
+        target: source.target.trim(),
+        class: String(source.class ?? "").trim(),
+      };
+    });
   }
-  return schedule.work_unit_sources.map((source, index) => {
-    if (!source || typeof source !== "object" || Array.isArray(source)) {
-      throw new Error(`service-backed schedule ${target} work_unit_sources[${index + 1}] must be an object`);
+  if (!Array.isArray(schedule?.work_units)) {
+    throw new Error(`service-backed schedule ${target} must declare normalized work_units[]`);
+  }
+  const byTarget = new Map();
+  for (const unit of schedule.work_units) {
+    const aggregateTarget = String(unit?.aggregate_target ?? unit?.target ?? "").trim();
+    if (aggregateTarget === "" || unit?.count_in_total === false) {
+      continue;
     }
-    if (typeof source.target !== "string" || source.target.trim() === "") {
-      throw new Error(`service-backed schedule ${target} work_unit_sources[${index + 1}] must declare target`);
+    if (!byTarget.has(aggregateTarget)) {
+      byTarget.set(aggregateTarget, {
+        target: aggregateTarget,
+        class: String(unit.class ?? "").trim(),
+      });
     }
-    return {
-      target: source.target.trim(),
-      class: String(source.class ?? "").trim(),
-    };
-  });
+  }
+  return Array.from(byTarget.values()).sort((left, right) => left.target.localeCompare(right.target));
 }
 
 export function serviceBackedScheduleChildren(context, target) {

@@ -175,12 +175,14 @@ function addServiceRequirements(requirements, values = []) {
 }
 
 function serviceBackedScheduleForTarget(target, root = repoRoot) {
-  const manifestPath = path.join(root, "tools", "service_backed_schedule_manifest.json");
+  const manifestPath = path.join(root, "tools", "scheduler_manifest.json");
   if (!existsSync(manifestPath)) {
     return null;
   }
   const manifest = readJSON(manifestPath);
-  return (manifest.schedules ?? []).find((schedule) => schedule?.target === target) ?? null;
+  return (manifest.schedules ?? []).find(
+    (schedule) => schedule?.target === target && schedule?.scheduler_kind === "service_backed",
+  ) ?? null;
 }
 
 function addServiceBackedScheduleRequirements(requirements, schedule) {
@@ -192,6 +194,7 @@ function addServiceBackedScheduleRequirements(requirements, schedule) {
   const sources = Array.isArray(schedule.work_unit_sources) ? schedule.work_unit_sources : [];
   if (
     sources.some((source) => source?.class === "browser" || source?.browser_stage) ||
+    (schedule.work_units ?? []).some((unit) => unit?.class === "browser" || unit?.browser_stage) ||
     Object.hasOwn(schedule.resource_limits ?? {}, "browser_stack")
   ) {
     addServiceRequirement(requirements, "browser_stack");
@@ -337,12 +340,12 @@ function directRecipeSummary(target, manifest) {
 
 function checkScheduleSummary(target, root = repoRoot) {
   const result = [];
-  const manifestPath = path.join(root, "tools", "check_schedule_manifest.json");
+  const manifestPath = path.join(root, "tools", "scheduler_manifest.json");
   if (!existsSync(manifestPath)) {
     return result;
   }
   const manifest = readJSON(manifestPath);
-  for (const schedule of manifest.schedules ?? []) {
+  for (const schedule of (manifest.schedules ?? []).filter((entry) => entry?.scheduler_kind === "check")) {
     for (const unit of schedule.work_units ?? []) {
       if (unit.target !== target) {
         continue;
@@ -366,27 +369,30 @@ function checkScheduleSummary(target, root = repoRoot) {
 
 function serviceBackedScheduleSummary(target, root = repoRoot) {
   const result = [];
-  const manifestPath = path.join(root, "tools", "service_backed_schedule_manifest.json");
+  const manifestPath = path.join(root, "tools", "scheduler_manifest.json");
   if (!existsSync(manifestPath)) {
     return result;
   }
   const manifest = readJSON(manifestPath);
-  for (const schedule of manifest.schedules ?? []) {
-    for (const source of schedule.work_unit_sources ?? []) {
-      if (source.target !== target) {
+  for (const schedule of (manifest.schedules ?? []).filter((entry) => entry?.scheduler_kind === "service_backed")) {
+    const seen = new Set();
+    for (const unit of schedule.work_units ?? []) {
+      const aggregateTarget = unit.aggregate_target ?? unit.target;
+      if (aggregateTarget !== target || seen.has(aggregateTarget)) {
         continue;
       }
+      seen.add(aggregateTarget);
       result.push({
-        kind: "service_backed_source",
-        id: `${schedule.target}:${source.type}:${source.target}`,
-        label: `${schedule.target} ${source.type} source ${source.target}`,
+        kind: "service_backed_work_unit",
+        id: `${schedule.target}:${aggregateTarget}`,
+        label: `${schedule.target} normalized work ${aggregateTarget}`,
         target,
         scheduler: schedule.target,
-        source_type: source.type,
-        source_class: source.class ?? "",
-        stage: source.browser_stage ?? "",
-        detail: source.browser_stage ? `browser stage ${source.browser_stage}` : `${source.type} work-unit source`,
-        resource_claims: source.resource_claims ?? {},
+        source_type: unit.kind ?? "",
+        source_class: unit.class ?? "",
+        stage: unit.browser_stage ?? "",
+        detail: unit.browser_stage ? `browser stage ${unit.browser_stage}` : `${unit.kind} work unit`,
+        resource_claims: unit.resource_claims ?? {},
       });
     }
   }

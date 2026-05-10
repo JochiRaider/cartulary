@@ -70,21 +70,34 @@ copy_minimal_repo() {
   mkdir -p "${dest}/scripts" "${dest}/tools"
   cp "${ROOT_DIR}/Makefile" "${dest}/Makefile"
   cp "${ROOT_DIR}/package.json" "${dest}/package.json"
+  if [[ -d "${ROOT_DIR}/node_modules" ]]; then
+    ln -s "${ROOT_DIR}/node_modules" "${dest}/node_modules"
+  fi
   cp "${ROOT_DIR}/go.mod" "${dest}/go.mod"
   cp "${ROOT_DIR}/README.md" "${dest}/README.md"
   cp "${ROOT_DIR}/AGENTS.md" "${dest}/AGENTS.md"
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
-  cp "${ROOT_DIR}/tools/check_schedule_manifest.json" "${dest}/tools/check_schedule_manifest.json"
+  cp "${ROOT_DIR}/tools/scheduler_manifest.json" "${dest}/tools/scheduler_manifest.json"
   cp "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" "${dest}/tools/browser_e2e_batch_manifest.json"
-  cp "${ROOT_DIR}/tools/service_backed_schedule_manifest.json" "${dest}/tools/service_backed_schedule_manifest.json"
   cp "${ROOT_DIR}/tools/execution_topology_manifest.json" "${dest}/tools/execution_topology_manifest.json"
+  cp "${ROOT_DIR}/tools/harness_redaction_manifest.json" "${dest}/tools/harness_redaction_manifest.json"
   cp "${ROOT_DIR}/tools/scheduler_resource_registry.json" "${dest}/tools/scheduler_resource_registry.json"
+  cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
   cp "${ROOT_DIR}"/tools/*duration_baselines.json "${dest}/tools/"
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-shellcheck.sh" "${dest}/scripts/bootstrap-shellcheck.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
+  cat >"${dest}/scripts/harness-contract.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "preflight" ]]; then
+  exit 0
+fi
+exit 0
+EOF
+  chmod +x "${dest}/scripts/harness-contract.sh"
   cp "${ROOT_DIR}/scripts/run-check-schedule.mjs" "${dest}/scripts/run-check-schedule.mjs"
   mkdir -p "${dest}/scripts/lib"
   cp -R "${ROOT_DIR}/scripts/lib/." "${dest}/scripts/lib/"

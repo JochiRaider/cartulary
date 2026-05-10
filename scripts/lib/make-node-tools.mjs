@@ -85,7 +85,7 @@ const phaseSliceRuntimeEnv = [
   "VITEST_FLAGS",
   "VITEST_MAX_WORKERS",
   "TASK_SURFACE_MANIFEST",
-  "SERVICE_BACKED_SCHEDULE_MANIFEST",
+  "SCHEDULER_MANIFEST",
   "BROWSER_E2E_BATCH_MANIFEST",
   "CARTULARY_RUNNER_SCRIPT",
   "RUN_PHASE_SCRIPT",
@@ -303,7 +303,7 @@ export const makeNodeTools = {
     inputs: [
       "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
       "EXECUTION_TOPOLOGY_MANIFEST",
-      "SERVICE_BACKED_SCHEDULE_MANIFEST",
+      "SCHEDULER_MANIFEST",
     ],
     script: "./scripts/service-backed-make-target-durations.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
@@ -318,7 +318,7 @@ export const makeNodeTools = {
         "--baseline-file",
       );
       optionalFlag(args, env, "EXECUTION_TOPOLOGY_MANIFEST", "--topology");
-      optionalFlag(args, env, "SERVICE_BACKED_SCHEDULE_MANIFEST", "--schedule-manifest");
+      optionalFlag(args, env, "SCHEDULER_MANIFEST", "--schedule-manifest");
       return args;
     },
   },

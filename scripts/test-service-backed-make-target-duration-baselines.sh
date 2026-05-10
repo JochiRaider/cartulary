@@ -134,13 +134,14 @@ cp "$ROOT_DIR/tools/service_backed_make_target_duration_baselines.json" \
   "$tmp_dir/service_backed_make_target_duration_baselines.json"
 cat >"$tmp_dir/schedule.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v11",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check-service-backed",
-      "work_unit_sources": [
-        { "type": "make_target", "target": "backend-process" },
-        { "type": "make_target", "target": "browser-e2e-webserver-backed" }
+      "scheduler_kind": "service_backed",
+      "work_units": [
+        { "id": "backend-process", "kind": "make_target", "target": "backend-process", "aggregate_target": "backend-process" },
+        { "id": "browser-e2e-webserver-backed", "kind": "browser_group", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed" }
       ]
     }
   ]
@@ -213,7 +214,7 @@ assert_contains "$(phase_stdout_from_result "$make_update_output")" "updated 4 s
 RESULTS_DIR="$results_dir" \
 SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
 EXECUTION_TOPOLOGY_MANIFEST="$tmp_dir/topology.json" \
-SERVICE_BACKED_SCHEDULE_MANIFEST="$tmp_dir/schedule.json" \
+SCHEDULER_MANIFEST="$tmp_dir/schedule.json" \
   "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baseline-drift >/dev/null
 
 cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'

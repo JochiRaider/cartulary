@@ -26,14 +26,14 @@ import {
 
 const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
 const baselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
-const scheduleSchemaID = "cartulary.service_backed_schedule.v11";
+const scheduleSchemaID = "cartulary.scheduler_manifest.v1";
 const defaultBaselineFile = path.join(
   repoRoot,
   "tools",
   "service_backed_make_target_duration_baselines.json",
 );
 const defaultTopologyFile = defaultExecutionTopologyManifestPath;
-const defaultScheduleManifestFile = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
+const defaultScheduleManifestFile = path.join(repoRoot, "tools", "scheduler_manifest.json");
 const baselineNote =
   "Scheduler work-unit duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.";
 const defaultWorkUnitWeightMs = 10000;
@@ -231,7 +231,7 @@ function readTopologyProfile(file) {
   return profile;
 }
 
-function readScheduledWorkUnits(topologyFile, scheduleManifestFile) {
+function readScheduledWorkUnits(_topologyFile, scheduleManifestFile) {
   const scheduled = new Map();
   const add = (entry) => {
     scheduled.set(baselineKey({
@@ -247,43 +247,14 @@ function readScheduledWorkUnits(topologyFile, scheduleManifestFile) {
     throw new Error(`${rel(scheduleFile)} must declare schema_id ${scheduleSchemaID}`);
   }
   for (const schedule of manifest.schedules ?? []) {
-    for (const source of schedule.work_unit_sources ?? []) {
-      if (source?.type === "make_target" && typeof source.target === "string") {
-        add({
-          scheduler_kind: "service_backed",
-          schedule_target: schedule.target,
-          work_unit_id: source.target,
-          aggregate_target: source.target,
-        });
-      } else if (source?.type === "browser_stage" && Array.isArray(source.groups)) {
-        for (const group of source.groups) {
-          if (typeof group.id !== "string" || typeof source.target !== "string") {
-            continue;
-          }
-          add({
-            scheduler_kind: "service_backed",
-            schedule_target: schedule.target,
-            work_unit_id: group.id,
-            aggregate_target: source.target,
-          });
-        }
-      }
-    }
-  }
-  const topology = loadExecutionTopology({ manifestPath: resolvePath(topologyFile) });
-  const checkScheduleFile = resolvePath(topology.generatedOutputs.check_schedule_manifest);
-  const checkManifest = existsSync(checkScheduleFile)
-    ? readJSON(repoRoot, checkScheduleFile)
-    : { schedules: topology.checkSchedules ?? [] };
-  for (const schedule of checkManifest.schedules ?? []) {
     for (const unit of schedule.work_units ?? []) {
       if (
-        ["service_make_target", "browser_group"].includes(unit?.kind) &&
+        ["make_target", "service_make_target", "browser_group"].includes(unit?.kind) &&
         typeof unit.id === "string" &&
         typeof unit.aggregate_target === "string"
       ) {
         add({
-          scheduler_kind: "check",
+          scheduler_kind: schedule.scheduler_kind === "check" ? "check" : "service_backed",
           schedule_target: schedule.target,
           work_unit_id: unit.id,
           aggregate_target: unit.aggregate_target,

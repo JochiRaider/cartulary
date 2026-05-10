@@ -452,7 +452,7 @@ assert_contains "${go_test_duration_baseline_drift_block}" '$(call RUN_MAKE_NODE
 assert_contains "${browser_e2e_duration_baselines_block}" '$(call RUN_MAKE_NODE_TOOL,browser-e2e-duration-baselines,BROWSER_E2E_DURATION_BASELINE="$(BROWSER_E2E_DURATION_BASELINE)" RESULTS_DIR="$(RESULTS_DIR)")' "browser duration refresh node-tool explicit baseline env"
 assert_not_contains "${manifest_content}" "\"summary_profiles\"" "manifest copied summary profiles"
 assert_not_contains "${manifest_content}" "\"summary_projection\"" "manifest copied summary projections"
-env NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" --input-type=module - "${ROOT_DIR}/tools/task_surface_manifest.json" "${ROOT_DIR}/tools/service_backed_schedule_manifest.json" "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" <<'EOF'
+env NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" --input-type=module - "${ROOT_DIR}/tools/task_surface_manifest.json" "${ROOT_DIR}/tools/scheduler_manifest.json" "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" <<'EOF'
 import fs from "node:fs";
 import { loadSummaryTopologyContext, resolveSummaryGroups } from "./scripts/lib/summary-topology.mjs";
 import { loadBrowserBatchStages } from "./scripts/lib/browser-batch-manifest.mjs";
@@ -487,7 +487,7 @@ if (!webserverBackedStage || !isolatedStage) {
 const expectedBrowser = [
   webserverBackedStage.target,
   ...(isolatedStage.summaryChildren.length > 0 ? isolatedStage.summaryChildren : [isolatedStage.target]),
-];
+].sort();
 if (JSON.stringify(browser?.summaryTargets) !== JSON.stringify(expectedBrowser)) {
   throw new Error("test browser summary group must derive browser leaves from schedules");
 }

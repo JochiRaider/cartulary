@@ -151,7 +151,7 @@ run_case() {
     RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$fake_scheduler" \
     TEST_OUTPUT_SCRIPT="$fake_test_output" \
     TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
-    SERVICE_BACKED_SCHEDULE_MANIFEST="$ROOT_DIR/tools/service_backed_schedule_manifest.json" \
+    SCHEDULER_MANIFEST="$ROOT_DIR/tools/scheduler_manifest.json" \
       "$node_bin" "$HELPER" service-backed-target --target test-service-backed --phase-label "test service-backed" --service-wrapper test-services \
       2>&1
   )"
@@ -162,11 +162,11 @@ run_case() {
   assert_equals "$output" "" "$name output"
   assert_contains "$(cat "$log_file")" "test-services $fake_run_phase" "$name service wrapper"
   assert_contains "$(cat "$log_file")" "phase-label=test service-backed" "$name phase label"
-  assert_contains "$(cat "$log_file")" "scheduler args=--target test-service-backed --manifest $ROOT_DIR/tools/service_backed_schedule_manifest.json --defer-summary" "$name scheduler args"
+  assert_contains "$(cat "$log_file")" "scheduler args=--target test-service-backed --manifest $ROOT_DIR/tools/scheduler_manifest.json --defer-summary" "$name scheduler args"
 }
 
 run_case pass 0 0 0
-expected_children="backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual"
+expected_children="backend-integration,backend-integration-support,backend-process,backend-store,browser-e2e-measurement,browser-e2e-stateful,browser-e2e-visual,browser-e2e-webserver-backed"
 assert_contains "$(cat "$tmp_dir/pass.log")" "summary args=target-summary test-service-backed pass --children $expected_children" "pass summary"
 
 run_case scheduler-fail 7 0 7

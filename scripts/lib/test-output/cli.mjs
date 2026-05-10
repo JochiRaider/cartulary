@@ -2230,8 +2230,7 @@ function parseTargetSummaryArgs(args) {
     const context = loadSummaryTopologyContext({
       taskSurfaceManifestPath:
         process.env.TASK_SURFACE_MANIFEST ?? defaultTaskSurfaceManifestPath,
-      serviceBackedScheduleManifestPath:
-        process.env.SERVICE_BACKED_SCHEDULE_MANIFEST,
+      schedulerManifestPath: process.env.SCHEDULER_MANIFEST,
       browserBatchManifestPath: process.env.BROWSER_E2E_BATCH_MANIFEST,
     });
     childTargetNames.push(

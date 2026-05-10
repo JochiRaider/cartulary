@@ -6,10 +6,10 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "./lib/browser-batch-manifest.mjs";
-import { validateCheckScheduleManifestShape } from "./lib/check-schedule-manifest.mjs";
 import {
   executionTopologySchemaID,
   loadExecutionTopology,
+  schedulerManifestSchemaID,
   taskSurfaceSchemaID,
 } from "./lib/execution-topology.mjs";
 import {
@@ -42,8 +42,6 @@ import {
   loadSchedulerResourceRegistry,
   validateSchedulerResourceRegistryShape as validateSchedulerResourceRegistryManifestShape,
 } from "./lib/scheduler-resources.mjs";
-import { validateServiceBackedScheduleManifestShape } from "./lib/service-backed-schedule-manifest.mjs";
-import { validateServiceBackedScheduleTopology } from "./lib/service-backed-schedule-topology.mjs";
 import {
   collectTaskSurfaceManifestErrors,
   loadTaskSurfaceManifest,
@@ -134,6 +132,61 @@ const toolRunOutputModes = new Set([
   "verbose",
   "debug",
   "machine",
+]);
+const schedulerManifestKeys = new Set(["schema_id", "generated", "schedules"]);
+const schedulerScheduleKeys = new Set([
+  "target",
+  "scheduler_kind",
+  "capacity_profile",
+  "resource_limits",
+  "stop_on_first_failure",
+  "progress_tick_seconds",
+  "validate_timing",
+  "summary_groups",
+  "work_units",
+  "finalizers",
+]);
+const schedulerWorkUnitKeys = new Set([
+  "id",
+  "kind",
+  "type",
+  "class",
+  "target",
+  "label",
+  "aggregate_target",
+  "priority",
+  "weight_ms",
+  "needs",
+  "produces_summary_targets",
+  "completion_keys",
+  "failure_keys",
+  "running_dependency_keys",
+  "resource_claims",
+  "retained_resource_claims",
+  "release_retained_resource_claims",
+  "make_jobs",
+  "env",
+  "service_session",
+  "browser_stage",
+  "browser_group",
+  "shard",
+  "shard_names",
+  "scheduler_profile",
+  "count_in_total",
+  "counts_started",
+  "complete_on_failure",
+  "unblock_label",
+  "command",
+]);
+const schedulerCommandTypes = new Set([
+  "make_target",
+  "service_session_start",
+  "browser_stage_session_start",
+  "browser_group",
+  "browser_stage_complete",
+  "go_shard",
+  "go_shard_finalize",
+  "service_complete",
 ]);
 const toolRunFailureClasses = new Set([
   "product",
@@ -448,12 +501,56 @@ function validateTaskSurfaceShape(file) {
   }
 }
 
-function validateCheckScheduleShape(file) {
-  validateCheckScheduleManifestShape(file, file);
-}
-
-function validateServiceBackedScheduleShape(file) {
-  validateServiceBackedScheduleManifestShape(file, file);
+function validateSchedulerManifestShape(file) {
+  const manifest = readShapeFile(file, file);
+  assertObjectKeys(manifest, schedulerManifestKeys, file);
+  requireSchemaID(manifest, schedulerManifestSchemaID, file);
+  requireObject(manifest.generated, `${file}.generated`);
+  requireObjectArray(manifest.schedules, `${file}.schedules`, { nonEmpty: true }).forEach(
+    (schedule, index) => {
+      const label = `${file}.schedules[${index + 1}]`;
+      assertObjectKeys(schedule, schedulerScheduleKeys, label);
+      requireString(schedule.target, `${label}.target`, { pattern: makeTargetPattern });
+      requireEnum(schedule.scheduler_kind, `${label}.scheduler_kind`, new Set(["check", "service_backed", "phase_slice"]));
+      requireString(schedule.capacity_profile, `${label}.capacity_profile`);
+      requireObject(schedule.resource_limits, `${label}.resource_limits`);
+      if (schedule.stop_on_first_failure !== undefined && typeof schedule.stop_on_first_failure !== "boolean") {
+        throw new Error(`${label}.stop_on_first_failure must be a boolean`);
+      }
+      if (schedule.validate_timing !== undefined && typeof schedule.validate_timing !== "boolean") {
+        throw new Error(`${label}.validate_timing must be a boolean`);
+      }
+      if (schedule.progress_tick_seconds !== undefined) {
+        requireInteger(schedule.progress_tick_seconds, `${label}.progress_tick_seconds`, { min: 5 });
+        if (schedule.progress_tick_seconds > 300) {
+          throw new Error(`${label}.progress_tick_seconds must be <= 300`);
+        }
+      }
+      requireObjectArray(schedule.work_units, `${label}.work_units`, { nonEmpty: true }).forEach(
+        (unit, unitIndex) => {
+          const unitLabel = `${label}.work_units[${unitIndex + 1}]`;
+          assertObjectKeys(unit, schedulerWorkUnitKeys, unitLabel);
+          requireString(unit.target, `${unitLabel}.target`, { pattern: makeTargetPattern });
+          requirePositiveInteger(unit.weight_ms, `${unitLabel}.weight_ms`);
+          const command = requireObject(unit.command, `${unitLabel}.command`);
+          requireEnum(command.type, `${unitLabel}.command.type`, schedulerCommandTypes);
+          if (unit.priority !== undefined) {
+            requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
+          }
+          if (unit.env !== undefined) {
+            for (const name of Object.keys(requireObject(unit.env, `${unitLabel}.env`))) {
+              requireString(name, `${unitLabel}.env key`, {
+                pattern: /^[A-Z][A-Z0-9_]*$/,
+              });
+            }
+          }
+        },
+      );
+      if (schedule.finalizers !== undefined) {
+        requireArray(schedule.finalizers, `${label}.finalizers`);
+      }
+    },
+  );
 }
 
 function validateBrowserBatchShape(file) {
@@ -902,11 +999,8 @@ function validateKind(kind, file) {
     case "task-surface":
       validateTaskSurfaceShape(file);
       return;
-    case "check-schedule":
-      validateCheckScheduleShape(file);
-      return;
-    case "service-backed-schedule":
-      validateServiceBackedScheduleShape(file);
+    case "scheduler-manifest":
+      validateSchedulerManifestShape(file);
       return;
     case "browser-batch":
       validateBrowserBatchShape(file);
@@ -959,19 +1053,9 @@ function validateAll(root) {
 
   validateTaskSurfaceShape(repoFile(root, "tools/task_surface_manifest.json"));
   loadTaskSurfaceManifest(repoFile(root, "tools/task_surface_manifest.json"));
-  validateCheckScheduleShape(
-    repoFile(root, "tools/check_schedule_manifest.json"),
+  validateSchedulerManifestShape(
+    repoFile(root, "tools/scheduler_manifest.json"),
   );
-  validateServiceBackedScheduleShape(
-    repoFile(root, "tools/service_backed_schedule_manifest.json"),
-  );
-  validateServiceBackedScheduleTopology({
-    scheduleManifestPath: repoFile(
-      root,
-      "tools/service_backed_schedule_manifest.json",
-    ),
-    topologyPath: repoFile(root, "tools/execution_topology_manifest.json"),
-  });
   validateBrowserBatchShape(
     repoFile(root, "tools/browser_e2e_batch_manifest.json"),
   );

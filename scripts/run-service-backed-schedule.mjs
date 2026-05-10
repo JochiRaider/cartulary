@@ -35,19 +35,19 @@ import {
 } from "./lib/scheduler-runner.mjs";
 import { createRunnerContext } from "./lib/runner-context.mjs";
 import {
-  loadScheduleManifest,
+  loadSchedulerManifest,
+  normalizeSchedulerSchedule,
   normalizeNeeds,
   parseResourceLimitOverride,
-  selectSingleSchedule,
   validateTargetDependencyGraph,
 } from "./lib/scheduler-manifest.mjs";
 import { findTargetDescriptor } from "./lib/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
+const defaultManifestPath = path.join(repoRoot, "tools", "scheduler_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-const supportedSchemaID = "cartulary.service_backed_schedule.v11";
+const supportedSchemaID = "cartulary.scheduler_manifest.v1";
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v9";
 const goCPUResource = "go_cpu";
@@ -104,7 +104,7 @@ function parseArgs(argv) {
   return options;
 }
 
-async function loadBrowserBatchStages() {
+async function _loadBrowserBatchStages() {
   return loadBrowserBatchStagesFromManifest(defaultBrowserBatchManifestPath);
 }
 
@@ -323,7 +323,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits, browserSt
   };
 }
 
-function findSchedule(manifest, target, browserStages, overrides) {
+function _findSchedule(manifest, target, browserStages, overrides) {
   const schedule = selectSingleSchedule(manifest, target, { label: "schedule" });
   if (!Array.isArray(schedule.work_unit_sources) || schedule.work_unit_sources.length === 0) {
     throw new Error(`schedule ${target} must declare at least one work_unit_sources entry`);
@@ -443,7 +443,7 @@ function retainedBrowserStageClaims(resourceClaims) {
   );
 }
 
-function expandSchedule(schedule) {
+function _expandSchedule(schedule) {
   const countedWorkUnits = [];
   const finalizerUnits = [];
   const shardWorkByName = new Map();
@@ -1027,14 +1027,38 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
 async function main() {
   const context = createRunnerContext({ repoRoot });
   const options = parseArgs(process.argv.slice(2));
-  const { manifest, manifestPath } = await loadScheduleManifest(options.manifest, {
+  const { manifest, manifestPath } = await loadSchedulerManifest(options.manifest, {
     repoRoot,
     schemaID: supportedSchemaID,
   });
-  const browserStages = await loadBrowserBatchStages();
-  const schedule = expandSchedule(
-    findSchedule(manifest, options.target, browserStages, options.resourceLimitOverrides),
-  );
+  const schedule = normalizeSchedulerSchedule(manifest, options.target, {
+    scheduler: "service_backed",
+    resourceLimitOverrides: options.resourceLimitOverrides,
+    label: "scheduler schedule",
+    autoLimitResolvers: (provisionalUnits) => {
+      const goShardUnits = provisionalUnits.filter((unit) => unit.kind === "go_shard");
+      return {
+        service_backed_go_cpu: () => estimateGoCPULimit(goShardUnits),
+        service_backed_go_io: ({ resourceLimits: currentLimits }) =>
+          estimateGoIOLimit(goShardUnits, currentLimits.get(goCPUResource)),
+        service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
+          estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, { cpuResources: [goCPUResource] }),
+      };
+    },
+  });
+  schedule.totalWorkUnits = schedule.workUnits.filter((unit) => unit.countInTotal !== false).length;
+  schedule.finalizerCount = schedule.workUnits.filter((unit) => unit.kind === "aggregate_finalize").length;
+  schedule.children = Array.from(
+    new Set(schedule.workUnits.map((unit) => unit.aggregateTarget || unit.target).filter(Boolean)),
+  ).sort((left, right) => left.localeCompare(right));
+  schedule.backendChildren = Array.from(
+    new Set(
+      schedule.workUnits
+        .filter((unit) => unit.class === "backend")
+        .map((unit) => unit.aggregateTarget || unit.target)
+        .filter(Boolean),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
   const makeBin = process.env.MAKE || context.makeBin;
   const testOutputScript = process.env.TEST_OUTPUT_SCRIPT || context.testOutputScript;
 

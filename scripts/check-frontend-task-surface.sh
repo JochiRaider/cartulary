@@ -10,7 +10,7 @@ source "$repo_root/scripts/lib/task-surface-check-common.sh"
 
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
-check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
+check_schedule_manifest="$repo_root/tools/scheduler_manifest.json"
 execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
 runner_script="$repo_root/scripts/run-frontend-unit.sh"
 frontend_biome_script="$repo_root/scripts/run-frontend-biome.sh"

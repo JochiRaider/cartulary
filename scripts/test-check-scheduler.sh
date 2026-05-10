@@ -685,20 +685,29 @@ write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"
 cat >"$smoke_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "generated": {
+    "generator": "scripts/test-check-scheduler.sh",
+    "source": "smoke fixture"
+  },
   "schedules": [
     {
       "target": "check",
+      "scheduler_kind": "check",
       "capacity_profile": "check_default",
       "resource_limits": { "host_cpu": 12, "host_io": 12, "suite_service_stack": 1, "migration_scratch_postgres": 1 },
+      "stop_on_first_failure": true,
+      "progress_tick_seconds": 30,
+      "validate_timing": true,
       "summary_groups": [
         { "name": "check-work", "summary_targets": ["local", "meta"] }
       ],
       "work_units": [
-        { "target": "setup", "weight_ms": 30, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "local", "weight_ms": 20, "needs": ["setup"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "meta", "weight_ms": 10, "needs": ["setup"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
-      ]
+        { "target": "setup", "weight_ms": 30, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "command": { "type": "make_target", "target": "setup" } },
+        { "target": "local", "weight_ms": 20, "needs": ["setup"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "command": { "type": "make_target", "target": "local" } },
+        { "target": "meta", "weight_ms": 10, "needs": ["setup"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "command": { "type": "make_target", "target": "meta" } }
+      ],
+      "finalizers": []
     }
   ]
 }
@@ -711,7 +720,7 @@ assert_check_scheduler_artifacts "$smoke_dir" smoke check pass - 3 finish
 
 smoke_dry_run_output="$(MAKEFLAGS=n run_scheduler "$smoke_dir" "$smoke_manifest" smoke-dry-run --resource-limit host_cpu=2 --resource-limit host_io=2 2>&1)"
 assert_contains "$smoke_dry_run_output" "[DRY-RUN] check manifest=" "smoke dry-run output"
-assert_contains "$smoke_dry_run_output" "resource_limits={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1} work_units=3 dependencies=2 top_weighted=setup:30,local:20,meta:10" "smoke dry-run compact summary"
+assert_contains "$smoke_dry_run_output" "resource_limits={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1} work_units=3 dependencies=2 classes={:3} types={make_target:3} top_weighted=setup:30,local:20,meta:10" "smoke dry-run compact summary"
 assert_not_contains "$smoke_dry_run_output" "[DRY-RUN] check unit" "smoke dry-run hides unit expansion"
 exit 0
 fi

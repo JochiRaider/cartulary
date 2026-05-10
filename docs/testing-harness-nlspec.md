@@ -571,28 +571,48 @@ Verified by: TH-HARNESS-AC-006
 
 ### 10.1 Scheduler Manifest Fields
 
+The canonical scheduler input schema is `cartulary.scheduler_manifest.v1`.
+`tools/scheduler_manifest.json` is the committed generated scheduler input for
+check, service-backed, phase-slice, and future scheduler families. Family-
+specific source forms such as check schedule metadata, service-backed
+`work_unit_sources[]`, Go shard expansion, and browser group expansion MAY exist
+only as upstream authoring inputs. Scheduler runners MUST NOT accept those
+family-specific source forms as runtime scheduler manifests.
+
 | Field                              | Type                 | Required | Default                      | Rule                                                        |
 | ---------------------------------- | -------------------- | -------: | ---------------------------- | ----------------------------------------------------------- |
-| `schema_id`                        | string               |      yes | none                         | Must match declared scheduler manifest schema.              |
-| `target`                           | string               |      yes | none                         | Public target or scheduler target identity.                 |
-| `scheduler_kind`                   | string               |      yes | target-specific              | `check`, `service_backed`, `phase_slice`, or future family. |
-| `stop_on_first_failure`            | boolean              |      yes | target-specific              | Check scheduler: `true`; service-backed scheduler: `false`. |
-| `progress_tick_seconds`            | integer              |       no | `30`                         | Must be `5..300`; affects reporting only.                   |
-| `validate_timing`                  | boolean              |       no | `true`                       | Must be `true` for conformance runs.                        |
-| `work_units[]`                     | array                |      yes | none                         | Ordered by manifest ordinal.                                |
-| `work_units[].id`                  | string               |      yes | none                         | Unique within manifest.                                     |
-| `work_units[].command`             | string or argv array |      yes | none                         | Child execution command.                                    |
+| `schema_id`                        | string               |      yes | none                         | Must be `cartulary.scheduler_manifest.v1`.                  |
+| `generated`                        | object               |      yes | none                         | Generator and authoring-input provenance.                   |
+| `schedules[]`                      | array                |      yes | none                         | Normalized scheduler inputs.                                |
+| `schedules[].target`               | string               |      yes | none                         | Public target or scheduler target identity.                 |
+| `schedules[].scheduler_kind`       | string               |      yes | target-specific              | `check`, `service_backed`, `phase_slice`, or future family. |
+| `schedules[].capacity_profile`     | string               |      yes | none                         | Registry-backed capacity profile name.                      |
+| `schedules[].resource_limits`      | object               |      yes | none                         | Logical resource limits or `auto` policies.                 |
+| `schedules[].stop_on_first_failure` | boolean             |      yes | target-specific              | Check scheduler: `true`; service-backed scheduler: `false`. |
+| `schedules[].progress_tick_seconds` | integer             |      yes | `30`                         | Must be `5..300`; affects reporting only.                   |
+| `schedules[].validate_timing`      | boolean              |      yes | `true`                       | Must be `true` for conformance runs.                        |
+| `schedules[].summary_groups`       | array                |       no | `[]`                         | Summary grouping policy for scheduler output.               |
+| `schedules[].work_units[]`         | array                |      yes | none                         | Ordered by normalized manifest ordinal.                     |
+| `work_units[].id`                  | string               |       no | `target`                     | Unique within schedule when defaulted.                      |
+| `work_units[].command`             | object               |      yes | none                         | Structured descriptor resolved by the scheduler runner.     |
 | `work_units[].priority`            | integer              |       no | `0`                          | Higher integer wins among ready work.                       |
-| `work_units[].weight_ms`           | positive integer     |       no | scheduler default            | Advisory duration estimate only.                            |
-| `work_units[].dependencies[]`      | string array         |       no | `[]`                         | IDs or completion keys required before start.               |
+| `work_units[].weight_ms`           | positive integer     |      yes | none                         | Advisory duration estimate only.                            |
+| `work_units[].needs[]`             | string array         |       no | `[]`                         | Completion keys required before start.                      |
 | `work_units[].completion_keys[]`   | string array         |       no | `[work_unit.id]`             | Added on success.                                           |
-| `work_units[].failure_keys[]`      | string array         |       no | `[work_unit.id + ":failed"]` | Added on failure.                                           |
+| `work_units[].failure_keys[]`      | string array         |       no | completion keys              | Added on failure.                                           |
 | `work_units[].complete_on_failure` | boolean              |       no | `false`                      | Adds completion keys even when command fails.               |
-| `work_units[].resource_claims`     | object               |       no | `{}`                         | Logical claims only.                                        |
+| `work_units[].resource_claims`     | object               |      yes | `{}`                         | Logical claims only.                                        |
 | `work_units[].timeout_seconds`     | integer              |       no | target-family default        | Must be positive and bounded by registry.                   |
 | `work_units[].retained_resource_claims` | object         |       no | `{}`                         | Claims kept after work-unit exit until explicit release.    |
 | `work_units[].release_retained_resource_claims` | object |       no | `{}`                         | Retained claims to release after work-unit exit.            |
-| `finalizers[]`                     | array                |       no | `[]`                         | Always run after scheduler drains or stops.                 |
+| `schedules[].finalizers[]`         | array                |      yes | `[]`                         | Always run after scheduler drains or stops.                 |
+
+Supported `work_units[].command.type` values are `make_target`,
+`service_session_start`, `browser_stage_session_start`, `browser_group`,
+`browser_stage_complete`, `go_shard`, `go_shard_finalize`, and
+`service_complete`. Dependency-gated aggregate work, including Go shard
+aggregation, MUST remain in `work_units[]` and MUST NOT be modeled as an
+unconditional scheduler finalizer.
 
 `weight_ms` is an advisory scheduling estimate. It MUST NOT be treated as a logical resource claim, timeout, benchmark claim, pass/fail threshold, or product performance conformance statement.
 

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:78e3dceb8c9b03f91361ec262dd9f8ecdd90cbe9b145c059310217504ff4193b",
+  "input_digest": "sha256:e11670f8d1d48040e38c8b69fef9d0215c2094df5ed4eec039fe09d3d064f684",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -32,7 +32,7 @@
     {
       "path": "scripts/lib/check-service-backed-expansion.mjs",
       "role": "renderer_source",
-      "hash": "sha256:de9de08593df889e81b138a93e7a83a2422b809a91a04ee7450cccba3a966919"
+      "hash": "sha256:7672ab7265ea95795d509e397423d59046a660c1ef2824a4c68bd7cd755dc69c"
     },
     {
       "path": "scripts/lib/duration-baseline-cli.mjs",
@@ -52,7 +52,7 @@
     {
       "path": "scripts/lib/execution-topology.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c5d3c78e7e9cb6e526969b6a7a1b9e55839ca5c6a2347d3065278c8e7204e2a9"
+      "hash": "sha256:ec24981e671c22bcba6653008c7846d5dbf3597e03b8fef2746e655fe0282dac"
     },
     {
       "path": "scripts/lib/failure-taxonomy.mjs",
@@ -112,7 +112,7 @@
     {
       "path": "scripts/lib/make-node-tools.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ae1b6db724db783fec5afef8939a60c3d5ab9f77d91e313a62510e064a4d5940"
+      "hash": "sha256:c1a181d17bd6997541e1c5376d2b83cd43e1e6c9459d8fcf799016cfc27d54f0"
     },
     {
       "path": "scripts/lib/phase-manifest-shape.mjs",
@@ -152,12 +152,12 @@
     {
       "path": "scripts/lib/runner-context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bb97ef014d8d8c43c86dd4cfd7f029ec01057f7a0da0790cee6e42e3dd3cbe57"
+      "hash": "sha256:722deb4d99ec470866151fdab5d42d4d2d1690408d2572845148fcacc7e72f83"
     },
     {
       "path": "scripts/lib/scheduler-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b7c988304217d3ec2851ce1e259ad7fc6c8b4083efff2123ca75fa18d3670ee9"
+      "hash": "sha256:e4ca018a1970f29d7d405bfd9e11e7f976792dee59fc0fc6c09ee4d88b6f1ab9"
     },
     {
       "path": "scripts/lib/scheduler-reporting.mjs",
@@ -227,7 +227,7 @@
     {
       "path": "scripts/lib/summary-topology.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b103b070a67fb80477283d4fc0a82182364cbdb323d850302160bec807248cbc"
+      "hash": "sha256:a059e039030e511289387ad918c0af5c9c6d87e2dae323154f27625b38bef609"
     },
     {
       "path": "scripts/lib/target-duration-baselines.mjs",
@@ -242,7 +242,7 @@
     {
       "path": "scripts/lib/task-execution-map.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a1dff56ff76dcd81ffecf017f1ffcbe689557cd86114d98eb0a54f0891bec566"
+      "hash": "sha256:4ab4006a9b0b6c071fa69976e4cd4710b8427c7b27ddcb142d2279a0847e84c0"
     },
     {
       "path": "scripts/lib/task-guidance.mjs",
@@ -252,7 +252,7 @@
     {
       "path": "scripts/lib/task-surface.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7f6b0c103196fc6d95ceb5167bbd27aa3f99b8833dd3a080527a74e1875e6637"
+      "hash": "sha256:ca7f323abf9b9b2f6fcc267f813f279272a8c4a196d0a859399b136f3d5d45f0"
     },
     {
       "path": "scripts/lib/test-output.mjs",
@@ -262,7 +262,7 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:15ec49ad365b4a8e250c8788ad8c76db5bd8962baf9aa35c79383d23ed60b3ff"
+      "hash": "sha256:e121abe9b7d745cb30c2d228b2c4bac24d8d1a56b2e60c03da13622561bc491d"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",
@@ -277,32 +277,32 @@
     {
       "path": "scripts/render-execution-topology-artifacts.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bd3290b1c85a7f0b2014bb800a5c16d3a42ee8bc6b31f3307b17b60d88e8b377"
+      "hash": "sha256:b00730ce519c1d19b38f4af5d71557a81c042aac80c3bd2aa0adc74c137d7d00"
     },
     {
       "path": "scripts/render-service-backed-schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7b565acdce1e1ae5c5109b71ef22522cd3d793f0924bccb4505d999e2c294461"
+      "hash": "sha256:ab051ab9942871c9bd88f8b0481e09e2bcb133113bb9c14212cba10f623145f8"
     },
     {
       "path": "tools/browser_e2e_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:3e3eb39b2fb0197dad709b41a18c0adb9b7cd0721a2f3466fa561ee5d464b2f9"
+      "hash": "sha256:0e19309c8a4d857dd84d15bdfdd1083b767057a60df058ab78d099cbaf095049"
     },
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:de5b933dac63c7fc8e7b247a104243aff6d0d9b1200c8b6a83f7ebc3f527d688"
+      "hash": "sha256:e935bffa5ad4644f01bb2863c43e41e863553b3780c0231b2d1f9df17ab8276a"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:41ecb4e50d04198d1cc3823f02f3b2b7edefac3f4a68171d3abd4e1b50802952"
+      "hash": "sha256:63df22051d4c2d35aefc5a76caeccfaee348f73b3379d1adf56c29fc4eb25daa"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:bd26ac93e1218d38931bfb6810403bcbd51fd2f4f61524eadadc9ae0a3f065ce"
+      "hash": "sha256:ab19e35049d08a15106387f41c626dfcdec1545bd4e0e4912dba7fec297b4a05"
     },
     {
       "path": "tools/phase_registry.json",
@@ -352,14 +352,13 @@
     {
       "path": "tools/service_backed_make_target_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:e62520219c0a964785e28ecec117f45b6791f630262b6a57fe860f61dcaf0889"
+      "hash": "sha256:f52945ad0e0d9bff1d61179230c576b7819a2839dd1bc99c677cf20bc32840dc"
     }
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:a5c6f770861e4d9a5c1390f60bf0c014916ceb920cb67b441398a6cc558c678b",
-    "tools/check_schedule_manifest.json": "sha256:3487cf6f368af94f0ab93158142f0d942a66ac38598b21fda95cf3b7b159e3b2",
-    "tools/service_backed_schedule_manifest.json": "sha256:93420fab522fbabc62669a8c4fd6d87bc6cc7e0c91513e89db1df566a871b4f0",
-    "tools/task_surface_manifest.json": "sha256:409a826fc6ae7ad38ea501c0fce7a3a097a6392d932c04c74dde3b5f0dede5d2",
-    "tools/task_surface.generated.mk": "sha256:f853b20c468ebc7b997e57491a5981b6a90152a99eef7525ff1048f135bdaf2f"
+    "tools/scheduler_manifest.json": "sha256:810c6b1fb2ef6e42acff70fe16743545fa535a2302014e4f2036ed5e1ebb147b",
+    "tools/task_surface_manifest.json": "sha256:08c5fa6aa4ab469d73521e71bc6d51d16e0eefb09019adf9723fe217ac60434b",
+    "tools/task_surface.generated.mk": "sha256:582ffd6145d0f8a6ffbb6d2759081c8b6b88538b8d02f541ebd612b7bdf03223"
   }
 }

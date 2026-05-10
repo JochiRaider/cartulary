@@ -67,7 +67,7 @@ const { manifest } = loadTaskSurfaceManifest(manifestPath);
 const sequence = sequenceDefinition(manifest, sequenceName);
 const context = loadSummaryTopologyContext({
   taskSurfaceManifest: manifest,
-  serviceBackedScheduleManifestPath: process.env.SERVICE_BACKED_SCHEDULE_MANIFEST,
+  schedulerManifestPath: process.env.SCHEDULER_MANIFEST,
   browserBatchManifestPath: process.env.BROWSER_E2E_BATCH_MANIFEST,
 });
 const summaryTargets = sequence.steps.flatMap((step) => step.producesSummaryTargets);

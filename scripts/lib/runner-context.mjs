@@ -52,9 +52,9 @@ export function createRunnerContext(options = {}) {
       "scripts/run-service-backed-schedule.mjs",
       repoRoot,
     ),
-    serviceBackedScheduleManifest: envPath(
-      "SERVICE_BACKED_SCHEDULE_MANIFEST",
-      "tools/service_backed_schedule_manifest.json",
+    schedulerManifest: envPath(
+      "SCHEDULER_MANIFEST",
+      "tools/scheduler_manifest.json",
       repoRoot,
     ),
     taskSurfaceManifest: envPath(
@@ -84,7 +84,7 @@ export function runnerEnv(context, extra = {}) {
     GO_MOD_CACHE_DIR: context.goModCacheDir,
     TEST_OUTPUT_SCRIPT: context.testOutputScript,
     TASK_SURFACE_MANIFEST: context.taskSurfaceManifest,
-    SERVICE_BACKED_SCHEDULE_MANIFEST: context.serviceBackedScheduleManifest,
+    SCHEDULER_MANIFEST: context.schedulerManifest,
     CARTULARY_RUNNER_SCRIPT: context.runnerScript,
     ...extra,
   };

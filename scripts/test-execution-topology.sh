@@ -464,7 +464,7 @@ case "\${target}" in
   go-test-duration-baseline-coverage)
     ;;
   phase-schedules)
-    printf 'phase-schedules: updated 2 files (tools/check_schedule_manifest.json, tools/execution_topology_render_index.json)\\n'
+    printf 'phase-schedules: updated 2 files (tools/scheduler_manifest.json, tools/execution_topology_render_index.json)\\n'
     ;;
   phase-schedule-drift|json-shape-check)
     ;;
@@ -489,7 +489,7 @@ assert.equal(
   agentFinalizeOutput.trim(),
   [
     "agent-finalize: duration baselines skipped, RESULTS_DIR not set",
-    "agent-finalize: ran, updated 2 files (tools/check_schedule_manifest.json, tools/execution_topology_render_index.json)",
+    "agent-finalize: ran, updated 2 files (tools/scheduler_manifest.json, tools/execution_topology_render_index.json)",
   ].join("\n"),
   "agent-finalize must report the phase-schedules update summary",
 );
@@ -609,8 +609,7 @@ cliRenderTopology.generated_outputs = {
   ...cliRenderTopology.generated_outputs,
   task_surface_manifest: cliRenderOutputPath("task_surface_manifest.json"),
   task_surface_make: cliRenderOutputPath("task_surface.generated.mk"),
-  check_schedule_manifest: cliRenderOutputPath("check_schedule_manifest.json"),
-  service_backed_schedule_manifest: cliRenderOutputPath("service_backed_schedule_manifest.json"),
+  scheduler_manifest: cliRenderOutputPath("scheduler_manifest.json"),
   browser_e2e_batch_manifest: cliRenderOutputPath("browser_e2e_batch_manifest.json"),
   execution_topology_render_index: cliRenderOutputPath("execution_topology_render_index.json"),
 };
@@ -626,7 +625,7 @@ const firstRenderOutput = execFileSync(process.execPath, [renderScript, "--topol
 });
 assert.match(
   firstRenderOutput,
-  /phase-schedules: updated 6 files/,
+  /phase-schedules: updated 5 files/,
   "phase-schedules must report updated generated artifacts",
 );
 assert.doesNotThrow(
@@ -649,8 +648,7 @@ renderIndexTopology.generated_outputs = {
   ...renderIndexTopology.generated_outputs,
   task_surface_manifest: renderOutputPath("task_surface_manifest.json"),
   task_surface_make: renderOutputPath("task_surface.generated.mk"),
-  check_schedule_manifest: renderOutputPath("check_schedule_manifest.json"),
-  service_backed_schedule_manifest: renderOutputPath("service_backed_schedule_manifest.json"),
+  scheduler_manifest: renderOutputPath("scheduler_manifest.json"),
   browser_e2e_batch_manifest: renderOutputPath("browser_e2e_batch_manifest.json"),
   execution_topology_render_index: renderOutputPath("execution_topology_render_index.json"),
 };
@@ -668,8 +666,7 @@ writeFileSync(renderIndexTopologyPath, `${JSON.stringify(renderIndexTopology, nu
 const renderArtifacts = [
   { file: renderIndexTopology.generated_outputs.task_surface_manifest, content: "not json\n" },
   { file: renderIndexTopology.generated_outputs.task_surface_make, content: "# generated make fixture\n" },
-  { file: renderIndexTopology.generated_outputs.check_schedule_manifest, content: "not json\n" },
-  { file: renderIndexTopology.generated_outputs.service_backed_schedule_manifest, content: "not json\n" },
+  { file: renderIndexTopology.generated_outputs.scheduler_manifest, content: "not json\n" },
   { file: renderIndexTopology.generated_outputs.browser_e2e_batch_manifest, content: "not json\n" },
 ];
 for (const artifact of renderArtifacts) {
