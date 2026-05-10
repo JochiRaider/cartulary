@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -23,6 +24,7 @@ import {
 } from "./lib/scheduler-runner.mjs";
 import { resourceMapToObject } from "./lib/scheduler-resources.mjs";
 import { createRunnerContext, runnerEnv } from "./lib/runner-context.mjs";
+import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -90,6 +92,18 @@ function runTargetSummary(context, target, status, children = []) {
     args.push("--children", children.join(","));
   }
   return runWithContext(command, args, { env: runnerEnv(context) });
+}
+
+function targetPublicExitCode(context, target, fallbackStatus) {
+  const summaryFile = path.join(context.resultsDir, context.runId, target, "tool-run-summary.json");
+  if (!existsSync(summaryFile)) {
+    return fallbackStatus === 0 ? 0 : 1;
+  }
+  try {
+    return publicExitCodeForSummary(JSON.parse(readFileSync(summaryFile, "utf8")));
+  } catch {
+    return fallbackStatus === 0 ? 0 : 1;
+  }
 }
 
 function makeTarget(context, target) {
@@ -318,7 +332,7 @@ async function runScheduler(plan, context) {
       schedule: runtimeSchedule,
       testOutputScript: context.testOutputScript,
     });
-    return result.status;
+    return targetPublicExitCode(context, plan.target, result.status);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -343,8 +357,8 @@ async function main() {
   if (!options.insideServiceWrapper) {
     const setupStatus = runSetup(context, plan);
     if (setupStatus !== 0) {
-      runTargetSummary(context, plan.target, "fail", plan.child_target_names);
-      return setupStatus;
+      const summaryStatus = runTargetSummary(context, plan.target, "fail", plan.child_target_names);
+      return targetPublicExitCode(context, plan.target, summaryStatus === 0 ? setupStatus : summaryStatus);
     }
     if (needsServiceWrapper(plan)) {
       return reexecInsideServiceWrapper(context, options);

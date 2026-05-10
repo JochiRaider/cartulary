@@ -33,6 +33,7 @@ import {
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "./lib/scheduler-runner.mjs";
+import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
 import { createRunnerContext } from "./lib/runner-context.mjs";
 import {
   loadSchedulerManifest,
@@ -1018,7 +1019,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
       schedule: runtimeSchedule,
       testOutputScript,
     });
-    return result.status;
+    return publicExitCodeForSummary(result.summary, { status: result.status });
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -1094,5 +1095,5 @@ async function main() {
 
 main().catch((error) => {
   process.stderr.write(`${error.message}\n`);
-  process.exitCode = 1;
+  process.exitCode = 2;
 });

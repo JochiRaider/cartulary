@@ -169,13 +169,13 @@ run_case pass 0 0 0
 expected_children="backend-integration,backend-integration-support,backend-process,backend-store,browser-e2e-measurement,browser-e2e-stateful,browser-e2e-visual,browser-e2e-webserver-backed"
 assert_contains "$(cat "$tmp_dir/pass.log")" "summary args=target-summary test-service-backed pass --children $expected_children" "pass summary"
 
-run_case scheduler-fail 7 0 7
+run_case scheduler-fail 7 0 1
 assert_contains "$(cat "$tmp_dir/scheduler-fail.log")" "summary args=target-summary test-service-backed fail --children $expected_children" "scheduler fail summary"
 
-run_case summary-fail 0 9 9
+run_case summary-fail 0 9 1
 assert_contains "$(cat "$tmp_dir/summary-fail.log")" "summary args=target-summary test-service-backed pass --children $expected_children" "summary fail summary"
 
-run_case scheduler-and-summary-fail 7 9 7
+run_case scheduler-and-summary-fail 7 9 1
 assert_contains "$(cat "$tmp_dir/scheduler-and-summary-fail.log")" "summary args=target-summary test-service-backed fail --children $expected_children" "scheduler precedence summary"
 
 summary_make="$tmp_dir/fake-summary-make.sh"
@@ -243,7 +243,7 @@ summary_fail_output="$(
 )"
 summary_fail_status=$?
 set -e
-assert_equals "$summary_fail_status" "6" "summary child failure exit status"
+assert_equals "$summary_fail_status" "1" "summary child failure exit status"
 assert_contains "$summary_fail_output" "[FAIL] target=check-summary-fail" "summary fail output"
 assert_json_field_equals "$summary_fail_results/summary-fail/check-summary-fail/target-summary.json" "status" "fail" "summary fail status"
 

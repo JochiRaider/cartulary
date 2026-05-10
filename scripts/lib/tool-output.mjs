@@ -10,6 +10,7 @@ import {
   failureReasonOrder,
   normalizeFailureClass,
   normalizeFailureReason,
+  publicExitCodeForFailures,
 } from "./failure-taxonomy.mjs";
 
 export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v2";
@@ -271,6 +272,13 @@ export function buildToolRunSummary({
         defaultReasonForFailureClass(normalizedFailureClass),
       )
     : null;
+  const normalizedFailures = sortFailures(failures);
+  const normalizedExitCode = status === "pass"
+    ? 0
+    : publicExitCodeForFailures(failures, {
+        failure_class: normalizedFailureClass || "unknown",
+        failure_reason: normalizedFailureReason || "unknown_failure",
+      });
   const normalizedCompletedAt = normalizeTimestamp(completedAt, startedAt);
   const normalizedStartedAt = normalizeTimestamp(startedAt, normalizedCompletedAt);
   return {
@@ -278,7 +286,7 @@ export function buildToolRunSummary({
     target,
     command: commandInfo({ target, command }),
     status,
-    exit_code: exitCode,
+    exit_code: normalizedExitCode || exitCode,
     started_at: normalizedStartedAt,
     completed_at: normalizedCompletedAt,
     duration_ms: compactDurationMs(durationMs),
@@ -298,7 +306,7 @@ export function buildToolRunSummary({
     },
     failure_class: normalizedFailureClass,
     failure_reason: normalizedFailureReason,
-    failures: sortFailures(failures),
+    failures: normalizedFailures,
     slowest: sortSlowest(slowest),
     warnings,
     rerun_commands: rerunCommands,

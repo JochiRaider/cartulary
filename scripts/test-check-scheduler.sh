@@ -747,7 +747,7 @@ const fail = (message) => {
 };
 
 const validSchedulerRegistry = () => ({
-  schema_id: "cartulary.scheduler_resource_registry.v3",
+  schema_id: "cartulary.scheduler_resource_registry.v4",
   resources: [
     {
       name: "host_cpu",
@@ -756,6 +756,7 @@ const validSchedulerRegistry = () => ({
       display_order: 10,
       capacity: {
         default_limit: 1,
+        max_limit: 256,
       },
     },
   ],
@@ -766,6 +767,7 @@ const validSchedulerRegistry = () => ({
       display_name: "browser stage",
       schedulers: ["service_backed"],
       display_order: 100,
+      max_limit: 8,
     },
   ],
   capacity_profiles: [
@@ -846,6 +848,52 @@ const cliResolved = normalizeResourceLimits(
 );
 if (cliResolved.limits.get("host_cpu") !== 4 || cliResolved.sources.get("host_cpu") !== "cli") {
   fail("check host_cpu CLI override must win over env override");
+}
+try {
+  normalizeResourceLimits(
+    { host_cpu: "auto", host_io: "auto", suite_service_stack: 1, migration_scratch_postgres: 1 },
+    "registry env bound test",
+    {
+      scheduler: "check",
+      capacityProfile: "check_default",
+      allowAuto: true,
+      env: { CHECK_HOST_CPU_JOBS: "257" },
+    },
+  );
+  fail("oversized host_cpu env override was accepted");
+} catch (error) {
+  if (!String(error.message).includes("resource_limits.host_cpu must be <= 256")) {
+    throw error;
+  }
+}
+try {
+  normalizeResourceLimits(
+    { host_cpu: "auto", host_io: "auto", suite_service_stack: 1, migration_scratch_postgres: 1 },
+    "registry cli bound test",
+    {
+      scheduler: "check",
+      capacityProfile: "check_default",
+      allowAuto: true,
+      overrides: new Map([["host_cpu", 257]]),
+    },
+  );
+  fail("oversized host_cpu CLI override was accepted");
+} catch (error) {
+  if (!String(error.message).includes("resource_limits.host_cpu must be <= 256")) {
+    throw error;
+  }
+}
+try {
+  normalizeResourceLimits(
+    { browser_stage_visual: 9 },
+    "browser stage bound test",
+    { scheduler: "check" },
+  );
+  fail("oversized browser stage limit was accepted");
+} catch (error) {
+  if (!String(error.message).includes("resource_limits.browser_stage_visual must be <= 8")) {
+    throw error;
+  }
 }
 const invalidRegistryPath = path.join(mkdtempSync(path.join(os.tmpdir(), "cartulary-registry-test-")), "registry.json");
 const invalidCapacityRegistry = validSchedulerRegistry();

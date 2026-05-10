@@ -30,6 +30,7 @@ import {
   writeSchedulerDryRun,
 } from "./lib/scheduler-runner.mjs";
 import { createRunnerContext } from "./lib/runner-context.mjs";
+import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
 import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
@@ -1294,10 +1295,10 @@ async function main() {
     schedule: runtimeSchedule,
     testOutputScript,
   });
-  process.exitCode = result.status;
+  process.exitCode = publicExitCodeForSummary(result.summary, { status: result.status });
 }
 
 main().catch((error) => {
   process.stderr.write(`${error.message}\n`);
-  process.exitCode = 1;
+  process.exitCode = 2;
 });

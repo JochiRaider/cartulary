@@ -788,6 +788,7 @@ class SchedulerReporter {
     };
     validateSchemaSync(schedulerSummary.schema_id, schedulerSummary);
     await writeFile(this.summaryPath, prettyJSONString(schedulerSummary));
+    return schedulerSummary;
   }
 
   writeEvent(event, state, detail) {
@@ -1160,7 +1161,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
 
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";
     reporter.finishLifecycle(stateSnapshot());
-    await reporter.summary(requestedStatus, { started, failedWorkUnit: firstFailureLabel });
+    const summary = await reporter.summary(requestedStatus, { started, failedWorkUnit: firstFailureLabel });
     if (schedule.afterSummary) {
       await schedule.afterSummary({
         reporter,
@@ -1185,6 +1186,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
     }
     return {
       status: firstFailure,
+      summary,
       requestedStatus,
       reporter,
       completedKeys,

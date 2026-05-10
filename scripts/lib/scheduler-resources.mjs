@@ -17,7 +17,7 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const defaultRegistryPath = path.join(repoRoot, "tools", "scheduler_resource_registry.json");
-const registrySchemaID = "cartulary.scheduler_resource_registry.v3";
+const registrySchemaID = "cartulary.scheduler_resource_registry.v4";
 const envVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const registryTopLevelKeys = new Set([
   "schema_id",
@@ -27,7 +27,7 @@ const registryTopLevelKeys = new Set([
   "forwarding_profiles",
 ]);
 const resourceKeys = new Set(["name", "display_name", "schedulers", "display_order", "capacity"]);
-const templateKeys = new Set(["name", "prefix", "display_name", "schedulers", "display_order"]);
+const templateKeys = new Set(["name", "prefix", "display_name", "schedulers", "display_order", "max_limit"]);
 const capacityProfileKeys = new Set(["name", "scheduler", "resources"]);
 const forwardingProfileKeys = new Set(["name", "mappings"]);
 const forwardingMappingKeys = new Set(["source_resource", "target_resource", "env_variable"]);
@@ -61,7 +61,7 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
         const capacity = validateObjectShape(
           resource.capacity,
           `${resourceLabel}.capacity`,
-          { keys: new Set(["default_limit", "auto_policy", "override_env"]) },
+          { keys: new Set(["default_limit", "auto_policy", "override_env", "max_limit"]) },
         );
         if (capacity.default_limit !== undefined) {
           requirePositiveInteger(
@@ -85,6 +85,17 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
             pattern: envVariablePattern,
           });
         }
+        if (capacity.max_limit !== undefined) {
+          requireInteger(capacity.max_limit, `${resourceLabel}.capacity.max_limit`, {
+            min: 1,
+          });
+          if (
+            capacity.default_limit !== undefined &&
+            capacity.default_limit > capacity.max_limit
+          ) {
+            throw new Error(`${resourceLabel}.capacity.default_limit must be <= max_limit`);
+          }
+        }
       }
     },
   );
@@ -102,6 +113,11 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
       requireInteger(template.display_order, `${templateLabel}.display_order`, {
         min: 0,
       });
+      if (template.max_limit !== undefined) {
+        requireInteger(template.max_limit, `${templateLabel}.max_limit`, {
+          min: 1,
+        });
+      }
     },
   );
   validateObjectArray(
@@ -205,7 +221,7 @@ function normalizeCapacity(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${label}.capacity must be an object`);
   }
-  const allowedKeys = new Set(["default_limit", "auto_policy", "override_env"]);
+  const allowedKeys = new Set(["default_limit", "auto_policy", "override_env", "max_limit"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) {
       throw new Error(`${label}.capacity has unknown key ${key}`);
@@ -216,12 +232,20 @@ function normalizeCapacity(value, label) {
   if (hasDefault === hasAuto) {
     throw new Error(`${label}.capacity must declare exactly one of default_limit or auto_policy`);
   }
+  const defaultLimit = hasDefault
+    ? requirePositiveInteger(value.default_limit, `${label}.capacity.default_limit`)
+    : null;
+  const maxLimit = value.max_limit === undefined
+    ? null
+    : requirePositiveInteger(value.max_limit, `${label}.capacity.max_limit`);
+  if (defaultLimit !== null && maxLimit !== null && defaultLimit > maxLimit) {
+    throw new Error(`${label}.capacity.default_limit must be <= max_limit`);
+  }
   return {
-    defaultLimit: hasDefault
-      ? requirePositiveInteger(value.default_limit, `${label}.capacity.default_limit`)
-      : null,
+    defaultLimit,
     autoPolicy: hasAuto ? requireString(value.auto_policy, `${label}.capacity.auto_policy`) : null,
     overrideEnv: normalizeOverrideEnv(value.override_env, `${label}.capacity.override_env`),
+    maxLimit,
   };
 }
 
@@ -260,6 +284,9 @@ function buildRegistry(file = defaultRegistryPath) {
       displayName: requireString(template.display_name, `${label}.display_name`),
       schedulers: new Set((template.schedulers ?? []).map((entry) => requireString(entry, `${label}.schedulers[]`))),
       displayOrder: Number.isFinite(template.display_order) ? template.display_order : 1000,
+      maxLimit: template.max_limit === undefined
+        ? null
+        : requirePositiveInteger(template.max_limit, `${label}.max_limit`),
     });
   }
   const capacityProfiles = new Map();
@@ -338,6 +365,7 @@ export function resourceDescriptor(resource) {
       autoPolicy: descriptor.capacity?.autoPolicy ?? null,
       defaultLimit: descriptor.capacity?.defaultLimit ?? null,
       overrideEnv: descriptor.capacity?.overrideEnv ?? null,
+      maxLimit: descriptor.capacity?.maxLimit ?? null,
       envVariable: descriptor.capacity?.overrideEnv ?? null,
       makeVariable: null,
     };
@@ -354,6 +382,7 @@ export function resourceDescriptor(resource) {
       autoPolicy: null,
       defaultLimit: null,
       overrideEnv: null,
+      maxLimit: template.maxLimit ?? null,
       envVariable: null,
       makeVariable: null,
       template: template.name,
@@ -440,6 +469,9 @@ function validateRawLimit(rawLimit, label, resource, { allowAuto }) {
   if (!Number.isInteger(rawLimit) || rawLimit < 1) {
     throw new Error(`${label} resource_limits.${resource} must be a positive integer${allowAuto ? ' or "auto"' : ""}`);
   }
+  if (descriptor?.maxLimit !== null && descriptor?.maxLimit !== undefined && rawLimit > descriptor.maxLimit) {
+    throw new Error(`${label} resource_limits.${resource} must be <= ${descriptor.maxLimit}`);
+  }
   return rawLimit;
 }
 
@@ -472,7 +504,7 @@ export function resourceLimitsForCapacityProfile(name, label, { scheduler, allow
   return { limits, sources, profile };
 }
 
-function parsePositiveIntegerEnv(env, name) {
+function parsePositiveIntegerEnv(env, name, label, resource) {
   if (!env || !name) {
     return null;
   }
@@ -484,6 +516,7 @@ function parsePositiveIntegerEnv(env, name) {
   if (!Number.isInteger(amount) || amount < 1) {
     throw new Error(`${name} must be a positive integer`);
   }
+  validateRawLimit(amount, label, resource, { allowAuto: false });
   return amount;
 }
 
@@ -543,7 +576,7 @@ export function normalizeResourceLimits(value, label, { scheduler, capacityProfi
   }
   for (const [resource, limit] of limits.entries()) {
     const descriptor = resourceDescriptor(resource);
-    const envOverride = parsePositiveIntegerEnv(env, descriptor?.overrideEnv);
+    const envOverride = parsePositiveIntegerEnv(env, descriptor?.overrideEnv, label, resource);
     if (envOverride !== null) {
       limits.set(resource, envOverride);
       sources.set(resource, `env:${descriptor.overrideEnv}`);
@@ -559,7 +592,7 @@ export function normalizeResourceLimits(value, label, { scheduler, capacityProfi
     if (!Number.isInteger(amount) || amount < 1) {
       throw new Error(`${label} resource limit override ${normalizedResource} must be a positive integer`);
     }
-    limits.set(normalizedResource, amount);
+    limits.set(normalizedResource, validateRawLimit(amount, label, normalizedResource, { allowAuto: false }));
     sources.set(normalizedResource, "cli");
   }
   return { limits, sources };
@@ -586,7 +619,7 @@ export function resolveAutoResourceLimits(resourceLimits, resourceLimitSources, 
     if (!Number.isInteger(amount) || amount < 1) {
       throw new Error(`${label} auto policy ${policy} for ${resource} must return a positive integer`);
     }
-    resolved.set(resource, amount);
+    resolved.set(resource, validateRawLimit(amount, label, resource, { allowAuto: false }));
     sources.set(resource, `auto:${policy}`);
   }
   return { resourceLimits: resolved, resourceLimitSources: sources };

@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 
 import { createRunnerContext, runnerEnv } from "./lib/runner-context.mjs";
 import {
   loadSummaryTopologyContext,
   serviceBackedScheduleChildren,
 } from "./lib/summary-topology.mjs";
+import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
 
 const goTargetCommands = new Set([
   "inspect-aggregate-command",
@@ -72,6 +75,19 @@ function runTargetSummary(context, args) {
   return runWithContext(context, command, commandArgs, {
     env: runnerEnv(context),
   });
+}
+
+function targetPublicExitCode(context, target, fallbackStatus) {
+  const summaryFile = path.join(context.resultsDir, context.runId, target, "tool-run-summary.json");
+  if (!existsSync(summaryFile)) {
+    return fallbackStatus === 0 ? 0 : 1;
+  }
+  try {
+    const summary = JSON.parse(readFileSync(summaryFile, "utf8"));
+    return publicExitCodeForSummary(summary);
+  } catch {
+    return fallbackStatus === 0 ? 0 : 1;
+  }
 }
 
 function serviceBackedTarget(context, argv) {
@@ -146,7 +162,9 @@ function serviceBackedTarget(context, argv) {
     summaryArgs.push("--quiet-success");
   }
   const summaryStatus = runTargetSummary(context, summaryArgs);
-  return status === 0 ? summaryStatus : status;
+  return summaryStatus === 0
+    ? targetPublicExitCode(context, target, status)
+    : targetPublicExitCode(context, target, summaryStatus);
 }
 
 function summaryTarget(context, argv) {
@@ -182,7 +200,9 @@ function summaryTarget(context, argv) {
     summaryArgs.push("--skipped-from-child", childTarget);
   }
   const summaryStatus = runTargetSummary(context, summaryArgs);
-  return childStatus === 0 ? summaryStatus : childStatus;
+  return summaryStatus === 0
+    ? targetPublicExitCode(context, target, childStatus)
+    : targetPublicExitCode(context, target, summaryStatus);
 }
 
 function goTarget(context, argv) {

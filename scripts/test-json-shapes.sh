@@ -256,7 +256,7 @@ write_valid_scheduler_resource_registry() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_resource_registry.v3",
+  "schema_id": "cartulary.scheduler_resource_registry.v4",
   "resources": [
     {
       "name": "host_cpu",
@@ -265,7 +265,8 @@ write_valid_scheduler_resource_registry() {
       "display_order": 10,
       "capacity": {
         "default_limit": 1,
-        "override_env": "CHECK_HOST_CPU_JOBS"
+        "override_env": "CHECK_HOST_CPU_JOBS",
+        "max_limit": 256
       }
     }
   ],
@@ -275,7 +276,8 @@ write_valid_scheduler_resource_registry() {
       "prefix": "browser_stage_",
       "display_name": "Browser stage",
       "schedulers": ["service_backed"],
-      "display_order": 100
+      "display_order": 100,
+      "max_limit": 8
     }
   ],
   "capacity_profiles": [

@@ -18,6 +18,7 @@ import {
   failureHeadlineForSummary,
   failuresFromDossiers,
   manifestMismatchFailureRecord,
+  publicExitCodeForSummary,
   timingFailureRecord,
 } from "../failure-taxonomy.mjs";
 import {
@@ -4040,10 +4041,10 @@ function handleRunSummary(args) {
     if (!shouldSuppressMachineOutput) {
       process.stdout.write(compactJSONString(runToolSummary(runSummary, runToolSummaryRel)));
     }
-    return 1;
+    return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
   }
   if ((quietFailure || suppressChildSuccess()) && quietOutputMode()) {
-    return 1;
+    return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
   }
   writeRunFailure(process.stderr, runSummary, runToolSummaryRel);
   if (verboseOutput()) {
@@ -4056,7 +4057,7 @@ function handleRunSummary(args) {
       sharedExecutionGroups,
     );
   }
-  return 1;
+  return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
 }
 
 function handleGoJSONStream() {

@@ -534,7 +534,7 @@ harness_failure_output="$(
 )"
 harness_failure_status=$?
 set -e
-assert_equals "${harness_failure_status}" "7" "failing harness preserves child status"
+assert_equals "${harness_failure_status}" "1" "failing harness normalizes unknown child status"
 assert_contains "${harness_failure_output}" "[FAIL] target=run-harness-smoke-fast" "failing harness reports concise failure"
 assert_contains "${harness_failure_output}" "[ARTIFACTS] target=run-harness-smoke-fast root=" "failing harness reports artifacts"
 assert_not_contains "${harness_failure_output}" "[CHILD-MISSING] run-harness-smoke-fast harness-skipped-b" "failing harness does not report skipped child missing"
@@ -698,6 +698,11 @@ import {
   resolveOutputMode,
   validateSchemaSync,
 } from "./scripts/lib/harness-contract.mjs";
+import {
+  publicExitCodeForFailure,
+  publicExitCodeForFailures,
+  publicExitCodeForSummary,
+} from "./scripts/lib/failure-taxonomy.mjs";
 
 assert.equal(
   resolveOutputMode({ CARTULARY_OUTPUT_MODE: "quiet", VERBOSE: "1" }, "backend-unit"),
@@ -711,6 +716,35 @@ assert.equal(resolveOutputMode({ CI_VERBOSE: "1" }, "backend-unit"), "ci");
 assert.equal(resolveOutputMode({ CI: "1" }, "backend-unit"), "ci");
 assert.equal(resolveOutputMode({}, "ci"), "ci");
 
+assert.equal(publicExitCodeForFailure({ failure_reason: "configuration_error" }), 2);
+assert.equal(publicExitCodeForFailure({ failure_reason: "fixture_error" }), 3);
+assert.equal(publicExitCodeForFailure({ failure_reason: "resource_conflict" }), 4);
+assert.equal(publicExitCodeForFailure({ failure_reason: "test_assertion_failure" }), 10);
+assert.equal(publicExitCodeForFailure({ failure_reason: "artifact_error" }), 11);
+assert.equal(publicExitCodeForFailure({ failure_reason: "cleanup_error" }), 12);
+assert.equal(publicExitCodeForFailure({ failure_reason: "timeout_failure" }), 13);
+assert.equal(publicExitCodeForFailure({ failure_reason: "cancelled_or_interrupted" }, { signal: "SIGINT" }), 130);
+assert.equal(publicExitCodeForFailures([
+  { failure_reason: "cleanup_error" },
+  { failure_reason: "test_assertion_failure" },
+]), 10);
+assert.equal(publicExitCodeForSummary({
+  status: "fail",
+  failure_reason: "child_target_failure",
+  failure_class: "harness",
+  failures: [{ failure_reason: "child_target_failure", child_target: "child" }],
+}, {
+  childSummaries: [{ target: "child", failure_reason: "test_assertion_failure", failure_class: "product" }],
+}), 10);
+assert.equal(publicExitCodeForSummary({
+  status: "fail",
+  failure_reason: "child_target_failure",
+  failure_class: "harness",
+  failures: [{ failure_reason: "child_target_failure", child_target: "missing" }],
+}, {
+  childSummaries: [],
+}), 1);
+
 const resolved = resolveHarnessConfig("backend-unit", {
   CARTULARY_TEST_RESULTS_DIR: "tmp/results",
   CARTULARY_TEST_RUN_ID: "run-a",
@@ -720,11 +754,29 @@ const resolved = resolveHarnessConfig("backend-unit", {
 assert.equal(resolved.output_mode, "summary");
 assert.equal(resolved.resource_limits.scheduler_overrides.CHECK_HOST_CPU_JOBS, 2);
 
+const unrelatedSuffixResolved = resolveHarnessConfig("backend-unit", {
+  CARTULARY_TEST_RESULTS_DIR: "tmp/results",
+  CARTULARY_TEST_RUN_ID: "run-a",
+  FOO_JOBS: "abc",
+  BAR_WORKERS: "abc",
+  BAZ_SHARDS: "abc",
+});
+assert.equal(unrelatedSuffixResolved.output_mode, "summary");
+
 assert.throws(
   () =>
     resolveHarnessConfig("backend-unit", {
       CARTULARY_TEST_RESULTS_DIR: "",
       CARTULARY_TEST_RUN_ID: "run-a",
+    }),
+  HarnessConfigError,
+);
+assert.throws(
+  () =>
+    resolveHarnessConfig("backend-unit", {
+      CARTULARY_TEST_RESULTS_DIR: "tmp/results",
+      CARTULARY_TEST_RUN_ID: "run-a",
+      PLAYWRIGHT_WORKERS: "abc",
     }),
   HarnessConfigError,
 );

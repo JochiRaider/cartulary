@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   harnessSummaryGroups,
@@ -15,6 +16,7 @@ import {
   repoRoot,
 } from "./lib/task-surface.mjs";
 import { verboseOutput as toolVerboseOutput } from "./lib/tool-output.mjs";
+import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
 
 function parseArgs(argv) {
   const options = {
@@ -105,6 +107,20 @@ async function summarizeCheck(name, status) {
   ]);
 }
 
+function targetPublicExitCode(target, fallbackStatus) {
+  const resultsRoot = process.env.CARTULARY_TEST_RESULTS_DIR ?? path.join(repoRoot, ".cartulary", "test-results");
+  const runID = process.env.CARTULARY_TEST_RUN_ID ?? "adhoc";
+  const summaryFile = path.join(resultsRoot, runID, target, "tool-run-summary.json");
+  if (!existsSync(summaryFile)) {
+    return fallbackStatus === 0 ? 0 : 1;
+  }
+  try {
+    return publicExitCodeForSummary(JSON.parse(readFileSync(summaryFile, "utf8")));
+  } catch {
+    return fallbackStatus === 0 ? 0 : 1;
+  }
+}
+
 function verboseOutput() {
   return toolVerboseOutput();
 }
@@ -137,7 +153,9 @@ async function runCheck(check) {
     env,
   );
   const summaryStatus = await summarizeCheck(check.name, status);
-  return status === 0 ? summaryStatus : status;
+  return summaryStatus === 0
+    ? targetPublicExitCode(check.name, status)
+    : targetPublicExitCode(check.name, summaryStatus);
 }
 
 function resolveCheckCommand(check) {
@@ -287,9 +305,9 @@ async function main() {
   }
   const targetSummaryStatus = await emitTestOutput(targetSummaryArgs);
   if (failure) {
-    process.exit(failure.status);
+    process.exit(targetPublicExitCode(failure.check, failure.status));
   }
-  process.exit(summaryStatus === 0 ? targetSummaryStatus : summaryStatus);
+  process.exit(targetPublicExitCode(label, summaryStatus === 0 ? targetSummaryStatus : summaryStatus));
 }
 
 main().catch((error) => {

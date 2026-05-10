@@ -35,6 +35,7 @@ import {
   toolRunSummarySchemaID,
   toolSummaryPath,
 } from "./lib/tool-output.mjs";
+import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
 
 function nowUTC() {
   return new Date().toISOString();
@@ -198,6 +199,7 @@ async function runWrapped(target, invocation) {
   summary.run_id ||= runID;
   summary.run_root ||= runRoot;
   summary.output_mode = normalizeOutputMode();
+  summary.exit_code = publicExitCodeForSummary(summary);
   await validateSchema(toolRunSummarySchemaID, summary);
   writeFileSync(summaryFile, prettyJSONString(summary));
 
@@ -224,7 +226,7 @@ async function runWrapped(target, invocation) {
       `[INVESTIGATE] command="make explain-run RESULTS_DIR=${relToCwd(path.join(resultsRoot, runID))} TARGET=${target} DETAIL=logs"\n`,
     );
   }
-  return status;
+  return summary.exit_code;
 }
 
 function usage() {

@@ -505,6 +505,10 @@ Public and machine summaries SHOULD print or serialize `run_root` once per summa
 Public Make-owned wrappers MUST expose exact public exit codes according to the failure-reason table below. Raw child process exit codes MAY be preserved in summaries but MUST NOT define the public wrapper exit code except where `child_target_failure` explicitly delegates to a normalized child failure class.
 Verified by: TH-HARNESS-AC-014
 
+Public exit-code selection is reason-based. Wrappers MUST derive the
+process exit status from the normalized `failure_reason` and primary-failure
+rules in this section, not from the raw process status of a child command.
+
 Failure classification uses two layers:
 
 - `failure_class`: coarse stable grouping for humans and automation.

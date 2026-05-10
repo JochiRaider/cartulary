@@ -65,6 +65,22 @@ const classDefaultReasonMap = new Map([
   ["unknown", "unknown_failure"],
 ]);
 
+const reasonPublicExitCodeMap = new Map([
+  ["usage_error", 2],
+  ["configuration_error", 2],
+  ["preflight_error", 3],
+  ["service_start_error", 3],
+  ["service_readiness_timeout", 3],
+  ["fixture_error", 3],
+  ["resource_conflict", 4],
+  ["test_assertion_failure", 10],
+  ["scheduler_accounting_error", 11],
+  ["artifact_error", 11],
+  ["cleanup_error", 12],
+  ["timeout_failure", 13],
+  ["unknown_failure", 1],
+]);
+
 export function createFailureClassCounts() {
   return Object.fromEntries(failureClassOrder.map((failureClass) => [failureClass, 0]));
 }
@@ -126,7 +142,7 @@ export function normalizeFailureRecord(record = {}, defaults = {}) {
     record.failure_class ?? defaults.failure_class ?? failureClassForReason(failureReason, "unknown"),
   );
   const normalizedReason = failureReason ?? defaultReasonForFailureClass(failureClass);
-  return {
+  const normalized = {
     failure_class: failureClass,
     failure_reason: normalizedReason,
     kind: String(record.kind ?? defaults.kind ?? "failure"),
@@ -138,6 +154,117 @@ export function normalizeFailureRecord(record = {}, defaults = {}) {
     message: String(record.message ?? defaults.message ?? ""),
     artifact: String(record.artifact ?? defaults.artifact ?? ""),
   };
+  const childTarget = String(record.child_target ?? defaults.child_target ?? "");
+  const workUnit = String(record.work_unit ?? defaults.work_unit ?? "");
+  if (childTarget) {
+    normalized.child_target = childTarget;
+  }
+  if (workUnit) {
+    normalized.work_unit = workUnit;
+  }
+  return normalized;
+}
+
+function publicExitCodeForInterrupted(context = {}) {
+  const signal = String(context.signal ?? context.termsig ?? context.term_signal ?? "").trim().toUpperCase();
+  if (signal === "SIGINT") {
+    return 130;
+  }
+  if (signal === "SIGTERM") {
+    return 143;
+  }
+  const status = Number(context.status ?? context.exit_status ?? context.exitCode ?? context.exit_code);
+  if (status === 130 || status === 143) {
+    return status;
+  }
+  return 15;
+}
+
+function childSummaryCandidates(record = {}, context = {}) {
+  const candidates = context.childSummaries ?? context.child_summaries ?? [];
+  if (!Array.isArray(candidates)) {
+    return [];
+  }
+  const childTarget = String(record.child_target || record.target || record.label || "").trim();
+  if (!childTarget) {
+    return candidates;
+  }
+  return candidates.filter((summary) => {
+    const target = String(summary?.target ?? summary?.label ?? "").trim();
+    return target === childTarget;
+  });
+}
+
+function delegatedChildFailure(record = {}, context = {}) {
+  for (const summary of childSummaryCandidates(record, context)) {
+    const reason = normalizeFailureReason(summary?.failure_reason, "");
+    if (reason && reason !== "child_target_failure") {
+      return {
+        failure_reason: reason,
+        failure_class: normalizeFailureClass(summary?.failure_class ?? failureClassForReason(reason), "unknown"),
+      };
+    }
+    const failure = primaryPublicFailure(summary?.failures ?? []);
+    if (failure && failure.failure_reason !== "child_target_failure") {
+      return failure;
+    }
+  }
+  return null;
+}
+
+export function publicExitCodeForFailure(record = {}, context = {}) {
+  const failure = normalizeFailureRecord(record, {
+    failure_reason: context.failure_reason,
+    failure_class: context.failure_class,
+  });
+  if (failure.failure_reason === "child_target_failure") {
+    const delegated = delegatedChildFailure(failure, context);
+    return delegated
+      ? publicExitCodeForFailure(delegated, context)
+      : reasonPublicExitCodeMap.get("unknown_failure");
+  }
+  if (failure.failure_reason === "cancelled_or_interrupted") {
+    return publicExitCodeForInterrupted(context);
+  }
+  return reasonPublicExitCodeMap.get(failure.failure_reason) ?? reasonPublicExitCodeMap.get("unknown_failure");
+}
+
+export function primaryPublicFailure(failures = [], fallback = null) {
+  const normalized = failures
+    .filter(Boolean)
+    .map((failure) => normalizeFailureRecord(failure))
+    .filter((failure) => failure.failure_class);
+  const nonCleanup = normalized.find((failure) => failure.failure_reason !== "cleanup_error");
+  if (nonCleanup) {
+    return nonCleanup;
+  }
+  if (normalized.length > 0) {
+    return normalized[0];
+  }
+  if (fallback?.failure_reason || fallback?.failure_class) {
+    return normalizeFailureRecord(fallback);
+  }
+  return null;
+}
+
+export function publicExitCodeForFailures(failures = [], context = {}) {
+  const failure = primaryPublicFailure(failures, context);
+  if (!failure) {
+    return 0;
+  }
+  return publicExitCodeForFailure(failure, context);
+}
+
+export function publicExitCodeForSummary(summary = {}, context = {}) {
+  if (!summary || summary.status === "pass") {
+    return 0;
+  }
+  return publicExitCodeForFailures(summary.failures ?? [], {
+    ...context,
+    failure_class: summary.failure_class ?? context.failure_class,
+    failure_reason: summary.failure_reason ?? context.failure_reason,
+    childSummaries: context.childSummaries ?? summary.child_summaries,
+  });
 }
 
 export function summarizeFailures(failures = [], counts = {}) {
