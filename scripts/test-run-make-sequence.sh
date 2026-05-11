@@ -7,6 +7,7 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-make-sequence.sh"
 task_surface_makefile="$ROOT_DIR/Makefile"
 task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
+ARTIFACT_ERROR_EXIT=11
 cleanup_paths=()
 
 # shellcheck source=scripts/lib/task-surface-check-common.sh
@@ -286,13 +287,15 @@ aggregate_missing_output="$(
 )"
 aggregate_missing_status=$?
 set -e
-assert_equals "${aggregate_missing_status}" "1" "aggregate missing target exit status"
+assert_equals "${aggregate_missing_status}" "${ARTIFACT_ERROR_EXIT}" "aggregate missing target exit status"
 assert_not_contains "${aggregate_missing_output}" "[RUN]" "aggregate missing run start output"
 assert_not_contains "${aggregate_missing_output}" "[STEP]" "aggregate missing step output"
 assert_contains "${aggregate_missing_output}" "[FAIL] target=aggregate-missing" "aggregate missing target run summary output"
+assert_contains "${aggregate_missing_output}" "reason=artifact_error" "aggregate missing target failure reason output"
 assert_output_occurrences "${aggregate_missing_output}" "[FAIL] target=aggregate-missing" "1" "aggregate missing single failure block"
 aggregate_missing_summary="${aggregate_missing_results}/aggregate-missing/run-summary.json"
 assert_equals "$(json_field "${aggregate_missing_summary}" "status")" "fail" "aggregate missing target status"
+assert_equals "$(json_field "${aggregate_missing_summary}" "failure_reason")" "artifact_error" "aggregate missing target failure reason"
 assert_equals "$(json_field "${aggregate_missing_summary}" "summary_targets.missing.0")" "missing-target" "aggregate missing target list"
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-failure.XXXXXX")"

@@ -153,6 +153,49 @@ func TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01(t *testing.T) {
 		t.Fatalf("whole change-set rollback did not append revisions for all affected records")
 	}
 
+	rowRestoreID := uuid.New()
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreID, "Integration row restore seed", "integration-row-restore", "", "")
+	seedHostProjection(t, harness.DB, incidentID, rowRestoreID)
+	rowRestoreTargetChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000705")
+	seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreID, actorID, rowRestoreTargetChangeSetID, time.Date(2026, 5, 10, 13, 5, 30, 0, time.UTC), "integration row before", "integration row snapshot")
+	mustExec(t, harness.DB, `UPDATE records SET row_version = 3, updated_by_user_id = $2 WHERE record_id = $1`, rowRestoreID, actorID)
+	mustExec(t, harness.DB, `UPDATE hosts SET display_name = 'integration row current', row_version = 3, updated_by_user_id = $2 WHERE record_id = $1`, rowRestoreID, actorID)
+	seedHostProjection(t, harness.DB, incidentID, rowRestoreID)
+	rowRestoreLinkID := seedRecordLinkForRowRestore(t, harness.DB, incidentID, rowRestoreID, actorID)
+	rowRestoreTagID := seedRecordTag(t, harness.DB, incidentID, rowRestoreID, actorID)
+	beforeRowRestoreLinks := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NULL`, rowRestoreLinkID)
+	beforeRowRestoreTags := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id = $1 AND deleted_at IS NULL`, rowRestoreTagID)
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 5, 45, 0, time.UTC))
+	rowRestorePayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, rowRestoreID, map[string]any{
+		"base_row_version": 3,
+		"client_txn_id":    "txn-i-7-01-row-restore",
+		"target":           map[string]any{"kind": "row_restore", "restore_to_revision_no": 2},
+	}), http.StatusOK)["data"].(map[string]any)
+	requireRollbackRecordChange(t, timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second), rowRestoreID, 4, "cartulary.view.hosts.v1")
+	requireAffectedRecords(t, rowRestorePayload, rowRestoreID)
+	if got := hostDisplayName(t, harness.DB, rowRestoreID); got != "integration row snapshot" {
+		t.Fatalf("row restore did not update source row, got %q", got)
+	}
+	if got := hostProjectionDisplayName(t, harness.DB, rowRestoreID); got != "integration row snapshot" {
+		t.Fatalf("row restore did not update projection row, got %q", got)
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NULL`, rowRestoreLinkID) != beforeRowRestoreLinks {
+		t.Fatalf("row restore mutated active link state")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id = $1 AND deleted_at IS NULL`, rowRestoreTagID) != beforeRowRestoreTags {
+		t.Fatalf("row restore mutated active tag state")
+	}
+	rowRestoreRollbackChangeSetID := rowRestorePayload["rollback_change_set_id"].(string)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND actor_user_id = $2`, rowRestoreRollbackChangeSetID, actorID) != 1 {
+		t.Fatalf("row restore did not create attributed rollback change_set")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND operation_kind = 'row_restore'`, rowRestoreRollbackChangeSetID) != 1 {
+		t.Fatalf("row restore did not append row_restore mutation")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND record_id = $2 AND row_version = 4`, rowRestoreRollbackChangeSetID, rowRestoreID) != 1 {
+		t.Fatalf("row restore did not append row revision")
+	}
+
 	attachedCreateSrc, attachedCreateEvidence, attachedCreateLink := seedRollbackAttachedEvidenceLinkCreate(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000706"))
 	attachedCreateRef := historyEntryRefForTarget(t, harness, login, attachedCreateSrc, "record_link", attachedCreateLink.String())
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 6, 0, 0, time.UTC))
@@ -343,6 +386,30 @@ func TestPhase7_StaleRestoreRollbackFailsClosed_I_7_03(t *testing.T) {
 	afterRollback := phase7StateCounts(t, harness.DB, rollbackRecordID)
 	if beforeRollback != afterRollback {
 		t.Fatalf("stale rollback mutated state: before=%+v after=%+v", beforeRollback, afterRollback)
+	}
+
+	rowRestoreRecordID := uuid.New()
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreRecordID, "Stale Row Restore Host", "stale-row-restore", "", "")
+	seedHostProjection(t, harness.DB, incidentID, rowRestoreRecordID)
+	rowRestoreTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000708")
+	seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreRecordID, actorID, rowRestoreTargetChangeSet, time.Date(2026, 5, 10, 15, 2, 30, 0, time.UTC), "stale row before", "stale row snapshot")
+	mustExec(t, harness.DB, `UPDATE records SET row_version = 3, updated_by_user_id = $2 WHERE record_id = $1`, rowRestoreRecordID, actorID)
+	mustExec(t, harness.DB, `UPDATE hosts SET display_name = 'stale row current', row_version = 3, updated_by_user_id = $2 WHERE record_id = $1`, rowRestoreRecordID, actorID)
+	seedHostProjection(t, harness.DB, incidentID, rowRestoreRecordID)
+	beforeRowRestore := phase7StateCounts(t, harness.DB, rowRestoreRecordID)
+	staleRowRestore := rollbackRecord(t, harness, login, rowRestoreRecordID, map[string]any{
+		"base_row_version": 2,
+		"client_txn_id":    "txn-i-7-03-stale-row-restore",
+		"target":           map[string]any{"kind": "row_restore", "restore_to_revision_no": 2},
+	})
+	httptestx.RequireErrorEnvelope(t, staleRowRestore, http.StatusConflict, "row_version_conflict")
+	timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	afterRowRestore := phase7StateCounts(t, harness.DB, rowRestoreRecordID)
+	if beforeRowRestore != afterRowRestore {
+		t.Fatalf("stale row restore mutated state: before=%+v after=%+v", beforeRowRestore, afterRowRestore)
+	}
+	if got := hostDisplayName(t, harness.DB, rowRestoreRecordID); got != "stale row current" {
+		t.Fatalf("stale row restore changed host display name to %q", got)
 	}
 
 	wholeLeft, wholeRight := seedRollbackHostPair(t, harness.DB, incidentID, actorID, "Stale Whole Left", "Stale Whole Right")

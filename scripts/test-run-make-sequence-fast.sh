@@ -936,6 +936,10 @@ assert_contains "${collision_preflight_output}" "non-empty run root" "non-empty 
 assert_contains "${collision_preflight_output}" "status=2" "non-empty run root exits 2"
 assert_file_absent "${collision_preflight_dir}/results/stale-run/tool-run-summary.json" "collision preflight stops wrapper summary"
 
+generated_make="$(cat "${task_surface_generated_make_file}")"
+assert_contains "${generated_make}" "backend-integration: export CARTULARY_TEST_TARGET ?= backend-integration" "backend-integration recipe exists"
+assert_contains "${generated_make}" "CARTULARY_HARNESS_IDENTITY_PREPARED=1 GO_TEST_PACKAGE_PARALLELISM" "backend-integration child runner reuses prepared public identity"
+
 for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")

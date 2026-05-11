@@ -1,16 +1,16 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase7",
-  "note": "Phase 7 active execution manifest for reviewer-facing history, first-class record delete or restore, rollback, retained history, and destructive-operation lock precedence. Sprint 3 activates rollback route admission, rollback reason registries, destructive-operation lock precedence for rollback, single-entry history_entry rollback, executable whole-change-set rollback for reversible non-merge mutation substrate, entry_requires_change_set protection, and direct attached-evidence association rollback while whole-row restore, retained-history restart or closure expansion, merge-specific rollback, merge-lock integration, reviewer workbook UI, browser workflows, and typed tag rollback remain unclaimed.",
+  "note": "Phase 7 active execution manifest for reviewer-facing history, first-class record delete or restore, rollback, retained history, and destructive-operation lock precedence. Sprint 4 activates whole-row restore from record_revisions snapshots, retained-history restart and closure expansion, and shared destructive-operation lock precedence for restore, rollback, and merge while merge-specific rollback, reviewer workbook UI, browser workflows, and typed tag rollback remain unclaimed.",
   "ledger": {
     "title": "Phase 7 Coverage Ledger",
     "notes": [
-      "Phase 7 is active so public phase wrappers execute the Phase 7 manifest. Sprint 3 covers rollback route admission, rollback reason registries, destructive-operation lock precedence for rollback, single-entry `history_entry` rollback, executable whole-`change_set` rollback for reversible non-merge substrate, `entry_requires_change_set`, and direct attached-evidence association rollback.",
+      "Phase 7 is active so public phase wrappers execute the Phase 7 manifest. Sprint 4 covers rollback route admission, rollback reason registries, shared destructive-operation lock precedence for restore, rollback, and merge, single-entry `history_entry` rollback, executable whole-`change_set` rollback for reversible non-merge substrate, executable `row_restore`, `entry_requires_change_set`, and direct attached-evidence association rollback.",
       "Sprint 1 accepts fixture-seeded delete, restore, and rollback-like state changes only as retained-history read-route invariants before the owning mutation routes exist.",
       "`AC-184` and `AC-185` appear in the Phase 7 guide row `U-7-01`, but the guide coverage index assigns those ACs to Phase 8. Phase 7 records them as support references only and does not claim them as completed Phase 7 evidence.",
-      "Adjunct mutation-target-family history completeness remains incremental; Sprint 3 claims single-entry and whole-change-set rollback only where reversible before/after mutation data is available, and does not claim merge-specific change-set rollback.",
+      "Adjunct mutation-target-family history completeness remains incremental; Sprint 4 claims single-entry and whole-change-set rollback only where reversible before/after mutation data is available, and does not claim merge-specific change-set rollback.",
       "Typed tag rollback language is treated as an owner-decision dependency; Phase 7 scope sentinels must not claim Phase 8 typed tag creation or mutation behavior.",
-      "Retained-history restart or incident-closure evidence remains limited to existing explicit tests and is not expanded by Sprint 3 rollback closure work."
+      "Retained-history restart, incident-closure, delete or restore cycle, rollback, row-restore, and ordinary retained-history stability evidence is covered by explicit Sprint 4 tests."
     ],
     "authoritative_execution": [
       "`backend-store` carries authoritative `U-7-*` route and store-domain rows through manifest-owned service-backed Go selection.",
@@ -189,8 +189,8 @@
       "symbol": "TestPhase7_RollbackSelectorUnion_U_7_05",
       "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
-      "claim": "Sprint 3 covers rollback route admission, derived rollback reason registries, the closed target selector union, strict request validation, durable `history_entry_ref` resolution, route-scoped idempotency, append-only single-entry rollback, executable whole-change-set rollback for reversible non-merge substrate, `entry_requires_change_set`, and executable-only `available_rollback_actions[]` metadata.",
-      "out_of_scope": "Whole-row restore, retained-history restart or closure expansion, merge-specific rollback, merge-lock integration, reviewer workbook UI, browser reviewer workflows, and typed tag rollback remain later owner-controlled work.",
+      "claim": "Sprint 4 covers rollback route admission, derived rollback reason registries, the closed target selector union, strict request validation, durable `history_entry_ref` resolution, route-scoped idempotency, append-only single-entry rollback, executable whole-change-set rollback for reversible non-merge substrate, executable whole-row restore from `record_revisions` snapshots, `entry_requires_change_set`, and executable-only `available_rollback_actions[]` metadata.",
+      "out_of_scope": "Merge-specific rollback, reviewer workbook UI, browser reviewer workflows, and typed tag rollback remain later owner-controlled work.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase7 rollback",
       "fixture_policy": {
@@ -212,8 +212,8 @@
       "symbol": "TestPhase7_DestructiveOperationLocks_U_7_06",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Sprint 3 covers rollback destructive-operation lock precedence for single-entry and whole-change-set rollback: protected-set locks are acquired before stale row-version and rollback target precondition evaluation, and released requests fall through to ordinary downstream errors.",
-      "out_of_scope": "Merge-lock integration and browser-visible destructive-operation workflow handling remain later Phase 7 work.",
+      "claim": "Sprint 4 covers shared destructive-operation lock precedence for restore, rollback, row_restore, and merge: protected-set locks are acquired before stale row-version and route-specific precondition evaluation, and released requests fall through to ordinary downstream errors.",
+      "out_of_scope": "Browser-visible destructive-operation workflow handling remains later Phase 7 work.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase7 locks",
       "fixture_policy": {
@@ -235,8 +235,8 @@
       "symbol": "TestPhase7_RetainedHistoryInvariants_U_7_07",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Existing retained-history invariants for extant records remain fully paginatable and preserve issued `history_entry_ref` values across the explicit lifecycle states covered by this test.",
-      "out_of_scope": "Sprint 3 does not expand retained-history restart or incident-closure scope; the current profile also defines no public history-purge route or retention-horizon setting for extant incidents.",
+      "claim": "Retained-history invariants for extant records remain fully paginatable and preserve issued `history_entry_ref` values across delete or restore cycles, rollback-like later work, incident closure, and no-purge/no-retention-horizon route and configuration checks covered by this test.",
+      "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7; reviewer workbook UI remains Sprint 5 scope.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase7 history",
       "fixture_policy": {
@@ -260,8 +260,8 @@
       "symbol": "TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Sprint 3 covers delete, restore, single-entry rollback, direct attached-evidence create/delete association rollback, and executable whole-change-set rollback for reversible non-merge substrate across source rows, projections, history rows, record revisions, affected_record_ids, and ordinary record_changed collaboration events.",
-      "out_of_scope": "Whole-row restore, merge-specific rollback, merge-lock integration, reviewer workbook UI, browser workflows, and typed tag rollback remain unclaimed.",
+      "claim": "Sprint 4 covers delete, restore, single-entry rollback, direct attached-evidence create/delete association rollback, executable whole-change-set rollback for reversible non-merge substrate, and whole-row restore across source rows, projections, history rows, record revisions, affected_record_ids, and ordinary record_changed collaboration events.",
+      "out_of_scope": "Merge-specific rollback, reviewer workbook UI, browser workflows, and typed tag rollback remain unclaimed.",
       "execution_family": "backend-integration-revisions",
       "execution_label": "backend-integration phase7 revisions",
       "fixture_policy": {
@@ -306,8 +306,8 @@
       "symbol": "TestPhase7_StaleRestoreRollbackFailsClosed_I_7_03",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Sprint 3 covers stale restore plus stale or non-reversible single-entry and whole-change-set rollback failure as closed transactions: no envelope/source state, projection, history, idempotency, or collaboration event changes.",
-      "out_of_scope": "Whole-row restore stale-precondition behavior remains later Phase 7 work.",
+      "claim": "Sprint 4 covers stale restore plus stale or non-reversible single-entry, whole-change-set, and row-restore rollback failure as closed transactions: no envelope/source state, projection, history, idempotency, or collaboration event changes.",
+      "out_of_scope": "Merge-specific rollback stale behavior remains unclaimed until merge rollback substrate exists.",
       "execution_family": "backend-integration-revisions",
       "execution_label": "backend-integration phase7 revisions",
       "fixture_policy": {
@@ -329,8 +329,8 @@
       "symbol": "TestPhase7_RetainedHistoryAcrossRestartAndClosure_I_7_04",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Existing retained-history evidence for an extant record remains fully paginatable and stable across the explicit restart, incident-closure, and later-change sequence covered by this test, with prior `history_entry_ref` values preserved.",
-      "out_of_scope": "Sprint 3 does not expand retained-history restart or incident-closure scope; incident portability selector preservation across deployments is outside Phase 7.",
+      "claim": "Sprint 4 retained-history evidence for an extant record remains fully paginatable and stable across the explicit restart, incident-closure, and later-change sequence covered by this test, with prior `history_entry_ref` values preserved.",
+      "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7; reviewer workbook UI remains Sprint 5 scope.",
       "execution_family": "backend-integration-revisions",
       "execution_label": "backend-integration phase7 revisions",
       "fixture_policy": {

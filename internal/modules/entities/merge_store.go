@@ -242,6 +242,18 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		_ = tx.Rollback(ctx)
 	}()
 
+	recordIDs := []uuid.UUID{survivorRecordID, request.LoserRecordID}
+	if err := revisions.LockRecordEnvelopesNowaitTx(ctx, tx, recordIDs); err != nil {
+		var locked *revisions.RecordLockedError
+		if errors.As(err, &locked) {
+			return MergeResult{}, &MergeRecordLockedError{RecordID: locked.RecordID}
+		}
+		if errors.Is(err, revisions.ErrRecordNotFound) {
+			return MergeResult{}, classifyMissingMergeTargetTx(ctx, tx, survivorRecordID, request.LoserRecordID)
+		}
+		return MergeResult{}, err
+	}
+
 	survivorMeta, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
 	if errors.Is(err, ErrMergeTargetNotFound) {
 		return MergeResult{}, ErrMergeTargetNotFound
@@ -278,16 +290,6 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	}
 	if loserMeta.IncidentID != survivorMeta.IncidentID {
 		return MergeResult{}, &MergePreconditionError{ReasonCode: "cross_incident_pair"}
-	}
-
-	recordIDs := []uuid.UUID{survivorRecordID, request.LoserRecordID}
-	slices.SortFunc(recordIDs, func(left uuid.UUID, right uuid.UUID) int {
-		return strings.Compare(left.String(), right.String())
-	})
-	for _, recordID := range recordIDs {
-		if err := lockMergeTargetTx(ctx, tx, survivorMeta.RecordType, recordID); err != nil {
-			return MergeResult{}, err
-		}
 	}
 
 	var (
@@ -720,6 +722,22 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	}
 
 	return result, nil
+}
+
+func classifyMissingMergeTargetTx(ctx context.Context, tx pgx.Tx, survivorRecordID uuid.UUID, loserRecordID uuid.UUID) error {
+	if _, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID); err != nil {
+		if errors.Is(err, ErrMergeTargetNotFound) {
+			return ErrMergeTargetNotFound
+		}
+		return err
+	}
+	if _, err := loadMergeTargetMetaTx(ctx, tx, loserRecordID); err != nil {
+		if errors.Is(err, ErrMergeTargetNotFound) {
+			return &MergePreconditionError{ReasonCode: "loser_not_found"}
+		}
+		return err
+	}
+	return &MergePreconditionError{ReasonCode: "target_not_found"}
 }
 
 func loadMergeTargetMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (mergeTargetMeta, error) {

@@ -82,11 +82,18 @@ type rollbackPlan struct {
 	RecordType        string
 	WholeSet          bool
 	RequiresChangeSet bool
+	RestoreRevisionNo int64
+	RestoreSnapshot   map[string]any
 }
 
 type rollbackApplyResult struct {
 	ChangeSetID uuid.UUID
 	Changes     []RollbackRecordChange
+}
+
+type rollbackProtectedSet struct {
+	Affected    []uuid.UUID
+	DeferredErr error
 }
 
 func (s *Store) RollbackRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request RollbackRequest, requestHash []byte, requestID string, now time.Time) (RollbackResult, error) {
@@ -120,52 +127,57 @@ func (s *Store) RollbackRecord(ctx context.Context, actor authn.UserRecord, reco
 	if err != nil {
 		return RollbackResult{}, err
 	}
-	if record.DeletedAt != nil {
-		return RollbackResult{}, ErrRecordDeletedUseRestore
-	}
 
-	var plan rollbackPlan
-	switch request.Target.Kind {
-	case "history_entry":
-		plan, err = loadHistoryEntryRollbackPlanTx(ctx, tx, record, request.Target.HistoryEntryRef)
-		if err != nil {
-			return RollbackResult{}, err
-		}
-	case "change_set":
-		plan, err = loadChangeSetRollbackPlanTx(ctx, tx, record, request.Target.ChangeSetID)
-		if err != nil {
-			return RollbackResult{}, err
-		}
-	case "row_restore":
-		if err := ensureVisibleRollbackRevisionTx(ctx, tx, record, request.Target.RestoreToRevisionNo); err != nil {
-			return RollbackResult{}, err
-		}
-		plan = rollbackPlan{Affected: []uuid.UUID{record.RecordID}, Addressed: record.RecordID, RecordType: record.RecordType}
-	default:
-		return RollbackResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	protected, err := loadRollbackProtectedSetTx(ctx, tx, record, request.Target)
+	if err != nil {
+		return RollbackResult{}, err
 	}
-
-	if err := lockRecordEnvelopesNowaitTx(ctx, tx, plan.Affected); err != nil {
+	if err := LockRecordEnvelopesNowaitTx(ctx, tx, protected.Affected); err != nil {
 		return RollbackResult{}, err
 	}
 	record, err = loadRollbackRecordEnvelopeTx(ctx, tx, recordID, true)
 	if err != nil {
 		return RollbackResult{}, err
 	}
+	if record.DeletedAt != nil {
+		return RollbackResult{}, ErrRecordDeletedUseRestore
+	}
 	if record.RowVersion != request.BaseRowVersion {
 		return RollbackResult{}, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: record.RowVersion}
 	}
-	if request.Target.Kind == "row_restore" {
-		return RollbackResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	if protected.DeferredErr != nil {
+		return RollbackResult{}, protected.DeferredErr
+	}
+
+	var plan rollbackPlan
+	switch request.Target.Kind {
+	case "history_entry":
+		plan, err = loadHistoryEntryRollbackPlanTx(ctx, tx, record, request.Target.HistoryEntryRef)
+	case "change_set":
+		plan, err = loadChangeSetRollbackPlanTx(ctx, tx, record, request.Target.ChangeSetID)
+	case "row_restore":
+		plan, err = loadRowRestorePlanTx(ctx, tx, record, request.Target.RestoreToRevisionNo)
+	default:
+		err = &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+	if err != nil {
+		return RollbackResult{}, err
 	}
 	if err := validateRollbackPlan(plan); err != nil {
 		return RollbackResult{}, err
 	}
-	if err := ensureNoLaterRollbackPlanMutationTx(ctx, tx, plan); err != nil {
-		return RollbackResult{}, err
+	if request.Target.Kind != "row_restore" {
+		if err := ensureNoLaterRollbackPlanMutationTx(ctx, tx, plan); err != nil {
+			return RollbackResult{}, err
+		}
 	}
 
-	applied, err := s.applyRollbackPlanTx(ctx, tx, actor, record, plan, request, requestID, now.UTC())
+	var applied rollbackApplyResult
+	if request.Target.Kind == "row_restore" {
+		applied, err = s.applyRowRestorePlanTx(ctx, tx, actor, record, plan, request, requestID, now.UTC())
+	} else {
+		applied, err = s.applyRollbackPlanTx(ctx, tx, actor, record, plan, request, requestID, now.UTC())
+	}
 	if err != nil {
 		return RollbackResult{}, err
 	}
@@ -187,6 +199,42 @@ func (s *Store) RollbackRecord(ctx context.Context, actor authn.UserRecord, reco
 		ClientTxnID: request.ClientTxnID,
 		Changes:     applied.Changes,
 	}, nil
+}
+
+func loadRollbackProtectedSetTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, target RollbackTarget) (rollbackProtectedSet, error) {
+	fallback := rollbackProtectedSet{Affected: []uuid.UUID{record.RecordID}}
+	switch target.Kind {
+	case "history_entry":
+		mutation, err := loadHistoryEntryRollbackTargetTx(ctx, tx, record, target.HistoryEntryRef)
+		if errors.Is(err, ErrRollbackTargetNotFound) {
+			fallback.DeferredErr = ErrRollbackTargetNotFound
+			return fallback, nil
+		}
+		if err != nil {
+			return rollbackProtectedSet{}, err
+		}
+		affected, err := affectedRecordsForRollbackTarget(mutation, record.RecordID)
+		if err != nil {
+			fallback.DeferredErr = ErrRollbackTargetNotFound
+			return fallback, nil
+		}
+		return rollbackProtectedSet{Affected: affected}, nil
+	case "change_set":
+		plan, err := loadChangeSetRollbackPlanTx(ctx, tx, record, target.ChangeSetID)
+		if errors.Is(err, ErrRollbackTargetNotFound) {
+			fallback.DeferredErr = ErrRollbackTargetNotFound
+			return fallback, nil
+		}
+		if err != nil {
+			return rollbackProtectedSet{}, err
+		}
+		return rollbackProtectedSet{Affected: plan.Affected}, nil
+	case "row_restore":
+		return fallback, nil
+	default:
+		fallback.DeferredErr = &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		return fallback, nil
+	}
 }
 
 func loadHistoryEntryRollbackPlanTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, historyEntryRef string) (rollbackPlan, error) {
@@ -425,6 +473,45 @@ SELECT row_version
 	return err
 }
 
+func loadRowRestorePlanTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, revisionNo int64) (rollbackPlan, error) {
+	row := tx.QueryRow(ctx, `
+SELECT change_set_id, after_json
+  FROM record_revisions
+ WHERE record_id = $1
+   AND row_version = $2
+`, record.RecordID, revisionNo)
+	var (
+		changeSetID uuid.UUID
+		afterRaw    []byte
+	)
+	if err := row.Scan(&changeSetID, &afterRaw); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return rollbackPlan{}, ErrRollbackTargetNotFound
+		}
+		return rollbackPlan{}, err
+	}
+	snapshot, err := decodeRollbackValue(afterRaw)
+	if err != nil {
+		return rollbackPlan{}, err
+	}
+	if _, err := rollbackSourceForRecordType(record.RecordType, snapshot); err != nil {
+		return rollbackPlan{}, err
+	}
+	return rollbackPlan{
+		Target: rollbackMutationTarget{
+			ChangeSetID: changeSetID,
+			TargetKind:  rollbackMutationTargetKindForRecordType(record.RecordType),
+			TargetID:    record.RecordID.String(),
+			AfterValue:  snapshot,
+		},
+		Affected:          []uuid.UUID{record.RecordID},
+		Addressed:         record.RecordID,
+		RecordType:        record.RecordType,
+		RestoreRevisionNo: revisionNo,
+		RestoreSnapshot:   snapshot,
+	}, nil
+}
+
 func ensureNoLaterRollbackPlanMutationTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) error {
 	if plan.WholeSet {
 		for _, target := range plan.Targets {
@@ -523,6 +610,88 @@ func (s *Store) applyRollbackPlanTx(ctx context.Context, tx pgx.Tx, actor authn.
 		return rollbackApplyResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
 	return rollbackApplyResult{ChangeSetID: changeSetID, Changes: changes}, nil
+}
+
+func (s *Store) applyRowRestorePlanTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, record rollbackRecordEnvelope, plan rollbackPlan, request RollbackRequest, requestID string, now time.Time) (rollbackApplyResult, error) {
+	adapter, ok := deleteRestoreAdapters[record.RecordType]
+	if !ok {
+		return rollbackApplyResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+	beforeSnapshot, err := adapter.snapshotTx(ctx, tx, record.RecordID)
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
+	source, err := rollbackSourceForRecordType(record.RecordType, plan.RestoreSnapshot)
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
+	nextRowVersion, err := updateRollbackRecordEnvelopeTx(ctx, tx, record.RecordID, actor.ID, now)
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
+	if err := updateSourceFromRollbackSourceTx(ctx, tx, record.RecordType, record.RecordID, actor.ID, now, nextRowVersion, source); err != nil {
+		return rollbackApplyResult{}, err
+	}
+	if err := rebuildRollbackProjectionsTx(ctx, tx, record.IncidentID); err != nil {
+		return rollbackApplyResult{}, err
+	}
+	afterSnapshot, err := adapter.snapshotTx(ctx, tx, record.RecordID)
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
+	changeSetID, err := s.InsertChangeSetTx(ctx, tx, ChangeSetParams{
+		IncidentID:  record.IncidentID,
+		ActorUserID: actor.ID,
+		Source:      "rollback",
+		Reason:      request.Reason,
+		ClientTxnID: &request.ClientTxnID,
+		RequestID:   &requestID,
+		CreatedAt:   now,
+	})
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
+	beforeVersionID := fmt.Sprintf("record:%s:%d", record.RecordID, record.RowVersion)
+	afterVersionID := fmt.Sprintf("record:%s:%d", record.RecordID, nextRowVersion)
+	targetKind := rollbackMutationTargetKindForRecordType(record.RecordType)
+	if targetKind != "record" {
+		beforeVersionID = fmt.Sprintf("%s:%s:%d", targetKind, record.RecordID, record.RowVersion)
+		afterVersionID = fmt.Sprintf("%s:%s:%d", targetKind, record.RecordID, nextRowVersion)
+	}
+	if err := s.InsertMutationTx(ctx, tx, MutationParams{
+		ChangeSetID:     changeSetID,
+		SequenceNo:      1,
+		TargetKind:      targetKind,
+		TargetID:        record.RecordID.String(),
+		OperationKind:   "row_restore",
+		BeforeVersionID: &beforeVersionID,
+		AfterVersionID:  &afterVersionID,
+		BeforeValue:     beforeSnapshot,
+		AfterValue:      afterSnapshot,
+	}); err != nil {
+		return rollbackApplyResult{}, err
+	}
+	if err := s.InsertRecordRevisionTx(ctx, tx, RecordRevisionParams{
+		ChangeSetID: changeSetID,
+		RecordID:    record.RecordID,
+		RowVersion:  nextRowVersion,
+		BeforeValue: beforeSnapshot,
+		AfterValue:  afterSnapshot,
+	}); err != nil {
+		return rollbackApplyResult{}, err
+	}
+	viewSchemaID, err := adapter.viewSchemaID(ctx, tx, record.RecordID)
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
+	change := RollbackRecordChange{
+		RecordID:         record.RecordID,
+		RowVersion:       nextRowVersion,
+		ChangeSetID:      changeSetID,
+		ViewSchemaID:     viewSchemaID,
+		ChangedFieldKeys: rollbackChangedFieldKeys(beforeSnapshot, afterSnapshot),
+	}
+	return rollbackApplyResult{ChangeSetID: changeSetID, Changes: []RollbackRecordChange{change}}, nil
 }
 
 func (s *Store) applyChangeSetRollbackPlanTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, plan rollbackPlan, changeSetID uuid.UUID, sequenceNo *int, now time.Time) ([]RollbackRecordChange, error) {
@@ -1036,6 +1205,12 @@ func snapshotRollbackAffectedRecordsTx(ctx context.Context, tx pgx.Tx, recordIDs
 }
 
 func validateRollbackPlan(plan rollbackPlan) error {
+	if plan.RestoreRevisionNo > 0 {
+		if len(plan.Affected) != 1 || plan.RestoreSnapshot == nil {
+			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		return nil
+	}
 	if plan.RequiresChangeSet {
 		return &RollbackPreconditionError{ReasonCode: "entry_requires_change_set"}
 	}
@@ -1103,6 +1278,17 @@ func rollbackRecordTypeForTarget(target rollbackMutationTarget, currentRecordTyp
 		return target.TargetKind, nil
 	default:
 		return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+}
+
+func rollbackMutationTargetKindForRecordType(recordType string) string {
+	switch recordType {
+	case "timeline_event":
+		return "timeline_record"
+	case "host", "identity", "indicator", "assessment", "evidence":
+		return recordType
+	default:
+		return "record"
 	}
 }
 

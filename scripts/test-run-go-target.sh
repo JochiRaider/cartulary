@@ -335,6 +335,29 @@ assert_equals "$(json_field "$raw_failure_summary" "counts.failed")" "1" "raw pa
 assert_equals "$(json_field "$raw_failure_summary" "counts.raw_failed")" "1" "raw package setup raw failed count"
 assert_equals "$(json_field "$raw_failure_summary" "counts.unmapped_failed")" "0" "raw package setup unmapped failed count"
 
+identity_reuse_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-identity-reuse.XXXXXX")"
+cleanup_paths+=("$identity_reuse_results")
+mkdir -p "$identity_reuse_results/results/run-a"
+printf 'prepared\n' >"$identity_reuse_results/results/run-a/preflight.txt"
+identity_reuse_rejected="$(
+  set +e
+  CARTULARY_TEST_RESULTS_DIR="$identity_reuse_results/results" \
+  CARTULARY_TEST_RUN_ID="run-a" \
+  CARTULARY_TEST_TARGET="backend-integration" \
+    "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-revisions 2>&1
+  printf 'status=%s\n' "$?"
+)"
+assert_contains "$identity_reuse_rejected" "non-empty run root" "public go target rejects unprepared non-empty run root"
+assert_contains "$identity_reuse_rejected" "status=1" "public go target unprepared reuse exits non-zero"
+identity_reuse_allowed="$(
+  CARTULARY_TEST_RESULTS_DIR="$identity_reuse_results/results" \
+  CARTULARY_TEST_RUN_ID="run-a" \
+  CARTULARY_TEST_TARGET="backend-integration" \
+  CARTULARY_HARNESS_IDENTITY_PREPARED=1 \
+    "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-revisions
+)"
+assert_contains "$identity_reuse_allowed" "go test" "public go target prepared identity reuse inspects command"
+
 reused_window_results_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-reused-window.XXXXXX")"
 cleanup_paths+=("$reused_window_results_dir")
 reused_window_report_dir="$reused_window_results_dir/shared-report"

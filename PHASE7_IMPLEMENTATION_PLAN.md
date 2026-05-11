@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 7: re
 
 This planning artifact does not implement Phase 7 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status after Sprint 3 audit: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, and `POST /api/v1/records/{record_id}/rollback` are implemented and registered; Sprint 1 history evidence, Sprint 2 soft-delete/restore evidence, and Sprint 3 rollback evidence have passed public Phase 7 slices and focused local gates; and later Sprint 4-5 whole-row restore, retained-history restart or closure invariants, merge-lock integration, reviewer workbook UI, and browser workflow rows remain explicit non-claims until their owning behavior is implemented. Owner decision: Sprint 3 owns single-entry `history_entry` rollback and whole-`change_set` rollback for currently reversible mutation entries only; `row_restore`, retained-history restart or closure invariants, merge-specific rollback, tag rollback, and merge-lock/shared-lock integration remain later work unless pulled forward by a later explicit owner decision.
+Current repo status after Sprint 4 backend implementation: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, and `POST /api/v1/records/{record_id}/rollback` are implemented and registered; Sprint 1 history evidence, Sprint 2 soft-delete/restore evidence, Sprint 3 rollback evidence, and Sprint 4 whole-row restore, retained-history, and shared-lock backend evidence have passed the listed local gates. Sprint 5 reviewer workbook UI/browser workflow rows remain explicit non-claims until their owning behavior is implemented. Owner decision: merge-specific rollback and typed tag rollback remain unclaimed until reversible substrate and owner scope exist.
 
 ## Phase Objective
 
@@ -42,11 +42,11 @@ Out of scope unless an owner decision pulls it forward:
 | --- | --- | --- | --- | --- |
 | [x] | 0. Phase 7 ownership manifest and harness setup | [x] audit-complete | None for manifest creation; Phase 7 was activated during Sprint 1 remediation. | Selectable scope sentinel rows now exist. Later sprints must replace every sentinel before Sprint 6 exit. |
 | [x] | 1. Record-history read contract | [x] remediated | `AC-184` and `AC-185` are Phase 8-owned support references and are not claimed as completed Phase 7 evidence. | History route is record-scoped, not view-scoped; adjunct target-family completeness is deferred to later Phase 7 work. |
-| [x] | 2. Soft-delete and restore | [x] audit-complete | None for Sprint 2 product behavior. The first-class record adapter matrix is covered for current `records.record_type` values. | Ordinary delete remains on optimistic concurrency and does not take destructive-operation locks; restore uses the route-local transaction-scoped `FOR UPDATE NOWAIT` helper for the one-record protected set. Broader shared-helper reconciliation remains Sprint 3/4 lock work. |
-| [x] | 3. Rollback request, single-entry reversal, and change-set reversal | [x] audit-complete | None for Sprint 3 product behavior. Owner decision: tag rollback remains Phase 8-owned and merge-specific rollback remains unclaimed until reversible merge substrate and tests exist. | Source is `rollback`; previous history rows are never mutated in place. `available_rollback_actions[]` advertises `change_set` only when the server can execute it under current preconditions. |
-| [ ] | 4. Whole-row restore, retained history, and locks | [ ] planned | None for whole-change-set rollback after the Sprint 3 owner decision. | Shared destructive locks must cover restore, rollback, and merge with identical precedence. |
+| [x] | 2. Soft-delete and restore | [x] audit-complete | None for Sprint 2 product behavior. The first-class record adapter matrix is covered for current `records.record_type` values. | Ordinary delete remains on optimistic concurrency and does not take destructive-operation locks; restore now uses the shared Sprint 4 destructive-operation lock helper for its one-record protected set. |
+| [x] | 3. Rollback request, single-entry reversal, and change-set reversal | [x] audit-complete | None for Sprint 3 product behavior. Owner decision: tag rollback remains Phase 8-owned and merge-specific rollback remains unclaimed until reversible merge substrate and tests exist. | Source is `rollback`; previous history rows are never mutated in place. Sprint 4 extends executable action advertisement with `row_restore` when legal. |
+| [x] | 4. Whole-row restore, retained history, and locks | [x] backend evidence complete | `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T193520Z-sprint4-service-backed-slice` failed in duration-baseline maintenance because that slice has no retained browser timing entries for earlier browser rows; rerun without `RESULTS_DIR` passed and skipped duration refresh. | Whole-row restore is backend-only Sprint 4 scope; Sprint 5 reviewer workbook UI/browser workflow remains unclaimed. |
 | [ ] | 5. Reviewer workbook UI and browser evidence | [ ] planned | UI must not infer legal rollback actions from visible labels, diff text, or storage identifiers. | Browser evidence covers reviewer flows over server-provided selectors and actions. |
-| [ ] | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup | [ ] planned | Blocked until remaining Sprint 3-5 placeholders are replaced with real assertions and unresolved owner decisions are closed or recorded as explicit non-claims. | Run `make agent-finalize` first at end of run, then broader verification. |
+| [ ] | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup | [ ] planned | Blocked until remaining Sprint 5 placeholders are replaced with real assertions and unresolved owner decisions are closed or recorded as explicit non-claims. | Run `make agent-finalize` first at end of run, then broader verification. |
 
 ## Global References
 
@@ -121,7 +121,7 @@ Test-first sequence:
 2. Done for Sprint 0: intentional non-behavioral scope sentinels make Phase 7 row selection visible and name the future real assertion. Every sentinel must still be replaced before Sprint 6 exit.
 3. Done: support-only carryover files are declared as `forbidden_id_files` so earlier phase evidence cannot accidentally claim Phase 7 IDs.
 4. Done: the Phase 7 coverage ledger and schedules were regenerated after the manifest was added.
-5. Done during Sprint 1 remediation: Phase 7 is active so public phase wrappers execute Phase 7 rows. After Sprint 2, later Sprint 3-5 rows remain explicit non-behavioral scope sentinels until their owning behavior is implemented.
+5. Done during Sprint 1 remediation: Phase 7 is active so public phase wrappers execute Phase 7 rows. After Sprint 4, Sprint 5 UI/browser rows remain explicit non-behavioral scope sentinels until their owning behavior is implemented.
 
 Implementation tasks:
 - Done: `tools/phase7_test_map.json` has non-empty `claim` and `out_of_scope` text for every authoritative row.
@@ -148,7 +148,7 @@ Deliverables:
 - Complete: selectable Phase 7 backend symbols, supplemental frontend row, and browser rows.
 
 Risks and open questions:
-- Phase activation changes task-surface behavior. Sprint 1 remediation intentionally activated Phase 7; after Sprint 2, do not treat Sprint 3-5 scope sentinels as delete/restore behavior evidence or completion criteria.
+- Phase activation changes task-surface behavior. Sprint 1 remediation intentionally activated Phase 7; after Sprint 4, do not treat Sprint 5 scope sentinels as backend delete/restore/rollback behavior evidence or completion criteria.
 - Newly declared service-backed rows require explicit duration baselines after successful uncontaminated evidence; missing baselines must not be hidden by fallback weights.
 - `AC-184` and `AC-185` remain recorded as ambiguous Phase 8-assigned support references, not completed Phase 7 claims.
 - Typed tag rollback remains an owner-decision dependency; Sprint 0 placeholders must not claim Phase 8 typed tag creation or mutation behavior.
@@ -231,7 +231,7 @@ Deliverables:
 
 Risks and open questions:
 - `AC-184` and `AC-185` are listed on `U-7-01` but assigned to Phase 8 in the coverage index. Sprint 1 records them as support references only and does not claim them as completed Phase 7 evidence.
-- Fixture-seeded delete, restore, and rollback-like state changes are accepted only for Sprint 1 read-route retained-history invariants. Sprint 2 implemented the real delete/restore route behavior; rollback and whole-row restore route behavior remains Sprint 3-5 scope.
+- Fixture-seeded delete, restore, and rollback-like state changes are accepted only for Sprint 1 read-route retained-history invariants. Sprint 2 implemented the real delete/restore route behavior, Sprint 3 implemented executable rollback for reversible non-merge substrate, and Sprint 4 implemented executable whole-row restore.
 - Adjunct mutation-target-family history completeness is deferred to later Phase 7 rollback/UI work; Sprint 1 claims row-backed history read evidence only.
 - A transient `history_entry_ref` derived from result order or in-memory state would fail retained-history and restart requirements.
 
@@ -284,7 +284,7 @@ Completed test sequence:
 Implemented behavior:
 - Delete and restore route contracts are present. Both accept `base_row_version`, `client_txn_id`, and optional normalized `reason`.
 - Delete is routed through ordinary optimistic concurrency. Ordinary soft-delete remains outside the destructive-operation lock family.
-- Restore uses the route-local transaction-scoped `FOR UPDATE NOWAIT` helper for the one-record protected set required by the current profile. Broader shared protected-set helper reconciliation remains Sprint 3/4 work as rollback and merge locking expand.
+- Restore uses the shared Sprint 4 transaction-scoped `FOR UPDATE NOWAIT` helper for the one-record protected set required by the current profile.
 - Delete roles are `editor`, `reviewer`, or `admin`. Restore roles are `reviewer` or `admin`. Visible underprivileged callers receive `403`; callers without visibility receive `404`.
 - Route-scoped idempotency uses `(actor_user_id, record_id, client_txn_id)` and compares normalized reason, with omission, explicit `null`, and normalized-empty reason equivalent.
 - Delete sets envelope soft-delete state and source tombstone state where applicable, increments row version, creates one attributed `change_set`, appends reversible mutation entries, appends a `record_revisions` row with `operation = soft_delete`, and removes the row from ordinary view queries.
@@ -322,7 +322,7 @@ Deliverables:
 Risks and open questions:
 - Closed for Sprint 2: first-class delete/restore dispatch is explicit for current `records.record_type` values. Rollback adapter completeness remains a later Phase 7 concern.
 - Closed for Sprint 2: delete/restore route behavior is limited to first-class record envelopes and is not reused for individual links, tags, mentions, observations, or evidence associations.
-- Follow-up: route-local restore locking is accepted for the current one-record protected set, but Sprint 3/4 must reconcile it with the broader shared destructive-operation helper as rollback and merge locking expand.
+- Follow-up resolved in Sprint 4: restore, rollback, and merge use the shared destructive-operation helper over the `records` envelope.
 
 Exit criteria:
 - Met: delete and restore preserve append-only history and source attribution.
@@ -418,7 +418,7 @@ Exit criteria:
 
 Objective: Complete row-backed snapshot restore, retained-history invariants, no-purge guarantees, and shared destructive-operation lock precedence.
 
-Status: Planned.
+Status: Implemented for backend Sprint 4 scope on 2026-05-11. Whole-row restore, shared restore/rollback/merge lock precedence, retained-history backend evidence, generated ledgers, and schedules have passed the validation listed below. Sprint 5 reviewer workbook UI and browser workflow evidence remains unclaimed.
 
 Relevant IDs:
 - `U-7-05`, `U-7-06`, `U-7-07`, `I-7-01`, `I-7-04`, `E-7-04`
@@ -471,10 +471,26 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- Planned: whole-row restore.
-- Planned: shared destructive-operation lock helper and merge integration.
-- Planned: retained-history and no-purge evidence.
-- Planned: service-backed coverage for lock precedence and restart stability.
+- Complete: whole-row restore from `record_revisions.after_json` row-backed snapshots.
+- Complete: shared destructive-operation lock helper over `records` and merge integration.
+- Complete: retained-history and no-purge evidence in backend Phase 7 rows.
+- Complete: service-backed coverage for lock precedence, stale fail-closed behavior, and restart stability.
+- Evidence roots:
+  - `make generate`: `.cartulary/test-results/20260511T193209Z-p16774`
+  - `make phase-ledgers`: `.cartulary/test-results/20260511T193215Z-p17367`
+  - `make phase-schedules`: `.cartulary/test-results/20260511T193215Z-p17366`
+  - `make phase-ledger-drift`: `.cartulary/test-results/20260511T193816Z-p32732`
+  - `make phase-schedule-drift`: `.cartulary/test-results/20260511T193816Z-p32955`
+  - `make json-shape-check`: `.cartulary/test-results/20260511T193816Z-p32954`
+  - `CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 CARTULARY_TEST_RUN_ID=20260511T194500Z-sprint4-backend-integration make backend-integration`: `.cartulary/test-results/20260511T194500Z-sprint4-backend-integration`
+  - `CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 CARTULARY_TEST_RUN_ID=20260511T194530Z-sprint4-phase-slice make phase-slice PHASE=phase7`: `.cartulary/test-results/20260511T194530Z-sprint4-phase-slice`
+  - `CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 CARTULARY_TEST_RUN_ID=20260511T194600Z-sprint4-service-backed-slice make service-backed-slice PHASE=phase7`: `.cartulary/test-results/20260511T194600Z-sprint4-service-backed-slice`
+  - `make go-test-duration-baseline-drift RESULTS_DIR=.cartulary/test-results/20260511T194600Z-sprint4-service-backed-slice`: `.cartulary/test-results/20260511T194424Z-p53617`
+  - `make agent-finalize`: `.cartulary/test-results/20260511T194329Z-p52292`
+- Observed harness blockers:
+  - `make backend-integration` failed with `HarnessConfigError: CARTULARY_TEST_RUN_ID "20260511T193236Z-p18597" resolves to a non-empty run root`; artifact root `.cartulary/test-results/20260511T193236Z-p18597`; rerun with explicit collision-safe harness environment passed.
+  - `CARTULARY_TEST_RUN_ID=20260511T193300Z-sprint4-backend-integration make backend-integration` failed with the same non-empty run-root error; artifact root `.cartulary/test-results/20260511T193300Z-sprint4-backend-integration`; rerun with `CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1` passed.
+  - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T193520Z-sprint4-service-backed-slice` failed; artifact root `.cartulary/test-results/20260511T193439Z-p29042`; observed failure was `missing observed browser entry timings` for earlier browser rows because the supplied successful run was service-backed only. `make agent-finalize` without `RESULTS_DIR` passed and skipped duration-baseline refresh.
 
 Risks and open questions:
 - Transaction lock implementation must not introduce a client-visible lock surface, lock-holder identity surface, manual unlock route, or queued destructive-operation behavior.

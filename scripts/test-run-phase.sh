@@ -5,6 +5,7 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 HELPER="$ROOT_DIR/scripts/lib/run-phase.sh"
 GO_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
 GO_MANIFEST_HELPER="$ROOT_DIR/scripts/lib/run-go-manifest-phase.sh"
+ARTIFACT_ERROR_EXIT=11
 cleanup_paths=()
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
@@ -428,15 +429,17 @@ missing_target_output="$(
 )"
 missing_target_status=$?
 set -e
-assert_equals "$missing_target_status" "1" "missing target run summary status"
+assert_equals "$missing_target_status" "$ARTIFACT_ERROR_EXIT" "missing target run summary status"
 assert_contains "$missing_target_output" "[FAIL] target=missing target" "missing target run summary output"
 assert_contains "$missing_target_output" "failure_class=artifact" "missing target run summary failure class"
+assert_contains "$missing_target_output" "reason=artifact_error" "missing target run summary failure reason"
 assert_contains "$missing_target_output" "artifact failure: missing target summary: test-fast-service-backed" "missing target run summary headline"
 missing_target_summary="$missing_target_results/missing-target/run-summary.json"
 assert_equals "$(json_field "$missing_target_summary" "counts.failed")" "1" "missing target failed count"
 assert_equals "$(json_field "$missing_target_summary" "counts.non_test")" "1" "missing target non-test count"
 assert_equals "$(json_field "$missing_target_summary" "counts.non_test_failed")" "1" "missing target non-test failed count"
 assert_equals "$(json_field "$missing_target_summary" "failure_class")" "artifact" "missing target failure class"
+assert_equals "$(json_field "$missing_target_summary" "failure_reason")" "artifact_error" "missing target failure reason"
 assert_equals "$(json_field "$missing_target_summary" "failure_classes.artifact")" "1" "missing target artifact count"
 assert_equals "$(json_field "$missing_target_summary" "summary_targets.missing.0")" "test-fast-service-backed" "missing target summary list"
 
@@ -1027,10 +1030,12 @@ missing_group_output="$(
 )"
 missing_group_status=$?
 set -e
-assert_equals "$missing_group_status" "1" "missing group run summary status"
+assert_equals "$missing_group_status" "$ARTIFACT_ERROR_EXIT" "missing group run summary status"
+assert_contains "$missing_group_output" "reason=artifact_error" "missing group failure reason output"
 assert_contains "$missing_group_output" "[GROUP] child run missing group browser summary_targets=missing-browser status=fail" "missing group output"
 assert_contains "$missing_group_output" "missing_summary_targets=missing-browser" "missing group target output"
 missing_group_summary="$child_summary_results/child-summary/run-summary.json"
+assert_equals "$(json_field "$missing_group_summary" "failure_reason")" "artifact_error" "missing group failure reason"
 assert_equals "$(json_field "$missing_group_summary" "summary_groups.0.missing_summary_targets.0")" "missing-browser" "missing group summary list"
 
 missing_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-missing-child.XXXXXX")"

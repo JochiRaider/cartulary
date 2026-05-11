@@ -234,8 +234,8 @@ func (s *Store) ListRecordHistory(ctx context.Context, record RecordHistoryRecor
 	changeSetChecked := make(map[uuid.UUID]bool)
 	for i := range items {
 		items[i].AvailableRollbackActions = nil
-		items[i].RevisionNo = nil
 		if rollbackRecord.DeletedAt != nil {
+			items[i].RevisionNo = nil
 			items[i].Reversible = false
 			continue
 		}
@@ -258,6 +258,17 @@ func (s *Store) ListRecordHistory(ctx context.Context, record RecordHistoryRecor
 		}
 		if changeSetExecutable[items[i].ChangeSetID] {
 			items[i].AvailableRollbackActions = append(items[i].AvailableRollbackActions, "change_set")
+		}
+		if items[i].RevisionNo != nil {
+			executable, err := s.rowRestoreExecutableTx(ctx, tx, rollbackRecord, *items[i].RevisionNo)
+			if err != nil {
+				return nil, err
+			}
+			if executable {
+				items[i].AvailableRollbackActions = append(items[i].AvailableRollbackActions, "row_restore")
+			} else {
+				items[i].RevisionNo = nil
+			}
 		}
 		items[i].Reversible = len(items[i].AvailableRollbackActions) > 0
 	}
@@ -303,6 +314,17 @@ func rollbackPlanExecutableTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan)
 	}
 	if err := ensureNoLaterRollbackPlanMutationTx(ctx, tx, plan); err != nil {
 		if errors.Is(err, ErrRollbackPreconditionFailed) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *Store) rowRestoreExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, revisionNo int64) (bool, error) {
+	_, err := loadRowRestorePlanTx(ctx, tx, record, revisionNo)
+	if err != nil {
+		if errors.Is(err, ErrRollbackTargetNotFound) || errors.Is(err, ErrRollbackPreconditionFailed) {
 			return false, nil
 		}
 		return false, err
@@ -471,7 +493,6 @@ SELECT cs.change_set_id,
 		item.Operation = historyOperation(source, "row_revision")
 		item.DiffSummary = revisionDiffSummary(record.RecordID, revisionNo, beforeValue, afterValue)
 		item.RevisionNo = &revisionNo
-		item.RevisionNo = nil
 		item.AvailableRollbackActions = nil
 		item.Reversible = false
 		item.createdAt = item.CommittedAt

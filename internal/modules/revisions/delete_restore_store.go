@@ -153,7 +153,7 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if !deleting {
-		if err := lockRecordEnvelopesNowaitTx(ctx, tx, []uuid.UUID{recordID}); err != nil {
+		if err := LockRecordEnvelopesNowaitTx(ctx, tx, []uuid.UUID{recordID}); err != nil {
 			return DeleteRestoreResult{}, err
 		}
 	}
@@ -305,7 +305,7 @@ SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_
 	return record, nil
 }
 
-func lockRecordEnvelopesNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+func LockRecordEnvelopesNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
 	ordered := append([]uuid.UUID(nil), recordIDs...)
 	sort.Slice(ordered, func(i, j int) bool {
 		return ordered[i].String() < ordered[j].String()

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -201,6 +202,7 @@ UPDATE records
 		t.Fatalf("older dependent item should remain visible but no longer reversible: %#v", older)
 	}
 	assertActions(t, older, []string{})
+	requireNoRetainedHistoryNarrowingSurface(t, harness, login, incidentID, recordID)
 }
 
 func getHistory(t testing.TB, baseURL string, login phase4test.LoginResult, recordID uuid.UUID, query string) map[string]any {
@@ -268,6 +270,71 @@ func assertActions(t testing.TB, raw any, want []string) {
 	if item["reversible"] != (len(want) > 0) {
 		t.Fatalf("reversible did not match actions: %#v", item)
 	}
+}
+
+func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) {
+	t.Helper()
+	artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
+	if !ok {
+		t.Fatal("generated OpenAPI artifact missing")
+	}
+	var document map[string]any
+	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
+		t.Fatalf("decode generated OpenAPI artifact: %v", err)
+	}
+	for path := range historyOpenAPIObjectAt(t, document, "paths") {
+		if historyNarrowingSurfaceName(path) {
+			t.Fatalf("OpenAPI exposes retained-history narrowing route %q", path)
+		}
+	}
+
+	extensionsBody := httptestx.RequireSuccessEnvelope(t, phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, phase4test.WithCookies(login.SessionCookie)), http.StatusOK)
+	extensions := extensionsBody["data"].(map[string]any)["extensions"].([]any)
+	for _, raw := range extensions {
+		extension := raw.(map[string]any)
+		for _, routeRaw := range extension["route_families"].([]any) {
+			route := routeRaw.(string)
+			if historyNarrowingSurfaceName(route) {
+				t.Fatalf("current extension profile exposes retained-history narrowing route %q in %#v", route, extension)
+			}
+		}
+	}
+
+	for _, path := range []string{
+		"/api/v1/records/" + recordID.String() + "/history/purge",
+		"/api/v1/records/" + recordID.String() + "/history/retention",
+		"/api/v1/incidents/" + incidentID.String() + "/history/purge",
+		"/api/v1/incidents/" + incidentID.String() + "/history/retention",
+		"/api/v1/incidents/" + incidentID.String() + "/records/history/purge",
+	} {
+		resp := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+path, nil, phase4test.WithCookies(login.SessionCookie))
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("unexpected retained-history narrowing route at %s: status=%d body=%#v", path, resp.StatusCode, httptestx.ReadJSONBody(t, resp))
+		}
+	}
+
+	for _, path := range []string{"../../../configs/dev/config.toml", "../../../internal/platform/config/config.go"} {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read operator config surface %s: %v", path, err)
+		}
+		if historyNarrowingSurfaceName(string(content)) {
+			t.Fatalf("operator config surface %s exposes retained-history narrowing setting", path)
+		}
+	}
+}
+
+func historyNarrowingSurfaceName(value string) bool {
+	lower := strings.ToLower(value)
+	if !strings.Contains(lower, "history") {
+		return false
+	}
+	for _, marker := range []string{"purge", "retention", "retained", "truncate", "horizon"} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func stringField(t testing.TB, raw any, key string) string {

@@ -1522,6 +1522,7 @@ function renderRecipePrefix(recipe, entry = null) {
 function goTargetEnv(recipe) {
   return [
     "$(TASK_SURFACE_GO_ENV)",
+    "CARTULARY_HARNESS_IDENTITY_PREPARED=1",
     ...Object.entries(recipe.env ?? {}).map(
       ([name, value]) => `${name}="${value}"`,
     ),

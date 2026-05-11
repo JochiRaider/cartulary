@@ -28,7 +28,7 @@ func TestPhase7_RollbackSelectorUnion_U_7_05(t *testing.T) {
 	if historyEntryRef == "" {
 		t.Fatalf("seeded rollback target did not expose history_entry_ref: %#v", history[0])
 	}
-	requireHistoryActions(t, history[0].(map[string]any), "history_entry", "change_set")
+	requireHistoryActions(t, history[0].(map[string]any), "history_entry", "change_set", "row_restore")
 
 	t.Run("openapi route and schema", func(t *testing.T) {
 		artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
@@ -110,8 +110,8 @@ func TestPhase7_RollbackSelectorUnion_U_7_05(t *testing.T) {
 		setMembershipRole(t, harness.DB, incidentID, actorID, "reviewer")
 		changeSet := rollbackRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-change-set-not-visible", "target": map[string]any{"kind": "change_set", "change_set_id": uuid.New().String()}})
 		httptestx.RequireErrorEnvelope(t, changeSet, http.StatusNotFound, "rollback_target_not_found")
-		rowRestore := rollbackRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-row-restore-unimplemented", "target": map[string]any{"kind": "row_restore", "restore_to_revision_no": 2}})
-		httptestx.RequireErrorEnvelope(t, rowRestore, http.StatusConflict, "rollback_precondition_failed")
+		rowRestoreMissing := rollbackRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-row-restore-not-visible", "target": map[string]any{"kind": "row_restore", "restore_to_revision_no": 99}})
+		httptestx.RequireErrorEnvelope(t, rowRestoreMissing, http.StatusNotFound, "rollback_target_not_found")
 	})
 
 	t.Run("change set selectors must be visible through addressed record history", func(t *testing.T) {
@@ -205,7 +205,7 @@ func TestPhase7_RollbackSelectorUnion_U_7_05(t *testing.T) {
 		wholeChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000534")
 		seedRollbackTwoHostChangeSet(t, harness.DB, incidentID, actorID, wholeChangeSetID, left, right)
 		history := historyItems(getHistory(t, harness.Server.HTTP.URL, login, left, ""))
-		requireHistoryActions(t, history[0].(map[string]any), "history_entry", "change_set")
+		requireHistoryActions(t, history[0].(map[string]any), "history_entry", "change_set", "row_restore")
 
 		httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 17, 7, 0, 0, time.UTC))
 		body := map[string]any{"base_row_version": 2, "client_txn_id": "txn-u-7-05-whole-change-set", "target": map[string]any{"kind": "change_set", "change_set_id": wholeChangeSetID.String()}}
@@ -250,6 +250,83 @@ func TestPhase7_RollbackSelectorUnion_U_7_05(t *testing.T) {
 		httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
 	})
 
+	t.Run("successful whole row restore and idempotency", func(t *testing.T) {
+		rowRestoreRecordID := uuid.New()
+		phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreRecordID, "Row restore seed", "row-restore-host", "", "")
+		seedHostProjection(t, harness.DB, incidentID, rowRestoreRecordID)
+		rowRestoreChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000541")
+		seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreRecordID, actorID, rowRestoreChangeSetID, time.Date(2026, 5, 10, 17, 11, 0, 0, time.UTC), "row restore before", "row restore snapshot")
+		mustExec(t, harness.DB, `
+UPDATE records
+   SET row_version = 3,
+       updated_at = $3,
+       updated_by_user_id = $2
+ WHERE record_id = $1
+`, rowRestoreRecordID, actorID, time.Date(2026, 5, 10, 17, 12, 0, 0, time.UTC))
+		mustExec(t, harness.DB, `
+UPDATE hosts
+   SET display_name = 'row restore current',
+       row_version = 3,
+       updated_at = $3,
+       updated_by_user_id = $2
+ WHERE record_id = $1
+`, rowRestoreRecordID, actorID, time.Date(2026, 5, 10, 17, 12, 0, 0, time.UTC))
+		seedHostProjection(t, harness.DB, incidentID, rowRestoreRecordID)
+		linkID := seedRecordLinkForRowRestore(t, harness.DB, incidentID, rowRestoreRecordID, actorID)
+		tagID := seedRecordTag(t, harness.DB, incidentID, rowRestoreRecordID, actorID)
+		beforeLinks := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NULL`, linkID)
+		beforeTags := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id = $1 AND deleted_at IS NULL`, tagID)
+
+		history := historyItems(getHistory(t, harness.Server.HTTP.URL, login, rowRestoreRecordID, ""))
+		requireHistoryActions(t, history[0].(map[string]any), "history_entry", "change_set", "row_restore")
+		if history[0].(map[string]any)["revision_no"] != float64(2) {
+			t.Fatalf("row restore history item did not expose revision_no=2: %#v", history[0])
+		}
+		beforeRefs := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_history_entry_refs WHERE record_id = $1`, rowRestoreRecordID)
+
+		httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 17, 13, 0, 0, time.UTC))
+		body := map[string]any{"base_row_version": 3, "client_txn_id": "txn-u-7-05-row-restore", "target": map[string]any{"kind": "row_restore", "restore_to_revision_no": 2}}
+		success := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, rowRestoreRecordID, body), http.StatusOK)["data"].(map[string]any)
+		if success["row_version"] != float64(4) || success["target_change_set_id"] != rowRestoreChangeSetID.String() {
+			t.Fatalf("unexpected row restore payload: %#v", success)
+		}
+		requireAffectedRecords(t, success, rowRestoreRecordID)
+		if got := hostDisplayName(t, harness.DB, rowRestoreRecordID); got != "row restore snapshot" {
+			t.Fatalf("row restore did not restore selected row-backed snapshot, got %q", got)
+		}
+		if got := hostProjectionDisplayName(t, harness.DB, rowRestoreRecordID); got != "row restore snapshot" {
+			t.Fatalf("row restore did not rebuild projection, got %q", got)
+		}
+		if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NULL`, linkID); got != beforeLinks {
+			t.Fatalf("row restore mutated record link active state: got %d want %d", got, beforeLinks)
+		}
+		if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id = $1 AND deleted_at IS NULL`, tagID); got != beforeTags {
+			t.Fatalf("row restore mutated record tag active state: got %d want %d", got, beforeTags)
+		}
+		rollbackChangeSetID := success["rollback_change_set_id"].(string)
+		if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND client_txn_id = 'txn-u-7-05-row-restore'`, rollbackChangeSetID) != 1 {
+			t.Fatalf("row restore did not create attributed rollback change_set")
+		}
+		if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND target_kind = 'host' AND target_id = $2 AND operation_kind = 'row_restore'`, rollbackChangeSetID, rowRestoreRecordID.String()) != 1 {
+			t.Fatalf("row restore mutation missing")
+		}
+		if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND record_id = $2 AND row_version = 4`, rollbackChangeSetID, rowRestoreRecordID) != 1 {
+			t.Fatalf("row restore did not append a new record revision")
+		}
+		if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id = $1 AND record_id = $2 AND row_version = 2`, rowRestoreChangeSetID, rowRestoreRecordID) != 1 {
+			t.Fatalf("row restore rewrote selected source revision")
+		}
+		if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_history_entry_refs WHERE record_id = $1`, rowRestoreRecordID) != beforeRefs {
+			t.Fatalf("row restore mutated prior history_entry_ref rows")
+		}
+		replay := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, rowRestoreRecordID, body), http.StatusOK)["data"].(map[string]any)
+		if replay["rollback_change_set_id"] != rollbackChangeSetID || countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'rollback' AND client_txn_id = 'txn-u-7-05-row-restore'`) != 1 {
+			t.Fatalf("row restore replay changed payload or created another rollback: %#v", replay)
+		}
+		divergent := rollbackRecord(t, harness, login, rowRestoreRecordID, map[string]any{"base_row_version": 3, "client_txn_id": "txn-u-7-05-row-restore", "reason": "different", "target": map[string]any{"kind": "row_restore", "restore_to_revision_no": 2}})
+		httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
+	})
+
 	t.Run("whole change set rollback fails all or nothing", func(t *testing.T) {
 		unsupportedRecordID := uuid.New()
 		phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, unsupportedRecordID, "Unsupported after", "unsupported-after", "", "")
@@ -270,7 +347,7 @@ func TestPhase7_RollbackSelectorUnion_U_7_05(t *testing.T) {
 			t.Fatalf("failed whole change-set rollback inserted rollback change_set")
 		}
 		history := historyItems(getHistory(t, harness.Server.HTTP.URL, login, unsupportedRecordID, ""))
-		requireHistoryActions(t, history[0].(map[string]any), "history_entry")
+		requireHistoryActions(t, history[0].(map[string]any), "history_entry", "row_restore")
 	})
 
 	t.Run("additional reversible target families", func(t *testing.T) {
@@ -442,14 +519,14 @@ func TestPhase7_RollbackSelectorUnion_U_7_05(t *testing.T) {
 		timelineRecordID, evidenceRecordID, attachedChangeSetID, _ := createAttachedEvidencePatchTarget(t, harness, login, incidentID, "entry-requires")
 		timelineItem := historyItemForChangeSetTarget(t, harness, login, timelineRecordID, attachedChangeSetID, "timeline_record", timelineRecordID.String())
 		timelineRef := stringField(t, timelineItem, "history_entry_ref")
-		requireHistoryActions(t, timelineItem, "change_set")
+		requireHistoryActions(t, timelineItem, "change_set", "row_restore")
 		requireRollbackReasonCode(t, rollbackRecord(t, harness, login, timelineRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-reason-entry-requires-change-set", "target": map[string]any{"kind": "history_entry", "history_entry_ref": timelineRef}}), "entry_requires_change_set")
 		changeSetRollback := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, timelineRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-reason-entry-change-set-success", "target": map[string]any{"kind": "change_set", "change_set_id": attachedChangeSetID.String()}}), http.StatusOK)["data"].(map[string]any)
 		requireAffectedRecords(t, changeSetRollback, timelineRecordID, evidenceRecordID)
 
 		detachTimelineID, _, detachChangeSetID, detachLinkID := createDetachedEvidencePatchTarget(t, harness, login, incidentID, "entry-requires-detach")
 		detachItem := historyItemForChangeSetTarget(t, harness, login, detachTimelineID, detachChangeSetID, "timeline_record", detachTimelineID.String())
-		requireHistoryActions(t, detachItem, "change_set")
+		requireHistoryActions(t, detachItem, "change_set", "row_restore")
 		if countRows(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_set_mutations
@@ -667,8 +744,14 @@ func requireHistoryActions(t testing.TB, item map[string]any, want ...string) {
 	if item["reversible"] != true {
 		t.Fatalf("history item with actions must be reversible: %#v", item)
 	}
+	if slices.Contains(want, "row_restore") {
+		if _, ok := item["revision_no"]; !ok {
+			t.Fatalf("history item with row_restore must expose revision_no: %#v", item)
+		}
+		return
+	}
 	if _, ok := item["revision_no"]; ok {
-		t.Fatalf("Sprint 3 history must not advertise row_restore revision_no: %#v", item)
+		t.Fatalf("history item without row_restore must not advertise revision_no: %#v", item)
 	}
 }
 
@@ -1057,6 +1140,20 @@ func seedRollbackRecordTagMutation(t testing.TB, db *sql.DB, incidentID uuid.UUI
 	phase4test.SeedHostRecord(t, db, incidentID, actorID, recordID, "Tag Host", "tag-host", "", "")
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record_tag", uuid.New().String(), "create", nil, map[string]any{"tag_name": "phase7"}, historyRef)
 	return recordID
+}
+
+func seedRecordLinkForRowRestore(t testing.TB, db *sql.DB, incidentID uuid.UUID, src uuid.UUID, actorID uuid.UUID) uuid.UUID {
+	t.Helper()
+	dst := uuid.New()
+	phase4test.SeedHostRecord(t, db, incidentID, actorID, dst, "Row Restore Linked Host", "row-restore-linked", "", "")
+	seedHostProjection(t, db, incidentID, dst)
+	linkID := uuid.New()
+	now := time.Now().UTC()
+	mustExec(t, db, `
+INSERT INTO record_links (record_link_id, incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id, decided_at, created_at)
+VALUES ($1, $2, $3, $4, 'references_record', 'manual', $5, $5, $6, $6)
+`, linkID, incidentID, src, dst, actorID, now)
+	return linkID
 }
 
 func seedRollbackHostPair(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, leftName string, rightName string) (uuid.UUID, uuid.UUID) {

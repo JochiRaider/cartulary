@@ -200,10 +200,6 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, forbiddenError("reviewer|admin"))
 		return
 	}
-	if record.Deleted {
-		writeAPIError(w, r, recordDeletedUseRestoreError())
-		return
-	}
 
 	result, err := s.store.RollbackRecord(r.Context(), principal.User, recordID, request, RollbackRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	switch {
