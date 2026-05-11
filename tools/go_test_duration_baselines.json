@@ -9,7 +9,7 @@
   },
   "default_item_weight_ms": 10000,
   "command_overheads_by_target": {
-    "backend-integration": 1494,
+    "backend-integration": 1505,
     "backend-integration-support": 2302,
     "backend-store": 3698
   },
@@ -24,9 +24,9 @@
     "backend-integration::github.com/JochiRaider/cartulary/internal/app": 19,
     "backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth": 57,
     "backend-integration::github.com/JochiRaider/cartulary/internal/modules/collaboration": 13,
-    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/entities": 18,
+    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/entities": 31,
     "backend-integration::github.com/JochiRaider/cartulary/internal/modules/evidence": 33,
-    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/incidents": 32,
+    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/incidents": 36,
     "backend-integration::github.com/JochiRaider/cartulary/internal/modules/revisions": 14,
     "backend-integration::github.com/JochiRaider/cartulary/internal/modules/timeline": 40,
     "backend-integration::github.com/JochiRaider/cartulary/internal/modules/workbook": 26,
@@ -211,7 +211,7 @@
     "github.com/JochiRaider/cartulary/internal/platform/objectstore::TestSupportPhase0_ManagedServiceObjectStoreBinding": 40,
     "github.com/JochiRaider/cartulary/internal/platform/postgres::TestPhase0_SchemaBootstrap_I_0_01": 5180
   },
-  "updated_at": "2026-05-11T12:43:37.544Z",
+  "updated_at": "2026-05-11T13:02:02.625Z",
   "fixture_overheads_by_package": {
     "backend-integration-support::github.com/JochiRaider/cartulary/internal/modules/auth": 1750,
     "backend-integration-support::github.com/JochiRaider/cartulary/internal/modules/collaboration": 233,
