@@ -214,6 +214,12 @@ export function activePhaseRegistryEntries(root = process.cwd()) {
   return phaseRegistryEntries(root).filter((entry) => entry.status === activePhaseStatus);
 }
 
+export function manifestPhaseRegistryEntries(root = process.cwd()) {
+  return phaseRegistryEntries(root).filter(
+    (entry) => entry.status !== retiredPhaseStatus && existsSync(repoPath(root, entry.manifest_path)),
+  );
+}
+
 export function phaseRegistryEntry(root, phase) {
   return phaseRegistryEntries(root).find((entry) => entry.phase === phase) ?? null;
 }

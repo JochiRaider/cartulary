@@ -2,12 +2,10 @@ import {
   collectEntries,
   collectSupportGoEntries,
   loadManifest,
+  phaseManifestNames,
   vitestEntryTitles,
 } from "./lib/phase-manifest.mjs";
-import {
-  activePhaseRegistryEntries,
-  activePhaseRegistryEntry,
-} from "./lib/phase-registry.mjs";
+import { phaseRegistryEntry } from "./lib/phase-registry.mjs";
 
 const supportTargetDisplay = new Map([
   ["backend_unit", "backend-unit"],
@@ -23,13 +21,14 @@ export function phaseLedgerOutputPath(phase) {
 }
 
 export function phaseLedgerOutputs(root = process.cwd()) {
-  return activePhaseRegistryEntries(root).map((entry) => {
-    const phase = entry.phase;
-    const { manifestPath, manifest } = loadManifest(root, phase);
+  return phaseManifestNames(root, { includePlanned: true }).map((phase) => {
+    const { manifestPath, manifest, registryEntry } = loadManifest(root, phase, {
+      allowPlanned: true,
+    });
     if (manifest.ledger === undefined) {
       throw new Error(`${manifestPath} must declare ledger metadata for phase ledger rendering`);
     }
-    return { phase, outputPath: entry.ledger_path };
+    return { phase, outputPath: registryEntry.ledger_path };
   });
 }
 
@@ -202,10 +201,10 @@ function renderSection(title, entries) {
 }
 
 export function renderPhaseLedger(root, phase) {
-  const { manifest } = loadManifest(root, phase);
-  const registryEntry = activePhaseRegistryEntry(root, phase);
+  const { manifest } = loadManifest(root, phase, { allowPlanned: true });
+  const registryEntry = phaseRegistryEntry(root, phase);
   if (!registryEntry) {
-    throw new Error(`unknown active phase ${phase}`);
+    throw new Error(`unknown phase ${phase}`);
   }
   const config = ledgerConfig(manifest, phase, registryEntry);
   const entries = collectEntries(manifest).filter(

@@ -15,7 +15,7 @@ import { phaseLedgerOutputs, renderPhaseLedger } from "./render-phase-ledger.mjs
 const diffLineLimit = 200;
 
 function renderTempLedger(root, tempRoot, phase, outputPath) {
-  validateManifest(root, phase);
+  validateManifest(root, phase, { allowPlanned: true });
   const rendered = renderPhaseLedger(root, phase);
   const tempOutputPath = path.join(tempRoot, outputPath);
   mkdirSync(path.dirname(tempOutputPath), { recursive: true });

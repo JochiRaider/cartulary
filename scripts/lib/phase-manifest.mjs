@@ -10,8 +10,11 @@ import {
 import {
   activePhaseRegistryEntries,
   activePhaseRegistryEntry,
+  manifestPhaseRegistryEntries,
   phaseManifestRoot,
   phaseRegistryEntries,
+  phaseRegistryEntry,
+  retiredPhaseStatus,
 } from "./phase-registry.mjs";
 import {
   flattenPlaywrightSuites,
@@ -662,10 +665,10 @@ function validateManifestIdentity(manifestPath, manifest, requestedPhase = "") {
   return manifest.phase;
 }
 
-export function loadManifest(root, phase) {
+export function loadManifest(root, phase, { allowPlanned = false } = {}) {
   phaseNumberFromPhase(phase);
   const manifestRoot = phaseManifestRoot(root);
-  const registryEntry = activePhaseRegistryEntry(root, phase);
+  const registryEntry = allowPlanned ? phaseRegistryEntry(root, phase) : activePhaseRegistryEntry(root, phase);
   if (!registryEntry) {
     const known = activePhaseRegistryEntries(root).map((entry) => entry.phase);
     const registered = phaseRegistryEntries(root).find((entry) => entry.phase === phase);
@@ -674,14 +677,20 @@ export function loadManifest(root, phase) {
       `unknown active phase ${phase}${inactiveStatus}; expected one of ${known.join(", ") || "none"}`,
     );
   }
+  if (allowPlanned && registryEntry.status === retiredPhaseStatus) {
+    throw new Error(`phase ${phase} is retired and has no executable manifest`);
+  }
   const manifestPath = path.join(manifestRoot, registryEntry.manifest_path);
   const manifest = readJsonObject(manifestPath, manifestPath);
   validateManifestIdentity(manifestPath, manifest, phase);
   return { manifestPath, manifest, registryEntry };
 }
 
-export function phaseManifestNames(root) {
-  return activePhaseRegistryEntries(root).map((entry) => entry.phase);
+export function phaseManifestNames(root, { includePlanned = false } = {}) {
+  const entries = includePlanned
+    ? manifestPhaseRegistryEntries(root)
+    : activePhaseRegistryEntries(root);
+  return entries.map((entry) => entry.phase);
 }
 
 function phasePolicyExceptionsPath(root) {
@@ -881,8 +890,8 @@ export function collectSupportGoEntries(manifest) {
   return (manifest.support_go_targets ?? []).map((entry) => ({ ...entry }));
 }
 
-export function validateManifest(root, phase) {
-  const { manifestPath, manifest } = loadManifest(root, phase);
+export function validateManifest(root, phase, { allowPlanned = false } = {}) {
+  const { manifestPath, manifest } = loadManifest(root, phase, { allowPlanned });
   const phaseName = manifest.phase;
   const phaseNumber = phaseNumberFromPhase(phaseName);
 
@@ -1582,6 +1591,11 @@ function main(argv) {
   switch (command) {
     case "list-phases": {
       printLines(phaseManifestNames(root));
+      return;
+    }
+
+    case "list-registered-manifest-phases": {
+      printLines(phaseManifestNames(root, { includePlanned: true }));
       return;
     }
 

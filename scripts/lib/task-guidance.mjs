@@ -6,7 +6,7 @@ import {
   compareExecutionDependencies,
   executionDependencyInfo,
 } from "./execution-dependencies.mjs";
-import { loadManifest } from "./phase-manifest.mjs";
+import { collectEntries, loadManifest } from "./phase-manifest.mjs";
 import {
   activePhaseStatus,
   phaseManifestRoot,
@@ -216,6 +216,17 @@ export function phaseGuidance(phase, { root = repoRoot, includeExecutionMap = tr
   }
   const known = phaseRegistryEntries(root).map((entry) => entry.phase);
   if (registryEntry.status !== activePhaseStatus) {
+    let manifestRows = [];
+    try {
+      const { manifest } = loadManifest(root, phase, { allowPlanned: true });
+      manifestRows = collectEntries(manifest).map((row) => ({
+        ...row,
+        phase,
+      }));
+    } catch {
+      manifestRows = [];
+    }
+    const counts = sectionCounts(manifestRows);
     return {
       schema_id: "cartulary.phase_guidance.v1",
       phase,
@@ -225,17 +236,15 @@ export function phaseGuidance(phase, { root = repoRoot, includeExecutionMap = tr
       ledger_path: registryEntry.ledger_path,
       scope: registryEntry.scope,
       normative_owners: registryEntry.normative_owners,
-      authoritative: 0,
-      supplemental: 0,
-      support: 0,
-      raw: 0,
-      total: 0,
-      counts: { authoritative: 0, supplemental: 0, support: 0, raw: 0, total: 0 },
+      ...counts,
+      counts,
       phases: [phase],
       known_phases: known,
-      execution_dependencies: [],
+      execution_dependencies: uniqueSorted(
+        manifestRows.map((row) => row.execution_dependency),
+      ).sort(compareExecutionDependencies),
       targets: [],
-      rows: [],
+      rows: manifestRows,
       execution_map: includeExecutionMap ? phaseExecutionMap(phase, { root }) : null,
     };
   }

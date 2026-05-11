@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:874129b6ea3d9394438489f2b6484e8773e17eb155d20aad503daa0c48e4222c",
+  "input_digest": "sha256:d4d9c72c2f6e9844fecb3547de63de7d6ba3e46461fbe064a24bc1aa87ca299a",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -122,12 +122,12 @@
     {
       "path": "scripts/lib/phase-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8c1f64ca51e3b39cca0437f2609681d9cc0931eeb7fa5881cb0e05b9e6a0050b"
+      "hash": "sha256:26806a8704bc458bc19c6cb83cb7992d49d539c88b5e58cf5b5e4faa39e1f2d1"
     },
     {
       "path": "scripts/lib/phase-registry.mjs",
       "role": "renderer_source",
-      "hash": "sha256:3658b6d51267d30978c8e56e2154a6290bb474263e87f9aa57693bf03bc6a395"
+      "hash": "sha256:7ba0ece3a314eece3cfa231832765dbd23fa35506ab779fc0d6e538ff338b48c"
     },
     {
       "path": "scripts/lib/phase-slice-plan.mjs",
@@ -247,7 +247,7 @@
     {
       "path": "scripts/lib/task-guidance.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6fc18e5ba682de44865096ffafebec8bcab249a11914d4a63237012b8fd4ae78"
+      "hash": "sha256:182ca523ca6e819fb7b63ba89a4ba47002752294ca7f3d81d52a7f97f7d2c931"
     },
     {
       "path": "scripts/lib/task-surface.mjs",

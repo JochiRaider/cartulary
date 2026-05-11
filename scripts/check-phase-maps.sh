@@ -6,7 +6,7 @@ NODE_BIN="${NODE_BIN:-node}"
 
 (cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate)
 
-mapfile -t phases < <(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)
+mapfile -t phases < <(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-registered-manifest-phases)
 
 (cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" phase-policy-exceptions-validate)
 

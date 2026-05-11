@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 7: re
 
 This planning artifact does not implement Phase 7 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status at plan authoring: Phase 7 is listed as `planned` in `tools/phase_registry.json`; `tools/phase7_test_map.json` and `docs/testing/phase7_coverage_ledger.md` do not exist yet; the OpenAPI contract does not expose the Phase 7 history, delete, restore, or rollback route family yet; the `record_locked` error code exists, but the remaining Phase 7 delete, restore, rollback, history, and rollback-precondition public error families still need contract coverage.
+Current repo status after Sprint 0 audit: Phase 7 remains listed as `planned` in `tools/phase_registry.json`; `tools/phase7_test_map.json` and `docs/testing/phase7_coverage_ledger.md` now exist; selectable Phase 7 placeholder symbols exist in their intended backend, frontend, and browser locations; and generated ledger or schedule drift is clean. The OpenAPI contract still does not expose the Phase 7 history, delete, restore, or rollback route family; the `record_locked` error code exists, but the remaining Phase 7 delete, restore, rollback, history, and rollback-precondition public error families still need contract coverage.
 
 ## Phase Objective
 
@@ -40,7 +40,7 @@ Out of scope unless an owner decision pulls it forward:
 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
-| [ ] | 0. Phase 7 ownership manifest and harness setup | [ ] planned | None for manifest creation, but Phase 7 remains planned until the implementation branch intentionally activates it. | Add selectable rows first; later sprints must replace every placeholder before phase exit. |
+| [x] | 0. Phase 7 ownership manifest and harness setup | [x] audit-complete | None for manifest creation; Phase 7 intentionally remains `planned` until the implementation branch activates it. | Selectable placeholder rows now exist. Later sprints must replace every placeholder before Sprint 6 exit. |
 | [ ] | 1. Record-history read contract | [ ] planned | Resolve whether `AC-184` and `AC-185` in `U-7-01` are support references or guide drift, because the coverage index assigns those ACs to Phase 8. | History route must be record-scoped, not view-scoped. |
 | [ ] | 2. Soft-delete and restore | [ ] planned | First-class record dispatch must be made explicit before implementation: support every current `records` envelope type with a source adapter, or document the owner decision for any excluded current type. | Ordinary delete does not take destructive-operation locks; restore does. |
 | [ ] | 3. Rollback request and single-entry reversal | [ ] planned | Tag rollback language appears in Phase 7 evidence while typed tags are Phase 8; decide whether to pull minimal tag rollback forward or mark tag-specific coverage blocked by owner decision. | Source must be `rollback`; previous history rows are never mutated in place. |
@@ -102,7 +102,7 @@ Expected test and planning artifacts:
 
 Objective: Establish Phase 7 test ownership before feature work so TDD rows can be selected by repo tooling.
 
-Status: Planned. Phase 7 is currently registered as `planned`; no Phase 7 manifest or generated ledger exists at plan authoring time.
+Status: Audit-complete. Phase 7 is still registered as `planned`; Sprint 0 now has a manifest, generated ledger, generated schedule checks, and selectable placeholder test symbols. Product behavior remains unimplemented until later Phase 7 sprints.
 
 Relevant IDs: all `U-7-*`, `I-7-*`, `E-7-*`; `tools/phase7_test_map.json`; `docs/testing/phase7_coverage_ledger.md`.
 
@@ -117,18 +117,18 @@ Files and areas:
 - Browser tests under `apps/web/e2e/phase7.history.spec.ts` or the locally chosen equivalent.
 
 Test-first sequence:
-1. Add manifest rows for every `U-7-01..U-7-07`, `I-7-01..I-7-04`, and `E-7-01..E-7-04` guide row before feature implementation.
-2. Add intentional failing or no-op placeholders only long enough to make Phase 7 row selection visible. Every placeholder must name the future real assertion and must be replaced before Sprint 6 exit.
-3. Declare support-only carryover files as `forbidden_id_files` so earlier phase evidence cannot accidentally claim Phase 7 IDs.
-4. Generate the Phase 7 coverage ledger and schedules after the manifest exists.
-5. Activate Phase 7 only when the implementation branch is ready for Phase 7 rows to participate in public phase wrappers.
+1. Done: manifest rows exist for every `U-7-01..U-7-07`, `I-7-01..I-7-04`, and `E-7-01..E-7-04` guide row before feature implementation.
+2. Done for Sprint 0: intentional no-op placeholders make Phase 7 row selection visible and name the future real assertion. Every placeholder must still be replaced before Sprint 6 exit.
+3. Done: support-only carryover files are declared as `forbidden_id_files` so earlier phase evidence cannot accidentally claim Phase 7 IDs.
+4. Done: the Phase 7 coverage ledger and schedules were regenerated after the manifest was added.
+5. Not done by design: Phase 7 remains `planned` and must activate only when the implementation branch is ready for Phase 7 rows to participate in public phase wrappers.
 
 Implementation tasks:
-- Add `tools/phase7_test_map.json` with non-empty `claim` and `out_of_scope` text for every authoritative row.
-- Include the execution dependency for each row explicitly: backend unit, backend store/integration, frontend unit, or browser functional.
-- Record the Phase 3, Phase 4, Phase 5, and Phase 6 support boundaries in manifest notes rather than re-owning their existing IDs.
-- Add test stubs in the final expected file locations so `make explain-phase PHASE=phase7` can discover symbols and row titles.
-- Keep generated ledgers and schedules produced by canonical commands; do not hand-edit generated outputs.
+- Done: `tools/phase7_test_map.json` has non-empty `claim` and `out_of_scope` text for every authoritative row.
+- Done: every row declares its execution dependency explicitly. Authoritative `U-7-*` rows use `backend_store`, `I-7-*` rows use `backend_integration`, and `E-7-*` rows use `browser_functional`; the frontend unit row is supplemental only.
+- Done: Phase 3, Phase 4, Phase 5, and Phase 6 support boundaries are recorded in manifest notes rather than re-owning their existing IDs.
+- Done: test stubs exist in the final expected file locations so `make explain-phase PHASE=phase7` can discover symbols and row titles.
+- Done: generated ledgers and schedules were produced by canonical commands; do not hand-edit generated outputs.
 
 Validation commands:
 - `make phase-map-check`
@@ -142,20 +142,24 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- Planned: `tools/phase7_test_map.json`.
-- Planned: `docs/testing/phase7_coverage_ledger.md`.
-- Planned: generated service-backed and check schedule updates.
-- Planned: selectable Phase 7 test symbols and browser rows.
+- Complete: `tools/phase7_test_map.json`.
+- Complete: `docs/testing/phase7_coverage_ledger.md`.
+- Complete: generated service-backed and check schedule verification.
+- Complete: selectable Phase 7 backend symbols, supplemental frontend row, and browser rows.
 
 Risks and open questions:
 - Phase activation changes task-surface behavior. Keep Phase 7 as `planned` until the branch intentionally opts into active execution.
 - Newly declared service-backed rows require explicit duration baselines after successful uncontaminated evidence; missing baselines must not be hidden by fallback weights.
+- `AC-184` and `AC-185` remain recorded as ambiguous Phase 8-assigned support references, not completed Phase 7 claims.
+- Typed tag rollback remains an owner-decision dependency; Sprint 0 placeholders must not claim Phase 8 typed tag creation or mutation behavior.
+- Placeholder replacement deadline is controlled by this plan: every Sprint 0 placeholder must be replaced before Sprint 6 exit.
 
 Exit criteria:
-- `make explain-phase PHASE=phase7` reports the manifest, ledger path, execution dependencies, service requirements, and target coverage.
-- `make phase-ledger-drift` passes after ledger generation.
-- `make phase-schedule-drift` passes after schedule generation.
-- Phase 7 row IDs appear only in authoritative Phase 7 files or approved manifest support references.
+- Met: `make explain-phase PHASE=phase7` reports the manifest, ledger path, execution dependencies, service requirements, and target coverage.
+- Met: `make phase-ledger-drift` passes after ledger generation.
+- Met: `make phase-schedule-drift` passes after schedule generation.
+- Met: Phase 7 row IDs appear only in authoritative Phase 7 files or approved manifest support references.
+- Met: `make phase-map-check`, `make phase-ledgers`, `make phase-schedules`, `make target-plan-json`, `make phase-test-name-check`, and `git diff --check` passed during the Sprint 0 audit.
 
 ## Sprint 1. Record-History Read Contract
 

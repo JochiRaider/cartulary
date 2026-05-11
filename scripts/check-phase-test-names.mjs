@@ -47,8 +47,8 @@ function collectPhaseTests(root) {
 
 function manifestIDFragments(root) {
   const fragmentsByPhase = new Map();
-  for (const phase of phaseManifestNames(root)) {
-    const { manifest } = loadManifest(root, phase);
+  for (const phase of phaseManifestNames(root, { includePlanned: true })) {
+    const { manifest } = loadManifest(root, phase, { allowPlanned: true });
     fragmentsByPhase.set(
       phase,
       collectEntries(manifest).map((entry) => entry.id.replaceAll("-", "_")),

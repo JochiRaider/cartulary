@@ -1,0 +1,395 @@
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase7",
+  "note": "Phase 7 planned execution manifest for reviewer-facing history, first-class record delete or restore, rollback, retained history, and destructive-operation lock precedence. Sprint 0 creates selectable placeholders only; product behavior remains unimplemented until later Phase 7 sprints.",
+  "ledger": {
+    "title": "Phase 7 Coverage Ledger",
+    "notes": [
+      "Phase 7 remains registered as planned. This manifest records ownership and placeholder evidence locations before feature work, but public phase wrappers must not execute Phase 7 rows until the registry status is intentionally activated.",
+      "`AC-184` and `AC-185` appear in the Phase 7 guide row `U-7-01`, but the guide coverage index assigns those ACs to Phase 8. Sprint 0 records them as ambiguous support references, not completed Phase 7 claims.",
+      "Typed tag rollback language is treated as an owner-decision dependency; Phase 7 placeholders must not claim Phase 8 typed tag creation or mutation behavior."
+    ],
+    "authoritative_execution": [
+      "`backend-store` will carry authoritative `U-7-*` route and store-domain rows through manifest-owned service-backed Go selection after Phase 7 activation.",
+      "`backend-integration` will carry authoritative `I-7-*` real-runtime rows for source state, projections, history rows, collaboration events, pagination, restart, and incident-closure behavior after Phase 7 activation.",
+      "`browser-e2e-webserver-backed` will carry authoritative `E-7-*` browser-functional rows through manifest-entry shards under `browser_functional` after Phase 7 activation.",
+      "`frontend-unit` may carry supplemental component scaffolding for the reviewer history surface, but frontend-unit rows do not replace authoritative browser `E-7-*` evidence."
+    ],
+    "support_execution_extras": [
+      "Phase 3 through Phase 6 mutation, projection, idempotency, conflict, evidence, merge, and collaboration tests remain carryover support only and must not claim Phase 7 identifiers.",
+      "When Phase 7 activates, missing duration baselines must be refreshed from clean successful service-backed and browser evidence rather than hidden behind fallback weights."
+    ],
+    "sections": {
+      "unit": "Unit",
+      "integration": "Integration",
+      "e2e": "Browser E2E"
+    },
+    "shared_harness": [
+      "| Harness | Phase 7 evidence |",
+      "| --- | --- |",
+      "| Planned manifest ownership | `tools/phase7_test_map.json` records every authoritative guide row before product behavior exists. |",
+      "| Generated ledger | `docs/testing/phase7_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
+      "| Schedule boundary | Phase 7 remains planned, so generated schedules must not add Phase 7 execution work until `tools/phase_registry.json` explicitly activates the phase. |"
+    ],
+    "support_only": [
+      "`internal/modules/timeline`, `internal/modules/entities`, `internal/modules/evidence`, `internal/modules/workbook`, and `internal/modules/collaboration` Phase 3 through Phase 6 tests provide substrate support only.",
+      "`apps/web/src/WorkbookShell.phase7.test.tsx` is supplemental UI scaffolding for future reviewer-history controls and must not replace authoritative `E-7-*` browser rows.",
+      "Existing browser specs under `apps/web/e2e/phase4*`, `phase5*`, and `phase6*` remain prior-phase evidence and are forbidden from claiming Phase 7 IDs."
+    ]
+  },
+  "shared_harnesses": [],
+  "expected_ids": [
+    "U-7-01",
+    "U-7-02",
+    "U-7-03",
+    "U-7-04",
+    "U-7-05",
+    "U-7-06",
+    "U-7-07",
+    "I-7-01",
+    "I-7-02",
+    "I-7-03",
+    "I-7-04",
+    "E-7-01",
+    "E-7-02",
+    "E-7-03",
+    "E-7-04"
+  ],
+  "forbidden_id_files": [
+    "internal/modules/timeline/phase3_integration_test.go",
+    "internal/modules/timeline/phase4_integration_test.go",
+    "internal/modules/entities/phase4_integration_test.go",
+    "internal/modules/evidence/phase5_integration_test.go",
+    "internal/modules/workbook/workbook_mutation_integration_test.go",
+    "internal/modules/workbook/phase6_conflict_route_test.go",
+    "internal/modules/workbook/phase6_integration_test.go",
+    "internal/modules/collaboration/phase6_integration_test.go",
+    "apps/web/src/WorkbookShell.phase3.autosave.test.tsx",
+    "apps/web/src/WorkbookShell.phase5.test.tsx",
+    "apps/web/src/WorkbookShell.phase6.test.tsx",
+    "apps/web/e2e/phase4.autoresolve.spec.ts",
+    "apps/web/e2e/phase4.mentions.lifecycle.spec.ts",
+    "apps/web/e2e/phase4.mentions.resolve.spec.ts",
+    "apps/web/e2e/phase4.merge.spec.ts",
+    "apps/web/e2e/phase4.workbook.assessments.spec.ts",
+    "apps/web/e2e/phase4.workbook.generic.spec.ts",
+    "apps/web/e2e/phase5.evidence.spec.ts",
+    "apps/web/e2e/phase6.collaboration.spec.ts",
+    "apps/web/e2e/phase6.session-recovery.spec.ts"
+  ],
+  "support_go_targets": [],
+  "unit": [
+    {
+      "id": "U-7-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_history_test.go",
+      "symbol": "TestPhase7_RecordHistoryEnvelope_U_7_01",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "route_contract",
+      "claim": "`GET /api/v1/records/{record_id}/history` returns the Phase 7 record-scoped history envelope with newest-first deterministic items, deleted-row tombstone `row_version`, and canonical `available_rollback_actions[]` ordering.",
+      "out_of_scope": "`AC-184` and `AC-185` remain ambiguous Phase 8-assigned support references until an owner decision resolves the guide drift.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase7 history",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Phase 7 history route coverage will exercise persisted change sets, mutation entries, record revisions, records, and tombstone state through the runtime-backed store harness."
+    },
+    {
+      "id": "U-7-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_history_test.go",
+      "symbol": "TestPhase7_HistoryEntryRefStability_U_7_02",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "`history_entry_ref` is present only for a logical history item that maps to exactly one reversible mutation target, stays opaque to clients, and remains stable across repeated reads.",
+      "out_of_scope": "Whole-change-set and whole-row rollback execution are covered by rollback rows.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase7 history",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Selector stability coverage needs durable persisted history materialization rather than in-memory-only helpers."
+    },
+    {
+      "id": "U-7-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_delete_restore_test.go",
+      "symbol": "TestPhase7_SoftDeleteRoutePreconditions_U_7_03",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "route_contract",
+      "claim": "First-class record soft-delete requires current `row_version`, respects role gates, and returns route-owned failures including `record_deleted_use_restore`, `record_not_deleted`, and applicable `record_locked` behavior.",
+      "out_of_scope": "Restore append-only consequences and destructive lock precedence are separate Phase 7 rows.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase7 delete restore",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Soft-delete route coverage requires persisted record envelope state and route-scoped idempotency."
+    },
+    {
+      "id": "U-7-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_delete_restore_test.go",
+      "symbol": "TestPhase7_RestoreTombstonePreconditions_U_7_04",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "Restore requires the current tombstone `row_version`, respects role gates, returns the record to active state, and never mutates prior history rows in place.",
+      "out_of_scope": "Browser-visible delete and restore collaboration behavior is covered by `E-7-03`.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase7 delete restore",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Restore route coverage needs durable tombstone concurrency and append-only history state."
+    },
+    {
+      "id": "U-7-05",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_rollback_test.go",
+      "symbol": "TestPhase7_RollbackSelectorUnion_U_7_05",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "route_contract",
+      "claim": "Rollback accepts only `history_entry`, `change_set`, and `row_restore` targets and creates a new `change_set` with `source='rollback'` rather than mutating prior history.",
+      "out_of_scope": "Typed tag creation or mutation semantics remain outside Sprint 0 and must not be claimed until an owner decision pulls them into Phase 7.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase7 rollback",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Rollback selector coverage requires persisted change sets, mutation entries, and record revisions."
+    },
+    {
+      "id": "U-7-06",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_locks_test.go",
+      "symbol": "TestPhase7_DestructiveOperationLocks_U_7_06",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "Restore, rollback, and merge use shared destructive-operation lock precedence, fail fast before stale-precondition evaluation, and replay ordinary downstream route errors after lock release.",
+      "out_of_scope": "Ordinary soft-delete and ordinary patch stay outside the destructive-operation family.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase7 locks",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Lock precedence coverage needs real transaction-scoped persisted record locks."
+    },
+    {
+      "id": "U-7-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_history_test.go",
+      "symbol": "TestPhase7_RetainedHistoryInvariants_U_7_07",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "Retained history for extant records remains fully paginatable and preserves issued `history_entry_ref` values across incident closure, delete or restore cycles, rollback, and restart.",
+      "out_of_scope": "The current profile defines no public history-purge route or retention-horizon setting for extant incidents.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase7 history",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Retained-history coverage needs durable committed state across lifecycle transitions and restart boundaries."
+    },
+    {
+      "id": "U-7-FE-01",
+      "coverage": "supplemental",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase7.test.tsx",
+      "title": "Phase 7 U-7-FE-01 keeps reviewer history controls as planned UI support",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "Supplemental component coverage anchors future reviewer-history controls to server-provided selectors and actions.",
+      "out_of_scope": "Authoritative reviewer workflows remain browser `E-7-*` rows."
+    }
+  ],
+  "integration": [
+    {
+      "id": "I-7-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_integration_test.go",
+      "symbol": "TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Delete, restore, and rollback update source rows, projections, history rows, and emitted collaboration events atomically.",
+      "out_of_scope": "Single-route request-shape validation remains unit or store-domain evidence.",
+      "execution_family": "backend-integration-revisions",
+      "execution_label": "backend-integration phase7 revisions",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Atomic consequence coverage requires real runtime state across source tables, projections, history tables, and collaboration publication."
+    },
+    {
+      "id": "I-7-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_integration_test.go",
+      "symbol": "TestPhase7_HistoryPaginationRecordBinding_I_7_02",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "History pagination remains bound to `record_id`, rejects cross-record cursor replay, and preserves deterministic item ordering across pages.",
+      "out_of_scope": "General pagination registry behavior remains existing platform support evidence.",
+      "execution_family": "backend-integration-revisions",
+      "execution_label": "backend-integration phase7 revisions",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Record-bound cursor coverage requires persisted multi-record history and real HTTP cursor handling."
+    },
+    {
+      "id": "I-7-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_integration_test.go",
+      "symbol": "TestPhase7_StaleRestoreRollbackFailsClosed_I_7_03",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "A stale restore or rollback precondition fails closed and never mutates current row state.",
+      "out_of_scope": "Lock acquisition precedence is covered by `U-7-06`.",
+      "execution_family": "backend-integration-revisions",
+      "execution_label": "backend-integration phase7 revisions",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Stale-precondition coverage requires committed current state and HTTP rollback or restore behavior."
+    },
+    {
+      "id": "I-7-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_integration_test.go",
+      "symbol": "TestPhase7_RetainedHistoryAcrossRestartAndClosure_I_7_04",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "History for an extant record remains fully paginatable and stable across service restart, incident closure, delete or restore, and rollback, with prior `history_entry_ref` values preserved.",
+      "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7.",
+      "execution_family": "backend-integration-revisions",
+      "execution_label": "backend-integration phase7 revisions",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Restart and closure coverage requires durable runtime-backed history evidence."
+    }
+  ],
+  "e2e": [
+    {
+      "id": "E-7-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase7.history.spec.ts",
+      "title": "E-7-01 opens row history from the workbook surface with legal rollback actions",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "A reviewer opens row history from the workbook surface and sees actor, timestamp, operation, diff summary, and server-provided legal rollback actions.",
+      "out_of_scope": "History route envelope construction remains backend evidence."
+    },
+    {
+      "id": "E-7-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase7.history.spec.ts",
+      "title": "E-7-02 rolls back one mistaken mutation without reverting later unrelated edits",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "A reviewer rolls back one mistaken link, tag, mention resolution, or evidence association without reverting later unrelated edits on the same row.",
+      "out_of_scope": "Typed tag mutation semantics remain owner-decision dependent and must not be inferred from this placeholder."
+    },
+    {
+      "id": "E-7-03",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase7.history.spec.ts",
+      "title": "E-7-03 soft-deletes and restores a row with tombstone concurrency",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "A reviewer soft-deletes and restores a row using tombstone concurrency, while other clients observe `remove` on delete and `invalidate` on restore.",
+      "out_of_scope": "Low-level destructive lock precedence remains backend evidence."
+    },
+    {
+      "id": "E-7-04",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase7.history.spec.ts",
+      "title": "E-7-04 whole-row restore appends a new attributed revision",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "Whole-row restore creates a new attributed revision and moves the visible row back to the selected historical snapshot without erasing prior history.",
+      "out_of_scope": "Whole-change-set rollback internals remain backend evidence."
+    }
+  ]
+}
