@@ -2775,6 +2775,18 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `loser_not_mergeable` | The nominated loser is deleted, already merged away, or otherwise not eligible to lose the merge. |
 | `carry_forward_identifier_collision` | A loser-side `exact_match_reuse` value could not be preserved on the survivor because it would create an active exact match with a third same-incident record; `error.details` MUST include `identifier_class`, `normalized_value`, and `blocking_record_id`. |
 
+`invalid_rollback_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The rollback request body is not a JSON object. |
+| `missing_required_field` | A required rollback request field or selector member is absent. |
+| `unknown_field` | The request includes a top-level or target member not declared by the rollback route contract. |
+| `invalid_base_row_version` | `base_row_version` is not a positive integer. |
+| `invalid_value` | A rollback request member has the wrong JSON type, is empty where non-empty text is required, or otherwise violates the declared selector shape. |
+| `target_not_object` | `target` is not a JSON object. |
+| `unsupported_target_kind` | `target.kind` is outside the closed rollback target vocabulary. |
+
 `rollback_precondition_failed` `error.details.reason_code` values:
 
 | `reason_code` | Canonical meaning | Requirement ID | Profiles | Verified by |

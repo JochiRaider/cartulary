@@ -36,6 +36,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		mux.HandleFunc("GET /api/v1/records/{record_id}/history", service.handleRecordHistory)
 		mux.HandleFunc("DELETE /api/v1/records/{record_id}", service.handleRecordDelete)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/restore", service.handleRecordRestore)
+		mux.HandleFunc("POST /api/v1/records/{record_id}/rollback", service.handleRecordRollback)
 		return nil
 	}
 }
@@ -166,6 +167,96 @@ func (s *Service) handleRecordRestore(w http.ResponseWriter, r *http.Request) {
 	s.handleDeleteRestore(w, r, false)
 }
 
+func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
+	recordID, ok := pathUUID(w, r, "record_id")
+	if !ok {
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeRollbackRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	record, err := s.store.GetHistoryRecord(r.Context(), recordID)
+	if errors.Is(err, ErrRecordNotFound) {
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	membership, apiErr := s.requireIncidentMembership(r.Context(), record.IncidentID, principal.User.ID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if !roleIn(membership.Role, "reviewer", "admin") {
+		writeAPIError(w, r, forbiddenError("reviewer|admin"))
+		return
+	}
+	if record.Deleted {
+		writeAPIError(w, r, recordDeletedUseRestoreError())
+		return
+	}
+
+	result, err := s.store.RollbackRecord(r.Context(), principal.User, recordID, request, RollbackRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	switch {
+	case errors.Is(err, ErrRecordNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, clientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, ErrRecordDeletedUseRestore):
+		writeAPIError(w, r, recordDeletedUseRestoreError())
+		return
+	case errors.Is(err, ErrRowVersionConflict):
+		var conflict *RowVersionConflictError
+		if errors.As(err, &conflict) {
+			writeAPIError(w, r, rowVersionConflictError(conflict.Details()))
+			return
+		}
+		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
+		return
+	case errors.Is(err, ErrRecordLocked):
+		var locked *RecordLockedError
+		recordIDText := recordID.String()
+		if errors.As(err, &locked) {
+			recordIDText = locked.RecordID.String()
+		}
+		writeAPIError(w, r, recordLockedError(recordIDText))
+		return
+	case errors.Is(err, ErrRollbackTargetNotFound):
+		writeAPIError(w, r, rollbackTargetNotFoundError(request.Target))
+		return
+	case errors.Is(err, ErrRollbackPreconditionFailed):
+		var precondition *RollbackPreconditionError
+		if errors.As(err, &precondition) {
+			writeAPIError(w, r, rollbackPreconditionFailedError(precondition.ReasonCode))
+			return
+		}
+		writeAPIError(w, r, rollbackPreconditionFailedError("target_not_reversible"))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if !result.Replayed {
+		s.publishRollbackChanges(result, principal.User.ID)
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
+}
+
 func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, deleting bool) {
 	recordID, ok := pathUUID(w, r, "record_id")
 	if !ok {
@@ -290,6 +381,28 @@ func (s *Service) publishDeleteRestoreChange(result DeleteRestoreResult, actorUs
 		ViewSchemaID:     result.ViewSchemaID,
 		ChangeKind:       result.ChangeKind,
 	})
+}
+
+func (s *Service) publishRollbackChanges(result RollbackResult, actorUserID uuid.UUID) {
+	if s.hub == nil {
+		return
+	}
+	for _, change := range result.Changes {
+		if change.ViewSchemaID == "" {
+			continue
+		}
+		s.hub.PublishRecordChange(platformws.RecordChange{
+			IncidentID:       result.IncidentID,
+			RecordID:         change.RecordID,
+			RowVersion:       change.RowVersion,
+			ChangeSetID:      change.ChangeSetID,
+			ClientTxnID:      result.ClientTxnID,
+			ActorUserID:      actorUserID,
+			ChangedFieldKeys: append([]string(nil), change.ChangedFieldKeys...),
+			ViewSchemaID:     change.ViewSchemaID,
+			ChangeKind:       "invalidate",
+		})
+	}
 }
 
 func roleIn(role string, allowed ...string) bool {

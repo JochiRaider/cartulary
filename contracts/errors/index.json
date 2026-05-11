@@ -164,6 +164,21 @@
       "summary": "A destructive-operation lock is already held for one of the requested records."
     },
     {
+      "code": "invalid_rollback_request",
+      "http_status": 400,
+      "summary": "The rollback request body failed route-owned validation."
+    },
+    {
+      "code": "rollback_target_not_found",
+      "http_status": 404,
+      "summary": "The rollback request targeted no visible history entry, change set, or row revision for the addressed record."
+    },
+    {
+      "code": "rollback_precondition_failed",
+      "http_status": 409,
+      "summary": "The rollback target exists but cannot be safely reversed against current authoritative state."
+    },
+    {
       "code": "illegal_transition",
       "http_status": 409,
       "summary": "The requested Timeline lifecycle transition is not legal for the current row state."
@@ -316,6 +331,60 @@
         {
           "code": "duplicate_field_key",
           "summary": "The request contains duplicate normalized field keys."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_rollback_request",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The rollback request body is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required rollback request field or selector member is absent."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level or target member not declared by the rollback route contract."
+        },
+        {
+          "code": "invalid_base_row_version",
+          "summary": "base_row_version is not a positive integer."
+        },
+        {
+          "code": "invalid_value",
+          "summary": "A rollback request member has the wrong JSON type, is empty where non-empty text is required, or otherwise violates the declared selector shape."
+        },
+        {
+          "code": "target_not_object",
+          "summary": "target is not a JSON object."
+        },
+        {
+          "code": "unsupported_target_kind",
+          "summary": "target.kind is outside the closed rollback target vocabulary."
+        }
+      ]
+    },
+    {
+      "error_code": "rollback_precondition_failed",
+      "reason_codes": [
+        {
+          "code": "target_not_reversible",
+          "summary": "The selected history item exists but is not reversible through the requested rollback scope."
+        },
+        {
+          "code": "entry_requires_change_set",
+          "summary": "The selected logical history item belongs to a multi-target or destructive change that must be reversed as a whole change set."
+        },
+        {
+          "code": "dependent_later_changes",
+          "summary": "Later committed changes touched the same mutation target, or otherwise make isolated reversal ambiguous."
+        },
+        {
+          "code": "stale_target",
+          "summary": "The selected historical target is no longer a legal rollback point because a later reversal or equivalent committed change already superseded it."
         }
       ]
     },

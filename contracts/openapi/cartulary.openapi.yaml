@@ -609,6 +609,88 @@
         }
       }
     },
+    "/api/v1/records/{record_id}/rollback": {
+      "post": {
+        "tags": [
+          "revisions"
+        ],
+        "operationId": "rollbackRecord",
+        "summary": "Rollback one visible record-history target with destructive-operation locking and idempotent replay.",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRollbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rollback response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRollbackEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rollback payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Visible record but insufficient incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record or rollback target is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rollback concurrency, lock, precondition, tombstone, or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/records/{record_id}/history": {
       "get": {
         "tags": [
@@ -2368,6 +2450,97 @@
           "client_txn_id"
         ]
       },
+      "RecordRollbackHistoryEntryTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "history_entry"
+          },
+          "history_entry_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "history_entry_ref"
+        ]
+      },
+      "RecordRollbackChangeSetTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "change_set"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "kind",
+          "change_set_id"
+        ]
+      },
+      "RecordRollbackRowRestoreTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "row_restore"
+          },
+          "restore_to_revision_no": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "kind",
+          "restore_to_revision_no"
+        ]
+      },
+      "RecordRollbackTarget": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RecordRollbackHistoryEntryTarget"
+          },
+          {
+            "$ref": "#/components/schemas/RecordRollbackChangeSetTarget"
+          },
+          {
+            "$ref": "#/components/schemas/RecordRollbackRowRestoreTarget"
+          }
+        ]
+      },
+      "RecordRollbackRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "$ref": "#/components/schemas/RecordRollbackTarget"
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id",
+          "target"
+        ]
+      },
       "RecordConflictResolveRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -3226,6 +3399,66 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/RecordDeleteRestoreData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RecordRollbackData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "target": {
+            "$ref": "#/components/schemas/RecordRollbackTarget"
+          },
+          "target_change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rollback_change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "affected_record_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "record_id",
+          "row_version",
+          "target",
+          "target_change_set_id",
+          "rollback_change_set_id",
+          "affected_record_ids"
+        ]
+      },
+      "RecordRollbackEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecordRollbackData"
           },
           "meta": {
             "$ref": "#/components/schemas/EnvelopeMeta"

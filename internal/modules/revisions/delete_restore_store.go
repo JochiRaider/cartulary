@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -152,7 +153,7 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if !deleting {
-		if err := lockRecordEnvelopeNowaitTx(ctx, tx, recordID); err != nil {
+		if err := lockRecordEnvelopesNowaitTx(ctx, tx, []uuid.UUID{recordID}); err != nil {
 			return DeleteRestoreResult{}, err
 		}
 	}
@@ -304,16 +305,25 @@ SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_
 	return record, nil
 }
 
-func lockRecordEnvelopeNowaitTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	var locked uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT record_id FROM records WHERE record_id = $1 FOR UPDATE NOWAIT`, recordID).Scan(&locked); err != nil {
-		if isLockUnavailable(err) {
-			return &RecordLockedError{RecordID: recordID}
+func lockRecordEnvelopesNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	ordered := append([]uuid.UUID(nil), recordIDs...)
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].String() < ordered[j].String()
+	})
+	for i := 0; i < len(ordered); i++ {
+		if i > 0 && ordered[i] == ordered[i-1] {
+			continue
 		}
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRecordNotFound
+		var locked uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT record_id FROM records WHERE record_id = $1 FOR UPDATE NOWAIT`, ordered[i]).Scan(&locked); err != nil {
+			if isLockUnavailable(err) {
+				return &RecordLockedError{RecordID: ordered[i]}
+			}
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrRecordNotFound
+			}
+			return err
 		}
-		return err
 	}
 	return nil
 }

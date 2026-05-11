@@ -67,8 +67,8 @@ UPDATE records
 	if len(items) != 3 {
 		t.Fatalf("expected three history items, got %#v", items)
 	}
-	assertHistoryItem(t, items[0], newerChangeSet, "hostname_update", 1, []string{"history_entry", "change_set", "row_restore"})
-	assertHistoryItem(t, items[1], newerChangeSet, "envelope_update", 2, []string{"history_entry", "change_set", "row_restore"})
+	assertHistoryItem(t, items[0], newerChangeSet, "hostname_update", 1, []string{})
+	assertHistoryItem(t, items[1], newerChangeSet, "envelope_update", 2, []string{})
 	assertHistoryItem(t, items[2], olderChangeSet, "field_update", 1, []string{})
 
 	unauthenticated := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil)

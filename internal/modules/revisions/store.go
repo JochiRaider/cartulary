@@ -222,17 +222,44 @@ func (s *Store) ListRecordHistory(ctx context.Context, record RecordHistoryRecor
 	items = append(items, revisionItems...)
 	sortHistoryItems(items)
 
-	latestByTarget := make(map[string]bool)
+	rollbackRecord := rollbackRecordEnvelope{
+		IncidentID:      record.IncidentID,
+		RecordID:        record.RecordID,
+		RecordType:      record.RecordType,
+		RowVersion:      record.RowVersion,
+		DeletedAt:       record.DeletedAt,
+		DeletedByUserID: record.DeletedByID,
+	}
+	changeSetExecutable := make(map[uuid.UUID]bool)
+	changeSetChecked := make(map[uuid.UUID]bool)
 	for i := range items {
-		if !items[i].hasTargetEntry || items[i].targetKey == "" {
-			continue
-		}
-		if latestByTarget[items[i].targetKey] {
-			items[i].AvailableRollbackActions = nil
+		items[i].AvailableRollbackActions = nil
+		items[i].RevisionNo = nil
+		if rollbackRecord.DeletedAt != nil {
 			items[i].Reversible = false
 			continue
 		}
-		latestByTarget[items[i].targetKey] = true
+		if items[i].HistoryEntryRef != nil {
+			executable, err := s.historyEntryRollbackExecutableTx(ctx, tx, rollbackRecord, *items[i].HistoryEntryRef)
+			if err != nil {
+				return nil, err
+			}
+			if executable {
+				items[i].AvailableRollbackActions = append(items[i].AvailableRollbackActions, "history_entry")
+			}
+		}
+		if !changeSetChecked[items[i].ChangeSetID] {
+			executable, err := s.changeSetRollbackExecutableTx(ctx, tx, rollbackRecord, items[i].ChangeSetID)
+			if err != nil {
+				return nil, err
+			}
+			changeSetChecked[items[i].ChangeSetID] = true
+			changeSetExecutable[items[i].ChangeSetID] = executable
+		}
+		if changeSetExecutable[items[i].ChangeSetID] {
+			items[i].AvailableRollbackActions = append(items[i].AvailableRollbackActions, "change_set")
+		}
+		items[i].Reversible = len(items[i].AvailableRollbackActions) > 0
 	}
 
 	resources := make([]map[string]any, 0, len(items))
@@ -243,6 +270,44 @@ func (s *Store) ListRecordHistory(ctx context.Context, record RecordHistoryRecor
 		return nil, fmt.Errorf("commit record history transaction: %w", err)
 	}
 	return resources, nil
+}
+
+func (s *Store) historyEntryRollbackExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, historyEntryRef string) (bool, error) {
+	plan, err := loadHistoryEntryRollbackPlanTx(ctx, tx, record, historyEntryRef)
+	if err != nil {
+		if errors.Is(err, ErrRollbackTargetNotFound) || errors.Is(err, ErrRollbackPreconditionFailed) {
+			return false, nil
+		}
+		return false, err
+	}
+	return rollbackPlanExecutableTx(ctx, tx, plan)
+}
+
+func (s *Store) changeSetRollbackExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, changeSetID uuid.UUID) (bool, error) {
+	plan, err := loadChangeSetRollbackPlanTx(ctx, tx, record, changeSetID.String())
+	if err != nil {
+		if errors.Is(err, ErrRollbackTargetNotFound) || errors.Is(err, ErrRollbackPreconditionFailed) {
+			return false, nil
+		}
+		return false, err
+	}
+	return rollbackPlanExecutableTx(ctx, tx, plan)
+}
+
+func rollbackPlanExecutableTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) (bool, error) {
+	if err := validateRollbackPlan(plan); err != nil {
+		if errors.Is(err, ErrRollbackPreconditionFailed) {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := ensureNoLaterRollbackPlanMutationTx(ctx, tx, plan); err != nil {
+		if errors.Is(err, ErrRollbackPreconditionFailed) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *Store) loadMutationHistoryItemsTx(ctx context.Context, tx pgx.Tx, record RecordHistoryRecord) ([]RecordHistoryItem, error) {
@@ -267,12 +332,30 @@ SELECT cs.change_set_id,
    AND rr.record_id = $1
   LEFT JOIN record_history_entry_refs href
     ON href.record_id = $1
-   AND href.change_set_id = csm.change_set_id
-   AND href.mutation_sequence_no = csm.sequence_no
- WHERE cs.incident_id = $2
-   AND csm.target_id = $3
- ORDER BY cs.created_at DESC, cs.change_set_id DESC, csm.sequence_no ASC
-`, record.RecordID, record.IncidentID, record.RecordID.String())
+	   AND href.change_set_id = csm.change_set_id
+	   AND href.mutation_sequence_no = csm.sequence_no
+	 WHERE cs.incident_id = $2
+	   AND (
+	       csm.target_id = $3
+	       OR (
+	           csm.target_kind = 'record_link'
+	           AND (
+	               csm.before_value ->> 'src_record_id' = $3
+	               OR csm.before_value ->> 'dst_record_id' = $3
+	               OR csm.after_value ->> 'src_record_id' = $3
+	               OR csm.after_value ->> 'dst_record_id' = $3
+	           )
+	       )
+	       OR (
+	           csm.target_kind = 'entity_mention'
+	           AND (
+	               csm.before_value ->> 'source_record_id' = $3
+	               OR csm.after_value ->> 'source_record_id' = $3
+	           )
+	       )
+	   )
+	 ORDER BY cs.created_at DESC, cs.change_set_id DESC, csm.sequence_no ASC
+	`, record.RecordID, record.IncidentID, record.RecordID.String())
 	if err != nil {
 		return nil, fmt.Errorf("query record history mutations: %w", err)
 	}
@@ -316,13 +399,13 @@ SELECT cs.change_set_id,
 		}
 		item.Operation = historyOperation(source, operationKind)
 		item.DiffSummary = mutationDiffSummary(targetKind, targetID, operationKind, item.sequenceNo, beforeValue, afterValue)
-		item.AvailableRollbackActions = rollbackActions(item.HistoryEntryRef != nil, item.RevisionNo != nil)
-		item.Reversible = len(item.AvailableRollbackActions) > 0
+		item.AvailableRollbackActions = nil
+		item.Reversible = false
 		item.createdAt = item.CommittedAt
 		item.changeSetID = item.ChangeSetID
 		item.syntheticRank = 0
 		item.targetKey = targetKind + ":" + targetID
-		item.hasTargetEntry = singleEntryAddressable(targetKind, targetID, record.RecordID)
+		item.hasTargetEntry = singleEntryAddressable(targetKind, targetID, record.RecordID, beforeValue, afterValue)
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -338,8 +421,8 @@ SELECT cs.change_set_id,
 			return nil, err
 		}
 		items[i].HistoryEntryRef = &generated
-		items[i].AvailableRollbackActions = rollbackActions(true, items[i].RevisionNo != nil)
-		items[i].Reversible = len(items[i].AvailableRollbackActions) > 0
+		items[i].AvailableRollbackActions = nil
+		items[i].Reversible = false
 	}
 	return items, nil
 }
@@ -388,8 +471,9 @@ SELECT cs.change_set_id,
 		item.Operation = historyOperation(source, "row_revision")
 		item.DiffSummary = revisionDiffSummary(record.RecordID, revisionNo, beforeValue, afterValue)
 		item.RevisionNo = &revisionNo
-		item.AvailableRollbackActions = rollbackActions(false, true)
-		item.Reversible = len(item.AvailableRollbackActions) > 0
+		item.RevisionNo = nil
+		item.AvailableRollbackActions = nil
+		item.Reversible = false
 		item.createdAt = item.CommittedAt
 		item.changeSetID = item.ChangeSetID
 		item.sequenceNo = int(^uint(0) >> 1)
@@ -466,9 +550,18 @@ func generateHistoryEntryRef() (string, error) {
 	return "href_" + base64.RawURLEncoding.EncodeToString(payload[:]), nil
 }
 
-func singleEntryAddressable(targetKind string, targetID string, recordID uuid.UUID) bool {
+func singleEntryAddressable(targetKind string, targetID string, recordID uuid.UUID, beforeValue []byte, afterValue []byte) bool {
 	if targetID != recordID.String() {
-		return false
+		switch targetKind {
+		case "record_link":
+			return mutationJSONReferencesRecord(beforeValue, recordID, "src_record_id", "dst_record_id") ||
+				mutationJSONReferencesRecord(afterValue, recordID, "src_record_id", "dst_record_id")
+		case "entity_mention":
+			return mutationJSONReferencesRecord(beforeValue, recordID, "source_record_id") ||
+				mutationJSONReferencesRecord(afterValue, recordID, "source_record_id")
+		default:
+			return false
+		}
 	}
 	switch targetKind {
 	case "record", "timeline_record", "host", "identity", "indicator", "assessment", "evidence":
@@ -476,6 +569,23 @@ func singleEntryAddressable(targetKind string, targetID string, recordID uuid.UU
 	default:
 		return false
 	}
+}
+
+func mutationJSONReferencesRecord(raw []byte, recordID uuid.UUID, keys ...string) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var value map[string]any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return false
+	}
+	recordIDText := recordID.String()
+	for _, key := range keys {
+		if text, ok := value[key].(string); ok && text == recordIDText {
+			return true
+		}
+	}
+	return false
 }
 
 func rollbackActions(hasHistoryEntry bool, hasRevision bool) []string {

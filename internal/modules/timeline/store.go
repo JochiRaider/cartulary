@@ -158,6 +158,13 @@ type MutationResult struct {
 	Row              projectedRecord
 }
 
+type attachedEvidenceMutation struct {
+	RecordLinkID uuid.UUID
+	Operation    string
+	BeforeValue  map[string]any
+	AfterValue   map[string]any
+}
+
 type RecordSubstrateSnapshot struct {
 	RecordID            uuid.UUID
 	RowVersion          int64
@@ -382,7 +389,8 @@ FROM inserted_record, inserted_timeline_event
 	if err := applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC()); err != nil {
 		return MutationResult{}, err
 	}
-	if err := applyAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.AttachedEvidence, now.UTC()); err != nil {
+	attachedEvidenceMutations, err := applyAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.AttachedEvidence, now.UTC())
+	if err != nil {
 		return MutationResult{}, err
 	}
 	markCreateTiming(ctx, "store_collection_actions")
@@ -417,6 +425,9 @@ FROM inserted_record, inserted_timeline_event
 		AfterVersionID: &afterVersion,
 		AfterValue:     afterRow,
 	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, 2, attachedEvidenceMutations); err != nil {
 		return MutationResult{}, err
 	}
 	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
@@ -672,8 +683,11 @@ func (s *Store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 			return MutationResult{}, err
 		}
 	}
+	var attachedEvidenceMutations []attachedEvidenceMutation
 	if evidenceChanged {
-		if err := applyPatchAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC()); err != nil {
+		var err error
+		attachedEvidenceMutations, err = applyPatchAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
+		if err != nil {
 			return MutationResult{}, err
 		}
 	}
@@ -745,6 +759,9 @@ RETURNING recorded_at
 		BeforeValue:     beforeRow,
 		AfterValue:      afterRow,
 	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, 2, attachedEvidenceMutations); err != nil {
 		return MutationResult{}, err
 	}
 	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
@@ -2205,32 +2222,37 @@ func applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 	return nil
 }
 
-func applyPatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
+func applyPatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]attachedEvidenceMutation, error) {
+	var mutations []attachedEvidenceMutation
 	for _, change := range changes {
 		if change.FieldKey != "timeline.attached_evidence_ids" || change.ActionPayload == nil {
 			continue
 		}
-		if err := applyAttachedEvidenceActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now); err != nil {
-			return err
+		applied, err := applyAttachedEvidenceActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now)
+		if err != nil {
+			return nil, err
 		}
+		mutations = append(mutations, applied...)
 	}
-	return nil
+	return mutations, nil
 }
 
-func applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) error {
+func applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) ([]attachedEvidenceMutation, error) {
 	if payload == nil || len(payload.Actions) == 0 {
-		return nil
+		return nil, nil
 	}
+	mutations := make([]attachedEvidenceMutation, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
 		switch action.Op {
 		case "add_record_ref":
 			if action.LinkedRecordID == nil {
-				return fmt.Errorf("missing linked evidence record")
+				return nil, fmt.Errorf("missing linked evidence record")
 			}
 			if err := validateAttachedEvidenceTargetTx(ctx, tx, incidentID, *action.LinkedRecordID); err != nil {
-				return err
+				return nil, err
 			}
-			if _, err := tx.Exec(ctx, `
+			var linkID uuid.UUID
+			err := tx.QueryRow(ctx, `
 INSERT INTO record_links (
     incident_id,
     src_record_id,
@@ -2246,13 +2268,46 @@ INSERT INTO record_links (
 )
 VALUES ($1, $2, $3, 'attached_evidence', 'timeline.attached_evidence_ids', 'manual', NULL, $4, $4, $5, $5)
 ON CONFLICT DO NOTHING
-`, incidentID, recordID, *action.LinkedRecordID, actorUserID, now.UTC()); err != nil {
-				return fmt.Errorf("insert attached evidence link: %w", err)
+RETURNING record_link_id
+`, incidentID, recordID, *action.LinkedRecordID, actorUserID, now.UTC()).Scan(&linkID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
 			}
+			if err != nil {
+				return nil, fmt.Errorf("insert attached evidence link: %w", err)
+			}
+			after, err := loadAttachedEvidenceLinkValueTx(ctx, tx, linkID)
+			if err != nil {
+				return nil, err
+			}
+			mutations = append(mutations, attachedEvidenceMutation{RecordLinkID: linkID, Operation: "create", AfterValue: after})
 		case "remove_record_ref":
 			evidenceRecordID, err := recordIDFromRecordRefItem(action.ItemRef)
 			if err != nil {
-				return err
+				return nil, err
+			}
+			var linkID uuid.UUID
+			err = tx.QueryRow(ctx, `
+SELECT record_link_id
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND dst_record_id = $3
+   AND link_type = 'attached_evidence'
+   AND field_key = 'timeline.attached_evidence_ids'
+   AND deleted_at IS NULL
+ ORDER BY created_at DESC, record_link_id DESC
+ LIMIT 1
+`, incidentID, recordID, evidenceRecordID).Scan(&linkID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return nil, fmt.Errorf("lookup attached evidence link: %w", err)
+			}
+			before, err := loadAttachedEvidenceLinkValueTx(ctx, tx, linkID)
+			if err != nil {
+				return nil, err
 			}
 			if _, err := tx.Exec(ctx, `
 UPDATE record_links
@@ -2265,13 +2320,71 @@ UPDATE record_links
    AND field_key = 'timeline.attached_evidence_ids'
    AND deleted_at IS NULL
 `, incidentID, recordID, evidenceRecordID, actorUserID, now.UTC()); err != nil {
-				return fmt.Errorf("remove attached evidence link: %w", err)
+				return nil, fmt.Errorf("remove attached evidence link: %w", err)
 			}
+			after, err := loadAttachedEvidenceLinkValueTx(ctx, tx, linkID)
+			if err != nil {
+				return nil, err
+			}
+			mutations = append(mutations, attachedEvidenceMutation{RecordLinkID: linkID, Operation: "delete", BeforeValue: before, AfterValue: after})
 		default:
-			return fmt.Errorf("unsupported attached evidence action: %s", action.Op)
+			return nil, fmt.Errorf("unsupported attached evidence action: %s", action.Op)
 		}
 	}
+	return mutations, nil
+}
+
+func (s *Store) insertAttachedEvidenceMutationEntriesTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequenceNo int, mutations []attachedEvidenceMutation) error {
+	sequenceNo := startSequenceNo
+	for _, mutation := range mutations {
+		if mutation.RecordLinkID == uuid.Nil {
+			continue
+		}
+		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+			ChangeSetID:   changeSetID,
+			SequenceNo:    sequenceNo,
+			TargetKind:    "record_link",
+			TargetID:      mutation.RecordLinkID.String(),
+			OperationKind: mutation.Operation,
+			BeforeValue:   mutation.BeforeValue,
+			AfterValue:    mutation.AfterValue,
+		}); err != nil {
+			return err
+		}
+		sequenceNo++
+	}
 	return nil
+}
+
+func loadAttachedEvidenceLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
+	var raw []byte
+	if err := tx.QueryRow(ctx, `
+SELECT jsonb_build_object(
+    'record_link_id', record_link_id::text,
+    'incident_id', incident_id::text,
+    'src_record_id', src_record_id::text,
+    'dst_record_id', dst_record_id::text,
+    'link_type', link_type,
+    'field_key', field_key,
+    'provenance', provenance,
+    'confidence', confidence,
+    'owner_user_id', owner_user_id::text,
+    'created_by_user_id', created_by_user_id::text,
+    'decided_at', decided_at,
+    'created_at', created_at,
+    'deleted_at', deleted_at,
+    'deleted_by_user_id', deleted_by_user_id::text
+)
+  FROM record_links
+ WHERE record_link_id = $1
+`, recordLinkID).Scan(&raw); err != nil {
+		return nil, fmt.Errorf("load attached evidence link value: %w", err)
+	}
+	var value map[string]any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, fmt.Errorf("decode attached evidence link value: %w", err)
+	}
+	return value, nil
 }
 
 func insertTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) error {

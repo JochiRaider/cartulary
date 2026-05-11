@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 7: re
 
 This planning artifact does not implement Phase 7 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status after Sprint 2 audit: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history`, `DELETE /api/v1/records/{record_id}`, and `POST /api/v1/records/{record_id}/restore` are implemented and registered; Sprint 1 history evidence and Sprint 2 soft-delete/restore evidence have passed public Phase 7 slices and broader local gates; and later Sprint 3-5 rollback, whole-row restore, retained-history, lock, and reviewer-browser workflow rows remain explicit non-behavioral scope sentinels until their owning behavior is implemented.
+Current repo status after Sprint 3 audit: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, and `POST /api/v1/records/{record_id}/rollback` are implemented and registered; Sprint 1 history evidence, Sprint 2 soft-delete/restore evidence, and Sprint 3 rollback evidence have passed public Phase 7 slices and focused local gates; and later Sprint 4-5 whole-row restore, retained-history restart or closure invariants, merge-lock integration, reviewer workbook UI, and browser workflow rows remain explicit non-claims until their owning behavior is implemented. Owner decision: Sprint 3 owns single-entry `history_entry` rollback and whole-`change_set` rollback for currently reversible mutation entries only; `row_restore`, retained-history restart or closure invariants, merge-specific rollback, tag rollback, and merge-lock/shared-lock integration remain later work unless pulled forward by a later explicit owner decision.
 
 ## Phase Objective
 
@@ -43,8 +43,8 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 0. Phase 7 ownership manifest and harness setup | [x] audit-complete | None for manifest creation; Phase 7 was activated during Sprint 1 remediation. | Selectable scope sentinel rows now exist. Later sprints must replace every sentinel before Sprint 6 exit. |
 | [x] | 1. Record-history read contract | [x] remediated | `AC-184` and `AC-185` are Phase 8-owned support references and are not claimed as completed Phase 7 evidence. | History route is record-scoped, not view-scoped; adjunct target-family completeness is deferred to later Phase 7 work. |
 | [x] | 2. Soft-delete and restore | [x] audit-complete | None for Sprint 2 product behavior. The first-class record adapter matrix is covered for current `records.record_type` values. | Ordinary delete remains on optimistic concurrency and does not take destructive-operation locks; restore uses the route-local transaction-scoped `FOR UPDATE NOWAIT` helper for the one-record protected set. Broader shared-helper reconciliation remains Sprint 3/4 lock work. |
-| [ ] | 3. Rollback request and single-entry reversal | [ ] planned | Tag rollback language appears in Phase 7 evidence while typed tags are Phase 8; decide whether to pull minimal tag rollback forward or mark tag-specific coverage blocked by owner decision. | Source must be `rollback`; previous history rows are never mutated in place. |
-| [ ] | 4. Whole-change-set rollback, whole-row restore, retained history, and locks | [ ] planned | Confirm whether the existing Phase 4 merge substrate contains enough mutation-entry detail to satisfy merge rollback before claiming `AC-217`. | Shared destructive locks must cover restore, rollback, and merge with identical precedence. |
+| [x] | 3. Rollback request, single-entry reversal, and change-set reversal | [x] audit-complete | None for Sprint 3 product behavior. Owner decision: tag rollback remains Phase 8-owned and merge-specific rollback remains unclaimed until reversible merge substrate and tests exist. | Source is `rollback`; previous history rows are never mutated in place. `available_rollback_actions[]` advertises `change_set` only when the server can execute it under current preconditions. |
+| [ ] | 4. Whole-row restore, retained history, and locks | [ ] planned | None for whole-change-set rollback after the Sprint 3 owner decision. | Shared destructive locks must cover restore, rollback, and merge with identical precedence. |
 | [ ] | 5. Reviewer workbook UI and browser evidence | [ ] planned | UI must not infer legal rollback actions from visible labels, diff text, or storage identifiers. | Browser evidence covers reviewer flows over server-provided selectors and actions. |
 | [ ] | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup | [ ] planned | Blocked until remaining Sprint 3-5 placeholders are replaced with real assertions and unresolved owner decisions are closed or recorded as explicit non-claims. | Run `make agent-finalize` first at end of run, then broader verification. |
 
@@ -330,11 +330,11 @@ Exit criteria:
 - Met: collaboration subscribers observe ordinary `record_changed` messages, not a Phase 7-specific event family.
 - Met: Sprint 2 validation and drift checks passed, with generated duration/scheduler maintenance artifacts updated by `agent-finalize`.
 
-## Sprint 3. Rollback Request and Single-Entry Reversal
+## Sprint 3. Rollback Request, Single-Entry Reversal, and Change-Set Reversal
 
-Objective: Implement rollback route admission and single-entry rollback for history items that map to exactly one reversible mutation target.
+Objective: Implement rollback route admission, single-entry rollback for history items that map to exactly one reversible mutation target, and whole-`change_set` rollback that reverses every currently reversible mutation entry in reverse deterministic entry order.
 
-Status: Planned.
+Status: Audit-complete for Sprint 3 backend scope. This claim covers rollback route admission, single-entry rollback for currently reversible `history_entry` targets, and whole-`change_set` rollback for currently reversible mutation entries. It explicitly does not claim `row_restore`, tag rollback, merge-specific rollback, retained-history restart or closure invariants, merge-lock integration, reviewer workbook UI, or browser reviewer workflows.
 
 Relevant IDs:
 - `U-7-05`, `U-7-06`, `I-7-01`, `I-7-03`, `E-7-02`
@@ -342,7 +342,7 @@ Relevant IDs:
 - `REQ-02-212..REQ-02-218`
 - `REQ-03-141..REQ-03-144`
 - `REQ-04-036..REQ-04-039`
-- `AC-010`, `AC-216`, `AC-218`, `AC-353`
+- `AC-010`, `AC-216`, `AC-217` for the `change_set` rollback portion only, `AC-218`, `AC-353`
 
 Grep references:
 - `invalid_rollback_request`
@@ -354,6 +354,7 @@ Grep references:
 - `stale_target`
 - `source = 'rollback'`
 - `history_entry_ref`
+- `target.kind = 'change_set'`
 
 Files and areas:
 - `contracts/openapi/cartulary.openapi.yaml`
@@ -367,10 +368,11 @@ Files and areas:
 Test-first sequence:
 1. `U-7-05` asserts rollback request shape accepts only `history_entry`, `change_set`, and `row_restore`; rejects unknown top-level members, unknown target members, missing selectors, and wrong selector JSON types with `invalid_rollback_request`.
 2. `U-7-05` asserts successful rollback creates a new `change_set` with `source='rollback'` and does not mutate prior history.
-3. `U-7-06` asserts lock failure wins before stale-precondition evaluation for rollback when a protected-set lock is held.
-4. `I-7-01` asserts single-entry rollback atomically updates source rows, projections, history rows, and collaboration events.
-5. `I-7-03` asserts stale rollback fails closed and leaves current row state unchanged.
-6. `E-7-02` later proves a reviewer can roll back one mistaken link, mention resolution, or evidence association without reverting later unrelated edits on the same row.
+3. `U-7-05` asserts `change_set` rollback reverses every currently reversible mutation entry in reverse deterministic entry order and commits one new rollback change set.
+4. `U-7-06` asserts lock failure wins before stale-precondition evaluation for rollback when a protected-set lock is held.
+5. `I-7-01` asserts single-entry and whole-change-set rollback atomically update source rows, projections, history rows, and collaboration events.
+6. `I-7-03` asserts stale single-entry and whole-change-set rollback fail closed and leave current row state unchanged.
+7. `E-7-02` later proves a reviewer can roll back one mistaken link, mention resolution, or evidence association without reverting later unrelated edits on the same row.
 
 Implementation tasks:
 - Add rollback route contract and decoder with a closed `target` union.
@@ -380,6 +382,9 @@ Implementation tasks:
 - Compute the protected record set for the selected rollback target before evaluating stale row-version or target preconditions, then acquire locks through the shared destructive-operation helper.
 - Use idempotency key `(actor_user_id, record_id, client_txn_id)` and normalized request comparison, including target and normalized reason.
 - Implement single-entry inverse operations for mutation targets already implemented and carrying reversible before/after data. At minimum, cover row-field edits, current record-link mutations needed by existing supersede/evidence flows, existing mention resolution/dismiss/restore mutations, and existing evidence association mutations when the mutation substrate can prove a safe inverse.
+- Implement `target.kind='change_set'` rollback by loading the target change set through visible record history and reversing every currently reversible mutation entry in reverse deterministic entry order.
+- Treat `target.kind='row_restore'` as Sprint 3 request-shape admission only; whole-row restore execution remains Sprint 4.
+- Advertise `available_rollback_actions[]` with `change_set` only when the server can execute whole-change-set rollback under current preconditions.
 - Return `rollback_target_not_found` when the selector is not visible in the current record history.
 - Return `rollback_precondition_failed` with the owner-defined reason code when the target exists but cannot be safely reversed against current state.
 - Commit rollback by creating a new attributed `change_set` with `source='rollback'`, appending inverse mutation entries, incrementing affected first-class record row versions, appending `record_revisions`, updating projections, and publishing ordinary `record_changed` events.
@@ -392,23 +397,26 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- Planned: rollback OpenAPI request and response schemas.
-- Planned: rollback error-family contract entries.
-- Planned: durable single-entry rollback implementation for implemented reversible target families.
-- Planned: backend coverage for `U-7-05`, `U-7-06`, `I-7-01`, and `I-7-03`.
+- Complete: rollback OpenAPI request and response schemas.
+- Complete: rollback error-family contract entries.
+- Complete: durable single-entry rollback implementation for implemented reversible target families.
+- Complete: whole-change-set rollback for currently reversible mutation entries.
+- Complete: backend coverage for `U-7-05`, `U-7-06`, `I-7-01`, and `I-7-03`, including selector visibility negatives, hidden existing-record authorization, mention resolution/dismiss/restore rollback, supersede-link rollback, evidence association rollback, stale rollback, and lock precedence.
 
 Risks and open questions:
-- Tag rollback appears in `E-7-02` and `AC-010`, but typed tags are Phase 8 scope. Before claiming tag rollback, obtain an owner decision to either pull minimal tag mutation support into Phase 7 or mark tag-specific evidence blocked/deferred while still covering link, mention, and evidence rollback.
+- Resolved owner decision: tag rollback appears in `E-7-02` and `AC-010`, but typed tags are Phase 8 scope. Sprint 3 records tag rollback as a non-claim and returns `target_not_reversible` for current tag mutation entries.
 - If earlier mutations did not persist reversible before/after values for a target family, do not infer rollback from projections or visible labels. Add the substrate or mark the target non-reversible with explicit current legality.
+- Resolved owner decision: merge rollback may require additional mutation-entry detail beyond the current Phase 4 merge substrate. Sprint 3 does not claim merge-specific `AC-217`; add merge-specific reversible substrate and tests before claiming it.
 
 Exit criteria:
 - Rollback route admits only documented selector shapes.
 - Single-entry rollback uses server-provided selectors and never client-inferred labels or storage identifiers.
+- Whole-change-set rollback uses server-visible change-set selectors and reverses legal entries in reverse deterministic order.
 - Successful rollback is visible as a new attributed history item and through ordinary collaboration events.
 
-## Sprint 4. Whole-Change-Set Rollback, Whole-Row Restore, Retained History, and Locks
+## Sprint 4. Whole-Row Restore, Retained History, and Locks
 
-Objective: Complete multi-entry rollback, row-backed snapshot restore, retained-history invariants, no-purge guarantees, and shared destructive-operation lock precedence.
+Objective: Complete row-backed snapshot restore, retained-history invariants, no-purge guarantees, and shared destructive-operation lock precedence.
 
 Status: Planned.
 
@@ -419,10 +427,9 @@ Relevant IDs:
 - `REQ-02-205..REQ-02-220`
 - `REQ-02-238..REQ-02-242`
 - `REQ-03-101`, `REQ-03-141..REQ-03-144`
-- `AC-011`, `AC-012`, `AC-187`, `AC-217`, `AC-218`, `AC-353`, `AC-383..AC-385`
+- `AC-011`, `AC-012`, `AC-187`, row-restore portions of `AC-217`, `AC-218`, `AC-353`, `AC-383..AC-385`
 
 Grep references:
-- `target.kind = 'change_set'`
 - `target.kind = 'row_restore'`
 - `restore_to_revision_no`
 - `record_locked`
@@ -441,14 +448,12 @@ Files and areas:
 - Any migration needed for durable selector mapping or lock support.
 
 Test-first sequence:
-1. `U-7-05` asserts `change_set` rollback reverses every reversible mutation entry in reverse deterministic entry order and commits a new rollback change set.
-2. `U-7-05` asserts `row_restore` restores only row-backed fields to the selected `record_revisions` snapshot and does not recreate or delete links, tags, mentions, observations, or evidence associations.
-3. `U-7-06` asserts restore, rollback, and merge share identical destructive-lock precedence: active lock returns `record_locked` with `retryable=true` before stale row-version or route-specific preconditions; after lock release, stale inputs fall through to ordinary downstream errors.
-4. `U-7-07` and `I-7-04` assert retained-history visibility and selector stability across incident closure, delete or restore cycles, rollback, restart, and ordinary background work.
-5. `E-7-04` later proves whole-row restore creates a new attributed revision and moves the visible row back to the selected historical snapshot without erasing prior history.
+1. `U-7-05` asserts `row_restore` restores only row-backed fields to the selected `record_revisions` snapshot and does not recreate or delete links, tags, mentions, observations, or evidence associations.
+2. `U-7-06` asserts restore, rollback, and merge share identical destructive-lock precedence: active lock returns `record_locked` with `retryable=true` before stale row-version or route-specific preconditions; after lock release, stale inputs fall through to ordinary downstream errors.
+3. `U-7-07` and `I-7-04` assert retained-history visibility and selector stability across incident closure, delete or restore cycles, rollback, restart, and ordinary background work.
+4. `E-7-04` later proves whole-row restore creates a new attributed revision and moves the visible row back to the selected historical snapshot without erasing prior history.
 
 Implementation tasks:
-- Implement `target.kind='change_set'` rollback by loading the target change set through visible record history and reversing every currently reversible mutation entry in reverse deterministic entry order.
 - Implement `target.kind='row_restore'` by restoring only authoritative row-backed fields for the addressed `record_id` from the selected revision snapshot.
 - For row restore, do not implicitly recreate/delete non-row-backed `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, or evidence associations.
 - Implement a shared destructive lock helper over the `records` envelope. Acquire locks in canonical ascending `record_id` order and fail fast with `record_locked` if any protected record cannot be locked.
@@ -466,14 +471,12 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- Planned: whole-change-set rollback.
 - Planned: whole-row restore.
 - Planned: shared destructive-operation lock helper and merge integration.
 - Planned: retained-history and no-purge evidence.
 - Planned: service-backed coverage for lock precedence and restart stability.
 
 Risks and open questions:
-- Merge rollback may require additional mutation-entry detail beyond the current Phase 4 merge substrate. If the existing substrate cannot reconstruct pre-merge graph state, add that substrate before claiming `AC-217`; do not implement a partial unmerge based only on visible projections.
 - Transaction lock implementation must not introduce a client-visible lock surface, lock-holder identity surface, manual unlock route, or queued destructive-operation behavior.
 
 Exit criteria:
@@ -624,8 +627,8 @@ Exit criteria:
 2. `AC-184` and `AC-185` appear in `U-7-01`, but the coverage index assigns them to Phase 8. Required decision: correct the guide, mark them support-only for Phase 7, or explicitly split ownership.
 3. First-class record dispatch must stay explicit. Sprint 2 confirmed the current delete/restore adapter matrix for first-class `records.record_type` values; rollback must either reuse that matrix safely or record owner decisions for any later excluded current type.
 4. `history_entry_ref` must be stable and opaque. Default decision: persist a durable opaque selector or selector mapping. Do not use transient order, exposed database primary keys, or a key-rotation-sensitive derived token.
-5. Merge rollback may need more reversible mutation-entry detail than the current Phase 4 merge path records. Required decision: inspect and, if needed, extend the merge substrate before claiming `AC-217`.
-6. `record_locked` exists and is covered for restore. Later rollback and merge lock work must continue to use the public error contract and must not rely on internal errors without contract coverage.
+5. Merge rollback may need more reversible mutation-entry detail than the current Phase 4 merge path records. Required decision: inspect and, if needed, extend the merge substrate before claiming the merge-specific portion of `AC-217`.
+6. `record_locked` exists and is covered for restore. Rollback and merge lock work must continue to use the public error contract and must not rely on internal errors without contract coverage.
 7. Retained-history invariants prohibit purge behavior for extant current-profile incidents. Do not add configuration or operator tooling that narrows visible retained history during this phase.
 
 ## Phase Validation Criteria
@@ -655,7 +658,7 @@ Phase 7 exits only when:
 Phase 8 may rely on these completed Phase 7 contracts after exit:
 - Row-centric history reads are stable, paginated, and bound to `record_id`.
 - First-class record delete and restore preserve append-only history and emit ordinary collaboration events.
-- Rollback creates new attributed `change_sets` with `source='rollback'` and never rewrites prior history.
+- Single-entry and whole-change-set rollback create new attributed `change_sets` with `source='rollback'` and never rewrite prior history.
 - `history_entry_ref` values are stable for the retained-history lifetime of the record in the current deployment.
 - Whole-row restore restores only row-backed fields and does not implicitly recreate or delete relationship-like mutation targets.
 - Destructive-operation locks are shared by restore, rollback, and merge and fail fast before stale-precondition evaluation.

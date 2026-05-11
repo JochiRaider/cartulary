@@ -3,6 +3,7 @@ package revisions_test
 import (
 	"database/sql"
 	"net/http"
+	"slices"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ func TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01(t *testing.T) {
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
 	indicatorID := seedIndicatorRecord(t, harness.DB, incidentID, actorID)
-	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(8)
+	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(16)
 	defer unsubscribe()
 
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC))
@@ -65,6 +66,167 @@ func TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01(t *testing.T) {
 	historyAfterRestore := historyItems(getHistory(t, harness.Server.HTTP.URL, login, recordID, ""))
 	if historyAfterRestore[0].(map[string]any)["operation"] != "restore" || historyAfterRestore[1].(map[string]any)["operation"] != "soft_delete" {
 		t.Fatalf("delete/restore history was not append-only newest-first: %#v", historyAfterRestore)
+	}
+
+	rollbackRecordID := uuid.New()
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Rollback Host", "rollback-host", "", "")
+	rollbackTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000701")
+	seedRollbackHostPatch(t, harness.DB, incidentID, rollbackRecordID, actorID, rollbackTargetChangeSet, time.Date(2026, 5, 10, 13, 2, 0, 0, time.UTC), "rollback before", "rollback after")
+	rollbackRef := stringField(t, historyItems(getHistory(t, harness.Server.HTTP.URL, login, rollbackRecordID, ""))[0], "history_entry_ref")
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 3, 0, 0, time.UTC))
+	beforeHistoryRefRows := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_history_entry_refs WHERE record_id = $1`, rollbackRecordID)
+	rollbackPayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, rollbackRecordID, map[string]any{
+		"base_row_version": 2,
+		"client_txn_id":    "txn-i-7-01-rollback-host",
+		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": rollbackRef},
+	}), http.StatusOK)["data"].(map[string]any)
+	requireRollbackRecordChange(t, timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second), rollbackRecordID, 3, "cartulary.view.hosts.v1")
+	rollbackChangeSetID := rollbackPayload["rollback_change_set_id"].(string)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND actor_user_id = $2`, rollbackChangeSetID, actorID) != 1 {
+		t.Fatalf("rollback did not create attributed rollback change_set")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND target_kind = 'host' AND target_id = $2 AND operation_kind = 'rollback'`, rollbackChangeSetID, rollbackRecordID.String()) != 1 {
+		t.Fatalf("rollback did not append inverse mutation")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND record_id = $2 AND row_version = 3`, rollbackChangeSetID, rollbackRecordID) != 1 {
+		t.Fatalf("rollback did not append record revision")
+	}
+	if got := hostDisplayName(t, harness.DB, rollbackRecordID); got != "rollback before" {
+		t.Fatalf("rollback did not update source row, got %q", got)
+	}
+	if got := hostProjectionDisplayName(t, harness.DB, rollbackRecordID); got != "rollback before" {
+		t.Fatalf("rollback did not update projection row, got %q", got)
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_history_entry_refs WHERE record_id = $1`, rollbackRecordID) != beforeHistoryRefRows {
+		t.Fatalf("rollback mutated prior history_entry_ref rows")
+	}
+
+	linkSrc, linkDst, linkID := seedRollbackRecordLinkCreate(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000702"))
+	linkRollbackRef := historyEntryRefForTarget(t, harness, login, linkSrc, "record_link", linkID.String())
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 4, 0, 0, time.UTC))
+	linkRollbackPayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, linkSrc, map[string]any{
+		"base_row_version": 1,
+		"client_txn_id":    "txn-i-7-01-rollback-link",
+		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": linkRollbackRef},
+	}), http.StatusOK)["data"].(map[string]any)
+	requireRollbackRecordChangesAnyOrder(t, []platformws.RecordChange{
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second),
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second),
+	}, map[uuid.UUID]int64{linkSrc: 2, linkDst: 2}, "cartulary.view.hosts.v1")
+	requireAffectedRecords(t, linkRollbackPayload, linkSrc, linkDst)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NOT NULL`, linkID) != 1 {
+		t.Fatalf("link rollback did not tombstone active link")
+	}
+	linkRollbackChangeSetID := linkRollbackPayload["rollback_change_set_id"].(string)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1`, linkRollbackChangeSetID) != 2 {
+		t.Fatalf("link rollback did not append revisions for both affected records")
+	}
+
+	wholeLeft, wholeRight := seedRollbackHostPair(t, harness.DB, incidentID, actorID, "Integration Whole Left", "Integration Whole Right")
+	wholeChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000704")
+	seedRollbackTwoHostChangeSet(t, harness.DB, incidentID, actorID, wholeChangeSetID, wholeLeft, wholeRight)
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 5, 0, 0, time.UTC))
+	wholeRollbackPayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, wholeLeft, map[string]any{
+		"base_row_version": 2,
+		"client_txn_id":    "txn-i-7-01-rollback-whole-change-set",
+		"target":           map[string]any{"kind": "change_set", "change_set_id": wholeChangeSetID.String()},
+	}), http.StatusOK)["data"].(map[string]any)
+	requireRollbackRecordChangesAnyOrder(t, []platformws.RecordChange{
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second),
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second),
+	}, map[uuid.UUID]int64{wholeLeft: 3, wholeRight: 3}, "cartulary.view.hosts.v1")
+	requireAffectedRecords(t, wholeRollbackPayload, wholeLeft, wholeRight)
+	if got := hostDisplayName(t, harness.DB, wholeLeft); got != "left before" {
+		t.Fatalf("whole change-set rollback did not update left source row, got %q", got)
+	}
+	if got := hostDisplayName(t, harness.DB, wholeRight); got != "right before" {
+		t.Fatalf("whole change-set rollback did not update right source row, got %q", got)
+	}
+	wholeRollbackChangeSetID := wholeRollbackPayload["rollback_change_set_id"].(string)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND actor_user_id = $2`, wholeRollbackChangeSetID, actorID) != 1 {
+		t.Fatalf("whole change-set rollback did not create attributed rollback change_set")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND operation_kind = 'rollback'`, wholeRollbackChangeSetID) != 2 {
+		t.Fatalf("whole change-set rollback did not append inverse mutations")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND row_version = 3`, wholeRollbackChangeSetID) != 2 {
+		t.Fatalf("whole change-set rollback did not append revisions for all affected records")
+	}
+
+	attachedCreateSrc, attachedCreateEvidence, attachedCreateLink := seedRollbackAttachedEvidenceLinkCreate(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000706"))
+	attachedCreateRef := historyEntryRefForTarget(t, harness, login, attachedCreateSrc, "record_link", attachedCreateLink.String())
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 6, 0, 0, time.UTC))
+	attachedCreatePayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, attachedCreateSrc, map[string]any{
+		"base_row_version": 1,
+		"client_txn_id":    "txn-i-7-01-rollback-attached-evidence-create",
+		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": attachedCreateRef},
+	}), http.StatusOK)["data"].(map[string]any)
+	requireRollbackRecordChangesByRecord(t, []platformws.RecordChange{
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second),
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second),
+	}, map[uuid.UUID]rollbackRecordChangeExpectation{
+		attachedCreateSrc: {
+			rowVersion:       2,
+			viewSchemaID:     "cartulary.view.timeline.v1",
+			changedFieldKeys: []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"},
+		},
+		attachedCreateEvidence: {
+			rowVersion:       2,
+			viewSchemaID:     "cartulary.view.evidence.v1",
+			changedFieldKeys: []string{"evidence.linked_record_count"},
+		},
+	})
+	requireAffectedRecordsCanonical(t, attachedCreatePayload, attachedCreateSrc, attachedCreateEvidence)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NOT NULL`, attachedCreateLink) != 1 {
+		t.Fatalf("attached-evidence create rollback did not tombstone link")
+	}
+	if gotCount, gotHasEvidence := timelineProjectionEvidenceState(t, harness.DB, attachedCreateSrc); gotCount != 0 || gotHasEvidence {
+		t.Fatalf("attached-evidence create rollback projection got count=%d has_evidence=%v want count=0 has_evidence=false", gotCount, gotHasEvidence)
+	}
+	attachedCreateRollbackChangeSetID := attachedCreatePayload["rollback_change_set_id"].(string)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND actor_user_id = $2`, attachedCreateRollbackChangeSetID, actorID) != 1 {
+		t.Fatalf("attached-evidence create rollback did not create attributed rollback change_set")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND row_version = 2`, attachedCreateRollbackChangeSetID) != 2 {
+		t.Fatalf("attached-evidence create rollback did not append revisions for both records")
+	}
+
+	attachedDeleteSrc, attachedDeleteEvidence, attachedDeleteLink := seedRollbackAttachedEvidenceLinkDelete(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000707"))
+	attachedDeleteRef := historyEntryRefForTarget(t, harness, login, attachedDeleteSrc, "record_link", attachedDeleteLink.String())
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 7, 0, 0, time.UTC))
+	attachedDeletePayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, attachedDeleteSrc, map[string]any{
+		"base_row_version": 1,
+		"client_txn_id":    "txn-i-7-01-rollback-attached-evidence-delete",
+		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": attachedDeleteRef},
+	}), http.StatusOK)["data"].(map[string]any)
+	requireRollbackRecordChangesByRecord(t, []platformws.RecordChange{
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second),
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second),
+	}, map[uuid.UUID]rollbackRecordChangeExpectation{
+		attachedDeleteSrc: {
+			rowVersion:       2,
+			viewSchemaID:     "cartulary.view.timeline.v1",
+			changedFieldKeys: []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"},
+		},
+		attachedDeleteEvidence: {
+			rowVersion:       2,
+			viewSchemaID:     "cartulary.view.evidence.v1",
+			changedFieldKeys: []string{"evidence.linked_record_count"},
+		},
+	})
+	requireAffectedRecordsCanonical(t, attachedDeletePayload, attachedDeleteSrc, attachedDeleteEvidence)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NULL`, attachedDeleteLink) != 1 {
+		t.Fatalf("attached-evidence delete rollback did not restore link")
+	}
+	if gotCount, gotHasEvidence := timelineProjectionEvidenceState(t, harness.DB, attachedDeleteSrc); gotCount != 1 || !gotHasEvidence {
+		t.Fatalf("attached-evidence delete rollback projection got count=%d has_evidence=%v want count=1 has_evidence=true", gotCount, gotHasEvidence)
+	}
+	attachedDeleteRollbackChangeSetID := attachedDeletePayload["rollback_change_set_id"].(string)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND actor_user_id = $2`, attachedDeleteRollbackChangeSetID, actorID) != 1 {
+		t.Fatalf("attached-evidence delete rollback did not create attributed rollback change_set")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND row_version = 2`, attachedDeleteRollbackChangeSetID) != 2 {
+		t.Fatalf("attached-evidence delete rollback did not append revisions for both records")
 	}
 
 	indicatorDelete := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, indicatorID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-i-7-01-delete-indicator"}), http.StatusOK)["data"].(map[string]any)
@@ -164,6 +326,64 @@ func TestPhase7_StaleRestoreRollbackFailsClosed_I_7_03(t *testing.T) {
 	if before != after {
 		t.Fatalf("stale restore mutated state: before=%+v after=%+v", before, after)
 	}
+
+	rollbackRecordID := uuid.New()
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Stale Rollback Host", "stale-rollback-host", "", "")
+	rollbackTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000703")
+	seedRollbackHostPatch(t, harness.DB, incidentID, rollbackRecordID, actorID, rollbackTargetChangeSet, time.Date(2026, 5, 10, 15, 2, 0, 0, time.UTC), "stale rollback before", "stale rollback after")
+	rollbackRef := stringField(t, historyItems(getHistory(t, harness.Server.HTTP.URL, login, rollbackRecordID, ""))[0], "history_entry_ref")
+	beforeRollback := phase7StateCounts(t, harness.DB, rollbackRecordID)
+	staleRollback := rollbackRecord(t, harness, login, rollbackRecordID, map[string]any{
+		"base_row_version": 1,
+		"client_txn_id":    "txn-i-7-03-stale-rollback",
+		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": rollbackRef},
+	})
+	httptestx.RequireErrorEnvelope(t, staleRollback, http.StatusConflict, "row_version_conflict")
+	timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	afterRollback := phase7StateCounts(t, harness.DB, rollbackRecordID)
+	if beforeRollback != afterRollback {
+		t.Fatalf("stale rollback mutated state: before=%+v after=%+v", beforeRollback, afterRollback)
+	}
+
+	wholeLeft, wholeRight := seedRollbackHostPair(t, harness.DB, incidentID, actorID, "Stale Whole Left", "Stale Whole Right")
+	wholeChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000704")
+	seedRollbackTwoHostChangeSet(t, harness.DB, incidentID, actorID, wholeChangeSetID, wholeLeft, wholeRight)
+	beforeWholeLeft := phase7StateCounts(t, harness.DB, wholeLeft)
+	beforeWholeRight := phase7StateCounts(t, harness.DB, wholeRight)
+	staleWhole := rollbackRecord(t, harness, login, wholeLeft, map[string]any{
+		"base_row_version": 1,
+		"client_txn_id":    "txn-i-7-03-stale-whole-rollback",
+		"target":           map[string]any{"kind": "change_set", "change_set_id": wholeChangeSetID.String()},
+	})
+	httptestx.RequireErrorEnvelope(t, staleWhole, http.StatusConflict, "row_version_conflict")
+	timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	if afterWholeLeft := phase7StateCounts(t, harness.DB, wholeLeft); beforeWholeLeft != afterWholeLeft {
+		t.Fatalf("stale whole rollback mutated left state: before=%+v after=%+v", beforeWholeLeft, afterWholeLeft)
+	}
+	if afterWholeRight := phase7StateCounts(t, harness.DB, wholeRight); beforeWholeRight != afterWholeRight {
+		t.Fatalf("stale whole rollback mutated right state: before=%+v after=%+v", beforeWholeRight, afterWholeRight)
+	}
+
+	unsupportedRecordID := uuid.New()
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, unsupportedRecordID, "Unsupported after", "unsupported-after", "", "")
+	seedHostProjection(t, harness.DB, incidentID, unsupportedRecordID)
+	unsupportedChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000705")
+	seedRollbackHostAndTagChangeSet(t, harness.DB, incidentID, actorID, unsupportedChangeSetID, unsupportedRecordID)
+	beforeUnsupported := phase7StateCounts(t, harness.DB, unsupportedRecordID)
+	unsupported := rollbackRecord(t, harness, login, unsupportedRecordID, map[string]any{
+		"base_row_version": 2,
+		"client_txn_id":    "txn-i-7-03-unsupported-whole-rollback",
+		"target":           map[string]any{"kind": "change_set", "change_set_id": unsupportedChangeSetID.String()},
+	})
+	httptestx.RequireErrorEnvelope(t, unsupported, http.StatusConflict, "rollback_precondition_failed")
+	timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	afterUnsupported := phase7StateCounts(t, harness.DB, unsupportedRecordID)
+	if beforeUnsupported != afterUnsupported {
+		t.Fatalf("unsupported whole rollback mutated state: before=%+v after=%+v", beforeUnsupported, afterUnsupported)
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'rollback' AND client_txn_id = 'txn-i-7-03-unsupported-whole-rollback'`) != 0 {
+		t.Fatalf("unsupported whole rollback inserted idempotent rollback state")
+	}
 }
 
 func requireDeleteRestoreRecordChange(t testing.TB, change platformws.RecordChange, recordID uuid.UUID, rowVersion int64, changeKind string, viewSchemaID string) {
@@ -181,6 +401,72 @@ func requireDeleteRestoreRecordChange(t testing.TB, change platformws.RecordChan
 	}
 	if affectedViews[0]["view_schema_id"] != viewSchemaID || affectedViews[0]["change_kind"] != changeKind {
 		t.Fatalf("unexpected affected view payload: %#v", affectedViews[0])
+	}
+}
+
+func requireRollbackRecordChange(t testing.TB, change platformws.RecordChange, recordID uuid.UUID, rowVersion int64, viewSchemaID string) {
+	t.Helper()
+	if change.RecordID != recordID || change.RowVersion != rowVersion || change.ChangeKind != "invalidate" || change.ViewSchemaID != viewSchemaID {
+		t.Fatalf("unexpected rollback record_changed event: %+v", change)
+	}
+	payload := platformws.RecordChangePayload(change)
+	affectedViews, ok := payload["affected_views"].([]map[string]any)
+	if !ok || len(affectedViews) != 1 {
+		t.Fatalf("rollback affected_views must be a single view, got %#v", payload["affected_views"])
+	}
+	if affectedViews[0]["view_schema_id"] != viewSchemaID || affectedViews[0]["change_kind"] != "invalidate" {
+		t.Fatalf("unexpected rollback affected view payload: %#v", affectedViews[0])
+	}
+}
+
+func requireRollbackRecordChangesAnyOrder(t testing.TB, changes []platformws.RecordChange, expected map[uuid.UUID]int64, viewSchemaID string) {
+	t.Helper()
+	seen := map[uuid.UUID]bool{}
+	for _, change := range changes {
+		wantVersion, ok := expected[change.RecordID]
+		if !ok {
+			t.Fatalf("unexpected rollback changed record: %+v", change)
+		}
+		requireRollbackRecordChange(t, change, change.RecordID, wantVersion, viewSchemaID)
+		seen[change.RecordID] = true
+	}
+	if len(seen) != len(expected) {
+		t.Fatalf("rollback changed records got %v want %v", seen, expected)
+	}
+}
+
+type rollbackRecordChangeExpectation struct {
+	rowVersion       int64
+	viewSchemaID     string
+	changedFieldKeys []string
+}
+
+func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.RecordChange, expected map[uuid.UUID]rollbackRecordChangeExpectation) {
+	t.Helper()
+	seen := map[uuid.UUID]bool{}
+	for _, change := range changes {
+		want, ok := expected[change.RecordID]
+		if !ok {
+			t.Fatalf("unexpected rollback changed record: %+v", change)
+		}
+		if change.RowVersion != want.rowVersion || change.ChangeKind != "invalidate" || change.ViewSchemaID != want.viewSchemaID {
+			t.Fatalf("unexpected rollback record_changed event: got %+v want row_version=%d view_schema_id=%s", change, want.rowVersion, want.viewSchemaID)
+		}
+		if !slices.Equal(change.ChangedFieldKeys, want.changedFieldKeys) {
+			t.Fatalf("rollback changed_field_keys got %v want %v for %s", change.ChangedFieldKeys, want.changedFieldKeys, change.RecordID)
+		}
+		payload := platformws.RecordChangePayload(change)
+		affectedViews, ok := payload["affected_views"].([]map[string]any)
+		if !ok || len(affectedViews) != 1 {
+			t.Fatalf("rollback affected_views must be a single view, got %#v", payload["affected_views"])
+		}
+		if affectedViews[0]["view_schema_id"] != want.viewSchemaID || affectedViews[0]["change_kind"] != "invalidate" {
+			t.Fatalf("unexpected rollback affected view payload: %#v", affectedViews[0])
+		}
+		seen[change.RecordID] = true
+	}
+	if len(seen) != len(expected) {
+		t.Fatalf("rollback changed records got %v want %v", seen, expected)
 	}
 }
 

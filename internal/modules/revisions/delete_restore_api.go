@@ -157,3 +157,28 @@ func recordNotDeletedError() *auth.APIError {
 func recordLockedError(recordID string) *auth.APIError {
 	return &auth.APIError{Status: http.StatusConflict, Code: "record_locked", Details: map[string]any{"record_id": recordID}}
 }
+
+func recordDeletedUseRestoreError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Details: map[string]any{}}
+}
+
+func rollbackTargetNotFoundError(target RollbackTarget) *auth.APIError {
+	return &auth.APIError{
+		Status:  http.StatusNotFound,
+		Code:    "rollback_target_not_found",
+		Message: "rollback target not found",
+		Details: map[string]any{"target": target.Normalized()},
+	}
+}
+
+func rollbackPreconditionFailedError(reasonCode string) *auth.APIError {
+	if reasonCode == "" {
+		reasonCode = "target_not_reversible"
+	}
+	return &auth.APIError{
+		Status:  http.StatusConflict,
+		Code:    "rollback_precondition_failed",
+		Message: "rollback precondition failed",
+		Details: map[string]any{"reason_code": reasonCode},
+	}
+}
