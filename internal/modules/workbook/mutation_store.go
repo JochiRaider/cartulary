@@ -389,7 +389,6 @@ SELECT incident_id
   FROM records
  WHERE record_id = $1
    AND record_type = 'timeline_event'
-   AND deleted_at IS NULL
 `, recordID).Scan(&incidentID)
 		return incidentID, err
 	}
@@ -404,7 +403,6 @@ SELECT r.incident_id
    AND p.record_id = r.record_id
  WHERE r.record_id = $1
    AND r.record_type = 'party'
-   AND r.deleted_at IS NULL
 `, recordID).Scan(&incidentID)
 		return incidentID, err
 	case "artifact":
@@ -417,7 +415,6 @@ SELECT r.incident_id
  WHERE r.record_id = $1
    AND r.record_type = 'artifact'
    AND a.artifact_type = $2
-   AND r.deleted_at IS NULL
 `, recordID, artifactTypeForView(viewSchemaID)).Scan(&incidentID)
 		return incidentID, err
 	case "task_request", "decision":
@@ -426,7 +423,6 @@ SELECT incident_id
   FROM records
  WHERE record_id = $1
    AND record_type = $2
-   AND deleted_at IS NULL
 `, recordID, recordType).Scan(&incidentID)
 		return incidentID, err
 	default:
@@ -434,7 +430,6 @@ SELECT incident_id
 SELECT incident_id
   FROM records
  WHERE record_id = $1
-   AND deleted_at IS NULL
 `, recordID).Scan(&incidentID)
 		return incidentID, err
 	}
@@ -460,15 +455,18 @@ func recordsInsertParams(incidentID uuid.UUID, recordType string, actorID uuid.U
 
 func loadRecordMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (recordMeta, error) {
 	var meta recordMeta
+	var deletedAt sql.NullTime
 	err := tx.QueryRow(ctx, `
-SELECT incident_id, record_type, row_version
+SELECT incident_id, record_type, row_version, deleted_at
   FROM records
  WHERE record_id = $1
-   AND deleted_at IS NULL
  FOR UPDATE
-`, recordID).Scan(&meta.IncidentID, &meta.RecordType, &meta.RowVersion)
+`, recordID).Scan(&meta.IncidentID, &meta.RecordType, &meta.RowVersion, &deletedAt)
 	if err != nil {
 		return recordMeta{}, err
+	}
+	if deletedAt.Valid {
+		return recordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
 	return meta, nil
 }

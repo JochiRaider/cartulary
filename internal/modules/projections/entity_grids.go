@@ -81,6 +81,7 @@ SELECT
   JOIN records r
     ON r.record_id = h.record_id
  WHERE h.incident_id = $1
+   AND r.deleted_at IS NULL
    AND h.host_state IN ('stub', 'canonical')
 `, incidentID); err != nil {
 		return fmt.Errorf("insert host projection rows: %w", err)
@@ -161,6 +162,7 @@ SELECT
   JOIN records r
     ON r.record_id = i.record_id
  WHERE i.incident_id = $1
+   AND r.deleted_at IS NULL
    AND i.identity_state IN ('stub', 'canonical')
 `, incidentID); err != nil {
 		return fmt.Errorf("insert identity projection rows: %w", err)

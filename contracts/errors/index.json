@@ -134,6 +134,21 @@
       "summary": "The record mutation used a stale base_row_version."
     },
     {
+      "code": "record_deleted_use_restore",
+      "http_status": 409,
+      "summary": "The addressed record is soft-deleted and must be restored before ordinary record mutation."
+    },
+    {
+      "code": "record_already_deleted",
+      "http_status": 409,
+      "summary": "The addressed record is already soft-deleted."
+    },
+    {
+      "code": "record_not_deleted",
+      "http_status": 409,
+      "summary": "The addressed record is not currently soft-deleted."
+    },
+    {
       "code": "same_field_conflict",
       "http_status": 409,
       "summary": "A stale record patch overlapped a field changed after the client base row version."

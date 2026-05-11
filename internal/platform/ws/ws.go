@@ -118,6 +118,7 @@ type RecordChange struct {
 	ActorUserID      uuid.UUID
 	ChangedFieldKeys []string
 	ViewSchemaID     string
+	ChangeKind       string
 	PatchCells       map[string]any
 	StreamSeq        int64
 	EventID          uuid.UUID
@@ -684,9 +685,13 @@ func recordChangedMessage(change RecordChange) Message {
 func RecordChangePayload(change RecordChange) map[string]any {
 	changedKeys := append([]string(nil), change.ChangedFieldKeys...)
 	slices.Sort(changedKeys)
+	changeKind := change.ChangeKind
+	if changeKind == "" {
+		changeKind = "invalidate"
+	}
 	affectedView := map[string]any{
 		"view_schema_id": change.ViewSchemaID,
-		"change_kind":    "invalidate",
+		"change_kind":    changeKind,
 	}
 	if change.PatchCells != nil {
 		affectedView = map[string]any{

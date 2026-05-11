@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -337,6 +338,9 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 	case errors.Is(err, timeline.ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
+	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
+		return
 	case errors.As(err, &sameFieldConflict):
 		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "same_field_conflict", Message: "same field conflict", Details: map[string]any{}, Conflict: sameFieldConflict.Conflict})
 		return
@@ -558,6 +562,9 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 		return
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
 		return
 	case errors.As(err, &validationErr):
 		writeAPIError(w, r, invalidMutationPayload(validationErr.Field, validationErr.ReasonCode))

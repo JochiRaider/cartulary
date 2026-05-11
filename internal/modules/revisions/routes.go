@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type Service struct {
@@ -21,6 +22,7 @@ type Service struct {
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	keys          authn.MasterKeys
+	hub           *platformws.Hub
 	pagination    *pagination.Registry
 	now           func() time.Time
 }
@@ -32,6 +34,8 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 			return err
 		}
 		mux.HandleFunc("GET /api/v1/records/{record_id}/history", service.handleRecordHistory)
+		mux.HandleFunc("DELETE /api/v1/records/{record_id}", service.handleRecordDelete)
+		mux.HandleFunc("POST /api/v1/records/{record_id}/restore", service.handleRecordRestore)
 		return nil
 	}
 }
@@ -54,6 +58,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		incidentStore: incidents.NewStore(deps.Postgres),
 		authStore:     authn.NewStore(deps.Postgres),
 		keys:          keys,
+		hub:           deps.WSHub,
 		pagination:    paginator,
 		now:           now,
 	}, nil
@@ -64,7 +69,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r)
+	principal, apiErr := s.authenticateSessionRequest(r, false)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -153,6 +158,103 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Service) handleRecordDelete(w http.ResponseWriter, r *http.Request) {
+	s.handleDeleteRestore(w, r, true)
+}
+
+func (s *Service) handleRecordRestore(w http.ResponseWriter, r *http.Request) {
+	s.handleDeleteRestore(w, r, false)
+}
+
+func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, deleting bool) {
+	recordID, ok := pathUUID(w, r, "record_id")
+	if !ok {
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeDeleteRestoreRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	record, err := s.store.GetHistoryRecord(r.Context(), recordID)
+	if errors.Is(err, ErrRecordNotFound) {
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	membership, apiErr := s.requireIncidentMembership(r.Context(), record.IncidentID, principal.User.ID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if deleting {
+		if !roleIn(membership.Role, "editor", "reviewer", "admin") {
+			writeAPIError(w, r, forbiddenError("editor|reviewer|admin"))
+			return
+		}
+	} else if !roleIn(membership.Role, "reviewer", "admin") {
+		writeAPIError(w, r, forbiddenError("reviewer|admin"))
+		return
+	}
+
+	requestHash := DeleteRestoreRequestHash(request)
+	var result DeleteRestoreResult
+	if deleting {
+		result, err = s.store.SoftDeleteRecord(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	} else {
+		result, err = s.store.RestoreRecord(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	}
+	switch {
+	case errors.Is(err, ErrRecordNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, clientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, ErrRowVersionConflict):
+		var conflict *RowVersionConflictError
+		if errors.As(err, &conflict) {
+			writeAPIError(w, r, rowVersionConflictError(conflict.Details()))
+			return
+		}
+		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
+		return
+	case errors.Is(err, ErrRecordAlreadyDeleted):
+		writeAPIError(w, r, recordAlreadyDeletedError())
+		return
+	case errors.Is(err, ErrRecordNotDeleted):
+		writeAPIError(w, r, recordNotDeletedError())
+		return
+	case errors.Is(err, ErrRecordLocked):
+		var locked *RecordLockedError
+		recordIDText := recordID.String()
+		if errors.As(err, &locked) {
+			recordIDText = locked.RecordID.String()
+		}
+		writeAPIError(w, r, recordLockedError(recordIDText))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if !result.Replayed {
+		s.publishDeleteRestoreChange(result, principal.User.ID)
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
+}
+
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {
 	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
@@ -164,13 +266,39 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	return record, nil
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request) (auth.SessionPrincipal, *auth.APIError) {
+func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
 	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
 		Store:         s.authStore,
 		Keys:          s.keys,
 		Now:           s.now,
-		StateChanging: false,
+		StateChanging: stateChanging,
 	})
+}
+
+func (s *Service) publishDeleteRestoreChange(result DeleteRestoreResult, actorUserID uuid.UUID) {
+	if s.hub == nil || result.ViewSchemaID == "" {
+		return
+	}
+	s.hub.PublishRecordChange(platformws.RecordChange{
+		IncidentID:       result.IncidentID,
+		RecordID:         result.RecordID,
+		RowVersion:       result.RowVersion,
+		ChangeSetID:      result.ChangeSetID,
+		ClientTxnID:      result.ClientTxnID,
+		ActorUserID:      actorUserID,
+		ChangedFieldKeys: []string{},
+		ViewSchemaID:     result.ViewSchemaID,
+		ChangeKind:       result.ChangeKind,
+	})
+}
+
+func roleIn(role string, allowed ...string) bool {
+	for _, candidate := range allowed {
+		if role == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {

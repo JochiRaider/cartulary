@@ -136,11 +136,14 @@
       "runner": "go_test",
       "package": "./internal/modules/revisions",
       "file": "internal/modules/revisions/phase7_delete_restore_test.go",
-      "symbol": "TestPhase7_SoftDeleteRoutePreconditions_U_7_03",
+      "symbols": [
+        "TestPhase7_SoftDeleteRoutePreconditions_U_7_03",
+        "TestPhase7_DeleteRestoreAdapterMatrix_U_7_03_U_7_04"
+      ],
       "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
-      "claim": "Sprint 1 records U-7-03 as a later-sprint scope sentinel only; first-class record soft-delete route behavior is not claimed by Sprint 1.",
-      "out_of_scope": "Soft-delete `row_version`, role gates, route-owned failures, restore consequences, and destructive lock precedence remain later Phase 7 work.",
+      "claim": "Sprint 2 covers the first-class record soft-delete route contract, role gates, visibility masking, optimistic concurrency, route-scoped idempotency, deleted-record mutation failure, and explicit adapter matrix.",
+      "out_of_scope": "Rollback execution, whole-row restore, reviewer workbook UI, and non-record mutation target deletion remain outside Sprint 2.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase7 delete restore",
       "fixture_policy": {
@@ -162,8 +165,8 @@
       "symbol": "TestPhase7_RestoreTombstonePreconditions_U_7_04",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Sprint 1 records U-7-04 as a later-sprint scope sentinel only; restore tombstone route behavior is not claimed by Sprint 1.",
-      "out_of_scope": "Restore `row_version`, role gates, active-state projection, append-only consequences, and browser-visible collaboration behavior remain later Phase 7 work.",
+      "claim": "Sprint 2 covers the restore route contract, reviewer/admin role gate, tombstone row-version requirement, active-state projection eligibility, route-scoped idempotency, and append-only delete/restore history.",
+      "out_of_scope": "Rollback execution, whole-row restore, reviewer workbook UI, and full browser reviewer workflow remain outside Sprint 2.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase7 delete restore",
       "fixture_policy": {
@@ -256,8 +259,8 @@
       "symbol": "TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Sprint 1 records I-7-01 as a later-sprint scope sentinel only; delete, restore, rollback, projection, history, and collaboration atomicity are not claimed by Sprint 1.",
-      "out_of_scope": "Mutation-route atomic consequences remain later Phase 7 work; Sprint 1 direct evidence stays on record-history reads.",
+      "claim": "Sprint 2 covers delete and restore atomic consequences across envelope/source tombstones, projections, change sets, mutation rows, record revisions, retained history, and ordinary record_changed collaboration events.",
+      "out_of_scope": "Rollback atomicity and whole-row restore remain later Phase 7 work.",
       "execution_family": "backend-integration-revisions",
       "execution_label": "backend-integration phase7 revisions",
       "fixture_policy": {
@@ -302,8 +305,8 @@
       "symbol": "TestPhase7_StaleRestoreRollbackFailsClosed_I_7_03",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Sprint 1 records I-7-03 as a later-sprint scope sentinel only; stale restore and rollback precondition behavior is not claimed by Sprint 1.",
-      "out_of_scope": "Stale restore or rollback failure behavior and lock acquisition precedence remain later Phase 7 work.",
+      "claim": "Sprint 2 covers stale restore failure as a closed transaction: no envelope/source state, projection, history, idempotency, or collaboration event changes.",
+      "out_of_scope": "Stale rollback failure behavior remains later Phase 7 work.",
       "execution_family": "backend-integration-revisions",
       "execution_label": "backend-integration phase7 revisions",
       "fixture_policy": {
@@ -371,8 +374,8 @@
       "title": "E-7-03 soft-deletes and restores a row with tombstone concurrency",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Sprint 1 records E-7-03 as a later-sprint scope sentinel only; browser delete and restore behavior is not claimed by Sprint 1.",
-      "out_of_scope": "Tombstone concurrency, collaboration remove or invalidate events, and destructive lock precedence remain later Phase 7 work."
+      "claim": "Sprint 2 provides HTTP and WebSocket support fixtures for later browser soft-delete/restore validation without claiming reviewer workbook UI behavior.",
+      "out_of_scope": "The full browser reviewer workflow, workbook controls, and UI presentation remain later Phase 7 work."
     },
     {
       "id": "E-7-04",

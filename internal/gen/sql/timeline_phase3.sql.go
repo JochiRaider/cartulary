@@ -226,6 +226,7 @@ SELECT
 FROM timeline_events e
 JOIN records r ON r.record_id = e.record_id
 WHERE e.incident_id = $1
+  AND r.deleted_at IS NULL
 ORDER BY COALESCE(e.occurred_at, e.recorded_at) ASC, e.record_id ASC
 `
 
