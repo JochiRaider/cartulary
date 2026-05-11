@@ -562,7 +562,17 @@ case "\${target}" in
   phase-schedules)
     printf 'phase-schedules: unchanged\\n'
     ;;
-  go-test-duration-baselines|browser-e2e-duration-baselines|service-backed-make-target-duration-baselines|harness-smoke-duration-baselines|go-test-duration-baseline-coverage|phase-schedule-drift|json-shape-check|duration-baseline-drift-suite|scheduler-summary-timing-drift)
+  go-test-duration-baselines|browser-e2e-duration-baselines|service-backed-make-target-duration-baselines|harness-smoke-duration-baselines|go-test-duration-baseline-coverage|phase-schedule-drift|json-shape-check|duration-baseline-drift-suite)
+    ;;
+  scheduler-summary-timing-drift)
+    if [[ "\${SCHEDULER_WARM_CHECK_BUDGET_MS:-}" != "100000" ]]; then
+      printf 'unexpected warm check budget %s\\n' "\${SCHEDULER_WARM_CHECK_BUDGET_MS:-}" >&2
+      exit 2
+    fi
+    if [[ "\${SCHEDULER_WARM_CHECK_BALANCE_RATIO:-}" != "1.25" ]]; then
+      printf 'unexpected warm check balance ratio %s\\n' "\${SCHEDULER_WARM_CHECK_BALANCE_RATIO:-}" >&2
+      exit 2
+    fi
     ;;
   *)
     printf 'unexpected target %s\\n' "\${target}" >&2

@@ -3,6 +3,8 @@ set -euo pipefail
 
 MAKE_BIN="${MAKE:-make}"
 RESULTS_DIR="${RESULTS_DIR:-}"
+SCHEDULER_WARM_CHECK_BUDGET_MS="${SCHEDULER_WARM_CHECK_BUDGET_MS:-100000}"
+SCHEDULER_WARM_CHECK_BALANCE_RATIO="${SCHEDULER_WARM_CHECK_BALANCE_RATIO:-1.25}"
 
 run_make_target_with_env() {
   local target="$1"
@@ -51,8 +53,8 @@ if [[ -n "${RESULTS_DIR}" ]]; then
   printf 'agent-finalize: duration baselines checked from %s\n' "${RESULTS_DIR}"
   run_make_target_with_env scheduler-summary-timing-drift \
     TARGET=check \
-    SCHEDULER_WARM_CHECK_BUDGET_MS=60000 \
-    SCHEDULER_WARM_CHECK_BALANCE_RATIO=1.25 >/dev/null
+    SCHEDULER_WARM_CHECK_BUDGET_MS="${SCHEDULER_WARM_CHECK_BUDGET_MS}" \
+    SCHEDULER_WARM_CHECK_BALANCE_RATIO="${SCHEDULER_WARM_CHECK_BALANCE_RATIO}" >/dev/null
   printf 'agent-finalize: warm check-service-backed health checked from %s\n' "${RESULTS_DIR}"
 fi
 

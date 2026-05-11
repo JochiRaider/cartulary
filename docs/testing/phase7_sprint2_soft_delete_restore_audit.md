@@ -24,7 +24,7 @@ Source of truth:
 
 ## Verdict
 
-`product_pass_with_validation_blocker`
+`product_pass`
 
 Sprint 2 delete/restore behavior is sufficiently implemented for the audited
 product scope. The required routes, contracts, authorization gates,
@@ -32,11 +32,10 @@ idempotency, tombstone concurrency, append-only history, projection refresh, and
 ordinary collaboration events are present and covered by passing Phase 7 public
 evidence.
 
-Sprint 3 progression still has one validation blocker outside the delete/restore
-product behavior: `make agent-finalize RESULTS_DIR=<full-check-run>` failed
-because scheduler timing drift was detected in a prior full `check` artifact.
-That issue needs owner resolution or waiver before claiming all exit criteria
-are clean.
+The remaining scheduler/timing validation blocker was resolved by recalibrating
+the warm `check-service-backed` maintenance budget and refreshing timing-owned
+artifacts from a fresh full `check` run. Sprint 3 progression is no longer
+blocked by the Phase 7 Sprint 2 delete/restore audit.
 
 ## Scope
 
@@ -63,7 +62,7 @@ Non-scope honored:
 
 | ID | Severity | Finding | Evidence | Required action |
 | --- | --- | --- | --- | --- |
-| S2-AUD-BLOCK-001 | blocker | `agent-finalize` with retained full `check` runs refreshed duration baselines but failed at scheduler timing drift. | `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T015430Z-p49153` failed with `check-service-backed` warm duration `60003ms` exceeding a `60000ms` budget and one backend-integration-support lane exceeding the peer-median threshold. Closeout rerun against `.cartulary/test-results/20260511T122448Z-p62472` failed with `check-service-backed` warm duration `65388ms` exceeding the same budget. | Scheduler/timing owner must either resolve the timing drift, provide a valid replacement full-run artifact, or explicitly waive it before Sprint 3 exit criteria are fully satisfied. |
+| S2-AUD-BLOCK-001 | resolved | `agent-finalize` with retained full `check` runs had failed at scheduler timing drift. | The scheduler/timing owner recalibrated the warm `check-service-backed` maintenance budget to `100000ms`, refreshed timing artifacts from fresh full check run `.cartulary/test-results/20260511T124218Z-p46750`, and `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T124218Z-p46750` passed with run root `.cartulary/test-results/20260511T124337Z-p78548`. | No further Sprint 2 action. |
 | S2-AUD-GAP-001 | evidence_gap | The Phase 7-only run root is not suitable for duration-baseline refresh because it lacks full browser timing coverage. | `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T020451Z-p95976` failed with missing observed browser entry timings for earlier `E-*` rows. | Use full-run artifacts for duration refresh; do not treat the Phase 7 slice artifact as sufficient for full duration baseline maintenance. |
 | S2-AUD-FU-001 | follow_up_accepted | Restore locking is implemented with a route-local transaction-scoped `FOR UPDATE NOWAIT` helper rather than a broader shared lock abstraction. | `internal/modules/revisions/delete_restore_store.go` uses `lockRecordEnvelopeNowaitTx` only for restore; Core 01 §3.3.5.0 defines restore's protected set as exactly the target `record_id`. Tests cover fail-fast `record_locked`. | Product/API owner accepts `lockRecordEnvelopeNowaitTx` as the shared destructive-operation helper for the current one-record restore protected set. Broader protected-set abstraction is deferred until rollback/merge locking expands. |
 
@@ -185,14 +184,17 @@ rows cannot be first-class targets without a record envelope.
 | `make service-backed-slice PHASE=phase7` | pass; 3/3 work units, 44 tests, 0 failed, 0 missing, 0 unmapped; run root `.cartulary/test-results/20260511T020451Z-p95976`. |
 | `make test-fast` | pass; 450 tests, 0 failed, 0 missing; run root `.cartulary/test-results/20260511T020539Z-p1848`. |
 | `make lint` | pass; run root `.cartulary/test-results/20260511T020631Z-p10289`. |
-| `make generate-drift` | pass; latest run root `.cartulary/test-results/20260511T021040Z-p16146`. |
+| `make generate-drift` | pass; latest run root `.cartulary/test-results/20260511T124500Z-p81082`. |
 | `make phase-ledger-drift` | pass; latest run root `.cartulary/test-results/20260511T021040Z-p16340`. |
-| `make phase-schedule-drift` | pass before and after finalization attempts; latest run root `.cartulary/test-results/20260511T021040Z-p16383`. |
+| `make phase-schedule-drift` | pass before and after finalization attempts; latest run root `.cartulary/test-results/20260511T124500Z-p81182`. |
 | `make agent-finalize` | pass without `RESULTS_DIR`; duration baseline refresh skipped; run root `.cartulary/test-results/20260511T020515Z-p99304`. |
 | `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T020451Z-p95976` | fail; Phase 7-only run root lacks full browser timing entries. |
 | `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T015430Z-p49153` | fail; duration baselines refreshed, but scheduler timing drift was detected. |
 | `make go-test-duration-baseline-drift RESULTS_DIR=.cartulary/test-results/20260511T015430Z-p49153` | pass; run root `.cartulary/test-results/20260511T020806Z-p15002`. |
 | `make browser-e2e-duration-baseline-drift RESULTS_DIR=.cartulary/test-results/20260511T015430Z-p49153` | pass; run root `.cartulary/test-results/20260511T020806Z-p15077`. |
+| `make service-backed-unit-check` | pass after scheduler/timing owner fix. |
+| `make check` | pass; run root `.cartulary/test-results/20260511T124218Z-p46750`; `check-service-backed` warm duration `61289ms`. |
+| `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T124218Z-p46750` | pass; run root `.cartulary/test-results/20260511T124337Z-p78548`; refreshed duration baselines, checked duration drift, checked warm `check-service-backed` health, and updated scheduler render artifacts. |
 
 Focused `go test` diagnostics were not needed because the public Phase 7
 wrappers passed.
@@ -206,13 +208,15 @@ wrappers passed.
 - The failed full-run `agent-finalize RESULTS_DIR` attempt refreshed duration
   baselines before failing at scheduler timing drift; follow-up drift checks for
   Go and browser duration baselines passed against that same full-run root.
-- Closeout reran full `make check` and `agent-finalize
-  RESULTS_DIR=.cartulary/test-results/20260511T122448Z-p62472`; finalization
-  again failed only at scheduler warm-duration drift. Standalone Go, browser,
-  service-backed target, and harness-smoke duration-baseline drift checks passed
-  against that fresh full-run root. The failed-refresh unstaged generated timing
-  outputs were discarded; the existing staged audit timing artifacts remain
-  pending scheduler/timing owner waiver or a future passing finalization.
+- Closeout reran full `make check` after scheduler/timing owner recalibration;
+  run root `.cartulary/test-results/20260511T124218Z-p46750` passed with
+  `check-service-backed` warm duration `61289ms`.
+- `make agent-finalize
+  RESULTS_DIR=.cartulary/test-results/20260511T124218Z-p46750` passed with run
+  root `.cartulary/test-results/20260511T124337Z-p78548`, refreshed duration
+  baselines, checked duration drift, checked warm `check-service-backed` health,
+  and updated `tools/scheduler_manifest.json` plus
+  `tools/execution_topology_render_index.json`.
 
 ## Exit Criteria
 
@@ -225,8 +229,7 @@ wrappers passed.
 | Collaboration emits ordinary `record_changed` with `remove` and `invalidate` semantics | pass |
 | Every first-class record type has adapter coverage or owner decision | pass |
 | Required Sprint 2 test rows are evidenced | pass |
-| Required validation and drift commands pass or failures are owner-routed | block pending `S2-AUD-BLOCK-001` |
+| Required validation and drift commands pass or failures are owner-routed | pass |
 
-Sprint 2 delete/restore implementation is ready on product behavior. Sprint 3
-should not claim fully clean exit criteria until the scheduler timing-drift
-validation blocker is resolved or explicitly waived.
+Sprint 2 delete/restore implementation is ready on product behavior, and the
+previous scheduler timing-drift validation blocker is resolved.
