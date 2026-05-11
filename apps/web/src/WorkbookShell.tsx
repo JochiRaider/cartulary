@@ -294,6 +294,90 @@ type TimelineActionEnvelope = {
   };
 };
 
+export type RecordHistoryRollbackAction =
+  | "change_set"
+  | "history_entry"
+  | "row_restore";
+
+export type RecordHistoryItem = {
+  actor_user_id: string;
+  committed_at: string;
+  operation: string;
+  diff_summary: {
+    summary: string;
+    units: Array<Record<string, unknown>>;
+  };
+  change_set_id: string;
+  reversible: boolean;
+  available_rollback_actions: RecordHistoryRollbackAction[];
+  history_entry_ref?: string;
+  revision_no?: number;
+};
+
+type RecordHistoryData = {
+  incident_id: string;
+  record_id: string;
+  row_version: number;
+  deleted: boolean;
+  items: RecordHistoryItem[];
+};
+
+type RecordHistoryEnvelope = {
+  data: RecordHistoryData;
+};
+
+type RecordDeleteRestoreEnvelope = {
+  data: {
+    record_id: string;
+    incident_id: string;
+    row_version: number;
+    deleted: boolean;
+    deleted_at: string | null;
+    deleted_by_user_id: string | null;
+    change_set_id: string;
+  };
+};
+
+type RecordRollbackEnvelope = {
+  data: {
+    incident_id: string;
+    record_id: string;
+    row_version: number;
+    target: Record<string, unknown>;
+    target_change_set_id: string;
+    rollback_change_set_id: string;
+    affected_record_ids: string[];
+  };
+};
+
+type RecordHistoryState = {
+  recordId: string | null;
+  status: "idle" | "loading" | "ready" | "error";
+  data: RecordHistoryData | null;
+  message: string | null;
+};
+
+export function buildRecordRollbackTargetFromHistoryAction(
+  item: RecordHistoryItem,
+  action: RecordHistoryRollbackAction,
+): Record<string, unknown> | null {
+  if (!item.available_rollback_actions.includes(action)) {
+    return null;
+  }
+  if (action === "history_entry") {
+    return typeof item.history_entry_ref === "string" &&
+      item.history_entry_ref !== ""
+      ? { kind: "history_entry", history_entry_ref: item.history_entry_ref }
+      : null;
+  }
+  if (action === "change_set") {
+    return { kind: "change_set", change_set_id: item.change_set_id };
+  }
+  return typeof item.revision_no === "number"
+    ? { kind: "row_restore", restore_to_revision_no: item.revision_no }
+    : null;
+}
+
 type SessionEnvelope = {
   data: {
     user_id: string;
@@ -1624,6 +1708,11 @@ function parseErrorMessage(payload: unknown) {
   return "Request failed.";
 }
 
+function formatHistoryTimestamp(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
 function RelationshipChip({
   item,
   entityIndex,
@@ -1915,6 +2004,12 @@ export function TimelineWorkbook({
   const [presenceRecords, setPresenceRecords] = useState<PresenceRecord[]>([]);
   const [selectedResolveTargetId, setSelectedResolveTargetId] = useState("");
   const [inspectorMessage, setInspectorMessage] = useState<string | null>(null);
+  const [rowHistory, setRowHistory] = useState<RecordHistoryState>({
+    recordId: null,
+    status: "idle",
+    data: null,
+    message: null,
+  });
   const [dismissedMentionsByRow, setDismissedMentionsByRow] = useState<
     Record<string, DismissedMention[]>
   >({});
@@ -3928,6 +4023,234 @@ export function TimelineWorkbook({
     ],
   );
 
+  const fetchRecordHistory = useCallback(
+    async (recordId: string): Promise<RecordHistoryData | null> => {
+      const result = await fetchJSON<RecordHistoryEnvelope>(
+        apiPath(apiBase, `/api/v1/records/${recordId}/history`),
+      );
+      if (!result.ok) {
+        setRowHistory({
+          recordId,
+          status: "error",
+          data: null,
+          message: parseErrorMessage(result.payload),
+        });
+        return null;
+      }
+      const envelope = readEnvelope<RecordHistoryEnvelope>(result.payload);
+      setRowHistory({
+        recordId,
+        status: "ready",
+        data: envelope.data,
+        message: null,
+      });
+      return envelope.data;
+    },
+    [apiBase],
+  );
+
+  const openRowHistory = useCallback(
+    (recordId: string) => {
+      setSelectedRowId(recordId);
+      setRowHistory({
+        recordId,
+        status: "loading",
+        data: rowHistory.recordId === recordId ? rowHistory.data : null,
+        message: null,
+      });
+      void fetchRecordHistory(recordId);
+    },
+    [fetchRecordHistory, rowHistory.data, rowHistory.recordId],
+  );
+
+  const currentHistoryRecordId =
+    selectedRow?.recordId ?? rowHistory.data?.record_id ?? rowHistory.recordId;
+  const currentHistoryRowVersion =
+    selectedRow?.rowVersion ?? rowHistory.data?.row_version ?? null;
+  const currentHistoryDeleted = rowHistory.data?.deleted === true;
+
+  const submitRowHistoryDeleteRestore = useCallback(
+    (operation: "delete" | "restore") => {
+      const recordId = currentHistoryRecordId;
+      if (recordId === null || recordId === undefined) {
+        return;
+      }
+      const rowVersion =
+        operation === "restore"
+          ? rowHistory.data?.row_version
+          : (currentCommittedTimelineRow(recordId)?.rowVersion ??
+            currentHistoryRowVersion);
+      if (typeof rowVersion !== "number") {
+        setRowHistory((current) => ({
+          ...current,
+          message: "Missing row version for destructive action.",
+        }));
+        return;
+      }
+      const clientTxnId = nextClientTxnId();
+      const viewportContinuityTarget: ViewportContinuityTarget =
+        selectedRow?.recordId === recordId
+          ? { kind: "row-inspect", recordId }
+          : { kind: "scroll-only" };
+      const viewportContinuityToken = beginViewportContinuity(
+        viewportContinuityTarget,
+      );
+      beginSave();
+      setRowHistory((current) => ({ ...current, message: null }));
+      saveQueueRef.current = saveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          if (!(await waitForPendingReplayForRecord(recordId))) {
+            clearViewportContinuity(viewportContinuityToken);
+            finishSave("Conflict");
+            return;
+          }
+          trackPendingSocketTxn(clientTxnId);
+          const path =
+            operation === "delete"
+              ? `/api/v1/records/${recordId}`
+              : `/api/v1/records/${recordId}/restore`;
+          const result = await fetchJSON<RecordDeleteRestoreEnvelope>(
+            apiPath(apiBase, path),
+            {
+              method: operation === "delete" ? "DELETE" : "POST",
+              body: JSON.stringify({
+                base_row_version: rowVersion,
+                client_txn_id: clientTxnId,
+                reason:
+                  operation === "delete"
+                    ? "Deleted from workbook history"
+                    : "Restored from workbook history",
+              }),
+            },
+          );
+          if (!result.ok) {
+            resolvePendingSocketTxn(clientTxnId);
+            clearViewportContinuity(viewportContinuityToken);
+            setRowHistory((current) => ({
+              ...current,
+              message: parseErrorMessage(result.payload),
+            }));
+            finishSave("Conflict");
+            return;
+          }
+          await fetchRecordHistory(recordId);
+          if (operation === "restore") {
+            setSelectedRowId(recordId);
+          }
+          await loadRowsRef.current({
+            showLoading: false,
+            viewportContinuityToken,
+          });
+          finishSave("Saved");
+        });
+    },
+    [
+      apiBase,
+      beginSave,
+      beginViewportContinuity,
+      clearViewportContinuity,
+      currentCommittedTimelineRow,
+      currentHistoryRecordId,
+      currentHistoryRowVersion,
+      fetchRecordHistory,
+      finishSave,
+      nextClientTxnId,
+      resolvePendingSocketTxn,
+      rowHistory.data?.row_version,
+      selectedRow?.recordId,
+      trackPendingSocketTxn,
+      waitForPendingReplayForRecord,
+    ],
+  );
+
+  const submitRowHistoryRollback = useCallback(
+    (item: RecordHistoryItem, action: RecordHistoryRollbackAction) => {
+      const recordId = currentHistoryRecordId;
+      const rowVersion =
+        currentCommittedTimelineRow(recordId ?? "")?.rowVersion ??
+        currentHistoryRowVersion;
+      if (recordId === null || recordId === undefined) {
+        return;
+      }
+      if (typeof rowVersion !== "number") {
+        setRowHistory((current) => ({
+          ...current,
+          message: "Missing row version for rollback.",
+        }));
+        return;
+      }
+      const target = buildRecordRollbackTargetFromHistoryAction(item, action);
+      if (target === null) {
+        return;
+      }
+      const clientTxnId = nextClientTxnId();
+      const viewportContinuityTarget: ViewportContinuityTarget =
+        selectedRow?.recordId === recordId
+          ? { kind: "row-inspect", recordId }
+          : { kind: "scroll-only" };
+      const viewportContinuityToken = beginViewportContinuity(
+        viewportContinuityTarget,
+      );
+      beginSave();
+      setRowHistory((current) => ({ ...current, message: null }));
+      saveQueueRef.current = saveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          if (!(await waitForPendingReplayForRecord(recordId))) {
+            clearViewportContinuity(viewportContinuityToken);
+            finishSave("Conflict");
+            return;
+          }
+          trackPendingSocketTxn(clientTxnId);
+          const result = await fetchJSON<RecordRollbackEnvelope>(
+            apiPath(apiBase, `/api/v1/records/${recordId}/rollback`),
+            {
+              method: "POST",
+              body: JSON.stringify({
+                base_row_version: rowVersion,
+                client_txn_id: clientTxnId,
+                reason: "Rollback from workbook history",
+                target,
+              }),
+            },
+          );
+          if (!result.ok) {
+            resolvePendingSocketTxn(clientTxnId);
+            clearViewportContinuity(viewportContinuityToken);
+            setRowHistory((current) => ({
+              ...current,
+              message: parseErrorMessage(result.payload),
+            }));
+            finishSave("Conflict");
+            return;
+          }
+          await fetchRecordHistory(recordId);
+          await loadRowsRef.current({
+            showLoading: false,
+            viewportContinuityToken,
+          });
+          finishSave("Saved");
+        });
+    },
+    [
+      apiBase,
+      beginSave,
+      beginViewportContinuity,
+      clearViewportContinuity,
+      currentCommittedTimelineRow,
+      currentHistoryRecordId,
+      currentHistoryRowVersion,
+      fetchRecordHistory,
+      finishSave,
+      nextClientTxnId,
+      resolvePendingSocketTxn,
+      selectedRow?.recordId,
+      trackPendingSocketTxn,
+      waitForPendingReplayForRecord,
+    ],
+  );
+
   function submitMentionAction(
     mention: InspectorMention,
     action: "resolve_item" | "dismiss_item" | "revert_to_unresolved",
@@ -4795,7 +5118,7 @@ export function TimelineWorkbook({
   const timelineActionsColumn = useMemo<GridActionsColumn<WorkbookRow>>(
     () => ({
       label: "Actions",
-      width: 176,
+      width: 196,
       renderCell: ({ data: row }) =>
         row.recordId === null ? (
           <div style={actionStackStyle}>
@@ -4806,16 +5129,28 @@ export function TimelineWorkbook({
           </div>
         ) : (
           <div style={actionStackStyle}>
-            <button
-              data-testid={rowInspectButtonTestId(row.recordId)}
-              style={actionButtonStyle}
-              type="button"
-              onClick={() => {
-                handleSelectRow(row.recordId ?? "");
-              }}
-            >
-              Inspect
-            </button>
+            <div style={timelineActionTopRowStyle}>
+              <button
+                data-testid={rowInspectButtonTestId(row.recordId)}
+                style={actionButtonStyle}
+                type="button"
+                onClick={() => {
+                  handleSelectRow(row.recordId ?? "");
+                }}
+              >
+                Inspect
+              </button>
+              <button
+                data-testid={`row-history-open-${row.recordId}`}
+                style={actionButtonStyle}
+                type="button"
+                onClick={() => {
+                  openRowHistory(row.recordId ?? "");
+                }}
+              >
+                History
+              </button>
+            </div>
             <button
               data-testid={`row-${row.recordId}-mark-reviewed`}
               disabled={
@@ -4864,6 +5199,7 @@ export function TimelineWorkbook({
     [
       handleCreateBlankDraftRow,
       handleSelectRow,
+      openRowHistory,
       queueAction,
       replacementDrafts,
     ],
@@ -4961,6 +5297,179 @@ export function TimelineWorkbook({
             }}
           />
         </label>
+      </section>
+    );
+  }
+
+  function renderRowHistorySection() {
+    const recordId = currentHistoryRecordId;
+    const historyData = rowHistory.data;
+    const selectedActiveRow =
+      recordId !== null &&
+      recordId !== undefined &&
+      selectedRow?.recordId === recordId
+        ? selectedRow
+        : null;
+    return (
+      <section data-testid="row-history-panel" style={inspectorSectionStyle}>
+        <div style={historySectionHeaderStyle}>
+          <h3 style={sectionTitleStyle}>Row history</h3>
+          {selectedActiveRow !== null ? (
+            <button
+              data-testid={`row-history-open-${selectedActiveRow.recordId}-inspector`}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                openRowHistory(selectedActiveRow.recordId ?? "");
+              }}
+            >
+              Refresh history
+            </button>
+          ) : null}
+        </div>
+        {recordId !== null && recordId !== undefined ? (
+          <p style={historyMetaStyle}>Record {recordId}</p>
+        ) : null}
+        {rowHistory.status === "idle" && selectedActiveRow !== null ? (
+          <button
+            data-testid="row-history-open-selected"
+            style={actionButtonStyle}
+            type="button"
+            onClick={() => {
+              openRowHistory(selectedActiveRow.recordId ?? "");
+            }}
+          >
+            Open history
+          </button>
+        ) : null}
+        {rowHistory.status === "loading" ? (
+          <p data-testid="row-history-loading" style={bodyStyle}>
+            Loading history...
+          </p>
+        ) : null}
+        {rowHistory.message ? (
+          <p data-testid="row-history-message" style={genericErrorTextStyle}>
+            {rowHistory.message}
+          </p>
+        ) : null}
+        {historyData !== null ? (
+          <>
+            <dl style={historyMetaGridStyle}>
+              <div>
+                <dt style={detailTermStyle}>Current row version</dt>
+                <dd style={detailValueStyle}>{historyData.row_version}</dd>
+              </div>
+              <div>
+                <dt style={detailTermStyle}>Deleted</dt>
+                <dd style={detailValueStyle}>
+                  {historyData.deleted ? "yes" : "no"}
+                </dd>
+              </div>
+            </dl>
+            <div style={inlineButtonRowStyle}>
+              {selectedActiveRow !== null && !historyData.deleted ? (
+                <button
+                  data-testid="row-history-delete"
+                  style={destructiveActionButtonStyle}
+                  type="button"
+                  onClick={() => {
+                    submitRowHistoryDeleteRestore("delete");
+                  }}
+                >
+                  Soft-delete row
+                </button>
+              ) : null}
+              {historyData.deleted ? (
+                <button
+                  data-testid="row-history-restore"
+                  style={actionButtonStyle}
+                  type="button"
+                  onClick={() => {
+                    submitRowHistoryDeleteRestore("restore");
+                  }}
+                >
+                  Restore row
+                </button>
+              ) : null}
+            </div>
+            <ol style={historyListStyle}>
+              {historyData.items.map((item, index) => {
+                const itemKey =
+                  item.history_entry_ref ??
+                  `${item.change_set_id}:${item.revision_no}:${item.operation}`;
+                const actionButtons = item.available_rollback_actions.flatMap(
+                  (action) => {
+                    const target = buildRecordRollbackTargetFromHistoryAction(
+                      item,
+                      action,
+                    );
+                    if (target === null) {
+                      return [];
+                    }
+                    const label =
+                      action === "history_entry"
+                        ? "Rollback entry"
+                        : action === "change_set"
+                          ? "Rollback change set"
+                          : "Restore row fields";
+                    return [
+                      <button
+                        data-testid={`row-history-action-${index}-${action}`}
+                        key={action}
+                        style={
+                          action === "row_restore"
+                            ? actionButtonStyle
+                            : secondaryActionButtonStyle
+                        }
+                        type="button"
+                        onClick={() => {
+                          submitRowHistoryRollback(item, action);
+                        }}
+                      >
+                        {label}
+                      </button>,
+                    ];
+                  },
+                );
+                return (
+                  <li
+                    data-testid={`row-history-item-${index}`}
+                    key={itemKey}
+                    style={historyItemStyle}
+                  >
+                    <div style={historyItemHeaderStyle}>
+                      <strong>{item.operation}</strong>
+                      <time dateTime={item.committed_at}>
+                        {formatHistoryTimestamp(item.committed_at)}
+                      </time>
+                    </div>
+                    <dl style={detailListStyle}>
+                      <div>
+                        <dt style={detailTermStyle}>Actor</dt>
+                        <dd style={detailValueStyle}>{item.actor_user_id}</dd>
+                      </div>
+                      <div>
+                        <dt style={detailTermStyle}>Diff</dt>
+                        <dd style={detailValueStyle}>
+                          {item.diff_summary.summary}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt style={detailTermStyle}>Change set</dt>
+                        <dd style={detailValueStyle}>{item.change_set_id}</dd>
+                      </div>
+                    </dl>
+                    {actionButtons.length > 0 ? (
+                      <div style={inlineButtonRowStyle}>{actionButtons}</div>
+                    ) : (
+                      <p style={emptyRelationshipStyle}>No rollback action</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </>
+        ) : null}
       </section>
     );
   }
@@ -5466,9 +5975,11 @@ export function TimelineWorkbook({
             <h2 style={inspectorTitleStyle}>
               {selectedRow?.recordId
                 ? `Timeline row ${selectedRow.recordId}`
-                : draftRow
-                  ? "Draft timeline row"
-                  : "Select a saved row"}
+                : currentHistoryDeleted && rowHistory.data?.record_id
+                  ? `Deleted row ${rowHistory.data.record_id}`
+                  : draftRow
+                    ? "Draft timeline row"
+                    : "Select a saved row"}
             </h2>
             <p style={bodyStyle}>
               Routine mention review and hidden-field editing stay on the
@@ -5479,6 +5990,7 @@ export function TimelineWorkbook({
             <>
               {renderInspectorFieldEditors(selectedRow)}
               {renderEvidenceAttachSection(selectedRow)}
+              {renderRowHistorySection()}
               <section style={inspectorSectionStyle}>
                 <h3 style={sectionTitleStyle}>Mentions</h3>
                 <div style={mentionGroupStyle}>
@@ -5679,6 +6191,15 @@ export function TimelineWorkbook({
                   ) : null}
                 </section>
               ) : null}
+              {inspectorMessage ? (
+                <p data-testid="timeline-inspector-message" style={bodyStyle}>
+                  {inspectorMessage}
+                </p>
+              ) : null}
+            </>
+          ) : currentHistoryDeleted && rowHistory.data !== null ? (
+            <>
+              {renderRowHistorySection()}
               {inspectorMessage ? (
                 <p data-testid="timeline-inspector-message" style={bodyStyle}>
                   {inspectorMessage}
@@ -8642,6 +9163,13 @@ const actionStackStyle = {
   gap: "0.5rem",
 };
 
+const timelineActionTopRowStyle = {
+  display: "flex",
+  gap: "0.35rem",
+  alignItems: "center",
+  flexWrap: "wrap" as const,
+};
+
 const genericMutationPanelStyle = {
   display: "grid",
   gap: "0.75rem",
@@ -8701,6 +9229,13 @@ const actionButtonStyle = {
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "rgb(247 249 247)",
+};
+
+const destructiveActionButtonStyle = {
+  ...actionButtonStyle,
+  borderColor: "rgb(180 83 9)",
+  background: "rgb(255 247 237)",
+  color: "rgb(146 64 14)",
 };
 
 const conflictMarkerStyle = {
@@ -8836,6 +9371,52 @@ const inspectorSectionStyle = {
   display: "grid",
   gap: "0.75rem",
   marginBottom: "1rem",
+};
+
+const historySectionHeaderStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  flexWrap: "wrap" as const,
+};
+
+const historyMetaStyle = {
+  margin: 0,
+  color: "rgb(87 109 103)",
+  fontSize: "0.85rem",
+  overflowWrap: "anywhere" as const,
+};
+
+const historyMetaGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(8rem, 1fr))",
+  gap: "0.75rem",
+  margin: 0,
+};
+
+const historyListStyle = {
+  display: "grid",
+  gap: "0.75rem",
+  margin: 0,
+  paddingInlineStart: "1.25rem",
+};
+
+const historyItemStyle = {
+  display: "grid",
+  gap: "0.65rem",
+  padding: "0.75rem",
+  borderRadius: "0.5rem",
+  border: "1px solid rgb(212 224 218)",
+  background: "rgb(255 255 255)",
+};
+
+const historyItemHeaderStyle = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  flexWrap: "wrap" as const,
 };
 
 const sectionTitleStyle = {

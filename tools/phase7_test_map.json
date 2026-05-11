@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase7",
-  "note": "Phase 7 active execution manifest for reviewer-facing history, first-class record delete or restore, rollback, retained history, and destructive-operation lock precedence. Sprint 4 activates whole-row restore from record_revisions snapshots, retained-history restart and closure expansion, and shared destructive-operation lock precedence for restore, rollback, and merge while merge-specific rollback, reviewer workbook UI, browser workflows, and typed tag rollback remain unclaimed.",
+  "note": "Phase 7 active execution manifest for reviewer-facing history, first-class record delete or restore, rollback, retained history, destructive-operation lock precedence, and Sprint 5 reviewer workbook UI browser workflows. Merge-specific rollback, typed tag rollback, Phase 8 saved-view behavior, Phase 9 workbook-native keyboard or clipboard behavior, and full Phase 7 exit remain unclaimed.",
   "ledger": {
     "title": "Phase 7 Coverage Ledger",
     "notes": [
@@ -10,7 +10,8 @@
       "`AC-184` and `AC-185` appear in the Phase 7 guide row `U-7-01`, but the guide coverage index assigns those ACs to Phase 8. Phase 7 records them as support references only and does not claim them as completed Phase 7 evidence.",
       "Adjunct mutation-target-family history completeness remains incremental; Sprint 4 claims single-entry and whole-change-set rollback only where reversible before/after mutation data is available, and does not claim merge-specific change-set rollback.",
       "Typed tag rollback language is treated as an owner-decision dependency; Phase 7 scope sentinels must not claim Phase 8 typed tag creation or mutation behavior.",
-      "Retained-history restart, incident-closure, delete or restore cycle, rollback, row-restore, and ordinary retained-history stability evidence is covered by explicit Sprint 4 tests."
+      "Retained-history restart, incident-closure, delete or restore cycle, rollback, row-restore, and ordinary retained-history stability evidence is covered by explicit Sprint 4 tests.",
+      "Sprint 5 covers workbook-surface row-history entry, row-centric server metadata rendering, server-supplied rollback selector use, attached-evidence single-entry rollback, soft-delete, restore, and rollback collaboration observation, and whole-row restore browser evidence."
     ],
     "authoritative_execution": [
       "`backend-store` carries authoritative `U-7-*` route and store-domain rows through manifest-owned service-backed Go selection.",
@@ -30,13 +31,13 @@
     "shared_harness": [
       "| Harness | Phase 7 evidence |",
       "| --- | --- |",
-      "| Active manifest ownership | `tools/phase7_test_map.json` records every authoritative guide row while later-sprint scope sentinels remain explicit. |",
+      "| Active manifest ownership | `tools/phase7_test_map.json` records every authoritative guide row and keeps remaining non-claims explicit. |",
       "| Generated ledger | `docs/testing/phase7_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
       "| Schedule boundary | Phase 7 is active, so generated schedules include Phase 7 execution work selected by public phase wrappers. |"
     ],
     "support_only": [
       "`internal/modules/timeline`, `internal/modules/entities`, `internal/modules/evidence`, `internal/modules/workbook`, and `internal/modules/collaboration` Phase 3 through Phase 6 tests provide substrate support only.",
-      "`apps/web/src/WorkbookShell.phase7.test.tsx` is supplemental UI scaffolding for future reviewer-history controls and must not replace authoritative `E-7-*` browser rows.",
+      "`apps/web/src/WorkbookShell.phase7.test.tsx` is supplemental UI coverage for row-history rendering, server-supplied action visibility, selector-only rollback request construction, delete or restore row-version selection, and ordinary collaboration continuity; authoritative reviewer workflow evidence remains the `E-7-*` browser rows.",
       "Existing browser specs under `apps/web/e2e/phase4*`, `phase5*`, and `phase6*` remain prior-phase evidence and are forbidden from claiming Phase 7 IDs."
     ]
   },
@@ -213,7 +214,7 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Sprint 4 covers shared destructive-operation lock precedence for restore, rollback, row_restore, and merge: protected-set locks are acquired before stale row-version and route-specific precondition evaluation, and released requests fall through to ordinary downstream errors.",
-      "out_of_scope": "Browser-visible destructive-operation workflow handling remains later Phase 7 work.",
+      "out_of_scope": "Browser-visible destructive-operation workflow handling is owned by the Sprint 5 browser rows, not this backend lock row.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase7 locks",
       "fixture_policy": {
@@ -236,7 +237,7 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Retained-history invariants for extant records remain fully paginatable and preserve issued `history_entry_ref` values across delete or restore cycles, rollback-like later work, incident closure, and no-purge/no-retention-horizon route and configuration checks covered by this test.",
-      "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7; reviewer workbook UI remains Sprint 5 scope.",
+      "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7; Sprint 5 browser rows own reviewer workbook UI evidence.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase7 history",
       "fixture_policy": {
@@ -330,7 +331,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
       "claim": "Sprint 4 retained-history evidence for an extant record remains fully paginatable and stable across the explicit restart, incident-closure, and later-change sequence covered by this test, with prior `history_entry_ref` values preserved.",
-      "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7; reviewer workbook UI remains Sprint 5 scope.",
+      "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7; Sprint 5 browser rows own reviewer workbook UI evidence.",
       "execution_family": "backend-integration-revisions",
       "execution_label": "backend-integration phase7 revisions",
       "fixture_policy": {
@@ -353,19 +354,19 @@
       "title": "E-7-01 opens row history from the workbook surface with legal rollback actions",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Sprint 1 records E-7-01 as a later-sprint scope sentinel only; reviewer workbook history UI behavior is not claimed by Sprint 1.",
-      "out_of_scope": "Workbook row-history UI, legal rollback actions, and browser presentation remain later Phase 7 work."
+      "claim": "Sprint 5 opens row history from the selected Timeline workbook row and renders actor, timestamp, operation, diff summary, and legal action controls from server-owned history metadata.",
+      "out_of_scope": "The browser row does not claim Phase 8 saved-view behavior, Phase 9 keyboard or clipboard behavior, typed tag rollback, or full Phase 7 exit."
     },
     {
       "id": "E-7-02",
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase7.history.spec.ts",
-      "title": "E-7-02 rolls back one mistaken mutation without reverting later unrelated edits",
+      "title": "E-7-02 rolls back one attached-evidence mutation without reverting later unrelated edits",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Sprint 1 records E-7-02 as a later-sprint scope sentinel only; browser rollback behavior is not claimed by Sprint 1.",
-      "out_of_scope": "Single-entry rollback UI behavior and typed tag mutation semantics remain later owner-controlled work."
+      "claim": "Sprint 5 uses a server-supplied `history_entry_ref` from row history to roll back an attached-evidence record-link mutation, proves another client observes an ordinary `record_changed` `invalidate` event for the affected Timeline view, and proves a later unrelated row summary edit remains intact.",
+      "out_of_scope": "Typed tag rollback, merge-specific rollback, and client-inferred rollback legality remain unclaimed."
     },
     {
       "id": "E-7-03",
@@ -375,8 +376,8 @@
       "title": "E-7-03 soft-deletes and restores a row with tombstone concurrency",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Sprint 2 provides HTTP and WebSocket support fixtures for later browser soft-delete/restore validation without claiming reviewer workbook UI behavior.",
-      "out_of_scope": "The full browser reviewer workflow, workbook controls, and UI presentation remain later Phase 7 work."
+      "claim": "Sprint 5 soft-deletes and restores a Timeline row from workbook history controls using current and tombstone row versions, while another client observes ordinary `record_changed` `remove` and `invalidate` collaboration messages.",
+      "out_of_scope": "The browser row does not claim any special collaboration event family, Phase 8 saved-view behavior, or Phase 9 keyboard or clipboard behavior."
     },
     {
       "id": "E-7-04",
@@ -386,8 +387,8 @@
       "title": "E-7-04 whole-row restore appends a new attributed revision",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Sprint 1 records E-7-04 as a later-sprint scope sentinel only; browser whole-row restore behavior is not claimed by Sprint 1.",
-      "out_of_scope": "Whole-row restore UI behavior, merge-specific rollback, and browser whole-change-set rollback behavior remain later Phase 7 work."
+      "claim": "Sprint 5 invokes a server-supplied `row_restore` action from row history, proves the rollback request uses only `restore_to_revision_no`, verifies the visible Timeline summary returns to the selected historical snapshot, and confirms prior history remains visible after the new attributed revision with actor attribution and timestamp metadata.",
+      "out_of_scope": "Merge-specific rollback, browser whole-change-set rollback, typed tag rollback, Phase 8 saved-view behavior, Phase 9 keyboard or clipboard behavior, and full Phase 7 exit remain unclaimed."
     }
   ]
 }

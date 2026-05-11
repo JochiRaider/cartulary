@@ -1,7 +1,416 @@
-import { describe, expect, it } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanupTimelineWorkbookTestGlobals,
+  extractTimelineJSONBody,
+  installTimelineWorkbookTestGlobals,
+  latestTimelineWebSocket,
+  successEnvelope,
+  type TimelineWorkbookFetchMock,
+  timelineRow,
+  timelineViewSchemaId,
+  visibleGridRowRecordIds,
+} from "./timelineWorkbookTestSupport";
+import {
+  buildRecordRollbackTargetFromHistoryAction,
+  type RecordHistoryItem,
+  TimelineWorkbook,
+} from "./WorkbookShell";
+
+vi.mock(
+  "@cartulary/grid-adapter",
+  async () => import("@cartulary/grid-adapter/test-support"),
+);
+
+const actorUserId = "11111111-1111-4111-8111-111111111111";
+const changeSetId = "22222222-2222-4222-8222-222222222222";
+
+function historyItem(
+  overrides: Partial<RecordHistoryItem> = {},
+): RecordHistoryItem {
+  return {
+    actor_user_id: actorUserId,
+    committed_at: "2026-05-11T12:00:00Z",
+    operation: "field_update",
+    diff_summary: {
+      summary: "field_update timeline_record",
+      units: [{ history_unit_kind: "mutation" }],
+    },
+    change_set_id: changeSetId,
+    reversible: true,
+    available_rollback_actions: ["history_entry", "change_set"],
+    history_entry_ref: "href_server_selector",
+    ...overrides,
+  };
+}
+
+function historyEnvelope(options: {
+  deleted?: boolean;
+  items?: RecordHistoryItem[];
+  recordId?: string;
+  rowVersion?: number;
+}) {
+  return successEnvelope({
+    incident_id: "incident-1",
+    record_id: options.recordId ?? "record-1",
+    row_version: options.rowVersion ?? 4,
+    deleted: options.deleted ?? false,
+    items: options.items ?? [historyItem()],
+  });
+}
 
 describe("Phase 7 workbook history support coverage", () => {
-  it("Phase 7 U-7-FE-01 keeps reviewer history controls as planned UI support", () => {
-    expect("GET /api/v1/records/{record_id}/history").toContain("history");
+  let fetchMock: TimelineWorkbookFetchMock;
+
+  beforeEach(() => {
+    fetchMock = installTimelineWorkbookTestGlobals();
+  });
+
+  afterEach(() => {
+    cleanup();
+    cleanupTimelineWorkbookTestGlobals();
+  });
+
+  it("opens row-centric history from a selected workbook row and renders server metadata only", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 4,
+              summary: "History base",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        historyEnvelope({
+          items: [
+            historyItem({
+              available_rollback_actions: ["change_set", "row_restore"],
+              history_entry_ref: "href_hidden_because_not_advertised",
+              revision_no: 3,
+            }),
+          ],
+        }),
+      );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("row-record-1-summary");
+    fireEvent.click(screen.getByTestId("row-history-open-record-1"));
+
+    await screen.findByTestId("row-history-item-0");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/records/record-1/history",
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+    expect(screen.getByTestId("row-history-panel").textContent).toContain(
+      actorUserId,
+    );
+    expect(screen.getByTestId("row-history-panel").textContent).toContain(
+      "2026-05-11T12:00:00.000Z",
+    );
+    expect(screen.getByTestId("row-history-panel").textContent).toContain(
+      "field_update timeline_record",
+    );
+    expect(
+      screen.queryByTestId("row-history-action-0-history_entry"),
+    ).toBeNull();
+    expect(screen.getByTestId("row-history-action-0-change_set")).toBeTruthy();
+    expect(screen.getByTestId("row-history-action-0-row_restore")).toBeTruthy();
+  });
+
+  it("builds rollback targets only from advertised server actions and selectors", () => {
+    const item = historyItem({
+      available_rollback_actions: ["change_set", "row_restore"],
+      history_entry_ref: "href_present_but_not_legal",
+      revision_no: 7,
+    });
+
+    expect(
+      buildRecordRollbackTargetFromHistoryAction(item, "history_entry"),
+    ).toBeNull();
+    expect(
+      buildRecordRollbackTargetFromHistoryAction(item, "change_set"),
+    ).toEqual({
+      kind: "change_set",
+      change_set_id: changeSetId,
+    });
+    expect(
+      buildRecordRollbackTargetFromHistoryAction(item, "row_restore"),
+    ).toEqual({
+      kind: "row_restore",
+      restore_to_revision_no: 7,
+    });
+  });
+
+  it("submits single-entry rollback with only the server-provided history selector", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 4,
+              summary: "Rollback current",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 4 }))
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          record_id: "record-1",
+          row_version: 5,
+          target: {
+            kind: "history_entry",
+            history_entry_ref: "href_server_selector",
+          },
+          target_change_set_id: changeSetId,
+          rollback_change_set_id: "33333333-3333-4333-8333-333333333333",
+          affected_record_ids: ["record-1"],
+        }),
+      )
+      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 5 }))
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 5,
+              summary: "Rollback previous",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("row-record-1-summary");
+    fireEvent.click(screen.getByTestId("row-history-open-record-1"));
+    await screen.findByTestId("row-history-action-0-history_entry");
+    fireEvent.click(screen.getByTestId("row-history-action-0-history_entry"));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).endsWith("/api/v1/records/record-1/rollback"),
+        ),
+      ).toBe(true);
+    });
+    const rollbackCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
+      String(url).endsWith("/api/v1/records/record-1/rollback"),
+    );
+    const body = extractTimelineJSONBody(fetchMock, rollbackCallIndex);
+    expect(body).toMatchObject({
+      base_row_version: 4,
+      target: {
+        kind: "history_entry",
+        history_entry_ref: "href_server_selector",
+      },
+    });
+    expect(Object.keys(body.target as Record<string, unknown>).sort()).toEqual([
+      "history_entry_ref",
+      "kind",
+    ]);
+  });
+
+  it("uses active and tombstone row versions for delete and restore controls", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 5,
+              summary: "Delete me",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 5 }))
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          record_id: "record-1",
+          row_version: 6,
+          deleted: true,
+          deleted_at: "2026-05-11T12:05:00Z",
+          deleted_by_user_id: actorUserId,
+          change_set_id: "44444444-4444-4444-8444-444444444444",
+        }),
+      )
+      .mockResolvedValueOnce(historyEnvelope({ deleted: true, rowVersion: 6 }))
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          record_id: "record-1",
+          row_version: 7,
+          deleted: false,
+          deleted_at: null,
+          deleted_by_user_id: null,
+          change_set_id: "55555555-5555-4555-8555-555555555555",
+        }),
+      )
+      .mockResolvedValueOnce(historyEnvelope({ deleted: false, rowVersion: 7 }))
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 7,
+              summary: "Delete me",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("row-record-1-summary");
+    fireEvent.click(screen.getByTestId("row-history-open-record-1"));
+    await screen.findByTestId("row-history-delete");
+    fireEvent.click(screen.getByTestId("row-history-delete"));
+
+    await screen.findByTestId("row-history-restore");
+    await waitFor(() => {
+      expect(visibleGridRowRecordIds(container)).toEqual([]);
+    });
+    const deleteCallIndex = fetchMock.mock.calls.findIndex(
+      ([url, init]) =>
+        String(url).endsWith("/api/v1/records/record-1") &&
+        init?.method === "DELETE",
+    );
+    expect(extractTimelineJSONBody(fetchMock, deleteCallIndex)).toMatchObject({
+      base_row_version: 5,
+    });
+
+    fireEvent.click(screen.getByTestId("row-history-restore"));
+    await screen.findByTestId("row-record-1-summary");
+    const restoreCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
+      String(url).endsWith("/api/v1/records/record-1/restore"),
+    );
+    expect(extractTimelineJSONBody(fetchMock, restoreCallIndex)).toMatchObject({
+      base_row_version: 6,
+    });
+  });
+
+  it("keeps workbook continuity through ordinary remove and invalidate socket updates", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 1,
+              summary: "Socket row",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 1 }))
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 3,
+              summary: "Socket row restored",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("row-record-1-summary");
+    fireEvent.click(screen.getByTestId("row-history-open-record-1"));
+    await screen.findByTestId("row-history-item-0");
+
+    latestTimelineWebSocket()?.emit({
+      type: "record_changed",
+      stream_seq: 1,
+      payload: {
+        record_id: "record-1",
+        row_version: 2,
+        change_set_id: "delete-change-set",
+        client_txn_id: "remote-delete",
+        actor_user_id: actorUserId,
+        changed_field_keys: [],
+        affected_views: [
+          {
+            view_schema_id: timelineViewSchemaId,
+            change_kind: "remove",
+          },
+        ],
+      },
+    });
+    await waitFor(() => {
+      expect(visibleGridRowRecordIds(container)).toEqual([]);
+    });
+
+    latestTimelineWebSocket()?.emit({
+      type: "record_changed",
+      stream_seq: 2,
+      payload: {
+        record_id: "record-1",
+        row_version: 3,
+        change_set_id: "restore-change-set",
+        client_txn_id: "remote-restore",
+        actor_user_id: actorUserId,
+        changed_field_keys: [],
+        affected_views: [
+          {
+            view_schema_id: timelineViewSchemaId,
+            change_kind: "invalidate",
+          },
+        ],
+      },
+    });
+
+    await waitFor(() => {
+      expect(visibleGridRowRecordIds(container)).toEqual(["record-1"]);
+    });
+    expect(screen.getByTestId("row-record-1-summary")).toBeTruthy();
   });
 });

@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 7: re
 
 This planning artifact does not implement Phase 7 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status after Sprint 4 backend implementation: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, and `POST /api/v1/records/{record_id}/rollback` are implemented and registered; Sprint 1 history evidence, Sprint 2 soft-delete/restore evidence, Sprint 3 rollback evidence, and Sprint 4 whole-row restore, retained-history, and shared-lock backend evidence have passed the listed local gates. Sprint 5 reviewer workbook UI/browser workflow rows remain explicit non-claims until their owning behavior is implemented. Owner decision: merge-specific rollback and typed tag rollback remain unclaimed until reversible substrate and owner scope exist.
+Current repo status after Sprint 5 workbook implementation: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, and `POST /api/v1/records/{record_id}/rollback` are implemented and registered; Sprint 1 history evidence, Sprint 2 soft-delete/restore evidence, Sprint 3 rollback evidence, Sprint 4 whole-row restore, retained-history, and shared-lock backend evidence have passed the listed local gates; Sprint 5 reviewer workbook UI and browser evidence now covers `E-7-01..E-7-04` from the Timeline workbook surface using server-owned selectors and metadata. Owner decision: merge-specific rollback, typed tag rollback, Phase 8 saved-view behavior, Phase 9 keyboard/clipboard behavior, and full Phase 7 exit remain unclaimed until their owning scope exists and passes direct evidence.
 
 ## Phase Objective
 
@@ -45,8 +45,8 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 2. Soft-delete and restore | [x] audit-complete | None for Sprint 2 product behavior. The first-class record adapter matrix is covered for current `records.record_type` values. | Ordinary delete remains on optimistic concurrency and does not take destructive-operation locks; restore now uses the shared Sprint 4 destructive-operation lock helper for its one-record protected set. |
 | [x] | 3. Rollback request, single-entry reversal, and change-set reversal | [x] audit-complete | None for Sprint 3 product behavior. Owner decision: tag rollback remains Phase 8-owned and merge-specific rollback remains unclaimed until reversible merge substrate and tests exist. | Source is `rollback`; previous history rows are never mutated in place. Sprint 4 extends executable action advertisement with `row_restore` when legal. |
 | [x] | 4. Whole-row restore, retained history, and locks | [x] backend evidence complete | `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T193520Z-sprint4-service-backed-slice` failed in duration-baseline maintenance because that slice has no retained browser timing entries for earlier browser rows; rerun without `RESULTS_DIR` passed and skipped duration refresh. | Whole-row restore is backend-only Sprint 4 scope; Sprint 5 reviewer workbook UI/browser workflow remains unclaimed. |
-| [ ] | 5. Reviewer workbook UI and browser evidence | [ ] planned | UI must not infer legal rollback actions from visible labels, diff text, or storage identifiers. | Browser evidence covers reviewer flows over server-provided selectors and actions. |
-| [ ] | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup | [ ] planned | Blocked until remaining Sprint 5 placeholders are replaced with real assertions and unresolved owner decisions are closed or recorded as explicit non-claims. | Run `make agent-finalize` first at end of run, then broader verification. |
+| [x] | 5. Reviewer workbook UI and browser evidence | [x] implemented | `make browser-e2e-webserver-backed` first failed in `E-3-03` because the added History action exceeded the fixed Timeline action-cell height; compacting Inspect and History into one row remediated the overlap and the rerun passed. | Browser evidence covers reviewer flows over server-provided selectors and actions; typed tag rollback, merge-specific rollback, Phase 8 saved views, Phase 9 keyboard/clipboard, and full Phase 7 exit remain non-claims. |
+| [ ] | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup | [ ] planned | Full Phase 7 exit is not claimed by Sprint 5. | Sprint 5 ledgers, schedules, and browser duration baselines were regenerated; Sprint 6 still owns final handoff cleanup and any broader release gate. |
 
 ## Global References
 
@@ -279,7 +279,7 @@ Completed test sequence:
 2. Complete: `U-7-04` asserts restore request shape, reviewer/admin role gate, tombstone `row_version` requirement, not-deleted failure, idempotent replay, destructive-lock precedence, and append-only prior history preservation.
 3. Complete: `I-7-01` asserts delete and restore atomically update source rows, record envelope, projections, history rows, and emitted collaboration events.
 4. Complete: `I-7-03` asserts stale restore fails closed and does not mutate current row state.
-5. Support fixture complete: `E-7-03` has HTTP and WebSocket support coverage for later browser soft-delete/restore validation. Full reviewer workbook UI remains Sprint 5 scope.
+5. Support fixture complete: `E-7-03` has HTTP and WebSocket support coverage for browser soft-delete/restore validation. Sprint 5 now owns the completed reviewer workbook UI evidence for this row.
 
 Implemented behavior:
 - Delete and restore route contracts are present. Both accept `base_row_version`, `client_txn_id`, and optional normalized `reason`.
@@ -504,7 +504,7 @@ Exit criteria:
 
 Objective: Expose Phase 7 reviewer workflows from the workbook surface using server-provided history metadata and selectors.
 
-Status: Planned.
+Status: Audit-complete for Sprint 5 scope on 2026-05-11 after remediation. The Timeline workbook surface now exposes row history from saved rows, renders row-centric server metadata and server-advertised actions, submits rollback targets only from server-supplied selectors plus the selected stable `record_id` and current row version, and proves delete, restore, and rollback outcomes through ordinary `record_changed` collaboration/view refresh paths. The Sprint 5 audit initially found generated schedule drift after `tools/phase7_test_map.json` changed; `make phase-schedules` regenerated the schedule artifacts, `make phase-schedule-drift` passed, and `make agent-finalize` passed with duration-baseline refresh skipped because `RESULTS_DIR` was unset.
 
 Relevant IDs:
 - `E-7-01`, `E-7-02`, `E-7-03`, `E-7-04`
@@ -528,45 +528,71 @@ Files and areas:
 - `apps/web/e2e/phase7.history.spec.ts`
 - Existing browser test harness and web-server-backed orchestration.
 
-Test-first sequence:
-1. `E-7-01` opens history from a selected workbook row and asserts actor, timestamp, operation, diff summary, and legal rollback actions render from server metadata.
-2. `E-7-02` rolls back one mistaken implemented target family, preferably a link, mention resolution, or evidence association, and proves later unrelated edits on the same row remain intact.
-3. `E-7-03` soft-deletes and restores a row using tombstone concurrency and verifies another client observes `remove` on delete and `invalidate` on restore.
-4. `E-7-04` performs whole-row restore and verifies a new attributed revision moves the visible row back to the selected historical row-backed snapshot without erasing prior history.
+Completed test-first sequence:
+1. Complete: prerequisite reruns passed for whole-row restore, retained-history stability, and shared destructive-operation lock behavior before frontend edits.
+2. Complete: `apps/web/src/WorkbookShell.phase7.test.tsx` covers history opening from a selected saved row, server-advertised action rendering, selector-only rollback request construction, delete or restore row-version source selection, and ordinary socket remove/invalidate continuity.
+3. Complete: `E-7-01` opens history from a selected Timeline workbook row and asserts actor, timestamp, operation, diff summary, and legal rollback actions render from server metadata.
+4. Complete: `E-7-02` rolls back an attached-evidence record-link mutation through a server-supplied `history_entry_ref`, proves another client observes an ordinary `record_changed` `invalidate` event for the affected Timeline view, and proves a later unrelated summary edit remains intact.
+5. Complete: `E-7-03` soft-deletes and restores a row using current and tombstone row versions and verifies another client observes ordinary `record_changed` `remove` on delete and `invalidate` on restore.
+6. Complete: `E-7-04` performs whole-row restore from a server-advertised `row_restore` action, verifies the request uses only `restore_to_revision_no`, proves the visible Timeline summary returns to the selected historical snapshot, and verifies prior history remains visible after the new attributed revision with actor attribution and timestamp metadata.
 
-Implementation tasks:
-- Add a workbook row-history entry point reachable in one click from the selected row. Add a shortcut only if it can be done without pulling Phase 9's broader keyboard contract forward.
-- Render history as row-centric, not view-centric. The UI must not require the current visible surface to decide history identity.
-- Display only actions returned by `available_rollback_actions[]`, `history_entry_ref`, and `revision_no`.
-- Do not infer rollback legality from visible labels, diff-summary text, item order, SQL names, or projection storage names.
-- Add confirmation or explicit action controls for destructive rollback, restore, and whole-row restore without adding a generalized approval workflow.
-- On delete and restore, keep the workbook grid active and let ordinary collaboration updates remove, invalidate, or refresh rows.
-- Preserve focus/selection where existing workbook state supports it; do not create a modal-only flow that forces users out of the workbook interaction model.
+Implemented behavior:
+- Added shared frontend Phase 7 history types and the selector helper `buildRecordRollbackTargetFromHistoryAction`.
+- Added a one-click saved-row History action in the Timeline actions column. The action opens an inline inspector history section, not a generalized approval workflow or modal-only flow.
+- History rendering is row-centric and uses `/api/v1/records/{record_id}/history`; it displays actor, timestamp, operation, diff summary, change-set id, current row version, deleted state, and only server-advertised legal action controls.
+- Rollback request targets are built only from `available_rollback_actions[]`, `history_entry_ref`, `change_set_id`, and `revision_no`; the client does not infer legality from labels, diff text, item order, SQL names, projection storage names, or visible workbook structure.
+- Soft-delete and restore controls use the selected row's current row version or the tombstone row version returned by server history metadata.
+- Delete, restore, rollback, and row-restore requests use ordinary route calls and then ordinary view/history refresh behavior. Other clients observe delete, restore, and rollback through the existing `record_changed` collaboration stream.
+- The Timeline action layout was compacted so the additional History affordance does not break the pre-existing Phase 3 fixed-row action-cell interactions.
+- `apps/web/playwright.shared.config.ts` now binds the default owned web stack to the same frontend and backend ports used by direct Playwright defaults, so direct `pnpm playwright test ...` commands wait on the stack they actually start.
 
-Validation commands:
-- `make frontend-unit`
-- `make frontend-typecheck`
-- `make lint-biome`
-- `FORCE_COLOR=0 NO_COLOR=1 tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test e2e/phase7.history.spec.ts`
-- `make browser-e2e-webserver-backed`
-- `make phase-slice PHASE=phase7`
-- `make service-backed-slice PHASE=phase7`
-- `git diff --check`
+Validation commands and outcomes:
+- Passed: `go test ./internal/modules/revisions -run 'TestPhase7_RollbackSelectorUnion_U_7_05|TestPhase7_RetainedHistoryInvariants_U_7_07|TestPhase7_DestructiveOperationLocks_U_7_06'`.
+- Passed: `go test ./internal/modules/revisions -run 'TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01|TestPhase7_RetainedHistoryAcrossRestartAndClosure_I_7_04'`.
+- Passed: `tmp/node-runtime/bin/pnpm --dir apps/web exec vitest run src/WorkbookShell.phase7.test.tsx`.
+- Audit rerun passed: `make frontend-unit`; run root `.cartulary/test-results/20260511T233055Z-p49413`.
+- Audit rerun passed: `make frontend-typecheck`; run root `.cartulary/test-results/20260511T233105Z-p50338`.
+- Audit rerun passed: `make lint-biome`; run root `.cartulary/test-results/20260511T233109Z-p50626`.
+- Audit rerun passed: `FORCE_COLOR=0 NO_COLOR=1 tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test e2e/phase7.history.spec.ts`; 4 tests passed.
+- Passed: `FORCE_COLOR=0 NO_COLOR=1 tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test e2e/phase3.spec.ts -g "E-3-03 drives review, demotion, and supersede through the visible workbook surface"` after compacting Timeline actions.
+- Audit rerun passed: `make browser-e2e-webserver-backed`; run root `.cartulary/test-results/20260511T233132Z-p52358`; 37 tests passed.
+- Passed: `make browser-e2e-duration-baselines RESULTS_DIR=.cartulary/test-results/20260511T225805Z-p78524`; run root `.cartulary/test-results/20260511T225921Z-p84996`.
+- Audit remediation passed: `make agent-finalize`; run root `.cartulary/test-results/20260511T233530Z-p64256`, with duration-baseline refresh explicitly skipped because `RESULTS_DIR` was unset.
+- Passed: `make phase-ledgers`; run root `.cartulary/test-results/20260511T231250Z-p13622`.
+- Audit rerun passed: `make phase-ledger-drift`; run root `.cartulary/test-results/20260511T233540Z-p65285`.
+- Audit remediation passed: `make phase-schedules`; run root `.cartulary/test-results/20260511T233512Z-p63713`.
+- Audit remediation passed: `make phase-schedule-drift`; run root `.cartulary/test-results/20260511T233527Z-p64017`, and rerun after `agent-finalize` passed at `.cartulary/test-results/20260511T233551Z-p65605`.
+- Audit rerun passed: `make phase-slice PHASE=phase7`; run root `.cartulary/test-results/20260511T233211Z-p56764`; 44 tests passed.
+- Audit rerun passed: `make service-backed-slice PHASE=phase7`; run root `.cartulary/test-results/20260511T233230Z-p59589`; 44 tests passed.
+- Audit rerun passed: `git diff --check`.
+
+Observed blockers and remediations:
+- Direct Phase 7 Playwright initially timed out waiting for the web server because the default config waited on `127.0.0.1:4173` while the owned stack chose a dynamic frontend port. Remediation: bind the default owned-stack frontend port to the configured public origin port.
+- Direct Phase 7 Playwright then timed out waiting for API readiness at `127.0.0.1:8080` because the owned stack chose a dynamic backend port while helpers defaulted to `8080`. Remediation: bind the default owned-stack backend port to the configured API origin port.
+- Early browser spec attempts failed because the mention-resolution target selected by the test did not advertise a current `history_entry` rollback action and because assertions used the Timeline field key instead of the scalar workbook key for summary cell test ids. Remediation: use the already-implemented attached-evidence record-link rollback family and assert visible Timeline summary cells with the stable `summary` workbook key.
+- `make lint-biome` failed during development for formatting, an array-index React key, and an unused import. Remediation: format the edited files, key history list items by server metadata, and remove the unused import.
+- `make phase-schedules` failed after the `E-7-02` browser title changed because `tools/browser_e2e_duration_baselines.json` still referenced the old title. Remediation: align the title, regenerate schedules, then refresh browser duration baselines from the successful retained browser run.
+- `make browser-e2e-webserver-backed` first failed in pre-existing `E-3-03` because adding History as a fifth vertical action overflowed the fixed Timeline action-cell height and row controls intercepted clicks. Remediation: place Inspect and History in a compact top row; the focused Phase 3 test and the full browser target then passed.
+- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T225805Z-p78524` failed at `.cartulary/test-results/20260511T225853Z-p83257` because the browser-only run root did not contain harness-smoke timing summaries. Remediation: rerun `make agent-finalize` without `RESULTS_DIR`, recording the intended duration-baseline skip, and refresh browser duration baselines separately from the successful retained browser run.
+- Sprint 5 audit initially failed `make phase-schedule-drift` at `.cartulary/test-results/20260511T233256Z-p62610` because `tools/phase7_test_map.json` changed after the generated schedule artifacts. Remediation: `make phase-schedules` passed at `.cartulary/test-results/20260511T233512Z-p63713`, `make phase-schedule-drift` passed at `.cartulary/test-results/20260511T233527Z-p64017`, and a post-`agent-finalize` drift rerun passed at `.cartulary/test-results/20260511T233551Z-p65605`.
 
 Deliverables:
-- Planned: reviewer history panel or inspector surface.
-- Planned: rollback, soft-delete, restore, and whole-row restore browser evidence.
-- Planned: frontend unit coverage for client-side history rendering and selector use.
-- Planned: browser tests for `E-7-01..E-7-04`.
+- Complete: reviewer history inspector section in the Timeline workbook surface.
+- Complete: explicit rollback, soft-delete, restore, and whole-row restore controls driven by server history metadata.
+- Complete: frontend unit coverage for client-side history rendering, selector use, destructive row-version selection, and collaboration continuity.
+- Complete: browser tests for `E-7-01..E-7-04`.
+- Complete: Phase 7 manifest, generated coverage ledger, generated schedules, and browser duration baselines updated through canonical commands.
 
-Risks and open questions:
-- Tag rollback remains unresolved because typed tags are Phase 8. Browser `E-7-02` should use a Phase 7-supported target unless an owner decision explicitly pulls minimal tag support forward.
-- The UI must not present actions optimistically from client logic if the server says the item is not currently reversible.
+Risks and non-claims:
+- Typed tag rollback remains unclaimed because typed tags are Phase 8.
+- Merge-specific rollback and browser whole-change-set rollback remain unclaimed.
+- Phase 8 saved-view behavior and Phase 9 workbook-native keyboard/clipboard behavior remain unclaimed.
+- Sprint 5 does not claim full Phase 7 exit.
 
 Exit criteria:
-- Browser evidence proves the reviewer can execute Phase 7 workflows from the workbook surface.
-- Client rollback requests use only server-supplied selectors and stable `record_id` values.
-- Other clients observe delete, restore, and rollback through ordinary collaboration streams.
+- Met: browser evidence proves the reviewer can execute Phase 7 workflows from the workbook surface.
+- Met: client rollback requests use only server-supplied selectors and stable `record_id` values.
+- Met: another client observes delete, restore, and rollback through ordinary `record_changed` collaboration streams without a special client-side event family.
 
 ## Sprint 6. Phase Gate, Ledgers, Schedules, Baselines, and Handoff Cleanup
 
