@@ -108,7 +108,7 @@ function targetPublicExitCode(context, target, fallbackStatus) {
 
 function makeTarget(context, target) {
   return runWithContext(context.makeBin, ["--no-print-directory", target], {
-    env: runnerEnv(context),
+    env: runnerEnv(context, { CARTULARY_SUPPRESS_CHILD_SUCCESS: "1" }),
   });
 }
 
@@ -185,7 +185,10 @@ function browserStageForUnit(unit) {
 }
 
 function runtimeEnv(context, extra = {}) {
-  const env = runnerEnv(context, extra);
+  const env = runnerEnv(context, {
+    CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+    ...extra,
+  });
   return makeChildEnv({
     ...env,
     NODE_RUNTIME_DIR: process.env.NODE_RUNTIME_DIR || path.join(repoRoot, "tmp", "node-runtime"),

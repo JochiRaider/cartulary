@@ -535,6 +535,14 @@ type Record struct {
 	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
+type RecordHistoryEntryRef struct {
+	HistoryEntryRef    string             `json:"history_entry_ref"`
+	RecordID           pgtype.UUID        `json:"record_id"`
+	ChangeSetID        pgtype.UUID        `json:"change_set_id"`
+	MutationSequenceNo int32              `json:"mutation_sequence_no"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type RecordLink struct {
 	RecordLinkID    pgtype.UUID        `json:"record_link_id"`
 	IncidentID      pgtype.UUID        `json:"incident_id"`

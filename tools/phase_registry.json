@@ -74,7 +74,7 @@
     {
       "phase": "phase7",
       "order": 7,
-      "status": "planned",
+      "status": "active",
       "label": "Phase 7",
       "manifest_path": "tools/phase7_test_map.json",
       "ledger_path": "docs/testing/phase7_coverage_ledger.md",

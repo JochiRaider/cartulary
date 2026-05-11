@@ -447,6 +447,79 @@
         }
       }
     },
+    "/api/v1/records/{record_id}/history": {
+      "get": {
+        "tags": [
+          "revisions"
+        ],
+        "operationId": "getRecordHistory",
+        "summary": "Read retained row-centric history for one record with cursor pagination.",
+        "description": "Returns newest-first retained row-centric history. Cursor tokens are bound to the addressed record_id, and pagination aliases such as page, offset, page_size, and block_size are rejected.",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum history items to return. Values below 1, above 500, or non-integer values fail with invalid_pagination_request.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor token issued by this record-history route for the same record_id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Record history response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordHistoryEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record is missing or hidden from the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve": {
       "post": {
         "tags": [
@@ -2775,6 +2848,143 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "RecordHistoryDiffSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "summary",
+          "units"
+        ]
+      },
+      "RecordHistoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "actor_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "diff_summary": {
+            "$ref": "#/components/schemas/RecordHistoryDiffSummary"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "available_rollback_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "history_entry",
+                "change_set",
+                "row_restore"
+              ]
+            }
+          },
+          "history_entry_ref": {
+            "type": "string"
+          },
+          "revision_no": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "actor_user_id",
+          "committed_at",
+          "operation",
+          "diff_summary",
+          "change_set_id",
+          "reversible",
+          "available_rollback_actions"
+        ]
+      },
+      "RecordHistoryData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordHistoryItem"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "record_id",
+          "row_version",
+          "deleted",
+          "items"
+        ]
+      },
+      "RecordHistoryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecordHistoryData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RecordHistoryEnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RecordHistoryEnvelopeMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "paging": {
+            "$ref": "#/components/schemas/PagingMeta"
+          }
+        },
+        "required": [
+          "request_id",
+          "paging"
         ]
       },
       "ViewMutationData": {

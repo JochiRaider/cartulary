@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 7: re
 
 This planning artifact does not implement Phase 7 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status after Sprint 0 audit: Phase 7 remains listed as `planned` in `tools/phase_registry.json`; `tools/phase7_test_map.json` and `docs/testing/phase7_coverage_ledger.md` now exist; selectable Phase 7 placeholder symbols exist in their intended backend, frontend, and browser locations; and generated ledger or schedule drift is clean. The OpenAPI contract still does not expose the Phase 7 history, delete, restore, or rollback route family; the `record_locked` error code exists, but the remaining Phase 7 delete, restore, rollback, history, and rollback-precondition public error families still need contract coverage.
+Current repo status after Sprint 1 remediation: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history` is implemented and registered; Sprint 1 OpenAPI, route, pagination, retained-history, and selector evidence exists; and later Sprint 2-5 rows remain explicit non-behavioral scope sentinels. The remaining Phase 7 delete, restore, rollback, lock, and browser workflow route families still need contract and runtime coverage before full Phase 7 exit.
 
 ## Phase Objective
 
@@ -40,8 +40,8 @@ Out of scope unless an owner decision pulls it forward:
 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
-| [x] | 0. Phase 7 ownership manifest and harness setup | [x] audit-complete | None for manifest creation; Phase 7 intentionally remains `planned` until the implementation branch activates it. | Selectable placeholder rows now exist. Later sprints must replace every placeholder before Sprint 6 exit. |
-| [ ] | 1. Record-history read contract | [ ] planned | Resolve whether `AC-184` and `AC-185` in `U-7-01` are support references or guide drift, because the coverage index assigns those ACs to Phase 8. | History route must be record-scoped, not view-scoped. |
+| [x] | 0. Phase 7 ownership manifest and harness setup | [x] audit-complete | None for manifest creation; Phase 7 was activated during Sprint 1 remediation. | Selectable scope sentinel rows now exist. Later sprints must replace every sentinel before Sprint 6 exit. |
+| [x] | 1. Record-history read contract | [x] remediated | `AC-184` and `AC-185` are Phase 8-owned support references and are not claimed as completed Phase 7 evidence. | History route is record-scoped, not view-scoped; adjunct target-family completeness is deferred to later Phase 7 work. |
 | [ ] | 2. Soft-delete and restore | [ ] planned | First-class record dispatch must be made explicit before implementation: support every current `records` envelope type with a source adapter, or document the owner decision for any excluded current type. | Ordinary delete does not take destructive-operation locks; restore does. |
 | [ ] | 3. Rollback request and single-entry reversal | [ ] planned | Tag rollback language appears in Phase 7 evidence while typed tags are Phase 8; decide whether to pull minimal tag rollback forward or mark tag-specific coverage blocked by owner decision. | Source must be `rollback`; previous history rows are never mutated in place. |
 | [ ] | 4. Whole-change-set rollback, whole-row restore, retained history, and locks | [ ] planned | Confirm whether the existing Phase 4 merge substrate contains enough mutation-entry detail to satisfy merge rollback before claiming `AC-217`. | Shared destructive locks must cover restore, rollback, and merge with identical precedence. |
@@ -52,7 +52,7 @@ Out of scope unless an owner decision pulls it forward:
 
 - Controlling guide: `docs/guides/cartulary_implementation_testing_guide.md`, `Phase 7`, `U-7-01..U-7-07`, `I-7-01..I-7-04`, `E-7-01..E-7-04`.
 - Phase-owned ACs: `AC-007`, `AC-010..AC-012`, `AC-181..AC-183`, `AC-187`, `AC-215..AC-218`, `AC-353`, `AC-383..AC-385`.
-- Ambiguous support/shared ACs: `AC-184` and `AC-185` appear in the Phase 7 `U-7-01` guide row, but the guide coverage index assigns them to Phase 8. Treat them as an open guide/owner decision before claiming them in Phase 7.
+- Ambiguous support/shared ACs: `AC-184` and `AC-185` appear in the Phase 7 `U-7-01` guide row, but the guide coverage index assigns them to Phase 8. Phase 7 treats them as support references only and does not claim them as completed Phase 7 evidence.
 - Primary REQs: `REQ-01-048..REQ-01-056`, `REQ-01-071..REQ-01-082`, `REQ-01-089..REQ-01-111`, `REQ-01-561..REQ-01-563`, `REQ-02-205..REQ-02-220`, `REQ-02-238..REQ-02-242`, `REQ-03-101`, `REQ-03-138..REQ-03-144`, `REQ-03-261..REQ-03-262`, `REQ-04-021..REQ-04-024`, `REQ-04-036..REQ-04-039`.
 - Existing mutation substrate: `change_sets`, `change_set_mutations`, `record_revisions`, `records`, first-class source tables, route-scoped idempotency records, projection refresh paths, and `platformws.Hub.PublishRecordChange`.
 - Existing route roots to extend or coordinate: `internal/app/runtime.go` registers module routes; `internal/modules/workbook` owns generic record patch and conflict resolution; `internal/modules/timeline` owns Timeline reviewer actions; `internal/modules/entities` owns merge; `internal/modules/revisions` currently owns reusable change-set insertion helpers and should become the Phase 7 route/service home unless implementation inspection proves a narrower owner.
@@ -102,7 +102,7 @@ Expected test and planning artifacts:
 
 Objective: Establish Phase 7 test ownership before feature work so TDD rows can be selected by repo tooling.
 
-Status: Audit-complete. Phase 7 is still registered as `planned`; Sprint 0 now has a manifest, generated ledger, generated schedule checks, and selectable placeholder test symbols. Product behavior remains unimplemented until later Phase 7 sprints.
+Status: Audit-complete. Phase 7 was activated during Sprint 1 remediation so public phase wrappers can execute the manifest. Sprint 0 established the manifest, generated ledger, generated schedule checks, and selectable scope sentinel test symbols.
 
 Relevant IDs: all `U-7-*`, `I-7-*`, `E-7-*`; `tools/phase7_test_map.json`; `docs/testing/phase7_coverage_ledger.md`.
 
@@ -118,10 +118,10 @@ Files and areas:
 
 Test-first sequence:
 1. Done: manifest rows exist for every `U-7-01..U-7-07`, `I-7-01..I-7-04`, and `E-7-01..E-7-04` guide row before feature implementation.
-2. Done for Sprint 0: intentional no-op placeholders make Phase 7 row selection visible and name the future real assertion. Every placeholder must still be replaced before Sprint 6 exit.
+2. Done for Sprint 0: intentional non-behavioral scope sentinels make Phase 7 row selection visible and name the future real assertion. Every sentinel must still be replaced before Sprint 6 exit.
 3. Done: support-only carryover files are declared as `forbidden_id_files` so earlier phase evidence cannot accidentally claim Phase 7 IDs.
 4. Done: the Phase 7 coverage ledger and schedules were regenerated after the manifest was added.
-5. Not done by design: Phase 7 remains `planned` and must activate only when the implementation branch is ready for Phase 7 rows to participate in public phase wrappers.
+5. Done during Sprint 1 remediation: Phase 7 is active so public phase wrappers execute Phase 7 rows. Later Sprint 2-5 rows remain explicit non-behavioral scope sentinels until their owning behavior is implemented.
 
 Implementation tasks:
 - Done: `tools/phase7_test_map.json` has non-empty `claim` and `out_of_scope` text for every authoritative row.
@@ -148,7 +148,7 @@ Deliverables:
 - Complete: selectable Phase 7 backend symbols, supplemental frontend row, and browser rows.
 
 Risks and open questions:
-- Phase activation changes task-surface behavior. Keep Phase 7 as `planned` until the branch intentionally opts into active execution.
+- Phase activation changes task-surface behavior. Sprint 1 remediation intentionally activated Phase 7; do not treat Sprint 2-5 scope sentinels as Sprint 1 behavior evidence or completion criteria.
 - Newly declared service-backed rows require explicit duration baselines after successful uncontaminated evidence; missing baselines must not be hidden by fallback weights.
 - `AC-184` and `AC-185` remain recorded as ambiguous Phase 8-assigned support references, not completed Phase 7 claims.
 - Typed tag rollback remains an owner-decision dependency; Sprint 0 placeholders must not claim Phase 8 typed tag creation or mutation behavior.
@@ -165,7 +165,7 @@ Exit criteria:
 
 Objective: Implement `GET /api/v1/records/{record_id}/history` as a record-scoped retained-history read route with deterministic ordering, pagination, tombstone concurrency, rollback metadata, and stable single-entry selectors.
 
-Status: Planned.
+Status: Remediated for Sprint 1 audit gaps. The read route is implemented, Phase 7 is active, and Sprint 1 remains scoped to `GET /api/v1/records/{record_id}/history`.
 
 Relevant IDs:
 - `U-7-01`, `U-7-02`, `U-7-07`, `I-7-02`, `I-7-04`
@@ -213,6 +213,8 @@ Implementation tasks:
 - Implement `history_entry_ref` as a durable opaque selector. Default: persist a generated selector or selector mapping for eligible mutation entries when first exposed, then reuse it for the retained-history lifetime.
 - Keep items visible when they later become non-reversible; express current legality through `reversible=false` and `available_rollback_actions[]=[]`.
 - Use the existing pagination registry with a record-history scope binding that includes `record_id` and rejects query aliases such as `page`, `offset`, `page_size`, and `block_size`.
+- Declare the OpenAPI path parameter `record_id` and use a history-specific response meta schema that requires `meta.paging`.
+- Add direct route evidence for unauthenticated history reads and invalid `limit` values `-1`, non-integer, and greater than `500`.
 
 Validation commands:
 - `go test ./internal/modules/revisions -run 'TestPhase7_.*(U_7_01|U_7_02|U_7_07)'`
@@ -222,13 +224,15 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- Planned: OpenAPI history route and response schemas.
-- Planned: history query store/service.
-- Planned: durable `history_entry_ref` selector strategy.
-- Planned: unit and integration coverage for `U-7-01`, `U-7-02`, `U-7-07`, `I-7-02`, and history portions of `I-7-04`.
+- Complete: OpenAPI history route and response schemas, including required `record_id` path parameter and required history `meta.paging`.
+- Complete: history query store/service.
+- Complete: durable `history_entry_ref` selector strategy.
+- Complete: unit and integration coverage for `U-7-01`, `U-7-02`, `U-7-07`, `I-7-02`, and history portions of `I-7-04`.
 
 Risks and open questions:
-- `AC-184` and `AC-185` are listed on `U-7-01` but assigned to Phase 8 in the coverage index. Before implementation, either correct the guide, mark those ACs as support-only references in the Phase 7 manifest, or document an owner decision that Phase 7 owns the narrow history-query overlap.
+- `AC-184` and `AC-185` are listed on `U-7-01` but assigned to Phase 8 in the coverage index. Sprint 1 records them as support references only and does not claim them as completed Phase 7 evidence.
+- Fixture-seeded delete, restore, and rollback-like state changes are accepted only for Sprint 1 read-route retained-history invariants. Real route behavior remains Sprint 2-5 scope.
+- Adjunct mutation-target-family history completeness is deferred to later Phase 7 rollback/UI work; Sprint 1 claims row-backed history read evidence only.
 - A transient `history_entry_ref` derived from result order or in-memory state would fail retained-history and restart requirements.
 
 Exit criteria:
