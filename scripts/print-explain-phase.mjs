@@ -33,7 +33,7 @@ function parseArgs(argv) {
 }
 
 function commandForNode(node) {
-  return node.classification === "public" ? `make ${node.id}` : `internal target ${node.id}`;
+  return node.target_class === "public" ? `make ${node.id}` : `internal target ${node.id}`;
 }
 
 function renderWorkUnits(lines, units, indent) {
@@ -58,12 +58,12 @@ function renderExecutionMap(lines, executionMap) {
   for (const section of executionMap.children) {
     lines.push(`  ${section.label}:`);
     for (const child of section.children ?? []) {
-      const classification =
-        child.classification && child.classification !== "public"
-          ? ` classification=${child.classification}`
+      const targetClass =
+        child.target_class && child.target_class !== "public"
+          ? ` target_class=${child.target_class}`
           : "";
       lines.push(
-        `    ${commandForNode(child)}${classification} services=${formatRequirements(child.services ?? [])} coverage=${formatPhaseCoverage(child.coverage)}`,
+        `    ${commandForNode(child)}${targetClass} services=${formatRequirements(child.services ?? [])} coverage=${formatPhaseCoverage(child.coverage)}`,
       );
       renderWorkUnits(lines, child.work_unit_summary, "      ");
       lines.push(`      artifacts: latest=${child.artifacts?.latest ?? "none"}`);

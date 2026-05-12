@@ -190,8 +190,8 @@ export function targetGuidance(
   return {
     schema_id: "cartulary.target_guidance.v1",
     target,
-    classification: entry.classification,
-    included_in: entry.included_in ?? [],
+    target_class: entry.target_class,
+    default_inclusion_sets: entry.default_inclusion_sets ?? [],
     help_tier: tiers.get(target) ?? null,
     backing_scripts: entry.backing_scripts ?? [],
     execution_map: executionMap,
@@ -268,8 +268,8 @@ export function phaseGuidance(phase, { root = repoRoot, includeExecutionMap = tr
         root,
       ),
       execution_summary: "not expanded",
-      classification: entry?.classification ?? null,
-      included_in: entry?.included_in ?? [],
+      target_class: entry?.target_class ?? null,
+      default_inclusion_sets: entry?.default_inclusion_sets ?? [],
       counts: sectionCounts(rowsForTarget),
       execution_dependencies: executionDependencies,
       execution_categories: executionDependencyCategories(executionDependencies),
@@ -310,8 +310,8 @@ export function phaseSlice(
     .filter((target) => !serviceBackedOnly || target.service_requirements.length > 0 || target.service_backed)
     .map((target) => ({
       target: target.target,
-      classification: target.classification,
-      included_in: target.included_in,
+      target_class: target.target_class,
+      default_inclusion_sets: target.default_inclusion_sets,
       service_requirements: target.service_requirements,
       execution_summary: target.execution_summary,
       counts: target.counts,
@@ -512,7 +512,10 @@ export function taskGuide({ role = "", phase = "", root = repoRoot } = {}) {
 
 function guidanceSummary(guidance) {
   const tier = guidance.help_tier ? `${guidance.help_tier} target` : "task-surface target";
-  const includes = guidance.included_in.length > 0 ? `included in ${guidance.included_in.join(",")}` : "helper";
+  const includes =
+    guidance.default_inclusion_sets.length > 0
+      ? `default inclusion sets ${guidance.default_inclusion_sets.join(",")}`
+      : "no default inclusion set";
   return `${tier}; ${includes}`;
 }
 

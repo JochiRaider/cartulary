@@ -18,7 +18,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "tools",
   "execution_topology_manifest.json",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v12";
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
 export const checkScheduleSchemaID = "cartulary.check_schedule_sources.v1";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
@@ -498,8 +498,13 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
     if (!scheduleTargets.has(schedule)) {
       throw new Error(`${label}.check_schedule.schedules references unknown check schedule ${schedule}`);
     }
-    if (!Array.isArray(entry.included_in) || !entry.included_in.includes(schedule)) {
-      throw new Error(`${label}.check_schedule includes ${schedule} but target is not included_in ${schedule}`);
+    if (
+      !Array.isArray(entry.default_inclusion_sets) ||
+      !entry.default_inclusion_sets.includes(schedule)
+    ) {
+      throw new Error(
+        `${label}.check_schedule includes ${schedule} but target is not default_inclusion_sets ${schedule}`,
+      );
     }
   }
   const producesSummaryTargets = requireStringArray(

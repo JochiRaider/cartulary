@@ -484,7 +484,7 @@ function targetNode(target, {
     kind: "target",
     id: target,
     label: target,
-    classification: entry?.classification ?? null,
+    target_class: entry?.target_class ?? null,
     coverage,
     services: serviceRequirementsForTarget(target, targetRows, entry?.service_requirements ?? [], root),
     execution_dependencies: coverage.execution_dependencies ?? [],
@@ -538,7 +538,7 @@ function makeSectionNode(id, label, children) {
     kind: "section",
     id,
     label,
-    classification: id,
+    target_class: id,
     coverage: sectionCoverage(children),
     services: uniqueSorted(children.flatMap((child) => child.services ?? [])),
     execution_dependencies: uniqueSorted(children.flatMap((child) => child.execution_dependencies ?? []))
@@ -583,7 +583,7 @@ export function phaseExecutionMap(phase, { root = repoRoot } = {}) {
   const supportChildren = [];
   const { targets } = loadTaskSurface(root);
   for (const [target, targetRows] of rowsByTarget.entries()) {
-    const classification = targets.get(target)?.classification ?? null;
+    const classification = targets.get(target)?.target_class ?? null;
     const publicRows = targetRows.filter((row) => classification === "public" && row.coverage !== "support");
     const supportRows = targetRows.filter((row) => classification !== "public" || row.coverage === "support");
     if (publicRows.length > 0) {
@@ -606,7 +606,7 @@ export function phaseExecutionMap(phase, { root = repoRoot } = {}) {
     kind: "phase",
     id: phase,
     label: phase,
-    classification: registryEntry.status,
+    target_class: registryEntry.status,
     coverage: summarizeExecutionRows(rows),
     services: uniqueSorted(sections.flatMap((section) => section.services ?? [])),
     execution_dependencies: uniqueSorted(sections.flatMap((section) => section.execution_dependencies ?? []))

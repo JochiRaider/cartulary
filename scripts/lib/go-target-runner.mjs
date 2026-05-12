@@ -106,7 +106,7 @@ function resolveRunID(env) {
 }
 
 function resolveGoArtifactIdentity(repoRoot, env) {
-  if (targetPolicy(env.CARTULARY_TEST_TARGET)?.classification === "public") {
+  if (targetPolicy(env.CARTULARY_TEST_TARGET)?.target_class === "public") {
     const identity = resolveRetainedArtifactIdentity(env.CARTULARY_TEST_TARGET, env, {
       root: repoRoot,
       allowExistingRunRoot: env.CARTULARY_HARNESS_IDENTITY_PREPARED === "1",

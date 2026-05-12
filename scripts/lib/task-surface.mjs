@@ -24,19 +24,38 @@ export const defaultGeneratedMakePath = path.join(
   "tools",
   "task_surface.generated.mk",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v12";
 
-const validClassifications = new Set([
+const validTargetClasses = new Set([
   "public",
   "check_internal",
-  "helper_only",
+  "internal_helper",
 ]);
-const validInclusions = new Set([
+const validDefaultInclusionSets = new Set([
   "test",
   "check",
   "ci",
   "release-check",
   "helper_only",
+]);
+const validFamilyIDs = new Set([
+  "help_discovery",
+  "bootstrap_toolchain",
+  "local_services_dev",
+  "generated_drift",
+  "phase_service_slices",
+  "backend_frontend_leaf_tests",
+  "browser_e2e",
+  "aggregates_gates",
+  "static_analysis_security",
+  "builds",
+  "cleanup",
+  "formatting",
+]);
+const validLifecycleStates = new Set([
+  "candidate_child",
+  "public_active",
+  "public_deprecated",
 ]);
 const validServiceRequirements = new Set([
   "postgres",
@@ -263,21 +282,67 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       continue;
     }
     targets.set(entry.name, entry);
-    if (!validClassifications.has(entry.classification)) {
+    if (Object.hasOwn(entry, "classification")) {
+      errors.push(`${entry.name}.classification is obsolete; use target_class`);
+    }
+    if (Object.hasOwn(entry, "included_in")) {
       errors.push(
-        `${entry.name} has invalid classification ${JSON.stringify(entry.classification)}`,
+        `${entry.name}.included_in is obsolete; use default_inclusion_sets`,
       );
     }
-    if (!Array.isArray(entry.included_in) || entry.included_in.length === 0) {
-      errors.push(`${entry.name} must declare included_in[]`);
+    if (!validTargetClasses.has(entry.target_class)) {
+      errors.push(
+        `${entry.name} has invalid target_class ${JSON.stringify(entry.target_class)}`,
+      );
+    }
+    if (!Array.isArray(entry.default_inclusion_sets)) {
+      errors.push(`${entry.name} must declare default_inclusion_sets[]`);
     } else {
-      for (const inclusion of entry.included_in) {
-        if (!validInclusions.has(inclusion)) {
+      for (const inclusion of entry.default_inclusion_sets) {
+        if (!validDefaultInclusionSets.has(inclusion)) {
           errors.push(
-            `${entry.name} has invalid included_in value ${JSON.stringify(inclusion)}`,
+            `${entry.name} has invalid default_inclusion_sets value ${JSON.stringify(inclusion)}`,
           );
         }
       }
+      if (
+        entry.target_class !== "public" &&
+        entry.default_inclusion_sets.includes("helper_only")
+      ) {
+        errors.push(
+          `${entry.name}.default_inclusion_sets helper_only is only valid for public direct-invocation targets`,
+        );
+      }
+    }
+    if (!validLifecycleStates.has(entry.lifecycle_state)) {
+      errors.push(
+        `${entry.name} has invalid lifecycle_state ${JSON.stringify(entry.lifecycle_state)}`,
+      );
+    } else if (
+      entry.target_class === "public" &&
+      !["public_active", "public_deprecated"].includes(entry.lifecycle_state)
+    ) {
+      errors.push(
+        `${entry.name}.lifecycle_state must be public_active or public_deprecated for public targets`,
+      );
+    } else if (
+      entry.target_class !== "public" &&
+      entry.lifecycle_state !== "candidate_child"
+    ) {
+      errors.push(
+        `${entry.name}.lifecycle_state must be candidate_child for non-public targets`,
+      );
+    }
+    if (entry.target_class === "public") {
+      if (typeof entry.family_id !== "string" || entry.family_id.trim() === "") {
+        errors.push(`${entry.name}.family_id must be declared for public targets`);
+      } else if (!validFamilyIDs.has(entry.family_id)) {
+        errors.push(
+          `${entry.name}.family_id has invalid value ${JSON.stringify(entry.family_id)}`,
+        );
+      }
+    } else if (entry.family_id !== undefined) {
+      errors.push(`${entry.name}.family_id is only valid for public targets`);
     }
     if (entry.backing_scripts !== undefined) {
       if (!Array.isArray(entry.backing_scripts)) {
@@ -320,7 +385,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         }
       }
     }
-    if (entry.classification === "public") {
+    if (entry.target_class === "public") {
       validatePublicCommandIdentity(errors, entry, commandIDs);
       validatePublicSemanticBehaviors(errors, entry);
       validateOutputPolicy(errors, entry);
@@ -663,7 +728,7 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
 
 function validateOutputPolicyRouting(errors, targets, recipes) {
   for (const [target, entry] of targets.entries()) {
-    if (entry.classification !== "public") {
+    if (entry.target_class !== "public") {
       continue;
     }
     const artifactPolicy = entry.output_policy?.artifact_policy ?? "none";
@@ -1216,9 +1281,9 @@ function validateCompactHelp(errors, targets, compactHelp) {
       errors.push(`${label} references unknown target ${helpEntry.target}`);
       continue;
     }
-    if (target.classification !== "public") {
+    if (target.target_class !== "public") {
       errors.push(
-        `${helpEntry.target} appears in compact_help but is not classified public`,
+        `${helpEntry.target} appears in compact_help but is not target_class public`,
       );
     }
     validateHelpEntryText(errors, helpEntry, label);
@@ -1271,9 +1336,9 @@ function validateHelpTiers(errors, targets, tiers) {
         errors.push(`${label} references unknown target ${helpEntry.target}`);
         continue;
       }
-      if (target.classification !== "public") {
+      if (target.target_class !== "public") {
         errors.push(
-          `${helpEntry.target} appears in help tier ${tierName ?? "unknown"} but is not classified public`,
+          `${helpEntry.target} appears in help tier ${tierName ?? "unknown"} but is not target_class public`,
         );
       }
       const targetPlacements = placements.get(helpEntry.target) ?? [];
@@ -1285,7 +1350,7 @@ function validateHelpTiers(errors, targets, tiers) {
   }
 
   for (const target of targets.values()) {
-    if (target.classification !== "public") {
+    if (target.target_class !== "public") {
       continue;
     }
     const targetPlacements = placements.get(target.name) ?? [];
@@ -1548,14 +1613,14 @@ function renderMakeRecipe(recipe, manifest) {
 
 function shouldCentralizePrerequisiteOutput(recipe, entry = null) {
   return (
-    entry?.classification === "public" &&
+    entry?.target_class === "public" &&
     (recipe.prerequisites ?? []).length > 0 &&
     !["cleanup", "print_help"].includes(recipe.type)
   );
 }
 
 function renderPreflightPrelude(recipe, entry = null) {
-  if (entry?.classification !== "public") {
+  if (entry?.target_class !== "public") {
     return [];
   }
   return [`\t$(call RUN_PUBLIC_PREFLIGHT,${recipe.target})`];
@@ -1581,7 +1646,7 @@ function renderRecipePrefix(recipe, entry = null) {
       `${recipe.target}: export CARTULARY_TEST_TARGET ?= ${recipe.target}`,
     );
   }
-  if (entry?.classification !== "public") {
+  if (entry?.target_class !== "public") {
     lines.push(
       `${recipe.target}: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1`,
     );

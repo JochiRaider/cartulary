@@ -44,7 +44,7 @@ function parseArgs(argv) {
 }
 
 function commandForNode(node) {
-  return node.classification === "public" ? `make ${node.id}` : `internal target ${node.id}`;
+  return node.target_class === "public" ? `make ${node.id}` : `internal target ${node.id}`;
 }
 
 function nodeExecutionSummary(node) {
@@ -58,12 +58,12 @@ function renderExecutionSections(lines, executionMap, indent) {
   for (const section of executionMap.children) {
     lines.push(`${indent}${section.label}:`);
     for (const child of section.children ?? []) {
-      const classification =
-        child.classification && child.classification !== "public"
-          ? ` classification=${child.classification}`
+      const targetClass =
+        child.target_class && child.target_class !== "public"
+          ? ` target_class=${child.target_class}`
           : "";
       lines.push(
-        `${indent}  - ${commandForNode(child)}${classification} services=${formatRequirements(child.services ?? [])} coverage=${formatPhaseCoverage(child.coverage)} execution=${nodeExecutionSummary(child)} artifacts=${child.artifacts?.latest ?? "none"}`,
+        `${indent}  - ${commandForNode(child)}${targetClass} services=${formatRequirements(child.services ?? [])} coverage=${formatPhaseCoverage(child.coverage)} execution=${nodeExecutionSummary(child)} artifacts=${child.artifacts?.latest ?? "none"}`,
       );
     }
   }

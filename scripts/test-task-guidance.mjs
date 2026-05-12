@@ -53,6 +53,7 @@ function runCapture(command, args = [], { env = {}, expectFailure = false, label
     cwd: repoRoot,
     env: { ...process.env, ...env },
     encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024,
   });
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (result.error) {
@@ -339,11 +340,11 @@ function scenarioTaskGuidePhaseSlices(fixture) {
       fail(`missing tier ${name}`);
     }
   }
-  const classificationByTarget = new Map(manifest.targets.map((target) => [target.name, target.classification]));
+  const targetClassByTarget = new Map(manifest.targets.map((target) => [target.name, target.target_class]));
   for (const tier of role.recommendation_tiers) {
     for (const item of tier.recommendations) {
       const commandTarget = item.target.split(/\s+/)[0];
-      if (classificationByTarget.get(commandTarget) !== "public") {
+      if (targetClassByTarget.get(commandTarget) !== "public") {
         fail(`task-guide recommendation ${item.target} must reference a public target`);
       }
       if (!("execution_summary" in item)) {
@@ -371,7 +372,7 @@ function scenarioTaskGuidePhaseSlices(fixture) {
     }
   }
   const supportChild = phaseSlice.child_targets.find((item) => item.target === "backend-integration-support");
-  if (!supportChild || supportChild.classification !== "check_internal") {
+  if (!supportChild || supportChild.target_class !== "check_internal") {
     fail("phase4 support child must remain check_internal");
   }
   for (const target of ["lint"]) {
@@ -443,7 +444,7 @@ function scenarioExplainPhase() {
   assertContains(phaseOutput, "support/internal evidence:", "explain-phase support evidence group");
   assertContains(phaseOutput, "make backend-store", "explain-phase backend-store target");
   assertNotContains(phaseOutput, "make backend-integration-support", "explain-phase does not recommend internal support target");
-  assertContains(phaseOutput, "internal target backend-integration-support classification=check_internal", "explain-phase shows internal support coverage");
+  assertContains(phaseOutput, "internal target backend-integration-support target_class=check_internal", "explain-phase shows internal support coverage");
   assertContains(phaseOutput, "ledger: docs/testing/phase1_coverage_ledger.md", "explain-phase ledger");
   assertNotContains(phaseOutput, "scheduler=", "explain-phase must not print flat scheduler owner fields");
 

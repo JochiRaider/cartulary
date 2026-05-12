@@ -542,7 +542,7 @@ function validateServiceAttachGroups(env) {
 export function resolveHarnessConfig(target, env = process.env, options = {}) {
   const manifest = options.manifest ?? loadTaskSurfaceManifest();
   const entry = targetPolicy(target, manifest);
-  if (!entry || entry.classification !== "public") {
+  if (!entry || entry.target_class !== "public") {
     throw new HarnessConfigError(`unknown public target ${JSON.stringify(target)}`);
   }
   const outputMode = resolveOutputModeRecord(env, target);
@@ -575,7 +575,7 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
   const resolved = {
     target,
     target_policy: {
-      classification: entry.classification,
+      target_class: entry.target_class,
     },
     output_class: outputClass,
     artifact_policy: entry.output_policy?.artifact_policy ?? "none",
@@ -631,7 +631,7 @@ export function resolveRetainedArtifactIdentity(target, env = process.env, optio
 export function resolveArtifactIdentityForTarget(target, env = process.env, options = {}) {
   const manifest = options.manifest ?? loadTaskSurfaceManifest();
   const entry = targetPolicy(target, manifest);
-  if (entry?.classification === "public") {
+  if (entry?.target_class === "public") {
     return resolveRetainedArtifactIdentity(target, env, { ...options, manifest });
   }
   const resultRoot = validateResultRoot(env.CARTULARY_TEST_RESULTS_DIR, {

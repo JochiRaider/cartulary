@@ -71,7 +71,7 @@ assert.deepEqual(
   "migration-drift must declare its Postgres service requirement",
 );
 assert.equal(
-  renderedTaskSurface.targets.find((target) => target.name === "agent-finalize")?.classification,
+  renderedTaskSurface.targets.find((target) => target.name === "agent-finalize")?.target_class,
   "public",
   "agent-finalize must be a public workflow target",
 );
@@ -750,8 +750,9 @@ assert.throws(
 const futureCheckTargetTopology = topologyFixture();
 futureCheckTargetTopology.task_surface.targets.push({
   name: "future-phase-check-leaf",
-  classification: "check_internal",
-  included_in: ["check"],
+  target_class: "check_internal",
+  default_inclusion_sets: ["check"],
+  lifecycle_state: "candidate_child",
   check_schedule: {
     schedules: ["check"],
     profile: "after_setup_cpu",

@@ -180,7 +180,7 @@ function targetRecipeBlock(renderedMake, target) {
 test("public targets declare command identity and semantic value", () => {
   const { taskSurface, browserBatch, serviceBacked } = renderedArtifacts();
   const publicTargets = taskSurface.targets.filter(
-    (entry) => entry.classification === "public",
+    (entry) => entry.target_class === "public",
   );
   assert.ok(publicTargets.length > 0, "public target registry must not be empty");
   const commandIDs = new Set();
@@ -192,6 +192,15 @@ test("public targets declare command identity and semantic value", () => {
     );
     assert.ok(!commandIDs.has(target.command_id), `${target.name} command_id must be unique`);
     commandIDs.add(target.command_id);
+    assert.match(
+      target.family_id,
+      /^[a-z][a-z0-9_]*$/,
+      `${target.name} must declare family_id`,
+    );
+    assert.ok(
+      ["public_active", "public_deprecated"].includes(target.lifecycle_state),
+      `${target.name} must declare a public lifecycle state`,
+    );
     assert.ok(
       Array.isArray(target.semantic_behaviors) &&
         target.semantic_behaviors.length > 0,
@@ -246,11 +255,37 @@ test("public targets declare command identity and semantic value", () => {
     /help\.semantic_behaviors\[1\]\.owner_section must be a Section reference/,
   );
 
+  const legacyFields = structuredClone(taskSurface);
+  const legacyHelp = legacyFields.targets.find((entry) => entry.name === "help");
+  legacyHelp.classification = "public";
+  legacyHelp.included_in = ["helper_only"];
+  assert.match(
+    collectTaskSurfaceManifestErrors(legacyFields, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /help\.classification is obsolete; use target_class[\s\S]*help\.included_in is obsolete; use default_inclusion_sets/,
+  );
+
+  const privateHelperOnly = structuredClone(taskSurface);
+  privateHelperOnly.targets.find(
+    (entry) => entry.name === "frontend-install-ci",
+  ).default_inclusion_sets = ["helper_only"];
+  assert.match(
+    collectTaskSurfaceManifestErrors(privateHelperOnly, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /frontend-install-ci\.default_inclusion_sets helper_only is only valid for public direct-invocation targets/,
+  );
+
   const shallowAlias = structuredClone(taskSurface);
   shallowAlias.targets.push({
     name: "synthetic-shallow-wrapper",
-    classification: "public",
-    included_in: ["helper_only"],
+    target_class: "public",
+    default_inclusion_sets: ["helper_only"],
+    family_id: "help_discovery",
+    lifecycle_state: "public_active",
     command_id: "cartulary.harness.command.synthetic_shallow_wrapper.v1",
     semantic_behaviors: [],
     output_policy: structuredClone(
@@ -279,7 +314,7 @@ test("public non-interactive wrappers run preflight before child work", () => {
   const recipes = taskSurface.make_recipes;
   for (const target of taskSurface.targets) {
     if (
-      target.classification !== "public" ||
+      target.target_class !== "public" ||
       target.output_policy?.output_class === "interactive_raw"
     ) {
       continue;

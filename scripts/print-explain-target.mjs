@@ -75,9 +75,9 @@ function renderExpectedArtifactLines(guidance, limit = 4) {
 function renderSummary(guidance) {
   return [
     `Cartulary target guidance: ${guidance.target}`,
-    `classification: ${guidance.classification}`,
+    `target_class: ${guidance.target_class}`,
     `help_tier: ${guidance.help_tier ?? "none"}`,
-    `included_in: ${guidance.included_in.join(",") || "none"}`,
+    `default_inclusion_sets: ${guidance.default_inclusion_sets.join(",") || "none"}`,
     `services: ${formatRequirements(guidance.service_requirements)}`,
     `execution: ${guidance.execution_summary || "none"}`,
     ...renderSchedulerPathLines(guidance),

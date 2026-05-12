@@ -253,7 +253,7 @@ const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
 for (const name of ["alpha", "beta", "smoke", "dry-run"]) {
   let target = manifest.targets.find((entry) => entry.name === name);
   if (!target) {
-    target = { name, classification: "helper_only", included_in: ["helper_only"] };
+    target = { name, target_class: "internal_helper", default_inclusion_sets: [], lifecycle_state: "candidate_child" };
     manifest.targets.push(target);
   }
   if (["alpha", "smoke"].includes(name)) {

@@ -95,7 +95,7 @@ JSON
 
 valid_output="$(assert_passes "current task-surface report" "$NODE_BIN" "$REPORTER" --check)"
 assert_contains "$valid_output" "Cartulary task-surface report" "current report header"
-assert_contains "$valid_output" "classification counts:" "current report classification summary"
+assert_contains "$valid_output" "target_class counts:" "current report target_class summary"
 assert_contains "$valid_output" "compact help count:" "current report compact help summary"
 assert_contains "$valid_output" "help tier counts:" "current report help tier summary"
 mapfile -t expected_count_lines < <("$NODE_BIN" - "$ROOT_DIR/tools/task_surface_manifest.json" <<'EOF'
@@ -119,7 +119,7 @@ assert_not_contains "$(cat "$ROOT_DIR/Makefile")" "export CARTULARY_TEST_TARGET"
 valid_all_output="$(assert_passes "current exhaustive task-surface report" "$NODE_BIN" "$REPORTER" --check --all)"
 assert_contains "$valid_all_output" "public Make targets:" "current exhaustive report public target section"
 assert_contains "$valid_all_output" "browser-e2e-measurement" "current exhaustive report measurement target"
-assert_contains "$valid_all_output" "task classifications:" "current exhaustive report target section"
+assert_contains "$valid_all_output" "task target classes:" "current exhaustive report target section"
 assert_contains "$valid_all_output" "logical harness checks:" "current exhaustive report harness section"
 assert_contains "$valid_all_output" "phase-map execution dependencies:" "current exhaustive report phase dependency section"
 
@@ -132,7 +132,7 @@ import { pathToFileURL } from "node:url";
 const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
 const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
-assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v11", "task surface schema must be v11");
+assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v12", "task surface schema must be v12");
 assert.deepEqual(
   manifest.targets.map((target) => target.name).filter((target) => !manifest.make_recipes[target]),
   [],
@@ -183,13 +183,13 @@ const usageTarget = "synthetic-help-usage";
 manifest.targets.push(
   {
     name: longTarget,
-    classification: "public",
-    included_in: ["helper_only"],
+    target_class: "public",
+    default_inclusion_sets: ["helper_only"],
   },
   {
     name: usageTarget,
-    classification: "public",
-    included_in: ["helper_only"],
+    target_class: "public",
+    default_inclusion_sets: ["helper_only"],
   },
 );
 manifest.help_tiers[0].entries.push(
@@ -299,7 +299,7 @@ cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
 cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 printf '\n.PHONY: unclassified-target\nunclassified-target:\n\t@true\n' >>"$makefile_copy"
 unclassified_output="$(assert_fails "unclassified target drift" run_report_copy)"
-assert_contains "$unclassified_output" "unclassified-target is missing task-surface classification" "unclassified target output"
+assert_contains "$unclassified_output" "unclassified-target is missing task-surface target_class" "unclassified target output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
@@ -311,8 +311,8 @@ const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 manifest.targets.push({
   name: "undocumented-public",
-  classification: "public",
-  included_in: ["helper_only"]
+  target_class: "public",
+  default_inclusion_sets: ["helper_only"]
 });
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
@@ -365,7 +365,7 @@ compact.entries.push({
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 non_public_help_tier_output="$(assert_fails "non-public compact help target" run_report_copy)"
-assert_contains "$non_public_help_tier_output" "frontend-install-ci appears in compact_help but is not classified public" "non-public compact help output"
+assert_contains "$non_public_help_tier_output" "frontend-install-ci appears in compact_help but is not target_class public" "non-public compact help output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
@@ -394,8 +394,8 @@ for (let index = 1; index <= 1; index += 1) {
   const target = `cap-target-${index}`;
   manifest.targets.push({
     name: target,
-    classification: "public",
-    included_in: ["helper_only"]
+    target_class: "public",
+    default_inclusion_sets: ["helper_only"]
   });
   localDev.entries.push({
     target,
@@ -435,8 +435,9 @@ const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 manifest.targets.push({
   name: "undeclared-script-ref",
-  classification: "helper_only",
-  included_in: ["helper_only"],
+  target_class: "internal_helper",
+  default_inclusion_sets: [],
+  lifecycle_state: "candidate_child",
   backing_scripts: []
 });
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

@@ -2058,10 +2058,6 @@
     "targets": [
       {
         "name": "help",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "human_summary",
           "artifact_policy": "none",
@@ -2086,14 +2082,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "help-all",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "human_summary",
           "artifact_policy": "none",
@@ -2118,14 +2116,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "doctor",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/check-doctor.sh"
         ],
@@ -2157,14 +2157,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "bootstrap_toolchain"
       },
       {
         "name": "bootstrap",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -2193,14 +2195,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "bootstrap_toolchain"
       },
       {
         "name": "bootstrap-node-runtime",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -2229,14 +2233,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "bootstrap_toolchain"
       },
       {
         "name": "frontend-toolchain",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-frontend-toolchain.sh"
         ],
@@ -2268,14 +2274,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "bootstrap_toolchain"
       },
       {
         "name": "frontend-install",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -2304,24 +2312,25 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "bootstrap_toolchain"
       },
       {
         "name": "frontend-install-ci",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/frontend-install-ci.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "playwright-install",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -2350,14 +2359,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "bootstrap_toolchain"
       },
       {
         "name": "db-up",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/dev-services.sh"
         ],
@@ -2393,14 +2404,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "local_services_dev"
       },
       {
         "name": "db-reset",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/dev-services.sh"
         ],
@@ -2432,14 +2445,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "local_services_dev"
       },
       {
         "name": "services-up",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/dev-services.sh"
         ],
@@ -2475,41 +2490,40 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "local_services_dev"
       },
       {
         "name": "services-wait",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ]
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "postgres-wait",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/dev-services.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "minio-wait",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/dev-services.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "minio-init",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/dev-services.sh"
         ],
@@ -2545,14 +2559,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "local_services_dev"
       },
       {
         "name": "dev",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/dev-stack.sh"
         ],
@@ -2580,14 +2596,16 @@
             "behavior": "service_lifecycle",
             "owner_section": "Section 11"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "local_services_dev"
       },
       {
         "name": "codegen-toolchain",
-        "classification": "helper_only",
-        "included_in": [
-          "check"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -2598,14 +2616,15 @@
           ],
           "priority_band": "setup",
           "order": 100
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "go-lint-toolchain",
-        "classification": "helper_only",
-        "included_in": [
-          "check"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -2616,14 +2635,15 @@
           ],
           "priority_band": "setup",
           "order": 200
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "govulncheck-toolchain",
-        "classification": "helper_only",
-        "included_in": [
-          "check"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -2634,14 +2654,15 @@
           ],
           "priority_band": "setup",
           "order": 300
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "gosec-toolchain",
-        "classification": "helper_only",
-        "included_in": [
-          "check"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -2652,21 +2673,21 @@
           ],
           "priority_band": "setup",
           "order": 400
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "go-security-toolchain",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ]
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "shell-lint-toolchain",
-        "classification": "helper_only",
-        "included_in": [
-          "check"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -2677,14 +2698,15 @@
           ],
           "priority_band": "setup",
           "order": 500
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "generate",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -2713,24 +2735,25 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "generate-artifacts",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/generate-artifacts.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "generate-drift",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-generate-drift.sh"
         ],
@@ -2773,14 +2796,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "generated-artifact-policy-check",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-generated-artifact-policy.mjs",
           "tools/generated_artifact_policy.json"
@@ -2824,14 +2849,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "json-shape-check",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-json-shapes.mjs",
           "scripts/lib/json-shape.mjs",
@@ -2887,14 +2914,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "toolchain-drift",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-toolchain-pins.mjs"
         ],
@@ -2935,14 +2964,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "migration-drift",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "service_requirements": [
           "postgres"
         ],
@@ -2991,14 +3022,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "deployable-shape",
-        "classification": "helper_only",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/ci/check-deployable-shape.sh"
         ],
@@ -3013,14 +3046,15 @@
             "build-server",
             "build-migrate"
           ]
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "phase-map-check",
-        "classification": "helper_only",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-phase-maps.sh"
         ],
@@ -3034,14 +3068,15 @@
           "needs": [
             "check-frontend-install"
           ]
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "phase-ledgers",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/render-phase-ledgers.mjs"
         ],
@@ -3073,14 +3108,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "phase-ledger-drift",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-phase-ledger-drift.mjs"
         ],
@@ -3123,14 +3160,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "phase-schedules",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/render-execution-topology-artifacts.mjs"
         ],
@@ -3162,14 +3201,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "phase-schedule-drift",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/render-execution-topology-artifacts.mjs"
         ],
@@ -3212,14 +3253,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "agent-finalize",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/agent-finalize.sh",
           "scripts/agent-finalize.mjs"
@@ -3252,14 +3295,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "benchmark-claim-check",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/check-benchmark-claim.mjs"
         ],
@@ -3291,14 +3336,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "task-surface-report",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-task-surface-report.mjs",
           "scripts/render-task-surface-make.mjs"
@@ -3327,14 +3374,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "task-guide",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-task-guide.mjs",
           "scripts/lib/task-guidance.mjs"
@@ -3363,14 +3412,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "phase-slice",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-phase-slice.mjs",
           "scripts/lib/phase-slice-plan.mjs",
@@ -3408,14 +3459,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "phase_service_slices"
       },
       {
         "name": "service-backed-slice",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-phase-slice.mjs",
           "scripts/lib/phase-slice-plan.mjs",
@@ -3453,16 +3506,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "phase_service_slices"
       },
       {
         "name": "backend-unit",
-        "classification": "public",
-        "included_in": [
-          "test",
-          "check",
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-go-target.mjs"
@@ -3509,16 +3562,18 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
-      },
-      {
-        "name": "backend-store",
-        "classification": "public",
-        "included_in": [
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
           "test",
           "check",
           "ci"
         ],
+        "lifecycle_state": "public_active",
+        "family_id": "backend_frontend_leaf_tests"
+      },
+      {
+        "name": "backend-store",
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-go-target.mjs"
@@ -3555,16 +3610,18 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
-      },
-      {
-        "name": "backend-integration",
-        "classification": "public",
-        "included_in": [
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
           "test",
           "check",
           "ci"
         ],
+        "lifecycle_state": "public_active",
+        "family_id": "backend_frontend_leaf_tests"
+      },
+      {
+        "name": "backend-integration",
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-go-target.mjs"
@@ -3601,29 +3658,32 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "backend_frontend_leaf_tests"
       },
       {
         "name": "backend-integration-support",
-        "classification": "check_internal",
-        "included_in": [
-          "test",
-          "check",
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-go-target.mjs"
-        ]
-      },
-      {
-        "name": "backend-process",
-        "classification": "public",
-        "included_in": [
+        ],
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
           "test",
           "check",
           "ci"
         ],
+        "lifecycle_state": "candidate_child"
+      },
+      {
+        "name": "backend-process",
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-go-target.mjs"
@@ -3660,14 +3720,18 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "backend_frontend_leaf_tests"
       },
       {
         "name": "target-plan",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-target-plan.mjs"
         ],
@@ -3695,14 +3759,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "target-plan-json",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-target-plan.mjs"
         ],
@@ -3730,14 +3796,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "fixture-report",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-fixture-report.mjs",
           "scripts/lib/fixture-reporting.mjs"
@@ -3766,14 +3834,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "explain-run",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-explain-run.mjs"
         ],
@@ -3801,14 +3871,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "explain-phase",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-explain-phase.mjs",
           "scripts/lib/task-guidance.mjs"
@@ -3837,14 +3909,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "explain-target",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/print-explain-target.mjs",
           "scripts/lib/task-guidance.mjs",
@@ -3874,14 +3948,16 @@
             "behavior": "diagnostic_synthesis",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "help_discovery"
       },
       {
         "name": "go-test-duration-baselines",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/update-go-test-durations.mjs"
         ],
@@ -3913,14 +3989,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "go-test-duration-baseline-coverage",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-go-test-duration-baseline-coverage.mjs"
         ],
@@ -3963,14 +4041,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "go-test-duration-baseline-drift",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/check-go-test-duration-baseline-drift.mjs"
         ],
@@ -4002,14 +4082,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "browser-e2e-duration-baselines",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/lib/browser-shard-plan.mjs"
         ],
@@ -4041,14 +4123,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "browser-e2e-duration-baseline-drift",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/lib/browser-shard-plan.mjs"
         ],
@@ -4080,14 +4164,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "service-backed-make-target-duration-baselines",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/service-backed-make-target-durations.mjs"
         ],
@@ -4119,14 +4205,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "service-backed-make-target-duration-baseline-drift",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/service-backed-make-target-durations.mjs"
         ],
@@ -4158,14 +4246,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "harness-smoke-duration-baselines",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/harness-smoke-durations.mjs"
         ],
@@ -4197,24 +4287,27 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "duration-baseline-drift-suite",
-        "classification": "check_internal",
-        "included_in": [
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/duration-baseline-drift-suite.sh"
-        ]
+        ],
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "ci"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "harness-smoke-duration-baseline-drift",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/harness-smoke-durations.mjs"
         ],
@@ -4246,14 +4339,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "scheduler-event-order-drift",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/check-scheduler-event-order-drift.mjs",
           "scripts/lib/scheduler/event-order.mjs"
@@ -4286,14 +4381,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "scheduler-summary-timing-drift",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/check-scheduler-summary-timing-drift.mjs",
           "scripts/lib/scheduler/summary-timing-drift.mjs"
@@ -4326,14 +4423,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "generated_drift"
       },
       {
         "name": "service-backed-unit-check",
-        "classification": "check_internal",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-service-backed-unit-tests.sh"
         ],
@@ -4347,15 +4446,15 @@
           "needs": [
             "toolchain-drift"
           ]
-        }
+        },
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "test-service-images",
-        "classification": "helper_only",
-        "included_in": [
-          "check",
-          "helper_only"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -4366,44 +4465,42 @@
           "needs": [
             "toolchain-drift"
           ]
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "run-harness-smoke-fast",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-harness-smoke.mjs"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "run-harness-smoke-extended",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-harness-smoke.mjs"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "run-harness-smoke-full",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-harness-smoke.mjs"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "phase-test-name-check",
-        "classification": "check_internal",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-phase-test-names.mjs"
         ],
@@ -4417,16 +4514,15 @@
           "needs": [
             "toolchain-drift"
           ]
-        }
+        },
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "frontend-typecheck",
-        "classification": "public",
-        "included_in": [
-          "test",
-          "check",
-          "ci"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -4469,16 +4565,18 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
-      },
-      {
-        "name": "frontend-unit",
-        "classification": "public",
-        "included_in": [
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
           "test",
           "check",
           "ci"
         ],
+        "lifecycle_state": "public_active",
+        "family_id": "backend_frontend_leaf_tests"
+      },
+      {
+        "name": "frontend-unit",
         "backing_scripts": [
           "scripts/run-frontend-unit.sh"
         ],
@@ -4524,14 +4622,18 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "backend_frontend_leaf_tests"
       },
       {
         "name": "frontend-import-boundary-check",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/check-frontend-import-boundaries.mjs"
         ],
@@ -4574,14 +4676,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "backend_frontend_leaf_tests"
       },
       {
         "name": "lint-biome",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -4624,14 +4728,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "static_analysis_security"
       },
       {
         "name": "lint-scripts",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/run-scripts-biome.sh"
         ],
@@ -4674,14 +4780,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "static_analysis_security"
       },
       {
         "name": "harness-contract-tests",
-        "classification": "check_internal",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/test-harness-contracts.mjs"
         ],
@@ -4695,14 +4803,15 @@
           "needs": [
             "toolchain-drift"
           ]
-        }
+        },
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "lint-shell",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/run-shellcheck.sh"
         ],
@@ -4751,14 +4860,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "static_analysis_security"
       },
       {
         "name": "format",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -4787,36 +4898,34 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "formatting"
       },
       {
         "name": "format-go",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-go-format.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "format-frontend",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-frontend-biome.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "browser-e2e",
-        "classification": "public",
-        "included_in": [
-          "test",
-          "check",
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
@@ -4855,16 +4964,18 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
-      },
-      {
-        "name": "browser-e2e-webserver-backed",
-        "classification": "public",
-        "included_in": [
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
           "test",
           "check",
           "ci"
         ],
+        "lifecycle_state": "public_active",
+        "family_id": "browser_e2e"
+      },
+      {
+        "name": "browser-e2e-webserver-backed",
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
@@ -4906,14 +5017,18 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "browser_e2e"
       },
       {
         "name": "browser-e2e-functional",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
@@ -4922,29 +5037,25 @@
           "scripts/lib/run-playwright-webserver-batch.sh",
           "scripts/lib/browser-shard-plan.mjs",
           "scripts/start-web-e2e.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "browser-e2e-support",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
           "scripts/lib/browser-batch-manifest.mjs",
           "scripts/start-web-e2e.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "browser-e2e-stateful",
-        "classification": "public",
-        "included_in": [
-          "test",
-          "check",
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
@@ -4984,29 +5095,31 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "browser_e2e"
       },
       {
         "name": "browser-e2e-resettable",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
           "scripts/lib/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-resettable.sh",
           "scripts/start-web-e2e.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "browser-e2e-measurement",
-        "classification": "public",
-        "included_in": [
-          "test",
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
@@ -5046,16 +5159,17 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "test",
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "browser_e2e"
       },
       {
         "name": "browser-e2e-visual",
-        "classification": "public",
-        "included_in": [
-          "test",
-          "check",
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
@@ -5095,36 +5209,40 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
-      },
-      {
-        "name": "test-local",
-        "classification": "check_internal",
-        "included_in": [
-          "test",
-          "ci"
-        ]
-      },
-      {
-        "name": "test-service-backed",
-        "classification": "check_internal",
-        "included_in": [
-          "test",
-          "ci"
         ],
-        "backing_scripts": [
-          "scripts/cartulary-runner.mjs",
-          "scripts/run-service-backed-schedule.mjs"
-        ]
-      },
-      {
-        "name": "test-fast",
-        "classification": "public",
-        "included_in": [
+        "target_class": "public",
+        "default_inclusion_sets": [
           "test",
           "check",
           "ci"
         ],
+        "lifecycle_state": "public_active",
+        "family_id": "browser_e2e"
+      },
+      {
+        "name": "test-local",
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "test",
+          "ci"
+        ],
+        "lifecycle_state": "candidate_child"
+      },
+      {
+        "name": "test-service-backed",
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-service-backed-schedule.mjs"
+        ],
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "test",
+          "ci"
+        ],
+        "lifecycle_state": "candidate_child"
+      },
+      {
+        "name": "test-fast",
         "output_policy": {
           "output_class": "aggregate_summary_with_artifacts",
           "artifact_policy": "run_and_target_summaries",
@@ -5153,29 +5271,32 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "aggregates_gates"
       },
       {
         "name": "test-fast-service-backed",
-        "classification": "check_internal",
-        "included_in": [
-          "test",
-          "check",
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-service-backed-schedule.mjs"
-        ]
-      },
-      {
-        "name": "test",
-        "classification": "public",
-        "included_in": [
+        ],
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
           "test",
           "check",
           "ci"
         ],
+        "lifecycle_state": "candidate_child"
+      },
+      {
+        "name": "test",
         "output_policy": {
           "output_class": "aggregate_summary_with_artifacts",
           "artifact_policy": "run_and_target_summaries",
@@ -5204,14 +5325,18 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "aggregates_gates"
       },
       {
         "name": "lint",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -5240,14 +5365,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "aggregates_gates"
       },
       {
         "name": "lint-go",
-        "classification": "helper_only",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/run-go-format.sh",
           "scripts/run-go-vet.sh",
@@ -5263,44 +5390,42 @@
           "needs": [
             "go-lint-toolchain"
           ]
-        }
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "lint-go-format",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-go-format.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "lint-go-vet",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-go-vet.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "lint-go-staticcheck",
-        "classification": "helper_only",
-        "included_in": [
-          "helper_only"
-        ],
         "backing_scripts": [
           "scripts/run-go-staticcheck.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "go-vulncheck",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/run-go-govulncheck.sh"
         ],
@@ -5347,14 +5472,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "static_analysis_security"
       },
       {
         "name": "go-gosec-targeted",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/run-go-gosec-targeted.sh"
         ],
@@ -5401,14 +5528,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "static_analysis_security"
       },
       {
         "name": "go-gosec-audit",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/run-go-gosec-audit.sh"
         ],
@@ -5455,14 +5584,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "static_analysis_security"
       },
       {
         "name": "check",
-        "classification": "public",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/run-check-schedule.mjs"
         ],
@@ -5498,14 +5629,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "aggregates_gates"
       },
       {
         "name": "check-frontend-install",
-        "classification": "check_internal",
-        "included_in": [
-          "check"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -5516,14 +5649,15 @@
           ],
           "priority_band": "setup",
           "order": 600
-        }
+        },
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "check-harness-smoke",
-        "classification": "check_internal",
-        "included_in": [
-          "check"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -5537,14 +5671,15 @@
           "needs": [
             "toolchain-drift"
           ]
-        }
+        },
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "check-service-backed",
-        "classification": "check_internal",
-        "included_in": [
-          "check"
-        ],
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-service-backed-schedule.mjs"
@@ -5565,14 +5700,15 @@
             "build-migrate",
             "test-service-images"
           ]
-        }
+        },
+        "target_class": "check_internal",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "ci",
-        "classification": "public",
-        "included_in": [
-          "ci"
-        ],
         "backing_scripts": [
           "scripts/run-make-sequence.sh"
         ],
@@ -5604,14 +5740,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "ci"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "aggregates_gates"
       },
       {
         "name": "release-check",
-        "classification": "public",
-        "included_in": [
-          "release-check"
-        ],
         "backing_scripts": [
           "scripts/run-make-sequence.sh"
         ],
@@ -5643,38 +5781,42 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "release-check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "aggregates_gates"
       },
       {
         "name": "license-report",
-        "classification": "helper_only",
-        "included_in": [
-          "release-check"
-        ],
         "backing_scripts": [
           "scripts/generate-sbom-license-evidence.mjs",
           "scripts/validate-cyclonedx.mjs",
           "scripts/check-release-artifact.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "release-check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "sbom",
-        "classification": "helper_only",
-        "included_in": [
-          "release-check"
-        ],
         "backing_scripts": [
           "scripts/generate-sbom-license-evidence.mjs",
           "scripts/validate-cyclonedx.mjs",
           "scripts/check-release-artifact.sh"
-        ]
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "release-check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "build",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -5703,15 +5845,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "builds"
       },
       {
         "name": "build-server",
-        "classification": "public",
-        "included_in": [
-          "check",
-          "helper_only"
-        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -5751,15 +5894,17 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
-      },
-      {
-        "name": "build-migrate",
-        "classification": "public",
-        "included_in": [
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
           "check",
           "helper_only"
         ],
+        "lifecycle_state": "public_active",
+        "family_id": "builds"
+      },
+      {
+        "name": "build-migrate",
         "check_schedule": {
           "schedules": [
             "check"
@@ -5799,14 +5944,17 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check",
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "builds"
       },
       {
         "name": "build-web",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -5835,14 +5983,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "builds"
       },
       {
         "name": "clean",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "destructive_human",
           "artifact_policy": "none",
@@ -5871,14 +6021,16 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "cleanup"
       },
       {
         "name": "distclean",
-        "classification": "public",
-        "included_in": [
-          "helper_only"
-        ],
         "output_policy": {
           "output_class": "destructive_human",
           "artifact_policy": "none",
@@ -5907,7 +6059,13 @@
             "behavior": "failure_normalization",
             "owner_section": "Section 9"
           }
-        ]
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "cleanup"
       }
     ],
     "harness_tiers": {

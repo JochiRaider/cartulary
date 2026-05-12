@@ -191,7 +191,7 @@ const [source, destination] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
 for (const name of ["alpha", "beta", "missing-target", "fail-step", "smoke", "aggregate-missing", "fail-smoke", "dry-run"]) {
   if (!manifest.targets.some((target) => target.name === name)) {
-    manifest.targets.push({ name, classification: "helper_only", included_in: ["helper_only"] });
+    manifest.targets.push({ name, target_class: "internal_helper", default_inclusion_sets: [], lifecycle_state: "candidate_child" });
   }
 }
 manifest.make_recipes ??= {};
@@ -388,11 +388,11 @@ assert_not_contains "${generated_make}" 'BASELINE_FILE="$(BASELINE_FILE)" CARTUL
 assert_not_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_" "generated Make harness tier variables"
 assert_not_contains "${generated_phony_line}" "harness-smoke-toolchain-pins" "generated Make harness leaf targets"
 assert_not_contains "${generated_phony_line}" "run-harness-smoke-fast-all" "generated Make fast harness aggregate leaf"
-assert_contains "${generated_make}" "summary-target --target check-go-test-duration-baseline-drift --child-target go-test-duration-baseline-drift --status pass" "generated summary target runner invocation"
+assert_contains "${generated_make}" "summary-target --target check-harness-smoke --child-target run-harness-smoke-fast --status pass" "generated summary target runner invocation"
 assert_contains "${generated_make}" 'MAKE_BIN="$(MAKE)"' "generated summary target make bin"
 assert_contains "${generated_make}" 'RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)"' "generated summary target run phase"
-assert_not_contains "${generated_make}" '$(MAKE) --no-print-directory go-test-duration-baseline-drift' "generated summary target old child make"
-assert_not_contains "${generated_make}" '$(TARGET_SUMMARY) check-go-test-duration-baseline-drift pass' "generated summary target old summary call"
+assert_not_contains "${generated_make}" '$(MAKE) --no-print-directory run-harness-smoke-fast' "generated summary target old child make"
+assert_not_contains "${generated_make}" '$(TARGET_SUMMARY) check-harness-smoke pass' "generated summary target old summary call"
 assert_count "$(line_count '^RUN_MAKE_SEQUENCE_SCRIPT :=')" "1" "run sequence helper declaration"
 assert_count "$(line_count '^RUN_HARNESS_SMOKE_SCRIPT :=')" "1" "harness smoke helper declaration"
 assert_count "$(line_count '^RUN_SERVICE_BACKED_SCHEDULE_SCRIPT :=')" "1" "service-backed scheduler helper declaration"

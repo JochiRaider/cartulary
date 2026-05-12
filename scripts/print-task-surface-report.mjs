@@ -30,8 +30,8 @@ const generatedMakePath = resolvePath(
   process.env.CARTULARY_TASK_SURFACE_GENERATED_MAKE ?? defaultGeneratedMakePath,
 );
 
-const validClassifications = new Set(["public", "check_internal", "helper_only"]);
-const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
+const validTargetClasses = new Set(["public", "check_internal", "internal_helper"]);
+const validDefaultInclusionSets = new Set(["test", "check", "ci", "release-check", "helper_only"]);
 const retiredRootRunnerHelperPattern =
   /^\s*(RUN_(?:GO|PLAYWRIGHT|VITEST)(?:_MANIFEST)?_PHASE(?:_SCRIPT)?)\s*(?::=|\?=|\+=|=)/;
 const targetOwnedPhaseTargetsPattern = /^\s*TARGET_OWNED_PHASE_TARGETS\s*(?::=|\?=|\+=|=)/;
@@ -301,7 +301,7 @@ function validateTaskSurface({
 
   for (const target of phonyTargets) {
     if (!entriesByName.has(target)) {
-      errors.push(`Makefile .PHONY target ${target} is missing task-surface classification`);
+      errors.push(`Makefile .PHONY target ${target} is missing task-surface target_class`);
     }
   }
   for (const target of entriesByName.keys()) {
@@ -316,25 +316,31 @@ function validateTaskSurface({
   }
 
   for (const [target, entry] of entriesByName.entries()) {
-    if (!validClassifications.has(entry.classification)) {
-      errors.push(`${target} has invalid classification ${JSON.stringify(entry.classification)}`);
+    if (!validTargetClasses.has(entry.target_class)) {
+      errors.push(`${target} has invalid target_class ${JSON.stringify(entry.target_class)}`);
     }
-    if (!Array.isArray(entry.included_in) || entry.included_in.length === 0) {
-      errors.push(`${target} must declare non-empty included_in[]`);
+    if (!Array.isArray(entry.default_inclusion_sets)) {
+      errors.push(`${target} must declare default_inclusion_sets[]`);
     } else {
-      for (const inclusion of entry.included_in) {
-        if (!validInclusions.has(inclusion)) {
-          errors.push(`${target} has invalid included_in value ${JSON.stringify(inclusion)}`);
+      for (const inclusion of entry.default_inclusion_sets) {
+        if (!validDefaultInclusionSets.has(inclusion)) {
+          errors.push(`${target} has invalid default_inclusion_sets value ${JSON.stringify(inclusion)}`);
         }
+      }
+      if (
+        entry.target_class !== "public" &&
+        entry.default_inclusion_sets.includes("helper_only")
+      ) {
+        errors.push(`${target} default_inclusion_sets helper_only is only valid for public targets`);
       }
     }
 
     const hasHelp = helpEntries.has(target);
-    if (entry.classification === "public" && !hasHelp) {
+    if (entry.target_class === "public" && !hasHelp) {
       errors.push(`public target ${target} is missing a help entry`);
     }
-    if (hasHelp && entry.classification !== "public") {
-      errors.push(`help entry ${target} must be classified public`);
+    if (hasHelp && entry.target_class !== "public") {
+      errors.push(`help entry ${target} must be target_class public`);
     }
 
     const declaredScripts = Array.isArray(entry.backing_scripts) ? entry.backing_scripts : [];
@@ -394,19 +400,19 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
     const entry = entriesByName.get(target) ?? {};
     return {
       name: target,
-      classification: entry.classification ?? "unclassified",
+      target_class: entry.target_class ?? "unclassified",
       command_id: entry.command_id ?? null,
       semantic_behaviors: entry.semantic_behaviors ?? [],
       has_help: helpEntries.has(target),
       help_tier: helpTierByTarget.get(target) ?? null,
-      included_in: entry.included_in ?? [],
+      default_inclusion_sets: entry.default_inclusion_sets ?? [],
       backing_scripts: entry.backing_scripts ?? [],
       makefile_script_refs: targetScriptRefs.get(target) ?? [],
     };
   });
   const semanticBehaviorCounts = new Map();
   const publicSemanticRows = targets
-    .filter((entry) => entry.classification === "public")
+    .filter((entry) => entry.target_class === "public")
     .map((entry) => {
       const behaviors = Array.isArray(entry.semantic_behaviors)
         ? entry.semantic_behaviors.map((item) => item.behavior).filter(Boolean)
@@ -454,14 +460,14 @@ function printHumanReport(report, { allMode = false } = {}) {
 
   const counts = new Map();
   for (const target of report.targets) {
-    counts.set(target.classification, (counts.get(target.classification) ?? 0) + 1);
+    counts.set(target.target_class, (counts.get(target.target_class) ?? 0) + 1);
   }
   console.log("");
-  console.log("classification counts:");
-  for (const classification of ["public", "check_internal", "helper_only", "unclassified"]) {
-    const count = counts.get(classification) ?? 0;
+  console.log("target_class counts:");
+  for (const targetClass of ["public", "check_internal", "internal_helper", "unclassified"]) {
+    const count = counts.get(targetClass) ?? 0;
     if (count > 0) {
-      console.log(`  ${classification}: ${count}`);
+      console.log(`  ${targetClass}: ${count}`);
     }
   }
 
@@ -484,21 +490,21 @@ function printHumanReport(report, { allMode = false } = {}) {
   if (allMode) {
     console.log("");
     console.log("public Make targets:");
-    for (const target of report.targets.filter((entry) => entry.classification === "public")) {
+    for (const target of report.targets.filter((entry) => entry.target_class === "public")) {
       const behaviors = target.semantic_behaviors
         .map((entry) => `${entry.behavior}@${entry.owner_section}`)
         .join(",");
       console.log(
-        `  ${target.name} command_id=${target.command_id ?? "-"} behaviors=${behaviors || "-"} help=${target.has_help ? "yes" : "no"} help_tier=${target.help_tier ?? "-"} included_in=${target.included_in.join(",")}`,
+        `  ${target.name} command_id=${target.command_id ?? "-"} behaviors=${behaviors || "-"} help=${target.has_help ? "yes" : "no"} help_tier=${target.help_tier ?? "-"} default_inclusion_sets=${target.default_inclusion_sets.join(",")}`,
       );
     }
 
     console.log("");
-    console.log("task classifications:");
+    console.log("task target classes:");
     for (const target of report.targets) {
       const scripts = target.backing_scripts.length > 0 ? target.backing_scripts.join(",") : "-";
       console.log(
-        `  ${target.name} classification=${target.classification} included_in=${target.included_in.join(",")} scripts=${scripts}`,
+        `  ${target.name} target_class=${target.target_class} default_inclusion_sets=${target.default_inclusion_sets.join(",")} scripts=${scripts}`,
       );
     }
 
