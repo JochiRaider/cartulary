@@ -1187,7 +1187,7 @@ Verified by: TH-HARNESS-AC-012
 Centralized summaries, machine output, and retained logs captured by harness wrappers MUST be redacted before retention and before stdout emission.
 Verified by: TH-HARNESS-AC-011
 
-Screenshots, videos, traces, and Playwright HTML reports are diagnostic secret-bearing artifacts. They MUST NOT be described as safe to upload or publish without separate review.
+Screenshots, videos, traces, visual geometry diagnostics, and Playwright HTML reports are diagnostic secret-bearing artifacts. They MUST NOT be described as safe to upload or publish without separate review. Browser visual targets MAY retain compact geometry diagnostics for workbook screenshot failures, including scroll metrics, visible field keys, required element rectangles, active element identity, and inspector state. Those diagnostics are harness mechanics only; they MUST NOT define product UI behavior or visual-snapshot refresh authority.
 
 ### 15.1 Secret Pattern Table
 
@@ -1209,6 +1209,7 @@ Screenshots, videos, traces, and Playwright HTML reports are diagnostic secret-b
 | Captured child stdout/stderr logs   | Redact before retention.                                                                                                   |
 | Service env files                   | Store only redacted credential values unless the file is required for child execution and kept under private runtime root. |
 | Browser screenshots/videos/traces   | Diagnostic secret-bearing; not safe for publication.                                                                       |
+| Visual geometry diagnostics         | Diagnostic secret-bearing; not safe for publication.                                                                       |
 | Playwright HTML reports             | Diagnostic secret-bearing; not safe for publication.                                                                       |
 | CI logs                             | Redact using the same token rules before harness-controlled emission.                                                      |
 
@@ -1317,5 +1318,5 @@ The items below are explicitly outside the current conformance profile. They do 
 | Podman/Podman Compose                                       | Unsupported for current conformance. | Add service fixture compatibility profile and cleanup proof.                                 |
 | Hosted CI annotations/uploads/artifact-retention dashboards | Provider-neutral `make ci` only.     | Add provider workflow source and provider-specific contract.                                 |
 | Visual snapshot refresh authority                           | Validation-only.                     | Add exact refresh command, platform/browser bounds, review path, and golden update criteria. |
-| Playwright report/trace/video/screenshot schemas            | Diagnostic-only.                     | Adopt exact Playwright version/schema family or wrapper schema.                              |
+| Playwright report/trace/video/screenshot and visual-geometry diagnostic schemas | Diagnostic-only.                     | Adopt exact Playwright version/schema family or wrapper schema.                              |
 | Benchmark-publication harness integration                   | Not part of harness conformance.     | Add Core 05-compatible benchmark manifest and claim-publication profile.                     |

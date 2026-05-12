@@ -10,6 +10,7 @@ import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   draftCellTestId,
+  gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridScrollportSelector,
   gridShellTestId,
@@ -5117,6 +5118,7 @@ export function TimelineWorkbook({
 
   const timelineActionsColumn = useMemo<GridActionsColumn<WorkbookRow>>(
     () => ({
+      headerTestId: gridActionsHeaderTestId("timeline"),
       label: "Actions",
       minWidth: 296,
       width: 296,
@@ -6358,6 +6360,7 @@ function EntityWorkbookSurface({
     },
   ];
   const entityActionsColumn: GridActionsColumn<EntityRow> = {
+    headerTestId: gridActionsHeaderTestId(surface),
     label: "Actions",
     width: 176,
     renderCell: ({ data: row }) => (
@@ -7387,6 +7390,7 @@ function GenericWorkbookSurface({
       return undefined;
     }
     return {
+      headerTestId: gridActionsHeaderTestId(surface),
       label: "Access",
       width: 208,
       renderCell: ({ data: row }) => {
@@ -7461,6 +7465,7 @@ function GenericWorkbookSurface({
     evidenceMessageByRecordID,
     isEvidenceSurface,
     issueEvidenceHandle,
+    surface,
   ]);
   const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
     key: row.record_id,

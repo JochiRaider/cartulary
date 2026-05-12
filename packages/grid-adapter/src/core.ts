@@ -36,6 +36,7 @@ export type GridRow<Row> = {
 };
 
 export type GridActionsColumn<Row> = {
+  readonly headerTestId?: string | undefined;
   readonly label: string;
   readonly renderCell: (row: GridRow<Row>) => ReactNode;
   readonly minWidth?: number | undefined;

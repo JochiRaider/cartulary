@@ -6,16 +6,18 @@ import {
 import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridScrollportSelector,
   gridShellTestId,
+  gridSortHeaderTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Route } from "@playwright/test";
+import type { Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   createIncident,
@@ -51,12 +53,26 @@ type ViewRow = {
   cells: Record<string, unknown>;
 };
 
-type GridVisualScrollLeft = "left" | "right" | number;
+type GridVisualScrollLeft = "left" | number;
 
 type GridVisualScrollState = {
   top: number;
   left: GridVisualScrollLeft;
 };
+
+type GridVisualAnchor = {
+  kind: "timelineEvidenceActions";
+  rowId: string;
+  top: number;
+};
+
+type GridVisualRegressionOptions = {
+  maxDiffPixels?: number;
+  testInfo?: TestInfo;
+} & (
+  | { scroll: GridVisualScrollState; anchor?: never }
+  | { anchor: GridVisualAnchor; scroll?: never }
+);
 
 test.describe("Phase 3 workbook visual evidence", () => {
   test("V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip", async ({
@@ -472,7 +488,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
 
   test("V-5-GRID-02 captures blocked preview feedback and Timeline evidence badges", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(
       page,
@@ -543,13 +559,26 @@ test.describe("Phase 5 workbook visual evidence", () => {
         rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
       ),
     ).toHaveText("true");
+    await expect(page.getByTestId("timeline-inspector")).toContainText(
+      timelineRow.record_id,
+    );
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
     await assertWorkbookGridVisualRegression(
       page,
       "v-5-grid-02-timeline-evidence-badge",
       timelineViewSchemaId,
       {
+        anchor: {
+          kind: "timelineEvidenceActions",
+          rowId: timelineRow.record_id,
+          top: 0,
+        },
         maxDiffPixels: 8_000,
-        scroll: { top: 0, left: "right" },
+        testInfo,
       },
     );
   });
@@ -833,18 +862,27 @@ async function assertWorkbookGridVisualRegression(
   page: Page,
   name: string,
   surface: string,
-  options: { maxDiffPixels?: number; scroll: GridVisualScrollState },
+  options: GridVisualRegressionOptions,
 ) {
-  await prepareVisualRegressionState(page);
-  await normalizeWorkbookGridVisualState(page, surface, options.scroll);
-  await assertVisualRegression(
-    page,
-    name,
-    page.getByTestId(gridShellTestId(surface)),
-    options.maxDiffPixels === undefined
-      ? {}
-      : { maxDiffPixels: options.maxDiffPixels },
-  );
+  try {
+    await prepareVisualRegressionState(page);
+    await normalizeWorkbookGridVisualState(page, surface, options);
+    await assertVisualRegression(
+      page,
+      name,
+      page.getByTestId(gridShellTestId(surface)),
+      options.maxDiffPixels === undefined
+        ? {}
+        : { maxDiffPixels: options.maxDiffPixels },
+    );
+  } catch (error) {
+    try {
+      await attachWorkbookGridVisualDiagnostics(page, name, surface, options);
+    } catch {
+      // Preserve the assertion failure when the page is already torn down.
+    }
+    throw error;
+  }
 }
 
 async function prepareVisualRegressionState(page: Page) {
@@ -857,14 +895,42 @@ async function prepareVisualRegressionState(page: Page) {
 async function normalizeWorkbookGridVisualState(
   page: Page,
   surface: string,
-  scroll: GridVisualScrollState,
+  options: GridVisualRegressionOptions,
 ) {
+  if ("anchor" in options) {
+    await normalizeWorkbookGridAnchorVisualState(page, surface, options.anchor);
+    return;
+  }
+  const { scroll } = options;
   await setWorkbookGridScroll(page, surface, scroll);
   await waitForVisualLayoutFrame(page);
   const expected = await setWorkbookGridScroll(page, surface, scroll);
   await expect
     .poll(() => readWorkbookGridScroll(page, surface))
     .toEqual(expected);
+  await waitForVisualLayoutFrame(page);
+}
+
+async function normalizeWorkbookGridAnchorVisualState(
+  page: Page,
+  surface: string,
+  anchor: GridVisualAnchor,
+) {
+  await setWorkbookGridAnchor(page, surface, anchor);
+  await waitForVisualLayoutFrame(page);
+  await expect
+    .poll(
+      async () => {
+        await setWorkbookGridAnchor(page, surface, anchor);
+        const state = await readWorkbookGridAnchorState(page, surface, anchor);
+        return state.ready;
+      },
+      {
+        message: `Expected ${surface} grid visual anchor ${anchor.kind} to reach stable geometry`,
+        timeout: 6_000,
+      },
+    )
+    .toBe(true);
   await waitForVisualLayoutFrame(page);
 }
 
@@ -908,12 +974,9 @@ async function setWorkbookGridScroll(
         0,
         scrollport.scrollHeight - scrollport.clientHeight,
       );
-      const expectedLeft =
-        left === "left" ? 0 : left === "right" ? maxLeft : left;
+      const expectedLeft = left === "left" ? 0 : left;
       const expectedTop = Math.min(Math.max(0, top), maxTop);
       scrollport.scrollTop = expectedTop;
-      // "right" means the live computed maximum, so visual goldens track the
-      // far-right grid contract instead of a historical pixel offset.
       scrollport.scrollLeft = Math.min(Math.max(0, expectedLeft), maxLeft);
       return {
         top: scrollport.scrollTop,
@@ -925,6 +988,372 @@ async function setWorkbookGridScroll(
       scrollportSelector: gridScrollportSelector(),
       surface,
       top: scroll.top,
+    },
+  );
+}
+
+function buildWorkbookGridAnchorSelectors(
+  surface: string,
+  anchor: GridVisualAnchor,
+) {
+  switch (anchor.kind) {
+    case "timelineEvidenceActions":
+      return {
+        fieldKeys: [
+          "timeline.evidence_count",
+          "timeline.tags",
+          "timeline.edited_at",
+        ],
+        requiredTestIds: {
+          actionButton: rowInspectButtonTestId(anchor.rowId),
+          actionsHeader: gridActionsHeaderTestId(surface),
+          editedCell: rowCellTestId(anchor.rowId, "timeline.edited_at"),
+          editedHeader: gridSortHeaderTestId(surface, "timeline.edited_at"),
+          evidenceCell: rowCellTestId(anchor.rowId, "timeline.evidence_count"),
+          evidenceHeader: gridSortHeaderTestId(
+            surface,
+            "timeline.evidence_count",
+          ),
+          hasEvidenceBadge: rowCellTestId(
+            anchor.rowId,
+            "timeline.has_evidence",
+          ),
+          tagsHeader: gridSortHeaderTestId(surface, "timeline.tags"),
+        },
+      };
+  }
+}
+
+async function setWorkbookGridAnchor(
+  page: Page,
+  surface: string,
+  anchor: GridVisualAnchor,
+) {
+  return page.evaluate(
+    ({ anchor, scrollportSelector, selectors, surface }) => {
+      const shell = document.querySelector<HTMLElement>(
+        `[data-testid="${surface}-grid-shell"]`,
+      );
+      if (shell === null) {
+        throw new Error(`Expected ${surface} grid shell to exist`);
+      }
+      const scrollports = Array.from(
+        shell.querySelectorAll<HTMLElement>(scrollportSelector),
+      );
+      if (scrollports.length !== 1 || scrollports[0] === undefined) {
+        throw new Error(
+          `Expected ${surface} grid shell to contain exactly one ${scrollportSelector} scrollport, received ${scrollports.length}`,
+        );
+      }
+      const scrollport = scrollports[0];
+      const maxLeft = Math.max(
+        0,
+        scrollport.scrollWidth - scrollport.clientWidth,
+      );
+      const maxTop = Math.max(
+        0,
+        scrollport.scrollHeight - scrollport.clientHeight,
+      );
+      const expectedTop = Math.min(Math.max(0, anchor.top), maxTop);
+      const byTestId = (testId: string) =>
+        Array.from(shell.querySelectorAll<HTMLElement>("[data-testid]")).find(
+          (element) => element.getAttribute("data-testid") === testId,
+        ) ?? null;
+
+      scrollport.scrollTop = expectedTop;
+      const actionButton = byTestId(selectors.requiredTestIds.actionButton);
+      if (actionButton === null) {
+        scrollport.scrollLeft = maxLeft;
+      } else {
+        actionButton.scrollIntoView({ block: "nearest", inline: "end" });
+      }
+
+      const scrollportRect = scrollport.getBoundingClientRect();
+      const requiredElements = Object.values(selectors.requiredTestIds)
+        .map((testId) => byTestId(testId))
+        .filter((element): element is HTMLElement => element !== null);
+      if (requiredElements.length > 0) {
+        const leftMost = Math.min(
+          ...requiredElements.map(
+            (element) => element.getBoundingClientRect().left,
+          ),
+        );
+        const rightMost = Math.max(
+          ...requiredElements.map(
+            (element) => element.getBoundingClientRect().right,
+          ),
+        );
+        const padding = 8;
+        if (leftMost < scrollportRect.left + padding) {
+          scrollport.scrollLeft = Math.max(
+            0,
+            scrollport.scrollLeft - (scrollportRect.left + padding - leftMost),
+          );
+        } else if (rightMost > scrollportRect.right - padding) {
+          scrollport.scrollLeft = Math.min(
+            maxLeft,
+            scrollport.scrollLeft +
+              (rightMost - (scrollportRect.right - padding)),
+          );
+        }
+      }
+
+      return {
+        top: scrollport.scrollTop,
+        left: scrollport.scrollLeft,
+      };
+    },
+    {
+      anchor,
+      scrollportSelector: gridScrollportSelector(),
+      selectors: buildWorkbookGridAnchorSelectors(surface, anchor),
+      surface,
+    },
+  );
+}
+
+async function readWorkbookGridAnchorState(
+  page: Page,
+  surface: string,
+  anchor: GridVisualAnchor,
+) {
+  return page.evaluate(
+    async ({ anchor, scrollportSelector, selectors, surface }) => {
+      const readDiagnostics = () => {
+        const shell = document.querySelector<HTMLElement>(
+          `[data-testid="${surface}-grid-shell"]`,
+        );
+        if (shell === null) {
+          throw new Error(`Expected ${surface} grid shell to exist`);
+        }
+        const scrollports = Array.from(
+          shell.querySelectorAll<HTMLElement>(scrollportSelector),
+        );
+        if (scrollports.length !== 1 || scrollports[0] === undefined) {
+          throw new Error(
+            `Expected ${surface} grid shell to contain exactly one ${scrollportSelector} scrollport, received ${scrollports.length}`,
+          );
+        }
+        const scrollport = scrollports[0];
+        const scrollportRect = scrollport.getBoundingClientRect();
+        const byTestId = (testId: string) =>
+          Array.from(shell.querySelectorAll<HTMLElement>("[data-testid]")).find(
+            (element) => element.getAttribute("data-testid") === testId,
+          ) ?? null;
+        const roundedRect = (element: HTMLElement | null) => {
+          if (element === null) {
+            return null;
+          }
+          const rect = element.getBoundingClientRect();
+          const visible =
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.right <= scrollportRect.right - 1 &&
+            rect.left >= scrollportRect.left + 1 &&
+            rect.bottom >= scrollportRect.top + 1 &&
+            rect.top <= scrollportRect.bottom - 1;
+          return {
+            bottom: Math.round(rect.bottom),
+            height: Math.round(rect.height),
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            top: Math.round(rect.top),
+            visible,
+            width: Math.round(rect.width),
+          };
+        };
+        const requiredRects = Object.fromEntries(
+          Object.entries(selectors.requiredTestIds).map(([key, testId]) => [
+            key,
+            roundedRect(byTestId(testId)),
+          ]),
+        );
+        const visibleFieldKeys = Array.from(
+          shell.querySelectorAll<HTMLElement>("[data-grid-field-key]"),
+        )
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return (
+              rect.width > 0 &&
+              rect.height > 0 &&
+              rect.right >= scrollportRect.left + 1 &&
+              rect.left <= scrollportRect.right - 1 &&
+              rect.bottom >= scrollportRect.top + 1 &&
+              rect.top <= scrollportRect.bottom - 1
+            );
+          })
+          .map((element) => element.getAttribute("data-grid-field-key") ?? "")
+          .filter((fieldKey, index, fieldKeys) => {
+            return fieldKey !== "" && fieldKeys.indexOf(fieldKey) === index;
+          });
+        const missingTestIds = Object.entries(selectors.requiredTestIds)
+          .filter(([, testId]) => byTestId(testId) === null)
+          .map(([key]) => key);
+        const hiddenTestIds = Object.entries(requiredRects)
+          .filter(([, rect]) => rect === null || !rect.visible)
+          .map(([key]) => key);
+        const missingFieldKeys = selectors.fieldKeys.filter(
+          (fieldKey) => !visibleFieldKeys.includes(fieldKey),
+        );
+        return {
+          activeElementTestId:
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement.getAttribute("data-testid")
+              : null,
+          anchorKind: anchor.kind,
+          inspectorOpen:
+            document.querySelector('[data-testid="timeline-inspector"]') !==
+            null,
+          missingFieldKeys,
+          missingTestIds,
+          ready:
+            missingTestIds.length === 0 &&
+            hiddenTestIds.length === 0 &&
+            missingFieldKeys.length === 0,
+          requiredRects,
+          scroll: {
+            clientHeight: scrollport.clientHeight,
+            clientWidth: scrollport.clientWidth,
+            left: Math.round(scrollport.scrollLeft),
+            maxLeft: Math.max(
+              0,
+              scrollport.scrollWidth - scrollport.clientWidth,
+            ),
+            maxTop: Math.max(
+              0,
+              scrollport.scrollHeight - scrollport.clientHeight,
+            ),
+            scrollHeight: scrollport.scrollHeight,
+            scrollWidth: scrollport.scrollWidth,
+            top: Math.round(scrollport.scrollTop),
+          },
+          surface,
+          visibleFieldKeys,
+        };
+      };
+      const nextFrame = () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+      const samples = [readDiagnostics()];
+      await nextFrame();
+      samples.push(readDiagnostics());
+      await nextFrame();
+      samples.push(readDiagnostics());
+      const signature = (sample: (typeof samples)[number]) =>
+        JSON.stringify({
+          rects: sample.requiredRects,
+          scroll: sample.scroll,
+          visibleFieldKeys: sample.visibleFieldKeys,
+        });
+      const firstSample = samples[0];
+      if (firstSample === undefined) {
+        throw new Error("Expected grid visual anchor diagnostics to sample");
+      }
+      return {
+        diagnostics: samples[samples.length - 1],
+        ready:
+          samples.every((sample) => sample.ready) &&
+          samples.every(
+            (sample) => signature(sample) === signature(firstSample),
+          ),
+        samples,
+      };
+    },
+    {
+      anchor,
+      scrollportSelector: gridScrollportSelector(),
+      selectors: buildWorkbookGridAnchorSelectors(surface, anchor),
+      surface,
+    },
+  );
+}
+
+async function attachWorkbookGridVisualDiagnostics(
+  page: Page,
+  name: string,
+  surface: string,
+  options: GridVisualRegressionOptions,
+) {
+  if (options.testInfo === undefined) {
+    return;
+  }
+  const diagnostics =
+    "anchor" in options
+      ? await readWorkbookGridAnchorState(page, surface, options.anchor)
+      : await readWorkbookGridDiagnostics(page, surface);
+  await options.testInfo.attach(`${name}-grid-diagnostics`, {
+    body: JSON.stringify(diagnostics, null, 2),
+    contentType: "application/json",
+  });
+}
+
+async function readWorkbookGridDiagnostics(page: Page, surface: string) {
+  return page.evaluate(
+    ({ scrollportSelector, surface }) => {
+      const shell = document.querySelector<HTMLElement>(
+        `[data-testid="${surface}-grid-shell"]`,
+      );
+      if (shell === null) {
+        throw new Error(`Expected ${surface} grid shell to exist`);
+      }
+      const scrollports = Array.from(
+        shell.querySelectorAll<HTMLElement>(scrollportSelector),
+      );
+      if (scrollports.length !== 1 || scrollports[0] === undefined) {
+        throw new Error(
+          `Expected ${surface} grid shell to contain exactly one ${scrollportSelector} scrollport, received ${scrollports.length}`,
+        );
+      }
+      const scrollport = scrollports[0];
+      const scrollportRect = scrollport.getBoundingClientRect();
+      const visibleFieldKeys = Array.from(
+        shell.querySelectorAll<HTMLElement>("[data-grid-field-key]"),
+      )
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return (
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.right >= scrollportRect.left + 1 &&
+            rect.left <= scrollportRect.right - 1 &&
+            rect.bottom >= scrollportRect.top + 1 &&
+            rect.top <= scrollportRect.bottom - 1
+          );
+        })
+        .map((element) => element.getAttribute("data-grid-field-key") ?? "")
+        .filter((fieldKey, index, fieldKeys) => {
+          return fieldKey !== "" && fieldKeys.indexOf(fieldKey) === index;
+        });
+      return {
+        activeElementTestId:
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement.getAttribute("data-testid")
+            : null,
+        inspectorOpen:
+          document.querySelector('[data-testid="timeline-inspector"]') !== null,
+        ready: true,
+        requiredRects: {},
+        scroll: {
+          clientHeight: scrollport.clientHeight,
+          clientWidth: scrollport.clientWidth,
+          left: Math.round(scrollport.scrollLeft),
+          maxLeft: Math.max(0, scrollport.scrollWidth - scrollport.clientWidth),
+          maxTop: Math.max(
+            0,
+            scrollport.scrollHeight - scrollport.clientHeight,
+          ),
+          scrollHeight: scrollport.scrollHeight,
+          scrollWidth: scrollport.scrollWidth,
+          top: Math.round(scrollport.scrollTop),
+        },
+        surface,
+        visibleFieldKeys,
+      };
+    },
+    {
+      scrollportSelector: gridScrollportSelector(),
+      surface,
     },
   );
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  gridActionsHeaderTestId,
   gridDraftRowSelector,
   gridSavedRowsSelector,
   gridScrollportClassName,
@@ -26,6 +27,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(gridShellTestId("timeline")).toBe("timeline-grid-shell");
     expect(gridScrollportClassName()).toBe("cartulary-grid-scrollport");
     expect(gridScrollportSelector()).toBe(".cartulary-grid-scrollport");
+    expect(gridActionsHeaderTestId("timeline")).toBe("timeline-actions-header");
     expect(gridSavedRowsSelector()).toBe(
       '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
     );

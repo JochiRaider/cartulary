@@ -12,6 +12,10 @@ export function gridScrollportSelector(): string {
   return `.${gridScrollportClassName()}`;
 }
 
+export function gridActionsHeaderTestId(surface: WorkbookSurface): string {
+  return `${surface}-actions-header`;
+}
+
 /**
  * Scope this selector through `gridShellTestId(surface)` when targeting
  * workbook rows. Do not rely on raw table markup or renderer classes.

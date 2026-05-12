@@ -1112,6 +1112,8 @@ The default viewport for this harness is `1440x900` CSS pixels unless the repo-l
 
 Workbook grid visual fixtures must declare the intended capture state before the screenshot is taken. At minimum, a grid-shell capture must make the viewport size, grid scroll top/left position or named scroll anchor, focus/editor state, inspector state, dynamic masks, and post-scroll settle wait explicit in the test. A fixture must not depend on incidental scroll state inherited from a prior click, editor open, inspector action, or viewport-continuity restoration. Visual baselines may be refreshed only after the deterministic capture state has been encoded and reviewed; a baseline update is not a substitute for removing nondeterminism from the fixture.
 
+Horizontally virtualized workbook-grid captures that intend to show right-side fields or row actions MUST use a semantic named anchor rather than a live maximum-scroll contract. The anchor must name the required field keys or action region, poll until the intended headers/cells/actions are visible at stable geometry, and fail before screenshot capture when the geometry contract is not reached. Geometry diagnostics for these failures should include scroll metrics, visible field keys, required rects, active element or focused cell, and inspector state; those diagnostics are retained browser artifacts and inherit the same secret-bearing handling as screenshots, videos, traces, and Playwright reports.
+
 The repository uses one owned-stack Playwright screenshot suite for this harness. It MUST NOT introduce a second visual runner just to satisfy workbook screenshot coverage.
 
 | Fixture ID     | Required visible state                                                                                      |

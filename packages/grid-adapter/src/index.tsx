@@ -367,7 +367,11 @@ function buildActionsColumn<Row>({
       }
       return actionsColumn.renderCell(row.gridRow);
     },
-    renderHeaderCell: () => <span>{actionsColumn.label}</span>,
+    renderHeaderCell: () => (
+      <span data-testid={actionsColumn.headerTestId}>
+        {actionsColumn.label}
+      </span>
+    ),
     sortable: false,
     width: actionsColumn.width ?? defaultActionsColumnWidth,
     colSpan: (args) =>
