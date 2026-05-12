@@ -44,6 +44,39 @@ func TestTestClockSetOffsetClearsFixedTime(t *testing.T) {
 	}
 }
 
+func TestRegisterTestClockRoutesRejectsUnauthenticatedMutation(t *testing.T) {
+	_, server := startTestClockRouteServer(t)
+	defer server.Close()
+
+	body := postClockSetRawWithToken(t, server.URL, `{"offset_seconds":0}`, "", http.StatusForbidden)
+	errorPayload := body["error"].(map[string]any)
+	if got := errorPayload["code"]; got != "test_route_forbidden" {
+		t.Fatalf("unexpected error code: got %v", got)
+	}
+
+	body = postClockSetRawWithToken(t, server.URL, `{"offset_seconds":0}`, "wrong-token-wrong-token-wrong-token", http.StatusForbidden)
+	errorPayload = body["error"].(map[string]any)
+	if got := errorPayload["code"]; got != "test_route_forbidden" {
+		t.Fatalf("unexpected wrong-token error code: got %v", got)
+	}
+}
+
+func TestRegisterTestClockRoutesRequiresHarnessOwnedRuntime(t *testing.T) {
+	clock := NewTestClock()
+	_, err := NewHandler(Options{
+		AdditionalRoutes: []RouteRegistrar{RegisterTestClockRoutes(clock)},
+		Dependencies: DependencySet{
+			Env: map[string]string{
+				TestRoutesEnabledEnv: "1",
+				TestRouteTokenEnv:    testClockRouteToken,
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected missing harness runtime marker to fail handler setup")
+	}
+}
+
 func TestRegisterTestClockRoutesSetFixedPayloadPinsClock(t *testing.T) {
 	clock, server := startTestClockRouteServer(t)
 	defer server.Close()
@@ -141,6 +174,13 @@ func startTestClockRouteServer(t testing.TB) (*TestClock, *httptest.Server) {
 	clock := NewTestClock()
 	handler, err := NewHandler(Options{
 		AdditionalRoutes: []RouteRegistrar{RegisterTestClockRoutes(clock)},
+		Dependencies: DependencySet{
+			Env: map[string]string{
+				TestRoutesEnabledEnv: "1",
+				TestRuntimeMarkerEnv: TestRuntimeMarkerValue,
+				TestRouteTokenEnv:    testClockRouteToken,
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("new test clock handler: %v", err)
@@ -158,10 +198,25 @@ func postClockSet(t testing.TB, baseURL string, payload any, wantStatus int) map
 	return postClockSetRaw(t, baseURL, string(requestBody), wantStatus)
 }
 
+const testClockRouteToken = "0123456789abcdef0123456789abcdef"
+
 func postClockSetRaw(t testing.TB, baseURL string, payload string, wantStatus int) map[string]any {
 	t.Helper()
+	return postClockSetRawWithToken(t, baseURL, payload, testClockRouteToken, wantStatus)
+}
 
-	resp, err := http.Post(baseURL+"/api/v1/test/clock/set", "application/json", bytes.NewBufferString(payload))
+func postClockSetRawWithToken(t testing.TB, baseURL string, payload string, token string, wantStatus int) map[string]any {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/v1/test/clock/set", bytes.NewBufferString(payload))
+	if err != nil {
+		t.Fatalf("build clock set request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set(TestRouteTokenHeader, token)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("post clock set: %v", err)
 	}

@@ -75,12 +75,18 @@ func (c *TestClock) OffsetSeconds() int64 {
 
 func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 	return func(mux *http.ServeMux, deps DependencySet) error {
-		_ = deps
+		if !TestRoutesEnabled(deps.Env) {
+			return nil
+		}
 		if clock == nil {
 			return errors.New("test clock is required")
 		}
+		guard, err := NewTestRouteGuard(deps.Env)
+		if err != nil {
+			return err
+		}
 
-		mux.HandleFunc("/api/v1/test/clock/set", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/api/v1/test/clock/set", guard.Protect(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				return
@@ -129,7 +135,7 @@ func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 				"offset_seconds": clock.OffsetSeconds(),
 				"now":            next.Format(time.RFC3339Nano),
 			})
-		})
+		}))
 		return nil
 	}
 }

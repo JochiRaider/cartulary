@@ -1,7 +1,11 @@
 import type { Locator, Page } from "@playwright/test";
 
 import { expect } from "./fixtures";
-import { apiBase, authHeadersForStorageState } from "./helpers";
+import {
+  apiBase,
+  authHeadersForStorageState,
+  testRouteHeaders,
+} from "./helpers";
 
 type CurrentSessionResponse = {
   data: {
@@ -139,6 +143,7 @@ export class Phase1Page {
         data: {
           offset_seconds: offsetSeconds,
         },
+        headers: testRouteHeaders(),
       },
     );
     expect(response.ok()).toBeTruthy();
@@ -152,6 +157,7 @@ export class Phase1Page {
           fixed_now:
             fixedNow instanceof Date ? fixedNow.toISOString() : fixedNow,
         },
+        headers: testRouteHeaders(),
       },
     );
     expect(response.ok()).toBeTruthy();

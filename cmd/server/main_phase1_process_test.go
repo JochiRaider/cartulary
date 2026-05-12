@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"net/http"
 	"testing"
 
@@ -482,7 +480,7 @@ func startPhase1ServerProcessWithDB(t testing.TB, prefix string) (*processtest.S
 	env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
 	env[enableTestRoutesEnv] = "1"
 	env["CARTULARY_TEST_RUNTIME_MARKER"] = "harness-owned"
-	env["CARTULARY_TEST_ROUTE_TOKEN"] = generatePhase1TestRouteToken(t)
+	env["CARTULARY_TEST_ROUTE_TOKEN"] = httptestx.TestRouteToken
 
 	server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 	t.Cleanup(func() {
@@ -490,16 +488,6 @@ func startPhase1ServerProcessWithDB(t testing.TB, prefix string) (*processtest.S
 	})
 	server.WaitForReady(t)
 	return server, db
-}
-
-func generatePhase1TestRouteToken(t testing.TB) string {
-	t.Helper()
-
-	token := make([]byte, 32)
-	if _, err := rand.Read(token); err != nil {
-		t.Fatalf("generate test route token: %v", err)
-	}
-	return hex.EncodeToString(token)
 }
 
 func phase1ServerURL(server *processtest.Server) string {

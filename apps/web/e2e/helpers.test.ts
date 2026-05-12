@@ -3,7 +3,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ordinaryMeasurementSamplePolicy,
@@ -13,9 +13,19 @@ import {
   verifyOwnedHarnessRuntime,
 } from "./helpers";
 
-afterEach(() => {
+function clearHarnessTokenEnv() {
   delete process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE;
+  delete process.env.CARTULARY_TEST_ROUTE_TOKEN;
+  delete process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN;
   delete process.env.CARTULARY_WEB_E2E_SERVER_LOG;
+}
+
+beforeEach(() => {
+  clearHarnessTokenEnv();
+});
+
+afterEach(() => {
+  clearHarnessTokenEnv();
   vi.unstubAllGlobals();
 });
 

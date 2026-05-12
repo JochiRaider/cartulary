@@ -86,11 +86,13 @@ func TestTestRuntimeIdentityRouteRequiresHarnessAuthorization(t *testing.T) {
 
 func TestTestRuntimeRoutesRejectNonHarnessOriginAndHost(t *testing.T) {
 	service := &testRuntimeResetService{
-		token:        testRuntimeResetToken,
-		expectedHost: "127.0.0.1:8080",
-		allowedOrigins: map[string]struct{}{
-			"http://127.0.0.1:8080": {},
-			"http://127.0.0.1:4173": {},
+		guard: httpapi.TestRouteGuard{
+			Token:        testRuntimeResetToken,
+			ExpectedHost: "127.0.0.1:8080",
+			AllowedOrigins: map[string]struct{}{
+				"http://127.0.0.1:8080": {},
+				"http://127.0.0.1:4173": {},
+			},
 		},
 	}
 
@@ -247,7 +249,9 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 }
 
 func TestTestRuntimeResetRouteRejectsConcurrentReset(t *testing.T) {
-	service := &testRuntimeResetService{token: testRuntimeResetToken}
+	service := &testRuntimeResetService{
+		guard: httpapi.TestRouteGuard{Token: testRuntimeResetToken},
+	}
 	service.resetMu.Lock()
 	defer service.resetMu.Unlock()
 

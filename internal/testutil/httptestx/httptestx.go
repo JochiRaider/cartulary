@@ -32,12 +32,23 @@ type ServerOptions struct {
 
 type AuthCookies = authcookietest.AuthCookies
 
+const TestRouteToken = "0123456789abcdef0123456789abcdef"
+
 func StartServer(t testing.TB, options ServerOptions) *Server {
 	t.Helper()
 
-	env := make(map[string]string, len(options.Env))
+	env := make(map[string]string, len(options.Env)+3)
 	for key, value := range options.Env {
 		env[key] = value
+	}
+	if _, exists := env[httpapi.TestRoutesEnabledEnv]; !exists {
+		env[httpapi.TestRoutesEnabledEnv] = "1"
+	}
+	if _, exists := env[httpapi.TestRuntimeMarkerEnv]; !exists {
+		env[httpapi.TestRuntimeMarkerEnv] = httpapi.TestRuntimeMarkerValue
+	}
+	if _, exists := env[httpapi.TestRouteTokenEnv]; !exists {
+		env[httpapi.TestRouteTokenEnv] = TestRouteToken
 	}
 
 	cfg := options.Config

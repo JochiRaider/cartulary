@@ -92,12 +92,19 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 
 func RegisterTestRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+		if !httpapi.TestRoutesEnabled(deps.Env) {
+			return nil
+		}
+		guard, err := httpapi.NewTestRouteGuard(deps.Env)
+		if err != nil {
+			return err
+		}
 		service, err := newService(deps)
 		if err != nil {
 			return err
 		}
 
-		mux.HandleFunc("/api/v1/test/auth/touch", service.handleTouch)
+		mux.HandleFunc("/api/v1/test/auth/touch", guard.Protect(service.handleTouch))
 		return nil
 	}
 }

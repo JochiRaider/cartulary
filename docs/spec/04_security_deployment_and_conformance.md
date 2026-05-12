@@ -302,6 +302,11 @@ Verified by: AC-231
 
 ## 4. Trust boundaries
 
+**REQ-04-109**
+Test-only runtime-control routes, including `/api/v1/test/*` and `/ws/v1/test/*`, are non-production harness surfaces. They MUST be unavailable by default and MUST fail closed unless the runtime is explicitly marked as harness-owned, test routes are explicitly enabled, and a harness-generated opaque test-route token with at least `128 bits` of entropy is configured. Ordinary session cookies, bearer sessions, bootstrap tokens, incident roles, and `deployment_admin` MUST NOT authorize test-only runtime-control routes. When a harness-owned API or browser origin is configured, test-only runtime-control routes MUST reject requests outside the configured host and origin boundary before executing any mutation.
+Profiles: base
+Verified by: AC-413
+
 ### 4.1 Reference packs
 
 **REQ-04-040**
@@ -524,7 +529,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1394,6 +1399,8 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-057..REQ-01-111, REQ-02-205..REQ-02-207, REQ-02-212..REQ-02-218, REQ-03-141..REQ-03-144
 - **AC-412**: `POST /api/v1/records/{record_id}/rollback` with `target.kind='change_set'` and a merge `change_set_id` reverses a merge-aware `change_set` in reverse deterministic entry order through the existing rollback route without introducing a separate unmerge route. A successful merge rollback restores survivor record fields, loser merged or supersession state, carried aliases and preserved identifiers, repointed or deduped links, tags, mentions, assessments, and evidence links, projection state, and canonical `affected_record_ids[]`; it appends exactly one attributed rollback `change_set`, preserves the original merge history, increments `row_version` on every affected first-class record, emits only ordinary `record_changed` invalidations, and replays idempotently for the same normalized request without creating a second rollback `change_set`. Merge rollback fails closed before partial graph reversal when the merge substrate lacks complete reversible before/after data, any target in the protected set is locked, the supplied `base_row_version` is stale, the merge was already rolled back, or any affected survivor, loser, or dependent target has a later dependent change; incomplete historical merge data returns `409 error.code='rollback_precondition_failed'` with `error.details.reason_code='target_not_reversible'`.
   - Verifies: REQ-01-057..REQ-01-111, REQ-02-205..REQ-02-207, REQ-02-212..REQ-02-220, REQ-03-141..REQ-03-144
+- **AC-413**: A default runtime exposes no `/api/v1/test/*` or `/ws/v1/test/*` route. When test routes are enabled without the harness-owned marker or without a valid test-route token, startup fails closed before serving those routes. In a harness-owned runtime, missing or wrong `X-Cartulary-Test-Route-Token` values return `403 error.code='test_route_forbidden'` for test clock, runtime reset, runtime identity, auth touch, timeline snapshot, and test WebSocket routes; session cookies, bearer sessions, bootstrap tokens, incident roles, and `deployment_admin` do not bypass that token requirement. If a harness API or browser origin is configured, wrong host, missing origin, malformed origin, or unapproved origin requests fail before any runtime-control mutation, and the response does not enable permissive CORS.
+  - Verifies: REQ-04-109
 - **AC-218**: Malformed rollback request shape, unknown top-level request member, unknown `target.kind`, or a selector whose JSON type does not match the declared shape fails with `400 error.code='invalid_rollback_request'`; a rollback target not visible in the current record history fails with `404 error.code='rollback_target_not_found'`; a rollback against a currently soft-deleted record fails with `409 error.code='record_deleted_use_restore'`; later dependent changes, a non-individually-reversible history item, or a selector superseded by later reversals fail with `409 error.code='rollback_precondition_failed'` and `error.details.reason_code` equal to `target_not_reversible`, `entry_requires_change_set`, `dependent_later_changes`, or `stale_target`; stale `base_row_version` fails with `409 error.code='row_version_conflict'`; and if an overlapping in-flight destructive operation already holds one or more required protected-set locks for the rollback, the route fails immediately with `409 error.code='record_locked'` and `error.retryable=true`.
   - Verifies: REQ-01-057..REQ-01-111, REQ-01-228..REQ-01-239, REQ-02-205..REQ-02-207, REQ-03-101,
     REQ-03-141..REQ-03-144

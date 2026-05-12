@@ -2,13 +2,11 @@ package testruntime
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -29,25 +27,21 @@ import (
 const (
 	testRuntimeResetSchemaID    = "cartulary.test.runtime_reset.v1"
 	testRuntimeIdentitySchemaID = "cartulary.test.runtime_identity.v1"
-	testRoutesEnabledEnv        = "CARTULARY_ENABLE_TEST_ROUTES"
-	testRouteTokenEnv           = "CARTULARY_TEST_ROUTE_TOKEN"
-	testRuntimeMarkerEnv        = "CARTULARY_TEST_RUNTIME_MARKER"
-	testRuntimeMarkerValue      = "harness-owned"
-	testRuntimeAPIOriginEnv     = "CARTULARY_WEB_E2E_API_ORIGIN"
-	testRuntimePublicOriginEnv  = "CARTULARY_WEB_E2E_PUBLIC_ORIGIN"
-	testRouteTokenHeader        = "X-Cartulary-Test-Route-Token"
+	testRoutesEnabledEnv        = httpapi.TestRoutesEnabledEnv
+	testRouteTokenEnv           = httpapi.TestRouteTokenEnv
+	testRuntimeMarkerEnv        = httpapi.TestRuntimeMarkerEnv
+	testRuntimeMarkerValue      = httpapi.TestRuntimeMarkerValue
+	testRouteTokenHeader        = httpapi.TestRouteTokenHeader
 	testRuntimeResetTimeout     = 30 * time.Second
 )
 
 type testRuntimeResetService struct {
-	cfg            config.Config
-	env            map[string]string
-	postgres       *pgxpool.Pool
-	objectStore    objectstore.Store
-	token          string
-	expectedHost   string
-	allowedOrigins map[string]struct{}
-	resetMu        sync.Mutex
+	cfg         config.Config
+	env         map[string]string
+	postgres    *pgxpool.Pool
+	objectStore objectstore.Store
+	guard       httpapi.TestRouteGuard
+	resetMu     sync.Mutex
 }
 
 type testRuntimeResetResult struct {
@@ -82,15 +76,12 @@ type testRuntimeIdentityResult struct {
 
 func RegisterTestRuntimeResetRoute() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if lookupTestRuntimeEnv(deps.Env, testRoutesEnabledEnv) != "1" {
+		if !httpapi.TestRoutesEnabled(deps.Env) {
 			return nil
 		}
-		if lookupTestRuntimeEnv(deps.Env, testRuntimeMarkerEnv) != testRuntimeMarkerValue {
-			return fmt.Errorf("register test runtime reset route: %s must be %q", testRuntimeMarkerEnv, testRuntimeMarkerValue)
-		}
-		token := lookupTestRuntimeEnv(deps.Env, testRouteTokenEnv)
-		if !validTestRouteToken(token) {
-			return fmt.Errorf("register test runtime reset route: %s must be a harness-generated token with at least 128 bits of entropy", testRouteTokenEnv)
+		guard, err := httpapi.NewTestRouteGuard(deps.Env)
+		if err != nil {
+			return fmt.Errorf("register test runtime reset route: %w", err)
 		}
 		if deps.Postgres == nil {
 			return fmt.Errorf("register test runtime reset route: postgres dependency is required")
@@ -98,18 +89,12 @@ func RegisterTestRuntimeResetRoute() httpapi.RouteRegistrar {
 		if deps.ObjectStore == nil {
 			return fmt.Errorf("register test runtime reset route: object store dependency is required")
 		}
-		boundary, err := resolveTestRuntimeBoundary(deps.Env)
-		if err != nil {
-			return err
-		}
 		service := &testRuntimeResetService{
-			cfg:            deps.Config,
-			env:            deps.Env,
-			postgres:       deps.Postgres,
-			objectStore:    deps.ObjectStore,
-			token:          token,
-			expectedHost:   boundary.expectedHost,
-			allowedOrigins: boundary.allowedOrigins,
+			cfg:         deps.Config,
+			env:         deps.Env,
+			postgres:    deps.Postgres,
+			objectStore: deps.ObjectStore,
+			guard:       guard,
 		}
 		mux.HandleFunc("GET /api/v1/test/runtime/identity", service.handleIdentity)
 		mux.HandleFunc("POST /api/v1/test/runtime/reset", service.handleReset)
@@ -118,12 +103,7 @@ func RegisterTestRuntimeResetRoute() httpapi.RouteRegistrar {
 }
 
 func (s *testRuntimeResetService) handleIdentity(w http.ResponseWriter, r *http.Request) {
-	if !s.allowedRequestBoundary(r) {
-		_ = httpapi.WriteError(w, r, http.StatusForbidden, "test_route_forbidden", "test route origin is forbidden", map[string]any{})
-		return
-	}
-	if !s.authorized(r) {
-		_ = httpapi.WriteError(w, r, http.StatusForbidden, "test_route_forbidden", "test route token is required", map[string]any{})
+	if !s.guard.Authorize(w, r) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, testRuntimeIdentityResult{
@@ -135,12 +115,7 @@ func (s *testRuntimeResetService) handleIdentity(w http.ResponseWriter, r *http.
 }
 
 func (s *testRuntimeResetService) handleReset(w http.ResponseWriter, r *http.Request) {
-	if !s.allowedRequestBoundary(r) {
-		_ = httpapi.WriteError(w, r, http.StatusForbidden, "test_route_forbidden", "test route origin is forbidden", map[string]any{})
-		return
-	}
-	if !s.authorized(r) {
-		_ = httpapi.WriteError(w, r, http.StatusForbidden, "test_route_forbidden", "test route token is required", map[string]any{})
+	if !s.guard.Authorize(w, r) {
 		return
 	}
 	if err := validateTestRuntimeResetBody(r); err != nil {
@@ -268,30 +243,6 @@ func (s *testRuntimeResetService) handleReset(w http.ResponseWriter, r *http.Req
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
 }
 
-func (s *testRuntimeResetService) authorized(r *http.Request) bool {
-	got := r.Header.Get(testRouteTokenHeader)
-	if got == "" || len(got) != len(s.token) {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(got), []byte(s.token)) == 1
-}
-
-func (s *testRuntimeResetService) allowedRequestBoundary(r *http.Request) bool {
-	if s.expectedHost != "" && r.Host != s.expectedHost {
-		return false
-	}
-	origin := strings.TrimSpace(r.Header.Get("Origin"))
-	if origin == "" {
-		return len(s.allowedOrigins) == 0
-	}
-	normalized, err := normalizeTestRuntimeOrigin(origin)
-	if err != nil {
-		return false
-	}
-	_, ok := s.allowedOrigins[normalized]
-	return ok
-}
-
 func validateTestRuntimeResetBody(r *http.Request) error {
 	if r.Body == nil {
 		return nil
@@ -343,61 +294,6 @@ func writeTestRuntimeResetError(w http.ResponseWriter, r *http.Request, action s
 		}
 	}
 	_ = httpapi.WriteError(w, r, status, code, action, responseDetails)
-}
-
-type testRuntimeBoundary struct {
-	expectedHost   string
-	allowedOrigins map[string]struct{}
-}
-
-func resolveTestRuntimeBoundary(env map[string]string) (testRuntimeBoundary, error) {
-	boundary := testRuntimeBoundary{allowedOrigins: map[string]struct{}{}}
-	apiOrigin := lookupTestRuntimeEnv(env, testRuntimeAPIOriginEnv)
-	if strings.TrimSpace(apiOrigin) != "" {
-		normalized, parsed, err := normalizeTestRuntimeConfiguredOrigin(testRuntimeAPIOriginEnv, apiOrigin)
-		if err != nil {
-			return boundary, err
-		}
-		boundary.expectedHost = parsed.Host
-		boundary.allowedOrigins[normalized] = struct{}{}
-	}
-	publicOrigin := lookupTestRuntimeEnv(env, testRuntimePublicOriginEnv)
-	if strings.TrimSpace(publicOrigin) != "" {
-		normalized, _, err := normalizeTestRuntimeConfiguredOrigin(testRuntimePublicOriginEnv, publicOrigin)
-		if err != nil {
-			return boundary, err
-		}
-		boundary.allowedOrigins[normalized] = struct{}{}
-	}
-	return boundary, nil
-}
-
-func normalizeTestRuntimeConfiguredOrigin(name string, value string) (string, *url.URL, error) {
-	normalized, parsed, err := parseTestRuntimeOrigin(value)
-	if err != nil {
-		return "", nil, fmt.Errorf("register test runtime reset route: %s must be an http(s) origin with scheme and host: %w", name, err)
-	}
-	return normalized, parsed, nil
-}
-
-func normalizeTestRuntimeOrigin(value string) (string, error) {
-	normalized, _, err := parseTestRuntimeOrigin(value)
-	return normalized, err
-}
-
-func parseTestRuntimeOrigin(value string) (string, *url.URL, error) {
-	trimmed := strings.TrimRight(strings.TrimSpace(value), "/")
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return "", nil, err
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return "", nil, errors.New("unsupported scheme")
-	}
-	if parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", nil, errors.New("not an origin")
-	}
-	return strings.ToLower(parsed.Scheme) + "://" + strings.ToLower(parsed.Host), parsed, nil
 }
 
 type resetDB interface {
@@ -495,23 +391,4 @@ func readPostResetCounts(ctx context.Context, db resetDB) (testRuntimeCounts, er
 		&counts.RouteIdempotency,
 	)
 	return counts, err
-}
-
-func lookupTestRuntimeEnv(env map[string]string, key string) string {
-	if env != nil {
-		return env[key]
-	}
-	return os.Getenv(key)
-}
-
-func validTestRouteToken(token string) bool {
-	if len(token) < 22 {
-		return false
-	}
-	for _, r := range token {
-		if r <= ' ' || r > '~' {
-			return false
-		}
-	}
-	return true
 }

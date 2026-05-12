@@ -372,19 +372,4 @@ export function adminRevokeAllSessions(options: {
   );
 }
 
-export function setTestClockOffset(options: {
-  apiBase?: string | undefined;
-  offsetSeconds: number;
-}) {
-  return fetchJSON<{ data: { offset_seconds: number; now: string } }>(
-    apiPath(options.apiBase, "/api/v1/test/clock/set"),
-    {
-      method: "POST",
-      body: JSON.stringify({
-        offset_seconds: options.offsetSeconds,
-      }),
-    },
-  );
-}
-
 export type Phase1Response<T> = APIResult<DataEnvelope<T>>;

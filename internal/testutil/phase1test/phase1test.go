@@ -77,6 +77,10 @@ func WithHeader(key string, value string) func(*http.Request) {
 	}
 }
 
+func WithTestRouteToken() func(*http.Request) {
+	return WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)
+}
+
 func SetClockOffset(
 	t testing.TB,
 	baseURL string,
@@ -92,7 +96,7 @@ func SetClockOffset(
 		map[string]any{
 			"offset_seconds": offsetSeconds,
 		},
-		options...,
+		append([]func(*http.Request){WithTestRouteToken()}, options...)...,
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }

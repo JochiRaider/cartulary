@@ -43,13 +43,20 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 
 func RegisterTestRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+		if !httpapi.TestRoutesEnabled(deps.Env) {
+			return nil
+		}
+		guard, err := httpapi.NewTestRouteGuard(deps.Env)
+		if err != nil {
+			return err
+		}
 		service, err := newService(deps)
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("/api/v1/test/timeline/record-changes", service.handleRecordChangeSnapshot)
-		mux.HandleFunc("GET /api/v1/test/timeline/records/{record_id}/substrate", service.handleRecordSubstrateSnapshot)
-		mux.HandleFunc("/ws/v1/test/record-changes", service.handleRecordChangeSocket)
+		mux.HandleFunc("/api/v1/test/timeline/record-changes", guard.Protect(service.handleRecordChangeSnapshot))
+		mux.HandleFunc("GET /api/v1/test/timeline/records/{record_id}/substrate", guard.Protect(service.handleRecordSubstrateSnapshot))
+		mux.HandleFunc("/ws/v1/test/record-changes", guard.Protect(service.handleRecordChangeSocket))
 		return nil
 	}
 }

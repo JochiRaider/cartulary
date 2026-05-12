@@ -60,13 +60,22 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 			t.Fatalf("expected memberships[] to be present, got %T", data["memberships"])
 		}
 
+		unauthenticatedClockSet := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/test/clock/set", map[string]any{
+			"offset_seconds": int64(7200),
+		})
+		httptestx.RequireErrorEnvelope(t, unauthenticatedClockSet, http.StatusForbidden, "test_route_forbidden")
+		stillValidResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+		httptestx.RequireSuccessEnvelope(t, stillValidResp, http.StatusOK)
+
 		afterInspect := querySessionByID(t, db, stored.sessionID)
 		if !afterInspect.lastQualifyingActivityAt.Equal(stored.lastQualifyingActivityAt) {
 			t.Fatalf("session inspection must not slide idle expiry: before=%s after=%s", stored.lastQualifyingActivityAt, afterInspect.lastQualifyingActivityAt)
 		}
 
 		httptestx.SetClockAfter(t, server, afterInspect.lastQualifyingActivityAt, time.Second)
-		touchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie))
+		missingTokenTouchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie))
+		httptestx.RequireErrorEnvelope(t, missingTokenTouchResp, http.StatusForbidden, "test_route_forbidden")
+		touchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie), phase1test.WithTestRouteToken())
 		httptestx.RequireSuccessEnvelope(t, touchResp, http.StatusOK)
 
 		afterTouch := querySessionByID(t, db, stored.sessionID)
@@ -411,7 +420,7 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 		"/api/v1/incidents",
 		"/api/v1/test/auth/touch",
 	} {
-		resp := doJSON(t, http.MethodGet, server.HTTP.URL+path, nil, withHeader("Authorization", "Bearer "+bootstrapToken))
+		resp := doJSON(t, http.MethodGet, server.HTTP.URL+path, nil, withHeader("Authorization", "Bearer "+bootstrapToken), phase1test.WithTestRouteToken())
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "credential_bootstrap_rejected")
 		details := body["error"].(map[string]any)["details"].(map[string]any)
 		if got := details["reason_code"]; got != "not_allowed_for_route" {

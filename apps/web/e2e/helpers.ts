@@ -562,6 +562,9 @@ export async function fetchTimelineRecordSubstrate(
 ) {
   const response = await page.request.get(
     `${apiBase}/api/v1/test/timeline/records/${recordId}/substrate`,
+    {
+      headers: testRouteHeaders(),
+    },
   );
   expect(response.ok()).toBeTruthy();
   return (
@@ -583,6 +586,9 @@ export async function fetchTimelineRecordChangeCount(
 ) {
   const response = await page.request.get(
     `${apiBase}/api/v1/test/timeline/record-changes`,
+    {
+      headers: testRouteHeaders(),
+    },
   );
   expect(response.ok()).toBeTruthy();
   const body = (await response.json()) as {
@@ -883,30 +889,34 @@ export async function waitForPageRequestAPIReady(page: Page) {
   throw new Error(`timed out waiting for API readiness at ${apiBase}/readyz`);
 }
 
-export async function verifyOwnedHarnessRuntime() {
+export function testRouteHeaders(): Record<string, string> {
   const tokenFile = process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE?.trim();
-  if (!tokenFile) {
-    return;
-  }
-  let token = "";
-  try {
-    token = readFileSync(tokenFile, "utf8").trim();
-  } catch (error) {
-    throw new Error(
-      `browser harness identity check could not read token file ${tokenFile}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  const tokenFromFile = tokenFile ? readFileSync(tokenFile, "utf8").trim() : "";
+  const token =
+    tokenFromFile || process.env.CARTULARY_TEST_ROUTE_TOKEN?.trim() || "";
   if (token === "") {
     throw new Error(
-      `browser harness identity check found an empty token file at ${tokenFile}`,
+      "CARTULARY_TEST_ROUTE_TOKEN or CARTULARY_TEST_ROUTE_TOKEN_FILE is required for test route calls",
     );
   }
+  return {
+    Origin: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN ?? apiBase,
+    "X-Cartulary-Test-Route-Token": token,
+  };
+}
+
+export async function verifyOwnedHarnessRuntime() {
+  if (
+    !process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE?.trim() &&
+    !process.env.CARTULARY_TEST_ROUTE_TOKEN?.trim()
+  ) {
+    return;
+  }
+  const tokenFile = process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE?.trim() ?? "";
+  const headers = testRouteHeaders();
 
   const response = await fetch(`${apiBase}/api/v1/test/runtime/identity`, {
-    headers: {
-      Origin: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN ?? apiBase,
-      "X-Cartulary-Test-Route-Token": token,
-    },
+    headers,
     signal: AbortSignal.timeout(5000),
   });
   if (!response.ok) {
