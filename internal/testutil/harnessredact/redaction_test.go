@@ -1,6 +1,7 @@
 package harnessredact
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -62,5 +63,34 @@ func TestValueRedactsStructuredKeysAndCLIArgs(t *testing.T) {
 		if strings.Contains(raw, secret) {
 			t.Fatalf("structured redaction leaked %q: %#v", secret, got)
 		}
+	}
+}
+
+func TestStructuredStringDecodesJSONBeforeRedaction(t *testing.T) {
+	got := StructuredString(`{"Authorization":"Bearer nested.secret","service_sessions":[{"target":"service-timing-suite","cleanup_status":"pass","setup_duration_ms":12}]}`)
+	for _, secret := range []string{"nested.secret"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("structured string redaction leaked %q: %s", secret, got)
+		}
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
+		t.Fatalf("decode structured redaction output: %v", err)
+	}
+	if decoded["Authorization"] != "[REDACTED]" {
+		t.Fatalf("authorization was not redacted: %s", got)
+	}
+	sessions, ok := decoded["service_sessions"].([]any)
+	if !ok || len(sessions) != 1 {
+		t.Fatalf("service_sessions shape was not preserved: %s", got)
+	}
+	session := sessions[0].(map[string]any)
+	if session["target"] != "service-timing-suite" || session["cleanup_status"] != "pass" || session["setup_duration_ms"] != float64(12) {
+		t.Fatalf("service session structural fields were not preserved: %#v", session)
+	}
+
+	raw := StructuredString("Authorization: Bearer raw.secret")
+	if strings.Contains(raw, "raw.secret") {
+		t.Fatalf("raw fallback redaction leaked secret: %s", raw)
 	}
 }

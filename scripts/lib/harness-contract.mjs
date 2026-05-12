@@ -3,6 +3,7 @@ import {
   existsSync,
   lstatSync,
   readdirSync,
+  realpathSync,
   readFileSync,
   rmSync,
   statSync,
@@ -56,6 +57,20 @@ const schedulerResourceRegistryPath = path.join(
   "tools",
   "scheduler_resource_registry.json",
 );
+const protectedCleanupIdentities = new Set([
+  ".cartulary",
+  ".git",
+  "apps",
+  "cmd",
+  "configs",
+  "contracts",
+  "db",
+  "docs",
+  "internal",
+  "packages",
+  "scripts",
+  "tools",
+]);
 const defaultHarnessConfig = Object.freeze({
   CARTULARY_TEST_RESULTS_DIR: ".cartulary/test-results",
   CARTULARY_TEST_RUN_ID: null,
@@ -773,6 +788,9 @@ function normalizeCleanupCandidate(candidate, { root = repoRoot } = {}) {
     return { status: "reject", identity: raw, reason: "outside_repo" };
   }
   const identity = path.relative(root, resolved).replaceAll("\\", "/");
+  if (protectedCleanupIdentities.has(identity)) {
+    return { status: "reject", identity, reason: "protected_root" };
+  }
   return {
     status: "candidate",
     action: "remove",
@@ -814,6 +832,7 @@ function removeCandidate(entry) {
   if (!entry.path || (!existsSync(entry.path) && !lstatExists(entry.path))) {
     return false;
   }
+  assertCleanupTraversalSafe(entry);
   const stat = lstatSync(entry.path);
   if (stat.isSymbolicLink()) {
     unlinkSync(entry.path);
@@ -821,6 +840,33 @@ function removeCandidate(entry) {
     rmSync(entry.path, { recursive: true, force: true });
   }
   return true;
+}
+
+function assertCleanupTraversalSafe(entry) {
+  const candidateRoot = entry.path;
+  const stat = lstatSync(candidateRoot);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    return;
+  }
+  const rootRealPath = realpathSync(candidateRoot);
+  const visit = (current) => {
+    const currentStat = lstatSync(current);
+    const relative = path.relative(candidateRoot, current);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new HarnessConfigError(`cleanup path escapes candidate root: ${current}`);
+    }
+    if (currentStat.isSymbolicLink() || !currentStat.isDirectory()) {
+      return;
+    }
+    const currentRealPath = realpathSync(current);
+    if (!isUnderPath(rootRealPath, currentRealPath)) {
+      throw new HarnessConfigError(`cleanup traversal escapes candidate root: ${current}`);
+    }
+    for (const name of readdirNames(current)) {
+      visit(path.join(current, name));
+    }
+  };
+  visit(candidateRoot);
 }
 
 function lstatExists(file) {
@@ -876,6 +922,7 @@ function removeChildren(entry) {
   if (!entry.path || !existsSync(entry.path)) {
     return;
   }
+  assertCleanupTraversalSafe(entry);
   for (const name of readdirNames(entry.path)) {
     if (name === entry.preserve) {
       continue;

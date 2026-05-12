@@ -51,6 +51,18 @@ func String(value string) string {
 	return value
 }
 
+func StructuredString(value string) string {
+	var decoded any
+	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
+		return String(value)
+	}
+	payload, err := json.Marshal(Value(decoded, ""))
+	if err != nil {
+		return String(value)
+	}
+	return string(payload) + "\n"
+}
+
 func Value(value any, key string) any {
 	compiled := compiledRules()
 	if key != "" {

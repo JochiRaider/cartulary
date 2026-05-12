@@ -81,6 +81,50 @@ func TestTestRuntimeIdentityRouteRequiresHarnessAuthorization(t *testing.T) {
 	if _, ok := data["server_pid"].(float64); !ok {
 		t.Fatalf("identity route must report server_pid: %#v", data)
 	}
+	requireNoPermissiveTestRuntimeCORS(t, success)
+}
+
+func TestTestRuntimeRoutesRejectNonHarnessOriginAndHost(t *testing.T) {
+	service := &testRuntimeResetService{
+		token:        testRuntimeResetToken,
+		expectedHost: "127.0.0.1:8080",
+		allowedOrigins: map[string]struct{}{
+			"http://127.0.0.1:8080": {},
+			"http://127.0.0.1:4173": {},
+		},
+	}
+
+	wrongHost := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodGet, "http://evil.example.test/api/v1/test/runtime/identity", nil))
+	wrongHost.Host = "evil.example.test"
+	wrongHostRecorder := httptest.NewRecorder()
+	service.handleIdentity(wrongHostRecorder, wrongHost)
+	requireTestRuntimeResetErrorEnvelope(t, wrongHostRecorder.Result(), http.StatusForbidden, "test_route_forbidden")
+
+	wrongOrigin := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodGet, "http://127.0.0.1:8080/api/v1/test/runtime/identity", nil))
+	wrongOrigin.Header.Set("Origin", "http://evil.example.test")
+	wrongOriginRecorder := httptest.NewRecorder()
+	service.handleIdentity(wrongOriginRecorder, wrongOrigin)
+	requireTestRuntimeResetErrorEnvelope(t, wrongOriginRecorder.Result(), http.StatusForbidden, "test_route_forbidden")
+
+	service.resetMu.Lock()
+	wrongResetOrigin := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, "http://127.0.0.1:8080/api/v1/test/runtime/reset", nil))
+	wrongResetOrigin.Header.Set("Origin", "http://evil.example.test")
+	wrongResetOriginRecorder := httptest.NewRecorder()
+	service.handleReset(wrongResetOriginRecorder, wrongResetOrigin)
+	service.resetMu.Unlock()
+	requireTestRuntimeResetErrorEnvelope(t, wrongResetOriginRecorder.Result(), http.StatusForbidden, "test_route_forbidden")
+
+	allowedOrigin := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodGet, "http://127.0.0.1:8080/api/v1/test/runtime/identity", nil))
+	allowedOrigin.Header.Set("Origin", "http://127.0.0.1:4173")
+	allowedOriginRecorder := httptest.NewRecorder()
+	service.handleIdentity(allowedOriginRecorder, allowedOrigin)
+	allowedOriginResp := allowedOriginRecorder.Result()
+	requireTestRuntimeResetStatus(t, allowedOriginResp, http.StatusOK)
+	body := readTestRuntimeResetJSONBody(t, allowedOriginResp)
+	if data, ok := body["data"].(map[string]any); !ok || data["schema_id"] != testRuntimeIdentitySchemaID {
+		t.Fatalf("expected identity success envelope, got %#v", body)
+	}
+	requireNoPermissiveTestRuntimeCORS(t, allowedOriginResp)
 }
 
 func TestTestRuntimeResetRouteRejectsInvalidHarnessPredicates(t *testing.T) {
@@ -336,6 +380,13 @@ func requireTestRuntimeResetErrorEnvelope(t testing.TB, resp *http.Response, wan
 		t.Fatalf("unexpected error code: got %#v want %q", errorValue["code"], wantCode)
 	}
 	return body
+}
+
+func requireNoPermissiveTestRuntimeCORS(t testing.TB, resp *http.Response) {
+	t.Helper()
+	if got := resp.Header.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("test runtime route must not emit permissive CORS, got Access-Control-Allow-Origin=%q", got)
+	}
 }
 
 func prepareTestRuntimeResetBucket(t testing.TB, h *s3test.Harness, prefix string) string {

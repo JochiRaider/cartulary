@@ -692,6 +692,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -704,10 +705,12 @@ import {
   redactValue,
   resolveHarnessConfig,
   resolveOutputMode,
+  runCleanup,
   secureWriteFile,
   validateSchemaSync,
 } from "./scripts/lib/harness-contract.mjs";
 import {
+  classifyExecutionFailure,
   publicExitCodeForFailure,
   publicExitCodeForFailures,
   publicExitCodeForSummary,
@@ -724,6 +727,7 @@ assert.equal(
 assert.equal(resolveOutputMode({ CI_VERBOSE: "1" }, "backend-unit"), "ci");
 assert.equal(resolveOutputMode({ CI: "1" }, "backend-unit"), "ci");
 assert.equal(resolveOutputMode({}, "ci"), "ci");
+assert.equal(classifyExecutionFailure("deployable-shape"), "artifact");
 
 assert.throws(
   () => resolveOutputMode({ CARTULARY_OUTPUT_MODE: "bogus" }, "backend-unit"),
@@ -931,6 +935,19 @@ try {
   assert.equal((statSync(secureFile).mode & 0o077), 0);
   assert.equal(readFileSync(secureFile, "utf8").includes("ok"), true);
 
+  assert.throws(
+    () => runCleanup({ scope: "clean", candidates: [path.join(process.cwd(), "apps")], includeTmp: false, stdout: { write() {} } }),
+    (error) => error instanceof HarnessConfigError && /protected_root/u.test(error.message),
+  );
+
+  const externalFile = path.join(tempRoot, "external.txt");
+  writeFileSync(externalFile, "keep\n");
+  const cleanupLink = path.join(resultRoot, "link-to-external");
+  symlinkSync(externalFile, cleanupLink);
+  runCleanup({ scope: "clean", candidates: [cleanupLink], includeTmp: false, stdout: { write() {} } });
+  assert.equal(existsSync(cleanupLink), false);
+  assert.equal(readFileSync(externalFile, "utf8"), "keep\n");
+
   const unsafeRoot = path.join(tempRoot, "unsafe-root");
   mkdirSync(unsafeRoot, { recursive: true });
   chmodSync(unsafeRoot, 0o777);
@@ -1024,6 +1041,50 @@ assert_file_absent "${collision_preflight_dir}/results/stale-run/tool-run-summar
 generated_make="$(cat "${task_surface_generated_make_file}")"
 assert_contains "${generated_make}" "backend-integration: export CARTULARY_TEST_TARGET ?= backend-integration" "backend-integration recipe exists"
 assert_contains "${generated_make}" "CARTULARY_HARNESS_IDENTITY_PREPARED=1 GO_TEST_PACKAGE_PARALLELISM" "backend-integration child runner reuses prepared public identity"
+
+stale_embed_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-stale-embed.XXXXXX")"
+cleanup_paths+=("${stale_embed_dir}")
+mkdir -p "${stale_embed_dir}/web-dist/assets" "${stale_embed_dir}/embed/dist" "${stale_embed_dir}/frontend-embed" "${stale_embed_dir}/gomod" "${stale_embed_dir}/gocache"
+printf '<div id="root"></div>\n' >"${stale_embed_dir}/web-dist/index.html"
+printf 'asset\n' >"${stale_embed_dir}/web-dist/assets/app.js"
+printf 'source=stale\n' >"${stale_embed_dir}/frontend-embed/web-assets.stamp"
+printf 'stale server\n' >"${stale_embed_dir}/server"
+fake_go="${stale_embed_dir}/fake-go"
+cat >"${fake_go}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+output=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -o)
+      output="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [[ -n "${output}" ]]; then
+  printf 'fake server\n' >"${output}"
+fi
+EOF
+chmod +x "${fake_go}"
+CARTULARY_TEST_RESULTS_DIR="${stale_embed_dir}/results" \
+CARTULARY_TEST_RUN_ID="stale-embed" \
+  make --no-print-directory build-server \
+    GO="${fake_go}" \
+    GO_CACHE_DIR="${stale_embed_dir}/gocache" \
+    GO_MOD_CACHE_DIR="${stale_embed_dir}/gomod" \
+    SERVER_BIN="${stale_embed_dir}/server" \
+    WEB_DIST_INDEX="${stale_embed_dir}/web-dist/index.html" \
+    EMBEDDED_WEB_ASSET_DIR="${stale_embed_dir}/embed/dist" \
+    EMBEDDED_WEB_ASSET_INDEX="${stale_embed_dir}/embed/dist/index.html" \
+    EMBEDDED_WEB_ASSET_STAMP="${stale_embed_dir}/frontend-embed/web-assets.stamp" \
+  >/dev/null
+assert_file_present "${stale_embed_dir}/embed/dist/index.html" "stale embedded web index is restored"
+assert_file_present "${stale_embed_dir}/embed/dist/assets/app.js" "stale embedded web asset is restored"
+assert_contains "$(cat "${stale_embed_dir}/server")" "fake server" "stale embedded web refresh rebuilds server"
 
 for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-make-n-${target}.XXXXXX")"

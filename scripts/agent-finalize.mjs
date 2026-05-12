@@ -126,7 +126,7 @@ const actionRegistry = [
   {
     actionID: "duration_baseline_refresh",
     description:
-      "Refresh only advisory harness duration-baseline artifacts from a successful, uncontaminated retained run.",
+      "Refresh advisory harness duration-baseline artifacts from a successful, uncontaminated retained run, then refresh schedule artifacts that consume those baselines.",
     requiresResultsDir: true,
     mutating: true,
     substeps: [
@@ -157,6 +157,20 @@ const actionRegistry = [
         commandKind: "make_target",
         requiresResultsDir: true,
         mutatesRepo: true,
+      },
+      {
+        id: "phase-schedules-after-duration-baselines",
+        target: "phase-schedules",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: true,
+      },
+      {
+        id: "phase-schedule-drift-after-duration-baselines",
+        target: "phase-schedule-drift",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: false,
       },
     ],
   },

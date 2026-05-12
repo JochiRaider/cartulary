@@ -334,6 +334,9 @@ export function failuresFromDossiers(dossiers = [], context = {}) {
 
 export function classifyExecutionFailure(target = "", label = "", command = "") {
   const joined = `${target} ${label} ${command}`.toLowerCase();
+  if (joined.includes("deployable-shape")) {
+    return "artifact";
+  }
   if (joined.includes("duration-baseline-drift") || joined.includes("duration baseline drift")) {
     return "timing";
   }
