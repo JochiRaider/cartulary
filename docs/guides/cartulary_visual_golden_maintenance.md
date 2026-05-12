@@ -53,5 +53,5 @@ Before handoff:
 - run the narrow Playwright update flow for the affected visual test;
 - inspect the generated diff and confirm it matches the intended visual contract;
 - run `make browser-e2e-visual`;
-- run `make agent-finalize`, passing `RESULTS_DIR=<successful run dir>` when a successful retained run should refresh timing maintenance inputs;
-- report whether `agent-finalize` ran unchanged, updated generated artifacts, skipped duration baseline refresh because `RESULTS_DIR` was unset, or failed.
+- run `make agent-finalize`, passing `RESULTS_DIR=<successful retained run root>` when a successful retained run should refresh and validate timing maintenance inputs;
+- report whether `agent-finalize` ran unchanged, updated generated artifacts, skipped retained-run maintenance because `RESULTS_DIR` was unset, or failed.

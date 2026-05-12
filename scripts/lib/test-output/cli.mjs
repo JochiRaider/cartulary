@@ -1029,6 +1029,18 @@ function resolveArtifactPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);
 }
 
+function finalizeLine(summary) {
+  return (
+    [
+      `[FINALIZE] generated=${summary.generated?.status ?? "unknown"}`,
+      `files=${summary.generated?.updated_file_count ?? 0}`,
+      `duration=${summary.duration?.status ?? "skipped"}`,
+      `run_checks=${summary.run_checks?.status ?? "skipped"}`,
+      `results_dir=${summary.results_dir ?? "-"}`,
+    ].join(" ") + "\n"
+  );
+}
+
 function createBasePhaseContext(runner) {
   const phaseDir = requiredEnv("CARTULARY_PHASE_DIR");
   ensureDir(phaseDir);
@@ -1088,10 +1100,14 @@ function writePhaseArtifacts(context, details) {
   const artifacts = {};
   for (const [key, value] of Object.entries({
     ...(details.artifacts ?? {}),
-    shellcheck_inventory: existsSync(path.join(context.phaseDir, "shellcheck-inventory.txt"))
+    shellcheck_inventory: existsSync(
+      path.join(context.phaseDir, "shellcheck-inventory.txt"),
+    )
       ? path.join(context.phaseDir, "shellcheck-inventory.txt")
       : "",
-    security_profiles: existsSync(path.join(context.phaseDir, "security-profiles.jsonl"))
+    security_profiles: existsSync(
+      path.join(context.phaseDir, "security-profiles.jsonl"),
+    )
       ? path.join(context.phaseDir, "security-profiles.jsonl")
       : "",
     playwright_timing: playwrightTimingPath,
@@ -1101,6 +1117,17 @@ function writePhaseArtifacts(context, details) {
     }
     artifacts[key] = relToRepo(value);
   }
+  const targetRunRoot =
+    context.target === "adhoc"
+      ? context.phaseDir
+      : path.dirname(context.phaseDir);
+  const finalizeSummaryPath = path.join(targetRunRoot, "finalize-summary.json");
+  const finalizeSummaryRel = existsSync(finalizeSummaryPath)
+    ? relToRepo(finalizeSummaryPath)
+    : "";
+  const finalizeSummary = finalizeSummaryRel
+    ? readJsonIfExists(finalizeSummaryPath)
+    : null;
   const failureRecords = [
     ...failuresFromDossiers(details.dossiers ?? [], {
       target: context.target,
@@ -1118,6 +1145,16 @@ function writePhaseArtifacts(context, details) {
           }),
         ]
       : []),
+    ...(finalizeSummary?.failures ?? []).map((failure) => ({
+      failure_class: failure.failure_class,
+      failure_reason: failure.failure_reason,
+      target: context.target,
+      child_target: failure.target ?? undefined,
+      label: failure.step_id,
+      headline: failure.headline,
+      reproduce: context.command,
+      artifacts: failure.summary_json ? [failure.summary_json] : [],
+    })),
     ...(details.failures ?? []),
   ];
   const failureFields = failureFieldsForJSON(
@@ -1202,10 +1239,6 @@ function writePhaseArtifacts(context, details) {
   );
   const runRootAbs = path.join(resultsRoot, runId);
   const runRoot = relToRepo(runRootAbs);
-  const targetRunRoot =
-    context.target === "adhoc"
-      ? context.phaseDir
-      : path.dirname(context.phaseDir);
   const toolSummaryFile = toolSummaryPath(targetRunRoot);
   const toolSummaryRel = relToRepo(toolSummaryFile);
   const shellcheckInventoryPath = artifacts.shellcheck_inventory
@@ -1259,8 +1292,15 @@ function writePhaseArtifacts(context, details) {
             relToRepo(path.join(context.phaseDir, "manifest-mismatch.json")),
           )
         : null,
+      finalizeSummaryRel
+        ? artifactRef("finalize_summary", finalizeSummaryRel)
+        : null,
       artifacts.shellcheck_inventory
-        ? artifactRef("shellcheck_inventory", artifacts.shellcheck_inventory, "text")
+        ? artifactRef(
+            "shellcheck_inventory",
+            artifacts.shellcheck_inventory,
+            "text",
+          )
         : null,
       artifacts.security_profiles
         ? artifactRef("security_profiles", artifacts.security_profiles, "jsonl")
@@ -1299,7 +1339,9 @@ function writePhaseArtifacts(context, details) {
       process.stdout.write(compactJSONString(toolSummary));
     } else if (!verboseOutput()) {
       const logArtifact =
-        toolSummary.log_artifacts?.find((artifact) => artifact.role === "stderr_log")?.path ??
+        toolSummary.log_artifacts?.find(
+          (artifact) => artifact.role === "stderr_log",
+        )?.path ??
         toolSummary.log_artifacts?.[0]?.path ??
         "-";
       const failure = failureRecords[0] ?? {};
@@ -1307,7 +1349,7 @@ function writePhaseArtifacts(context, details) {
         `[FAIL] target=${context.target} exit_code=${toolSummary.exit_code} failure_class=${toolSummary.failure_class ?? "harness"} reason=${toolSummary.failure_reason ?? "unknown_failure"} work_unit=- child_target=- duration_ms=${toolSummary.duration_ms} headline="${failure.headline ?? `${context.label} failed`}"\n`,
       );
       process.stderr.write(
-        `[ARTIFACTS] target=${context.target} root=${toolSummary.run_root} summary_json=${terminalArtifactPath(toolSummary.run_root, toolSummaryRel)} log_artifact=${terminalArtifactPath(toolSummary.run_root, logArtifact)} scheduler_json=- progress_log=-\n`,
+        `[ARTIFACTS] target=${context.target} root=${toolSummary.run_root} summary_json=${terminalArtifactPath(toolSummary.run_root, toolSummaryRel)} log_artifact=${terminalArtifactPath(toolSummary.run_root, logArtifact)} scheduler_json=- progress_log=-${finalizeSummaryRel ? ` finalize_json=${terminalArtifactPath(toolSummary.run_root, finalizeSummaryRel)}` : ""}\n`,
       );
       process.stderr.write(`[RERUN] command="${context.command}"\n`);
       process.stderr.write(
@@ -1320,9 +1362,17 @@ function writePhaseArtifacts(context, details) {
     if (machineOutput()) {
       process.stdout.write(compactJSONString(toolSummary));
     } else {
+      if (finalizeSummary) {
+        process.stdout.write(finalizeLine(finalizeSummary));
+      }
       process.stdout.write(resultLine(toolSummary, toolSummaryRel));
       process.stdout.write(
         artifactLine(toolSummary, toolSummaryRel, {
+          extraFields: finalizeSummaryRel
+            ? [
+                `finalize_json=${terminalArtifactPath(toolSummary.run_root, finalizeSummaryRel)}`,
+              ]
+            : [],
           investigate: `make explain-run RESULTS_DIR=${relToRepo(path.join(resultsRoot, runId))} TARGET=${context.target}`,
         }),
       );
@@ -2713,8 +2763,10 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     command: ["make", targetSummary.target],
     status: targetSummary.status,
     exitCode: targetSummary.status === "pass" ? 0 : 1,
-    startedAt: targetSummary.start_time ?? schedulerTiming?.scheduler_started_at,
-    completedAt: targetSummary.end_time ?? schedulerTiming?.scheduler_completed_at,
+    startedAt:
+      targetSummary.start_time ?? schedulerTiming?.scheduler_started_at,
+    completedAt:
+      targetSummary.end_time ?? schedulerTiming?.scheduler_completed_at,
     durationMs:
       totals.wall_duration_ms ??
       targetSummary.wall_duration_ms ??
@@ -2740,16 +2792,28 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
         ? artifactRef("scheduler_summary", relToRepo(schedulerSummaryFile))
         : null,
       schedulerArtifacts.events_jsonl
-        ? artifactRef("scheduler_events", schedulerArtifacts.events_jsonl, "jsonl")
+        ? artifactRef(
+            "scheduler_events",
+            schedulerArtifacts.events_jsonl,
+            "jsonl",
+          )
         : null,
       ...serviceSharedSummaryArtifacts(runRunRoot),
     ],
     logArtifacts: [
       schedulerArtifacts.progress_summary_log
-        ? artifactRef("scheduler_progress", schedulerArtifacts.progress_summary_log, "log")
+        ? artifactRef(
+            "scheduler_progress",
+            schedulerArtifacts.progress_summary_log,
+            "log",
+          )
         : null,
       schedulerArtifacts.scheduler_logs_dir
-        ? artifactRef("scheduler_logs", schedulerArtifacts.scheduler_logs_dir, "directory")
+        ? artifactRef(
+            "scheduler_logs",
+            schedulerArtifacts.scheduler_logs_dir,
+            "directory",
+          )
         : null,
       ...serviceSharedLogArtifacts(runRunRoot),
     ],
@@ -2802,7 +2866,9 @@ function serviceSharedLogArtifacts(runRunRoot) {
       ]
         .map(([role, filename]) => {
           const file = path.join(suiteRoot, filename);
-          return existsSync(file) ? artifactRef(role, relToRepo(file), "log") : null;
+          return existsSync(file)
+            ? artifactRef(role, relToRepo(file), "log")
+            : null;
         })
         .filter(Boolean);
     });
@@ -2912,7 +2978,8 @@ function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
   const headline = targetSummary.failure_headline ?? "target failed";
   const failedChildTarget = targetSummary.children?.failed_targets?.[0] ?? "";
   const schedulerSummary = loadSchedulerSummary(summary.target);
-  const failedWorkUnitDetail = schedulerSummary?.failed_work_unit_detail ?? null;
+  const failedWorkUnitDetail =
+    schedulerSummary?.failed_work_unit_detail ?? null;
   const failedWorkUnitAggregateTarget =
     typeof failedWorkUnitDetail?.aggregate_target === "string"
       ? failedWorkUnitDetail.aggregate_target
@@ -2932,12 +2999,15 @@ function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
   const logArtifact = firstArtifactPath(
     targetSummary.failures?.find((failure) => failure.artifact)?.artifact ??
       targetSummary.failures?.find((failure) => failure.raw)?.raw ??
-      summary.log_artifacts?.find((artifact) => artifact.role === "scheduler_progress")?.path ??
+      summary.log_artifacts?.find(
+        (artifact) => artifact.role === "scheduler_progress",
+      )?.path ??
       summary.log_artifacts?.[0]?.path,
   );
   const progressLog =
-    summary.log_artifacts?.find((artifact) => artifact.role === "scheduler_progress")?.path ??
-    "-";
+    summary.log_artifacts?.find(
+      (artifact) => artifact.role === "scheduler_progress",
+    )?.path ?? "-";
   const schedulerJson = schedulerSummary
     ? relToRepo(schedulerSummaryPath(summary.target))
     : "-";
@@ -3298,7 +3368,11 @@ function handleTargetSummary(args) {
   if (status === "PASS") {
     if (machineOutput()) {
       if (!shouldSuppressMachineOutput) {
-        process.stdout.write(compactJSONString(targetToolSummary(targetSummary, targetToolSummaryRel)));
+        process.stdout.write(
+          compactJSONString(
+            targetToolSummary(targetSummary, targetToolSummaryRel),
+          ),
+        );
       }
       return 0;
     }
@@ -3322,7 +3396,11 @@ function handleTargetSummary(args) {
 
   if (machineOutput()) {
     if (!shouldSuppressMachineOutput) {
-      process.stdout.write(compactJSONString(targetToolSummary(targetSummary, targetToolSummaryRel)));
+      process.stdout.write(
+        compactJSONString(
+          targetToolSummary(targetSummary, targetToolSummaryRel),
+        ),
+      );
     }
     return 0;
   }
@@ -3531,14 +3609,22 @@ function summarizeTargetSummaries(
   const recordsMissingTargetFailures =
     missingTargetSummaries.length > 0 &&
     !(requestedStatus === "fail" && abortedAfter && abortedAfter !== "-");
-  if (requestedStatus === "fail" && aggregate.failed === 0 && recordsMissingTargetFailures) {
+  if (
+    requestedStatus === "fail" &&
+    aggregate.failed === 0 &&
+    recordsMissingTargetFailures
+  ) {
     aggregate.phases += 1;
     aggregate.failed += 1;
     aggregate.non_test += 1;
     aggregate.non_test_failed += 1;
   }
 
-  if (requestedStatus === "fail" && failures.length === 0 && !recordsMissingTargetFailures) {
+  if (
+    requestedStatus === "fail" &&
+    failures.length === 0 &&
+    !recordsMissingTargetFailures
+  ) {
     if (aggregate.failed === 0) {
       aggregate.phases += 1;
       aggregate.failed += 1;
@@ -3701,8 +3787,7 @@ function runToolSummary(runSummary, summaryJsonPath) {
     status: runSummary.status,
     exitCode: runSummary.status === "pass" ? 0 : 1,
     startedAt: schedulerTiming?.scheduler_started_at ?? runSummary.start_time,
-    completedAt:
-      schedulerTiming?.scheduler_completed_at ?? runSummary.end_time,
+    completedAt: schedulerTiming?.scheduler_completed_at ?? runSummary.end_time,
     durationMs:
       schedulerTiming?.scheduler_total_duration_ms ??
       runSummary.wall_duration_ms,
@@ -3767,10 +3852,17 @@ function runTargetSummaryArtifacts(targetDir) {
     artifactRef("target_summary", path.join(targetDir, "target-summary.json")),
     artifactRef("target_timing", path.join(targetDir, "target-timing.json")),
     existsSync(path.join(targetDir, "scheduler-summary.json"))
-      ? artifactRef("scheduler_summary", path.join(targetDir, "scheduler-summary.json"))
+      ? artifactRef(
+          "scheduler_summary",
+          path.join(targetDir, "scheduler-summary.json"),
+        )
       : null,
     existsSync(path.join(targetDir, "scheduler-events.jsonl"))
-      ? artifactRef("scheduler_events", path.join(targetDir, "scheduler-events.jsonl"), "jsonl")
+      ? artifactRef(
+          "scheduler_events",
+          path.join(targetDir, "scheduler-events.jsonl"),
+          "jsonl",
+        )
       : null,
   ];
 }
@@ -3781,10 +3873,18 @@ function runTargetLogArtifacts(targetDir) {
   }
   return [
     existsSync(path.join(targetDir, "progress-summary.log"))
-      ? artifactRef("scheduler_progress", path.join(targetDir, "progress-summary.log"), "log")
+      ? artifactRef(
+          "scheduler_progress",
+          path.join(targetDir, "progress-summary.log"),
+          "log",
+        )
       : null,
     existsSync(path.join(targetDir, "scheduler-logs"))
-      ? artifactRef("scheduler_logs", path.join(targetDir, "scheduler-logs"), "directory")
+      ? artifactRef(
+          "scheduler_logs",
+          path.join(targetDir, "scheduler-logs"),
+          "directory",
+        )
       : null,
   ];
 }
@@ -4017,7 +4117,9 @@ function handleRunSummary(args) {
   if (!failed) {
     if (machineOutput()) {
       if (!shouldSuppressMachineOutput) {
-        process.stdout.write(compactJSONString(runToolSummary(runSummary, runToolSummaryRel)));
+        process.stdout.write(
+          compactJSONString(runToolSummary(runSummary, runToolSummaryRel)),
+        );
       }
       return 0;
     }
@@ -4039,12 +4141,18 @@ function handleRunSummary(args) {
 
   if (machineOutput()) {
     if (!shouldSuppressMachineOutput) {
-      process.stdout.write(compactJSONString(runToolSummary(runSummary, runToolSummaryRel)));
+      process.stdout.write(
+        compactJSONString(runToolSummary(runSummary, runToolSummaryRel)),
+      );
     }
-    return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
+    return publicExitCodeForSummary(
+      runToolSummary(runSummary, runToolSummaryRel),
+    );
   }
   if ((quietFailure || suppressChildSuccess()) && quietOutputMode()) {
-    return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
+    return publicExitCodeForSummary(
+      runToolSummary(runSummary, runToolSummaryRel),
+    );
   }
   writeRunFailure(process.stderr, runSummary, runToolSummaryRel);
   if (verboseOutput()) {
@@ -4057,7 +4165,9 @@ function handleRunSummary(args) {
       sharedExecutionGroups,
     );
   }
-  return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
+  return publicExitCodeForSummary(
+    runToolSummary(runSummary, runToolSummaryRel),
+  );
 }
 
 function handleGoJSONStream() {
@@ -4825,9 +4935,7 @@ function readManifestScopeEnv() {
   return {
     phase: requiredEnv("CARTULARY_MANIFEST_PHASE"),
     coverage: requiredEnv("CARTULARY_MANIFEST_COVERAGE"),
-    executionDependency: optionalEnv(
-      "CARTULARY_MANIFEST_EXECUTION_DEPENDENCY",
-    ),
+    executionDependency: optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY"),
   };
 }
 
@@ -4835,11 +4943,10 @@ function manifestCoverageToInventoryCoverage(coverage) {
   return coverage === "authoritative" ? "authoritative" : "support";
 }
 
-function evaluateFlatTitleManifest(summary, {
-  phase,
-  entries,
-  inventoryCoverage,
-}) {
+function evaluateFlatTitleManifest(
+  summary,
+  { phase, entries, inventoryCoverage },
+) {
   const executedKeys = new Set(
     summary.inventory
       .filter((item) => item.coverage === inventoryCoverage)
@@ -4849,12 +4956,17 @@ function evaluateFlatTitleManifest(summary, {
     ...new Set(
       entries
         .flatMap((entry) =>
-          (entry.runner === "vitest" ? vitestEntryTitles(entry) : [entry.title]).map((title) => ({
+          (entry.runner === "vitest"
+            ? vitestEntryTitles(entry)
+            : [entry.title]
+          ).map((title) => ({
             entry,
             title,
           })),
         )
-        .filter(({ entry, title }) => !executedKeys.has(`${entry.file}::${title}`))
+        .filter(
+          ({ entry, title }) => !executedKeys.has(`${entry.file}::${title}`),
+        )
         .map(({ entry }) => entry.id),
     ),
   ].sort();
@@ -4879,18 +4991,21 @@ function evaluateFlatTitleManifest(summary, {
   };
 }
 
-function finalizeManifestAwareRunnerPhase(context, {
-  manifestAware,
-  runner,
-  section = "",
-  summary,
-  selectedSlicePassed,
-  artifacts,
-  manifestMismatchArtifacts = () => ({}),
-  manifestMismatchDetailFields = () => ({}),
-  failureDetailFields = (dossier) => dossier,
-  extraWritePhaseDetails = {},
-}) {
+function finalizeManifestAwareRunnerPhase(
+  context,
+  {
+    manifestAware,
+    runner,
+    section = "",
+    summary,
+    selectedSlicePassed,
+    artifacts,
+    manifestMismatchArtifacts = () => ({}),
+    manifestMismatchDetailFields = () => ({}),
+    failureDetailFields = (dossier) => dossier,
+    extraWritePhaseDetails = {},
+  },
+) {
   let status = selectedSlicePassed ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;

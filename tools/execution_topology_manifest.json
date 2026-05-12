@@ -241,7 +241,7 @@
         },
         {
           "target": "agent-finalize",
-          "description": "refresh schedule and duration artifacts before verification"
+          "description": "refresh and validate harness-maintenance artifacts before verification"
         },
         {
           "target": "test-fast",
@@ -514,7 +514,7 @@
           },
           {
             "target": "agent-finalize",
-            "description": "refresh schedule and duration artifacts before verification"
+            "description": "refresh and validate harness-maintenance artifacts before verification"
           },
           {
             "target": "benchmark-claim-check",
@@ -2968,7 +2968,8 @@
           "helper_only"
         ],
         "backing_scripts": [
-          "scripts/agent-finalize.sh"
+          "scripts/agent-finalize.sh",
+          "scripts/agent-finalize.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",

@@ -24,7 +24,12 @@ export function normalizeOutputMode(env = process.env) {
 
 export function quietLikeOutput(env = process.env) {
   const mode = normalizeOutputMode(env);
-  return mode === "quiet" || mode === "summary" || mode === "ci" || mode === "machine";
+  return (
+    mode === "quiet" ||
+    mode === "summary" ||
+    mode === "ci" ||
+    mode === "machine"
+  );
 }
 
 export function machineOutput(env = process.env) {
@@ -91,7 +96,9 @@ export function slowestTargetRef(summary) {
   if (summary.slowest_target?.target) {
     return {
       id: summary.slowest_target.target,
-      duration_ms: compactDurationMs(summary.slowest_target.critical_path_wall_duration_ms),
+      duration_ms: compactDurationMs(
+        summary.slowest_target.critical_path_wall_duration_ms,
+      ),
       kind: "target",
     };
   }
@@ -101,7 +108,9 @@ export function slowestTargetRef(summary) {
       id: totals.slowest_lifecycle_bucket.target
         ? `${totals.slowest_lifecycle_bucket.target}:${totals.slowest_lifecycle_bucket.name}`
         : totals.slowest_lifecycle_bucket.name,
-      duration_ms: compactDurationMs(totals.slowest_lifecycle_bucket.duration_ms),
+      duration_ms: compactDurationMs(
+        totals.slowest_lifecycle_bucket.duration_ms,
+      ),
       kind: "lifecycle_bucket",
     };
   }
@@ -145,7 +154,11 @@ export function countsForToolSummary(counts = {}) {
 }
 
 function hasApplicableCount(counts = {}, key) {
-  return Object.hasOwn(counts, key) && counts[key] !== null && counts[key] !== undefined;
+  return (
+    Object.hasOwn(counts, key) &&
+    counts[key] !== null &&
+    counts[key] !== undefined
+  );
 }
 
 export function commandInfo({
@@ -225,7 +238,9 @@ function failureSortKey(failure) {
 function sortFailures(failures = []) {
   return failures
     .slice()
-    .sort((left, right) => failureSortKey(left).localeCompare(failureSortKey(right)));
+    .sort((left, right) =>
+      failureSortKey(left).localeCompare(failureSortKey(right)),
+    );
 }
 
 function sortSlowest(slowest = []) {
@@ -268,19 +283,24 @@ export function buildToolRunSummary({
   const normalizedFailureClass = normalizeFailureClass(failureClass, "");
   const normalizedFailureReason = normalizedFailureClass
     ? normalizeFailureReason(
-        failureReason ?? failures.find((failure) => failure?.failure_reason)?.failure_reason,
+        failureReason ??
+          failures.find((failure) => failure?.failure_reason)?.failure_reason,
         defaultReasonForFailureClass(normalizedFailureClass),
       )
     : null;
   const normalizedFailures = sortFailures(failures);
-  const normalizedExitCode = status === "pass"
-    ? 0
-    : publicExitCodeForFailures(failures, {
-        failure_class: normalizedFailureClass || "unknown",
-        failure_reason: normalizedFailureReason || "unknown_failure",
-      });
+  const normalizedExitCode =
+    status === "pass"
+      ? 0
+      : publicExitCodeForFailures(failures, {
+          failure_class: normalizedFailureClass || "unknown",
+          failure_reason: normalizedFailureReason || "unknown_failure",
+        });
   const normalizedCompletedAt = normalizeTimestamp(completedAt, startedAt);
-  const normalizedStartedAt = normalizeTimestamp(startedAt, normalizedCompletedAt);
+  const normalizedStartedAt = normalizeTimestamp(
+    startedAt,
+    normalizedCompletedAt,
+  );
   return {
     schema_id: toolRunSummarySchemaID,
     target,
@@ -321,10 +341,14 @@ export function toolSummaryPath(runRoot) {
 export function resultLine(summary, summaryJsonPath) {
   const counts = summary.counts ?? {};
   const phase = summary.phase_accounting ?? {};
-  const workUnits = summary.work_units?.[0]?.total !== undefined
-    ? `${summary.work_units[0].completed}/${summary.work_units[0].total}`
-    : "-";
-  const tests = hasApplicableCount(counts, "tests") && counts.tests > 0 ? counts.tests : "-";
+  const workUnits =
+    summary.work_units?.[0]?.total !== undefined
+      ? `${summary.work_units[0].completed}/${summary.work_units[0].total}`
+      : "-";
+  const tests =
+    hasApplicableCount(counts, "tests") && counts.tests > 0
+      ? counts.tests
+      : "-";
   const phaseApplicable = [
     "authoritative",
     "support",
@@ -339,12 +363,17 @@ export function resultLine(summary, summaryJsonPath) {
   return `[RESULT] target=${summary.target} status=${summary.status} duration_ms=${summary.duration_ms} work_units=${workUnits} tests=${tests} failed=${counts.failed ?? 0} missing=${missing} unmapped=${unmapped} slowest=${slowestText(summary.slowest?.[0])} run_root=${summary.run_root} summary_json=${terminalArtifactPath(summary.run_root, summaryJsonPath)}\n`;
 }
 
-export function artifactLine(summary, summaryJsonPath, { investigate = null, log = null } = {}) {
+export function artifactLine(
+  summary,
+  summaryJsonPath,
+  { investigate = null, log = null, extraFields = [] } = {},
+) {
   const fields = [
     `[ARTIFACTS] target=${summary.target}`,
     `root=${summary.run_root}`,
     `summary_json=${terminalArtifactPath(summary.run_root, summaryJsonPath)}`,
     `logs=${terminalArtifactPath(summary.run_root, log)}`,
+    ...extraFields,
   ];
   if (investigate) {
     fields.push(`investigate="${investigate}"`);

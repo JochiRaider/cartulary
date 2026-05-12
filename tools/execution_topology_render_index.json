@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:98fc5d8ddbdd06393bc21fed58a725ec0a60ce65994fbecf62ed424100a61cbf",
+  "input_digest": "sha256:65be1d3848f7bbf46303cab4a2ce2267abc227d81eedf4e4436602ff91b50e3c",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -262,7 +262,7 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:f0ddfd0ff1f2b023a2ea73b6a894ff8ffe45828be7ce9a6e919f6cda1f28a7a0"
+      "hash": "sha256:49d81720339a2b86e6ef3d2b41f3cc5949faf8068c2c67d20e732f10a33bd7df"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",
@@ -272,7 +272,7 @@
     {
       "path": "scripts/lib/tool-output.mjs",
       "role": "renderer_source",
-      "hash": "sha256:9d18fccc4c943f65b1b2b0cccadac3a02b386ede031de946924cfaa5ff79c9ed"
+      "hash": "sha256:b65a7d565398377f6e2ca696b595078ec06c5203913b216e32b0e9106d047ee0"
     },
     {
       "path": "scripts/render-execution-topology-artifacts.mjs",
@@ -292,7 +292,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:79fea71218de0edc83efbfc0b47fd31ca0de76c06f4f7663252f686ef6cc2365"
+      "hash": "sha256:bd29d76a99adeb87173bbe69fb6f212cb4d080975bb7af6075bd5fff44a5d824"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
@@ -363,7 +363,7 @@
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:61ebf634dd669e95129a55c84cf467a967e48db786a13ebabcef4c3834e77f8f",
     "tools/scheduler_manifest.json": "sha256:cd47bfa42c92fb854fe90150f8226044f4938cc107be863c4f65cb3eebfed571",
-    "tools/task_surface_manifest.json": "sha256:83d378e56721e799f93dbb4c1ebd843aac4e467800bb0663fac9098ca119af73",
-    "tools/task_surface.generated.mk": "sha256:ba6a206ccc62d39b1f83d1c4b6e2b9ff86c9a8f80caa47d86f20576ceacef324"
+    "tools/task_surface_manifest.json": "sha256:31631818f8f5b7d63d146af1c8ed9fe61600ddd06d443ed52653c24496ccbbc3",
+    "tools/task_surface.generated.mk": "sha256:acc4c045d386cead29161ddead147f04fd493046ef6372982d40b9de262a20d3"
   }
 }

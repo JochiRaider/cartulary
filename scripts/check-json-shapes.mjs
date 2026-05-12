@@ -6,6 +6,7 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "./lib/browser-batch-manifest.mjs";
+import { validateSchemaSync } from "./lib/harness-contract.mjs";
 import {
   executionTopologySchemaID,
   loadExecutionTopology,
@@ -59,6 +60,7 @@ const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v2";
+const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v1";
 
 const phaseStatusValues = new Set(["active", "planned", "retired"]);
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
@@ -246,11 +248,7 @@ const toolRunWorkUnitKeys = new Set([
   "aborted_after",
   "status",
 ]);
-const toolRunEvidenceTargetKeys = new Set([
-  "target",
-  "status",
-  "run_root",
-]);
+const toolRunEvidenceTargetKeys = new Set(["target", "status", "run_root"]);
 const toolRunHelperUnitKeys = new Set(["target", "status", "run_root"]);
 const toolRunSlowestKeys = new Set(["id", "duration_ms", "kind"]);
 const rfc3339TimestampPattern =
@@ -507,51 +505,75 @@ function validateSchedulerManifestShape(file) {
   assertObjectKeys(manifest, schedulerManifestKeys, file);
   requireSchemaID(manifest, schedulerManifestSchemaID, file);
   requireObject(manifest.generated, `${file}.generated`);
-  requireObjectArray(manifest.schedules, `${file}.schedules`, { nonEmpty: true }).forEach(
-    (schedule, index) => {
-      const label = `${file}.schedules[${index + 1}]`;
-      assertObjectKeys(schedule, schedulerScheduleKeys, label);
-      requireString(schedule.target, `${label}.target`, { pattern: makeTargetPattern });
-      requireEnum(schedule.scheduler_kind, `${label}.scheduler_kind`, new Set(["check", "service_backed", "phase_slice"]));
-      requireString(schedule.capacity_profile, `${label}.capacity_profile`);
-      requireObject(schedule.resource_limits, `${label}.resource_limits`);
-      if (schedule.stop_on_first_failure !== undefined && typeof schedule.stop_on_first_failure !== "boolean") {
-        throw new Error(`${label}.stop_on_first_failure must be a boolean`);
+  requireObjectArray(manifest.schedules, `${file}.schedules`, {
+    nonEmpty: true,
+  }).forEach((schedule, index) => {
+    const label = `${file}.schedules[${index + 1}]`;
+    assertObjectKeys(schedule, schedulerScheduleKeys, label);
+    requireString(schedule.target, `${label}.target`, {
+      pattern: makeTargetPattern,
+    });
+    requireEnum(
+      schedule.scheduler_kind,
+      `${label}.scheduler_kind`,
+      new Set(["check", "service_backed", "phase_slice"]),
+    );
+    requireString(schedule.capacity_profile, `${label}.capacity_profile`);
+    requireObject(schedule.resource_limits, `${label}.resource_limits`);
+    if (
+      schedule.stop_on_first_failure !== undefined &&
+      typeof schedule.stop_on_first_failure !== "boolean"
+    ) {
+      throw new Error(`${label}.stop_on_first_failure must be a boolean`);
+    }
+    if (
+      schedule.validate_timing !== undefined &&
+      typeof schedule.validate_timing !== "boolean"
+    ) {
+      throw new Error(`${label}.validate_timing must be a boolean`);
+    }
+    if (schedule.progress_tick_seconds !== undefined) {
+      requireInteger(
+        schedule.progress_tick_seconds,
+        `${label}.progress_tick_seconds`,
+        { min: 5 },
+      );
+      if (schedule.progress_tick_seconds > 300) {
+        throw new Error(`${label}.progress_tick_seconds must be <= 300`);
       }
-      if (schedule.validate_timing !== undefined && typeof schedule.validate_timing !== "boolean") {
-        throw new Error(`${label}.validate_timing must be a boolean`);
+    }
+    requireObjectArray(schedule.work_units, `${label}.work_units`, {
+      nonEmpty: true,
+    }).forEach((unit, unitIndex) => {
+      const unitLabel = `${label}.work_units[${unitIndex + 1}]`;
+      assertObjectKeys(unit, schedulerWorkUnitKeys, unitLabel);
+      requireString(unit.target, `${unitLabel}.target`, {
+        pattern: makeTargetPattern,
+      });
+      requirePositiveInteger(unit.weight_ms, `${unitLabel}.weight_ms`);
+      const command = requireObject(unit.command, `${unitLabel}.command`);
+      requireEnum(
+        command.type,
+        `${unitLabel}.command.type`,
+        schedulerCommandTypes,
+      );
+      if (unit.priority !== undefined) {
+        requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
       }
-      if (schedule.progress_tick_seconds !== undefined) {
-        requireInteger(schedule.progress_tick_seconds, `${label}.progress_tick_seconds`, { min: 5 });
-        if (schedule.progress_tick_seconds > 300) {
-          throw new Error(`${label}.progress_tick_seconds must be <= 300`);
+      if (unit.env !== undefined) {
+        for (const name of Object.keys(
+          requireObject(unit.env, `${unitLabel}.env`),
+        )) {
+          requireString(name, `${unitLabel}.env key`, {
+            pattern: /^[A-Z][A-Z0-9_]*$/,
+          });
         }
       }
-      requireObjectArray(schedule.work_units, `${label}.work_units`, { nonEmpty: true }).forEach(
-        (unit, unitIndex) => {
-          const unitLabel = `${label}.work_units[${unitIndex + 1}]`;
-          assertObjectKeys(unit, schedulerWorkUnitKeys, unitLabel);
-          requireString(unit.target, `${unitLabel}.target`, { pattern: makeTargetPattern });
-          requirePositiveInteger(unit.weight_ms, `${unitLabel}.weight_ms`);
-          const command = requireObject(unit.command, `${unitLabel}.command`);
-          requireEnum(command.type, `${unitLabel}.command.type`, schedulerCommandTypes);
-          if (unit.priority !== undefined) {
-            requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
-          }
-          if (unit.env !== undefined) {
-            for (const name of Object.keys(requireObject(unit.env, `${unitLabel}.env`))) {
-              requireString(name, `${unitLabel}.env key`, {
-                pattern: /^[A-Z][A-Z0-9_]*$/,
-              });
-            }
-          }
-        },
-      );
-      if (schedule.finalizers !== undefined) {
-        requireArray(schedule.finalizers, `${label}.finalizers`);
-      }
-    },
-  );
+    });
+    if (schedule.finalizers !== undefined) {
+      requireArray(schedule.finalizers, `${label}.finalizers`);
+    }
+  });
 }
 
 function validateBrowserBatchShape(file) {
@@ -770,13 +792,27 @@ function validateDurationBaselineShape(file) {
   for (const [key, entry] of Object.entries(workUnits)) {
     requireObject(entry, `${file}.work_units.${key}`);
     const expectedKey = [
-      requireString(entry.scheduler_kind, `${file}.work_units.${key}.scheduler_kind`),
-      requireString(entry.schedule_target, `${file}.work_units.${key}.schedule_target`),
-      requireString(entry.work_unit_id, `${file}.work_units.${key}.work_unit_id`),
-      requireString(entry.aggregate_target, `${file}.work_units.${key}.aggregate_target`),
+      requireString(
+        entry.scheduler_kind,
+        `${file}.work_units.${key}.scheduler_kind`,
+      ),
+      requireString(
+        entry.schedule_target,
+        `${file}.work_units.${key}.schedule_target`,
+      ),
+      requireString(
+        entry.work_unit_id,
+        `${file}.work_units.${key}.work_unit_id`,
+      ),
+      requireString(
+        entry.aggregate_target,
+        `${file}.work_units.${key}.aggregate_target`,
+      ),
     ].join("|");
     if (key !== expectedKey) {
-      throw new Error(`${file}.work_units.${key} must match scheduler context key ${expectedKey}`);
+      throw new Error(
+        `${file}.work_units.${key} must match scheduler context key ${expectedKey}`,
+      );
     }
     requirePositiveInteger(
       entry.weight_ms,
@@ -1024,6 +1060,12 @@ function validateKind(kind, file) {
     case "tool-run-summary":
       validateToolRunSummaryShape(file);
       return;
+    case "agent-finalize-summary":
+      validateSchemaSync(
+        agentFinalizeSummarySchemaID,
+        readShapeFile(file, file),
+      );
+      return;
     default:
       throw new Error(`unknown json shape kind ${kind}`);
   }
@@ -1082,7 +1124,6 @@ function validateAll(root) {
   validateBootstrapAdminShape(
     repoFile(root, "configs/dev/bootstrap-admin.json"),
   );
-
 }
 
 function main() {

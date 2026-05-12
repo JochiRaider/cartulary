@@ -373,6 +373,67 @@ write_valid_tool_run_summary() {
 JSON
 }
 
+write_valid_agent_finalize_summary() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.agent_finalize_summary.v1",
+  "target": "agent-finalize",
+  "status": "pass",
+  "result_root": ".cartulary/test-results",
+  "run_id": "run",
+  "run_root": ".cartulary/test-results/run",
+  "output_mode": "summary",
+  "results_dir": null,
+  "results_dir_status": "skipped",
+  "started_at": "2026-01-01T00:00:00Z",
+  "completed_at": "2026-01-01T00:00:01Z",
+  "duration_ms": 1000,
+  "generated": {
+    "status": "unchanged",
+    "updated_file_count": 0
+  },
+  "duration": {
+    "status": "skipped",
+    "refreshed": false,
+    "checked": false
+  },
+  "run_checks": {
+    "status": "skipped",
+    "checked": false
+  },
+  "updated_files": [],
+  "steps": [
+    {
+      "id": "phase-ledgers",
+      "target": "phase-ledgers",
+      "category": "phase_ledger",
+      "requires_results_dir": false,
+      "mutates_repo": true,
+      "status": "pass",
+      "started_at": "2026-01-01T00:00:00Z",
+      "completed_at": "2026-01-01T00:00:01Z",
+      "duration_ms": 1000,
+      "exit_code": 0,
+      "summary_json": ".cartulary/test-results/run/phase-ledgers/tool-run-summary.json",
+      "stdout_log": ".cartulary/test-results/run/phase-ledgers/phase-ledgers/stdout.log",
+      "stderr_log": ".cartulary/test-results/run/phase-ledgers/phase-ledgers/stderr.log",
+      "skipped_reason": null
+    }
+  ],
+  "failures": [],
+  "child_artifacts": [
+    {
+      "role": "phase-ledgers_summary",
+      "kind": "json",
+      "path": ".cartulary/test-results/run/phase-ledgers/tool-run-summary.json"
+    }
+  ]
+}
+JSON
+}
+
 mutate_json_fixture() {
   local mutation="$1"
   local file="$2"
@@ -409,6 +470,12 @@ const mutations = {
         path: ".cartulary/test-results/run/json-shape-check/a.json",
       },
     ];
+  },
+  "agent-finalize-summary-bad-step-status": (fixture) => {
+    fixture.steps[0].status = "done";
+  },
+  "agent-finalize-summary-unknown-key": (fixture) => {
+    fixture.legacy_key = true;
   },
   "scheduler-manifest-stale-schema": (fixture) => {
     fixture.schema_id = "cartulary.check_schedule.v12";
@@ -684,5 +751,23 @@ write_valid_tool_run_summary "$unsorted_artifacts"
 mutate_json_fixture tool-run-summary-unsorted-artifacts "$unsorted_artifacts"
 unsorted_artifacts_output="$(assert_fails "unsorted tool run artifacts" run_shape_check tool-run-summary "$unsorted_artifacts")"
 assert_contains "$unsorted_artifacts_output" "summary_artifacts must be sorted" "unsorted tool run artifacts"
+
+agent_finalize_summary="$tmp_dir/agent-finalize-summary.json"
+write_valid_agent_finalize_summary "$agent_finalize_summary"
+assert_contains "$(assert_passes "valid agent finalize summary" run_shape_check agent-finalize-summary "$agent_finalize_summary")" \
+  "json shape check passed" \
+  "valid agent finalize summary"
+
+bad_agent_finalize_step="$tmp_dir/agent-finalize-summary-bad-step.json"
+write_valid_agent_finalize_summary "$bad_agent_finalize_step"
+mutate_json_fixture agent-finalize-summary-bad-step-status "$bad_agent_finalize_step"
+bad_agent_finalize_step_output="$(assert_fails "invalid agent finalize step status" run_shape_check agent-finalize-summary "$bad_agent_finalize_step")"
+assert_contains "$bad_agent_finalize_step_output" "must be equal to one of the allowed values" "invalid agent finalize step status"
+
+unknown_agent_finalize_key="$tmp_dir/agent-finalize-summary-unknown-key.json"
+write_valid_agent_finalize_summary "$unknown_agent_finalize_key"
+mutate_json_fixture agent-finalize-summary-unknown-key "$unknown_agent_finalize_key"
+unknown_agent_finalize_key_output="$(assert_fails "unknown agent finalize key" run_shape_check agent-finalize-summary "$unknown_agent_finalize_key")"
+assert_contains "$unknown_agent_finalize_key_output" "must NOT have additional properties" "unknown agent finalize key"
 
 echo "json shape harness tests passed"

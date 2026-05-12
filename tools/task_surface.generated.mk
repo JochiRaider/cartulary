@@ -15,7 +15,7 @@ TASK_SURFACE_HELP_LINES := \
 	'  make dev                            run the Go server and Vite dev server' \
 	'  make generate                       regenerate sqlc and contract-derived outputs' \
 	'  make format                         format authored Go and frontend sources' \
-	'  make agent-finalize                 refresh schedule and duration artifacts before verification' \
+	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make test-fast                      run the narrower local verification loop' \
 	'  make check                          run the developer verification gate' \
 	'' \
@@ -104,7 +104,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make phase-ledger-drift             fail on phase coverage ledger drift' \
 	'  make phase-schedules                regenerate committed phase-derived schedules' \
 	'  make phase-schedule-drift           fail on phase-derived schedule drift' \
-	'  make agent-finalize                 refresh schedule and duration artifacts before verification' \
+	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make benchmark-claim-check          validate retained Core 05 benchmark claim artifacts' \
 	'  make go-test-duration-baselines' \
 	'                                      RESULTS_DIR=<dir> refresh Go test duration baselines' \
