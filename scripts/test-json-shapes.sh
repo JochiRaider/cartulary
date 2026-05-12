@@ -65,6 +65,13 @@ run_shape_check() {
   "$NODE_BIN" "$CHECKER" --kind "$kind" --file "$file" --root "$tmp_dir"
 }
 
+run_schema_validation() {
+  local schema_id="$1"
+  local file="$2"
+
+  "$ROOT_DIR/scripts/harness-contract.sh" validate-schema "$schema_id" "$file"
+}
+
 write_valid_phase_map() {
   local file="$1"
 
@@ -311,7 +318,7 @@ write_valid_tool_run_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v2",
+  "schema_id": "cartulary.tool_run_summary.v3",
   "target": "json-shape-check",
   "command": {
     "cwd": "/repo",
@@ -368,6 +375,59 @@ write_valid_tool_run_summary() {
   "slowest": [],
   "warnings": [],
   "rerun_commands": ["make json-shape-check"],
+  "scheduler_timing": null,
+  "extensions": {}
+}
+JSON
+}
+
+write_minimal_scheduler_summary() {
+  local file="$1"
+  local schema_id="$2"
+
+  cat >"$file" <<JSON
+{
+  "schema_id": "$schema_id",
+  "target": "check",
+  "status": "pass",
+  "failure_class": null,
+  "failure_reason": null,
+  "failure_classes": {},
+  "failure_reasons": {},
+  "failures": [],
+  "failure_headline": "",
+  "scheduler_kind": "check",
+  "total_work_units": 0,
+  "completed_work_units": 0,
+  "scheduler_started_monotonic_ms": 0,
+  "scheduler_completed_monotonic_ms": 0,
+  "scheduler_total_duration_ms": 0,
+  "scheduler_started_at": "2026-01-01T00:00:00Z",
+  "scheduler_completed_at": "2026-01-01T00:00:00Z",
+  "critical_path_wall_duration_ms": 0,
+  "critical_path_units": [],
+  "critical_path_blockers": [],
+  "critical_path_terminal_unit": null,
+  "skipped_work_units": [],
+  "failed_work_unit": null,
+  "failed_work_unit_detail": null,
+  "resource_limits": null,
+  "resource_limit_sources": null,
+  "max_running_work_units": 0,
+  "max_running_groups": 0,
+  "max_active_resource_claims": null,
+  "blocked_reasons_seen": [],
+  "blocked_resources_seen": [],
+  "blocked_explanations_seen": [],
+  "waiting_on_seen": [],
+  "top_blockers": [],
+  "slowest_work_units": [],
+  "nested_scheduler_limits": [],
+  "nested_scheduler_observations": [],
+  "finalizer_count": 0,
+  "finalizer_failures": 0,
+  "finalizer_timings": [],
+  "artifacts": null,
   "extensions": {}
 }
 JSON
@@ -484,6 +544,17 @@ const mutations = {
       },
     ];
   },
+  "tool-run-summary-invalid-extension-key": (fixture) => {
+    fixture.extensions.scheduler_timing = {
+      scheduler_total_duration_ms: 1000,
+    };
+  },
+  "tool-run-summary-missing-scheduler-timing": (fixture) => {
+    delete fixture.scheduler_timing;
+  },
+  "tool-run-summary-missing-schema-id": (fixture) => {
+    delete fixture.schema_id;
+  },
   "agent-finalize-summary-bad-action-status": (fixture) => {
     fixture.actions[0].status = "done";
   },
@@ -565,6 +636,14 @@ write_valid_phase_registry "$phase_registry"
 assert_contains "$(assert_passes "valid phase registry" run_shape_check phase-registry "$phase_registry")" \
   "json shape check passed" \
   "valid phase registry"
+
+service_scheduler_summary="$tmp_dir/service-scheduler-summary.json"
+write_minimal_scheduler_summary "$service_scheduler_summary" "cartulary.service_backed_scheduler_summary.v9"
+assert_passes "service scheduler summary validates exact schema" \
+  run_schema_validation cartulary.service_backed_scheduler_summary.v9 "$service_scheduler_summary" >/dev/null
+mismatched_scheduler_output="$(assert_fails "scheduler summary rejects mismatched schema_id" \
+  run_schema_validation cartulary.check_scheduler_summary.v9 "$service_scheduler_summary")"
+assert_contains "$mismatched_scheduler_output" "must be equal to constant" "scheduler summary mismatched schema_id"
 
 bad_schema_registry="$tmp_dir/phase_registry_bad_schema.json"
 write_valid_phase_registry "$bad_schema_registry"
@@ -764,6 +843,24 @@ write_valid_tool_run_summary "$unsorted_artifacts"
 mutate_json_fixture tool-run-summary-unsorted-artifacts "$unsorted_artifacts"
 unsorted_artifacts_output="$(assert_fails "unsorted tool run artifacts" run_shape_check tool-run-summary "$unsorted_artifacts")"
 assert_contains "$unsorted_artifacts_output" "summary_artifacts must be sorted" "unsorted tool run artifacts"
+
+invalid_extension_key="$tmp_dir/tool-run-summary-invalid-extension-key.json"
+write_valid_tool_run_summary "$invalid_extension_key"
+mutate_json_fixture tool-run-summary-invalid-extension-key "$invalid_extension_key"
+invalid_extension_output="$(assert_fails "invalid tool run extension key" run_shape_check tool-run-summary "$invalid_extension_key")"
+assert_contains "$invalid_extension_output" "invalid extension key scheduler_timing" "invalid tool run extension key"
+
+missing_scheduler_timing="$tmp_dir/tool-run-summary-missing-scheduler-timing.json"
+write_valid_tool_run_summary "$missing_scheduler_timing"
+mutate_json_fixture tool-run-summary-missing-scheduler-timing "$missing_scheduler_timing"
+missing_scheduler_timing_output="$(assert_fails "missing tool run scheduler_timing" run_shape_check tool-run-summary "$missing_scheduler_timing")"
+assert_contains "$missing_scheduler_timing_output" "scheduler_timing is required" "missing tool run scheduler_timing"
+
+missing_schema_id="$tmp_dir/tool-run-summary-missing-schema-id.json"
+write_valid_tool_run_summary "$missing_schema_id"
+mutate_json_fixture tool-run-summary-missing-schema-id "$missing_schema_id"
+missing_schema_id_output="$(assert_fails "missing tool run schema_id" run_shape_check tool-run-summary "$missing_schema_id")"
+assert_contains "$missing_schema_id_output" "schema_id is required" "missing tool run schema_id"
 
 agent_finalize_summary="$tmp_dir/agent-finalize-summary.json"
 write_valid_agent_finalize_summary "$agent_finalize_summary"

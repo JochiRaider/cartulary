@@ -53,6 +53,13 @@ Use this set according to the task:
 As of 2026-05-09, the recovery package is in a reviewable recovered-specification
 state.
 
+Historical schema references in this recovery package preserve dated audit
+evidence. Mentions of `cartulary.tool_run_summary.v2`,
+`cartulary.web_e2e_stack.v1`, `cartulary.agent_finalize_summary.v1`, or
+`cartulary.service_backed_schedule.v11` are not current supported public
+contracts unless an adopted owner spec or current `tools/schemas` attachment
+also declares them.
+
 | Area | State | Controlling reference |
 |---|---|
 | S0 through S6 recovery and register phases | Complete; inventory, command, artifact, service, lifecycle, observable-interface, failure, race, timing, resource, and gap-closure records exist. | `00-overview.md`, `01-recovery-process.md`, `04-registers-and-checklists.md` |

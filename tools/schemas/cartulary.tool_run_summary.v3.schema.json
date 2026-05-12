@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.tool_run_summary.v2",
+  "$id": "cartulary.tool_run_summary.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -29,10 +29,11 @@
     "slowest",
     "warnings",
     "rerun_commands",
+    "scheduler_timing",
     "extensions"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.tool_run_summary.v2" },
+    "schema_id": { "const": "cartulary.tool_run_summary.v3" },
     "target": { "type": "string", "minLength": 1 },
     "command": {
       "type": "object",
@@ -88,7 +89,8 @@
     "slowest": { "type": "array", "items": { "$ref": "#/$defs/slowest" } },
     "warnings": { "type": "array", "items": { "type": "object" } },
     "rerun_commands": { "type": "array", "items": { "type": "string" } },
-    "extensions": { "type": "object" }
+    "scheduler_timing": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
   },
   "$defs": {
     "non_negative_integer": { "type": "integer", "minimum": 0 },

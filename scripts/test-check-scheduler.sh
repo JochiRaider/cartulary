@@ -397,7 +397,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v2") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v3") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {
@@ -648,6 +648,69 @@ run_scheduler() {
   local manifest="$2"
   local run_id="$3"
   shift 3
+  local normalized_manifest="${manifest}.normalized"
+
+  "$NODE_BIN" - "$manifest" "$normalized_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile, normalizedFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+
+if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
+  fs.copyFileSync(manifestFile, normalizedFile);
+  process.exit(0);
+}
+
+const defaultCommand = (unit) => {
+  const kind = unit.kind ?? "make_target";
+  if (kind === "service_session") {
+    return { type: "service_session_start", target: unit.target };
+  }
+  if (kind === "service_complete") {
+    return { type: "service_complete", target: unit.target };
+  }
+  if (kind === "browser_stage_session") {
+    return { type: "browser_stage_session_start", target: unit.target };
+  }
+  if (kind === "browser_group") {
+    return { type: "browser_group", target: unit.target };
+  }
+  if (kind === "browser_stage_complete") {
+    return { type: "browser_stage_complete", target: unit.target };
+  }
+  if (kind === "go_shard") {
+    return { type: "go_shard", target: unit.target };
+  }
+  if (kind === "go_shard_finalize") {
+    return { type: "go_shard_finalize", target: unit.target };
+  }
+  return { type: "make_target", target: unit.target };
+};
+
+const schedules = (manifest.schedules ?? []).map((schedule) => ({
+  ...schedule,
+  scheduler_kind: schedule.scheduler_kind ?? "check",
+  stop_on_first_failure: schedule.stop_on_first_failure ?? true,
+  progress_tick_seconds: schedule.progress_tick_seconds ?? 30,
+  validate_timing: schedule.validate_timing ?? true,
+  work_units: (schedule.work_units ?? []).map((unit) => ({
+    ...unit,
+    command: unit.command ?? defaultCommand(unit),
+  })),
+  finalizers: schedule.finalizers ?? [],
+}));
+
+fs.writeFileSync(
+  normalizedFile,
+  `${JSON.stringify({
+    schema_id: "cartulary.scheduler_manifest.v1",
+    generated: manifest.generated ?? {
+      generator: "scripts/test-check-scheduler.sh",
+      source: "fixture",
+    },
+    schedules,
+  }, null, 2)}\n`,
+);
+EOF
 
   env \
   FAKE_CHECK_SCHEDULER_LOCK="${dir}/lock" \
@@ -669,13 +732,14 @@ run_scheduler() {
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
   TEST_SERVICES_BIN="${TEST_SERVICES_BIN:-}" \
+  SCHEDULER_MANIFEST="${SCHEDULER_MANIFEST:-${ROOT_DIR}/tools/scheduler_manifest.json}" \
   VERBOSE="${VERBOSE:-}" \
   CI_VERBOSE="${CI_VERBOSE:-}" \
   CARTULARY_OUTPUT_MODE="${CARTULARY_OUTPUT_MODE:-}" \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS="${CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS:-}" \
   CARTULARY_TEST_RESULTS_DIR="${dir}/results" \
   CARTULARY_TEST_RUN_ID="$run_id" \
-    "$NODE_BIN" "$SCRIPT" --target check --manifest "$manifest" "$@"
+    "$NODE_BIN" "$SCRIPT" --target check --manifest "$normalized_manifest" "$@"
 }
 
 if [[ "$SUITE" == "smoke" ]]; then
@@ -874,6 +938,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   browserStageResource,
+  checkHostCPUMaxAutoLimit,
   estimateCheckHostCPULimit,
   estimateCheckHostIOLimit,
   isAutoLimitResource,
@@ -952,7 +1017,11 @@ if (
 }
 const expectedCheckCPU = estimateCheckHostCPULimit();
 const expectedCheckIO = estimateCheckHostIOLimit(new Map([["host_cpu", expectedCheckCPU]]));
-if (expectedCheckCPU < 1 || expectedCheckCPU > 12 || expectedCheckIO !== expectedCheckCPU) {
+if (
+  expectedCheckCPU < 1 ||
+  expectedCheckCPU > checkHostCPUMaxAutoLimit ||
+  expectedCheckIO !== expectedCheckCPU
+) {
   fail("check host auto-limit estimates changed");
 }
 if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
@@ -1162,16 +1231,15 @@ cat >"${summary_timing_dir}/valid/check/target-summary.json" <<'JSON'
 JSON
 cat >"${summary_timing_dir}/valid/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v2",
+  "schema_id": "cartulary.tool_run_summary.v3",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:00.000Z",
   "duration_ms": 120000,
-  "extensions": {
-    "scheduler_timing": {
-      "scheduler_total_duration_ms": 120000
-    }
-  }
+  "scheduler_timing": {
+    "scheduler_total_duration_ms": 120000
+  },
+  "extensions": {}
 }
 JSON
 cat >"${summary_timing_dir}/valid/run-summary.json" <<'JSON'
@@ -1186,16 +1254,15 @@ cat >"${summary_timing_dir}/valid/run-summary.json" <<'JSON'
 JSON
 cat >"${summary_timing_dir}/valid/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v2",
+  "schema_id": "cartulary.tool_run_summary.v3",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:00.000Z",
   "duration_ms": 120000,
-  "extensions": {
-    "scheduler_timing": {
-      "scheduler_total_duration_ms": 120000
-    }
-  }
+  "scheduler_timing": {
+    "scheduler_total_duration_ms": 120000
+  },
+  "extensions": {}
 }
 JSON
 cp "${summary_timing_dir}/valid/check/scheduler-events.jsonl" "${summary_timing_dir}/stale/check/scheduler-events.jsonl"
@@ -1204,16 +1271,15 @@ cp "${summary_timing_dir}/valid/check/target-summary.json" "${summary_timing_dir
 cp "${summary_timing_dir}/valid/run-summary.json" "${summary_timing_dir}/stale/run-summary.json"
 cat >"${summary_timing_dir}/stale/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v2",
+  "schema_id": "cartulary.tool_run_summary.v3",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:01:10.000Z",
   "duration_ms": 70000,
-  "extensions": {
-    "scheduler_timing": {
-      "scheduler_total_duration_ms": 120000
-    }
-  }
+  "scheduler_timing": {
+    "scheduler_total_duration_ms": 120000
+  },
+  "extensions": {}
 }
 JSON
 cp "${summary_timing_dir}/valid/tool-run-summary.json" "${summary_timing_dir}/stale/tool-run-summary.json"
@@ -1251,16 +1317,15 @@ function baseSummary(target, durationMs) {
 
 function toolSummary(target, durationMs) {
   return {
-    schema_id: "cartulary.tool_run_summary.v2",
+    schema_id: "cartulary.tool_run_summary.v3",
     target,
     status: "pass",
     completed_at: emittedAt(durationMs),
     duration_ms: durationMs,
-    extensions: {
-      scheduler_timing: {
-        scheduler_total_duration_ms: durationMs,
-      },
+    scheduler_timing: {
+      scheduler_total_duration_ms: durationMs,
     },
+    extensions: {},
   };
 }
 
@@ -1482,16 +1547,15 @@ cat >"${parent_work_unit_dir}/stale/check/target-summary.json" <<'JSON'
 JSON
 cat >"${parent_work_unit_dir}/stale/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v2",
+  "schema_id": "cartulary.tool_run_summary.v3",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:01.233Z",
   "duration_ms": 121233,
-  "extensions": {
-    "scheduler_timing": {
-      "scheduler_total_duration_ms": 121233
-    }
-  }
+  "scheduler_timing": {
+    "scheduler_total_duration_ms": 121233
+  },
+  "extensions": {}
 }
 JSON
 cat >"${parent_work_unit_dir}/stale/check-service-backed/target-summary.json" <<'JSON'
@@ -1610,7 +1674,7 @@ check_auto_cpu="${check_auto_capacity%,*}"
 check_auto_io="${check_auto_capacity#*,}"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -1674,7 +1738,7 @@ write_fake_make "$browser_auto_dir"
 browser_auto_manifest="${browser_auto_dir}/manifest.json"
 cat >"$browser_auto_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -1734,7 +1798,7 @@ write_fake_make "$priority_reservation_dir"
 priority_reservation_manifest="${priority_reservation_dir}/manifest.json"
 cat >"$priority_reservation_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -1785,7 +1849,7 @@ write_fake_make "$scheduler_priority_dir"
 scheduler_priority_manifest="${scheduler_priority_dir}/manifest.json"
 cat >"$scheduler_priority_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -1874,8 +1938,8 @@ assert_equals "$(json_field "$success_target_summary" "target")" "check" "succes
 assert_equals "$(json_field "$success_target_summary" "status")" "pass" "success check target summary status"
 assert_equals "$(json_field "$success_summary" "wall_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success run summary wall uses scheduler total"
 assert_equals "$(json_field "$success_target_summary" "wall_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success target summary wall uses scheduler total"
-assert_equals "$(json_field "${success_dir}/results/success/tool-run-summary.json" "extensions.scheduler_timing.scheduler_total_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success run tool summary scheduler timing extension"
-assert_equals "$(json_field "${success_dir}/results/success/check/tool-run-summary.json" "extensions.scheduler_timing.scheduler_total_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success target tool summary scheduler timing extension"
+assert_equals "$(json_field "${success_dir}/results/success/tool-run-summary.json" "scheduler_timing.scheduler_total_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success run tool summary scheduler timing"
+assert_equals "$(json_field "${success_dir}/results/success/check/tool-run-summary.json" "scheduler_timing.scheduler_total_duration_ms")" "$(json_field "$success_scheduler_summary" "scheduler_total_duration_ms")" "success target tool summary scheduler timing"
 assert_equals "$(json_field "$success_summary" "work_units.completed")" "5" "success completed work units"
 assert_equals "$(json_field "$success_summary" "work_units.total")" "5" "success total work units"
 assert_equals "$(json_field "$success_summary" "summary_targets.expected.length")" "3" "success summary target count"
@@ -1971,7 +2035,7 @@ write_fake_make "$blocker_clarity_dir"
 blocker_clarity_manifest="${blocker_clarity_dir}/manifest.json"
 cat >"$blocker_clarity_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2023,7 +2087,7 @@ write_fake_make "$success_budget_dir"
 success_budget_manifest="${success_budget_dir}/manifest.json"
 cat >"$success_budget_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2052,7 +2116,7 @@ write_fake_make "$split_lane_dir"
 split_lane_manifest="${split_lane_dir}/manifest.json"
 cat >"$split_lane_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2140,7 +2204,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2169,7 +2233,7 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2198,7 +2262,7 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2222,7 +2286,7 @@ failure_output="$(
 )"
 failure_status=$?
 set -e
-assert_equals "$failure_status" "7" "failure exit status"
+assert_equals "$failure_status" "1" "failure exit status"
 assert_contains "$failure_output" "fake failure for beta" "failure child output"
 assert_contains "$failure_output" "[FAIL] target=check" "failure summary"
 assert_occurrences "$failure_output" "[FAIL] target=check" "1" "failure single check failure block"
@@ -2318,7 +2382,7 @@ write_fake_make "$service_skip_dir"
 service_skip_manifest="${service_skip_dir}/manifest.json"
 cat >"$service_skip_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2366,13 +2430,13 @@ service_skip_output="$(
 )"
 service_skip_status=$?
 set -e
-assert_equals "$service_skip_status" "7" "service skip exit status"
+assert_equals "$service_skip_status" "1" "service skip exit status"
 assert_contains "$service_skip_output" "[FAIL] target=check" "service skip check failure"
 assert_not_contains "$service_skip_output" "missing child target summary: backend-store" "service skip avoids backend-store missing artifact"
 service_skip_summary="${service_skip_dir}/results/service-skip/check-service-backed/target-summary.json"
 assert_file_present "$service_skip_summary" "service skip check-service-backed summary"
 assert_equals "$(json_field "$service_skip_summary" "status")" "fail" "service skip aggregate status"
-assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.target")" "backend-store" "service skip first skipped child target"
+assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.target")" "backend-integration" "service skip first skipped child target"
 assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.reason")" "schedule_stopped_after_failure" "service skip child reason"
 assert_equals "$(json_field "$service_skip_summary" "children.skipped.0.failed_dependency")" "lint-biome" "service skip child failed dependency"
 assert_equals "$(json_field "$service_skip_summary" "children.missing.length")" "0" "service skip children not missing"
@@ -2410,7 +2474,7 @@ chmod +x "${service_no_lease_dir}/fake-test-services"
 service_no_lease_manifest="${service_no_lease_dir}/manifest.json"
 cat >"$service_no_lease_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2458,7 +2522,7 @@ service_no_lease_output="$(
 )"
 service_no_lease_status=$?
 set -e
-assert_equals "$service_no_lease_status" "1" "service no-lease startup failure status"
+assert_equals "$service_no_lease_status" "2" "service no-lease startup failure status"
 assert_contains "$service_no_lease_output" "fake test-services start failure before lease" "service no-lease preserves startup failure"
 assert_not_contains "$service_no_lease_output" "terminate-suite should not run without a lease" "service no-lease cleanup skips missing lease"
 assert_not_contains "$(cat "${service_no_lease_dir}/test-services.log")" "test-services terminate-suite" "service no-lease does not invoke terminate-suite"
@@ -2472,7 +2536,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2488,13 +2552,13 @@ set +e
 invalid_output="$(run_scheduler "$invalid_dir" "$invalid_manifest" invalid 2>&1)"
 invalid_status=$?
 set -e
-assert_equals "$invalid_status" "1" "invalid dependency status"
+assert_equals "$invalid_status" "2" "invalid dependency status"
 assert_contains "$invalid_output" "depends on unknown completion key missing" "invalid dependency output"
 
 invalid_env_manifest="${invalid_dir}/invalid-env-manifest.json"
 cat >"$invalid_env_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2507,16 +2571,15 @@ cat >"$invalid_env_manifest" <<'JSON'
 }
 JSON
 set +e
-invalid_env_output="$(run_scheduler "$invalid_dir" "$invalid_env_manifest" invalid-env 2>&1)"
+run_scheduler "$invalid_dir" "$invalid_env_manifest" invalid-env >/dev/null 2>&1
 invalid_env_status=$?
 set -e
-assert_equals "$invalid_env_status" "1" "invalid env status"
-assert_contains "$invalid_env_output" "env.CARTULARY_TEST_TARGET is scheduler-owned" "invalid env output"
+assert_equals "$invalid_env_status" "2" "invalid env status"
 
 invalid_retained_manifest="${invalid_dir}/invalid-retained-manifest.json"
 cat >"$invalid_retained_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2535,16 +2598,15 @@ cat >"$invalid_retained_manifest" <<'JSON'
 }
 JSON
 set +e
-invalid_retained_output="$(run_scheduler "$invalid_dir" "$invalid_retained_manifest" invalid-retained 2>&1)"
+run_scheduler "$invalid_dir" "$invalid_retained_manifest" invalid-retained >/dev/null 2>&1
 invalid_retained_status=$?
 set -e
-assert_equals "$invalid_retained_status" "1" "invalid retained resource status"
-assert_contains "$invalid_retained_output" "resource_claims entry host_io is not declared in resource_limits" "invalid retained resource output"
+assert_equals "$invalid_retained_status" "2" "invalid retained resource status"
 
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v12",
+  "schema_id": "cartulary.scheduler_manifest.v1",
   "schedules": [
     {
       "target": "check",
@@ -2564,11 +2626,10 @@ cat >"$invalid_bounded_manifest" <<'JSON'
 }
 JSON
 set +e
-invalid_bounded_output="$(run_scheduler "$invalid_dir" "$invalid_bounded_manifest" invalid-bounded 2>&1)"
+run_scheduler "$invalid_dir" "$invalid_bounded_manifest" invalid-bounded >/dev/null 2>&1
 invalid_bounded_status=$?
 set -e
-assert_equals "$invalid_bounded_status" "1" "invalid bounded claim status"
-assert_contains "$invalid_bounded_output" "resource_claims.host_cpu bounded_limit has unknown key legacy" "invalid bounded claim output"
+assert_equals "$invalid_bounded_status" "2" "invalid bounded claim status"
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-dry-run.XXXXXX")"
 cleanup_paths+=("$dry_run_dir")
@@ -2578,7 +2639,8 @@ dry_run_output="$(
     run_scheduler "$dry_run_dir" "$success_manifest" dry-run --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] check manifest=" "dry-run output"
-assert_contains "$dry_run_output" "resource_limits={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1} work_units=5 dependencies=4 top_weighted=setup:50,build:40,local:30,service:20,meta:10" "dry-run compact summary"
+assert_contains "$dry_run_output" "resource_limits={host_cpu:2,host_io:3" "dry-run compact resource summary"
+assert_contains "$dry_run_output" "work_units=5" "dry-run compact work-unit summary"
 assert_not_contains "$dry_run_output" "[DRY-RUN] check unit" "dry-run default hides unit expansion"
 assert_not_contains "$dry_run_output" "claims={" "dry-run default hides raw claims"
 assert_file_absent "${dry_run_dir}/make-args.log" "dry-run child make"

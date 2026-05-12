@@ -1226,6 +1226,7 @@ function attachRuntime(schedule, {
           children.join(","),
           "--skipped-from-scheduler",
           schedule.target,
+          "--suppress-machine-output",
           serviceStatus === "pass" ? "--quiet-success" : "--quiet-failure",
         ]);
       }

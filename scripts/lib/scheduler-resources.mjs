@@ -31,6 +31,7 @@ const templateKeys = new Set(["name", "prefix", "display_name", "schedulers", "d
 const capacityProfileKeys = new Set(["name", "scheduler", "resources"]);
 const forwardingProfileKeys = new Set(["name", "mappings"]);
 const forwardingMappingKeys = new Set(["source_resource", "target_resource", "env_variable"]);
+export const checkHostCPUMaxAutoLimit = 14;
 
 let cachedRegistry = null;
 
@@ -637,7 +638,10 @@ function availableParallelism() {
 }
 
 export function estimateCheckHostCPULimit() {
-  return Math.max(1, Math.min(14, Math.ceil(availableParallelism() * 0.7)));
+  return Math.max(
+    1,
+    Math.min(checkHostCPUMaxAutoLimit, Math.ceil(availableParallelism() * 0.7)),
+  );
 }
 
 export function estimateCheckHostIOLimit(resourceLimits = new Map()) {

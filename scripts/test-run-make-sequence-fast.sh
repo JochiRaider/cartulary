@@ -151,7 +151,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v2") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v3") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {
@@ -263,7 +263,7 @@ for (const name of ["alpha", "beta", "smoke", "dry-run"]) {
       success_budget: { stdout_lines: 2, stdout_bytes: 1500, stderr_lines: 0, stderr_bytes: 0 },
       failure_budget: { stderr_lines: 35, stderr_bytes: 6000, excerpt_lines: 25, excerpt_bytes: 4096 },
       raw_stream_policy: "never_default",
-      summary_schema: "cartulary.tool_run_summary.v2",
+      summary_schema: "cartulary.tool_run_summary.v3",
     };
   }
   manifest.make_recipes[name] = { type: "alias", prerequisites: [] };

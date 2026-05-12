@@ -13,7 +13,7 @@ import {
   publicExitCodeForFailures,
 } from "./failure-taxonomy.mjs";
 
-export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v2";
+export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
 
 export const failureClasses = failureClassOrder;
 export const failureReasons = failureReasonOrder;
@@ -278,6 +278,7 @@ export function buildToolRunSummary({
   slowest = [],
   warnings = [],
   rerunCommands = [],
+  schedulerTiming = null,
   extensions = {},
 }) {
   const normalizedFailureClass = normalizeFailureClass(failureClass, "");
@@ -330,6 +331,7 @@ export function buildToolRunSummary({
     slowest: sortSlowest(slowest),
     warnings,
     rerun_commands: rerunCommands,
+    scheduler_timing: schedulerTiming,
     extensions,
   };
 }

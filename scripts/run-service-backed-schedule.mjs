@@ -159,6 +159,25 @@ function validateBrowserTarget(source, target, label, browserStages) {
   }
 }
 
+function validateNormalizedServiceBackedSchedule(schedule, browserStages) {
+  for (const [index, unit] of schedule.workUnits.entries()) {
+    const label = `scheduler schedule ${schedule.target} work_units ${index + 1}`;
+    if (unit.class === "browser" || unit.kind.startsWith("browser_")) {
+      validateBrowserTarget(
+        {
+          type: "browser_stage",
+          browser_stage: unit.browserStage,
+        },
+        unit.aggregateTarget || unit.target,
+        label,
+        browserStages,
+      );
+      continue;
+    }
+    validateBackendTarget(schedule.target, unit.aggregateTarget || unit.target, label);
+  }
+}
+
 function validateBrowserGroup(source, group, groupIndex, label, resourceLimits) {
   const groupLabel = `${label} ${source.target} groups ${groupIndex + 1}`;
   if (!group || typeof group !== "object" || Array.isArray(group)) {
@@ -1067,6 +1086,7 @@ async function main() {
       };
     },
   });
+  validateNormalizedServiceBackedSchedule(schedule, await _loadBrowserBatchStages(context));
   schedule.totalWorkUnits = schedule.workUnits.filter((unit) => unit.countInTotal !== false).length;
   schedule.finalizerCount = schedule.workUnits.filter((unit) => unit.kind === "aggregate_finalize").length;
   schedule.children = Array.from(

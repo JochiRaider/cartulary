@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -59,8 +60,10 @@ const frontendImportBoundariesSchemaID =
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
-const toolRunSummarySchemaID = "cartulary.tool_run_summary.v2";
+const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v2";
+const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
+const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v9";
 
 const phaseStatusValues = new Set(["active", "planned", "retired"]);
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
@@ -122,6 +125,7 @@ const toolRunSummaryKeys = new Set([
   "slowest",
   "warnings",
   "rerun_commands",
+  "scheduler_timing",
   "extensions",
 ]);
 const toolRunCommandKeys = new Set(["cwd", "argv", "make_target", "env"]);
@@ -253,6 +257,8 @@ const toolRunHelperUnitKeys = new Set(["target", "status", "run_root"]);
 const toolRunSlowestKeys = new Set(["id", "duration_ms", "kind"]);
 const rfc3339TimestampPattern =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
+const extensionKeyPattern =
+  /^(?:cartulary\.[A-Za-z0-9_.-]+|[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+){2,})$/u;
 const generatedArtifactEntryKeys = new Set([
   "path",
   "allowed_extensions",
@@ -295,6 +301,10 @@ const restrictedImportKeys = new Set([
   "path",
   "package_roots",
   "include_subpaths",
+]);
+const supportSchemaIDs = new Set([
+  "cartulary.harness.defs.v1",
+  schedulerSummaryCommonSchemaID,
 ]);
 
 function usage() {
@@ -1016,7 +1026,132 @@ function validateToolRunSummaryShape(file) {
   validateToolRunSlowest(summary.slowest, `${file}.slowest`);
   requireObjectArray(summary.warnings, `${file}.warnings`);
   requireStringArray(summary.rerun_commands, `${file}.rerun_commands`);
-  requireObject(summary.extensions, `${file}.extensions`);
+  if (summary.scheduler_timing !== null) {
+    requireObject(summary.scheduler_timing, `${file}.scheduler_timing`);
+  }
+  const extensions = requireObject(summary.extensions, `${file}.extensions`);
+  for (const key of Object.keys(extensions)) {
+    if (!extensionKeyPattern.test(key)) {
+      throw new Error(`${file}.extensions has invalid extension key ${key}`);
+    }
+  }
+  validateSchemaSync(toolRunSummarySchemaID, summary);
+}
+
+function schemaIDFromFile(file) {
+  const base = path.basename(file);
+  if (!base.endsWith(".schema.json")) {
+    throw new Error(`${file} must end with .schema.json`);
+  }
+  return base.slice(0, -".schema.json".length);
+}
+
+function extensionSchemaIsShared(value) {
+  return (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    value.$ref === sharedExtensionsRef &&
+    Object.keys(value).length === 1
+  );
+}
+
+function schemaDeclaresSchemaID(schema, schemaID) {
+  if (schema?.properties?.schema_id?.const === schemaID) {
+    return true;
+  }
+  return (schema?.allOf ?? []).some(
+    (entry) => entry?.properties?.schema_id?.const === schemaID,
+  );
+}
+
+function schemaRequiresSchemaID(schema) {
+  if ((schema?.required ?? []).includes("schema_id")) {
+    return true;
+  }
+  return (schema?.allOf ?? []).some((entry) =>
+    (entry?.required ?? []).includes("schema_id"),
+  );
+}
+
+function schemaIsClosed(schema) {
+  if (schema?.additionalProperties === false) {
+    return true;
+  }
+  return (schema?.allOf ?? []).some(
+    (entry) => entry?.$ref === schedulerSummaryCommonSchemaID,
+  );
+}
+
+function schemaIsAliasOnly(schema) {
+  const keys = Object.keys(schema).sort();
+  return (
+    keys.length === 3 &&
+    keys[0] === "$id" &&
+    keys[1] === "$ref" &&
+    keys[2] === "$schema"
+  );
+}
+
+function validateExtensionProperties(schema, label) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return;
+  }
+  if (schema.properties?.extensions !== undefined) {
+    if (!extensionSchemaIsShared(schema.properties.extensions)) {
+      throw new Error(
+        `${label}.properties.extensions must reference ${sharedExtensionsRef}`,
+      );
+    }
+  }
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === "properties" && value && typeof value === "object") {
+      for (const [propertyName, propertySchema] of Object.entries(value)) {
+        validateExtensionProperties(propertySchema, `${label}.properties.${propertyName}`);
+      }
+      continue;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => {
+        validateExtensionProperties(entry, `${label}.${key}[${index + 1}]`);
+      });
+      continue;
+    }
+    validateExtensionProperties(value, `${label}.${key}`);
+  }
+}
+
+function validateSchemaAttachmentPolicy(root) {
+  const schemaDir = repoFile(root, "tools/schemas");
+  for (const name of readdirSync(schemaDir).sort((left, right) =>
+    left.localeCompare(right),
+  )) {
+    if (!name.endsWith(".schema.json")) {
+      continue;
+    }
+    const file = path.join(schemaDir, name);
+    const schema = readShapeFile(file, file);
+    const schemaID = schemaIDFromFile(file);
+    if (schema.$id !== schemaID) {
+      throw new Error(`${file} $id must match ${schemaID}`);
+    }
+    validateExtensionProperties(schema, file);
+    if (supportSchemaIDs.has(schemaID)) {
+      continue;
+    }
+    if (schemaIsAliasOnly(schema)) {
+      throw new Error(`${file} must not be an alias-only public schema`);
+    }
+    if (!schemaRequiresSchemaID(schema)) {
+      throw new Error(`${file} must require schema_id`);
+    }
+    if (!schemaDeclaresSchemaID(schema, schemaID)) {
+      throw new Error(`${file} must constrain schema_id to ${schemaID}`);
+    }
+    if (!schemaIsClosed(schema)) {
+      throw new Error(`${file} must be closed at the top level`);
+    }
+  }
 }
 
 function validateKind(kind, file) {
@@ -1072,6 +1207,7 @@ function validateKind(kind, file) {
 }
 
 function validateAll(root) {
+  validateSchemaAttachmentPolicy(root);
   validatePhaseRegistryShape(repoFile(root, "tools/phase_registry.json"));
   validatePhaseRegistry(root);
   for (const entry of activePhaseRegistryEntries(root)) {

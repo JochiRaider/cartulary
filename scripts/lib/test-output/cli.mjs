@@ -1325,10 +1325,10 @@ function writePhaseArtifacts(context, details) {
     rerunCommands: context.command ? [context.command] : [],
     extensions: {
       ...(shellcheckFilesChecked !== null
-        ? { lint_shell: { files_checked: shellcheckFilesChecked } }
+        ? { "cartulary.lint_shell": { files_checked: shellcheckFilesChecked } }
         : {}),
       ...(securityProfileCount !== null
-        ? { security: { profile_count: securityProfileCount } }
+        ? { "cartulary.security": { profile_count: securityProfileCount } }
         : {}),
     },
   });
@@ -2842,9 +2842,9 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     failures: targetSummary.failures ?? [],
     slowest: slowest ? [slowest] : [],
     rerunCommands: [`make ${targetSummary.target}`],
+    schedulerTiming,
     extensions: {
-      ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
-      ...(serviceMetadata ? { service_backed: serviceMetadata } : {}),
+      ...(serviceMetadata ? { "cartulary.service_backed": serviceMetadata } : {}),
     },
   });
 }
@@ -3827,9 +3827,7 @@ function runToolSummary(runSummary, summaryJsonPath) {
     failureReason: runSummary.failure_reason,
     failures: runSummary.failures ?? [],
     slowest: slowest ? [slowest] : [],
-    extensions: {
-      ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
-    },
+    schedulerTiming,
     rerunCommands: [`make ${runSummary.label}`],
   });
 }

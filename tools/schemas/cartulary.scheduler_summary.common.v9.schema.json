@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.service_backed_scheduler_summary.v9",
+  "$id": "cartulary.scheduler_summary.common.v9",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -47,7 +47,7 @@
     "artifacts"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.service_backed_scheduler_summary.v9" },
+    "schema_id": { "type": "string", "minLength": 1 },
     "target": { "type": "string", "minLength": 1 },
     "status": { "$ref": "cartulary.harness.defs.v1#/$defs/status" },
     "failure_class": { "$ref": "cartulary.harness.defs.v1#/$defs/failure_class" },

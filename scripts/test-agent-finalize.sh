@@ -75,7 +75,7 @@ if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
     mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
     cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/tool-run-summary.json" <<JSON
 {
-  "schema_id": "cartulary.tool_run_summary.v2",
+  "schema_id": "cartulary.tool_run_summary.v3",
   "target": "${target}",
   "status": "fail",
   "failure_class": "product",
@@ -100,7 +100,7 @@ write_retained_run() {
   mkdir -p "$dir/check" "$dir/backend-unit/backend-unit" "$dir/check/check"
   cat >"$dir/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v2",
+  "schema_id": "cartulary.tool_run_summary.v3",
   "target": "check",
   "status": "pass"
 }
@@ -265,7 +265,7 @@ write_fake_make "$machine_make"
 ) >"$machine_dir/stdout.log" 2>"$machine_dir/stderr.log"
 assert_equals "$(cat "$machine_dir/stderr.log")" "" "machine stderr"
 machine_stdout="$(cat "$machine_dir/stdout.log")"
-assert_contains "$machine_stdout" '"schema_id":"cartulary.tool_run_summary.v2"' "machine tool summary"
+assert_contains "$machine_stdout" '"schema_id":"cartulary.tool_run_summary.v3"' "machine tool summary"
 if [[ "$machine_stdout" == *"[FINALIZE]"* || "$machine_stdout" == *"[RESULT]"* ]]; then
   fail "machine output must not include human lines"
 fi

@@ -23,7 +23,7 @@ export function counted(unit) {
 }
 
 export function finalizer(unit) {
-  return unit.kind === "finalizer";
+  return unit.kind === "finalizer" || unit.kind === "aggregate_finalize";
 }
 
 export function visibleRunningCount(running) {
@@ -198,25 +198,30 @@ export function failedDependencyForSkip(unit, failedKeys) {
 
 export function skipFailedDependencyUnits({ pending, failedKeys, reporter, stateSnapshot }) {
   let skipped = 0;
-  for (let index = 0; index < pending.length; ) {
-    const unit = pending[index];
-    const failedDependency = failedDependencyForSkip(unit, failedKeys);
-    if (!failedDependency) {
-      index += 1;
-      continue;
+  let skippedThisPass = 0;
+  do {
+    skippedThisPass = 0;
+    for (let index = 0; index < pending.length; ) {
+      const unit = pending[index];
+      const failedDependency = failedDependencyForSkip(unit, failedKeys);
+      if (!failedDependency) {
+        index += 1;
+        continue;
+      }
+      pending.splice(index, 1);
+      skipped += 1;
+      skippedThisPass += 1;
+      for (const key of unitFailureKeys(unit)) {
+        failedKeys.set(key, failedDependency);
+      }
+      reporter.skipUnit(
+        unit,
+        stateSnapshot(skipped),
+        "dependency_failure",
+        failedDependency,
+      );
     }
-    pending.splice(index, 1);
-    skipped += 1;
-    for (const key of unitFailureKeys(unit)) {
-      failedKeys.set(key, failedDependency);
-    }
-    reporter.skipUnit(
-      unit,
-      stateSnapshot(skipped),
-      "dependency_failure",
-      failedDependency,
-    );
-  }
+  } while (skippedThisPass > 0);
   return skipped;
 }
 

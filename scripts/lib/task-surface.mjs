@@ -596,10 +596,10 @@ function validateOutputPolicy(errors, entry) {
   }
   if (
     policy.summary_schema !== null &&
-    policy.summary_schema !== "cartulary.tool_run_summary.v2"
+    policy.summary_schema !== "cartulary.tool_run_summary.v3"
   ) {
     errors.push(
-      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v2 or null`,
+      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v3 or null`,
     );
   }
   if (policy.artifact_policy === "none" && policy.summary_schema !== null) {
@@ -609,10 +609,10 @@ function validateOutputPolicy(errors, entry) {
   }
   if (
     policy.artifact_policy !== "none" &&
-    policy.summary_schema !== "cartulary.tool_run_summary.v2"
+    policy.summary_schema !== "cartulary.tool_run_summary.v3"
   ) {
     errors.push(
-      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v2 when artifact_policy is ${policy.artifact_policy}`,
+      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v3 when artifact_policy is ${policy.artifact_policy}`,
     );
   }
   validateBudget(
@@ -1393,7 +1393,7 @@ function renderMakeRecipe(recipe, manifest) {
   const prefix = renderRecipePrefix(recipe, entry);
   if (recipe.type === "alias") {
     const lines = [...prefix, header, ...preflightPrelude, ...prerequisitePrelude];
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v2") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v3") {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
     return lines;
@@ -1628,7 +1628,7 @@ function renderPhaseCommandRecipe(recipe, entry = null) {
     return [`\t$(Q)${envPrefix}$(NODE_BIN) ${recipe.script}${argsSuffix}`];
   }
   if (recipe.mode === "command") {
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v2") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v3") {
       const childPrefix = env.length > 0 ? `env ${env.join(" ")} ` : "";
       const testTarget = `CARTULARY_TEST_TARGET="$\${CARTULARY_TEST_TARGET:-${recipe.target}}"`;
       return [

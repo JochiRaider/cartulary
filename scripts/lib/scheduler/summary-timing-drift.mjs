@@ -98,15 +98,15 @@ function checkElapsedSummary({ errors, file, summary, timing, finalEvent }) {
 }
 
 function checkToolSummaryExtension({ errors, file, summary, timing }) {
-  const extension = summary?.extensions?.scheduler_timing;
+  const extension = summary?.scheduler_timing;
   if (!extension) {
-    errors.push(`${file}: missing extensions.scheduler_timing`);
+    errors.push(`${file}: missing scheduler_timing`);
     return;
   }
   const extensionTotal = integerField(extension, "scheduler_total_duration_ms");
   if (extensionTotal !== timing.totalDurationMs) {
     errors.push(
-      `${file}: extensions.scheduler_timing.scheduler_total_duration_ms ${extensionTotal} does not match scheduler total ${timing.totalDurationMs}ms`,
+      `${file}: scheduler_timing.scheduler_total_duration_ms ${extensionTotal} does not match scheduler total ${timing.totalDurationMs}ms`,
     );
   }
 }

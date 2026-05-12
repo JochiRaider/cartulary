@@ -101,7 +101,7 @@ const addSummaryRefs = (summaryPath) => {
   }
   seenSummaries.add(summaryPath);
   const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-  if (summary.schema_id !== "cartulary.tool_run_summary.v2") {
+  if (summary.schema_id !== "cartulary.tool_run_summary.v3") {
     throw new Error(`${targetName}: unexpected schema ${summary.schema_id}`);
   }
   if (summary.target !== targetName || summary.status !== "pass") {
@@ -208,7 +208,7 @@ if (lines.length !== 1) {
 }
 const summary = JSON.parse(lines[0]);
 if (
-  summary.schema_id !== "cartulary.tool_run_summary.v2" ||
+  summary.schema_id !== "cartulary.tool_run_summary.v3" ||
   summary.target !== targetName ||
   summary.status !== "pass"
 ) {

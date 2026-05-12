@@ -19,6 +19,10 @@ esac
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
 
 cleanup() {
+  if [[ "${KEEP_TEST_TMP:-0}" == "1" ]]; then
+    printf 'keeping test tmp paths: %s\n' "${cleanup_paths[*]}" >&2
+    return
+  fi
   local path
   for path in "${cleanup_paths[@]}"; do
     rm -rf "${path}"
@@ -326,7 +330,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v2") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v3") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {
@@ -866,6 +870,48 @@ EOF
   chmod +x "${dir}/fake-go-target"
 }
 
+expand_source_manifest() {
+  local source_file="$1"
+  local output_file="$2"
+
+  "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$source_file" "$output_file" <<'EOF'
+import fs from "node:fs";
+import {
+  expandServiceBackedSchedule,
+} from "./scripts/lib/check-service-backed-expansion.mjs";
+
+const [repoRoot, sourceFile, outputFile] = process.argv.slice(2);
+const sourceManifest = JSON.parse(fs.readFileSync(sourceFile, "utf8"));
+const schedules = sourceManifest.schedules.map((sourceSchedule) => {
+  const { work_unit_sources: _workUnitSources, ...schedule } = sourceSchedule;
+  return {
+    ...schedule,
+    scheduler_kind: "service_backed",
+    stop_on_first_failure: false,
+    progress_tick_seconds: 30,
+    validate_timing: true,
+    work_units: expandServiceBackedSchedule({
+      repoRoot,
+      serviceSchedule: sourceSchedule,
+    }),
+    finalizers: [],
+  };
+});
+fs.writeFileSync(
+  outputFile,
+  `${JSON.stringify({
+    schema_id: "cartulary.scheduler_manifest.v1",
+    generated: {
+      generator: "scripts/test-service-backed-scheduler.sh",
+      source: "smoke fixture",
+    },
+    schedules,
+  }, null, 2)}\n`,
+);
+EOF
+  rm -f "$source_file"
+}
+
 write_manifest() {
   local file="$1"
   local target="$2"
@@ -876,7 +922,7 @@ write_manifest() {
     printf '{\n'
     printf '  "schema_id": "cartulary.service_backed_schedule_sources.v1",\n'
     printf '  "schedules": [\n'
-    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
+    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "postgres_clone": 8, "postgres_reset": 8, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
     local source
 	    for source in "$@"; do
@@ -951,47 +997,12 @@ write_manifest() {
         printf ' }'
       fi
     done
-    printf '\n    ] }\n'
-    printf '  ]\n'
-    printf '}\n'
-  } >"$source_file"
+	    printf '\n    ] }\n'
+	    printf '  ]\n'
+	    printf '}\n'
+	  } >"$source_file"
 
-  "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$source_file" "$file" <<'EOF'
-import fs from "node:fs";
-import {
-  expandServiceBackedSchedule,
-} from "./scripts/lib/check-service-backed-expansion.mjs";
-
-const [repoRoot, sourceFile, outputFile] = process.argv.slice(2);
-const sourceManifest = JSON.parse(fs.readFileSync(sourceFile, "utf8"));
-const schedules = sourceManifest.schedules.map((sourceSchedule) => {
-  const { work_unit_sources: _workUnitSources, ...schedule } = sourceSchedule;
-  return {
-    ...schedule,
-    scheduler_kind: "service_backed",
-    stop_on_first_failure: false,
-    progress_tick_seconds: 30,
-    validate_timing: true,
-    work_units: expandServiceBackedSchedule({
-      repoRoot,
-      serviceSchedule: sourceSchedule,
-    }),
-    finalizers: [],
-  };
-});
-fs.writeFileSync(
-  outputFile,
-  `${JSON.stringify({
-    schema_id: "cartulary.scheduler_manifest.v1",
-    generated: {
-      generator: "scripts/test-service-backed-scheduler.sh",
-      source: "smoke fixture",
-    },
-    schedules,
-  }, null, 2)}\n`,
-);
-EOF
-  rm -f "$source_file"
+  expand_source_manifest "$source_file" "$file"
 }
 
 assert_no_shared_backend_integration_shards() {
@@ -1148,9 +1159,9 @@ auto_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-auto-ca
 cleanup_paths+=("$auto_capacity_dir")
 write_fake_make "$auto_capacity_dir"
 auto_capacity_manifest="${auto_capacity_dir}/manifest.json"
-cat >"$auto_capacity_manifest" <<'JSON'
+cat >"${auto_capacity_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v11",
+  "schema_id": "cartulary.service_backed_schedule_sources.v1",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -1171,6 +1182,7 @@ cat >"$auto_capacity_manifest" <<'JSON'
   ]
 }
 JSON
+expand_source_manifest "${auto_capacity_manifest}.sources" "$auto_capacity_manifest"
 auto_capacity_output="$(run_scheduler "$auto_capacity_dir" "$auto_capacity_manifest" test-service-backed auto-capacity 2>&1)"
 assert_contains "$auto_capacity_output" "[SCHEDULER] test-service-backed start work_units=1 finalizers=0 capacity={" "auto capacity resolves through registry policies"
 "$NODE_BIN" - "${auto_capacity_dir}/results/auto-capacity/test-service-backed/scheduler-summary.json" <<'EOF'
@@ -1178,13 +1190,13 @@ const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const sources = summary.resource_limit_sources ?? {};
-if (sources.go_cpu !== "registry:service_backed_full") {
+if (sources.go_cpu !== "auto:service_backed_go_cpu") {
   throw new Error(`go_cpu auto source got ${sources.go_cpu}`);
 }
-if (sources.go_io !== "registry:service_backed_full") {
+if (sources.go_io !== "auto:service_backed_go_io") {
   throw new Error(`go_io auto source got ${sources.go_io}`);
 }
-if (sources.browser_stack !== "registry:service_backed_full") {
+if (sources.browser_stack !== "auto:service_backed_browser_stack") {
   throw new Error(`browser_stack auto source got ${sources.browser_stack}`);
 }
 if (sources.process !== "registry:service_backed_full") {
@@ -1299,13 +1311,13 @@ cleanup_paths+=("$eager_finalizer_dir")
 write_fake_make "$eager_finalizer_dir"
 write_fake_go_target_runner "$eager_finalizer_dir"
 eager_finalizer_manifest="${eager_finalizer_dir}/manifest.json"
-cat >"$eager_finalizer_manifest" <<'JSON'
+cat >"${eager_finalizer_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v11",
+  "schema_id": "cartulary.service_backed_schedule_sources.v1",
   "schedules": [
     {
       "target": "test-service-backed",
-      "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 64, "go_io": 64, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1 },
+      "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 64, "go_io": 64, "postgres_clone": 8, "postgres_reset": 8, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1 },
       "work_unit_sources": [
         { "type": "go_shards", "class": "backend", "target": "backend-store", "resource_claims": { "postgres": 1, "minio": 1 } },
         {
@@ -1324,6 +1336,7 @@ cat >"$eager_finalizer_manifest" <<'JSON'
   ]
 }
 JSON
+expand_source_manifest "${eager_finalizer_manifest}.sources" "$eager_finalizer_manifest"
 eager_finalizer_output="$(
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=5 \
   FAKE_GO_SLEEP_CAPTURE=0.01 \
@@ -1446,9 +1459,9 @@ browser_auto_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-
 cleanup_paths+=("$browser_auto_dir")
 write_fake_make "$browser_auto_dir"
 browser_auto_manifest="${browser_auto_dir}/manifest.json"
-cat >"$browser_auto_manifest" <<'JSON'
+cat >"${browser_auto_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v11",
+  "schema_id": "cartulary.service_backed_schedule_sources.v1",
   "schedules": [
     {
       "target": "check-service-backed",
@@ -1517,6 +1530,7 @@ cat >"$browser_auto_manifest" <<'JSON'
   ]
 }
 JSON
+expand_source_manifest "${browser_auto_manifest}.sources" "$browser_auto_manifest"
 browser_auto_output="$(
   FAKE_SCHEDULER_SLEEP=0.2 \
     run_scheduler "$browser_auto_dir" "$browser_auto_manifest" check-service-backed browser-auto 2>&1
@@ -1530,7 +1544,7 @@ const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 if (!Number.isInteger(summary.resource_limits?.browser_stack) || summary.resource_limits.browser_stack < 4) {
   throw new Error(`browser_stack limit got ${summary.resource_limits?.browser_stack}`);
 }
-if (summary.resource_limit_sources?.browser_stack !== "manifest") {
+if (summary.resource_limit_sources?.browser_stack !== "auto:service_backed_browser_stack") {
   throw new Error(`browser_stack source got ${summary.resource_limit_sources?.browser_stack}`);
 }
 EOF
@@ -1602,9 +1616,9 @@ scheduler_priority_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-pr
 cleanup_paths+=("$scheduler_priority_dir")
 write_fake_make "$scheduler_priority_dir"
 scheduler_priority_manifest="${scheduler_priority_dir}/manifest.json"
-cat >"$scheduler_priority_manifest" <<'JSON'
+cat >"${scheduler_priority_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v11",
+  "schema_id": "cartulary.service_backed_schedule_sources.v1",
   "schedules": [
     {
       "target": "check-service-backed",
@@ -1617,6 +1631,7 @@ cat >"$scheduler_priority_manifest" <<'JSON'
   ]
 }
 JSON
+expand_source_manifest "${scheduler_priority_manifest}.sources" "$scheduler_priority_manifest"
 scheduler_priority_output="$(FAKE_SCHEDULER_SLEEP=0.01 run_scheduler "$scheduler_priority_dir" "$scheduler_priority_manifest" check-service-backed scheduler-priority 2>&1)"
 assert_contains "$scheduler_priority_output" "[RESULT] target=check-service-backed status=pass" "service-backed scheduler priority pass"
 "$NODE_BIN" - "${scheduler_priority_dir}/make.log" <<'EOF'
@@ -1760,7 +1775,7 @@ dependency_failure_skip_output="$(
 )"
 dependency_failure_skip_status=$?
 set -e
-assert_equals "$dependency_failure_skip_status" "9" "dependency failure status"
+assert_equals "$dependency_failure_skip_status" "1" "dependency failure status"
 assert_contains "$dependency_failure_skip_output" "skipped=" "dependency failure summary skipped dependent work"
 assert_contains "$dependency_failure_skip_output" "[FAIL] target=check-service-backed" "dependency failure parent summary"
 assert_occurrences "$dependency_failure_skip_output" "[FAIL] target=check-service-backed" "1" "dependency failure single parent failure block"
@@ -1884,7 +1899,7 @@ failed_shard_output="$(
 )"
 failed_shard_status=$?
 set -e
-assert_equals "$failed_shard_status" "9" "failed shard finalizer status"
+assert_equals "$failed_shard_status" "1" "failed shard finalizer status"
 assert_contains "$failed_shard_output" "fake shard failure for backend-store-shard-01" "failed shard output"
 assert_contains "$failed_shard_output" "[SUMMARY] target=test-fast-service-backed status=fail" "failed shard scheduler summary"
 assert_contains "$failed_shard_output" "finalizer_failures=1" "failed shard scheduler finalizer failure count"
@@ -1945,7 +1960,7 @@ set +e
 unsafe_output="$(run_scheduler "$unsafe_dir" "$unsafe_manifest" check-service-backed unsafe 2>&1)"
 unsafe_status=$?
 set -e
-assert_equals "$unsafe_status" "1" "unsafe manifest status"
+assert_equals "$unsafe_status" "2" "unsafe manifest status"
 assert_contains "$unsafe_output" "is not service-backed" "unsafe manifest output"
 
 unknown_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown.XXXXXX")"
@@ -1958,7 +1973,7 @@ set +e
 unknown_output="$(run_scheduler "$unknown_dir" "$unknown_manifest" test-fast-service-backed unknown 2>&1)"
 unknown_status=$?
 set -e
-assert_equals "$unknown_status" "1" "unknown manifest status"
+assert_equals "$unknown_status" "2" "unknown manifest status"
 assert_contains "$unknown_output" "is not in target-plan" "unknown manifest output"
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-dry-run.XXXXXX")"
@@ -1975,7 +1990,7 @@ dry_run_output="$(
 assert_contains "$dry_run_output" "[DRY-RUN] test-service-backed manifest=" "dry-run output"
 assert_contains "$dry_run_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:2,minio:32,postgres:32,process:2" "dry-run includes compact resolved resources"
 assert_contains "$dry_run_output" "work_units=2" "dry-run includes compact browser stage work summary"
-assert_contains "$dry_run_output" "finalizers=1" "dry-run includes browser stage finalizer"
+assert_contains "$dry_run_output" "finalizers=0" "dry-run excludes browser stage completion from finalizers"
 assert_not_contains "$dry_run_output" "claims={" "default dry-run hides per-unit claims"
 assert_file_absent "${dry_run_dir}/make.log" "dry-run child make log"
 
@@ -2066,8 +2081,9 @@ for (const target of ["test-service-backed", "test-fast-service-backed", "check-
     throw new Error(`${target} backend sources got ${actualBackendTargets} want ${expectedBackendTargets}`);
   }
 }
-if (JSON.stringify(testSources) !== JSON.stringify(checkSources)) {
-  throw new Error(`test-service-backed and check-service-backed sources differ: ${testSources} vs ${checkSources}`);
+const expectedCheckSources = testSources.filter((target) => target !== "browser-e2e-measurement");
+if (JSON.stringify(expectedCheckSources) !== JSON.stringify(checkSources)) {
+  throw new Error(`check-service-backed sources got ${checkSources} want ${expectedCheckSources}`);
 }
 if (fastSources.some((target) => target.startsWith("browser-e2e"))) {
   throw new Error(`test-fast-service-backed must remain backend-only, got ${fastSources.join(",")}`);
@@ -2183,7 +2199,7 @@ set +e
 invalid_resource_output="$(run_scheduler "$invalid_resource_dir" "$invalid_resource_manifest" test-fast-service-backed invalid-resource 2>&1)"
 invalid_resource_status=$?
 set -e
-assert_equals "$invalid_resource_status" "1" "invalid resource manifest status"
+assert_equals "$invalid_resource_status" "2" "invalid resource manifest status"
 assert_contains "$invalid_resource_output" "uses undeclared scheduler resource undeclared-resource" "invalid resource manifest output"
 
 unknown_dependency_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-dependency.XXXXXX")"
@@ -2196,8 +2212,8 @@ set +e
 unknown_dependency_output="$(run_scheduler "$unknown_dependency_dir" "$unknown_dependency_manifest" test-fast-service-backed unknown-dependency 2>&1)"
 unknown_dependency_status=$?
 set -e
-assert_equals "$unknown_dependency_status" "1" "unknown dependency manifest status"
-assert_contains "$unknown_dependency_output" "depends on unknown target missing-target" "unknown dependency manifest output"
+assert_equals "$unknown_dependency_status" "2" "unknown dependency manifest status"
+assert_contains "$unknown_dependency_output" "depends on unknown completion key missing-target" "unknown dependency manifest output"
 
 cycle_dependency_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-cycle-dependency.XXXXXX")"
 cleanup_paths+=("$cycle_dependency_dir")
@@ -2210,7 +2226,7 @@ set +e
 cycle_dependency_output="$(run_scheduler "$cycle_dependency_dir" "$cycle_dependency_manifest" test-fast-service-backed cycle-dependency 2>&1)"
 cycle_dependency_status=$?
 set -e
-assert_equals "$cycle_dependency_status" "1" "cycle dependency manifest status"
+assert_equals "$cycle_dependency_status" "2" "cycle dependency manifest status"
 assert_contains "$cycle_dependency_output" "has a dependency cycle" "cycle dependency manifest output"
 
 invalid_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-browser.XXXXXX")"
@@ -2223,7 +2239,7 @@ set +e
 invalid_browser_output="$(run_scheduler "$invalid_browser_dir" "$invalid_browser_manifest" test-service-backed invalid-browser 2>&1)"
 invalid_browser_status=$?
 set -e
-assert_equals "$invalid_browser_status" "1" "invalid browser manifest status"
+assert_equals "$invalid_browser_status" "2" "invalid browser manifest status"
 assert_contains "$invalid_browser_output" "declares unknown browser_stage missing-stage" "invalid browser manifest output"
 
 invalid_browser_target_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-browser-target.XXXXXX")"
@@ -2236,7 +2252,7 @@ set +e
 invalid_browser_target_output="$(run_scheduler "$invalid_browser_target_dir" "$invalid_browser_target_manifest" test-service-backed invalid-browser-target 2>&1)"
 invalid_browser_target_status=$?
 set -e
-assert_equals "$invalid_browser_target_status" "1" "invalid browser target manifest status"
+assert_equals "$invalid_browser_target_status" "2" "invalid browser target manifest status"
 assert_contains "$invalid_browser_target_output" "must match browser_stage webserver-backed aggregate target browser-e2e-webserver-backed" "invalid browser target manifest output"
 fi
 
@@ -2244,12 +2260,12 @@ legacy_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy.XXXXXX"
 cleanup_paths+=("$legacy_dir")
 write_fake_make "$legacy_dir"
 legacy_manifest="${legacy_dir}/manifest.json"
-write_legacy_manifest "$legacy_manifest" "cartulary.service_backed_schedule.v2"
+write_legacy_manifest "$legacy_manifest" "cartulary.service_backed_schedule.v11"
 set +e
 legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-service-backed legacy 2>&1)"
 legacy_status=$?
 set -e
-assert_equals "$legacy_status" "1" "legacy manifest status"
+assert_equals "$legacy_status" "2" "legacy manifest status"
 assert_contains "$legacy_output" "must declare schema_id cartulary.scheduler_manifest.v1" "legacy manifest output"
 
 if [[ "$SUITE" != "fast" ]]; then
