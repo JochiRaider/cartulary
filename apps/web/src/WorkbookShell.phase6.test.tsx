@@ -45,6 +45,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     value: string,
   ) {
     const testId = input.getAttribute("data-testid");
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value } });
     await waitFor(() => {
       const currentInput =

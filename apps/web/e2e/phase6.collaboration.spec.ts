@@ -43,6 +43,7 @@ import {
   installIncidentSocketMonitor,
   installPatchController,
   installPatchTransportFailureController,
+  openIncidentAsTrackedUserReady,
   patchTimelineField,
   requireRecordId,
   type SocketMessage,
@@ -80,14 +81,20 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
       "E-6-01 presence base",
     );
 
-    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
-      createdBy: "E-6-01",
-      email: remote.email,
-      incidentId,
-      password: remote.initial_password,
-      purpose: "Phase 6 E-6-01 remote analyst",
-      userId: remote.user_id,
-    });
+    const remoteSession = await openIncidentAsTrackedUserReady(
+      browser,
+      sessionTracker,
+      {
+        createdBy: "E-6-01",
+        email: remote.email,
+        incidentId,
+        password: remote.initial_password,
+        purpose: "Phase 6 E-6-01 remote analyst",
+        readyRecordId: recordId,
+        userId: remote.user_id,
+      },
+    );
+    remotePage = remoteSession.page;
     await primarySocket.waitForMessage("presence_delta");
     await expect(page.getByTestId("presence-header")).toContainText("RA");
 
@@ -125,6 +132,12 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
       interaction_threshold_ms: presenceInteractionThresholdMs,
       record_id: recordId,
       row_marker_duration_ms: markerTiming.rowMarkerDurationMs,
+      remote_outbound_presence_updates: remoteSession.socketMonitor
+        .sentMessages()
+        .filter((message) => {
+          return message.type === "presence_update";
+        }).length,
+      remote_socket_index: remoteSession.acceptedSocket.socketIndex,
       socket_delta_duration_ms: socketDeltaDurationMs,
       ui_render_duration_ms: markerTiming.renderDurationMs,
     };

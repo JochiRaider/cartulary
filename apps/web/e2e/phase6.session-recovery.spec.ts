@@ -2,12 +2,7 @@ import { revokeAllSessions } from "./authRuntime";
 import { expect, test } from "./fixtures";
 import { apiBase, applyStorageState, csrfHeaders } from "./helpers";
 import { Phase1Page } from "./phase1Page";
-import {
-  createUntrackedLoginSessions,
-  exerciseRevokedPendingReplay,
-} from "./phase6Harness";
-
-const concurrencyEvictionLoginBurst = 10;
+import { exerciseRevokedPendingReplay } from "./phase6Harness";
 
 test.beforeEach(async ({ page }) => {
   await new Phase1Page(page).resetClockOffset();
@@ -57,24 +52,6 @@ test("E-6-03 preserves unsaved local work after socket revocation and re-authent
           },
         );
         expect(response.ok()).toBeTruthy();
-      },
-    });
-    await applyStorageState(page, workerAdmin.storageState);
-  });
-
-  await test.step("concurrency-limit revocation preserves and replays local work", async () => {
-    await exerciseRevokedPendingReplay({
-      createdBy: "E-6-03",
-      incidentKeyPrefix: "E603CONCURRENCY",
-      page,
-      scenario: "concurrency",
-      sessionTracker,
-      triggerRevocation: async ({ member }) => {
-        await createUntrackedLoginSessions(
-          member.email,
-          member.initial_password,
-          concurrencyEvictionLoginBurst,
-        );
       },
     });
     await applyStorageState(page, workerAdmin.storageState);

@@ -483,8 +483,8 @@
       "title": "E-6-01 shows two analysts each other's workbook presence within the expected interaction window",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Two analysts on the same incident see each other's presence on the workbook surface within the expected interaction window, with the browser row retaining a timing artifact for the 1-second presence validation.",
-      "out_of_scope": "Socket-level presence canonicalization remains backend evidence."
+      "claim": "Two analysts on the same incident see each other's presence on the workbook surface within the expected interaction window after both browser sockets have reached the accepted `hello_ack` state, with the browser row retaining a timing artifact for the 1-second presence validation.",
+      "out_of_scope": "Socket-level presence canonicalization and pre-interaction socket readiness remain backend and harness evidence."
     },
     {
       "id": "E-6-02",
@@ -505,8 +505,8 @@
       "title": "E-6-03 preserves unsaved local work after socket revocation and re-authentication",
       "execution_dependency": "browser_stateful",
       "evidence_layer": "browser",
-      "claim": "Representative route-owned browser revocation sources, including admin revoke-all, current-session logout, concurrency-limit eviction, and shared-clock idle expiry, emit `session_revoked`, close the socket, and preserve unsaved local work for explicit recovery and FIFO replay after re-authentication.",
-      "out_of_scope": "Browser evidence proves UI preservation and replay after representative route-owned revocation sources. Low-level revocation-source correctness remains backend and integration evidence."
+      "claim": "Deterministic route-owned browser revocation sources, including admin revoke-all, current-session logout, and shared-clock idle expiry, emit `session_revoked` on an established browser socket, close that socket, and preserve unsaved local work for explicit recovery and FIFO replay after re-authentication.",
+      "out_of_scope": "Browser evidence proves UI preservation and replay after deterministic revocation sources. Concurrency-limit victim selection and socket delivery remain backend and integration evidence rather than browser login-burst evidence."
     },
     {
       "id": "E-6-04",

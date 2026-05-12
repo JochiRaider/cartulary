@@ -1171,7 +1171,11 @@ Support-only tests, helper phases, raw aggregate suites, and direct package scri
 Verified by: TH-HARNESS-AC-013
 
 **TH-HARNESS-REQ-652**
-Load, login bursts, service resets, artificial stress margins, and browser harness stress tests are harness-only unless product specs explicitly adopt them. The Phase 6 browser login burst remains a harness stress margin and does not change Core 04 session-cap semantics.
+Load, login bursts, service resets, artificial stress margins, and browser harness stress tests are harness-only unless product specs explicitly adopt them. Browser login bursts MUST NOT be used as the sole evidence for Core 04 session-cap semantics when backend or integration evidence can prove victim selection and revocation delivery directly.
+Verified by: TH-HARNESS-AC-013
+
+**TH-HARNESS-REQ-653**
+Timing-sensitive browser evidence for asynchronous socket behavior MUST prove the relevant sender readiness, receiver readiness, event identity, and diagnostic capture boundary before starting the measured interaction. A timed assertion MUST measure the product event under test, not page navigation, socket establishment, route cleanup, or waiter attachment.
 Verified by: TH-HARNESS-AC-013
 
 ## 17. Acceptance Criteria / Definition of Done

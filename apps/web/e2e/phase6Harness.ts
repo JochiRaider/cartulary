@@ -6,8 +6,7 @@ import {
   pendingQueueNoticeTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Route, WebSocket } from "@playwright/test";
-import { request } from "@playwright/test";
+import type { Browser, Page, Route, WebSocket } from "@playwright/test";
 import { expect } from "./fixtures";
 import {
   apiBase,
@@ -50,6 +49,11 @@ export type SocketMessage = {
   type: string;
 };
 
+export type AcceptedSocket = {
+  message: SocketMessage;
+  socketIndex: number;
+};
+
 export type SessionTracker = {
   loginTrackedUser: (
     page: Page,
@@ -62,6 +66,37 @@ export type SessionTracker = {
     },
   ) => Promise<void>;
 };
+
+export async function openIncidentAsTrackedUserReady(
+  browser: Browser,
+  sessionTracker: SessionTracker,
+  options: {
+    createdBy: string;
+    email: string;
+    incidentId: string;
+    password: string;
+    purpose: string;
+    readyRecordId: string;
+    userId: string;
+  },
+) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: options.createdBy,
+    email: options.email,
+    password: options.password,
+    purpose: options.purpose,
+    userId: options.userId,
+  });
+  const socketMonitor = installIncidentSocketMonitor(page, options.incidentId);
+  await page.goto(`/?incident_id=${options.incidentId}`);
+  const acceptedSocket = await socketMonitor.waitForAcceptedSocket();
+  await expect(
+    page.getByTestId(`row-${options.readyRecordId}-summary`),
+  ).toBeVisible();
+  return { acceptedSocket, page, socketMonitor };
+}
 
 export type Phase6RecoveryScenario = {
   createdBy: string;
@@ -252,7 +287,7 @@ export async function exerciseRevokedPendingReplay({
 
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
     await page.goto(`/?incident_id=${incidentId}`);
-    await socketMonitor.waitForMessage("hello_ack");
+    await socketMonitor.waitForAcceptedSocket();
     await expect(
       page.getByTestId(`row-${firstReplayItem.recordId}-summary`),
     ).toHaveValue(`Phase 6 ${createdBy} ${scenario} 1 base`);
@@ -267,11 +302,15 @@ export async function exerciseRevokedPendingReplay({
     await heldPatch.waitForHit;
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
 
+    const establishedSocket = socketMonitor.latestEstablishedSocket();
+    if (!establishedSocket) {
+      throw new Error("revoked pending replay had no established socket");
+    }
     await triggerRevocation({ incidentId, member });
-    await socketMonitor.waitForMessage("session_revoked", {
+    const revocation = await socketMonitor.waitForMessage("session_revoked", {
       timeoutMs: 25_000,
     });
-    await socketMonitor.waitForClose(0, 25_000);
+    await socketMonitor.waitForClose(revocation.socketIndex, 25_000);
 
     heldPatch.release();
     await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
@@ -296,7 +335,7 @@ export async function exerciseRevokedPendingReplay({
       purpose: `Phase 6 ${createdBy} ${scenario} analyst re-authentication`,
       userId: member.user_id,
     });
-    await socketMonitor.waitForMessage("hello_ack", {
+    await socketMonitor.waitForAcceptedSocket({
       startAt: messageStart,
     });
 
@@ -340,7 +379,8 @@ function requireReplayItems(
 
 export function installIncidentSocketMonitor(page: Page, incidentId: string) {
   const messages: SocketMessage[] = [];
-  const closes: number[] = [];
+  const sentMessages: SocketMessage[] = [];
+  const closes: Array<{ closedAtMs: number; socketIndex: number }> = [];
   const sockets: WebSocket[] = [];
   const messageWaiters: Array<{
     matches: (message: SocketMessage) => boolean;
@@ -361,6 +401,12 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
     }
     const socketIndex = sockets.length;
     sockets.push(socket);
+    socket.on("framesent", ({ payload }) => {
+      const message = parseSocketPayload(payload, socketIndex);
+      if (message) {
+        sentMessages.push(message);
+      }
+    });
     socket.on("framereceived", ({ payload }) => {
       const message = parseSocketPayload(payload, socketIndex);
       if (!message) {
@@ -377,7 +423,7 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
       }
     });
     socket.on("close", () => {
-      closes.push(socketIndex);
+      closes.push({ closedAtMs: performance.now(), socketIndex });
       for (const waiter of [...closeWaiters]) {
         if (!waiter.matches(socketIndex)) {
           continue;
@@ -391,8 +437,24 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
 
   return {
     messageCount: () => messages.length,
+    receivedMessages: () => [...messages],
+    sentMessages: () => [...sentMessages],
+    socketCount: () => sockets.length,
+    latestEstablishedSocket: () => latestEstablishedSocket(),
+    waitForAcceptedSocket: (
+      options: { startAt?: number; timeoutMs?: number } = {},
+    ) =>
+      waitForMessage("hello_ack", {
+        ...(options.startAt === undefined ? {} : { startAt: options.startAt }),
+        ...(options.timeoutMs === undefined
+          ? {}
+          : { timeoutMs: options.timeoutMs }),
+      }).then((message) => ({
+        message,
+        socketIndex: message.socketIndex,
+      })),
     waitForClose: (socketIndex: number, timeoutMs = 10_000) => {
-      if (closes.includes(socketIndex)) {
+      if (closes.some((closed) => closed.socketIndex === socketIndex)) {
         return Promise.resolve(socketIndex);
       }
       return new Promise<number>((resolve, reject) => {
@@ -403,13 +465,37 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
           timeout: setTimeout(() => {
             closeWaiters.splice(closeWaiters.indexOf(waiter), 1);
             reject(
-              new Error(`timed out waiting for socket ${socketIndex} close`),
+              new Error(
+                `timed out waiting for socket ${socketIndex} close; ${describeSocketMonitorState(
+                  {
+                    closes,
+                    messages,
+                    sentMessages,
+                    sockets,
+                  },
+                )}`,
+              ),
             );
           }, timeoutMs),
         };
         closeWaiters.push(waiter);
       });
     },
+    waitForMessageOnSocket: (
+      type: string,
+      socketIndex: number,
+      options: {
+        matches?: (message: SocketMessage) => boolean;
+        startAt?: number;
+        timeoutMs?: number;
+      } = {},
+    ) =>
+      waitForMessage(type, {
+        ...options,
+        matches: (message) =>
+          message.socketIndex === socketIndex &&
+          (options.matches?.(message) ?? true),
+      }),
     waitForMessage: (
       type: string,
       options: {
@@ -417,34 +503,70 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
         startAt?: number;
         timeoutMs?: number;
       } = {},
-    ) => {
-      const startAt = options.startAt ?? 0;
-      const existing = messages
-        .slice(startAt)
-        .find(
-          (message) =>
-            message.type === type && (options.matches?.(message) ?? true),
-        );
-      if (existing) {
-        return Promise.resolve(existing);
-      }
-      return new Promise<SocketMessage>((resolve, reject) => {
-        const waiter = {
-          matches: (message: SocketMessage) =>
-            messages.indexOf(message) >= startAt &&
-            message.type === type &&
-            (options.matches?.(message) ?? true),
-          reject,
-          resolve,
-          timeout: setTimeout(() => {
-            messageWaiters.splice(messageWaiters.indexOf(waiter), 1);
-            reject(new Error(`timed out waiting for socket message ${type}`));
-          }, options.timeoutMs ?? 10_000),
-        };
-        messageWaiters.push(waiter);
-      });
-    },
+    ) => waitForMessage(type, options),
   };
+
+  function waitForMessage(
+    type: string,
+    options: {
+      matches?: (message: SocketMessage) => boolean;
+      startAt?: number;
+      timeoutMs?: number;
+    } = {},
+  ) {
+    const startAt = options.startAt ?? 0;
+    const existing = messages
+      .slice(startAt)
+      .find(
+        (message) =>
+          message.type === type && (options.matches?.(message) ?? true),
+      );
+    if (existing) {
+      return Promise.resolve(existing);
+    }
+    return new Promise<SocketMessage>((resolve, reject) => {
+      const waiter = {
+        matches: (message: SocketMessage) =>
+          messages.indexOf(message) >= startAt &&
+          message.type === type &&
+          (options.matches?.(message) ?? true),
+        reject,
+        resolve,
+        timeout: setTimeout(() => {
+          messageWaiters.splice(messageWaiters.indexOf(waiter), 1);
+          reject(
+            new Error(
+              `timed out waiting for socket message ${type}; ${describeSocketMonitorState(
+                {
+                  closes,
+                  messages,
+                  sentMessages,
+                  sockets,
+                },
+              )}`,
+            ),
+          );
+        }, options.timeoutMs ?? 10_000),
+      };
+      messageWaiters.push(waiter);
+    });
+  }
+
+  function latestEstablishedSocket(): AcceptedSocket | null {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (
+        message &&
+        (message.type === "hello_ack" || message.type === "resume_ack")
+      ) {
+        return {
+          message,
+          socketIndex: message.socketIndex,
+        };
+      }
+    }
+    return null;
+  }
 }
 
 export async function installPatchController(page: Page) {
@@ -560,31 +682,6 @@ export async function installPatchTransportFailureController(page: Page) {
   };
 }
 
-export async function createUntrackedLoginSessions(
-  email: string,
-  password: string,
-  count: number,
-) {
-  for (let index = 0; index < count; index += 1) {
-    const anonymousRequests = await request.newContext({ baseURL: apiBase });
-    try {
-      const response = await anonymousRequests.post("/api/v1/auth/login", {
-        data: {
-          username: email,
-          password,
-        },
-      });
-      if (!response.ok()) {
-        throw new Error(
-          `untracked login ${index + 1} failed for ${email}: ${await response.text()}`,
-        );
-      }
-    } finally {
-      await anonymousRequests.dispose();
-    }
-  }
-}
-
 export function successfulPatchCalls(calls: PatchCall[]) {
   return calls.filter((call) => call.status >= 200 && call.status < 300);
 }
@@ -674,6 +771,29 @@ function parseSocketPayload(
   } catch {
     return null;
   }
+}
+
+function describeSocketMonitorState({
+  closes,
+  messages,
+  sentMessages,
+  sockets,
+}: {
+  closes: Array<{ closedAtMs: number; socketIndex: number }>;
+  messages: readonly SocketMessage[];
+  sentMessages: readonly SocketMessage[];
+  sockets: readonly WebSocket[];
+}) {
+  const received = messages
+    .map((message) => `${message.socketIndex}:${message.type}`)
+    .join(", ");
+  const sent = sentMessages
+    .map((message) => `${message.socketIndex}:${message.type}`)
+    .join(", ");
+  const closed = closes
+    .map((close) => `${close.socketIndex}@${Math.round(close.closedAtMs)}ms`)
+    .join(", ");
+  return `sockets=${sockets.length}; received=[${received}]; sent=[${sent}]; closes=[${closed}]`;
 }
 
 function parseRequestBody(postData: string | null): Record<string, unknown> {
