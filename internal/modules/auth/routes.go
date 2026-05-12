@@ -20,11 +20,11 @@ import (
 const unauthorizedCode = "session_required"
 
 type Service struct {
-	store      authStore
-	hub        sessionHub
-	keys       authn.MasterKeys
-	pagination *pagination.Registry
-	now        func() time.Time
+	store       authStore
+	hub         sessionHub
+	keys        authn.MasterKeys
+	cursorCodec *pagination.Codec
+	now         func() time.Time
 }
 
 type authStore interface {
@@ -118,17 +118,18 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	paginator := deps.Pagination
-	if paginator == nil {
-		paginator = pagination.NewRegistry()
+	cursorCodec := deps.CursorCodec
+	if cursorCodec == nil {
+		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 
 	return &Service{
-		store:      authn.NewStore(deps.Postgres),
-		hub:        deps.WSHub,
-		keys:       keys,
-		pagination: paginator,
-		now:        now,
+		store:       authn.NewStore(deps.Postgres),
+		hub:         deps.WSHub,
+		keys:        keys,
+		cursorCodec: cursorCodec,
+		now:         now,
 	}, nil
 }
 
@@ -637,7 +638,7 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		binding, cursor, reasonCode := pagination.ResolveRequest(
+		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
 			r.URL.Query(),
 			"users.list",
 			principal.User.ID.String(),
@@ -648,40 +649,23 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		var (
-			rows       []json.RawMessage
-			nextCursor *pagination.Cursor
-			err        error
-		)
-		if cursor == nil {
-			users, listErr := s.store.ListUsers(r.Context())
-			if listErr != nil {
-				writeAPIError(w, r, internalAPIError(listErr))
-				return
-			}
-			resources := make([]map[string]any, 0, len(users))
-			for _, user := range users {
-				resources = append(resources, BuildSafeUserResource(user))
-			}
-			rows, err = pagination.MarshalResources(resources)
-			if err != nil {
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
-			rows, nextCursor = s.pagination.Start(binding, rows)
-		} else {
-			rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
-			switch {
-			case errors.Is(err, pagination.ErrCursorSnapshotExpired):
-				writeAPIError(w, r, userPaginationError(pagination.ReasonCursorSnapshotUnavailable))
-				return
-			case errors.Is(err, pagination.ErrInvalidCursorToken):
-				writeAPIError(w, r, userPaginationError(pagination.ReasonInvalidCursorToken))
-				return
-			case err != nil:
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
+		users, listErr := s.store.ListUsers(r.Context())
+		if listErr != nil {
+			writeAPIError(w, r, internalAPIError(listErr))
+			return
+		}
+		resources := make([]map[string]any, 0, len(users))
+		for _, user := range users {
+			resources = append(resources, BuildSafeUserResource(user))
+		}
+		rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
+		switch {
+		case errors.Is(err, pagination.ErrInvalidCursorToken):
+			writeAPIError(w, r, userPaginationError(pagination.ReasonInvalidCursorToken))
+			return
+		case err != nil:
+			writeAPIError(w, r, internalAPIError(err))
+			return
 		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
@@ -690,7 +674,7 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 
 		var nextCursorToken *string
 		if nextCursor != nil {
-			token, err := pagination.EncodeCursor(*nextCursor)
+			token, err := s.cursorCodec.Encode(*nextCursor)
 			if err != nil {
 				writeAPIError(w, r, internalAPIError(err))
 				return

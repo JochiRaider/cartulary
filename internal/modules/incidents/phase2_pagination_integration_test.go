@@ -55,7 +55,7 @@ func TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *
 	}
 }
 
-func TestSupportPhase2_IncidentListContinuationUsesSnapshotStableRows(t *testing.T) {
+func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-pagination-incidents")
 
@@ -116,12 +116,8 @@ func TestSupportPhase2_IncidentListContinuationUsesSnapshotStableRows(t *testing
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedRows := continuedBody["data"].(map[string]any)["incidents"].([]any)
-	if len(continuedRows) != 1 {
-		t.Fatalf("expected one incident on continuation page, got %#v", continuedRows)
-	}
-	snapshotIncident := continuedRows[0].(map[string]any)
-	if snapshotIncident["incident_id"] != firstID || snapshotIncident["tlp"] != nil || snapshotIncident["current_phase"] != nil {
-		t.Fatalf("expected snapshot-stable continuation payload, got %#v", snapshotIncident)
+	if len(continuedRows) != 0 {
+		t.Fatalf("expected updated incident to move outside anchored continuation page, got %#v", continuedRows)
 	}
 
 	fresh := phase2test.DoJSON(
@@ -142,7 +138,72 @@ func TestSupportPhase2_IncidentListContinuationUsesSnapshotStableRows(t *testing
 	}
 }
 
-func TestSupportPhase2_MembershipListContinuationUsesSnapshotStableRows(t *testing.T) {
+func TestSupportPhase2_IncidentListContinuationOmitsRevokedMembership(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase2-pagination-revoked-membership")
+
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	viewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "pagination-viewer@example.test", "Pagination Viewer", "PaginationViewer1!", false, false, true)
+	viewerSession, _ := phase2test.LoginLocalUser(t, harness.Server, "pagination-viewer@example.test", "PaginationViewer1!")
+
+	first := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-support-phase2-revoke-first",
+		"incident_key":  "IR-PAGINATION-REVOKE-FIRST",
+		"title":         "Revoked First Incident",
+	})
+	firstID := first["incident_id"].(string)
+	phase2test.CreateMembership(t, harness.Server, adminLogin, firstID, map[string]any{
+		"client_txn_id": "txn-support-phase2-revoke-first-membership",
+		"user_id":       viewerID,
+		"role":          "viewer",
+	})
+
+	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
+	second := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-support-phase2-revoke-second",
+		"incident_key":  "IR-PAGINATION-REVOKE-SECOND",
+		"title":         "Visible Second Incident",
+	})
+	secondID := second["incident_id"].(string)
+	phase2test.CreateMembership(t, harness.Server, adminLogin, secondID, map[string]any{
+		"client_txn_id": "txn-support-phase2-revoke-second-membership",
+		"user_id":       viewerID,
+		"role":          "viewer",
+	})
+
+	firstPage := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
+		nil,
+		phase2test.WithCookies(viewerSession),
+	)
+	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
+	firstPageRows := firstPageBody["data"].(map[string]any)["incidents"].([]any)
+	if len(firstPageRows) != 1 || firstPageRows[0].(map[string]any)["incident_id"] != secondID {
+		t.Fatalf("expected viewer first page to return second incident, got %#v", firstPageRows)
+	}
+	nextCursor := requireNextCursor(t, firstPageBody)
+
+	phase2test.DeleteMembership(t, harness.Server, adminLogin, firstID, viewerID, map[string]any{
+		"base_membership_version": 1,
+	})
+
+	continued := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor),
+		nil,
+		phase2test.WithCookies(viewerSession),
+	)
+	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
+	continuedRows := continuedBody["data"].(map[string]any)["incidents"].([]any)
+	if len(continuedRows) != 0 {
+		t.Fatalf("expected revoked incident to be omitted from continuation, got %#v", continuedRows)
+	}
+}
+
+func TestSupportPhase2_MembershipListContinuationUsesLiveRows(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-pagination-memberships")
 
@@ -195,9 +256,9 @@ func TestSupportPhase2_MembershipListContinuationUsesSnapshotStableRows(t *testi
 	if len(continuedRows) != 1 {
 		t.Fatalf("expected one membership on continuation page, got %#v", continuedRows)
 	}
-	snapshotMembership := continuedRows[0].(map[string]any)
-	if snapshotMembership["user_id"] != memberTwoID || snapshotMembership["role"] != "viewer" {
-		t.Fatalf("expected snapshot-stable membership payload, got %#v", snapshotMembership)
+	liveContinuedMembership := continuedRows[0].(map[string]any)
+	if liveContinuedMembership["user_id"] != memberTwoID || liveContinuedMembership["role"] != "reviewer" {
+		t.Fatalf("expected live membership payload, got %#v", liveContinuedMembership)
 	}
 
 	fresh := phase2test.DoJSON(

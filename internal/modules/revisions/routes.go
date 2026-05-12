@@ -2,7 +2,6 @@ package revisions
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -23,7 +22,7 @@ type Service struct {
 	authStore     *authn.Store
 	keys          authn.MasterKeys
 	hub           *platformws.Hub
-	pagination    *pagination.Registry
+	cursorCodec   *pagination.Codec
 	now           func() time.Time
 }
 
@@ -50,9 +49,10 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	paginator := deps.Pagination
-	if paginator == nil {
-		paginator = pagination.NewRegistry()
+	cursorCodec := deps.CursorCodec
+	if cursorCodec == nil {
+		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
 		store:         NewStore(deps.Postgres),
@@ -60,7 +60,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		authStore:     authn.NewStore(deps.Postgres),
 		keys:          keys,
 		hub:           deps.WSHub,
-		pagination:    paginator,
+		cursorCodec:   cursorCodec,
 		now:           now,
 	}, nil
 }
@@ -90,7 +90,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	binding, cursor, reasonCode := pagination.ResolveRequest(
+	binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
 		r.URL.Query(),
 		"records.history",
 		principal.User.ID.String(),
@@ -101,36 +101,19 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		rows       []json.RawMessage
-		nextCursor *pagination.Cursor
-	)
-	if cursor == nil {
-		resources, err := s.store.ListRecordHistory(r.Context(), record)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		rows, err = pagination.MarshalResources(resources)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		rows, nextCursor = s.pagination.Start(binding, rows)
-	} else {
-		var err error
-		rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
-		switch {
-		case errors.Is(err, pagination.ErrCursorSnapshotExpired):
-			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonCursorSnapshotUnavailable))
-			return
-		case errors.Is(err, pagination.ErrInvalidCursorToken):
-			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
-			return
-		case err != nil:
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
+	resources, err := s.store.ListRecordHistory(r.Context(), record)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
+	switch {
+	case errors.Is(err, pagination.ErrInvalidCursorToken):
+		writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
 	}
 
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
@@ -139,7 +122,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	var nextToken *string
 	if nextCursor != nil {
-		token, err := pagination.EncodeCursor(*nextCursor)
+		token, err := s.cursorCodec.Encode(*nextCursor)
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return

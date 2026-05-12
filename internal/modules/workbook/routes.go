@@ -33,7 +33,7 @@ type Service struct {
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	hub           *platformws.Hub
-	pagination    *pagination.Registry
+	cursorCodec   *pagination.Codec
 	keys          authn.MasterKeys
 	now           func() time.Time
 }
@@ -61,16 +61,17 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	paginator := deps.Pagination
-	if paginator == nil {
-		paginator = pagination.NewRegistry()
+	cursorCodec := deps.CursorCodec
+	if cursorCodec == nil {
+		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
 		store:         NewStore(deps.Postgres),
 		incidentStore: incidents.NewStore(deps.Postgres),
 		authStore:     authn.NewStore(deps.Postgres),
 		hub:           deps.WSHub,
-		pagination:    paginator,
+		cursorCodec:   cursorCodec,
 		keys:          keys,
 		now:           now,
 	}, nil
@@ -103,7 +104,7 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(scopeErr))
 		return
 	}
-	binding, cursor, reasonCode := pagination.ResolveViewQuery(
+	binding, cursor, reasonCode := s.cursorCodec.ResolveViewQuery(
 		query.Pagination,
 		"workbook.view-query",
 		principal.User.ID.String(),
@@ -114,36 +115,19 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		rows       []json.RawMessage
-		nextCursor *pagination.Cursor
-		err        error
-	)
-	if cursor == nil {
-		resources, err := s.store.QueryRows(r.Context(), incidentID, viewSchemaID, query.Meta)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		rows, err = pagination.MarshalResources(resources)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		rows, nextCursor = s.pagination.Start(binding, rows)
-	} else {
-		rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
-		switch {
-		case errors.Is(err, pagination.ErrCursorSnapshotExpired):
-			writeAPIError(w, r, invalidViewQuery("", pagination.ReasonCursorSnapshotUnavailable))
-			return
-		case errors.Is(err, pagination.ErrInvalidCursorToken):
-			writeAPIError(w, r, invalidViewQuery("", pagination.ReasonInvalidCursorToken))
-			return
-		case err != nil:
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
+	resources, err := s.store.QueryRows(r.Context(), incidentID, viewSchemaID, query.Meta)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
+	switch {
+	case errors.Is(err, pagination.ErrInvalidCursorToken):
+		writeAPIError(w, r, invalidViewQuery("", pagination.ReasonInvalidCursorToken))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -151,7 +135,7 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	var nextToken *string
 	if nextCursor != nil {
-		token, err := pagination.EncodeCursor(*nextCursor)
+		token, err := s.cursorCodec.Encode(*nextCursor)
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return

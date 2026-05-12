@@ -331,6 +331,10 @@ func FingerprintRequestValue(keys MasterKeys, value string) []byte {
 	return hmacSHA256(keys.requestFingerprintKey[:], value)
 }
 
+func DerivePurposeKey(keys MasterKeys, purpose string) [32]byte {
+	return deriveKey(keys.requestFingerprintKey[:], purpose)
+}
+
 func CSRFTokenForSessionToken(keys MasterKeys, sessionToken string) string {
 	return base64.RawURLEncoding.EncodeToString(hmacSHA256(keys.csrfKey[:], sessionToken))
 }

@@ -686,7 +686,7 @@ Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-231
 
 **REQ-03-275**
-When the client continues a pageable workbook surface with `cursor_token`, it MUST treat every page obtained from that cursor chain as one snapshot sequence. The client MUST NOT interleave rows from a fresh query or explicit refresh into that same ordered list as though they were part of the same cursor chain. On explicit refresh, or on `400` with `error.code='invalid_view_query'` and `error.details.reason_code='cursor_snapshot_unavailable'`, the client MUST discard the old chain and restart from page 1 without `cursor_token`. Where practical, that restart SHOULD preserve the same workbook surface, focus target, and viewport anchor rather than forcing full-page navigation.
+When the client continues a pageable workbook surface with `cursor_token`, it MUST treat every page obtained from that cursor chain as an ordered live-authorized continuation, not as an immutable content snapshot. The client MUST NOT parse, alter, or manufacture cursor tokens. On explicit refresh, or on `400` with `error.code='invalid_view_query'` and a pagination `reason_code`, the client MUST discard the old chain and restart from page 1 without `cursor_token`. Where practical, that restart SHOULD preserve the same workbook surface, focus target, and viewport anchor rather than forcing full-page navigation.
 Profiles: base
 Verified by: AC-231
 

@@ -87,9 +87,9 @@ Single-user notebooks can be fast and flexible. They also fail the collaboration
 
 This is the hardest option to implement well, but it is the only one that attacks the actual problem. It preserves near-spreadsheet entry friction while adding the relational and audit capabilities that justify migration.
 
-### Why the current profile chooses snapshot-stable pagination
+### Why the current profile chooses live-authorized pagination
 
-Snapshot-stable pagination is the least surprising current-profile choice for a collaborative workbook surface. It preserves stable visible object identity across later pages, prevents silent duplicate or skip behavior when concurrent edits change live order, and avoids turning ordinary analyst activity into forced cursor invalidations. It also keeps live re-evaluation and invalidate-on-change pagination available later as explicit opt-in contracts rather than silent implementation variance behind the same `cursor_token` surface.
+Live-authorized pagination is the safer current-profile choice for operational workbook and list surfaces. It keeps every continuation request behind current session, route, membership, and visibility checks, avoids retaining large in-process row snapshots, and makes cursor tokens continuation hints rather than authorization caches. Immutable snapshot-stable pagination remains appropriate only for explicit snapshot/reporting artifacts or a future opt-in route family whose authorization and resource-budget rules are specified separately.
 
 ### First-deployment-admin bootstrap: why the current profile chooses a deployment-local manifest
 

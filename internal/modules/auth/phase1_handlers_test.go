@@ -2024,12 +2024,13 @@ func (h *hubStub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 
 func newUnitService(t testing.TB, store authStore, hub sessionHub, keys authn.MasterKeys, now time.Time) *Service {
 	t.Helper()
+	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	return &Service{
-		store:      store,
-		hub:        hub,
-		keys:       keys,
-		pagination: pagination.NewRegistry(),
-		now:        func() time.Time { return now },
+		store:       store,
+		hub:         hub,
+		keys:        keys,
+		cursorCodec: pagination.NewCodec(cursorKey[:]),
+		now:         func() time.Time { return now },
 	}
 }
 

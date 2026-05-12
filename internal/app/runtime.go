@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/viewschemas"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -99,7 +100,13 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	paginator := pagination.NewRegistry(pagination.WithNow(now))
+	keys, err := authn.LoadMasterKeys(options.Env)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("load auth master key: %w", err)
+	}
+	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+	cursorCodec := pagination.NewCodec(cursorKey[:])
 	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisions.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:      normalizedCfg,
@@ -108,7 +115,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		ObjectStore: runtime.ObjectStore,
 		Jobs:        runtime.Jobs,
 		WSHub:       hub,
-		Pagination:  paginator,
+		CursorCodec: cursorCodec,
 		Now:         now,
 	}
 

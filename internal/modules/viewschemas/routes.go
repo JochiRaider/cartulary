@@ -18,10 +18,10 @@ import (
 const unauthorizedCode = "session_required"
 
 type Service struct {
-	authStore  *authn.Store
-	keys       authn.MasterKeys
-	pagination *pagination.Registry
-	now        func() time.Time
+	authStore   *authn.Store
+	keys        authn.MasterKeys
+	cursorCodec *pagination.Codec
+	now         func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -46,15 +46,16 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	paginator := deps.Pagination
-	if paginator == nil {
-		paginator = pagination.NewRegistry()
+	cursorCodec := deps.CursorCodec
+	if cursorCodec == nil {
+		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		authStore:  authn.NewStore(deps.Postgres),
-		keys:       keys,
-		pagination: paginator,
-		now:        now,
+		authStore:   authn.NewStore(deps.Postgres),
+		keys:        keys,
+		cursorCodec: cursorCodec,
+		now:         now,
 	}, nil
 }
 
@@ -64,7 +65,7 @@ func (s *Service) handleViewSchemasCollection(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	binding, cursor, reasonCode := pagination.ResolveRequest(
+	binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
 		r.URL.Query(),
 		"view-schemas.list",
 		principal.User.ID.String(),
@@ -75,36 +76,24 @@ func (s *Service) handleViewSchemasCollection(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var (
-		rows       []json.RawMessage
-		nextCursor *pagination.Cursor
-		err        error
-	)
-	if cursor == nil {
-		resources := viewschema.ListPublicResources()
-		rows = make([]json.RawMessage, 0, len(resources))
-		for _, resource := range resources {
-			payload, err := json.Marshal(resource)
-			if err != nil {
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
-			rows = append(rows, json.RawMessage(payload))
-		}
-		rows, nextCursor = s.pagination.Start(binding, rows)
-	} else {
-		rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
-		switch {
-		case errors.Is(err, pagination.ErrCursorSnapshotExpired):
-			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonCursorSnapshotUnavailable))
-			return
-		case errors.Is(err, pagination.ErrInvalidCursorToken):
-			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
-			return
-		case err != nil:
+	resources := viewschema.ListPublicResources()
+	rawRows := make([]json.RawMessage, 0, len(resources))
+	for _, resource := range resources {
+		payload, err := json.Marshal(resource)
+		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
+		rawRows = append(rawRows, json.RawMessage(payload))
+	}
+	rows, nextCursor, err := pagination.PageRawMessages(binding, cursor, rawRows)
+	switch {
+	case errors.Is(err, pagination.ErrInvalidCursorToken):
+		writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -113,7 +102,7 @@ func (s *Service) handleViewSchemasCollection(w http.ResponseWriter, r *http.Req
 
 	var nextToken *string
 	if nextCursor != nil {
-		token, err := pagination.EncodeCursor(*nextCursor)
+		token, err := s.cursorCodec.Encode(*nextCursor)
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return

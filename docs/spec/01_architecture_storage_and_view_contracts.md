@@ -2734,7 +2734,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `group_by_not_allowed` | `group_by` is not one of the grouping keys declared by the active `view_schema_id`. |
 | `invalid_limit` | The request supplies `limit` with a non-integer JSON type, a value less than `1`, a value greater than `500`, or an unsupported page-size alias such as `page`, `offset`, `block_size`, or `page_size`. |
 | `cursor_query_mismatch` | The supplied `cursor_token` does not match the current normalized view-query contract, including the effective `limit`. |
-| `cursor_snapshot_unavailable` | The supplied `cursor_token` is well-formed for the current normalized view-query contract, but the server no longer has the bound snapshot required to continue that cursor chain. Restart the route without `cursor_token` to obtain current live results. |
+| `cursor_snapshot_unavailable` | Reserved for future explicit snapshot-backed route families when the supplied `cursor_token` is well-formed but the bound snapshot runtime state is no longer available. Restart the route without `cursor_token` to obtain current live results. |
 
 `invalid_pagination_request` `error.details.reason_code` values:
 
@@ -2742,7 +2742,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | --- | --- |
 | `invalid_limit` | The request supplies `limit` with a non-integer JSON type, a value less than `1`, a value greater than `500`, or an unsupported pagination alias such as `page`, `offset`, `block_size`, or `page_size`. |
 | `cursor_query_mismatch` | The supplied `cursor_token` does not match the current normalized route contract, including any bound route-scoping identifier, normalized sort or filter or grouping contract when present, or the effective `limit`. |
-| `cursor_snapshot_unavailable` | The supplied `cursor_token` is well-formed for the current normalized route contract, but the server no longer has the bound snapshot required to continue that cursor chain. Restart the route without `cursor_token` to obtain current live results for that route. |
+| `cursor_snapshot_unavailable` | Reserved for future explicit snapshot-backed route families when the supplied `cursor_token` is well-formed but the bound snapshot runtime state is no longer available. Restart the route without `cursor_token` to obtain current live results for that route. |
 | `pagination_not_supported` | The addressed route is not declared pageable and therefore rejects `limit`, `cursor_token`, and pagination aliases. |
 
 `credential_bootstrap_rejected` `error.details.reason_code` values:
@@ -3038,44 +3038,44 @@ Profiles: base
 Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238, AC-239, AC-241, AC-242
 
 **REQ-01-554**
-The current profile defines exactly one cursor-continuation mode: `snapshot_stable`. For any pageable route, page 2 and every later page in the same cursor chain MUST mean the next slice of the same result-set snapshot established by the first successful request in that chain without `cursor_token`. That first successful request MUST establish one opaque snapshot bound to the contract in REQ-01-241 plus one server-chosen snapshot anchor. Every `meta.paging.next_cursor` derived from that response MUST continue against that same snapshot anchor until the chain terminates or continuation fails under REQ-01-559. Under the same `cursor_token` contract, the server MUST NOT silently re-run continuation against live current state and MUST NOT silently switch to invalidate-on-change semantics.
+The current base profile cursor-continuation mode for live operational list and query routes is `live_authorized_keyset`. Page 2 and every later page in a live cursor chain MUST re-derive the caller's current session validity, route authorization, and route-scoped visibility before returning rows. The cursor token MUST remain opaque to clients and MUST cryptographically protect the bound route contract and server-owned continuation position from client tampering. A cursor MUST NOT preserve access after session expiry, account revocation, loss of incident membership, loss of route visibility, or any other authorization change that would make the row or route unavailable on a fresh request.
 Profiles: base
 Verified by: AC-231, AC-372, AC-373, AC-374, AC-375
 
 **REQ-01-555**
-For one cursor chain, result membership, row ordering, and grouping membership MUST be fixed at snapshot creation time. Later inserts, deletes, restores, sort-key edits, grouping-key edits, filter-relevant edits, or equivalent committed mutations that would change live current results MUST NOT change the meaning of any later page in that chain. The current profile requires these observable outcomes:
+For one live cursor chain, the server MUST use a deterministic continuation position derived from the declared route ordering and route contract. Later inserts, deletes, restores, sort-key edits, grouping-key edits, filter-relevant edits, membership changes, or equivalent committed mutations MAY affect later pages because live routes re-evaluate current state. The current profile requires these observable outcomes:
 
 | Intervening committed change after page 1 | Continuation with `meta.paging.next_cursor` from the existing chain | Fresh request without `cursor_token` |
 | --- | --- | --- |
-| Matching insert or restore of a row that was absent from the snapshot | MUST NOT appear in the existing chain | MUST reflect the row if the live current route contract matches it |
-| Delete of a row that was present in the snapshot | MUST preserve the row's membership and original snapshot position in the existing chain | MUST reflect current live visibility |
-| Sort-, group-, or filter-relevant edit of a row that was present in the snapshot | MUST preserve the row's original snapshot order and grouping membership in the existing chain | MUST reflect current live order and grouping |
+| Matching insert or restore of a row that was absent when the cursor was issued | MAY appear only if it falls after the current continuation position under the live route ordering | MUST reflect the row if the live current route contract matches it |
+| Delete or authorization removal of a row that would otherwise have appeared later in the chain | MUST NOT return the row after it is no longer currently visible to the caller | MUST reflect current live visibility |
+| Sort-, group-, or filter-relevant edit of a row that was present when the cursor was issued | MUST return only the current row payload if the row is still visible and still falls after the continuation position; otherwise it MAY move outside the remaining chain | MUST reflect current live order and grouping |
 
 Profiles: base
 Verified by: AC-231, AC-372, AC-373, AC-374
 
 **REQ-01-556**
-Across one complete cursor chain, each row that belongs to the bound snapshot and matches the bound route contract MUST appear at most once and MUST appear in snapshot order. A row absent from that snapshot MUST NOT appear in any later page of that chain. A conformant continuation therefore MUST NOT silently skip a snapshot row because of an intervening change and MUST NOT surface the same snapshot row twice.
+Across one complete live cursor chain, the server SHOULD avoid duplicate rows where the route's deterministic ordering and continuation position make that possible. The server MUST NOT return a row that no longer matches current authorization or route visibility merely to preserve an earlier cursor-chain membership. Hot workbook views MUST use stable keyset or viewport/block retrieval rather than unbounded full-result materialization or deep offset scans.
 Profiles: base
 Verified by: AC-231, AC-372, AC-373
 
 **REQ-01-557**
-When a pageable route returns full row objects or equivalent current-row payload, the serialized row state, including `row_version` when present, MUST reflect authoritative state as of the bound snapshot rather than fetch-time live state. A row that later becomes deleted, restored, regrouped, re-sorted, or otherwise edited still continues with its snapshot-state payload when it is reached by that chain. Reading a row through a snapshot does not reserve later write success; ordinary later writes still use current live optimistic-concurrency and authorization rules.
+When a live pageable route returns full row objects or equivalent current-row payload, the serialized row state, including `row_version` when present, MUST reflect authoritative state at fetch time after current authorization succeeds. Reading a row through a cursor does not reserve later write success; ordinary later writes still use current live optimistic-concurrency and authorization rules.
 Profiles: base
 Verified by: AC-231, AC-373, AC-374
 
 **REQ-01-558**
-Live collaboration and cursor continuation are intentionally decoupled. Replayable `record_changed` messages, `invalidate`, `remove`, presence updates, and other live collaboration events continue to report current live state. They MUST NOT rewrite the meaning of an already-issued cursor and MUST NOT silently splice fresh live rows into an existing cursor chain. A caller that wants current live membership, current live ordering, or current live field values after intervening change MUST start a fresh pageable request without `cursor_token`.
+Live collaboration and cursor continuation are intentionally compatible live views over current state. Replayable `record_changed` messages, `invalidate`, `remove`, presence updates, and other live collaboration events continue to report current live state. Cursor continuation MUST NOT use retained row payloads as an authorization cache, and clients MUST tolerate that later pages can reflect intervening authorized live changes.
 Profiles: base
 Verified by: AC-231, AC-374
 
 **REQ-01-559**
-The server MAY discard snapshot runtime state, but a snapshot-bound cursor chain MUST remain reusable for at least `10 minutes` of inactivity measured from initial snapshot issuance or the most recent successful continuation in that same chain. The deployment MUST NOT define a public or deployment-configurable override that reduces this minimum reuse window. For this paragraph, a continuation cursor is `otherwise valid` only when the caller's current session and route authorization still validate, the cursor is syntactically well-formed, the route-scoping identifiers still match the issuing chain, and the bound normalized query contract, including effective `sort`, `filters`, `group_by`, and `limit`, still matches that chain. In this failure mode, only the server-held snapshot runtime state is unavailable; the failure does not itself mutate incident data, cursor syntax, or route binding. When a continuation cursor is otherwise valid but the bound snapshot is no longer available, the server MUST fail closed rather than silently re-running live. View-query routes MUST fail with `400`, `error.code='invalid_view_query'`, and `error.details.reason_code='cursor_snapshot_unavailable'`. Other pageable public routes MUST fail with `400`, `error.code='invalid_pagination_request'`, and `error.details.reason_code='cursor_snapshot_unavailable'`. Authorization and session validity still re-derive at continuation time; a cursor does not preserve access after session expiry, revocation, or loss of route visibility.
+The server MAY reject a cursor when its signature, version, route binding, actor binding, route-scoping identifiers, normalized query contract, effective limit, or server-owned continuation position is invalid or no longer supported. View-query routes MUST fail with `400`, `error.code='invalid_view_query'`, and the most specific pagination reason code. Other pageable public routes MUST fail with `400`, `error.code='invalid_pagination_request'`, and the most specific pagination reason code. If a future explicit snapshot-backed route family is added, unavailable snapshot runtime state MUST fail closed with `cursor_snapshot_unavailable`; live operational routes MUST NOT depend on retained in-memory row snapshots for continuation.
 Profiles: base
 Verified by: AC-231, AC-375
 
 **REQ-01-560**
-Alternative continuation models such as live re-evaluation, duplicate-suppressed live pagination, or invalidate-on-change pagination are out of scope for the current profile. A later profile or major-version surface MAY define such a model only through a new explicit contract such as a new route family, a new major-version root, or a clearly opt-in request member. Implementations claiming the current profile MUST NOT vary continuation semantics behind the same `cursor_token` contract.
+Immutable `snapshot_stable` continuation is reserved for explicit immutable snapshot/reporting artifacts or a future opt-in route family. It MUST NOT be used as the default continuation behavior for live operational list, workbook-query, membership, user, or history routes because those routes must re-derive authorization at request time.
 Profiles: base
 Verified by: AC-231, AC-372, AC-373, AC-374, AC-375
 

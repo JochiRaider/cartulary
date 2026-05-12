@@ -67,13 +67,13 @@ One conformant non-normative realization of the current sort and grouping contra
 
 One additional non-normative realization note is now explicit: generated comparison columns, expression indexes, token tables, or `tsvector`-style realizations are conformant only when they reproduce the Core 01 comparison and tokenization contract exactly. Database-default locale, collation, or tokenizer behavior is not authoritative when it differs from the normative contract.
 
-### Illustrative realization notes for snapshot-stable cursor pagination
+### Illustrative realization notes for live-authorized cursor pagination
 
-One conformant non-normative realization of `snapshot_stable` cursor continuation needs explicit runtime state for:
+One conformant non-normative realization of `live_authorized_keyset` cursor continuation needs:
 
-- a snapshot descriptor or equivalent opaque snapshot anchor,
-- a deterministic continuation position within that snapshot,
-- `last_used_at` or equivalent inactivity-expiry state for the cursor chain.
+- a signed opaque cursor payload bound to actor, route, route scope, effective limit, and normalized query contract,
+- a deterministic server-owned continuation position derived from the route ordering,
+- a fresh authorization and visibility query for every continuation page.
 
 A conformant realization can use:
 

@@ -1,20 +1,27 @@
 package pagination
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/url"
 	"slices"
 	"strconv"
-	"sync"
-	"time"
+	"strings"
 )
 
 const (
-	DefaultLimit     = 100
-	MaxLimit         = 500
-	MinimumRetention = 10 * time.Minute
+	DefaultLimit = 100
+	MaxLimit     = 500
+)
+
+const (
+	CursorVersion = "pagination.cursor.v1"
+
+	ModeOffset = "offset"
+	ModeKeyset = "keyset"
 )
 
 const (
@@ -43,58 +50,22 @@ type Binding struct {
 }
 
 type Cursor struct {
+	Version     string            `json:"version"`
+	Mode        string            `json:"mode"`
 	Route       string            `json:"route"`
 	ActorUserID string            `json:"actor_user_id"`
 	Limit       int               `json:"limit"`
 	Scope       map[string]string `json:"scope,omitempty"`
-	SnapshotID  string            `json:"snapshot_id"`
-	Offset      int               `json:"offset"`
+	Position    map[string]string `json:"position,omitempty"`
 }
 
-type Registry struct {
-	mu        sync.Mutex
-	now       func() time.Time
-	retention time.Duration
-	nextID    uint64
-	snapshots map[string]snapshot
+type Codec struct {
+	key []byte
 }
 
-type snapshot struct {
-	binding    Binding
-	lastUsedAt time.Time
-	rows       []json.RawMessage
-}
-
-func NewRegistry(options ...func(*Registry)) *Registry {
-	registry := &Registry{
-		now:       func() time.Time { return time.Now().UTC() },
-		retention: MinimumRetention,
-		snapshots: make(map[string]snapshot),
-	}
-	for _, option := range options {
-		if option != nil {
-			option(registry)
-		}
-	}
-	if registry.now == nil {
-		registry.now = func() time.Time { return time.Now().UTC() }
-	}
-	if registry.retention < MinimumRetention {
-		registry.retention = MinimumRetention
-	}
-	return registry
-}
-
-func WithNow(now func() time.Time) func(*Registry) {
-	return func(registry *Registry) {
-		registry.now = now
-	}
-}
-
-func WithRetention(retention time.Duration) func(*Registry) {
-	return func(registry *Registry) {
-		registry.retention = retention
-	}
+func NewCodec(key []byte) *Codec {
+	codec := &Codec{key: append([]byte(nil), key...)}
+	return codec
 }
 
 func ParseQuery(values url.Values) (Query, string) {
@@ -128,12 +99,19 @@ func (q Query) EffectiveLimit(cursor *Cursor) int {
 	return DefaultLimit
 }
 
-func ResolveRequest(values url.Values, route string, actorUserID string, scope map[string]string) (Binding, *Cursor, string) {
+func (c *Codec) ResolveRequest(values url.Values, route string, actorUserID string, scope map[string]string) (Binding, *Cursor, string) {
 	query, reason := ParseQuery(values)
 	if reason != "" {
 		return Binding{}, nil, reason
 	}
+	return c.ResolveQuery(query, route, actorUserID, scope, ReasonInvalidCursorToken)
+}
 
+func (c *Codec) ResolveViewQuery(query Query, route string, actorUserID string, scope map[string]string) (Binding, *Cursor, string) {
+	return c.ResolveQuery(query, route, actorUserID, scope, ReasonCursorQueryMismatch)
+}
+
+func (c *Codec) ResolveQuery(query Query, route string, actorUserID string, scope map[string]string, mismatchReason string) (Binding, *Cursor, string) {
 	if query.CursorToken == nil {
 		return Binding{
 			Route:       route,
@@ -143,7 +121,7 @@ func ResolveRequest(values url.Values, route string, actorUserID string, scope m
 		}, nil, ""
 	}
 
-	cursor, err := DecodeCursor(*query.CursorToken)
+	cursor, err := c.Decode(*query.CursorToken)
 	if err != nil {
 		return Binding{}, nil, ReasonInvalidCursorToken
 	}
@@ -155,56 +133,43 @@ func ResolveRequest(values url.Values, route string, actorUserID string, scope m
 		Scope:       cloneScope(scope),
 	}
 	if err := cursor.Validate(binding); err != nil {
-		return Binding{}, nil, ReasonInvalidCursorToken
+		return Binding{}, nil, mismatchReason
 	}
 	return binding, &cursor, ""
 }
 
-func ResolveViewQuery(query Query, route string, actorUserID string, scope map[string]string) (Binding, *Cursor, string) {
-	if query.CursorToken == nil {
-		return Binding{
-			Route:       route,
-			ActorUserID: actorUserID,
-			Limit:       query.EffectiveLimit(nil),
-			Scope:       cloneScope(scope),
-		}, nil, ""
-	}
-
-	cursor, err := DecodeCursor(*query.CursorToken)
-	if err != nil {
-		return Binding{}, nil, ReasonInvalidCursorToken
-	}
-
-	binding := Binding{
-		Route:       route,
-		ActorUserID: actorUserID,
-		Limit:       query.EffectiveLimit(&cursor),
-		Scope:       cloneScope(scope),
-	}
-	if err := cursor.Validate(binding); err != nil {
-		return Binding{}, nil, ReasonCursorQueryMismatch
-	}
-	return binding, &cursor, ""
-}
-
-func EncodeCursor(cursor Cursor) (string, error) {
+func (c *Codec) Encode(cursor Cursor) (string, error) {
+	cursor.Version = CursorVersion
 	payload, err := json.Marshal(cursor)
 	if err != nil {
 		return "", err
 	}
-	return base64.RawURLEncoding.EncodeToString(payload), nil
+	signature := sign(c.key, payload)
+	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
-func DecodeCursor(token string) (Cursor, error) {
-	var cursor Cursor
-	data, err := base64.RawURLEncoding.DecodeString(token)
+func (c *Codec) Decode(token string) (Cursor, error) {
+	payloadToken, signatureToken, ok := strings.Cut(token, ".")
+	if !ok || payloadToken == "" || signatureToken == "" {
+		return Cursor{}, ErrInvalidCursorToken
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(payloadToken)
 	if err != nil {
-		return Cursor{}, err
+		return Cursor{}, ErrInvalidCursorToken
 	}
-	if err := json.Unmarshal(data, &cursor); err != nil {
-		return Cursor{}, err
+	signature, err := base64.RawURLEncoding.DecodeString(signatureToken)
+	if err != nil {
+		return Cursor{}, ErrInvalidCursorToken
 	}
-	if cursor.Route == "" || cursor.ActorUserID == "" || cursor.Limit < 1 || cursor.Limit > MaxLimit || cursor.SnapshotID == "" || cursor.Offset < 1 {
+	if !hmac.Equal(signature, sign(c.key, payload)) {
+		return Cursor{}, ErrInvalidCursorToken
+	}
+
+	var cursor Cursor
+	if err := json.Unmarshal(payload, &cursor); err != nil {
+		return Cursor{}, ErrInvalidCursorToken
+	}
+	if cursor.Version != CursorVersion || cursor.Mode == "" || cursor.Route == "" || cursor.ActorUserID == "" || cursor.Limit < 1 || cursor.Limit > MaxLimit {
 		return Cursor{}, ErrInvalidCursorToken
 	}
 	return cursor, nil
@@ -220,77 +185,58 @@ func (c Cursor) Validate(binding Binding) error {
 	return nil
 }
 
-func (r *Registry) Start(binding Binding, rows []json.RawMessage) ([]json.RawMessage, *Cursor) {
-	if binding.Limit < 1 {
-		return nil, nil
+func NewOffsetCursor(binding Binding, offset int) *Cursor {
+	if offset < 1 {
+		return nil
 	}
-
-	page := sliceRows(rows, 0, binding.Limit)
-	if len(rows) <= binding.Limit {
-		return page, nil
-	}
-
-	now := r.now().UTC()
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.pruneExpiredLocked(now)
-	r.nextID++
-	snapshotID := encodeSnapshotID(r.nextID)
-	r.snapshots[snapshotID] = snapshot{
-		binding:    cloneBinding(binding),
-		lastUsedAt: now,
-		rows:       cloneRows(rows),
-	}
-
-	return page, &Cursor{
+	return &Cursor{
+		Version:     CursorVersion,
+		Mode:        ModeOffset,
 		Route:       binding.Route,
 		ActorUserID: binding.ActorUserID,
 		Limit:       binding.Limit,
 		Scope:       cloneScope(binding.Scope),
-		SnapshotID:  snapshotID,
-		Offset:      binding.Limit,
+		Position:    map[string]string{"offset": strconv.Itoa(offset)},
 	}
 }
 
-func (r *Registry) Continue(binding Binding, cursor Cursor) ([]json.RawMessage, *Cursor, error) {
-	now := r.now().UTC()
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.pruneExpiredLocked(now)
-	snapshot, ok := r.snapshots[cursor.SnapshotID]
+func Offset(cursor *Cursor) (int, error) {
+	if cursor == nil {
+		return 0, nil
+	}
+	if cursor.Mode != ModeOffset {
+		return 0, ErrInvalidCursorToken
+	}
+	value, ok := cursor.Position["offset"]
 	if !ok {
-		return nil, nil, ErrCursorSnapshotExpired
+		return 0, ErrInvalidCursorToken
 	}
-	if !equalBinding(snapshot.binding, binding) {
-		delete(r.snapshots, cursor.SnapshotID)
-		return nil, nil, ErrCursorSnapshotExpired
+	offset, err := strconv.Atoi(value)
+	if err != nil || offset < 1 {
+		return 0, ErrInvalidCursorToken
 	}
-	if cursor.Offset >= len(snapshot.rows)+1 {
-		return nil, nil, ErrInvalidCursorToken
-	}
-	if cursor.Offset > len(snapshot.rows) {
-		return nil, nil, ErrInvalidCursorToken
-	}
+	return offset, nil
+}
 
-	page := sliceRows(snapshot.rows, cursor.Offset, binding.Limit)
-	snapshot.lastUsedAt = now
-	r.snapshots[cursor.SnapshotID] = snapshot
-
-	nextOffset := cursor.Offset + len(page)
-	if nextOffset >= len(snapshot.rows) {
+func PageRawMessages(binding Binding, cursor *Cursor, rows []json.RawMessage) ([]json.RawMessage, *Cursor, error) {
+	offset, err := Offset(cursor)
+	if err != nil {
+		return nil, nil, err
+	}
+	page := SliceRows(rows, offset, binding.Limit)
+	nextOffset := offset + len(page)
+	if nextOffset >= len(rows) {
 		return page, nil, nil
 	}
-	return page, &Cursor{
-		Route:       binding.Route,
-		ActorUserID: binding.ActorUserID,
-		Limit:       binding.Limit,
-		Scope:       cloneScope(binding.Scope),
-		SnapshotID:  cursor.SnapshotID,
-		Offset:      nextOffset,
-	}, nil
+	return page, NewOffsetCursor(binding, nextOffset), nil
+}
+
+func PageResources(binding Binding, cursor *Cursor, resources []map[string]any) ([]json.RawMessage, *Cursor, error) {
+	rows, err := MarshalResources(resources)
+	if err != nil {
+		return nil, nil, err
+	}
+	return PageRawMessages(binding, cursor, rows)
 }
 
 func MarshalResources(resources []map[string]any) ([]json.RawMessage, error) {
@@ -305,19 +251,7 @@ func MarshalResources(resources []map[string]any) ([]json.RawMessage, error) {
 	return rows, nil
 }
 
-func (r *Registry) pruneExpiredLocked(now time.Time) {
-	for snapshotID, snapshot := range r.snapshots {
-		if now.Sub(snapshot.lastUsedAt) > r.retention {
-			delete(r.snapshots, snapshotID)
-		}
-	}
-}
-
-func encodeSnapshotID(id uint64) string {
-	return base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatUint(id, 10)))
-}
-
-func sliceRows(rows []json.RawMessage, start int, limit int) []json.RawMessage {
+func SliceRows(rows []json.RawMessage, start int, limit int) []json.RawMessage {
 	if start < 0 || start >= len(rows) || limit < 1 {
 		return []json.RawMessage{}
 	}
@@ -332,23 +266,6 @@ func sliceRows(rows []json.RawMessage, start int, limit int) []json.RawMessage {
 	return page
 }
 
-func cloneRows(rows []json.RawMessage) []json.RawMessage {
-	cloned := make([]json.RawMessage, 0, len(rows))
-	for _, row := range rows {
-		cloned = append(cloned, append(json.RawMessage(nil), row...))
-	}
-	return cloned
-}
-
-func cloneBinding(binding Binding) Binding {
-	return Binding{
-		Route:       binding.Route,
-		ActorUserID: binding.ActorUserID,
-		Limit:       binding.Limit,
-		Scope:       cloneScope(binding.Scope),
-	}
-}
-
 func cloneScope(scope map[string]string) map[string]string {
 	if len(scope) == 0 {
 		return nil
@@ -358,13 +275,6 @@ func cloneScope(scope map[string]string) map[string]string {
 		cloned[key] = value
 	}
 	return cloned
-}
-
-func equalBinding(left Binding, right Binding) bool {
-	return left.Route == right.Route &&
-		left.ActorUserID == right.ActorUserID &&
-		left.Limit == right.Limit &&
-		equalScope(left.Scope, right.Scope)
 }
 
 func equalScope(left map[string]string, right map[string]string) bool {
@@ -386,4 +296,10 @@ func equalScope(left map[string]string, right map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func sign(key []byte, payload []byte) []byte {
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write(payload)
+	return mac.Sum(nil)
 }

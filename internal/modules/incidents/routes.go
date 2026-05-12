@@ -20,12 +20,12 @@ import (
 const incidentUnauthorizedCode = "session_required"
 
 type Service struct {
-	store      *Store
-	authStore  *authn.Store
-	hub        *platformws.Hub
-	keys       authn.MasterKeys
-	pagination *pagination.Registry
-	now        func() time.Time
+	store       *Store
+	authStore   *authn.Store
+	hub         *platformws.Hub
+	keys        authn.MasterKeys
+	cursorCodec *pagination.Codec
+	now         func() time.Time
 }
 
 type membershipTargetLookup interface {
@@ -56,17 +56,18 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	paginator := deps.Pagination
-	if paginator == nil {
-		paginator = pagination.NewRegistry()
+	cursorCodec := deps.CursorCodec
+	if cursorCodec == nil {
+		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:      NewStore(deps.Postgres),
-		authStore:  authn.NewStore(deps.Postgres),
-		hub:        deps.WSHub,
-		keys:       keys,
-		pagination: paginator,
-		now:        now,
+		store:       NewStore(deps.Postgres),
+		authStore:   authn.NewStore(deps.Postgres),
+		hub:         deps.WSHub,
+		keys:        keys,
+		cursorCodec: cursorCodec,
+		now:         now,
 	}, nil
 }
 
@@ -94,6 +95,65 @@ func (s *Service) handleExtensionsCollection(w http.ResponseWriter, r *http.Requ
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildExtensionsResponseData(profiles))
 }
 
+func (s *Service) incidentListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (IncidentListPageRequest, string) {
+	request := IncidentListPageRequest{Limit: binding.Limit + 1}
+	if cursor == nil {
+		return request, ""
+	}
+	if cursor.Mode != pagination.ModeKeyset {
+		return IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
+	}
+	anchor, err := time.Parse(time.RFC3339Nano, cursor.Position["anchor_updated_at"])
+	if err != nil {
+		return IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
+	}
+	lastUpdatedAt, err := time.Parse(time.RFC3339Nano, cursor.Position["last_updated_at"])
+	if err != nil {
+		return IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
+	}
+	lastID, err := uuid.Parse(cursor.Position["last_incident_id"])
+	if err != nil {
+		return IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
+	}
+	anchor = anchor.UTC()
+	request.AnchorUpdatedAt = &anchor
+	request.After = &IncidentListPosition{UpdatedAt: lastUpdatedAt.UTC(), ID: lastID}
+	return request, ""
+}
+
+func buildIncidentListPage(binding pagination.Binding, anchor time.Time, records []IncidentRecord) ([]json.RawMessage, *pagination.Cursor, error) {
+	hasMore := len(records) > binding.Limit
+	pageRecords := records
+	if hasMore {
+		pageRecords = records[:binding.Limit]
+	}
+	resources := make([]map[string]any, 0, len(pageRecords))
+	for _, record := range pageRecords {
+		resources = append(resources, BuildIncidentResource(record))
+	}
+	rows, err := pagination.MarshalResources(resources)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !hasMore || len(pageRecords) == 0 {
+		return rows, nil, nil
+	}
+	last := pageRecords[len(pageRecords)-1]
+	return rows, &pagination.Cursor{
+		Version:     pagination.CursorVersion,
+		Mode:        pagination.ModeKeyset,
+		Route:       binding.Route,
+		ActorUserID: binding.ActorUserID,
+		Limit:       binding.Limit,
+		Scope:       nil,
+		Position: map[string]string{
+			"anchor_updated_at": anchor.UTC().Format(time.RFC3339Nano),
+			"last_updated_at":   last.UpdatedAt.UTC().Format(time.RFC3339Nano),
+			"last_incident_id":  last.ID.String(),
+		},
+	}, nil
+}
+
 func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -102,7 +162,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		binding, cursor, reasonCode := pagination.ResolveRequest(
+		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
 			r.URL.Query(),
 			"incidents.list",
 			principal.User.ID.String(),
@@ -113,40 +173,26 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		var (
-			rows       []json.RawMessage
-			nextCursor *pagination.Cursor
-			err        error
-		)
-		if cursor == nil {
-			records, listErr := s.store.ListVisibleIncidents(r.Context(), principal.User.ID)
-			if listErr != nil {
-				writeAPIError(w, r, internalAPIError(listErr))
-				return
-			}
-			incidents := make([]map[string]any, 0, len(records))
-			for _, record := range records {
-				incidents = append(incidents, BuildIncidentResource(record))
-			}
-			rows, err = pagination.MarshalResources(incidents)
-			if err != nil {
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
-			rows, nextCursor = s.pagination.Start(binding, rows)
-		} else {
-			rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
-			switch {
-			case errors.Is(err, pagination.ErrCursorSnapshotExpired):
-				writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonCursorSnapshotUnavailable))
-				return
-			case errors.Is(err, pagination.ErrInvalidCursorToken):
-				writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
-				return
-			case err != nil:
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
+		pageRequest, reasonCode := s.incidentListPageRequest(binding, cursor)
+		if reasonCode != "" {
+			writeAPIError(w, r, invalidPaginationRequest(reasonCode))
+			return
+		}
+		records, listErr := s.store.ListVisibleIncidents(r.Context(), principal.User.ID, pageRequest)
+		if listErr != nil {
+			writeAPIError(w, r, internalAPIError(listErr))
+			return
+		}
+		anchor := s.now().UTC()
+		if pageRequest.AnchorUpdatedAt != nil {
+			anchor = *pageRequest.AnchorUpdatedAt
+		} else if len(records) > 0 {
+			anchor = records[0].UpdatedAt.UTC()
+		}
+		rows, nextCursor, err := buildIncidentListPage(binding, anchor, records)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
 		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
@@ -155,7 +201,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 
 		var nextToken *string
 		if nextCursor != nil {
-			token, err := pagination.EncodeCursor(*nextCursor)
+			token, err := s.cursorCodec.Encode(*nextCursor)
 			if err != nil {
 				writeAPIError(w, r, internalAPIError(err))
 				return
@@ -324,7 +370,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		binding, cursor, reasonCode := pagination.ResolveRequest(
+		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
 			r.URL.Query(),
 			"incident.memberships.list",
 			principal.User.ID.String(),
@@ -335,40 +381,23 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		var (
-			rows       []json.RawMessage
-			nextCursor *pagination.Cursor
-			err        error
-		)
-		if cursor == nil {
-			records, listErr := s.store.ListMemberships(r.Context(), incidentID)
-			if listErr != nil {
-				writeAPIError(w, r, internalAPIError(listErr))
-				return
-			}
-			memberships := make([]map[string]any, 0, len(records))
-			for _, record := range records {
-				memberships = append(memberships, BuildMembershipResource(record))
-			}
-			rows, err = pagination.MarshalResources(memberships)
-			if err != nil {
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
-			rows, nextCursor = s.pagination.Start(binding, rows)
-		} else {
-			rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
-			switch {
-			case errors.Is(err, pagination.ErrCursorSnapshotExpired):
-				writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonCursorSnapshotUnavailable))
-				return
-			case errors.Is(err, pagination.ErrInvalidCursorToken):
-				writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
-				return
-			case err != nil:
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
+		records, listErr := s.store.ListMemberships(r.Context(), incidentID)
+		if listErr != nil {
+			writeAPIError(w, r, internalAPIError(listErr))
+			return
+		}
+		memberships := make([]map[string]any, 0, len(records))
+		for _, record := range records {
+			memberships = append(memberships, BuildMembershipResource(record))
+		}
+		rows, nextCursor, err := pagination.PageResources(binding, cursor, memberships)
+		switch {
+		case errors.Is(err, pagination.ErrInvalidCursorToken):
+			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+			return
+		case err != nil:
+			writeAPIError(w, r, internalAPIError(err))
+			return
 		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
@@ -377,7 +406,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 
 		var nextToken *string
 		if nextCursor != nil {
-			token, err := pagination.EncodeCursor(*nextCursor)
+			token, err := s.cursorCodec.Encode(*nextCursor)
 			if err != nil {
 				writeAPIError(w, r, internalAPIError(err))
 				return

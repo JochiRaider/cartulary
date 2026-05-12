@@ -29,7 +29,7 @@ type DependencySet struct {
 	ObjectStore objectstore.Store
 	Jobs        *jobs.Manager
 	WSHub       *platformws.Hub
-	Pagination  *pagination.Registry
+	CursorCodec *pagination.Codec
 	Now         func() time.Time
 }
 

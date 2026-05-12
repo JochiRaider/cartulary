@@ -107,7 +107,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_support_integration_test.go",
       "symbols": [
-        "TestSupportPhase1_UserListUsesSnapshotStablePagination",
+        "TestSupportPhase1_UserListContinuationUsesLiveRows",
         "TestSupportPhase1_Integration_SurfaceEnvelope",
         "TestSupportPhase1_Integration_BootstrapBoundaries",
         "TestSupportPhase1_Integration_CSRFProtection",

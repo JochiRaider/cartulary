@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -185,13 +185,13 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 	}
 }
 
-func TestWorkbook_QueryCursorSnapshotsSurviveInterveningMutations(t *testing.T) {
-	harness := phase4test.StartServer(t, "workbook-query-snapshot")
+func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-query-live-cursor")
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-workbook-query-snapshot-incident",
-		"incident_key":  "IR-WORKBOOK-SNAPSHOT",
-		"title":         "Workbook query snapshot",
+		"client_txn_id": "txn-workbook-query-live-cursor-incident",
+		"incident_key":  "IR-WORKBOOK-LIVE-CURSOR",
+		"title":         "Workbook query live cursor",
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
@@ -219,14 +219,11 @@ func TestWorkbook_QueryCursorSnapshotsSurviveInterveningMutations(t *testing.T) 
 		"sort":         sortByName,
 	})
 	pageTwoRows := responseRows(pageTwo)
-	if len(pageTwoRows) != 1 || pageTwoRows[0]["record_id"] != hostC.String() {
-		t.Fatalf("expected snapshot continuation to preserve host C as second row, got %#v", pageTwoRows)
+	if len(pageTwoRows) != 1 || pageTwoRows[0]["record_id"] != hostB.String() {
+		t.Fatalf("expected live continuation to include inserted host B as second row, got %#v", pageTwoRows)
 	}
-	if pageTwoRows[0]["row_version"] != float64(1) {
-		t.Fatalf("expected snapshot row_version 1, got %#v", pageTwoRows[0])
-	}
-	if got := pageTwoRows[0]["cells"].(map[string]any)["host.display_name"].(map[string]any)["value"]; got != "Charlie" {
-		t.Fatalf("expected snapshot display name Charlie, got %#v", pageTwoRows[0])
+	if got := pageTwoRows[0]["cells"].(map[string]any)["host.display_name"].(map[string]any)["value"]; got != "Bravo" {
+		t.Fatalf("expected live display name Bravo, got %#v", pageTwoRows[0])
 	}
 
 	pageThree := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
@@ -235,10 +232,22 @@ func TestWorkbook_QueryCursorSnapshotsSurviveInterveningMutations(t *testing.T) 
 	})
 	pageThreeRows := responseRows(pageThree)
 	if len(pageThreeRows) != 1 || pageThreeRows[0]["record_id"] != hostD.String() {
-		t.Fatalf("expected snapshot continuation to preserve host D as third row, got %#v", pageThreeRows)
+		t.Fatalf("expected live continuation to return host D as third row, got %#v", pageThreeRows)
 	}
-	if responsePaging(pageThree)["has_more"] != false {
-		t.Fatalf("expected snapshot chain to terminate, got %#v", responsePaging(pageThree))
+	if responsePaging(pageThree)["has_more"] != true {
+		t.Fatalf("expected cursor chain to continue to updated host C, got %#v", responsePaging(pageThree))
+	}
+
+	pageFour := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"cursor_token": responsePaging(pageThree)["next_cursor"].(string),
+		"sort":         sortByName,
+	})
+	pageFourRows := responseRows(pageFour)
+	if len(pageFourRows) != 1 || pageFourRows[0]["record_id"] != hostC.String() {
+		t.Fatalf("expected live continuation to return updated host C as final row, got %#v", pageFourRows)
+	}
+	if responsePaging(pageFour)["has_more"] != false {
+		t.Fatalf("expected cursor chain to terminate, got %#v", responsePaging(pageFour))
 	}
 
 	fresh := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"sort": sortByName})
@@ -253,13 +262,13 @@ func TestWorkbook_QueryCursorSnapshotsSurviveInterveningMutations(t *testing.T) 
 	}
 }
 
-func TestWorkbook_QueryCursorSnapshotExpiry(t *testing.T) {
-	harness := phase4test.StartServer(t, "workbook-query-snapshot-expiry")
+func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-query-cursor-tamper")
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-workbook-query-snapshot-expiry-incident",
-		"incident_key":  "IR-WORKBOOK-SNAPSHOT-EXPIRY",
-		"title":         "Workbook query snapshot expiry",
+		"client_txn_id": "txn-workbook-query-cursor-tamper-incident",
+		"incident_key":  "IR-WORKBOOK-CURSOR-TAMPER",
+		"title":         "Workbook query cursor tamper",
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 	hostA := uuid.New()
@@ -275,28 +284,22 @@ func TestWorkbook_QueryCursorSnapshotExpiry(t *testing.T) {
 	})
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
 
-	harness.Server.Clock.SetOffset(9 * time.Minute)
-	beforeExpiry := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
-		"cursor_token": cursor,
-		"sort":         sortByName,
-	})
-	if rows := responseRows(beforeExpiry); len(rows) != 1 || rows[0]["record_id"] != hostB.String() {
-		t.Fatalf("expected continuation before expiry to succeed, got %#v", rows)
+	payloadToken, signatureToken, ok := strings.Cut(cursor, ".")
+	if !ok {
+		t.Fatalf("expected signed cursor token, got %q", cursor)
 	}
-
-	pageOne = queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
-		"limit": 1,
-		"sort":  sortByName,
-	})
-	expiringCursor := responsePaging(pageOne)["next_cursor"].(string)
-	harness.Server.Clock.SetOffset(20 * time.Minute)
+	replacement := "A"
+	if strings.HasPrefix(payloadToken, replacement) {
+		replacement = "B"
+	}
+	tamperedCursor := replacement + payloadToken[1:] + "." + signatureToken
 	resp := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
-		"cursor_token": expiringCursor,
+		"cursor_token": tamperedCursor,
 		"sort":         sortByName,
 	}, phase4test.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
-	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_snapshot_unavailable" {
-		t.Fatalf("expected cursor_snapshot_unavailable, got %#v", details)
+	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "invalid_cursor_token" {
+		t.Fatalf("expected invalid_cursor_token, got %#v", details)
 	}
 
 	fresh := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"sort": sortByName})

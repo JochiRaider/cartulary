@@ -56,6 +56,17 @@ func (e *IncidentVersionConflictError) Details() map[string]any {
 	}
 }
 
+type IncidentListPosition struct {
+	UpdatedAt time.Time
+	ID        uuid.UUID
+}
+
+type IncidentListPageRequest struct {
+	AnchorUpdatedAt *time.Time
+	After           *IncidentListPosition
+	Limit           int
+}
+
 type IncidentRecord struct {
 	ID                     uuid.UUID
 	IncidentKey            string
@@ -127,7 +138,20 @@ func NewStoreWithHooks(pool postgres.DB, hooks StoreHooks) *Store {
 	}
 }
 
-func (s *Store) ListVisibleIncidents(ctx context.Context, userID uuid.UUID) ([]IncidentRecord, error) {
+func (s *Store) ListVisibleIncidents(ctx context.Context, userID uuid.UUID, page IncidentListPageRequest) ([]IncidentRecord, error) {
+	if page.Limit < 1 {
+		page.Limit = 1
+	}
+	var anchorUpdatedAt any
+	if page.AnchorUpdatedAt != nil {
+		anchorUpdatedAt = page.AnchorUpdatedAt.UTC()
+	}
+	var afterUpdatedAt any
+	var afterID any
+	if page.After != nil {
+		afterUpdatedAt = page.After.UpdatedAt.UTC()
+		afterID = page.After.ID
+	}
 	rows, err := s.pool.Query(ctx, `
 SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp, i.current_phase,
        i.primary_external_case_ref, i.created_by_user_id, i.created_at, i.updated_at, i.updated_by_user_id,
@@ -135,14 +159,17 @@ SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp
   FROM incidents i
   JOIN incident_memberships m ON m.incident_id = i.id
  WHERE m.user_id = $1
+   AND ($2::timestamptz IS NULL OR i.updated_at <= $2)
+   AND ($3::timestamptz IS NULL OR $4::uuid IS NULL OR i.updated_at < $3 OR (i.updated_at = $3 AND i.id > $4))
  ORDER BY i.updated_at DESC, i.id ASC
-`, userID)
+ LIMIT $5
+`, userID, anchorUpdatedAt, afterUpdatedAt, afterID, page.Limit)
 	if err != nil {
 		return nil, fmt.Errorf("list visible incidents: %w", err)
 	}
 	defer rows.Close()
 
-	records := make([]IncidentRecord, 0, 32)
+	records := make([]IncidentRecord, 0, page.Limit)
 	for rows.Next() {
 		record, err := scanIncident(rows)
 		if err != nil {

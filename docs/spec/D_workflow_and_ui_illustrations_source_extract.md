@@ -1710,7 +1710,7 @@ sequenceDiagram
     App-->>UI: page 1 of current live order
 ```
 
-The important UI consequence is that live collaboration can still update currently visible rows, but continuation does not silently splice new live rows into an existing page chain. Refresh restarts from page 1 without `cursor_token`; continuation keeps the existing chain's snapshot order.
+The important UI consequence is that live collaboration and cursor continuation both reflect current authorization. Refresh restarts from page 1 without `cursor_token`; continuation proceeds from the opaque server-owned cursor position and may reflect intervening live changes that still satisfy the route contract.
 
 #### Evidence-inspector metadata-shell boundary
 

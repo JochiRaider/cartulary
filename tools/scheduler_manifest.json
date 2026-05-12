@@ -1634,6 +1634,46 @@
           }
         },
         {
+          "id": "check-service-backed:backend-integration-support:backend-integration-incidents-shard-05",
+          "kind": "go_shard",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-incidents-shard-05",
+          "aggregate_target": "backend-integration-support",
+          "priority": 0,
+          "weight_ms": 8795,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-integration-incidents-shard-05"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-incidents-shard-05"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-incidents-shard-05",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-incidents-shard-05",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
           "id": "check-service-backed:backend-integration:backend-integration-timeline-shard-02",
           "kind": "go_shard",
           "target": "backend-integration",
@@ -1670,46 +1710,6 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-timeline-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:backend-integration-support:backend-integration-incidents-shard-05",
-          "kind": "go_shard",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-incidents-shard-05",
-          "aggregate_target": "backend-integration-support",
-          "priority": 0,
-          "weight_ms": 8445,
-          "needs": [
-            "service_session:check-service-backed"
-          ],
-          "completion_keys": [
-            "go_shard:backend-integration-incidents-shard-05"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-incidents-shard-05"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-incidents-shard-05",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "minio": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-05",
             "service_target": "check-service-backed"
           }
         },
@@ -4480,6 +4480,41 @@
           }
         },
         {
+          "id": "backend-integration-support:backend-integration-incidents-shard-05",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-incidents-shard-05",
+          "aggregate_target": "backend-integration-support",
+          "priority": 0,
+          "weight_ms": 8795,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-incidents-shard-05"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-incidents-shard-05"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-incidents-shard-05",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-incidents-shard-05"
+          }
+        },
+        {
           "id": "backend-integration:backend-integration-timeline-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -4512,41 +4547,6 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-timeline-shard-02"
-          }
-        },
-        {
-          "id": "backend-integration-support:backend-integration-incidents-shard-05",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-incidents-shard-05",
-          "aggregate_target": "backend-integration-support",
-          "priority": 0,
-          "weight_ms": 8445,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-incidents-shard-05"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-incidents-shard-05"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-incidents-shard-05",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "minio": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-05"
           }
         },
         {
@@ -6258,6 +6258,41 @@
           }
         },
         {
+          "id": "backend-integration-support:backend-integration-incidents-shard-05",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-incidents-shard-05",
+          "aggregate_target": "backend-integration-support",
+          "priority": 0,
+          "weight_ms": 8795,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-incidents-shard-05"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-incidents-shard-05"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-incidents-shard-05",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-incidents-shard-05"
+          }
+        },
+        {
           "id": "backend-integration:backend-integration-timeline-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -6290,41 +6325,6 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-timeline-shard-02"
-          }
-        },
-        {
-          "id": "backend-integration-support:backend-integration-incidents-shard-05",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-incidents-shard-05",
-          "aggregate_target": "backend-integration-support",
-          "priority": 0,
-          "weight_ms": 8445,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-incidents-shard-05"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-incidents-shard-05"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-incidents-shard-05",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "minio": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-05"
           }
         },
         {
@@ -8423,6 +8423,41 @@
           }
         },
         {
+          "id": "backend-integration-support:backend-integration-incidents-shard-05",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-incidents-shard-05",
+          "aggregate_target": "backend-integration-support",
+          "priority": 0,
+          "weight_ms": 8795,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-incidents-shard-05"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-incidents-shard-05"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-incidents-shard-05",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-incidents-shard-05"
+          }
+        },
+        {
           "id": "backend-integration:backend-integration-timeline-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -8455,41 +8490,6 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-timeline-shard-02"
-          }
-        },
-        {
-          "id": "backend-integration-support:backend-integration-incidents-shard-05",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-incidents-shard-05",
-          "aggregate_target": "backend-integration-support",
-          "priority": 0,
-          "weight_ms": 8445,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-incidents-shard-05"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-incidents-shard-05"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-incidents-shard-05",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "minio": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-05"
           }
         },
         {

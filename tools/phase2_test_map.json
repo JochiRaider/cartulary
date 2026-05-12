@@ -154,8 +154,9 @@
       "file": "internal/modules/incidents/phase2_pagination_integration_test.go",
       "symbols": [
         "TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock",
-        "TestSupportPhase2_IncidentListContinuationUsesSnapshotStableRows",
-        "TestSupportPhase2_MembershipListContinuationUsesSnapshotStableRows"
+        "TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery",
+        "TestSupportPhase2_IncidentListContinuationOmitsRevokedMembership",
+        "TestSupportPhase2_MembershipListContinuationUsesLiveRows"
       ],
       "selection_pattern": "TestSupportPhase2_",
       "execution_family": "backend-integration-incidents",

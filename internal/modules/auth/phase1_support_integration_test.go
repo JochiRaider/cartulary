@@ -20,7 +20,7 @@ import (
 	phase1test "github.com/JochiRaider/cartulary/internal/testutil/phase1test/inventory"
 )
 
-func TestSupportPhase1_UserListUsesSnapshotStablePagination(t *testing.T) {
+func TestSupportPhase1_UserListContinuationUsesLiveRows(t *testing.T) {
 	runtime := phase1support.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-support-pagination")
@@ -82,9 +82,9 @@ func TestSupportPhase1_UserListUsesSnapshotStablePagination(t *testing.T) {
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedUsers := continuedBody["data"].(map[string]any)["users"].([]any)
-	snapshotUser := findUserResource(t, continuedUsers, userTwoID)
-	if snapshotUser["display_name"] != "Pagination Two" {
-		t.Fatalf("expected snapshot-stable user payload, got %#v", snapshotUser)
+	liveContinuedUser := findUserResource(t, continuedUsers, userTwoID)
+	if liveContinuedUser["display_name"] != "Pagination Two Patched" {
+		t.Fatalf("expected live user payload, got %#v", liveContinuedUser)
 	}
 
 	fresh := doJSON(
