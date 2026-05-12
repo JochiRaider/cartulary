@@ -170,7 +170,7 @@ assert.match(
 assert.match(renderedMake, /^help:\n\t\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m, "help recipe must be generated");
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\)/,
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0\}" != "1" \]; then env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
   "test_target self must render target-specific export and centralized prerequisite prelude",
 );
 assert.match(
@@ -359,13 +359,13 @@ const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const compact = manifest.compact_help;
 compact.entries.push({
-  target: "task-surface-check",
+  target: "frontend-install-ci",
   description: "synthetic non-public help tier entry"
 });
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 non_public_help_tier_output="$(assert_fails "non-public compact help target" run_report_copy)"
-assert_contains "$non_public_help_tier_output" "task-surface-check appears in compact_help but is not classified public" "non-public compact help output"
+assert_contains "$non_public_help_tier_output" "frontend-install-ci appears in compact_help but is not classified public" "non-public compact help output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

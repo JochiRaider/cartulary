@@ -69,6 +69,16 @@ const validRawStreamPolicies = new Set([
   "machine_json_stdout",
   "never_default",
 ]);
+export const validSemanticBehaviors = new Set([
+  "configuration_resolution",
+  "evidence_normalization",
+  "failure_normalization",
+  "service_lifecycle",
+  "scheduler_orchestration",
+  "destructive_safety",
+  "security_boundary",
+  "diagnostic_synthesis",
+]);
 const validGateSmokeRoles = new Set([
   "public_make_wrapper",
   "check_scheduler_semantic",
@@ -114,6 +124,8 @@ const helpDescriptionIndent = " ".repeat(
 );
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
+const commandIDPattern = /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v1$/;
+const ownerSectionPattern = /^Section (?:[1-9]|1[0-9])(?:\.[0-9]+)?$/;
 const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
 const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
 const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
@@ -235,6 +247,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
   }
 
   const targets = new Map();
+  const commandIDs = new Map();
   for (const [index, entry] of manifest.targets.entries()) {
     const label = `targets[${index + 1}]`;
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -308,6 +321,8 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       }
     }
     if (entry.classification === "public") {
+      validatePublicCommandIdentity(errors, entry, commandIDs);
+      validatePublicSemanticBehaviors(errors, entry);
       validateOutputPolicy(errors, entry);
     }
   }
@@ -463,6 +478,64 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
   validateOutputPolicyRouting(errors, targets, manifest.make_recipes);
 
   return errors;
+}
+
+function validatePublicCommandIdentity(errors, entry, commandIDs) {
+  if (typeof entry.command_id !== "string" || entry.command_id.trim() === "") {
+    errors.push(`${entry.name}.command_id must be declared for public targets`);
+    return;
+  }
+  if (!commandIDPattern.test(entry.command_id)) {
+    errors.push(
+      `${entry.name}.command_id must match cartulary.harness.command.<name>.v1`,
+    );
+  }
+  const previousTarget = commandIDs.get(entry.command_id);
+  if (previousTarget) {
+    errors.push(
+      `${entry.name}.command_id duplicates ${previousTarget}: ${entry.command_id}`,
+    );
+  } else {
+    commandIDs.set(entry.command_id, entry.name);
+  }
+}
+
+function validatePublicSemanticBehaviors(errors, entry) {
+  if (
+    !Array.isArray(entry.semantic_behaviors) ||
+    entry.semantic_behaviors.length === 0
+  ) {
+    errors.push(
+      `${entry.name}.semantic_behaviors must declare at least one semantic behavior`,
+    );
+    return;
+  }
+  const seen = new Set();
+  for (const [index, behaviorEntry] of entry.semantic_behaviors.entries()) {
+    const label = `${entry.name}.semantic_behaviors[${index + 1}]`;
+    if (
+      !behaviorEntry ||
+      typeof behaviorEntry !== "object" ||
+      Array.isArray(behaviorEntry)
+    ) {
+      errors.push(`${label} must be an object`);
+      continue;
+    }
+    const behavior = behaviorEntry.behavior;
+    if (typeof behavior !== "string" || !validSemanticBehaviors.has(behavior)) {
+      errors.push(`${label}.behavior must be one of ${[...validSemanticBehaviors].join("|")}`);
+    } else if (seen.has(behavior)) {
+      errors.push(`${entry.name}.semantic_behaviors contains duplicate ${behavior}`);
+    } else {
+      seen.add(behavior);
+    }
+    if (
+      typeof behaviorEntry.owner_section !== "string" ||
+      !ownerSectionPattern.test(behaviorEntry.owner_section)
+    ) {
+      errors.push(`${label}.owner_section must be a Section reference`);
+    }
+  }
 }
 
 function validateBudget(errors, budget, label, requiredKeys) {

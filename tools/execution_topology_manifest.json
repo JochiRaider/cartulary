@@ -2079,7 +2079,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.help.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "help-all",
@@ -2104,7 +2111,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.help_all.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "doctor",
@@ -2132,7 +2146,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.doctor.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "bootstrap",
@@ -2157,7 +2182,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.bootstrap.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "bootstrap-node-runtime",
@@ -2182,7 +2218,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.bootstrap_node_runtime.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "frontend-toolchain",
@@ -2210,7 +2257,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.frontend_toolchain.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "frontend-install",
@@ -2235,7 +2293,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.frontend_install.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "frontend-install-ci",
@@ -2270,7 +2339,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.playwright_install.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "db-up",
@@ -2298,7 +2378,22 @@
           },
           "raw_stream_policy": "failure_or_verbose",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.db_up.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "db-reset",
@@ -2326,7 +2421,18 @@
           },
           "raw_stream_policy": "failure_or_verbose",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.db_reset.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "destructive_safety",
+            "owner_section": "Section 13"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "services-up",
@@ -2354,7 +2460,22 @@
           },
           "raw_stream_policy": "failure_or_verbose",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.services_up.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "services-wait",
@@ -2409,7 +2530,22 @@
           },
           "raw_stream_policy": "failure_or_verbose",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.minio_init.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "dev",
@@ -2437,7 +2573,14 @@
           },
           "raw_stream_policy": "interactive",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.dev.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          }
+        ]
       },
       {
         "name": "codegen-toolchain",
@@ -2559,7 +2702,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.generate.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "generate-artifacts",
@@ -2608,7 +2762,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.generate_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "generated-artifact-policy-check",
@@ -2648,7 +2813,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.generated_artifact_policy_check.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "json-shape-check",
@@ -2700,7 +2876,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.json_shape_check.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "toolchain-drift",
@@ -2737,7 +2924,18 @@
           "needs": [],
           "priority_band": "setup",
           "order": 0
-        }
+        },
+        "command_id": "cartulary.harness.command.toolchain_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "migration-drift",
@@ -2782,7 +2980,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.migration_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "deployable-shape",
@@ -2853,7 +3062,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.phase_ledgers.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "phase-ledger-drift",
@@ -2892,7 +3112,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.phase_ledger_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "phase-schedules",
@@ -2920,7 +3151,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.phase_schedules.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "phase-schedule-drift",
@@ -2959,7 +3201,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.phase_schedule_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "agent-finalize",
@@ -2988,7 +3241,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.agent_finalize.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "benchmark-claim-check",
@@ -3016,7 +3280,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.benchmark_claim_check.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "task-surface-report",
@@ -3045,7 +3320,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.task_surface_report.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "task-guide",
@@ -3074,7 +3356,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.task_guide.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "phase-slice",
@@ -3104,7 +3393,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.phase_slice.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "scheduler_orchestration",
+            "owner_section": "Section 10"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "service-backed-slice",
@@ -3134,7 +3438,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.service_backed_slice.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "scheduler_orchestration",
+            "owner_section": "Section 10"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "backend-unit",
@@ -3179,7 +3498,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.backend_unit.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "backend-store",
@@ -3210,7 +3540,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.backend_store.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "backend-integration",
@@ -3241,7 +3586,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.backend_integration.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "backend-integration-support",
@@ -3285,7 +3645,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.backend_process.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "target-plan",
@@ -3313,7 +3688,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.target_plan.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "target-plan-json",
@@ -3341,7 +3723,14 @@
           },
           "raw_stream_policy": "machine_json_stdout",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.target_plan_json.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "fixture-report",
@@ -3370,7 +3759,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.fixture_report.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "explain-run",
@@ -3398,7 +3794,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.explain_run.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "explain-phase",
@@ -3427,7 +3830,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.explain_phase.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "explain-target",
@@ -3457,7 +3867,14 @@
           },
           "raw_stream_policy": "explicit_detail_only",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.explain_target.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "diagnostic_synthesis",
+            "owner_section": "Section 4"
+          }
+        ]
       },
       {
         "name": "go-test-duration-baselines",
@@ -3485,7 +3902,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.go_test_duration_baselines.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "go-test-duration-baseline-coverage",
@@ -3524,7 +3952,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.go_test_duration_baseline_coverage.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "go-test-duration-baseline-drift",
@@ -3552,7 +3991,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.go_test_duration_baseline_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "browser-e2e-duration-baselines",
@@ -3580,7 +4030,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.browser_e2e_duration_baselines.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "browser-e2e-duration-baseline-drift",
@@ -3608,7 +4069,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.browser_e2e_duration_baseline_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "service-backed-make-target-duration-baselines",
@@ -3636,7 +4108,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.service_backed_make_target_duration_baselines.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "service-backed-make-target-duration-baseline-drift",
@@ -3664,7 +4147,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.service_backed_make_target_duration_baseline_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "harness-smoke-duration-baselines",
@@ -3692,7 +4186,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.harness_smoke_duration_baselines.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "duration-baseline-drift-suite",
@@ -3730,7 +4235,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.harness_smoke_duration_baseline_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "scheduler-event-order-drift",
@@ -3759,7 +4275,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.scheduler_event_order_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "scheduler-summary-timing-drift",
@@ -3788,7 +4315,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.scheduler_summary_timing_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "service-backed-unit-check",
@@ -3920,7 +4458,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.frontend_typecheck.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "frontend-unit",
@@ -3964,7 +4513,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.frontend_unit.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "frontend-import-boundary-check",
@@ -4003,7 +4563,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.frontend_import_boundary_check.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "lint-biome",
@@ -4042,7 +4613,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.lint_biome.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "lint-scripts",
@@ -4081,7 +4663,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.lint_scripts.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "harness-contract-tests",
@@ -4147,7 +4740,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.lint_shell.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "format",
@@ -4172,7 +4776,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.format.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "format-go",
@@ -4225,7 +4840,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.browser_e2e.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "browser-e2e-webserver-backed",
@@ -4261,7 +4891,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "browser-e2e-functional",
@@ -4324,7 +4969,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "browser-e2e-resettable",
@@ -4371,7 +5031,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.browser_e2e_measurement.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "browser-e2e-visual",
@@ -4405,7 +5080,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "test-local",
@@ -4452,7 +5142,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.test_fast.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "test-fast-service-backed",
@@ -4492,7 +5193,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.test.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "lint",
@@ -4517,7 +5229,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.lint.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "lint-go",
@@ -4609,7 +5332,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.go_vulncheck.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "security_boundary",
+            "owner_section": "Section 15"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "go-gosec-targeted",
@@ -4648,7 +5386,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.go_gosec_targeted.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "security_boundary",
+            "owner_section": "Section 15"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "go-gosec-audit",
@@ -4687,7 +5440,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.go_gosec_audit.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "security_boundary",
+            "owner_section": "Section 15"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "check",
@@ -4715,7 +5483,22 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.check.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "scheduler_orchestration",
+            "owner_section": "Section 10"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "check-frontend-install",
@@ -4810,7 +5593,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.ci.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "release-check",
@@ -4838,7 +5632,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.release_check.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "license-report",
@@ -4887,7 +5692,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.build.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "build-server",
@@ -4924,7 +5740,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.build_server.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "build-migrate",
@@ -4961,7 +5788,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.build_migrate.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "build-web",
@@ -4986,7 +5824,18 @@
           },
           "raw_stream_policy": "never_default",
           "summary_schema": "cartulary.tool_run_summary.v2"
-        }
+        },
+        "command_id": "cartulary.harness.command.build_web.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "clean",
@@ -5011,7 +5860,18 @@
           },
           "raw_stream_policy": "human_visible_actions",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.clean.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "destructive_safety",
+            "owner_section": "Section 13"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       },
       {
         "name": "distclean",
@@ -5036,7 +5896,18 @@
           },
           "raw_stream_policy": "human_visible_actions",
           "summary_schema": null
-        }
+        },
+        "command_id": "cartulary.harness.command.distclean.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "destructive_safety",
+            "owner_section": "Section 13"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ]
       }
     ],
     "harness_tiers": {

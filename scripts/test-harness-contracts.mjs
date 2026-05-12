@@ -133,6 +133,148 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
   );
 });
 
+function targetRecipeBlock(renderedMake, target) {
+  const lines = renderedMake.split("\n");
+  const headerPattern = new RegExp(`^${target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`);
+  const start = lines.findIndex(
+    (line) => headerPattern.test(line) && !line.includes(": export "),
+  );
+  assert.notEqual(start, -1, `${target} must have a rendered recipe`);
+  const block = [];
+  for (let index = start; index < lines.length; index += 1) {
+    if (index > start && /^[A-Za-z0-9_.-]+:/.test(lines[index])) {
+      break;
+    }
+    block.push(lines[index]);
+  }
+  return block;
+}
+
+test("public targets declare command identity and semantic value", () => {
+  const { taskSurface, browserBatch, serviceBacked } = renderedArtifacts();
+  const publicTargets = taskSurface.targets.filter(
+    (entry) => entry.classification === "public",
+  );
+  assert.ok(publicTargets.length > 0, "public target registry must not be empty");
+  const commandIDs = new Set();
+  for (const target of publicTargets) {
+    assert.match(
+      target.command_id,
+      /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v1$/,
+      `${target.name} must declare stable command_id`,
+    );
+    assert.ok(!commandIDs.has(target.command_id), `${target.name} command_id must be unique`);
+    commandIDs.add(target.command_id);
+    assert.ok(
+      Array.isArray(target.semantic_behaviors) &&
+        target.semantic_behaviors.length > 0,
+      `${target.name} must declare semantic behaviors`,
+    );
+    for (const entry of target.semantic_behaviors) {
+      assert.match(entry.owner_section, /^Section (?:[1-9]|1[0-9])(?:\.[0-9]+)?$/);
+    }
+  }
+
+  const duplicateID = structuredClone(taskSurface);
+  duplicateID.targets.find((entry) => entry.name === "help-all").command_id =
+    duplicateID.targets.find((entry) => entry.name === "help").command_id;
+  assert.match(
+    collectTaskSurfaceManifestErrors(duplicateID, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /help-all\.command_id duplicates help/,
+  );
+
+  const malformedID = structuredClone(taskSurface);
+  malformedID.targets.find((entry) => entry.name === "help").command_id =
+    "cartulary.harness.command.help.latest";
+  assert.match(
+    collectTaskSurfaceManifestErrors(malformedID, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /help\.command_id must match cartulary\.harness\.command\.<name>\.v1/,
+  );
+
+  const missingSemantic = structuredClone(taskSurface);
+  missingSemantic.targets.find((entry) => entry.name === "help").semantic_behaviors = [];
+  assert.match(
+    collectTaskSurfaceManifestErrors(missingSemantic, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /help\.semantic_behaviors must declare at least one semantic behavior/,
+  );
+
+  const missingOwner = structuredClone(taskSurface);
+  missingOwner.targets.find((entry) => entry.name === "help").semantic_behaviors = [
+    { behavior: "diagnostic_synthesis", owner_section: "" },
+  ];
+  assert.match(
+    collectTaskSurfaceManifestErrors(missingOwner, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /help\.semantic_behaviors\[1\]\.owner_section must be a Section reference/,
+  );
+
+  const shallowAlias = structuredClone(taskSurface);
+  shallowAlias.targets.push({
+    name: "synthetic-shallow-wrapper",
+    classification: "public",
+    included_in: ["helper_only"],
+    command_id: "cartulary.harness.command.synthetic_shallow_wrapper.v1",
+    semantic_behaviors: [],
+    output_policy: structuredClone(
+      shallowAlias.targets.find((entry) => entry.name === "help").output_policy,
+    ),
+  });
+  shallowAlias.help_tiers[0].entries.push({
+    target: "synthetic-shallow-wrapper",
+    description: "synthetic shallow wrapper",
+  });
+  shallowAlias.make_recipes["synthetic-shallow-wrapper"] = {
+    type: "alias",
+    prerequisites: ["help"],
+  };
+  assert.match(
+    collectTaskSurfaceManifestErrors(shallowAlias, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /synthetic-shallow-wrapper\.semantic_behaviors must declare at least one semantic behavior/,
+  );
+});
+
+test("public non-interactive wrappers run preflight before child work", () => {
+  const { taskSurface, taskSurfaceMake } = renderedArtifacts();
+  const recipes = taskSurface.make_recipes;
+  for (const target of taskSurface.targets) {
+    if (
+      target.classification !== "public" ||
+      target.output_policy?.output_class === "interactive_raw"
+    ) {
+      continue;
+    }
+    const block = targetRecipeBlock(taskSurfaceMake, target.name);
+    const recipeLines = block.filter((line) => line.startsWith("\t"));
+    assert.ok(recipeLines.length > 0, `${target.name} must render recipe lines`);
+    assert.equal(
+      recipeLines[0],
+      `\t$(call RUN_PUBLIC_PREFLIGHT,${target.name})`,
+      `${target.name} must run public preflight first`,
+    );
+    if ((recipes[target.name]?.prerequisites ?? []).length > 0) {
+      assert.match(
+        recipeLines.slice(1).join("\n"),
+        /CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES/,
+        `${target.name} prerequisite work must follow preflight`,
+      );
+    }
+  }
+});
+
 test("check schedule includes cheap harness contracts outside fast smoke", () => {
   const { checkSchedule } = renderedArtifacts();
   const check = checkSchedule.schedules.find(

@@ -395,6 +395,8 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
     return {
       name: target,
       classification: entry.classification ?? "unclassified",
+      command_id: entry.command_id ?? null,
+      semantic_behaviors: entry.semantic_behaviors ?? [],
       has_help: helpEntries.has(target),
       help_tier: helpTierByTarget.get(target) ?? null,
       included_in: entry.included_in ?? [],
@@ -402,6 +404,25 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
       makefile_script_refs: targetScriptRefs.get(target) ?? [],
     };
   });
+  const semanticBehaviorCounts = new Map();
+  const publicSemanticRows = targets
+    .filter((entry) => entry.classification === "public")
+    .map((entry) => {
+      const behaviors = Array.isArray(entry.semantic_behaviors)
+        ? entry.semantic_behaviors.map((item) => item.behavior).filter(Boolean)
+        : [];
+      for (const behavior of behaviors) {
+        semanticBehaviorCounts.set(
+          behavior,
+          (semanticBehaviorCounts.get(behavior) ?? 0) + 1,
+        );
+      }
+      return {
+        target: entry.name,
+        command_id: entry.command_id,
+        behaviors,
+      };
+    });
 
   return {
     schema_id: "cartulary.task_surface_report.v3",
@@ -415,6 +436,14 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
     },
     help_entries: Array.from(helpEntries.keys()).sort(),
     help_tiers: helpTierSummaries,
+    semantic_value: {
+      public_targets: publicSemanticRows,
+      behavior_counts: Object.fromEntries(
+        [...semanticBehaviorCounts.entries()].sort(([left], [right]) =>
+          left.localeCompare(right),
+        ),
+      ),
+    },
     phase_execution_dependencies: phaseDependencies,
   };
 }
@@ -446,12 +475,21 @@ function printHumanReport(report, { allMode = false } = {}) {
     console.log(`  ${tier.name}: ${tier.count}`);
   }
 
+  console.log("");
+  console.log("semantic behavior counts:");
+  for (const [behavior, count] of Object.entries(report.semantic_value.behavior_counts)) {
+    console.log(`  ${behavior}: ${count}`);
+  }
+
   if (allMode) {
     console.log("");
     console.log("public Make targets:");
     for (const target of report.targets.filter((entry) => entry.classification === "public")) {
+      const behaviors = target.semantic_behaviors
+        .map((entry) => `${entry.behavior}@${entry.owner_section}`)
+        .join(",");
       console.log(
-        `  ${target.name} help=${target.has_help ? "yes" : "no"} help_tier=${target.help_tier ?? "-"} included_in=${target.included_in.join(",")}`,
+        `  ${target.name} command_id=${target.command_id ?? "-"} behaviors=${behaviors || "-"} help=${target.has_help ? "yes" : "no"} help_tier=${target.help_tier ?? "-"} included_in=${target.included_in.join(",")}`,
       );
     }
 
