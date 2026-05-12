@@ -1,6 +1,7 @@
 package revisions_test
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"slices"
@@ -349,6 +350,141 @@ func TestPhase7_HistoryPaginationRecordBinding_I_7_02(t *testing.T) {
 	}
 }
 
+func TestPhase7_MergeChangeSetRollback_I_7_05(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase7-i-7-05-merge-rollback")
+	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase7-i-7-05-incident",
+		"incident_key":  "IR-P7-I705",
+		"title":         "Phase 7 Merge Rollback",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	survivor := uuid.New()
+	loser := uuid.New()
+	timeline := uuid.New()
+	mentionID := uuid.New()
+	linkID := uuid.New()
+	survivorTag := uuid.New()
+	loserTag := uuid.New()
+	assessment := uuid.New()
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, survivor, "Survivor Host", "survivor-host", "", "")
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, loser, "Loser Host", "loser-host", "loser.example.test", "")
+	phase4test.SeedEntityAlias(t, harness.DB, incidentID, actorID, loser, "host", "Loser Alias")
+	phase4test.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timeline)
+	phase4test.SeedResolvedMention(t, harness.DB, actorID, mentionID, timeline, loser, "timeline.host_refs", "host", "loser-host")
+	phase4test.SeedRecordLink(t, harness.DB, incidentID, actorID, linkID, timeline, loser, "observed_on_host", "manual", nil)
+	phase4test.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
+	phase4test.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
+	phase4test.SeedAssessment(t, harness.DB, incidentID, actorID, assessment, loser, "host", "suspected")
+	seedHostProjection(t, harness.DB, incidentID, survivor)
+	seedHostProjection(t, harness.DB, incidentID, loser)
+
+	mergeData := httptestx.RequireSuccessEnvelope(t, mergeRecords(t, harness, login, survivor, map[string]any{
+		"loser_record_id":           loser.String(),
+		"survivor_base_row_version": 1,
+		"loser_base_row_version":    1,
+		"client_txn_id":             "txn-phase7-i-7-05-merge-hosts",
+		"reason":                    "merge rollback fixture",
+	}), http.StatusOK)["data"].(map[string]any)
+	mergeChangeSetID := mergeData["change_set_id"].(string)
+	if countRows(t, harness.DB, `
+SELECT COUNT(*)
+  FROM change_set_mutations
+ WHERE change_set_id::text = $1
+   AND target_kind IN ('host', 'record_link', 'record_tag', 'entity_mention', 'entity_preserved_identifier', 'entity_alias', 'assessment')
+`, mergeChangeSetID) < 8 {
+		t.Fatalf("merge did not record complete reversible mutation families")
+	}
+	mergeHistory := historyItemForChangeSetTarget(t, harness, login, survivor, mustUUID(t, mergeChangeSetID), "host", survivor.String())
+	requireHistoryActionContains(t, mergeHistory, "change_set")
+
+	requireHostState(t, harness.DB, survivor, "canonical", nil, 2, "loser.example.test")
+	requireHostState(t, harness.DB, loser, "merged", &survivor, 2, "loser.example.test")
+	if got := stringScalar(t, harness.DB, `SELECT resolved_record_id::text FROM entity_mentions WHERE entity_mention_id = $1`, mentionID); got != survivor.String() {
+		t.Fatalf("merge did not repoint mention to survivor, got %s", got)
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND dst_record_id = $2 AND link_type = 'observed_on_host' AND deleted_at IS NULL`, timeline, survivor) != 1 {
+		t.Fatalf("merge did not repoint active link to survivor")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id = $1 AND deleted_at IS NOT NULL`, loserTag) != 1 {
+		t.Fatalf("merge did not dedupe loser tag")
+	}
+	if got := stringScalar(t, harness.DB, `SELECT subject_record_id::text FROM assessments WHERE record_id = $1`, assessment); got != survivor.String() {
+		t.Fatalf("merge did not repoint assessment subject, got %s", got)
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM entity_aliases WHERE incident_id = $1 AND record_id = $2 AND normalized_text = 'Loser Alias' AND deleted_at IS NULL`, incidentID, survivor) != 1 {
+		t.Fatalf("merge did not carry loser alias to survivor")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM entity_preserved_identifiers WHERE incident_id = $1 AND record_id = $2 AND identifier_type = 'fqdn' AND normalized_value = 'loser.example.test' AND deleted_at IS NULL`, incidentID, survivor) != 1 {
+		t.Fatalf("merge did not preserve loser fqdn for survivor")
+	}
+
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 19, 0, 0, 0, time.UTC))
+	rollbackBody := map[string]any{
+		"base_row_version": 2,
+		"client_txn_id":    "txn-phase7-i-7-05-rollback-merge",
+		"target":           map[string]any{"kind": "change_set", "change_set_id": mergeChangeSetID},
+	}
+	rollbackData := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, survivor, rollbackBody), http.StatusOK)["data"].(map[string]any)
+	requireAffectedRecords(t, rollbackData, survivor, loser, timeline, assessment)
+	rollbackChangeSetID := rollbackData["rollback_change_set_id"].(string)
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND client_txn_id = 'txn-phase7-i-7-05-rollback-merge'`, rollbackChangeSetID) != 1 {
+		t.Fatalf("merge rollback did not append rollback change_set")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND operation_kind = 'rollback'`, rollbackChangeSetID) < 8 {
+		t.Fatalf("merge rollback did not record inverse mutation families")
+	}
+
+	requireHostState(t, harness.DB, survivor, "canonical", nil, 3, "")
+	requireHostState(t, harness.DB, loser, "canonical", nil, 3, "loser.example.test")
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE record_id IN ($1, $2)`, survivor, loser) != 2 {
+		t.Fatalf("merge rollback did not rebuild active host projections")
+	}
+	if got := stringScalar(t, harness.DB, `SELECT resolved_record_id::text FROM entity_mentions WHERE entity_mention_id = $1`, mentionID); got != loser.String() {
+		t.Fatalf("merge rollback did not restore mention target, got %s", got)
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND dst_record_id = $2 AND deleted_at IS NULL`, linkID, loser) != 1 {
+		t.Fatalf("merge rollback did not restore original active link target")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id IN ($1, $2) AND deleted_at IS NULL`, survivorTag, loserTag) != 2 {
+		t.Fatalf("merge rollback did not restore both duplicate tags")
+	}
+	if got := stringScalar(t, harness.DB, `SELECT subject_record_id::text FROM assessments WHERE record_id = $1`, assessment); got != loser.String() {
+		t.Fatalf("merge rollback did not restore assessment subject, got %s", got)
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM entity_aliases WHERE incident_id = $1 AND record_id = $2 AND normalized_text = 'Loser Alias' AND deleted_at IS NULL`, incidentID, survivor) != 0 {
+		t.Fatalf("merge rollback did not tombstone carried survivor alias")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM entity_preserved_identifiers WHERE incident_id = $1 AND record_id = $2 AND identifier_type = 'fqdn' AND normalized_value = 'loser.example.test' AND deleted_at IS NULL`, incidentID, survivor) != 0 {
+		t.Fatalf("merge rollback did not tombstone carried survivor preserved identifier")
+	}
+
+	replayData := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, survivor, rollbackBody), http.StatusOK)["data"].(map[string]any)
+	if replayData["rollback_change_set_id"] != rollbackChangeSetID || countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'rollback' AND client_txn_id = 'txn-phase7-i-7-05-rollback-merge'`) != 1 {
+		t.Fatalf("merge rollback replay was not idempotent: first=%#v replay=%#v", rollbackData, replayData)
+	}
+
+	staleSurvivor := uuid.New()
+	staleLoser := uuid.New()
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, staleSurvivor, "Stale Survivor", "stale-survivor", "", "")
+	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, staleLoser, "Stale Loser", "stale-loser", "stale.example.test", "")
+	seedHostProjection(t, harness.DB, incidentID, staleSurvivor)
+	seedHostProjection(t, harness.DB, incidentID, staleLoser)
+	staleMerge := httptestx.RequireSuccessEnvelope(t, mergeRecords(t, harness, login, staleSurvivor, map[string]any{
+		"loser_record_id":           staleLoser.String(),
+		"survivor_base_row_version": 1,
+		"loser_base_row_version":    1,
+		"client_txn_id":             "txn-phase7-i-7-05-stale-merge-hosts",
+	}), http.StatusOK)["data"].(map[string]any)
+	staleRollback := rollbackRecord(t, harness, login, staleSurvivor, map[string]any{
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase7-i-7-05-stale-rollback-merge",
+		"target":           map[string]any{"kind": "change_set", "change_set_id": staleMerge["change_set_id"].(string)},
+	})
+	httptestx.RequireErrorEnvelope(t, staleRollback, http.StatusConflict, "row_version_conflict")
+}
+
 func TestPhase7_StaleRestoreRollbackFailsClosed_I_7_03(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase7-i-7-03-stale-restore")
 	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
@@ -535,6 +671,49 @@ func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.Rec
 	if len(seen) != len(expected) {
 		t.Fatalf("rollback changed records got %v want %v", seen, expected)
 	}
+}
+
+func requireHostState(t testing.TB, db *sql.DB, recordID uuid.UUID, wantState string, wantMergedInto *uuid.UUID, wantRowVersion int64, wantFQDN string) {
+	t.Helper()
+	var (
+		state     string
+		mergedRaw sql.NullString
+		row       int64
+		fqdn      sql.NullString
+	)
+	if err := db.QueryRowContext(context.Background(), `
+SELECT host_state, merged_into_record_id::text, row_version, fqdn
+  FROM hosts
+ WHERE record_id = $1
+`, recordID).Scan(&state, &mergedRaw, &row, &fqdn); err != nil {
+		t.Fatalf("load host state: %v", err)
+	}
+	if state != wantState || row != wantRowVersion || fqdn.String != wantFQDN || fqdn.Valid != (wantFQDN != "") {
+		t.Fatalf("host %s state got state=%q row=%d fqdn=%q valid=%v", recordID, state, row, fqdn.String, fqdn.Valid)
+	}
+	if wantMergedInto == nil {
+		if mergedRaw.Valid {
+			t.Fatalf("host %s merged_into got %s want null", recordID, mergedRaw.String)
+		}
+		return
+	}
+	if !mergedRaw.Valid || mergedRaw.String != wantMergedInto.String() {
+		t.Fatalf("host %s merged_into got %q valid=%v want %s", recordID, mergedRaw.String, mergedRaw.Valid, wantMergedInto)
+	}
+}
+
+func requireHistoryActionContains(t testing.TB, item map[string]any, want string) {
+	t.Helper()
+	raw, ok := item["available_rollback_actions"].([]any)
+	if !ok {
+		t.Fatalf("history item actions missing or invalid: %#v", item)
+	}
+	for _, value := range raw {
+		if text, ok := value.(string); ok && text == want {
+			return
+		}
+	}
+	t.Fatalf("history item actions %#v do not contain %q in item %#v", raw, want, item)
 }
 
 func TestPhase7_RetainedHistoryAcrossRestartAndClosure_I_7_04(t *testing.T) {

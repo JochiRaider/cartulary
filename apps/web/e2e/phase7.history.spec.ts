@@ -13,9 +13,13 @@ import {
   uniqueTxn,
 } from "./helpers";
 import {
+  collectionActionsPayload,
   collectionItems,
   evidenceViewSchemaId,
   findRow,
+  hostRefsFieldKey,
+  hostsViewSchemaId,
+  requireItemByRawText,
   timelineViewSchemaId,
   type ViewRow,
 } from "./phase4Helpers";
@@ -366,6 +370,124 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
   expect(Number.isNaN(new Date(appended.committed_at).getTime())).toBe(false);
 });
 
+test("E-7-05 rolls back a merge change set from row history", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E705"),
+    "Phase 7 E-7-05 merge rollback",
+  );
+  const survivor = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e705-survivor"),
+    "host.display_name": "E-7-05 survivor",
+    "host.hostname": "e705-survivor",
+  })) as ViewRow;
+  const loser = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e705-loser"),
+    "host.display_name": "E-7-05 loser",
+    "host.hostname": "e705-loser",
+    "host.fqdn": "e705-loser.example.test",
+    "host.aliases": collectionActionsPayload(["E-7-05 loser alias"]),
+  })) as ViewRow;
+  const timeline = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e705-timeline"),
+      "timeline.summary": "E-7-05 dependent timeline row",
+      [hostRefsFieldKey]: collectionActionsPayload(["E-7-05 loser alias"]),
+    },
+  )) as ViewRow;
+  const hostMention = requireItemByRawText(
+    collectionItems(timeline, hostRefsFieldKey),
+    "E-7-05 loser alias",
+  );
+  await patchTimelineRecord(page, timeline.record_id, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: timeline.row_version,
+    client_txn_id: uniqueTxn("e705-resolve-host"),
+    changes: [
+      {
+        field_key: hostRefsFieldKey,
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: [
+            {
+              op: "resolve_item",
+              item_ref: hostMention.item_ref,
+              resolved_record_id: loser.record_id,
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  const mergeResponse = await page.request.post(
+    `${apiBase}/api/v1/records/${survivor.record_id}/merge`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        loser_record_id: loser.record_id,
+        survivor_base_row_version: survivor.row_version,
+        loser_base_row_version: loser.row_version,
+        client_txn_id: uniqueTxn("e705-merge"),
+        reason: "Phase 7 E-7-05 browser merge",
+      },
+    },
+  );
+  expect(mergeResponse.ok()).toBeTruthy();
+  const mergeData = (await mergeResponse.json()) as {
+    data: { change_set_id: string; survivor_row_version: number };
+  };
+
+  const history = await fetchRecordHistory(page, timeline.record_id);
+  const mergeIndex = history.items.findIndex(
+    (item) =>
+      item.change_set_id === mergeData.data.change_set_id &&
+      item.available_rollback_actions.includes("change_set"),
+  );
+  expect(mergeIndex).toBeGreaterThanOrEqual(0);
+
+  await openTimelineSurface(page, incidentId);
+  await page.getByTestId(`row-history-open-${timeline.record_id}`).click();
+  await expect(
+    page.getByTestId(`row-history-action-${mergeIndex}-change_set`),
+  ).toBeVisible();
+
+  const rollbackResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/api/v1/records/${timeline.record_id}/rollback`),
+  );
+  await page.getByTestId(`row-history-action-${mergeIndex}-change_set`).click();
+  const response = await rollbackResponse;
+  expect(response.ok()).toBeTruthy();
+  const rollbackBody = JSON.parse(response.request().postData() ?? "{}");
+  expect(rollbackBody.target).toEqual({
+    kind: "change_set",
+    change_set_id: mergeData.data.change_set_id,
+  });
+  expect(rollbackBody.base_row_version).toBe(history.row_version);
+
+  const rows = (await queryViewRows(
+    page,
+    incidentId,
+    hostsViewSchemaId,
+  )) as unknown as ViewRow[];
+  const survivorAfter = findRow(rows, survivor.record_id);
+  const loserAfter = findRow(rows, loser.record_id);
+  expect(survivorAfter.row_version).toBeGreaterThan(
+    mergeData.data.survivor_row_version,
+  );
+  expect(survivorAfter.cells["host.fqdn"]?.value ?? "").toBe("");
+  expect(loserAfter.cells["host.fqdn"]?.value).toBe("e705-loser.example.test");
+  await openHostSurface(page, incidentId);
+  await expect(page.getByTestId(`host-row-${loser.record_id}`)).toBeVisible();
+});
+
 async function openTimelineSurface(page: Page, incidentId: string) {
   await page.goto(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -373,6 +495,15 @@ async function openTimelineSurface(page: Page, incidentId: string) {
     )}`,
   );
   await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+}
+
+async function openHostSurface(page: Page, incidentId: string) {
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      hostsViewSchemaId,
+    )}`,
+  );
+  await expect(page.getByTestId(gridShellTestId("hosts"))).toBeVisible();
 }
 
 async function fetchRecordHistory(

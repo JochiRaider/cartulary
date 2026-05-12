@@ -973,18 +973,22 @@ async function maskVisualDynamicText(page: Page) {
       `;
       document.head.append(style);
     }
+    const timestampReplacement: [RegExp, string] = [
+      /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,
+      "2025-01-01T00:00:00Z",
+    ];
     const replacements: Array<[RegExp, string]> = [
       [
         /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
         "00000000-0000-0000-0000-000000000000",
       ],
-      [
-        /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,
-        "2025-01-01T00:00:00Z",
-      ],
+      timestampReplacement,
       [/\bIR-[A-Z0-9-]+\b/g, "IR-VISUAL-FIXTURE"],
       [/Playwright Worker Admin \d+/g, "Playwright Worker Admin"],
     ];
+    const formControlReplacements = replacements.filter(
+      (replacement) => replacement !== timestampReplacement,
+    );
     const walker = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_TEXT,
@@ -1004,7 +1008,9 @@ async function maskVisualDynamicText(page: Page) {
         continue;
       }
       let value = element.value;
-      for (const [pattern, replacement] of replacements) {
+      // Controlled inputs repaint their fixture values; do not race React by
+      // replacing timestamp values in form controls during screenshot prep.
+      for (const [pattern, replacement] of formControlReplacements) {
         value = value.replace(pattern, replacement);
       }
       element.value = value;

@@ -3,6 +3,7 @@ package entities
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -2018,31 +2019,48 @@ func aliasMutationsToMergeMutations(records []mergeAliasMutation) []mergeMutatio
 }
 
 func identifierMutationTargetID(before map[string]any, after map[string]any) string {
-	if after != nil {
-		if value, ok := after["normalized_value"].(string); ok {
-			return value
-		}
+	value := after
+	if value == nil {
+		value = before
 	}
-	if before != nil {
-		if value, ok := before["normalized_value"].(string); ok {
-			return value
-		}
+	if value == nil {
+		return ""
+	}
+	return strings.Join([]string{
+		"entity_preserved_identifier",
+		targetIDComponent(stringMapValue(value, "record_id")),
+		targetIDComponent(stringMapValue(value, "entity_type")),
+		targetIDComponent(stringMapValue(value, "identifier_type")),
+		targetIDComponent(stringMapValue(value, "normalized_value")),
+		targetIDComponent(stringMapValue(value, "classification")),
+	}, ":")
+}
+
+func aliasMutationTargetID(before map[string]any, after map[string]any) string {
+	value := after
+	if value == nil {
+		value = before
+	}
+	if value == nil {
+		return ""
+	}
+	return strings.Join([]string{
+		"entity_alias",
+		targetIDComponent(stringMapValue(value, "record_id")),
+		targetIDComponent(stringMapValue(value, "entity_type")),
+		targetIDComponent(stringMapValue(value, "normalized_text")),
+	}, ":")
+}
+
+func stringMapValue(values map[string]any, key string) string {
+	if value, ok := values[key].(string); ok {
+		return value
 	}
 	return ""
 }
 
-func aliasMutationTargetID(before map[string]any, after map[string]any) string {
-	if after != nil {
-		if value, ok := after["normalized_text"].(string); ok {
-			return value
-		}
-	}
-	if before != nil {
-		if value, ok := before["normalized_text"].(string); ok {
-			return value
-		}
-	}
-	return ""
+func targetIDComponent(value string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(value))
 }
 
 func scanMergeMentionRecord(scanner interface{ Scan(dest ...any) error }) (mergeMentionRecord, error) {

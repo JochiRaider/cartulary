@@ -2054,7 +2054,7 @@ Verified by: AC-057, AC-060, AC-061, AC-062, AC-113, AC-114, AC-115, AC-233, AC-
 **REQ-02-212**
 For each committed action, the implementation MUST create one immutable `change_set`.
 Profiles: base
-Verified by: AC-215, AC-216, AC-217, AC-231
+Verified by: AC-215, AC-216, AC-217, AC-231, AC-412
 
 **REQ-02-213**
 A `change_set` MUST record, at minimum:
@@ -2066,14 +2066,14 @@ A `change_set` MUST record, at minimum:
 - optional reason,
 - optional client transaction identifier.
 Profiles: base
-Verified by: AC-215, AC-216, AC-217, AC-231
+Verified by: AC-215, AC-216, AC-217, AC-231, AC-412
 
 ### 15.2 Mutation-entry unit
 
 **REQ-02-214**
 Each committed action MUST also create one or more reversible mutation entries.
 Profiles: base
-Verified by: AC-215, AC-216, AC-217, AC-231
+Verified by: AC-215, AC-216, AC-217, AC-231, AC-412
 
 **REQ-02-215**
 Each mutation entry MUST record:
@@ -2085,12 +2085,12 @@ Each mutation entry MUST record:
 - pre-change and post-change version identifiers,
 - reversible before/after values or an equivalent reversible patch.
 Profiles: base
-Verified by: AC-215, AC-216, AC-217, AC-231
+Verified by: AC-215, AC-216, AC-217, AC-231, AC-412
 
 **REQ-02-216**
 The history substrate MUST also support a stable opaque public `history_entry_ref` for any row-centric logical history item that maps to exactly one mutation target eligible for `target.kind='history_entry'` addressing. The public rollback interface MUST round-trip that reference without exposing storage-primary-key mutation-entry identifiers. Once such a selector exists, later loss of current rollback eligibility for that logical history item MUST be surfaced through the current route fields and rollback failure semantics rather than by removing or reassigning `history_entry_ref` within that deployment's retained-history lifetime.
 Profiles: base
-Verified by: AC-215, AC-216, AC-217, AC-231, AC-384
+Verified by: AC-215, AC-216, AC-217, AC-231, AC-384, AC-412
 
 ### 15.3 Reconstruction requirement
 
@@ -2100,12 +2100,12 @@ The history model MUST preserve enough information to reconstruct:
 - the full row snapshot at any revision,
 - the exact field, link, mention, tag, evidence, or merge delta introduced by a `change_set`.
 Profiles: base, snapshot_reporting
-Verified by: AC-215, AC-217, AC-231, AC-233
+Verified by: AC-215, AC-217, AC-231, AC-233, AC-412
 
 **REQ-02-218**
 Projection tables MUST NOT be authoritative history.
 Profiles: base
-Verified by: AC-215, AC-217, AC-231
+Verified by: AC-215, AC-217, AC-231, AC-412
 
 ### 15.3.1 Retained history and rollback horizon
 
@@ -2142,12 +2142,12 @@ When entities are merged, the merge `change_set` MUST preserve enough detail to 
 - the pre-merge graph,
 - the post-merge graph.
 Profiles: base
-Verified by: AC-023, AC-186, AC-209, AC-217, AC-231
+Verified by: AC-023, AC-186, AC-209, AC-231, AC-412
 
 **REQ-02-220**
 Live mention resolutions and live links MUST NOT continue to point at a merged-away record after the merge `change_set` commits.
 Profiles: base
-Verified by: AC-023, AC-186, AC-209, AC-217, AC-231
+Verified by: AC-023, AC-186, AC-209, AC-231, AC-412
 
 ## 16. Search and indexing expectations
 
