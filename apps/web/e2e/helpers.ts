@@ -904,6 +904,7 @@ export async function verifyOwnedHarnessRuntime() {
 
   const response = await fetch(`${apiBase}/api/v1/test/runtime/identity`, {
     headers: {
+      Origin: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN ?? apiBase,
       "X-Cartulary-Test-Route-Token": token,
     },
     signal: AbortSignal.timeout(5000),

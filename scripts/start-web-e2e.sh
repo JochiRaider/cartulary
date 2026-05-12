@@ -750,6 +750,7 @@ probe_backend_identity() {
   CARTULARY_TEST_ROUTE_TOKEN="${TEST_ROUTE_TOKEN}" \
     "${node_bin}" <<'EOF'
 const apiOrigin = process.env.CARTULARY_WEB_E2E_API_ORIGIN;
+const requestOrigin = process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN || apiOrigin;
 const token = process.env.CARTULARY_TEST_ROUTE_TOKEN;
 
 (async () => {
@@ -759,6 +760,7 @@ const token = process.env.CARTULARY_TEST_ROUTE_TOKEN;
 
   const response = await fetch(`${apiOrigin}/api/v1/test/runtime/identity`, {
     headers: {
+      "Origin": requestOrigin,
       "X-Cartulary-Test-Route-Token": token,
     },
     signal: AbortSignal.timeout(1000),

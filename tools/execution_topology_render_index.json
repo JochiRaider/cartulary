@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:b254e0658087ef3a356437279e128d25fad02175fabfbc5fdc183ee4f70b92f6",
+  "input_digest": "sha256:b44214696255847363489a27032e2088b9d178d958c104187c2d6c4ea1640791",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -57,7 +57,7 @@
     {
       "path": "scripts/lib/execution-topology.mjs",
       "role": "renderer_source",
-      "hash": "sha256:89dc9880ca3927234af09ca94522514390678f8c9e26fe123d008d86949dd6ab"
+      "hash": "sha256:c27e937324fb1d53930be35dbdc5aee3770f3ee7321dda2319a52b9eb0549ce4"
     },
     {
       "path": "scripts/lib/failure-taxonomy.mjs",
@@ -257,7 +257,7 @@
     {
       "path": "scripts/lib/task-surface.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6af73e5d3557bde1ea770e43e66e897227dfb6758265339a0eab0097b3148608"
+      "hash": "sha256:ed17f53bcbb23793134e0419e1d23a809ec4d7347cf2e979fe1043166763e787"
     },
     {
       "path": "scripts/lib/test-output.mjs",
@@ -297,7 +297,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:03c8c853da54ec2e31e0db6716822bae87d3dab1c740b76c8735fa361543b4eb"
+      "hash": "sha256:4f8aef50dc4df131e0a7fc2c0c6c4897bb9cc065f26936aba9cae305fd3cc0db"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
@@ -368,7 +368,7 @@
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:61ebf634dd669e95129a55c84cf467a967e48db786a13ebabcef4c3834e77f8f",
     "tools/scheduler_manifest.json": "sha256:2a160b3cab31b7e179eeb691eb5016da367d85ce6ee3db62ff09acb163cc25be",
-    "tools/task_surface_manifest.json": "sha256:44df5bb242babbc14b58322fa70dc7dccbaced7fff88ce83ca34c75001196af6",
+    "tools/task_surface_manifest.json": "sha256:23c948a27552c757bb6483c15666bac31bfecb1203a7f5abf9b1dc9b5954c0a2",
     "tools/task_surface.generated.mk": "sha256:acc4c045d386cead29161ddead147f04fd493046ef6372982d40b9de262a20d3"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.task_surface_manifest.v12",
+  "schema_id": "cartulary.task_surface_manifest.v13",
   "compact_help": {
     "entries": [
       {
@@ -1887,7 +1887,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "help-all",
@@ -1921,7 +1927,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "doctor",
@@ -1962,7 +1974,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "bootstrap_toolchain"
+      "family_id": "bootstrap_toolchain",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "bootstrap",
@@ -2000,7 +2019,25 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "bootstrap_toolchain"
+      "family_id": "bootstrap_toolchain",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "tool_install",
+          "owner_section": "Section 5",
+          "install_roots": [
+            "tmp/toolchain",
+            "tmp/node-runtime",
+            "node_modules",
+            "browser cache"
+          ],
+          "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
+        }
+      ]
     },
     {
       "name": "bootstrap-node-runtime",
@@ -2038,7 +2075,25 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "bootstrap_toolchain"
+      "family_id": "bootstrap_toolchain",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "tool_install",
+          "owner_section": "Section 5",
+          "install_roots": [
+            "tmp/toolchain",
+            "tmp/node-runtime",
+            "node_modules",
+            "browser cache"
+          ],
+          "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
+        }
+      ]
     },
     {
       "name": "frontend-toolchain",
@@ -2079,7 +2134,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "bootstrap_toolchain"
+      "family_id": "bootstrap_toolchain",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "frontend-install",
@@ -2117,7 +2179,25 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "bootstrap_toolchain"
+      "family_id": "bootstrap_toolchain",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "tool_install",
+          "owner_section": "Section 5",
+          "install_roots": [
+            "tmp/toolchain",
+            "tmp/node-runtime",
+            "node_modules",
+            "browser cache"
+          ],
+          "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
+        }
+      ]
     },
     {
       "name": "frontend-install-ci",
@@ -2164,7 +2244,25 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "bootstrap_toolchain"
+      "family_id": "bootstrap_toolchain",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "tool_install",
+          "owner_section": "Section 5",
+          "install_roots": [
+            "tmp/toolchain",
+            "tmp/node-runtime",
+            "node_modules",
+            "browser cache"
+          ],
+          "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
+        }
+      ]
     },
     {
       "name": "db-up",
@@ -2209,7 +2307,20 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "local_services_dev"
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        }
+      ]
     },
     {
       "name": "db-reset",
@@ -2250,7 +2361,19 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "local_services_dev"
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ]
     },
     {
       "name": "services-up",
@@ -2295,7 +2418,20 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "local_services_dev"
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        }
+      ]
     },
     {
       "name": "services-wait",
@@ -2364,7 +2500,26 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "local_services_dev"
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_or_scratch",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ]
     },
     {
       "name": "dev",
@@ -2401,7 +2556,15 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "local_services_dev"
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        }
+      ]
     },
     {
       "name": "codegen-toolchain",
@@ -2485,7 +2648,23 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 4",
+          "file_families": [
+            "contract-derived generated code",
+            "sqlc generated code",
+            "task-surface generated Make outputs"
+          ]
+        }
+      ]
     },
     {
       "name": "generate-artifacts",
@@ -2535,7 +2714,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "generated-artifact-policy-check",
@@ -2577,7 +2763,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "json-shape-check",
@@ -2628,7 +2821,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "toolchain-drift",
@@ -2669,7 +2869,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "migration-drift",
@@ -2713,7 +2920,26 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_or_scratch",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ]
     },
     {
       "name": "deployable-shape",
@@ -2776,7 +3002,21 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 4",
+          "file_families": [
+            "phase coverage ledgers"
+          ]
+        }
+      ]
     },
     {
       "name": "phase-ledger-drift",
@@ -2817,7 +3057,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "phase-schedules",
@@ -2858,7 +3105,24 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 4",
+          "file_families": [
+            "task-surface manifest",
+            "task-surface generated Make output",
+            "scheduler and browser schedule manifests",
+            "execution topology render index"
+          ]
+        }
+      ]
     },
     {
       "name": "phase-schedule-drift",
@@ -2899,7 +3163,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "agent-finalize",
@@ -2941,7 +3212,22 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 4",
+          "file_families": [
+            "harness maintenance artifacts",
+            "duration baseline artifacts when RESULTS_DIR is supplied"
+          ]
+        }
+      ]
     },
     {
       "name": "benchmark-claim-check",
@@ -2982,7 +3268,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "task-surface-report",
@@ -3020,7 +3313,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "task-guide",
@@ -3058,7 +3357,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "phase-slice",
@@ -3105,7 +3410,37 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "phase_service_slices"
+      "family_id": "phase_service_slices",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "scheduler_and_tool_run_summaries"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "service-backed-slice",
@@ -3152,7 +3487,37 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "phase_service_slices"
+      "family_id": "phase_service_slices",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "scheduler_and_tool_run_summaries"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "backend-unit",
@@ -3196,7 +3561,14 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "backend_frontend_leaf_tests"
+      "family_id": "backend_frontend_leaf_tests",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "backend-store",
@@ -3244,7 +3616,32 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "backend_frontend_leaf_tests"
+      "family_id": "backend_frontend_leaf_tests",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ]
     },
     {
       "name": "backend-integration",
@@ -3292,7 +3689,32 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "backend_frontend_leaf_tests"
+      "family_id": "backend_frontend_leaf_tests",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ]
     },
     {
       "name": "backend-integration-support",
@@ -3354,7 +3776,32 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "backend_frontend_leaf_tests"
+      "family_id": "backend_frontend_leaf_tests",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ]
     },
     {
       "name": "target-plan",
@@ -3391,7 +3838,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "target-plan-json",
@@ -3428,7 +3881,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "fixture-report",
@@ -3466,7 +3925,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "explain-run",
@@ -3503,7 +3968,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "explain-phase",
@@ -3541,7 +4012,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "explain-target",
@@ -3580,7 +4057,13 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "help_discovery"
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ]
     },
     {
       "name": "go-test-duration-baselines",
@@ -3621,7 +4104,21 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 4",
+          "file_families": [
+            "Go service-backed duration baselines"
+          ]
+        }
+      ]
     },
     {
       "name": "go-test-duration-baseline-coverage",
@@ -3662,7 +4159,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "go-test-duration-baseline-drift",
@@ -3703,7 +4207,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "browser-e2e-duration-baselines",
@@ -3744,7 +4255,21 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 4",
+          "file_families": [
+            "browser E2E duration baselines"
+          ]
+        }
+      ]
     },
     {
       "name": "browser-e2e-duration-baseline-drift",
@@ -3785,7 +4310,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "service-backed-make-target-duration-baselines",
@@ -3826,7 +4358,21 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 4",
+          "file_families": [
+            "service-backed Make target duration baselines"
+          ]
+        }
+      ]
     },
     {
       "name": "service-backed-make-target-duration-baseline-drift",
@@ -3867,7 +4413,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "harness-smoke-duration-baselines",
@@ -3908,7 +4461,21 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "generated_artifacts",
+          "owner_section": "Section 4",
+          "file_families": [
+            "harness smoke duration baselines"
+          ]
+        }
+      ]
     },
     {
       "name": "duration-baseline-drift-suite",
@@ -3960,7 +4527,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "scheduler-event-order-drift",
@@ -4002,7 +4576,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "scheduler-summary-timing-drift",
@@ -4044,7 +4625,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "generated_drift"
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "service-backed-unit-check",
@@ -4141,7 +4729,14 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "backend_frontend_leaf_tests"
+      "family_id": "backend_frontend_leaf_tests",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "frontend-unit",
@@ -4184,7 +4779,14 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "backend_frontend_leaf_tests"
+      "family_id": "backend_frontend_leaf_tests",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "frontend-import-boundary-check",
@@ -4225,7 +4827,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "backend_frontend_leaf_tests"
+      "family_id": "backend_frontend_leaf_tests",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "lint-biome",
@@ -4266,7 +4875,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "static_analysis_security"
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "lint-scripts",
@@ -4307,7 +4923,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "static_analysis_security"
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "harness-contract-tests",
@@ -4359,7 +4982,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "static_analysis_security"
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "format",
@@ -4397,7 +5027,22 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "formatting"
+      "family_id": "formatting",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "authored_source_write",
+          "owner_section": "Section 4",
+          "paths": [
+            "authored Go source",
+            "authored frontend source"
+          ]
+        }
+      ]
     },
     {
       "name": "format-go",
@@ -4465,7 +5110,37 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "browser_e2e"
+      "family_id": "browser_e2e",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "browser-e2e-webserver-backed",
@@ -4518,7 +5193,37 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "browser_e2e"
+      "family_id": "browser_e2e",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "browser-e2e-functional",
@@ -4596,7 +5301,37 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "browser_e2e"
+      "family_id": "browser_e2e",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "browser-e2e-resettable",
@@ -4659,7 +5394,37 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "browser_e2e"
+      "family_id": "browser_e2e",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "browser-e2e-visual",
@@ -4710,7 +5475,37 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "browser_e2e"
+      "family_id": "browser_e2e",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "test-local",
@@ -4772,7 +5567,37 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "aggregates_gates"
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "test-fast-service-backed",
@@ -4826,7 +5651,37 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "aggregates_gates"
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "lint",
@@ -4864,7 +5719,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "aggregates_gates"
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "lint-go",
@@ -4949,7 +5811,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "static_analysis_security"
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "go-gosec-targeted",
@@ -4994,7 +5863,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "static_analysis_security"
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "go-gosec-audit",
@@ -5039,7 +5915,14 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "static_analysis_security"
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ]
     },
     {
       "name": "check",
@@ -5084,7 +5967,37 @@
         "check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "aggregates_gates"
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "scheduler_and_tool_run_summaries"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "check-frontend-install",
@@ -5153,7 +6066,37 @@
         "ci"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "aggregates_gates"
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "release-check",
@@ -5194,7 +6137,37 @@
         "release-check"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "aggregates_gates"
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
+        }
+      ]
     },
     {
       "name": "license-report",
@@ -5258,7 +6231,23 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "builds"
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "bin",
+            "apps/web/dist"
+          ]
+        }
+      ]
     },
     {
       "name": "build-server",
@@ -5297,7 +6286,23 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "builds"
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "bin",
+            "apps/web/dist"
+          ]
+        }
+      ]
     },
     {
       "name": "build-migrate",
@@ -5336,7 +6341,23 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "builds"
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "bin",
+            "apps/web/dist"
+          ]
+        }
+      ]
     },
     {
       "name": "build-web",
@@ -5374,7 +6395,23 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "builds"
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "bin",
+            "apps/web/dist"
+          ]
+        }
+      ]
     },
     {
       "name": "clean",
@@ -5412,7 +6449,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "cleanup"
+      "family_id": "cleanup",
+      "side_effects": [
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ]
     },
     {
       "name": "distclean",
@@ -5450,7 +6494,14 @@
         "helper_only"
       ],
       "lifecycle_state": "public_active",
-      "family_id": "cleanup"
+      "family_id": "cleanup",
+      "side_effects": [
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ]
     }
   ],
   "harness_tiers": {

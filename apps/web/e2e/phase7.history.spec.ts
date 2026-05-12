@@ -360,14 +360,23 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
       (item) => item.change_set_id === restoreItem.change_set_id,
     ),
   ).toBe(true);
-  const appended = historyAfter.items[0] as HistoryItem;
-  expect(appended.operation).toBe("row_restore");
-  expect(appended.actor_user_id).not.toBe("");
-  expect(appended.committed_at).not.toBe("");
-  expect(appended.committed_at).toMatch(
+  const appended = historyAfter.items.find(
+    (item) =>
+      item.operation === "row_restore" &&
+      item.revision_no === historyAfter.row_version,
+  ) as HistoryItem | undefined;
+  expect(appended).toBeDefined();
+  const appendedItem = appended as HistoryItem;
+  expect(appendedItem.change_set_id).not.toBe(restoreItem.change_set_id);
+  expect(appendedItem.operation).toBe("row_restore");
+  expect(appendedItem.actor_user_id).not.toBe("");
+  expect(appendedItem.committed_at).not.toBe("");
+  expect(appendedItem.committed_at).toMatch(
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/,
   );
-  expect(Number.isNaN(new Date(appended.committed_at).getTime())).toBe(false);
+  expect(Number.isNaN(new Date(appendedItem.committed_at).getTime())).toBe(
+    false,
+  );
 });
 
 test("E-7-05 rolls back a merge change set from row history", async ({

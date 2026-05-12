@@ -206,7 +206,14 @@ test("public targets declare command identity and semantic value", () => {
         target.semantic_behaviors.length > 0,
       `${target.name} must declare semantic behaviors`,
     );
+    assert.ok(
+      Array.isArray(target.side_effects) && target.side_effects.length > 0,
+      `${target.name} must declare side effects`,
+    );
     for (const entry of target.semantic_behaviors) {
+      assert.match(entry.owner_section, /^Section (?:[1-9]|1[0-9])(?:\.[0-9]+)?$/);
+    }
+    for (const entry of target.side_effects) {
       assert.match(entry.owner_section, /^Section (?:[1-9]|1[0-9])(?:\.[0-9]+)?$/);
     }
   }
@@ -255,6 +262,45 @@ test("public targets declare command identity and semantic value", () => {
     /help\.semantic_behaviors\[1\]\.owner_section must be a Section reference/,
   );
 
+  const missingSideEffects = structuredClone(taskSurface);
+  delete missingSideEffects.targets.find((entry) => entry.name === "help").side_effects;
+  assert.match(
+    collectTaskSurfaceManifestErrors(missingSideEffects, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /help\.side_effects must declare at least one side-effect class/,
+  );
+
+  const invalidSideEffects = structuredClone(taskSurface);
+  invalidSideEffects.targets.find((entry) => entry.name === "help").side_effects = [
+    { class: "none", owner_section: "Section 4" },
+    { class: "retained_artifacts", owner_section: "Section 8" },
+  ];
+  assert.match(
+    collectTaskSurfaceManifestErrors(invalidSideEffects, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /help\.side_effects\[2\]\.artifact_policy must be declared for retained_artifacts[\s\S]*help\.side_effects none is mutually exclusive with other classes/,
+  );
+
+  const duplicateSideEffects = structuredClone(taskSurface);
+  duplicateSideEffects.targets.find((entry) => entry.name === "format").side_effects.push(
+    structuredClone(
+      duplicateSideEffects.targets
+        .find((entry) => entry.name === "format")
+        .side_effects.find((entry) => entry.class === "authored_source_write"),
+    ),
+  );
+  assert.match(
+    collectTaskSurfaceManifestErrors(duplicateSideEffects, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /format\.side_effects contains duplicate authored_source_write/,
+  );
+
   const legacyFields = structuredClone(taskSurface);
   const legacyHelp = legacyFields.targets.find((entry) => entry.name === "help");
   legacyHelp.classification = "public";
@@ -288,6 +334,7 @@ test("public targets declare command identity and semantic value", () => {
     lifecycle_state: "public_active",
     command_id: "cartulary.harness.command.synthetic_shallow_wrapper.v1",
     semantic_behaviors: [],
+    side_effects: [{ class: "none", owner_section: "Section 4" }],
     output_policy: structuredClone(
       shallowAlias.targets.find((entry) => entry.name === "help").output_policy,
     ),

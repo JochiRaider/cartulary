@@ -130,6 +130,7 @@ describe("verifyOwnedHarnessRuntime", () => {
         "http://127.0.0.1:8080/api/v1/test/runtime/identity",
         expect.objectContaining({
           headers: {
+            Origin: "http://127.0.0.1:8080",
             "X-Cartulary-Test-Route-Token": "0123456789abcdef0123456789abcdef",
           },
         }),

@@ -134,6 +134,7 @@ assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMIN
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "server_startup" "browser-e2e start backend process"' "browser lifecycle backend startup span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "frontend_startup" "browser-e2e start frontend process"' "browser lifecycle frontend startup span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '/api/v1/test/runtime/identity' "browser lifecycle backend identity readiness"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '"Origin": requestOrigin' "browser lifecycle identity probe origin header"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" './tools/webstacklisten' "browser lifecycle inherited listener helper"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e stop owned processes"' "browser lifecycle process teardown span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e cleanup standalone database"' "browser lifecycle standalone database teardown span"
@@ -750,19 +751,25 @@ PUBLIC_ORIGIN="http://127.0.0.1:${FRONTEND_PORT}"
 fake_curl_dir="$tmp_dir/fake-curl-bin"
 mkdir -p "$fake_curl_dir"
 fake_curl_url_file="$tmp_dir/fake-curl-url.txt"
+fake_curl_header_file="$tmp_dir/fake-curl-headers.txt"
 cat >"$fake_curl_dir/curl" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
 output_file=""
 url=""
+: >"${FAKE_CURL_HEADER_FILE:?}"
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     -o)
       output_file="$2"
       shift 2
       ;;
-    -w|-X|-H|--max-time)
+    -H)
+      printf '%s\n' "$2" >>"${FAKE_CURL_HEADER_FILE:?}"
+      shift 2
+      ;;
+    -w|-X|--max-time)
       shift 2
       ;;
     -sS)
@@ -783,15 +790,18 @@ printf '200'
 EOF
 chmod +x "$fake_curl_dir/curl"
 FAKE_CURL_URL_FILE="$fake_curl_url_file" \
+FAKE_CURL_HEADER_FILE="$fake_curl_header_file" \
 PATH="$fake_curl_dir:$PATH" \
 CARTULARY_TEST_RESULTS_DIR="$tmp_dir/reset-results" \
 CARTULARY_TEST_RUN_ID="reset-smoke" \
 CARTULARY_TEST_TARGET="browser-e2e-resettable" \
 CARTULARY_WEB_E2E_API_ORIGIN="http://127.0.0.1:${dynamic_backend_port}" \
+CARTULARY_WEB_E2E_PUBLIC_ORIGIN="http://127.0.0.1:${dynamic_frontend_port}" \
 CARTULARY_TEST_ROUTE_TOKEN="0123456789abcdef0123456789abcdef" \
 NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
   "$ROOT_DIR/scripts/reset-web-e2e-stack.sh" --label dynamic-origin
 assert_equals "$(tr -d '\n' <"$fake_curl_url_file")" "http://127.0.0.1:${dynamic_backend_port}/api/v1/test/runtime/reset" "reset helper dynamic API origin"
+assert_file_contains "$fake_curl_header_file" "Origin: http://127.0.0.1:${dynamic_frontend_port}" "reset helper declared browser origin"
 
 unset CARTULARY_WEB_E2E_BACKEND_PORT
 unset CARTULARY_WEB_E2E_FRONTEND_PORT

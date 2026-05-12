@@ -403,6 +403,7 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
       target_class: entry.target_class ?? "unclassified",
       command_id: entry.command_id ?? null,
       semantic_behaviors: entry.semantic_behaviors ?? [],
+      side_effects: entry.side_effects ?? [],
       has_help: helpEntries.has(target),
       help_tier: helpTierByTarget.get(target) ?? null,
       default_inclusion_sets: entry.default_inclusion_sets ?? [],
@@ -411,11 +412,15 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
     };
   });
   const semanticBehaviorCounts = new Map();
+  const sideEffectCounts = new Map();
   const publicSemanticRows = targets
     .filter((entry) => entry.target_class === "public")
     .map((entry) => {
       const behaviors = Array.isArray(entry.semantic_behaviors)
         ? entry.semantic_behaviors.map((item) => item.behavior).filter(Boolean)
+        : [];
+      const sideEffects = Array.isArray(entry.side_effects)
+        ? entry.side_effects.map((item) => item.class).filter(Boolean)
         : [];
       for (const behavior of behaviors) {
         semanticBehaviorCounts.set(
@@ -423,10 +428,14 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
           (semanticBehaviorCounts.get(behavior) ?? 0) + 1,
         );
       }
+      for (const sideEffect of sideEffects) {
+        sideEffectCounts.set(sideEffect, (sideEffectCounts.get(sideEffect) ?? 0) + 1);
+      }
       return {
         target: entry.name,
         command_id: entry.command_id,
         behaviors,
+        side_effects: sideEffects,
       };
     });
 
@@ -446,6 +455,11 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
       public_targets: publicSemanticRows,
       behavior_counts: Object.fromEntries(
         [...semanticBehaviorCounts.entries()].sort(([left], [right]) =>
+          left.localeCompare(right),
+        ),
+      ),
+      side_effect_counts: Object.fromEntries(
+        [...sideEffectCounts.entries()].sort(([left], [right]) =>
           left.localeCompare(right),
         ),
       ),
@@ -487,6 +501,12 @@ function printHumanReport(report, { allMode = false } = {}) {
     console.log(`  ${behavior}: ${count}`);
   }
 
+  console.log("");
+  console.log("side-effect counts:");
+  for (const [sideEffect, count] of Object.entries(report.semantic_value.side_effect_counts)) {
+    console.log(`  ${sideEffect}: ${count}`);
+  }
+
   if (allMode) {
     console.log("");
     console.log("public Make targets:");
@@ -494,8 +514,11 @@ function printHumanReport(report, { allMode = false } = {}) {
       const behaviors = target.semantic_behaviors
         .map((entry) => `${entry.behavior}@${entry.owner_section}`)
         .join(",");
+      const sideEffects = target.side_effects
+        .map((entry) => `${entry.class}@${entry.owner_section}`)
+        .join(",");
       console.log(
-        `  ${target.name} command_id=${target.command_id ?? "-"} behaviors=${behaviors || "-"} help=${target.has_help ? "yes" : "no"} help_tier=${target.help_tier ?? "-"} default_inclusion_sets=${target.default_inclusion_sets.join(",")}`,
+        `  ${target.name} command_id=${target.command_id ?? "-"} behaviors=${behaviors || "-"} side_effects=${sideEffects || "-"} help=${target.has_help ? "yes" : "no"} help_tier=${target.help_tier ?? "-"} default_inclusion_sets=${target.default_inclusion_sets.join(",")}`,
       );
     }
 

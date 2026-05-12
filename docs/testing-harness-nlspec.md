@@ -174,7 +174,7 @@ Target membership for each family is defined only by `### 4.3 Public Target Regi
 
 Every command below inherits the matching family defaults. `Default inclusion sets` is the manifest-declared selection set for aggregate defaults. `helper_only` means the target is public and directly invocable, but is not selected by default by `test`, `check`, `ci`, or `release-check` unless another registry row explicitly includes it. `helper_only` MUST NOT mean private, uncontracted, or exempt from public-target output, configuration, failure, and cleanup contracts.
 
-`Command ID` is the stable semantic command contract; the Make target is the current invocation binding. `Family ID` binds the target to Section 4.2 family defaults. `Semantic behaviors` declares the observable harness operation required by TH-HARNESS-REQ-058. `Lifecycle state` is defined by Section 4.6.
+`Command ID` is the stable semantic command contract; the Make target is the current invocation binding. `Family ID` binds the target to Section 4.2 family defaults. `Semantic behaviors` declares the observable harness operation required by TH-HARNESS-REQ-058. `Side effects` declares the target's intentional mutation and resource contract from TH-HARNESS-REQ-059. `Lifecycle state` is defined by Section 4.6.
 
 | Target | Command ID | Family ID | Default inclusion sets | Output class | Stable summary schema | Semantic behaviors | Lifecycle state | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -255,6 +255,23 @@ Every command below inherits the matching family defaults. `Default inclusion se
 | `build-web` | `cartulary.harness.command.build_web.v1` | `builds` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `public_active` |   |
 | `clean` | `cartulary.harness.command.clean.v1` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `public_active` |   |
 | `distclean` | `cartulary.harness.command.distclean.v1` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `public_active` |   |
+
+**TH-HARNESS-REQ-059**
+Every public target MUST declare one or more side-effect classes in the public target registry source. The declaration MUST be represented as `side_effects[]`, where each entry is an object with `class`, `owner_section`, and the class-specific details required by the table below. A target that performs an undeclared side effect is non-conformant. `none` is mutually exclusive with every other side-effect class.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-020
+
+| Side-effect class | Meaning | Required declaration |
+| --- | --- | --- |
+| `none` | No intentional file, service, or resource mutation outside ordinary terminal output. | Target row declares only `side_effects[].class=none`. |
+| `retained_artifacts` | Writes retained run-root artifacts. | Artifact policy declares retained artifact families or paths. |
+| `generated_artifacts` | Mutates checked-in generated or maintenance artifacts. | Target row declares exact generated file families. |
+| `authored_source_write` | Mutates authored source files. | Target row declares source families or paths. |
+| `build_outputs` | Writes reproducible build outputs. | Target row declares output roots or artifact families. |
+| `tool_install` | Installs or updates repo-local tools or dependencies. | Target row declares install root and cleanup behavior. |
+| `service_start` | Starts local or harness-owned services or runtime processes. | Target row declares ownership mode and lifecycle machine. |
+| `service_resource_mutation` | Creates, modifies, or deletes service resources such as scratch databases, buckets, fixture resources, or local service bootstrap resources. | Target row declares ownership mode, resource families, and lifecycle machine. |
+| `destructive_cleanup` | Deletes files, directories, services, databases, buckets, or other resources. | Target row cites Section 13 predicates. |
+| `runtime_reset` | Mutates test runtime state through the test-only reset boundary. | Target row cites Section 12 predicates. |
 
 ### 4.4 Direct Script and Package Boundary
 
@@ -1075,7 +1092,9 @@ Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-013
 
 CSRF does not apply because cookie authentication is not accepted as authorization for this route.
 
-When the harness-owned API origin is configured, the identity and reset routes MUST reject requests whose `Host` header does not exactly match that API origin's host. When an `Origin` header is present, it MUST match either the harness-owned API origin or the harness-owned public browser origin. A missing `Origin` header is allowed for harness-owned non-browser probes such as readiness checks and reset scripts. The test routes MUST NOT emit permissive CORS headers, including wildcard `Access-Control-Allow-Origin`. Host or origin rejection MUST happen before reset mutation and return `403`, `error.code=test_route_forbidden`.
+**TH-HARNESS-REQ-451**
+When test routes are enabled and a harness-owned API or browser origin is configured, the reset and runtime-identity routes MUST reject requests whose request origin is not the harness-declared browser origin or harness-declared API origin, or whose request host does not match the harness-owned API origin. Same-process health and readiness probes MUST use explicitly declared non-destructive health endpoints rather than the reset or runtime-identity route. The reset and runtime-identity routes MUST NOT enable permissive CORS. A rejected origin or host MUST fail before reset mutation with `403`, `error.code=test_route_forbidden`.
+Verified by: TH-HARNESS-AC-008
 
 ### 12.2.1 Runtime Identity
 

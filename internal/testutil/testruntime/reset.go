@@ -277,12 +277,12 @@ func (s *testRuntimeResetService) authorized(r *http.Request) bool {
 }
 
 func (s *testRuntimeResetService) allowedRequestBoundary(r *http.Request) bool {
-	if s.expectedHost != "" && !strings.EqualFold(r.Host, s.expectedHost) {
+	if s.expectedHost != "" && r.Host != s.expectedHost {
 		return false
 	}
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
 	if origin == "" {
-		return true
+		return len(s.allowedOrigins) == 0
 	}
 	normalized, err := normalizeTestRuntimeOrigin(origin)
 	if err != nil {

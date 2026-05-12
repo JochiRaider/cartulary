@@ -24,7 +24,7 @@ export const defaultGeneratedMakePath = path.join(
   "tools",
   "task_surface.generated.mk",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v12";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v13";
 
 const validTargetClasses = new Set([
   "public",
@@ -98,6 +98,34 @@ export const validSemanticBehaviors = new Set([
   "security_boundary",
   "diagnostic_synthesis",
 ]);
+export const validSideEffectClasses = new Set([
+  "none",
+  "retained_artifacts",
+  "generated_artifacts",
+  "authored_source_write",
+  "build_outputs",
+  "tool_install",
+  "service_start",
+  "service_resource_mutation",
+  "destructive_cleanup",
+  "runtime_reset",
+]);
+const sideEffectRequiredFields = Object.freeze({
+  none: [],
+  retained_artifacts: ["artifact_policy"],
+  generated_artifacts: ["file_families"],
+  authored_source_write: ["paths"],
+  build_outputs: ["output_roots"],
+  tool_install: ["install_roots", "cleanup"],
+  service_start: ["ownership_mode", "lifecycle_machine"],
+  service_resource_mutation: [
+    "ownership_mode",
+    "resource_families",
+    "lifecycle_machine",
+  ],
+  destructive_cleanup: ["predicates_section"],
+  runtime_reset: ["predicates_section"],
+});
 const validGateSmokeRoles = new Set([
   "public_make_wrapper",
   "check_scheduler_semantic",
@@ -388,6 +416,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
     if (entry.target_class === "public") {
       validatePublicCommandIdentity(errors, entry, commandIDs);
       validatePublicSemanticBehaviors(errors, entry);
+      validatePublicSideEffects(errors, entry);
       validateOutputPolicy(errors, entry);
     }
   }
@@ -600,6 +629,83 @@ function validatePublicSemanticBehaviors(errors, entry) {
     ) {
       errors.push(`${label}.owner_section must be a Section reference`);
     }
+  }
+}
+
+function validateStringArrayField(errors, value, label) {
+  if (!Array.isArray(value) || value.length === 0) {
+    errors.push(`${label} must be a non-empty array`);
+    return;
+  }
+  const seen = new Set();
+  for (const [index, item] of value.entries()) {
+    const itemLabel = `${label}[${index + 1}]`;
+    if (typeof item !== "string" || item.trim() === "") {
+      errors.push(`${itemLabel} must be a non-empty string`);
+      continue;
+    }
+    if (seen.has(item)) {
+      errors.push(`${label} contains duplicate ${item}`);
+    }
+    seen.add(item);
+  }
+}
+
+function validatePublicSideEffects(errors, entry) {
+  if (!Array.isArray(entry.side_effects) || entry.side_effects.length === 0) {
+    errors.push(`${entry.name}.side_effects must declare at least one side-effect class`);
+    return;
+  }
+  const seen = new Set();
+  for (const [index, sideEffect] of entry.side_effects.entries()) {
+    const label = `${entry.name}.side_effects[${index + 1}]`;
+    if (!sideEffect || typeof sideEffect !== "object" || Array.isArray(sideEffect)) {
+      errors.push(`${label} must be an object`);
+      continue;
+    }
+    const sideEffectClass = sideEffect.class;
+    if (
+      typeof sideEffectClass !== "string" ||
+      !validSideEffectClasses.has(sideEffectClass)
+    ) {
+      errors.push(`${label}.class must be one of ${[...validSideEffectClasses].join("|")}`);
+      continue;
+    }
+    if (seen.has(sideEffectClass)) {
+      errors.push(`${entry.name}.side_effects contains duplicate ${sideEffectClass}`);
+    }
+    seen.add(sideEffectClass);
+    if (
+      typeof sideEffect.owner_section !== "string" ||
+      !ownerSectionPattern.test(sideEffect.owner_section)
+    ) {
+      errors.push(`${label}.owner_section must be a Section reference`);
+    }
+    for (const field of sideEffectRequiredFields[sideEffectClass]) {
+      if (!Object.hasOwn(sideEffect, field)) {
+        errors.push(`${label}.${field} must be declared for ${sideEffectClass}`);
+        continue;
+      }
+      if (
+        [
+          "file_families",
+          "paths",
+          "output_roots",
+          "install_roots",
+          "resource_families",
+        ].includes(field)
+      ) {
+        validateStringArrayField(errors, sideEffect[field], `${label}.${field}`);
+      } else if (
+        typeof sideEffect[field] !== "string" ||
+        sideEffect[field].trim() === ""
+      ) {
+        errors.push(`${label}.${field} must be a non-empty string`);
+      }
+    }
+  }
+  if (seen.has("none") && seen.size > 1) {
+    errors.push(`${entry.name}.side_effects none is mutually exclusive with other classes`);
   }
 }
 

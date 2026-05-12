@@ -26,6 +26,8 @@ taint_marker_file="${support_dir}/${label}.tainted"
 data_file="${support_dir}/${label}.data.json"
 api_origin="${CARTULARY_WEB_E2E_API_ORIGIN:-http://127.0.0.1:8080}"
 api_origin="${api_origin%/}"
+route_origin="${CARTULARY_WEB_E2E_PUBLIC_ORIGIN:-$api_origin}"
+route_origin="${route_origin%/}"
 test_route_token="${CARTULARY_TEST_ROUTE_TOKEN:-}"
 if [[ -z "${test_route_token}" && -n "${CARTULARY_TEST_ROUTE_TOKEN_FILE:-}" && -f "${CARTULARY_TEST_ROUTE_TOKEN_FILE}" ]]; then
   test_route_token="$(tr -d '\r\n' <"${CARTULARY_TEST_ROUTE_TOKEN_FILE}")"
@@ -40,6 +42,7 @@ status="$(
     --max-time 35 \
     -X POST \
     -H 'Content-Type: application/json' \
+    -H "Origin: ${route_origin}" \
     -H "X-Cartulary-Test-Route-Token: ${test_route_token}" \
     -o "$response_file" \
     -w '%{http_code}' \

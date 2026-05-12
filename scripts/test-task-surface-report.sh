@@ -119,6 +119,9 @@ assert_not_contains "$(cat "$ROOT_DIR/Makefile")" "export CARTULARY_TEST_TARGET"
 valid_all_output="$(assert_passes "current exhaustive task-surface report" "$NODE_BIN" "$REPORTER" --check --all)"
 assert_contains "$valid_all_output" "public Make targets:" "current exhaustive report public target section"
 assert_contains "$valid_all_output" "browser-e2e-measurement" "current exhaustive report measurement target"
+assert_contains "$valid_all_output" "side-effect counts:" "current report side-effect count section"
+assert_contains "$valid_all_output" "runtime_reset:" "current report runtime reset side-effect count"
+assert_contains "$valid_all_output" "side_effects=" "current exhaustive report public target side effects"
 assert_contains "$valid_all_output" "task target classes:" "current exhaustive report target section"
 assert_contains "$valid_all_output" "logical harness checks:" "current exhaustive report harness section"
 assert_contains "$valid_all_output" "phase-map execution dependencies:" "current exhaustive report phase dependency section"
@@ -132,7 +135,7 @@ import { pathToFileURL } from "node:url";
 const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
 const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
-assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v12", "task surface schema must be v12");
+assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v13", "task surface schema must be v13");
 assert.deepEqual(
   manifest.targets.map((target) => target.name).filter((target) => !manifest.make_recipes[target]),
   [],
