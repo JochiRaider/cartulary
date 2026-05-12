@@ -720,6 +720,21 @@ assert.equal(resolveOutputMode({ CI_VERBOSE: "1" }, "backend-unit"), "ci");
 assert.equal(resolveOutputMode({ CI: "1" }, "backend-unit"), "ci");
 assert.equal(resolveOutputMode({}, "ci"), "ci");
 
+assert.throws(
+  () => resolveOutputMode({ CARTULARY_OUTPUT_MODE: "bogus" }, "backend-unit"),
+  (error) =>
+    error instanceof HarnessConfigError &&
+    error.failure_reason === "configuration_error" &&
+    error.exit_code === 2,
+);
+assert.throws(
+  () => resolveHarnessConfig("help", { CARTULARY_OUTPUT_MODE: "machine" }),
+  (error) =>
+    error instanceof HarnessConfigError &&
+    error.failure_reason === "usage_error" &&
+    error.exit_code === 2,
+);
+
 assert.equal(publicExitCodeForFailure({ failure_reason: "configuration_error" }), 2);
 assert.equal(publicExitCodeForFailure({ failure_reason: "fixture_error" }), 3);
 assert.equal(publicExitCodeForFailure({ failure_reason: "resource_conflict" }), 4);

@@ -60,7 +60,7 @@ const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v2";
-const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v1";
+const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v2";
 
 const phaseStatusValues = new Set(["active", "planned", "retired"]);
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;

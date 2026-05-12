@@ -27,6 +27,15 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+  if [[ "$haystack" == *"$needle"* ]]; then
+    fail "$label: unexpected [$needle] in [$haystack]"
+  fi
+}
+
 assert_equals() {
   local actual="$1"
   local expected="$2"
@@ -136,10 +145,12 @@ FAKE_MAKE_LOG="$success_log" \
 RESULTS_DIR="" \
   "$SCRIPT"
 summary="$success_dir/results/success/agent-finalize/finalize-summary.json"
-assert_equals "$(cat "$success_log")" $'phase-ledgers\nphase-ledger-drift\nphase-schedules\nphase-schedule-drift\njson-shape-check\ngo-test-duration-baseline-coverage' "no RESULTS_DIR target order"
+assert_equals "$(json_field "$summary" 'value.schema_id')" "cartulary.agent_finalize_summary.v2" "no RESULTS_DIR schema"
+assert_equals "$(json_field "$summary" 'value.actions.map((action) => action.action_id)')" $'structure_ledger_refresh\nschema_shape_validation\nduration_baseline_coverage' "no RESULTS_DIR action selection"
 assert_equals "$(json_field "$summary" 'value.status')" "pass" "no RESULTS_DIR status"
 assert_equals "$(json_field "$summary" 'value.duration.status')" "skipped" "no RESULTS_DIR duration status"
 assert_equals "$(json_field "$summary" 'value.run_checks.status')" "skipped" "no RESULTS_DIR run checks"
+assert_not_contains "$(cat "$success_log")" "duration-baseline-drift-suite" "no RESULTS_DIR skips retained-run drift"
 
 retained_dir="$TMP_DIR/retained-run"
 write_retained_run "$retained_dir"
@@ -155,8 +166,9 @@ MAKE="$results_make" \
 FAKE_MAKE_LOG="$results_log" \
 RESULTS_DIR="$retained_dir" \
   "$SCRIPT"
-assert_equals "$(cat "$results_log")" $'phase-ledgers\nphase-ledger-drift\nphase-schedules\nphase-schedule-drift\njson-shape-check\ngo-test-duration-baselines\nbrowser-e2e-duration-baselines\nservice-backed-make-target-duration-baselines\nharness-smoke-duration-baselines\ngo-test-duration-baseline-coverage\nduration-baseline-drift-suite\nscheduler-event-order-drift\nscheduler-summary-timing-drift' "RESULTS_DIR target order"
 results_summary="$results_dir/results/with-results/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$results_summary" 'value.actions.map((action) => action.action_id)')" $'structure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation\nscheduler_drift_validation' "RESULTS_DIR action selection"
+assert_equals "$(json_field "$results_summary" 'value.actions[0].substeps[0].id')" "retained-run-preflight" "RESULTS_DIR preflight is private substep"
 assert_equals "$(json_field "$results_summary" 'value.results_dir_status')" "valid" "RESULTS_DIR valid"
 assert_equals "$(json_field "$results_summary" 'value.duration.status')" "refreshed" "RESULTS_DIR duration refreshed"
 assert_equals "$(json_field "$results_summary" 'value.run_checks.status')" "pass" "RESULTS_DIR run checks pass"
@@ -184,6 +196,8 @@ if [[ -f "$preflight_log" ]]; then
 fi
 preflight_summary="$preflight_dir/results/preflight-fail/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$preflight_summary" 'value.results_dir_status')" "invalid" "preflight status"
+assert_equals "$(json_field "$preflight_summary" 'value.failures[0].action_id')" "structure_ledger_refresh" "preflight failure action"
+assert_equals "$(json_field "$preflight_summary" 'value.failures[0].substep_id')" "retained-run-preflight" "preflight failure substep"
 assert_equals "$(json_field "$preflight_summary" 'value.failures[0].failure_class')" "config" "preflight failure class"
 
 failure_dir="$TMP_DIR/child-fail"
@@ -207,8 +221,11 @@ if [[ "$failure_status" -eq 0 ]]; then
 fi
 assert_equals "$(cat "$failure_log")" $'phase-ledgers\nphase-ledger-drift\nphase-schedules' "child failure fail-fast order"
 failure_summary="$failure_dir/results/child-fail/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$failure_summary" 'value.failures[0].action_id')" "structure_ledger_refresh" "child failure action propagation"
+assert_equals "$(json_field "$failure_summary" 'value.failures[0].substep_id')" "phase-schedules" "child failure substep propagation"
 assert_equals "$(json_field "$failure_summary" 'value.failures[0].failure_class')" "product" "child failure class propagation"
-assert_equals "$(json_field "$failure_summary" 'value.steps.filter((step) => step.status === "skipped").length')" "3" "child failure skipped steps"
+assert_equals "$(json_field "$failure_summary" 'value.actions.filter((action) => action.status === "skipped").length')" "2" "child failure skipped actions"
+assert_equals "$(json_field "$failure_summary" 'value.actions.flatMap((action) => action.substeps).filter((step) => step.status === "skipped").length')" "3" "child failure skipped substeps"
 
 wrapper_dir="$TMP_DIR/wrapper"
 mkdir -p "$wrapper_dir"

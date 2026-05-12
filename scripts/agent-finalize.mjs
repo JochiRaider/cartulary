@@ -18,7 +18,7 @@ import {
 import { validateSchemaSync } from "./lib/harness-contract.mjs";
 import { normalizeOutputMode } from "./lib/tool-output.mjs";
 
-const schemaID = "cartulary.agent_finalize_summary.v1";
+const schemaID = "cartulary.agent_finalize_summary.v2";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const makeBin = process.env.MAKE || "make";
@@ -28,110 +28,195 @@ const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "100000";
 const warmBalanceRatio =
   process.env.SCHEDULER_WARM_CHECK_BALANCE_RATIO || "1.25";
 
-const stepDefinitions = [
+const deniedTargets = new Set([
+  "format",
+  "generate",
+  "generate-drift",
+  "migration-drift",
+  "test-fast",
+  "test",
+  "check",
+  "ci",
+  "release-check",
+  "browser-e2e",
+  "browser-e2e-webserver-backed",
+  "browser-e2e-functional",
+  "browser-e2e-support",
+  "browser-e2e-stateful",
+  "browser-e2e-resettable",
+  "browser-e2e-measurement",
+  "browser-e2e-visual",
+  "go-vulncheck",
+  "go-gosec-targeted",
+  "go-gosec-audit",
+  "build",
+  "build-server",
+  "build-migrate",
+  "build-web",
+  "clean",
+  "distclean",
+  "benchmark-claim-check",
+]);
+
+const preflightSubstep = {
+  id: "retained-run-preflight",
+  target: null,
+  commandKind: "retained_run_preflight",
+  requiresResultsDir: true,
+  mutatesRepo: false,
+  run: "preflight",
+};
+
+const actionRegistry = [
   {
-    id: "retained-run-preflight",
-    target: null,
-    category: "preflight",
-    requiresResultsDir: true,
-    mutatesRepo: false,
-    run: "preflight",
-  },
-  {
-    id: "phase-ledgers",
-    target: "phase-ledgers",
-    category: "phase_ledger",
+    actionID: "structure_ledger_refresh",
+    description:
+      "Refresh phase-ledger and phase-schedule generated artifacts, then verify no unsupported drift remains.",
     requiresResultsDir: false,
-    mutatesRepo: true,
+    mutating: true,
+    substeps: [
+      {
+        id: "phase-ledgers",
+        target: "phase-ledgers",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: true,
+      },
+      {
+        id: "phase-ledger-drift",
+        target: "phase-ledger-drift",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: false,
+      },
+      {
+        id: "phase-schedules",
+        target: "phase-schedules",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: true,
+      },
+      {
+        id: "phase-schedule-drift",
+        target: "phase-schedule-drift",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: false,
+      },
+    ],
   },
   {
-    id: "phase-ledger-drift",
-    target: "phase-ledger-drift",
-    category: "phase_ledger",
+    actionID: "schema_shape_validation",
+    description:
+      "Validate harness-owned JSON shape and schema attachments needed by the finalizer path.",
     requiresResultsDir: false,
-    mutatesRepo: false,
+    mutating: false,
+    substeps: [
+      {
+        id: "json-shape-check",
+        target: "json-shape-check",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: false,
+      },
+    ],
   },
   {
-    id: "phase-schedules",
-    target: "phase-schedules",
-    category: "phase_schedule",
+    actionID: "duration_baseline_refresh",
+    description:
+      "Refresh only advisory harness duration-baseline artifacts from a successful, uncontaminated retained run.",
+    requiresResultsDir: true,
+    mutating: true,
+    substeps: [
+      {
+        id: "go-test-duration-baselines",
+        target: "go-test-duration-baselines",
+        commandKind: "make_target",
+        requiresResultsDir: true,
+        mutatesRepo: true,
+      },
+      {
+        id: "browser-e2e-duration-baselines",
+        target: "browser-e2e-duration-baselines",
+        commandKind: "make_target",
+        requiresResultsDir: true,
+        mutatesRepo: true,
+      },
+      {
+        id: "service-backed-make-target-duration-baselines",
+        target: "service-backed-make-target-duration-baselines",
+        commandKind: "make_target",
+        requiresResultsDir: true,
+        mutatesRepo: true,
+      },
+      {
+        id: "harness-smoke-duration-baselines",
+        target: "harness-smoke-duration-baselines",
+        commandKind: "make_target",
+        requiresResultsDir: true,
+        mutatesRepo: true,
+      },
+    ],
+  },
+  {
+    actionID: "duration_baseline_coverage",
+    description:
+      "Verify that required advisory duration-baseline entries exist or are explicitly defaulted.",
     requiresResultsDir: false,
-    mutatesRepo: true,
+    mutating: false,
+    substeps: [
+      {
+        id: "go-test-duration-baseline-coverage",
+        target: "go-test-duration-baseline-coverage",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: false,
+      },
+    ],
   },
   {
-    id: "phase-schedule-drift",
-    target: "phase-schedule-drift",
-    category: "phase_schedule",
-    requiresResultsDir: false,
-    mutatesRepo: false,
-  },
-  {
-    id: "json-shape-check",
-    target: "json-shape-check",
-    category: "shape",
-    requiresResultsDir: false,
-    mutatesRepo: false,
-  },
-  {
-    id: "go-test-duration-baselines",
-    target: "go-test-duration-baselines",
-    category: "duration_refresh",
+    actionID: "duration_baseline_drift_validation",
+    description:
+      "Validate advisory duration-baseline freshness against the retained run.",
     requiresResultsDir: true,
-    mutatesRepo: true,
+    mutating: false,
+    substeps: [
+      {
+        id: "duration-baseline-drift-suite",
+        target: "duration-baseline-drift-suite",
+        commandKind: "make_target",
+        requiresResultsDir: true,
+        mutatesRepo: false,
+      },
+    ],
   },
   {
-    id: "browser-e2e-duration-baselines",
-    target: "browser-e2e-duration-baselines",
-    category: "duration_refresh",
+    actionID: "scheduler_drift_validation",
+    description:
+      "Validate scheduler event ordering and warm-check timing health against the retained run.",
     requiresResultsDir: true,
-    mutatesRepo: true,
-  },
-  {
-    id: "service-backed-make-target-duration-baselines",
-    target: "service-backed-make-target-duration-baselines",
-    category: "duration_refresh",
-    requiresResultsDir: true,
-    mutatesRepo: true,
-  },
-  {
-    id: "harness-smoke-duration-baselines",
-    target: "harness-smoke-duration-baselines",
-    category: "duration_refresh",
-    requiresResultsDir: true,
-    mutatesRepo: true,
-  },
-  {
-    id: "go-test-duration-baseline-coverage",
-    target: "go-test-duration-baseline-coverage",
-    category: "duration_coverage",
-    requiresResultsDir: false,
-    mutatesRepo: false,
-  },
-  {
-    id: "duration-baseline-drift-suite",
-    target: "duration-baseline-drift-suite",
-    category: "duration_drift",
-    requiresResultsDir: true,
-    mutatesRepo: false,
-  },
-  {
-    id: "scheduler-event-order-drift",
-    target: "scheduler-event-order-drift",
-    category: "scheduler_check",
-    requiresResultsDir: true,
-    mutatesRepo: false,
-  },
-  {
-    id: "scheduler-summary-timing-drift",
-    target: "scheduler-summary-timing-drift",
-    category: "scheduler_check",
-    requiresResultsDir: true,
-    mutatesRepo: false,
-    env: {
-      TARGET: "check",
-      SCHEDULER_WARM_CHECK_BUDGET_MS: warmBudgetMs,
-      SCHEDULER_WARM_CHECK_BALANCE_RATIO: warmBalanceRatio,
-    },
+    mutating: false,
+    substeps: [
+      {
+        id: "scheduler-event-order-drift",
+        target: "scheduler-event-order-drift",
+        commandKind: "make_target",
+        requiresResultsDir: true,
+        mutatesRepo: false,
+      },
+      {
+        id: "scheduler-summary-timing-drift",
+        target: "scheduler-summary-timing-drift",
+        commandKind: "make_target",
+        requiresResultsDir: true,
+        mutatesRepo: false,
+        env: {
+          TARGET: "check",
+          SCHEDULER_WARM_CHECK_BUDGET_MS: warmBudgetMs,
+          SCHEDULER_WARM_CHECK_BALANCE_RATIO: warmBalanceRatio,
+        },
+      },
+    ],
   },
 ];
 
@@ -261,11 +346,11 @@ function changedFilesSince(before) {
   return changed.sort((left, right) => left.localeCompare(right));
 }
 
-function baseStep(definition) {
+function baseSubstep(definition) {
   return {
     id: definition.id,
     target: definition.target,
-    category: definition.category,
+    command_kind: definition.commandKind,
     requires_results_dir: definition.requiresResultsDir,
     mutates_repo: definition.mutatesRepo,
     status: "pending",
@@ -280,29 +365,70 @@ function baseStep(definition) {
   };
 }
 
-function collectChildArtifacts(steps) {
+function substepsForAction(definition, includePreflight) {
+  const substeps = includePreflight
+    ? [preflightSubstep, ...definition.substeps]
+    : definition.substeps;
+  return substeps.map(baseSubstep);
+}
+
+function baseAction(definition, includePreflight) {
+  return {
+    action_id: definition.actionID,
+    description: definition.description,
+    requires_results_dir: definition.requiresResultsDir,
+    mutating: definition.mutating,
+    status: "pending",
+    started_at: null,
+    completed_at: null,
+    duration_ms: null,
+    skipped_reason: null,
+    substeps: substepsForAction(definition, includePreflight),
+  };
+}
+
+function selectedActionDefinitions() {
+  return actionRegistry.filter(
+    (definition) => resultsDirInput || !definition.requiresResultsDir,
+  );
+}
+
+function selectedActions() {
+  const definitions = selectedActionDefinitions();
+  return definitions.map((definition, index) =>
+    baseAction(definition, Boolean(resultsDirInput) && index === 0),
+  );
+}
+
+function flattenSubsteps(actions) {
+  return actions.flatMap((action) => action.substeps);
+}
+
+function collectChildArtifacts(actions) {
   const artifacts = [];
-  for (const step of steps) {
-    if (step.summary_json) {
-      artifacts.push({
-        role: `${step.id}_summary`,
-        kind: "json",
-        path: step.summary_json,
-      });
-    }
-    if (step.stdout_log) {
-      artifacts.push({
-        role: `${step.id}_stdout`,
-        kind: "log",
-        path: step.stdout_log,
-      });
-    }
-    if (step.stderr_log) {
-      artifacts.push({
-        role: `${step.id}_stderr`,
-        kind: "log",
-        path: step.stderr_log,
-      });
+  for (const action of actions) {
+    for (const substep of action.substeps) {
+      if (substep.summary_json) {
+        artifacts.push({
+          role: `${action.action_id}_${substep.id}_summary`,
+          kind: "json",
+          path: substep.summary_json,
+        });
+      }
+      if (substep.stdout_log) {
+        artifacts.push({
+          role: `${action.action_id}_${substep.id}_stdout`,
+          kind: "log",
+          path: substep.stdout_log,
+        });
+      }
+      if (substep.stderr_log) {
+        artifacts.push({
+          role: `${action.action_id}_${substep.id}_stderr`,
+          kind: "log",
+          path: substep.stderr_log,
+        });
+      }
     }
   }
   return artifacts.sort((left, right) =>
@@ -312,35 +438,38 @@ function collectChildArtifacts(steps) {
   );
 }
 
-function failureFromChild(step, status, stderr) {
-  const summaryFile = step.target ? childSummaryPath(step.target) : "";
+function failureFromChild(action, substep, status, stderr) {
+  const summaryFile = substep.target ? childSummaryPath(substep.target) : "";
   const summary = summaryFile ? readJSON(summaryFile) : null;
   if (summary?.failure_class && summary?.failure_reason) {
     return {
-      step_id: step.id,
-      target: step.target,
+      action_id: action.action_id,
+      substep_id: substep.id,
+      target: substep.target,
       failure_class: summary.failure_class,
       failure_reason: summary.failure_reason,
       headline:
         summary.failures?.[0]?.headline ||
-        `${step.target ?? step.id} failed with ${summary.failure_reason}`,
+        `${substep.target ?? substep.id} failed with ${summary.failure_reason}`,
       summary_json: relToRepo(summaryFile),
     };
   }
   return {
-    step_id: step.id,
-    target: step.target,
+    action_id: action.action_id,
+    substep_id: substep.id,
+    target: substep.target,
     failure_class: "harness",
     failure_reason: "child_target_failure",
-    headline: `${step.target ?? step.id} failed with status ${status}${stderr ? `: ${stderr.split(/\r?\n/u).find(Boolean) ?? ""}` : ""}`,
+    headline: `${substep.target ?? substep.id} failed with status ${status}${stderr ? `: ${stderr.split(/\r?\n/u).find(Boolean) ?? ""}` : ""}`,
     summary_json:
       summaryFile && existsSync(summaryFile) ? relToRepo(summaryFile) : null,
   };
 }
 
-function preflightFailure(reason, failureClass = "artifact") {
+function preflightFailure(actionID, reason, failureClass = "artifact") {
   return {
-    step_id: "retained-run-preflight",
+    action_id: actionID,
+    substep_id: "retained-run-preflight",
     target: null,
     failure_class: failureClass,
     failure_reason:
@@ -350,12 +479,13 @@ function preflightFailure(reason, failureClass = "artifact") {
   };
 }
 
-function validateRetainedRun(resultsDir) {
+function validateRetainedRun(resultsDir, actionID) {
   const resolved = path.resolve(resultsDir);
   if (!existsSync(resolved)) {
     return {
       ok: false,
       failure: preflightFailure(
+        actionID,
         `RESULTS_DIR does not exist: ${resultsDir}`,
         "config",
       ),
@@ -365,6 +495,7 @@ function validateRetainedRun(resultsDir) {
     return {
       ok: false,
       failure: preflightFailure(
+        actionID,
         `RESULTS_DIR is not a directory: ${resultsDir}`,
         "config",
       ),
@@ -387,6 +518,7 @@ function validateRetainedRun(resultsDir) {
     return {
       ok: false,
       failure: preflightFailure(
+        actionID,
         `${relToRepo(checkToolSummary)} must identify a passing warm check run`,
       ),
     };
@@ -396,6 +528,7 @@ function validateRetainedRun(resultsDir) {
       return {
         ok: false,
         failure: preflightFailure(
+          actionID,
           `${relToRepo(file)} is required for warm scheduler checks`,
         ),
       };
@@ -413,6 +546,7 @@ function validateRetainedRun(resultsDir) {
     return {
       ok: false,
       failure: preflightFailure(
+        actionID,
         `RESULTS_DIR must contain scheduler, target, and phase summary artifact families`,
       ),
     };
@@ -425,6 +559,7 @@ function validateRetainedRun(resultsDir) {
     return {
       ok: false,
       failure: preflightFailure(
+        actionID,
         `${relToRepo(failedSummary.file)} records a failed retained target`,
       ),
     };
@@ -435,6 +570,7 @@ function validateRetainedRun(resultsDir) {
     return {
       ok: false,
       failure: preflightFailure(
+        actionID,
         `RESULTS_DIR contains contaminated timing evidence: ${formatContaminationReasons(contamination)}`,
       ),
     };
@@ -442,42 +578,52 @@ function validateRetainedRun(resultsDir) {
   return { ok: true, resolved };
 }
 
+function generatedStatusFor(actions, updatedFiles) {
+  if (updatedFiles.length > 0) {
+    return "updated";
+  }
+  return actions.some(
+    (action) =>
+      action.action_id === "structure_ledger_refresh" &&
+      action.status === "pass",
+  )
+    ? "unchanged"
+    : "unknown";
+}
+
+function actionPassed(actions, actionID) {
+  return actions.some(
+    (action) => action.action_id === actionID && action.status === "pass",
+  );
+}
+
+function actionFailed(actions, actionIDs) {
+  const ids = new Set(actionIDs);
+  return actions.some(
+    (action) => ids.has(action.action_id) && action.status === "fail",
+  );
+}
+
 function writeSummary({
   status,
   startedAt,
   startedMs,
-  steps,
+  actions,
   failures,
   updatedFiles,
   resultsDirStatus,
 }) {
-  const refreshed = steps.some(
-    (step) => step.category === "duration_refresh" && step.status === "pass",
+  const refreshed = actionPassed(actions, "duration_baseline_refresh");
+  const durationChecked = actionPassed(
+    actions,
+    "duration_baseline_drift_validation",
   );
-  const durationChecked = steps.some(
-    (step) => step.category === "duration_drift" && step.status === "pass",
-  );
-  const runChecked = steps.some(
-    (step) => step.category === "scheduler_check" && step.status === "pass",
-  );
-  const failedDuration = steps.some(
-    (step) =>
-      ["duration_refresh", "duration_drift"].includes(step.category) &&
-      step.status === "fail",
-  );
-  const failedRunCheck = steps.some(
-    (step) => step.category === "scheduler_check" && step.status === "fail",
-  );
-  const generatedStatus =
-    updatedFiles.length > 0
-      ? "updated"
-      : steps.some(
-            (step) =>
-              ["phase_ledger", "phase_schedule"].includes(step.category) &&
-              step.status === "pass",
-          )
-        ? "unchanged"
-        : "unknown";
+  const runChecked = actionPassed(actions, "scheduler_drift_validation");
+  const failedDuration = actionFailed(actions, [
+    "duration_baseline_refresh",
+    "duration_baseline_drift_validation",
+  ]);
+  const failedRunCheck = actionFailed(actions, ["scheduler_drift_validation"]);
   const completedAt = now();
   const summary = {
     schema_id: schemaID,
@@ -495,7 +641,7 @@ function writeSummary({
     completed_at: completedAt,
     duration_ms: durationMs(startedMs),
     generated: {
-      status: generatedStatus,
+      status: generatedStatusFor(actions, updatedFiles),
       updated_file_count: updatedFiles.length,
     },
     duration: {
@@ -518,9 +664,9 @@ function writeSummary({
       checked: runChecked,
     },
     updated_files: updatedFiles,
-    steps,
+    actions,
     failures,
-    child_artifacts: collectChildArtifacts(steps),
+    child_artifacts: collectChildArtifacts(actions),
   };
   mkdirSync(path.dirname(finalizeSummaryPath()), { recursive: true });
   validateSchemaSync(schemaID, summary);
@@ -528,7 +674,10 @@ function writeSummary({
   return summary;
 }
 
-function runMakeStep(definition, step) {
+function runMakeSubstep(definition, substep) {
+  if (deniedTargets.has(definition.target)) {
+    throw new Error(`agent-finalize action substep uses denied target ${definition.target}`);
+  }
   const startedAt = now();
   const startedMs = Date.now();
   const childEnv = {
@@ -550,15 +699,15 @@ function runMakeStep(definition, step) {
   const summaryFile = childSummaryPath(definition.target);
   const stdoutLog = path.join(childPhaseDir(definition.target), "stdout.log");
   const stderrLog = path.join(childPhaseDir(definition.target), "stderr.log");
-  step.started_at = startedAt;
-  step.completed_at = completedAt;
-  step.duration_ms = durationMs(startedMs);
-  step.exit_code = result.status ?? 1;
-  step.summary_json = existsSync(summaryFile) ? relToRepo(summaryFile) : null;
-  step.stdout_log = existsSync(stdoutLog) ? relToRepo(stdoutLog) : null;
-  step.stderr_log = existsSync(stderrLog) ? relToRepo(stderrLog) : null;
-  step.status = step.exit_code === 0 ? "pass" : "fail";
-  if (step.status === "fail") {
+  substep.started_at = startedAt;
+  substep.completed_at = completedAt;
+  substep.duration_ms = durationMs(startedMs);
+  substep.exit_code = result.status ?? 1;
+  substep.summary_json = existsSync(summaryFile) ? relToRepo(summaryFile) : null;
+  substep.stdout_log = existsSync(stdoutLog) ? relToRepo(stdoutLog) : null;
+  substep.stderr_log = existsSync(stderrLog) ? relToRepo(stderrLog) : null;
+  substep.status = substep.exit_code === 0 ? "pass" : "fail";
+  if (substep.status === "fail") {
     if (result.stdout) {
       process.stderr.write(result.stdout);
     }
@@ -567,73 +716,125 @@ function runMakeStep(definition, step) {
     }
   }
   return {
-    status: step.exit_code,
+    status: substep.exit_code,
     stderr: result.stderr || result.stdout || "",
   };
+}
+
+function markSubstepSkipped(substep, reason = "skipped-after-failure") {
+  if (substep.status === "pending") {
+    substep.status = "skipped";
+    substep.skipped_reason = reason;
+  }
+}
+
+function markActionSkipped(action, reason = "skipped-after-failure") {
+  action.status = "skipped";
+  action.skipped_reason = reason;
+  for (const substep of action.substeps) {
+    markSubstepSkipped(substep, reason);
+  }
+}
+
+function finalizeActionStatus(action, actionStartedMs) {
+  const executedSubsteps = action.substeps.filter((substep) =>
+    ["pass", "fail"].includes(substep.status),
+  );
+  if (executedSubsteps.length === 0 && action.status === "pending") {
+    action.status = "skipped";
+    action.skipped_reason = "no-selected-substeps";
+  } else if (action.substeps.some((substep) => substep.status === "fail")) {
+    action.status = "fail";
+  } else if (action.status === "pending") {
+    action.status = "pass";
+  }
+  action.completed_at = now();
+  action.duration_ms = durationMs(actionStartedMs);
+}
+
+function runPreflightSubstep(action, substep) {
+  substep.started_at = now();
+  const stepStartMs = Date.now();
+  const result = validateRetainedRun(resultsDirInput, action.action_id);
+  substep.completed_at = now();
+  substep.duration_ms = durationMs(stepStartMs);
+  substep.exit_code = result.ok ? 0 : 1;
+  substep.status = result.ok ? "pass" : "fail";
+  return result;
 }
 
 function main() {
   const startedAt = now();
   const startedMs = Date.now();
   const beforeStatus = gitStatusMap();
-  const steps = stepDefinitions
-    .filter((definition) => resultsDirInput || !definition.requiresResultsDir)
-    .map(baseStep);
+  const actions = selectedActions();
+  const definitions = selectedActionDefinitions();
   const failures = [];
   let failed = false;
   let resultsDirStatus = resultsDirInput ? "valid" : "skipped";
 
-  for (const definition of stepDefinitions) {
-    const step = steps.find((candidate) => candidate.id === definition.id);
-    if (!step) {
-      continue;
-    }
+  for (let actionIndex = 0; actionIndex < actions.length; actionIndex += 1) {
+    const action = actions[actionIndex];
+    const definition = definitions[actionIndex];
     if (failed) {
-      step.status = "skipped";
-      step.skipped_reason = "skipped-after-failure";
+      markActionSkipped(action);
       continue;
     }
 
-    if (definition.run === "preflight") {
-      step.started_at = now();
-      const stepStartMs = Date.now();
-      const result = validateRetainedRun(resultsDirInput);
-      step.completed_at = now();
-      step.duration_ms = durationMs(stepStartMs);
-      step.exit_code = result.ok ? 0 : 1;
-      step.status = result.ok ? "pass" : "fail";
-      if (!result.ok) {
-        resultsDirStatus = "invalid";
-        failures.push(result.failure);
+    action.started_at = now();
+    const actionStartedMs = Date.now();
+
+    for (const substep of action.substeps) {
+      if (failed) {
+        markSubstepSkipped(substep);
+        continue;
+      }
+
+      const substepDefinition =
+        substep.id === preflightSubstep.id
+          ? preflightSubstep
+          : definition.substeps.find((entry) => entry.id === substep.id);
+      if (!substepDefinition) {
+        throw new Error(`missing substep definition for ${action.action_id}:${substep.id}`);
+      }
+
+      if (substepDefinition.run === "preflight") {
+        const result = runPreflightSubstep(action, substep);
+        if (!result.ok) {
+          resultsDirStatus = "invalid";
+          failures.push(result.failure);
+          failed = true;
+        }
+        continue;
+      }
+
+      const result = runMakeSubstep(substepDefinition, substep);
+      if (result.status !== 0) {
+        failures.push(failureFromChild(action, substep, result.status, result.stderr));
         failed = true;
       }
-      continue;
     }
 
-    const result = runMakeStep(definition, step);
-    if (result.status !== 0) {
-      failures.push(failureFromChild(step, result.status, result.stderr));
-      failed = true;
+    finalizeActionStatus(action, actionStartedMs);
+  }
+
+  if (failed) {
+    for (const action of actions) {
+      if (action.status === "pending") {
+        markActionSkipped(action);
+      }
+      for (const substep of action.substeps) {
+        markSubstepSkipped(substep);
+      }
     }
   }
 
   const updatedFiles = changedFilesSince(beforeStatus);
-  if (failed) {
-    for (const step of steps.slice(
-      steps.findIndex((entry) => entry.status === "fail") + 1,
-    )) {
-      if (step.status === "pending") {
-        step.status = "skipped";
-        step.skipped_reason = "skipped-after-failure";
-      }
-    }
-  }
-
   const summary = writeSummary({
     status: failed ? "fail" : "pass",
     startedAt,
     startedMs,
-    steps,
+    actions,
     failures,
     updatedFiles,
     resultsDirStatus,
@@ -642,10 +843,11 @@ function main() {
   if (summary.status === "fail") {
     const failure = summary.failures[0];
     process.stderr.write(
-      `agent-finalize: failed at ${failure?.target ?? failure?.step_id ?? "unknown"}\n`,
+      `agent-finalize: failed at ${failure?.target ?? failure?.substep_id ?? failure?.action_id ?? "unknown"}\n`,
     );
     process.exit(
-      summary.steps.find((step) => step.status === "fail")?.exit_code || 1,
+      flattenSubsteps(summary.actions).find((substep) => substep.status === "fail")
+        ?.exit_code || 1,
     );
   }
 }

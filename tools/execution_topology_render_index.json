@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:2be189241841993eb1dea343aee334eb0d0790a31867a9e950584644e8cca608",
+  "input_digest": "sha256:64d141aade7e4fe7f2de22f77d5f3fa63db6b15280918f2ddf74da51026dbd3a",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -97,7 +97,7 @@
     {
       "path": "scripts/lib/harness-contract.mjs",
       "role": "renderer_source",
-      "hash": "sha256:e73aabcf602ce55cbe9cb87a01fe9a78ed78e86f3de80651e89ee857bcb95d8c"
+      "hash": "sha256:88d870ef5b08f2910370685bb9334632c6de346e7b8982c352c1e0ca247739c6"
     },
     {
       "path": "scripts/lib/json-shape.mjs",
@@ -262,7 +262,7 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:49d81720339a2b86e6ef3d2b41f3cc5949faf8068c2c67d20e732f10a33bd7df"
+      "hash": "sha256:5fed2b2f934b836ff436eca66df201a83f21a36edffe6196f3c9e0ca5a989a83"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",

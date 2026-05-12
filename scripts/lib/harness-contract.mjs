@@ -36,7 +36,6 @@ const machineAcceptedOutputClasses = new Set([
   "machine_stdout",
   "scheduler_summary_with_artifacts",
   "service_summary",
-  "service_summary_with_artifacts",
   "summary_with_artifacts",
 ]);
 const machineRejectedOutputClasses = new Set([

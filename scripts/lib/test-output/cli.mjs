@@ -1150,7 +1150,7 @@ function writePhaseArtifacts(context, details) {
       failure_reason: failure.failure_reason,
       target: context.target,
       child_target: failure.target ?? undefined,
-      label: failure.step_id,
+      label: failure.substep_id ?? failure.action_id,
       headline: failure.headline,
       reproduce: context.command,
       artifacts: failure.summary_json ? [failure.summary_json] : [],

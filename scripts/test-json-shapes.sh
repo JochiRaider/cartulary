@@ -378,7 +378,7 @@ write_valid_agent_finalize_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.agent_finalize_summary.v1",
+  "schema_id": "cartulary.agent_finalize_summary.v2",
   "target": "agent-finalize",
   "status": "pass",
   "result_root": ".cartulary/test-results",
@@ -404,28 +404,41 @@ write_valid_agent_finalize_summary() {
     "checked": false
   },
   "updated_files": [],
-  "steps": [
+  "actions": [
     {
-      "id": "phase-ledgers",
-      "target": "phase-ledgers",
-      "category": "phase_ledger",
+      "action_id": "structure_ledger_refresh",
+      "description": "Refresh phase-ledger and phase-schedule generated artifacts, then verify no unsupported drift remains.",
       "requires_results_dir": false,
-      "mutates_repo": true,
+      "mutating": true,
       "status": "pass",
       "started_at": "2026-01-01T00:00:00Z",
       "completed_at": "2026-01-01T00:00:01Z",
       "duration_ms": 1000,
-      "exit_code": 0,
-      "summary_json": ".cartulary/test-results/run/phase-ledgers/tool-run-summary.json",
-      "stdout_log": ".cartulary/test-results/run/phase-ledgers/phase-ledgers/stdout.log",
-      "stderr_log": ".cartulary/test-results/run/phase-ledgers/phase-ledgers/stderr.log",
-      "skipped_reason": null
+      "skipped_reason": null,
+      "substeps": [
+        {
+          "id": "phase-ledgers",
+          "target": "phase-ledgers",
+          "command_kind": "make_target",
+          "requires_results_dir": false,
+          "mutates_repo": true,
+          "status": "pass",
+          "started_at": "2026-01-01T00:00:00Z",
+          "completed_at": "2026-01-01T00:00:01Z",
+          "duration_ms": 1000,
+          "exit_code": 0,
+          "summary_json": ".cartulary/test-results/run/phase-ledgers/tool-run-summary.json",
+          "stdout_log": ".cartulary/test-results/run/phase-ledgers/phase-ledgers/stdout.log",
+          "stderr_log": ".cartulary/test-results/run/phase-ledgers/phase-ledgers/stderr.log",
+          "skipped_reason": null
+        }
+      ]
     }
   ],
   "failures": [],
   "child_artifacts": [
     {
-      "role": "phase-ledgers_summary",
+      "role": "structure_ledger_refresh_phase-ledgers_summary",
       "kind": "json",
       "path": ".cartulary/test-results/run/phase-ledgers/tool-run-summary.json"
     }
@@ -471,8 +484,8 @@ const mutations = {
       },
     ];
   },
-  "agent-finalize-summary-bad-step-status": (fixture) => {
-    fixture.steps[0].status = "done";
+  "agent-finalize-summary-bad-action-status": (fixture) => {
+    fixture.actions[0].status = "done";
   },
   "agent-finalize-summary-unknown-key": (fixture) => {
     fixture.legacy_key = true;
@@ -758,11 +771,11 @@ assert_contains "$(assert_passes "valid agent finalize summary" run_shape_check 
   "json shape check passed" \
   "valid agent finalize summary"
 
-bad_agent_finalize_step="$tmp_dir/agent-finalize-summary-bad-step.json"
-write_valid_agent_finalize_summary "$bad_agent_finalize_step"
-mutate_json_fixture agent-finalize-summary-bad-step-status "$bad_agent_finalize_step"
-bad_agent_finalize_step_output="$(assert_fails "invalid agent finalize step status" run_shape_check agent-finalize-summary "$bad_agent_finalize_step")"
-assert_contains "$bad_agent_finalize_step_output" "must be equal to one of the allowed values" "invalid agent finalize step status"
+bad_agent_finalize_action="$tmp_dir/agent-finalize-summary-bad-action.json"
+write_valid_agent_finalize_summary "$bad_agent_finalize_action"
+mutate_json_fixture agent-finalize-summary-bad-action-status "$bad_agent_finalize_action"
+bad_agent_finalize_action_output="$(assert_fails "invalid agent finalize action status" run_shape_check agent-finalize-summary "$bad_agent_finalize_action")"
+assert_contains "$bad_agent_finalize_action_output" "must be equal to one of the allowed values" "invalid agent finalize action status"
 
 unknown_agent_finalize_key="$tmp_dir/agent-finalize-summary-unknown-key.json"
 write_valid_agent_finalize_summary "$unknown_agent_finalize_key"
