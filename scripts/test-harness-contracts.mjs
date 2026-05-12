@@ -15,6 +15,7 @@ import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
 } from "./lib/task-surface.mjs";
+import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -131,6 +132,32 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
     taskSurfaceMake,
     /summary-target --target check-harness-smoke --child-target run-harness-smoke-fast --status pass/,
   );
+});
+
+test("service-backed Go shard units are executable by their declared targets", () => {
+  const { serviceBacked } = renderedArtifacts();
+  const shardNamesByTarget = new Map();
+  function shardsForTarget(target) {
+    if (!shardNamesByTarget.has(target)) {
+      shardNamesByTarget.set(
+        target,
+        new Set(collectGoShardsForTarget(repoRoot, target).map((shard) => shard.name)),
+      );
+    }
+    return shardNamesByTarget.get(target);
+  }
+
+  for (const schedule of serviceBacked.schedules ?? []) {
+    for (const unit of schedule.work_units ?? []) {
+      if (unit.kind !== "go_shard") {
+        continue;
+      }
+      assert.ok(
+        shardsForTarget(unit.target).has(unit.shard),
+        `${schedule.target ?? schedule.name} schedules ${unit.shard} for ${unit.target}, but that target cannot execute the shard`,
+      );
+    }
+  }
 });
 
 function targetRecipeBlock(renderedMake, target) {

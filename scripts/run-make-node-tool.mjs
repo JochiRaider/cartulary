@@ -3,10 +3,8 @@
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import path from "node:path";
 
@@ -21,6 +19,8 @@ import {
   prettyJSONString,
   redactString,
   resolveRetainedArtifactIdentity,
+  secureMkdir,
+  secureWriteFile,
   validateSchema,
 } from "./lib/harness-contract.mjs";
 import {
@@ -73,7 +73,7 @@ function shouldWrapTarget(target) {
 }
 
 function writeIfNonEmpty(file, content) {
-  writeFileSync(file, redactString(content));
+  secureWriteFile(file, redactString(content));
   if (!content) {
     return null;
   }
@@ -132,7 +132,7 @@ async function runWrapped(target, invocation) {
   process.env.CARTULARY_TEST_RUN_ID = runID;
   const runRootAbs = path.join(resultsRoot, runID);
   const targetRootAbs = path.join(runRootAbs, target);
-  mkdirSync(targetRootAbs, { recursive: true });
+  secureMkdir(targetRootAbs);
   const stdoutLog = path.join(targetRootAbs, "stdout.log");
   const stderrLog = path.join(targetRootAbs, "stderr.log");
   const startedAt = nowUTC();
@@ -201,7 +201,7 @@ async function runWrapped(target, invocation) {
   summary.output_mode = normalizeOutputMode();
   summary.exit_code = publicExitCodeForSummary(summary);
   await validateSchema(toolRunSummarySchemaID, summary);
-  writeFileSync(summaryFile, prettyJSONString(summary));
+  secureWriteFile(summaryFile, prettyJSONString(summary));
 
   if (machineOutput()) {
     process.stdout.write(compactJSONString(summary));

@@ -2,7 +2,6 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   appendFileSync,
-  createWriteStream,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -25,6 +24,10 @@ import { collectGoShardPlan } from "./go-shard-plan.mjs";
 import {
   resolveOutputMode as resolveHarnessOutputMode,
   resolveRetainedArtifactIdentity,
+  createSecureWriteStream,
+  redactString,
+  secureMkdir,
+  secureWriteFile,
   targetPolicy,
 } from "./harness-contract.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
@@ -185,14 +188,14 @@ export function createGoTargetContext(options = {}) {
 function targetDir(ctx) {
   const target = ctx.testTarget || "adhoc";
   const dir = path.join(ctx.resultsRoot, ctx.runId, target);
-  mkdirSync(dir, { recursive: true });
+  secureMkdir(dir);
   return dir;
 }
 
 function preparePhaseArtifactDir(ctx, label) {
   const slug = slugifyLabel(label) || "phase";
   const dir = path.join(targetDir(ctx), slug);
-  mkdirSync(dir, { recursive: true });
+  secureMkdir(dir);
   return dir;
 }
 
@@ -201,7 +204,7 @@ export function prepareSharedArtifactDir(ctx, name) {
     throw new Error("prepareSharedArtifactDir requires name");
   }
   const dir = path.join(ctx.resultsRoot, ctx.runId, "_shared", name);
-  mkdirSync(dir, { recursive: true });
+  secureMkdir(dir);
   return dir;
 }
 
@@ -459,9 +462,9 @@ async function acquireDirectoryLock(lockDir, label, timeoutSeconds, metadata) {
   const started = monotonicMs();
   while (true) {
     try {
-      mkdirSync(lockDir, { recursive: false });
+      mkdirSync(lockDir, { recursive: false, mode: 0o700 });
       for (const [name, value] of Object.entries(metadata)) {
-        writeFileSync(path.join(lockDir, name), `${value}\n`);
+        secureWriteFile(path.join(lockDir, name), `${value}\n`);
       }
       return;
     } catch (error) {
@@ -634,8 +637,8 @@ async function runGoTestCapture(ctx, regex, args, reportDir, policy = {}) {
   await warmGoTestDependencies(ctx);
   const runnerLog = path.join(reportDir, "runner.jsonl");
   const stderrLog = path.join(reportDir, "stderr.log");
-  const stdoutStream = createWriteStream(runnerLog, { flags: "w" });
-  const stderrStream = createWriteStream(stderrLog, { flags: "w" });
+  const stdoutStream = createSecureWriteStream(runnerLog);
+  const stderrStream = createSecureWriteStream(stderrLog);
   let stdoutBuffer = "";
 
   const child = spawn(ctx.goBin, ["test", "-json", "-run", regex, ...args], {
@@ -644,11 +647,12 @@ async function runGoTestCapture(ctx, regex, args, reportDir, policy = {}) {
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", (chunk) => {
-    stdoutStream.write(chunk);
+    const redactedChunk = redactString(chunk.toString("utf8"));
+    stdoutStream.write(redactedChunk);
     if (ctx.outputMode === "quiet") {
       return;
     }
-    stdoutBuffer += chunk.toString("utf8");
+    stdoutBuffer += redactedChunk;
     const lines = stdoutBuffer.split(/\r?\n/u);
     stdoutBuffer = lines.pop() ?? "";
     for (const line of lines) {
@@ -666,9 +670,10 @@ async function runGoTestCapture(ctx, regex, args, reportDir, policy = {}) {
     }
   });
   child.stderr.on("data", (chunk) => {
-    stderrStream.write(chunk);
+    const redactedChunk = redactString(chunk.toString("utf8"));
+    stderrStream.write(redactedChunk);
     if (ctx.outputMode !== "quiet") {
-      process.stderr.write(chunk);
+      process.stderr.write(redactedChunk);
     }
   });
   return await new Promise((resolve, reject) => {
@@ -786,17 +791,17 @@ export async function captureGoReportLocked(
   const started = captureStart();
   const status = await runGoTestCapture(ctx, regex, args, sharedDir, policy);
   const window = captureFinish(started);
-  writeFileSync(path.join(sharedDir, "command.txt"), `${commandText}\n`);
-  writeFileSync(
+  secureWriteFile(path.join(sharedDir, "command.txt"), `${commandText}\n`);
+  secureWriteFile(
     path.join(sharedDir, "start_time.txt"),
     `${window.startTime}\n`,
   );
-  writeFileSync(path.join(sharedDir, "end_time.txt"), `${window.endTime}\n`);
-  writeFileSync(
+  secureWriteFile(path.join(sharedDir, "end_time.txt"), `${window.endTime}\n`);
+  secureWriteFile(
     path.join(sharedDir, "duration_ms.txt"),
     `${window.durationMs}\n`,
   );
-  writeFileSync(path.join(sharedDir, "exit_status.txt"), `${status}\n`);
+  secureWriteFile(path.join(sharedDir, "exit_status.txt"), `${status}\n`);
   await writeCrossTargetSharedExecutionMetadata(
     ctx,
     sharedDir,
@@ -804,7 +809,7 @@ export async function captureGoReportLocked(
     window,
     status,
   );
-  writeFileSync(completeFile, "");
+  secureWriteFile(completeFile, "");
   return { reportDir: sharedDir, usage: "actual" };
 }
 
@@ -855,14 +860,14 @@ export async function assignExecutionFamily(ctx, target, familyOrShard) {
 }
 
 function writeShardMetadata(metadataDir, sharedName, captured) {
-  mkdirSync(metadataDir, { recursive: true });
+  secureMkdir(metadataDir);
   const file = path.join(metadataDir, `${sharedName}.meta`);
-  writeFileSync(
+  secureWriteFile(
     `${file}.${process.pid}`,
     `${captured.reportDir}\n${captured.usage}\n`,
   );
   rmSync(file, { force: true });
-  writeFileSync(file, readFileSync(`${file}.${process.pid}`));
+  secureWriteFile(file, readFileSync(`${file}.${process.pid}`));
   rmSync(`${file}.${process.pid}`, { force: true });
 }
 
@@ -905,10 +910,10 @@ export function createAggregateReport(
   const runnerLog = path.join(outputDir, "runner.jsonl");
   const stderrLog = path.join(outputDir, "stderr.log");
   const commandFile = path.join(outputDir, "command.txt");
-  mkdirSync(outputDir, { recursive: true });
-  writeFileSync(runnerLog, "");
-  writeFileSync(stderrLog, "");
-  writeFileSync(commandFile, "");
+  secureMkdir(outputDir);
+  secureWriteFile(runnerLog, "");
+  secureWriteFile(stderrLog, "");
+  secureWriteFile(commandFile, "");
 
   let startTime = "";
   let endTime = "";
@@ -995,18 +1000,18 @@ export function createAggregateReport(
     durationMs = actualDurationMs;
     wallDurationMs = isoWindowDurationMs(startTime, endTime);
   }
-  writeFileSync(path.join(outputDir, "start_time.txt"), `${startTime}\n`);
-  writeFileSync(path.join(outputDir, "end_time.txt"), `${endTime}\n`);
-  writeFileSync(
+  secureWriteFile(path.join(outputDir, "start_time.txt"), `${startTime}\n`);
+  secureWriteFile(path.join(outputDir, "end_time.txt"), `${endTime}\n`);
+  secureWriteFile(
     path.join(outputDir, "duration_ms.txt"),
     `${clampDurationMs(durationMs)}\n`,
   );
-  writeFileSync(
+  secureWriteFile(
     path.join(outputDir, "wall_duration_ms.txt"),
     `${clampDurationMs(wallDurationMs)}\n`,
   );
-  writeFileSync(path.join(outputDir, "exit_status.txt"), `${exitStatus}\n`);
-  writeFileSync(
+  secureWriteFile(path.join(outputDir, "exit_status.txt"), `${exitStatus}\n`);
+  secureWriteFile(
     path.join(outputDir, "aggregate.txt"),
     `${target}:${aggregateName}\n`,
   );
@@ -1257,7 +1262,7 @@ export async function captureNamedSharedReportsParallel(
   if (!Number.isInteger(jobs) || jobs < 1) {
     throw new Error(`invalid shard job count: ${jobs}`);
   }
-  mkdirSync(metadataDir, { recursive: true });
+  secureMkdir(metadataDir);
   let status = 0;
   let next = 0;
   const workerCount = Math.min(jobs, shardNames.length);

@@ -2,12 +2,10 @@
 
 import {
   existsSync,
-  mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import { helperArtifactReferences } from "../artifact-discovery.mjs";
@@ -66,6 +64,8 @@ import {
 import {
   compactJSONString,
   prettyJSONString,
+  secureMkdir,
+  secureWriteFile,
   validateSchemaSync,
 } from "../harness-contract.mjs";
 import {
@@ -217,12 +217,12 @@ function relToRepo(value) {
 }
 
 function ensureDir(dir) {
-  mkdirSync(dir, { recursive: true });
+  secureMkdir(dir);
 }
 
 function writeJson(file, value) {
   ensureDir(path.dirname(file));
-  writeFileSync(file, prettyJSONString(value));
+  secureWriteFile(file, prettyJSONString(value));
 }
 
 function writeValidatedJson(file, schemaID, value) {

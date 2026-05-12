@@ -1,0 +1,49 @@
+{
+  "schema_id": "cartulary.generate_drift_scratch_inputs.v1",
+  "generated_paths": [
+    "internal/gen/contracts",
+    "internal/gen/sql",
+    "packages/protocol-ts/src/generated"
+  ],
+  "copy_paths": [
+    "Makefile",
+    "sqlc.yaml",
+    "go.mod",
+    "go.sum",
+    "scripts/harness-contract.mjs",
+    "scripts/list-build-inputs.sh",
+    "scripts/generate-artifacts.sh",
+    "scripts/lib",
+    "tools/execution_topology_manifest.json",
+    "tools/scheduler_resource_registry.json",
+    "tools/service_backed_make_target_duration_baselines.json",
+    "tools/task_surface_manifest.json",
+    "tools/task_surface.generated.mk",
+    "tools/scheduler_manifest.json",
+    "tools/browser_e2e_batch_manifest.json",
+    "tools/contractgen",
+    "tools/generate_drift_scratch_inputs.json",
+    "tools/harness_redaction_manifest.json",
+    "tools/schemas",
+    "contracts",
+    "db/migrations",
+    "db/queries",
+    "internal/gen/contracts",
+    "internal/gen/sql",
+    "packages/protocol-ts/src/generated"
+  ],
+  "placeholder_dirs": [
+    "apps/web",
+    "cmd/migrate",
+    "cmd/server",
+    "internal/app",
+    "internal/modules",
+    "internal/platform",
+    "internal/platform/postgres",
+    "internal/testutil/pgtest",
+    "internal/testutil/s3test",
+    "internal/testutil/suiteservices",
+    "packages",
+    "tools/testservices"
+  ]
+}

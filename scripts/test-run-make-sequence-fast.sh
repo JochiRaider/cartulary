@@ -686,11 +686,13 @@ assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts
 "${NODE_BIN:-node}" --input-type=module <<'EOF'
 import assert from "node:assert/strict";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -698,8 +700,11 @@ import path from "node:path";
 import {
   HarnessConfigError,
   generateRunId,
+  redactString,
+  redactValue,
   resolveHarnessConfig,
   resolveOutputMode,
+  secureWriteFile,
   validateSchemaSync,
 } from "./scripts/lib/harness-contract.mjs";
 import {
@@ -818,6 +823,47 @@ assert.throws(
   HarnessConfigError,
 );
 
+const secretText = [
+  "Authorization: Bearer abc.def.secret",
+  "Cookie: session=super-cookie",
+  "Set-Cookie: cartulary=super-cookie",
+  "X-Cartulary-Test-Route-Token: route-secret",
+  "postgres://cartulary:supersecret@127.0.0.1:5432/postgres",
+  "--token route-secret --password=supersecret",
+  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.signature",
+  "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----",
+].join("\n");
+const redactedText = redactString(secretText);
+for (const secret of ["abc.def.secret", "super-cookie", "route-secret", "supersecret", "signature", "BEGIN PRIVATE KEY"]) {
+  assert.equal(redactedText.includes(secret), false, `raw redaction leaked ${secret}: ${redactedText}`);
+}
+assert.match(redactedText, /\[REDACTED/u);
+
+const redactedJSON = redactValue({
+  nested: {
+    Authorization: "Bearer nested.secret",
+    cookie: "session=nested-cookie",
+    CARTULARY_S3TEST_SECRET_ACCESS_KEY: "object-store-secret",
+  },
+  service_sessions: [
+    {
+      target: "service-timing-suite",
+      cleanup_status: "pass",
+      setup_duration_ms: 12,
+      session_token: "nested-token",
+    },
+  ],
+  args: ["--token", "nested-token"],
+});
+assert.equal(redactedJSON.nested.Authorization, "[REDACTED]");
+assert.equal(redactedJSON.nested.cookie, "[REDACTED]");
+assert.equal(redactedJSON.nested.CARTULARY_S3TEST_SECRET_ACCESS_KEY, "[REDACTED]");
+assert.equal(Array.isArray(redactedJSON.service_sessions), true);
+assert.equal(redactedJSON.service_sessions[0].target, "service-timing-suite");
+assert.equal(redactedJSON.service_sessions[0].cleanup_status, "pass");
+assert.equal(redactedJSON.service_sessions[0].setup_duration_ms, 12);
+assert.equal(JSON.stringify(redactedJSON).includes("nested-token"), false);
+
 const tempRoot = mkdtempSync(path.join(process.cwd(), "tmp", "harness-contract."));
 try {
   const resultRoot = path.join(tempRoot, "results");
@@ -846,6 +892,7 @@ try {
     { prepareRetainedArtifacts: true },
   );
   assert.equal(nestedResolved.run_root, staleRunRoot);
+  assert.equal((statSync(nestedResolved.run_root).mode & 0o077), 0);
 
   const emptyRunRoot = path.join(resultRoot, "empty-run");
   mkdirSync(emptyRunRoot, { recursive: true });
@@ -859,6 +906,7 @@ try {
   );
   assert.equal(emptyResolved.run_root, emptyRunRoot);
   assert.equal(existsSync(emptyRunRoot), true);
+  assert.equal((statSync(emptyRunRoot).mode & 0o077), 0);
 
   const generatedAt = new Date("2026-01-02T03:04:05Z");
   const generatedBase = generateRunId(generatedAt, 1234);
@@ -876,6 +924,28 @@ try {
   );
   assert.equal(generatedResolved.run_id, `${generatedBase}-n2`);
   assert.equal(existsSync(generatedResolved.run_root), true);
+  assert.equal((statSync(generatedResolved.run_root).mode & 0o077), 0);
+
+  const secureFile = path.join(generatedResolved.run_root, "secure.json");
+  secureWriteFile(secureFile, JSON.stringify({ status: "ok" }));
+  assert.equal((statSync(secureFile).mode & 0o077), 0);
+  assert.equal(readFileSync(secureFile, "utf8").includes("ok"), true);
+
+  const unsafeRoot = path.join(tempRoot, "unsafe-root");
+  mkdirSync(unsafeRoot, { recursive: true });
+  chmodSync(unsafeRoot, 0o777);
+  assert.throws(
+    () =>
+      resolveHarnessConfig(
+        "bootstrap-node-runtime",
+        {
+          CARTULARY_TEST_RESULTS_DIR: unsafeRoot,
+          CARTULARY_TEST_RUN_ID: "run-a",
+        },
+        { prepareRetainedArtifacts: true },
+      ),
+    HarnessConfigError,
+  );
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
 }

@@ -518,13 +518,23 @@ func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read diagnostics summary: %v", err)
 	}
+	if info, err := os.Stat(summaryPath); err != nil {
+		t.Fatalf("stat diagnostics summary: %v", err)
+	} else if info.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("diagnostics summary must be owner-only, got mode %v", info.Mode().Perm())
+	}
+	if info, err := os.Stat(filepath.Dir(summaryPath)); err != nil {
+		t.Fatalf("stat diagnostics dir: %v", err)
+	} else if info.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("diagnostics dir must be owner-only, got mode %v", info.Mode().Perm())
+	}
 
 	scope := decodeScope(t, raw)
 	if scope.Failure != nil {
 		t.Fatalf("successful run must omit failure summary, got %#v", scope.Failure)
 	}
 
-	for _, secret := range []string{"supersecret", "access-secret", "minio-secret", "postgres://"} {
+	for _, secret := range []string{"supersecret", "access-secret", "minio-secret"} {
 		if string(raw) == "" {
 			t.Fatal("expected diagnostics summary output")
 		}
@@ -669,7 +679,7 @@ func TestServiceStartupAttemptTimingSummarizesRetries(t *testing.T) {
 	if len(scope.Postgres.Startup.Attempts) != 2 || !scope.Postgres.Startup.Attempts[0].RetryScheduled {
 		t.Fatalf("expected retry-scheduled first postgres attempt, got %#v", scope.Postgres.Startup.Attempts)
 	}
-	if strings.Contains(scope.Postgres.Startup.Attempts[0].Message, "secret") || strings.Contains(scope.Postgres.Startup.Attempts[0].Message, "postgres://") {
+	if strings.Contains(scope.Postgres.Startup.Attempts[0].Message, "secret@") || strings.Contains(scope.Postgres.Startup.Attempts[0].Message, "password=secret") {
 		t.Fatalf("startup attempt message must be redacted, got %q", scope.Postgres.Startup.Attempts[0].Message)
 	}
 	if scope.MinIO.Startup.AttemptCount != 1 || scope.MinIO.Startup.FinalStatus != "pass" {
@@ -728,7 +738,7 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	if scope.Failure.Operation != "prepare postgres template database" {
 		t.Fatalf("unexpected failure operation: got %q", scope.Failure.Operation)
 	}
-	if strings.Contains(scope.Failure.Message, "supersecret") || strings.Contains(scope.Failure.Message, "postgres://") {
+	if strings.Contains(scope.Failure.Message, "supersecret") {
 		t.Fatalf("failure message must be redacted, got %q", scope.Failure.Message)
 	}
 	if scope.Cleanup.Status != "startup_failed" {

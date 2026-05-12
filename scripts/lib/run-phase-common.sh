@@ -237,7 +237,7 @@ write_vitest_watchdog_report() {
   local started_at="$6"
   local timed_out_at="$7"
   local killed_at="$8"
-  mkdir -p "$(dirname "$file")"
+  phase_secure_mkdir "$(dirname "$file")"
   cat >"$file" <<JSON
 {
   "schema_id": "cartulary.vitest_watchdog.v1",
@@ -251,6 +251,7 @@ write_vitest_watchdog_report() {
   "killed_at": "$(json_escape_string "$killed_at")"
 }
 JSON
+  chmod 600 "$file" 2>/dev/null || true
 }
 
 run_vitest_command_with_watchdog() {
@@ -264,6 +265,7 @@ run_vitest_command_with_watchdog() {
   local stdout_log="$3"
   local stderr_log="$4"
   local output_mode="$5"
+  local status
   shift 5
 
   local timeout_seconds="${CARTULARY_VITEST_WATCHDOG_SECONDS:-300}"
@@ -277,7 +279,7 @@ run_vitest_command_with_watchdog() {
     return 2
   fi
 
-  mkdir -p "$(dirname "$stdout_log")" "$(dirname "$stderr_log")" "$phase_dir"
+  phase_secure_mkdir "$(dirname "$stdout_log")" "$(dirname "$stderr_log")" "$phase_dir"
   CARTULARY_VITEST_WATCHDOG_LOG="${phase_dir}/watchdog.json"
   export CARTULARY_VITEST_WATCHDOG_LOG
   RUN_VITEST_WATCHDOG_TIMED_OUT=0
@@ -285,11 +287,15 @@ run_vitest_command_with_watchdog() {
 
   if [[ "$timeout_seconds" -eq 0 ]]; then
     if [[ "$output_mode" != "quiet" ]]; then
-      "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+      "$@" > >(phase_redact_stream | tee "$stdout_log") 2> >(phase_redact_stream | tee "$stderr_log" >&2)
+      status=$?
     else
       "$@" >"$stdout_log" 2>"$stderr_log"
+      status=$?
     fi
-    return $?
+    phase_redact_file "$stdout_log"
+    phase_redact_file "$stderr_log"
+    return "$status"
   fi
 
   local started_at
@@ -304,24 +310,28 @@ run_vitest_command_with_watchdog() {
       output_mode="$1"
       stdout_log="$2"
       stderr_log="$3"
-      shift 3
+      node_bin="$4"
+      contract_script="$5"
+      shift 5
       if [[ "$output_mode" != "quiet" ]]; then
-        exec "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+        exec "$@" > >("$node_bin" "$contract_script" redact | tee "$stdout_log") 2> >("$node_bin" "$contract_script" redact | tee "$stderr_log" >&2)
       fi
       exec "$@" >"$stdout_log" 2>"$stderr_log"
-    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$@" &
+    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$(resolve_harness_node)" "${RUN_PHASE_REPO_ROOT}/scripts/harness-contract.mjs" "$@" &
   else
     bash -c '
       set -euo pipefail
       output_mode="$1"
       stdout_log="$2"
       stderr_log="$3"
-      shift 3
+      node_bin="$4"
+      contract_script="$5"
+      shift 5
       if [[ "$output_mode" != "quiet" ]]; then
-        exec "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+        exec "$@" > >("$node_bin" "$contract_script" redact | tee "$stdout_log") 2> >("$node_bin" "$contract_script" redact | tee "$stderr_log" >&2)
       fi
       exec "$@" >"$stdout_log" 2>"$stderr_log"
-    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$@" &
+    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$(resolve_harness_node)" "${RUN_PHASE_REPO_ROOT}/scripts/harness-contract.mjs" "$@" &
   fi
   local child_pid=$!
   local child_group="-$child_pid"
@@ -354,12 +364,19 @@ run_vitest_command_with_watchdog() {
       write_vitest_watchdog_report "$CARTULARY_VITEST_WATCHDOG_LOG" "$label" "$timeout_seconds" "$grace_seconds" "$child_pid" "$started_at" "$timed_out_at" "$killed_at"
       RUN_VITEST_WATCHDOG_TIMED_OUT=1
       export RUN_VITEST_WATCHDOG_TIMED_OUT
+      phase_redact_file "$stdout_log"
+      phase_redact_file "$stderr_log"
+      chmod 600 "$CARTULARY_VITEST_WATCHDOG_LOG" 2>/dev/null || true
       return 124
     fi
     sleep 0.5
   done
 
   wait "$child_pid"
+  status=$?
+  phase_redact_file "$stdout_log"
+  phase_redact_file "$stderr_log"
+  return "$status"
 }
 
 slugify_phase_label() {
@@ -377,6 +394,40 @@ resolve_harness_node() {
     return
   fi
   printf '%s\n' "node"
+}
+
+phase_secure_mkdir() {
+  if [[ "$#" -lt 1 ]]; then
+    echo "phase_secure_mkdir requires <dir...>" >&2
+    return 2
+  fi
+  local dir
+  for dir in "$@"; do
+    mkdir -p "$dir"
+    chmod 700 "$dir" 2>/dev/null || true
+  done
+}
+
+phase_redact_stream() {
+  local node_bin
+  node_bin="$(resolve_harness_node)"
+  "${node_bin}" "${RUN_PHASE_REPO_ROOT}/scripts/harness-contract.mjs" redact
+}
+
+phase_redact_file() {
+  if [[ "$#" -ne 1 ]]; then
+    echo "phase_redact_file requires <file>" >&2
+    return 2
+  fi
+  local file="$1"
+  if [[ ! -e "$file" ]]; then
+    return 0
+  fi
+  local tmp_file
+  tmp_file="${file}.redacted.$$"
+  phase_redact_stream <"$file" >"$tmp_file"
+  mv "$tmp_file" "$file"
+  chmod 600 "$file" 2>/dev/null || true
 }
 
 ensure_harness_artifact_identity() {
@@ -438,7 +489,7 @@ ensure_target_artifact_dir() {
   results_root="$(resolve_results_root)"
   run_id="$(resolve_test_run_id)"
   target="$(resolve_test_target)"
-  mkdir -p "${results_root}/${run_id}/${target}"
+  phase_secure_mkdir "${results_root}/${run_id}" "${results_root}/${run_id}/${target}"
   printf '%s\n' "${results_root}/${run_id}/${target}"
 }
 
@@ -446,7 +497,7 @@ prepare_target_support_dir() {
   local name="${1:-support}"
   local target_dir
   target_dir="$(ensure_target_artifact_dir)"
-  mkdir -p "${target_dir}/${name}"
+  phase_secure_mkdir "${target_dir}/${name}"
   printf '%s\n' "${target_dir}/${name}"
 }
 
@@ -463,7 +514,7 @@ prepare_shared_artifact_dir() {
   ensure_harness_artifact_identity
   results_root="$(resolve_results_root)"
   run_id="$(resolve_test_run_id)"
-  mkdir -p "${results_root}/${run_id}/_shared/${name}"
+  phase_secure_mkdir "${results_root}/${run_id}" "${results_root}/${run_id}/_shared" "${results_root}/${run_id}/_shared/${name}"
   printf '%s\n' "${results_root}/${run_id}/_shared/${name}"
 }
 
@@ -473,7 +524,7 @@ prepare_phase_artifact_dir() {
   local slug
   target_dir="$(ensure_target_artifact_dir)"
   slug="$(slugify_phase_label "$phase")"
-  mkdir -p "${target_dir}/${slug}"
+  phase_secure_mkdir "${target_dir}/${slug}"
   printf '%s\n' "${target_dir}/${slug}"
 }
 
@@ -567,13 +618,15 @@ run_phase_command() {
 
   set +e
   if [[ "$output_mode" != "quiet" ]]; then
-    CARTULARY_PHASE_ARTIFACT_DIR="$phase_dir" "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+    CARTULARY_PHASE_ARTIFACT_DIR="$phase_dir" "$@" > >(phase_redact_stream | tee "$stdout_log") 2> >(phase_redact_stream | tee "$stderr_log" >&2)
     status=$?
   else
     CARTULARY_PHASE_ARTIFACT_DIR="$phase_dir" "$@" >"$stdout_log" 2>"$stderr_log"
     status=$?
   fi
   set -e
+  phase_redact_file "$stdout_log"
+  phase_redact_file "$stderr_log"
 
   phase_capture_finish PHASE
   start_time="${PHASE_START_TIME}"

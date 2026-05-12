@@ -2,11 +2,9 @@
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
-  mkdirSync,
   readdirSync,
   readFileSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,7 +13,11 @@ import {
   collectServiceTimingContamination,
   formatContaminationReasons,
 } from "./lib/duration-drift.mjs";
-import { validateSchemaSync } from "./lib/harness-contract.mjs";
+import {
+  prettyJSONString,
+  secureWriteFile,
+  validateSchemaSync,
+} from "./lib/harness-contract.mjs";
 import { normalizeOutputMode } from "./lib/tool-output.mjs";
 
 const schemaID = "cartulary.agent_finalize_summary.v2";
@@ -668,9 +670,8 @@ function writeSummary({
     failures,
     child_artifacts: collectChildArtifacts(actions),
   };
-  mkdirSync(path.dirname(finalizeSummaryPath()), { recursive: true });
   validateSchemaSync(schemaID, summary);
-  writeFileSync(finalizeSummaryPath(), `${JSON.stringify(summary, null, 2)}\n`);
+  secureWriteFile(finalizeSummaryPath(), prettyJSONString(summary));
   return summary;
 }
 

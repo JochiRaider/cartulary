@@ -85,6 +85,37 @@ EOF
 
 chmod +x "$fake_sqlc" "$fake_go"
 
+scratch_manifest="$scratch_tool_dir/scratch-inputs.json"
+cat >"$scratch_manifest" <<'EOF'
+{
+  "schema_id": "cartulary.generate_drift_scratch_inputs.v1",
+  "generated_paths": ["internal/gen/contracts"],
+  "copy_paths": ["scripts/harness-contract.mjs", "tools/definitely-missing-generate-drift-input"],
+  "placeholder_dirs": []
+}
+EOF
+
+set +e
+output="$(
+  SQLC_BIN="$fake_sqlc" \
+  GO="$fake_go" \
+  GO_CACHE_DIR="$scratch_tool_dir/go-cache" \
+  GO_MOD_CACHE_DIR="$scratch_tool_dir/go-mod" \
+  GENERATE_DRIFT_SCRATCH_INPUT_MANIFEST="${scratch_manifest#"$ROOT_DIR"/}" \
+    "$SCRIPT" 2>&1
+)"
+status=$?
+set -e
+
+if [[ "$status" -eq 0 ]]; then
+  fail "scratch input manifest: expected missing declared input failure"
+fi
+
+assert_contains \
+  "$output" \
+  "required generate-drift input missing: tools/definitely-missing-generate-drift-input" \
+  "scratch input manifest missing input diagnostic"
+
 set +e
 output="$(
   SQLC_BIN="$fake_sqlc" \

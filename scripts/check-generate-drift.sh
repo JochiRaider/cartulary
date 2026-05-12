@@ -2,49 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-GENERATED_PATHS=(
-  "internal/gen/contracts"
-  "internal/gen/sql"
-  "packages/protocol-ts/src/generated"
-)
-SCRATCH_CONTROL_INPUTS=(
-  "Makefile"
-  "sqlc.yaml"
-  "go.mod"
-  "go.sum"
-  "scripts/list-build-inputs.sh"
-  "scripts/generate-artifacts.sh"
-  "scripts/lib"
-  "tools/execution_topology_manifest.json"
-  "tools/scheduler_resource_registry.json"
-  "tools/service_backed_make_target_duration_baselines.json"
-  "tools/task_surface_manifest.json"
-  "tools/task_surface.generated.mk"
-  "tools/scheduler_manifest.json"
-  "tools/browser_e2e_batch_manifest.json"
-  "tools/contractgen"
-  "tools/harness_redaction_manifest.json"
-  "tools/schemas"
-)
-SCRATCH_CODEGEN_INPUTS=(
-  "contracts"
-  "db/migrations"
-  "db/queries"
-)
-SCRATCH_PLACEHOLDER_DIRS=(
-  "apps/web"
-  "cmd/migrate"
-  "cmd/server"
-  "internal/app"
-  "internal/modules"
-  "internal/platform"
-  "internal/platform/postgres"
-  "internal/testutil/pgtest"
-  "internal/testutil/s3test"
-  "internal/testutil/suiteservices"
-  "packages"
-  "tools/testservices"
-)
+SCRATCH_INPUT_MANIFEST="${GENERATE_DRIFT_SCRATCH_INPUT_MANIFEST:-tools/generate_drift_scratch_inputs.json}"
 
 cd "$ROOT_DIR"
 
@@ -84,6 +42,30 @@ copy_path() {
   cp -a "$ROOT_DIR/$source" "$destination"
 }
 
+manifest_values() {
+  local key="$1"
+  local node_bin="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}"
+  "$node_bin" - "$ROOT_DIR/$SCRATCH_INPUT_MANIFEST" "$key" <<'NODE'
+const fs = require("node:fs");
+const [manifestPath, key] = process.argv.slice(2);
+let manifest;
+try {
+  manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+} catch (error) {
+  console.error(`generate-drift scratch input manifest unreadable: ${error.message}`);
+  process.exit(11);
+}
+const values = manifest[key];
+if (!Array.isArray(values) || values.some((entry) => typeof entry !== "string" || entry === "")) {
+  console.error(`generate-drift scratch input manifest field ${key} must be a non-empty string array`);
+  process.exit(11);
+}
+for (const value of values) {
+  console.log(value);
+}
+NODE
+}
+
 copy_required_make_includes() {
   local directive include_path rest
 
@@ -104,12 +86,18 @@ copy_required_make_includes() {
   done <"$ROOT_DIR/Makefile"
 }
 
-for input in "${SCRATCH_CONTROL_INPUTS[@]}" "${SCRATCH_CODEGEN_INPUTS[@]}" "${GENERATED_PATHS[@]}"; do
+copy_path "$SCRATCH_INPUT_MANIFEST"
+
+mapfile -t scratch_copy_paths < <(manifest_values copy_paths)
+mapfile -t generated_paths < <(manifest_values generated_paths)
+mapfile -t scratch_placeholder_dirs < <(manifest_values placeholder_dirs)
+
+for input in "${scratch_copy_paths[@]}"; do
   copy_path "$input"
 done
 copy_required_make_includes
 
-for placeholder_dir in "${SCRATCH_PLACEHOLDER_DIRS[@]}"; do
+for placeholder_dir in "${scratch_placeholder_dirs[@]}"; do
   mkdir -p "$scratch/$placeholder_dir"
 done
 
@@ -122,7 +110,7 @@ make -C "$scratch" --no-print-directory generate-artifacts \
   PNPM="${PNPM:-$ROOT_DIR/tmp/node-runtime/bin/pnpm}"
 
 drift=0
-for generated_path in "${GENERATED_PATHS[@]}"; do
+for generated_path in "${generated_paths[@]}"; do
   if ! diff -ruN "$ROOT_DIR/$generated_path" "$scratch/$generated_path" >/dev/null; then
     drift=1
     break
@@ -132,7 +120,7 @@ done
 if [[ "$drift" -ne 0 ]]; then
   echo "generated artifact drift detected after make generate-artifacts" >&2
   echo "diff excerpt (first 200 lines):" >&2
-  for generated_path in "${GENERATED_PATHS[@]}"; do
+  for generated_path in "${generated_paths[@]}"; do
     diff -ruN \
       --label "$generated_path" \
       --label "regenerated $generated_path" \

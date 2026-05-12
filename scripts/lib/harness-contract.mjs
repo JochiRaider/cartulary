@@ -2,15 +2,23 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import {
   existsSync,
   lstatSync,
-  mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   unlinkSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+export {
+  createSecureWriteStream,
+  secureDirMode,
+  secureFileMode,
+  secureMkdir,
+  secureWriteFile,
+} from "./artifact-writer.mjs";
+import { secureDirMode, secureMkdir } from "./artifact-writer.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const requireFromHarness = createRequire(import.meta.url);
@@ -278,10 +286,38 @@ export function validateResultRoot(value, { root = repoRoot, create = false } = 
     );
   }
   const resolved = path.resolve(root, configured);
+  validateResultRootSecurity(resolved, { custom: path.isAbsolute(configured) });
   if (create) {
-    mkdirSync(resolved, { recursive: true });
+    secureMkdir(resolved);
   }
   return resolved;
+}
+
+function isWorldWritableWithoutSticky(stat) {
+  return (stat.mode & 0o002) !== 0 && (stat.mode & 0o1000) === 0;
+}
+
+function validateResultRootSecurity(resolved, { custom = false } = {}) {
+  const parent = path.dirname(resolved);
+  const existing = existsSync(resolved) ? resolved : parent;
+  if (!existsSync(existing)) {
+    return;
+  }
+  const stat = statSync(existing);
+  if (!stat.isDirectory()) {
+    throw new HarnessConfigError(`CARTULARY_TEST_RESULTS_DIR parent is not a directory: ${existing}`);
+  }
+  if (custom && isWorldWritableWithoutSticky(stat)) {
+    throw new HarnessConfigError(
+      `CARTULARY_TEST_RESULTS_DIR must not use a world-writable directory without sticky bit: ${existing}`,
+    );
+  }
+  if (custom) {
+    return;
+  }
+  if (existsSync(resolved) && statSync(resolved).isDirectory()) {
+    secureMkdir(resolved, secureDirMode);
+  }
 }
 
 export function generateRunId(now = new Date(), pid = process.pid) {
@@ -306,7 +342,7 @@ function assertReusableCallerRunRoot(
   { allowExistingRunRoot = false } = {},
 ) {
   if (!pathExists(runRoot)) {
-    mkdirSync(runRoot, { recursive: true });
+    secureMkdir(runRoot);
     return;
   }
   const stat = lstatSync(runRoot);
@@ -354,9 +390,10 @@ function prepareRetainedArtifactRunRoot(
     : resolved.run_id;
   const runRoot = runRootFor(resolved.result_root, runId);
   if (resolved.generated_run_id) {
-    mkdirSync(runRoot, { recursive: true });
+    secureMkdir(runRoot);
   } else {
     assertReusableCallerRunRoot(runRoot, runId, { allowExistingRunRoot });
+    secureMkdir(runRoot);
   }
   return {
     ...resolved,
@@ -605,7 +642,7 @@ export function resolveArtifactIdentityForTarget(target, env = process.env, opti
     ? validateRunId(env.CARTULARY_TEST_RUN_ID)
     : generateRunId(options.now ?? new Date(), options.pid ?? process.pid);
   const runRoot = runRootFor(resultRoot, runId);
-  mkdirSync(runRoot, { recursive: true });
+  secureMkdir(runRoot);
   return {
     target,
     result_root: resultRoot,
@@ -630,8 +667,10 @@ function compiledRedactionRules() {
   }
   const manifest = loadRedactionManifest();
   const replacement = manifest.replacement || "[REDACTED]";
+  const tokens = manifest.redaction_tokens ?? {};
   redactionRules = {
     replacement,
+    tokens,
     keyPatterns: (manifest.sensitive_key_patterns ?? []).map((pattern) =>
       new RegExp(pattern, "iu"),
     ),
@@ -644,6 +683,12 @@ function compiledRedactionRules() {
   return redactionRules;
 }
 
+function isSensitiveCLIFlag(value) {
+  return /^--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$/iu.test(
+    String(value ?? ""),
+  );
+}
+
 export function redactString(value) {
   const rules = compiledRedactionRules();
   let text = String(value);
@@ -651,6 +696,15 @@ export function redactString(value) {
     text = text.replace(rule.regex, rule.replacement);
   }
   return text;
+}
+
+export function redactStructuredText(value) {
+  const text = String(value ?? "");
+  try {
+    return compactJSONString(JSON.parse(text));
+  } catch {
+    return redactString(text);
+  }
 }
 
 export function redactValue(value, key = "") {
@@ -662,7 +716,20 @@ export function redactValue(value, key = "") {
     return redactString(value);
   }
   if (Array.isArray(value)) {
-    return value.map((entry) => redactValue(entry));
+    const redacted = [];
+    let redactNext = false;
+    for (const entry of value) {
+      if (redactNext) {
+        redacted.push(rules.replacement);
+        redactNext = false;
+        continue;
+      }
+      redacted.push(redactValue(entry));
+      if (typeof entry === "string" && isSensitiveCLIFlag(entry)) {
+        redactNext = true;
+      }
+    }
+    return redacted;
   }
   if (value && typeof value === "object") {
     return Object.fromEntries(

@@ -84,6 +84,9 @@ func RelativeResultsRoot(env map[string]string) string {
 func ResolveResultsRoot(env map[string]string) (string, error) {
 	configured := RelativeResultsRoot(env)
 	if filepath.IsAbs(configured) {
+		if err := validateResultsRootSecurity(configured, true); err != nil {
+			return "", err
+		}
 		return configured, nil
 	}
 
@@ -91,7 +94,40 @@ func ResolveResultsRoot(env map[string]string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(repoRoot, configured), nil
+	resolved := filepath.Join(repoRoot, configured)
+	if err := validateResultsRootSecurity(resolved, false); err != nil {
+		return "", err
+	}
+	return resolved, nil
+}
+
+func validateResultsRootSecurity(resolved string, custom bool) error {
+	existing := resolved
+	if _, err := os.Stat(existing); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("stat result root %s: %w", resolved, err)
+		}
+		existing = filepath.Dir(resolved)
+	}
+	info, err := os.Stat(existing)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat result root parent %s: %w", existing, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("result root parent %s is not a directory", existing)
+	}
+	if custom && info.Mode().Perm()&0o002 != 0 && info.Mode()&os.ModeSticky == 0 {
+		return fmt.Errorf("result root %s must not be world-writable without sticky bit", existing)
+	}
+	if existing == resolved && !custom {
+		if err := os.Chmod(resolved, 0o700); err != nil {
+			return fmt.Errorf("narrow result root permissions for %s: %w", resolved, err)
+		}
+	}
+	return nil
 }
 
 func ResolveRunID(env map[string]string) string {

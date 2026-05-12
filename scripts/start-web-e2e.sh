@@ -129,7 +129,7 @@ prepare_runtime_root() {
   fi
 
   if [[ -n "${TARGET_ARTIFACT_DIR}" ]]; then
-    mkdir -p "${TARGET_ARTIFACT_DIR}"
+    phase_secure_mkdir "${TARGET_ARTIFACT_DIR}"
     RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
     SERVER_LOG="${TARGET_ARTIFACT_DIR}/server.log"
     WEB_LOG="${TARGET_ARTIFACT_DIR}/web.log"
@@ -153,7 +153,7 @@ prepare_runtime_root() {
   TEST_SERVICES_METADATA_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.json"
   TEST_ROUTE_TOKEN_FILE="${RUNTIME_ROOT_BASE}/test-route-token"
 
-  mkdir -p \
+  phase_secure_mkdir \
     "${RUNTIME_ROOT_BASE}/database-storage" \
     "${RUNTIME_ROOT_BASE}/object-storage" \
     "${PLAYWRIGHT_STATE_DIR}" \
@@ -184,6 +184,7 @@ prepare_test_route_token() {
   umask 077
   printf '%s\n' "${TEST_ROUTE_TOKEN}" >"${TEST_ROUTE_TOKEN_FILE}"
   umask "${previous_umask}"
+  chmod 600 "${TEST_ROUTE_TOKEN_FILE}" 2>/dev/null || true
 }
 
 validate_port_number() {
@@ -264,7 +265,7 @@ resolve_owned_stack_ports() {
 write_stack_metadata() {
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
-  mkdir -p "$(dirname "${STACK_ENV_FILE}")"
+  phase_secure_mkdir "$(dirname "${STACK_ENV_FILE}")"
   cat >"${STACK_ENV_FILE}" <<EOF
 CARTULARY_WEB_E2E_API_ORIGIN=${API_ORIGIN}
 CARTULARY_WEB_E2E_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
@@ -275,6 +276,7 @@ CARTULARY_WEB_E2E_SERVER_LOG=${SERVER_LOG}
 CARTULARY_WEB_E2E_WEB_LOG=${WEB_LOG}
 CARTULARY_TEST_ROUTE_TOKEN_FILE=${TEST_ROUTE_TOKEN_FILE}
 EOF
+  chmod 600 "${STACK_ENV_FILE}" 2>/dev/null || true
 
   CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}" \
   CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
@@ -373,7 +375,8 @@ for (const key of Object.keys(payload)) {
   }
 }
 
-fs.writeFileSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`);
+fs.writeFileSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+fs.chmodSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, 0o600);
 EOF
 }
 
@@ -572,7 +575,7 @@ write_session_files() {
     node_bin="node"
   fi
 
-  mkdir -p "$(dirname "${SESSION_ENV_FILE}")" "$(dirname "${SESSION_LEASE_FILE}")"
+  phase_secure_mkdir "$(dirname "${SESSION_ENV_FILE}")" "$(dirname "${SESSION_LEASE_FILE}")"
   CARTULARY_WEB_E2E_SESSION_ENV_FILE="${SESSION_ENV_FILE}" \
   CARTULARY_WEB_E2E_SESSION_LEASE_FILE="${SESSION_LEASE_FILE}" \
   CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
@@ -620,8 +623,10 @@ const lease = {
   test_services_active: process.env.CARTULARY_WEB_E2E_TEST_SERVICES_ACTIVE === "1",
 };
 
-fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_ENV_FILE, `${JSON.stringify(env, null, 2)}\n`);
-fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_LEASE_FILE, `${JSON.stringify(lease, null, 2)}\n`);
+fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_ENV_FILE, `${JSON.stringify(env, null, 2)}\n`, { mode: 0o600 });
+fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_LEASE_FILE, `${JSON.stringify(lease, null, 2)}\n`, { mode: 0o600 });
+fs.chmodSync(process.env.CARTULARY_WEB_E2E_SESSION_ENV_FILE, 0o600);
+fs.chmodSync(process.env.CARTULARY_WEB_E2E_SESSION_LEASE_FILE, 0o600);
 EOF
 }
 

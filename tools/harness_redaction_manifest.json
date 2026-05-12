@@ -1,41 +1,84 @@
 {
   "schema_id": "cartulary.harness_redaction_manifest.v1",
   "replacement": "[REDACTED]",
+  "redaction_tokens": {
+    "password": "[REDACTED:password]",
+    "token": "[REDACTED:token]",
+    "key": "[REDACTED:key]",
+    "dsn": "[REDACTED:dsn]",
+    "object_store_credential": "[REDACTED:object-store-credential]",
+    "private_key": "[REDACTED:private-key]"
+  },
   "sensitive_key_patterns": [
-    "authorization",
-    "cookie",
-    "password",
-    "passwd",
-    "secret",
-    "token",
-    "api[_-]?key",
-    "access[_-]?key",
-    "private[_-]?key",
-    "client[_-]?secret",
-    "dsn"
+    "^(?:authorization|cookie|set-cookie|x-cartulary-test-route-token)$",
+    "^(?:password|passwd|pwd|secret|token|jwt|bearer|dsn)$",
+    "(?:^|[_-])(?:password|passwd|pwd|secret|token|jwt|dsn)$",
+    "(?:^|[_-])api[_-]?key$",
+    "(?:^|[_-])access[_-]?key$",
+    "(?:^|[_-])secret[_-]?key$",
+    "(?:^|[_-])private[_-]?key$",
+    "(?:^|[_-])client[_-]?secret$"
   ],
   "value_patterns": [
     {
       "name": "bearer_token",
-      "pattern": "(?i)\\bBearer\\s+[-._~+/A-Za-z0-9]+=*"
+      "pattern": "(?i)\\bBearer\\s+[-._~+/A-Za-z0-9]+=*",
+      "replacement": "Bearer [REDACTED:token]"
     },
     {
       "name": "basic_auth",
-      "pattern": "(?i)\\bBasic\\s+[-._~+/A-Za-z0-9]+=*"
+      "pattern": "(?i)\\bBasic\\s+[-._~+/A-Za-z0-9]+=*",
+      "replacement": "Basic [REDACTED:token]"
+    },
+    {
+      "name": "authorization_header",
+      "pattern": "(?i)\\b(Authorization\\s*:\\s*)([^\\r\\n]+)",
+      "replacement": "$1[REDACTED:token]"
+    },
+    {
+      "name": "cookie_header",
+      "pattern": "(?i)\\b((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)\\s*:\\s*)([^\\r\\n]+)",
+      "replacement": "$1[REDACTED:token]"
+    },
+    {
+      "name": "jwt",
+      "pattern": "\\beyJ[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\.[-_A-Za-z0-9]+\\b",
+      "replacement": "[REDACTED:token]"
     },
     {
       "name": "postgres_password",
       "pattern": "(?i)postgres(?:ql)?://([^:\\s/@]+):([^@\\s]+)@",
-      "replacement": "postgres://$1:[REDACTED]@"
+      "replacement": "postgres://$1:[REDACTED:dsn]@"
+    },
+    {
+      "name": "generic_url_userinfo",
+      "pattern": "(?i)\\b([a-z][a-z0-9+.-]*://)([^:/\\s@]+):([^@\\s]+)@",
+      "replacement": "$1$2:[REDACTED:dsn]@"
+    },
+    {
+      "name": "cli_secret_argument_equals",
+      "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*)([^\\s]+)",
+      "replacement": "$1[REDACTED]"
+    },
+    {
+      "name": "cli_secret_argument_space",
+      "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s+)([^\\s]+)",
+      "replacement": "$1[REDACTED]"
     },
     {
       "name": "generic_password_assignment",
-      "pattern": "(?i)\\b(password|passwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret)=([^\\s&]+)",
+      "pattern": "(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)=([^\\s&]+)",
       "replacement": "$1=[REDACTED]"
     },
     {
+      "name": "json_like_secret_assignment",
+      "pattern": "(?i)(\"(?:authorization|cookie|set-cookie|x-cartulary-test-route-token|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\"\\s*:\\s*\")([^\"]+)(\")",
+      "replacement": "$1[REDACTED]$3"
+    },
+    {
       "name": "private_key_block",
-      "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----"
+      "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----",
+      "replacement": "[REDACTED:private-key]"
     }
   ]
 }
