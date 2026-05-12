@@ -5118,7 +5118,8 @@ export function TimelineWorkbook({
   const timelineActionsColumn = useMemo<GridActionsColumn<WorkbookRow>>(
     () => ({
       label: "Actions",
-      width: 196,
+      minWidth: 296,
+      width: 296,
       renderCell: ({ data: row }) =>
         row.recordId === null ? (
           <div style={actionStackStyle}>
@@ -5132,7 +5133,7 @@ export function TimelineWorkbook({
             <div style={timelineActionTopRowStyle}>
               <button
                 data-testid={rowInspectButtonTestId(row.recordId)}
-                style={actionButtonStyle}
+                style={timelineActionButtonStyle}
                 type="button"
                 onClick={() => {
                   handleSelectRow(row.recordId ?? "");
@@ -5142,7 +5143,7 @@ export function TimelineWorkbook({
               </button>
               <button
                 data-testid={`row-history-open-${row.recordId}`}
-                style={actionButtonStyle}
+                style={timelineActionButtonStyle}
                 type="button"
                 onClick={() => {
                   openRowHistory(row.recordId ?? "");
@@ -5157,7 +5158,7 @@ export function TimelineWorkbook({
                 row.captureState === "reviewed" ||
                 row.captureState === "superseded"
               }
-              style={actionButtonStyle}
+              style={timelineActionButtonStyle}
               type="button"
               onClick={() => {
                 queueAction(row.key, "mark-reviewed");
@@ -5168,7 +5169,7 @@ export function TimelineWorkbook({
             <input
               data-testid={`row-${row.recordId}-replacement-id`}
               placeholder="Replacement record id"
-              style={replacementInputStyle}
+              style={timelineReplacementInputStyle}
               type="text"
               value={replacementDrafts[row.key] ?? ""}
               onChange={(event) => {
@@ -5185,7 +5186,7 @@ export function TimelineWorkbook({
                 row.captureState === "superseded" ||
                 normalizeValue(replacementDrafts[row.key] ?? "") === ""
               }
-              style={actionButtonStyle}
+              style={timelineActionButtonStyle}
               type="button"
               onClick={() => {
                 queueAction(row.key, "supersede");
@@ -9164,10 +9165,10 @@ const actionStackStyle = {
 };
 
 const timelineActionTopRowStyle = {
-  display: "flex",
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
   gap: "0.35rem",
   alignItems: "center",
-  flexWrap: "wrap" as const,
 };
 
 const genericMutationPanelStyle = {
@@ -9216,6 +9217,13 @@ const replacementInputStyle = {
   fontSize: "0.9rem",
 };
 
+const timelineReplacementInputStyle = {
+  ...replacementInputStyle,
+  boxSizing: "border-box" as const,
+  fontSize: "0.82rem",
+  width: "100%",
+};
+
 const actionButtonStyle = {
   borderRadius: "999px",
   border: "1px solid rgb(129 165 154)",
@@ -9224,6 +9232,15 @@ const actionButtonStyle = {
   padding: "0.55rem 0.9rem",
   font: "inherit",
   cursor: "pointer",
+};
+
+const timelineActionButtonStyle = {
+  ...actionButtonStyle,
+  boxSizing: "border-box" as const,
+  fontSize: "0.85rem",
+  lineHeight: 1.1,
+  padding: "0.45rem 0.3rem",
+  width: "100%",
 };
 
 const secondaryActionButtonStyle = {

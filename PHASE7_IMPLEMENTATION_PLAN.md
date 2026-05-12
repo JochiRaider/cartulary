@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 7: re
 
 This planning artifact does not implement Phase 7 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status after Sprint 5 workbook implementation: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, and `POST /api/v1/records/{record_id}/rollback` are implemented and registered; Sprint 1 history evidence, Sprint 2 soft-delete/restore evidence, Sprint 3 rollback evidence, Sprint 4 whole-row restore, retained-history, and shared-lock backend evidence have passed the listed local gates; Sprint 5 reviewer workbook UI and browser evidence now covers `E-7-01..E-7-04` from the Timeline workbook surface using server-owned selectors and metadata. Owner decision: merge-specific rollback, typed tag rollback, Phase 8 saved-view behavior, Phase 9 keyboard/clipboard behavior, and full Phase 7 exit remain unclaimed until their owning scope exists and passes direct evidence.
+Current repo status after Sprint 6 visual remediation: Phase 7 is listed as `active` in `tools/phase_registry.json`; `GET /api/v1/records/{record_id}/history`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, and `POST /api/v1/records/{record_id}/rollback` are implemented and registered; every authoritative Phase 7 row in `tools/phase7_test_map.json` has direct passing evidence; Phase 7 public wrappers pass; generated ledger, generated schedules, generated drift checks, `browser-e2e-visual`, and `make check` are clean. Non-Phase 7 Phase 3, Phase 5, and Phase 6 visual blockers from `.cartulary/test-results/20260512T001400Z-p61609` were closed by Timeline action-cell layout remediation, deterministic Phase 6 visual row ordering, and canonical visual golden refresh. Owner decision: merge-specific rollback, typed tag rollback, Phase 8 saved-view behavior, and Phase 9 keyboard/clipboard behavior remain explicit non-claims until their owning scope exists and passes direct evidence.
 
 ## Phase Objective
 
@@ -40,13 +40,13 @@ Out of scope unless an owner decision pulls it forward:
 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
-| [x] | 0. Phase 7 ownership manifest and harness setup | [x] audit-complete | None for manifest creation; Phase 7 was activated during Sprint 1 remediation. | Selectable scope sentinel rows now exist. Later sprints must replace every sentinel before Sprint 6 exit. |
+| [x] | 0. Phase 7 ownership manifest and harness setup | [x] audit-complete | None for manifest creation; Phase 7 was activated during Sprint 1 remediation. | Sprint 6 confirmed no Phase 7 sentinel or placeholder tests remain in the authoritative row inventory. |
 | [x] | 1. Record-history read contract | [x] remediated | `AC-184` and `AC-185` are Phase 8-owned support references and are not claimed as completed Phase 7 evidence. | History route is record-scoped, not view-scoped; adjunct target-family completeness is deferred to later Phase 7 work. |
 | [x] | 2. Soft-delete and restore | [x] audit-complete | None for Sprint 2 product behavior. The first-class record adapter matrix is covered for current `records.record_type` values. | Ordinary delete remains on optimistic concurrency and does not take destructive-operation locks; restore now uses the shared Sprint 4 destructive-operation lock helper for its one-record protected set. |
 | [x] | 3. Rollback request, single-entry reversal, and change-set reversal | [x] audit-complete | None for Sprint 3 product behavior. Owner decision: tag rollback remains Phase 8-owned and merge-specific rollback remains unclaimed until reversible merge substrate and tests exist. | Source is `rollback`; previous history rows are never mutated in place. Sprint 4 extends executable action advertisement with `row_restore` when legal. |
 | [x] | 4. Whole-row restore, retained history, and locks | [x] backend evidence complete | `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260511T193520Z-sprint4-service-backed-slice` failed in duration-baseline maintenance because that slice has no retained browser timing entries for earlier browser rows; rerun without `RESULTS_DIR` passed and skipped duration refresh. | Whole-row restore is backend-only Sprint 4 scope; Sprint 5 reviewer workbook UI/browser workflow remains unclaimed. |
 | [x] | 5. Reviewer workbook UI and browser evidence | [x] implemented | `make browser-e2e-webserver-backed` first failed in `E-3-03` because the added History action exceeded the fixed Timeline action-cell height; compacting Inspect and History into one row remediated the overlap and the rerun passed. | Browser evidence covers reviewer flows over server-provided selectors and actions; typed tag rollback, merge-specific rollback, Phase 8 saved views, Phase 9 keyboard/clipboard, and full Phase 7 exit remain non-claims. |
-| [ ] | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup | [ ] planned | Full Phase 7 exit is not claimed by Sprint 5. | Sprint 5 ledgers, schedules, and browser duration baselines were regenerated; Sprint 6 still owns final handoff cleanup and any broader release gate. |
+| [x] | 6. Phase gate, ledgers, schedules, baselines, and handoff cleanup | [x] evidence-backed exit and visual remediation complete | Non-Phase 7 `browser-e2e-visual` rows `V-3-GRID-03`, `V-5-GRID-02`, `V-6-GRID-02`, and `V-6-GRID-03` failed in `.cartulary/test-results/20260512T001400Z-p61609`, then passed after remediation. | Phase 7 public wrappers, `test-fast`, `agent-finalize`, generated drift, ledger drift, schedule drift, `browser-e2e-visual`, `git diff --check`, and `make check` passed after Sprint 6 cleanup. |
 
 ## Global References
 
@@ -102,7 +102,7 @@ Expected test and planning artifacts:
 
 Objective: Establish Phase 7 test ownership before feature work so TDD rows can be selected by repo tooling.
 
-Status: Audit-complete. Phase 7 was activated during Sprint 1 remediation so public phase wrappers can execute the manifest. Sprint 0 established the manifest, generated ledger, generated schedule checks, and selectable scope sentinel test symbols.
+Status: Audit-complete. Phase 7 was activated during Sprint 1 remediation so public phase wrappers can execute the manifest. Sprint 0 established the manifest, generated ledger, generated schedule checks, and initial selectable row symbols. Sprint 6 replaced the initial selectable placeholder coverage with real assertions before exit.
 
 Relevant IDs: all `U-7-*`, `I-7-*`, `E-7-*`; `tools/phase7_test_map.json`; `docs/testing/phase7_coverage_ledger.md`.
 
@@ -118,10 +118,10 @@ Files and areas:
 
 Test-first sequence:
 1. Done: manifest rows exist for every `U-7-01..U-7-07`, `I-7-01..I-7-04`, and `E-7-01..E-7-04` guide row before feature implementation.
-2. Done for Sprint 0: intentional non-behavioral scope sentinels make Phase 7 row selection visible and name the future real assertion. Every sentinel must still be replaced before Sprint 6 exit.
+2. Done for Sprint 0 and closed by Sprint 6: initial non-behavioral row-selection coverage made Phase 7 selectable; Sprint 6 confirmed those placeholders were replaced by real assertions before exit.
 3. Done: support-only carryover files are declared as `forbidden_id_files` so earlier phase evidence cannot accidentally claim Phase 7 IDs.
 4. Done: the Phase 7 coverage ledger and schedules were regenerated after the manifest was added.
-5. Done during Sprint 1 remediation: Phase 7 is active so public phase wrappers execute Phase 7 rows. After Sprint 4, Sprint 5 UI/browser rows remain explicit non-behavioral scope sentinels until their owning behavior is implemented.
+5. Done during Sprint 1 remediation: Phase 7 is active so public phase wrappers execute Phase 7 rows. Sprint 5 implemented the UI/browser rows, and Sprint 6 confirmed they are real browser-functional assertions rather than scope sentinels.
 
 Implementation tasks:
 - Done: `tools/phase7_test_map.json` has non-empty `claim` and `out_of_scope` text for every authoritative row.
@@ -148,11 +148,11 @@ Deliverables:
 - Complete: selectable Phase 7 backend symbols, supplemental frontend row, and browser rows.
 
 Risks and open questions:
-- Phase activation changes task-surface behavior. Sprint 1 remediation intentionally activated Phase 7; after Sprint 4, do not treat Sprint 5 scope sentinels as backend delete/restore/rollback behavior evidence or completion criteria.
+- Phase activation changes task-surface behavior. Sprint 1 remediation intentionally activated Phase 7; Sprint 6 evidence now treats the Sprint 5 browser rows only as browser-functional reviewer workflow evidence, not as backend delete/restore/rollback substitutes.
 - Newly declared service-backed rows require explicit duration baselines after successful uncontaminated evidence; missing baselines must not be hidden by fallback weights.
 - `AC-184` and `AC-185` remain recorded as ambiguous Phase 8-assigned support references, not completed Phase 7 claims.
-- Typed tag rollback remains an owner-decision dependency; Sprint 0 placeholders must not claim Phase 8 typed tag creation or mutation behavior.
-- Placeholder replacement deadline is controlled by this plan: every Sprint 0 placeholder must be replaced before Sprint 6 exit.
+- Typed tag rollback remains a Phase 8 owner dependency; Sprint 6 records current record-tag history entries as visible but not reversible and does not claim Phase 8 typed tag creation or mutation behavior.
+- Closed by Sprint 6: no placeholder tests remain in the authoritative Phase 7 manifest inventory.
 
 Exit criteria:
 - Met: `make explain-phase PHASE=phase7` reports the manifest, ledger path, execution dependencies, service requirements, and target coverage.
@@ -598,7 +598,7 @@ Exit criteria:
 
 Objective: Prove Phase 7 is complete, resolve generated drift, update test ledgers and schedules, refresh baselines when needed, and hand off stable prerequisites to Phase 8.
 
-Status: Planned.
+Status: Evidence-backed exit complete on 2026-05-12, with non-Phase 7 `make check` blockers recorded below.
 
 Relevant IDs: all `U-7-*`, `I-7-*`, `E-7-*`; all Phase 7-owned ACs and unresolved support AC notes.
 
@@ -611,65 +611,83 @@ Files and areas:
 - Any generated OpenAPI or protocol outputs produced by `make generate`.
 
 Test-first sequence:
-1. Replace every Phase 7 placeholder with real assertions before claiming exit.
-2. Run manifest and ledger validation before broader tests.
-3. Run focused backend, frontend, browser, and public Phase 7 wrappers.
-4. Run earlier-phase regression slices as needed for touched owner boundaries.
-5. Run `make agent-finalize` as the required first end-of-run maintenance command before broader verification; supply `RESULTS_DIR=<successful run dir>` only when refreshing duration baselines from qualifying evidence.
+1. Complete: Sprint 6 inspection found no skipped Phase 7 tests, no duplicate actual row IDs, no forbidden Phase 7 IDs in prior-phase files, and no remaining authoritative placeholder tests.
+2. Complete: manifest, ledger, schedule, and baseline coverage validation ran before broader tests.
+3. Complete: focused backend, frontend, browser, and public Phase 7 wrappers passed.
+4. Complete: `make phase-slice PHASE=phase4` passed after Sprint 6 removed unused merge-adjacent dead code.
+5. Complete: `make agent-finalize` ran without `RESULTS_DIR` because Sprint 6 did not add or promote duration inputs and no full qualifying duration-maintenance run root was supplied.
 
 Implementation tasks:
-- Ensure `tools/phase7_test_map.json` has no stale placeholders, no duplicate row IDs, and correct support/forbidden file boundaries.
-- Run `make phase-ledgers` and `make phase-ledger-drift`.
-- Run `make phase-schedules` and `make phase-schedule-drift`.
-- Run `make generate` only when source contracts or SQL changed, then prove `make generate-drift` passes.
-- Refresh Go duration baselines from uncontaminated successful service-backed evidence if Phase 7 adds or promotes service-backed Go rows.
-- Record artifact roots for public wrappers and gates in this plan as implementation progresses.
-- Update this plan's Sprint Checklist statuses, validation results, blockers, and follow-up notes with actual evidence.
+- Complete: `tools/phase7_test_map.json` has no stale placeholder claims, no duplicate actual row IDs, and retained support/forbidden file boundaries.
+- Complete: `make phase-ledgers`, `make phase-ledger-drift`, `make phase-schedules`, and `make phase-schedule-drift` passed after manifest cleanup.
+- Complete: no contract, SQL, or codegen source change required `make generate`; `make generate-drift` passed.
+- Complete: no duration baseline refresh was required; `make go-test-duration-baseline-coverage` passed.
+- Complete: Sprint 6 removed unused dead helpers reported by Staticcheck in `internal/modules/entities/merge_store.go`, `internal/modules/revisions/rollback_store.go`, and `internal/modules/revisions/store.go`; targeted Phase 7 regressions and `make lint-go VERBOSE=1` passed afterward.
+- Complete: artifact roots, blockers, non-claims, and Phase 8 handoff notes are recorded in this plan.
 
 Validation commands:
-- `make explain-phase PHASE=phase7`
-- `make phase-ledgers`
-- `make phase-ledger-drift`
-- `make phase-schedules`
-- `make phase-schedule-drift`
-- Focused backend Phase 7 `go test` commands from Sprints 1-4
-- `make frontend-unit`
-- `make frontend-typecheck`
-- `make lint-biome`
-- Focused Phase 7 Playwright command
-- `make phase-slice PHASE=phase7`
-- `make service-backed-slice PHASE=phase7`
-- `make test-fast`
-- `make agent-finalize`
-- `make check`
-- `git diff --check`
+- Passed: `make explain-phase PHASE=phase7`.
+- Passed: `make phase-map-check`; run root `.cartulary/test-results/20260512T000006Z-p72458`.
+- Passed: `make phase-test-name-check`; run root `.cartulary/test-results/20260512T000039Z-p73206`.
+- Passed: `make phase-ledgers`; initial run root `.cartulary/test-results/20260512T000352Z-p75460`; final post-manifest-cleanup run root `.cartulary/test-results/20260512T001900Z-sprint6-phase-ledgers-final`.
+- Passed: `make phase-ledger-drift`; initial run root `.cartulary/test-results/20260512T000354Z-p76037`; final post-documentation run root `.cartulary/test-results/20260512T002022Z-p96732`.
+- Passed: `make phase-schedules`; initial run root `.cartulary/test-results/20260512T000352Z-p75462`; final post-manifest-cleanup run root `.cartulary/test-results/20260512T001930Z-sprint6-phase-schedules-final`.
+- Passed: `make phase-schedule-drift`; initial run root `.cartulary/test-results/20260512T000354Z-p76035`; final post-documentation run root `.cartulary/test-results/20260512T002022Z-p96905`.
+- Passed: `make go-test-duration-baseline-coverage`; run root `.cartulary/test-results/20260512T000352Z-p75532`.
+- Passed: `go test ./internal/modules/revisions -run 'TestPhase7_.*(U_7_01|U_7_02|U_7_07)'`.
+- Passed: `go test ./internal/modules/revisions ./internal/modules/workbook ./internal/modules/timeline -run 'TestPhase7_.*(I_7_02|I_7_04)'`.
+- Passed: `go test ./internal/modules/revisions -run 'TestPhase7_.*(U_7_03|U_7_04|U_7_05|U_7_06)'`.
+- Passed: `go test ./internal/modules/revisions ./internal/modules/workbook ./internal/modules/timeline ./internal/modules/evidence ./internal/modules/entities ./internal/modules/collaboration -run 'TestPhase7_.*(I_7_01|I_7_03|I_7_04)'`.
+- Passed after dead-code cleanup: `go test ./internal/modules/entities ./internal/modules/revisions -run 'TestPhase7_.*(U_7_05|U_7_06|I_7_01|I_7_03)'`.
+- Passed after dead-code cleanup: `go test ./internal/modules/revisions -run 'TestPhase7_.*(U_7_01|U_7_02|U_7_03|U_7_04|U_7_05|U_7_06|U_7_07|I_7_01|I_7_03|I_7_04)'`.
+- Passed: `make frontend-unit`; run root `.cartulary/test-results/20260512T000446Z-p77905`; direct rerun after transient aggregate failure passed at `.cartulary/test-results/20260512T001249Z-p51541`.
+- Passed: `make frontend-typecheck`; run root `.cartulary/test-results/20260512T000446Z-p77819`.
+- Passed: `make lint-biome`; run root `.cartulary/test-results/20260512T000446Z-p77862`.
+- Passed: `make browser-e2e-webserver-backed`; run root `.cartulary/test-results/20260512T000458Z-p79239`; 37 tests passed.
+- Passed: `make phase-slice PHASE=phase7`; initial run root `.cartulary/test-results/20260512T000542Z-p83733`; post-cleanup run root `.cartulary/test-results/20260512T001054Z-p35075`.
+- Passed: `make service-backed-slice PHASE=phase7`; initial run root `.cartulary/test-results/20260512T000601Z-p86580`; post-cleanup run root `.cartulary/test-results/20260512T001115Z-p38330`.
+- Passed earlier-phase regression: `make phase-slice PHASE=phase4`; run root `.cartulary/test-results/20260512T001137Z-p41143`.
+- Passed: `make agent-finalize`; initial run root `.cartulary/test-results/20260512T000628Z-p89425`; post-cleanup run root `.cartulary/test-results/20260512T001204Z-p48043`; duration-baseline refresh intentionally skipped because `RESULTS_DIR` was unset.
+- Passed: `make lint-go VERBOSE=1`; run root `.cartulary/test-results/20260512T000949Z-p31375` failed before dead-code cleanup, then the rerun passed without findings.
+- Passed: `make test-fast`; initial run root `.cartulary/test-results/20260512T000635Z-p90423`; post-cleanup retry passed at `.cartulary/test-results/20260512T001302Z-p52476`. The intermediate run `.cartulary/test-results/20260512T001215Z-p49047` failed in Phase 6 `frontend-unit`, and direct `make frontend-unit` passed immediately afterward at `.cartulary/test-results/20260512T001249Z-p51541`.
+- Passed: `make generate-drift`; initial run root `.cartulary/test-results/20260512T000731Z-p99140`; post-cleanup run root `.cartulary/test-results/20260512T001354Z-p60969`; final post-documentation run root `.cartulary/test-results/20260512T002022Z-p96859`.
+- Closed outside Phase 7: `make check` initially failed at `.cartulary/test-results/20260512T001400Z-p61609` in non-Phase 7 `browser-e2e-visual` rows `V-3-GRID-03`, `V-5-GRID-02`, `V-6-GRID-02`, and `V-6-GRID-03`.
+- Passed after visual remediation: focused visual rerun for `V-3-GRID-03|V-5-GRID-02|V-6-GRID-02|V-6-GRID-03` passed after canonical golden refresh.
+- Passed after visual remediation: `make browser-e2e-visual`; run root `.cartulary/test-results/20260512T010453Z-p22559`; 11 tests passed.
+- Failed as expected for a visual-only run root: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260512T010453Z-p22559`; run root `.cartulary/test-results/20260512T010535Z-p26209`; duration maintenance reported missing functional `E-*` browser timing entries because the supplied run root contained only visual rows.
+- Passed after visual remediation: `make agent-finalize`; run root `.cartulary/test-results/20260512T010552Z-p26711`; duration-baseline refresh intentionally skipped because `RESULTS_DIR` was unset.
+- Passed after visual remediation: `make generate-drift`; run root `.cartulary/test-results/20260512T010615Z-p27786`.
+- Passed after visual remediation: `make phase-ledger-drift`; run root `.cartulary/test-results/20260512T010615Z-p27879`.
+- Passed after visual remediation: `make phase-schedule-drift`; run root `.cartulary/test-results/20260512T010615Z-p27921`.
+- Passed after visual remediation: `make check`; run root `.cartulary/test-results/20260512T010623Z-p28902`; 505 tests passed.
+- Passed: `git diff --check`.
 
 Deliverables:
-- Planned: all authoritative Phase 7 rows passing as real assertions.
-- Planned: clean generated drift, phase-ledger drift, and phase-schedule drift.
-- Planned: baseline updates where required.
-- Planned: final artifact-root notes and Phase 8 handoff notes.
+- Complete: all authoritative Phase 7 rows pass as real assertions.
+- Complete: generated drift, phase-ledger drift, and phase-schedule drift are clean.
+- Complete: no baseline update was required.
+- Complete: final artifact-root notes and Phase 8 handoff notes are recorded.
 
 Risks and open questions:
-- If `make check` fails outside Phase 7, record the blocker with exact target and artifact root without claiming it as Phase 7 evidence.
-- If an owner decision remains unresolved, Phase 7 must either remove the corresponding claim from the manifest or mark it as an explicit non-claim. Do not silently treat unresolved guide ambiguity as completed behavior.
+- Closed non-Phase 7 check blocker: `browser-e2e-visual` rows `V-3-GRID-03`, `V-5-GRID-02`, `V-6-GRID-02`, and `V-6-GRID-03` were remediated without broadening Phase 7 scope. `V-5-GRID-02` required Timeline action-cell layout changes; `V-6-GRID-03` required deterministic visual fixture ordering; the four accepted visual changes were refreshed through Playwright snapshot update and verified by `make browser-e2e-visual`.
+- Resolved owner decisions for Phase 7 exit: tag rollback remains Phase 8-owned; `AC-184` and `AC-185` remain Phase 8-owned support references; merge-specific rollback remains unclaimed until reversible merge substrate and tests exist; Phase 8 saved-view behavior and Phase 9 keyboard/clipboard behavior remain non-claims.
 
 Exit criteria:
-- All authoritative `U-7-*`, `I-7-*`, and `E-7-*` rows pass in their intended layers.
-- No placeholder tests remain.
-- Public `phase-slice` and `service-backed-slice` wrappers pass for Phase 7.
-- Earlier touched phase slices still pass or any unrelated blocker is recorded with concrete artifacts.
-- Generated drift is resolved through canonical commands.
-- `make agent-finalize` has run and its outcome is recorded.
-- `make check` passes or any failure is recorded as outside Phase 7 with exact evidence.
+- Met: all authoritative `U-7-*`, `I-7-*`, and `E-7-*` rows pass in their intended layers.
+- Met: no placeholder tests remain.
+- Met: public `phase-slice` and `service-backed-slice` wrappers pass for Phase 7.
+- Met: touched earlier-phase regression `make phase-slice PHASE=phase4` passes.
+- Met: generated drift is resolved through canonical commands.
+- Met: `make agent-finalize` ran and passed after focused evidence.
+- Met: `make check` passes after closing the non-Phase 7 visual blockers.
 
 ## Risks and Open Questions
 
-1. Tag rollback is explicitly named in Phase 7 UI/AC language, but typed tags are Phase 8 scope. Required decision: either pull minimal typed-tag mutation and rollback support into Phase 7, or record tag-specific Phase 7 evidence as blocked/deferred and avoid claiming tag rollback until Phase 8.
-2. `AC-184` and `AC-185` appear in `U-7-01`, but the coverage index assigns them to Phase 8. Required decision: correct the guide, mark them support-only for Phase 7, or explicitly split ownership.
-3. First-class record dispatch must stay explicit. Sprint 2 confirmed the current delete/restore adapter matrix for first-class `records.record_type` values; rollback must either reuse that matrix safely or record owner decisions for any later excluded current type.
+1. Tag rollback is explicitly named in Phase 7 UI/AC language, but typed tags are Phase 8 scope. Sprint 6 records tag rollback as a Phase 8-owned non-claim; current record-tag history entries remain visible but intentionally non-reversible with `target_not_reversible`.
+2. `AC-184` and `AC-185` appear in `U-7-01`, but the coverage index assigns them to Phase 8. Sprint 6 treats them as Phase 8-owned support references, not completed Phase 7 evidence.
+3. First-class record dispatch must stay explicit. Sprint 6 confirmed the current delete/restore adapter matrix for first-class `records.record_type` values: `timeline_event`, `host`, `identity`, `party`, `indicator`, `artifact`, `task_request`, `decision`, `evidence`, and `assessment`.
 4. `history_entry_ref` must be stable and opaque. Default decision: persist a durable opaque selector or selector mapping. Do not use transient order, exposed database primary keys, or a key-rotation-sensitive derived token.
-5. Merge rollback may need more reversible mutation-entry detail than the current Phase 4 merge path records. Required decision: inspect and, if needed, extend the merge substrate before claiming the merge-specific portion of `AC-217`.
+5. Merge rollback may need more reversible mutation-entry detail than the current Phase 4 merge path records. Sprint 6 keeps merge-specific rollback unclaimed until reversible merge substrate and direct tests exist.
 6. `record_locked` exists and is covered for restore. Rollback and merge lock work must continue to use the public error contract and must not rely on internal errors without contract coverage.
 7. Retained-history invariants prohibit purge behavior for extant current-profile incidents. Do not add configuration or operator tooling that narrows visible retained history during this phase.
 
@@ -707,8 +725,12 @@ Phase 8 may rely on these completed Phase 7 contracts after exit:
 - Retained history for extant records is not narrowed by incident closure, delete or restore cycles, rollback, restart, or current-profile purge settings.
 
 Phase 8 handoff must also state:
-- Whether tag rollback was implemented in Phase 7 or remains Phase 8-owned.
-- Whether `AC-184` and `AC-185` were treated as guide drift, support references, or shared ownership.
-- The final first-class record adapter matrix for history, delete, restore, and rollback.
-- Any mutation target families still visible in history but intentionally non-reversible, with the owner reason.
-- The final artifact roots for Phase 7 public wrappers and broader verification.
+- Tag rollback remains Phase 8-owned. Phase 7 shows current `record_tag` mutation entries in history when present but does not advertise executable rollback actions for them and returns `target_not_reversible` if addressed.
+- `AC-184` and `AC-185` are treated as Phase 8-owned support references for Phase 7, not shared completed Phase 7 evidence.
+- Final first-class record adapter matrix:
+  - History reads are record-envelope based for first-class records with retained change-set or revision evidence.
+  - Delete/restore adapter coverage is explicit for `timeline_event`, `host`, `identity`, `party`, `indicator`, `artifact`, `task_request`, `decision`, `evidence`, and `assessment`.
+  - Row-level rollback target kinds are executable for `timeline_record`, `host`, `identity`, `indicator`, `assessment`, `evidence`, and generic `record` where reversible before/after mutation data exists; `row_restore` uses `record_revisions` snapshots and does not recreate or delete relationship-like adjuncts.
+- Mutation target families visible in history but intentionally non-reversible: `record_tag` remains Phase 8-owned; merge-specific history remains non-reversible until merge writes reversible mutation-entry detail; unsupported/default mutation families remain non-reversible with `target_not_reversible`.
+- Final Phase 7 public wrapper roots: `make phase-slice PHASE=phase7` at `.cartulary/test-results/20260512T001054Z-p35075`; `make service-backed-slice PHASE=phase7` at `.cartulary/test-results/20260512T001115Z-p38330`.
+- Broader verification roots: `make test-fast` passed at `.cartulary/test-results/20260512T001302Z-p52476`; `make browser-e2e-visual` passed at `.cartulary/test-results/20260512T010453Z-p22559`; `make generate-drift` passed at `.cartulary/test-results/20260512T010615Z-p27786`; `make phase-ledger-drift` passed at `.cartulary/test-results/20260512T010615Z-p27879`; `make phase-schedule-drift` passed at `.cartulary/test-results/20260512T010615Z-p27921`; `make agent-finalize` passed at `.cartulary/test-results/20260512T010552Z-p26711`; `make check` passed at `.cartulary/test-results/20260512T010623Z-p28902`.

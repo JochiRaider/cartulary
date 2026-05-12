@@ -609,20 +609,6 @@ func mutationJSONReferencesRecord(raw []byte, recordID uuid.UUID, keys ...string
 	return false
 }
 
-func rollbackActions(hasHistoryEntry bool, hasRevision bool) []string {
-	actions := make([]string, 0, 3)
-	if hasHistoryEntry {
-		actions = append(actions, "history_entry")
-	}
-	if hasHistoryEntry {
-		actions = append(actions, "change_set")
-	}
-	if hasRevision {
-		actions = append(actions, "row_restore")
-	}
-	return actions
-}
-
 func historyOperation(source string, operationKind string) string {
 	if operationKind != "" {
 		return operationKind

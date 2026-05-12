@@ -712,6 +712,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
       timelineApiViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-ROW"),
+        "timeline.occurred_at": "2025-03-06T10:00:00Z",
         "timeline.summary": "Pending visual base",
       },
     )) as ViewRow;
@@ -721,6 +722,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
       timelineApiViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-CONFLICT-ROW"),
+        "timeline.occurred_at": "2025-03-06T10:05:00Z",
         "timeline.summary": "Pending conflict visual base",
       },
     )) as ViewRow;
@@ -730,6 +732,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
       timelineApiViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-QUEUED-ROW"),
+        "timeline.occurred_at": "2025-03-06T10:10:00Z",
         "timeline.summary": "Pending queued visual base",
       },
     )) as ViewRow;

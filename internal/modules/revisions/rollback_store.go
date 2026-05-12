@@ -435,44 +435,6 @@ SELECT csm.change_set_id,
 	return target, nil
 }
 
-func ensureVisibleRollbackChangeSetTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, raw string) error {
-	changeSetID, err := uuid.Parse(raw)
-	if err != nil {
-		return ErrRollbackTargetNotFound
-	}
-	var found uuid.UUID
-	err = tx.QueryRow(ctx, `
-SELECT cs.change_set_id
-  FROM change_sets cs
- WHERE cs.change_set_id = $1
-   AND cs.incident_id = $2
-   AND EXISTS (
-       SELECT 1
-         FROM change_set_mutations csm
-        WHERE csm.change_set_id = cs.change_set_id
-          AND csm.target_id = $3
-   )
-`, changeSetID, record.IncidentID, record.RecordID.String()).Scan(&found)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrRollbackTargetNotFound
-	}
-	return err
-}
-
-func ensureVisibleRollbackRevisionTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, revisionNo int64) error {
-	var found int64
-	err := tx.QueryRow(ctx, `
-SELECT row_version
-  FROM record_revisions
- WHERE record_id = $1
-   AND row_version = $2
-`, record.RecordID, revisionNo).Scan(&found)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrRollbackTargetNotFound
-	}
-	return err
-}
-
 func loadRowRestorePlanTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, revisionNo int64) (rollbackPlan, error) {
 	row := tx.QueryRow(ctx, `
 SELECT change_set_id, after_json

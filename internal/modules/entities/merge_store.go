@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -755,28 +754,6 @@ SELECT incident_id, record_type
 		return mergeTargetMeta{}, fmt.Errorf("load merge target meta: %w", err)
 	}
 	return meta, nil
-}
-
-func lockMergeTargetTx(ctx context.Context, tx pgx.Tx, recordType string, recordID uuid.UUID) error {
-	var err error
-	switch recordType {
-	case "host":
-		err = tx.QueryRow(ctx, `SELECT record_id FROM hosts WHERE record_id = $1 FOR UPDATE NOWAIT`, recordID).Scan(&recordID)
-	case "identity":
-		err = tx.QueryRow(ctx, `SELECT record_id FROM identities WHERE record_id = $1 FOR UPDATE NOWAIT`, recordID).Scan(&recordID)
-	default:
-		return &MergePreconditionError{ReasonCode: "unsupported_record_type"}
-	}
-	if err == nil {
-		return nil
-	}
-	if isLockUnavailable(err) {
-		return &MergeRecordLockedError{RecordID: recordID}
-	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		return &MergePreconditionError{ReasonCode: "target_not_found"}
-	}
-	return fmt.Errorf("lock merge target %s: %w", recordID, err)
 }
 
 func loadHostByRecordIDTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (HostRecord, error) {
@@ -1858,11 +1835,6 @@ func loadUniqueSortedAliasTexts(values []string) []string {
 
 func mergeScopeKey(survivorRecordID uuid.UUID, loserRecordID uuid.UUID) string {
 	return survivorRecordID.String() + ":" + loserRecordID.String()
-}
-
-func isLockUnavailable(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "55P03"
 }
 
 func mergeLinkTypeFieldKey(linkType string) string {
