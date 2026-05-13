@@ -84,7 +84,7 @@
     {
       "phase": "phase8",
       "order": 8,
-      "status": "planned",
+      "status": "active",
       "label": "Phase 8",
       "manifest_path": "tools/phase8_test_map.json",
       "ledger_path": "docs/testing/phase8_coverage_ledger.md",

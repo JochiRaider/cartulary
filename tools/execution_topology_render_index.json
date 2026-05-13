@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:cf62f58fce83cd8df71402e3227393a59a6a8a6d99e1fb18bf544932eec1e453",
+  "input_digest": "sha256:07fbc12f5fa31868c7cb920946623767cbd0c54266aa01791bf8f5c6d3739e70",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -312,7 +312,7 @@
     {
       "path": "tools/phase_registry.json",
       "role": "phase_registry",
-      "hash": "sha256:fcf9c4364d695fee6eb5d4dbfcff56982277c55d9d3da6c0eaf3e082b2afef50"
+      "hash": "sha256:6a2e186cb48e188847f5558d6c66acaba30b5a92bd5f8706bc7d3ed7a3ec93e4"
     },
     {
       "path": "tools/phase0_test_map.json",
@@ -355,6 +355,11 @@
       "hash": "sha256:c7cb8f4b1a342059215506f4443c4b476852dbec9b7dca10fbd7630408a29182"
     },
     {
+      "path": "tools/phase8_test_map.json",
+      "role": "active_phase_manifest",
+      "hash": "sha256:5e0c761cd14430a272a097616516660aa8a47ea81f5dcf5c7b50af4dfd430e4f"
+    },
+    {
       "path": "tools/scheduler_resource_registry.json",
       "role": "scheduler_resource_registry",
       "hash": "sha256:30590cf8f836848213e6be443b4d3edfa6725dd9db67ca0029e320c565a807b9"
@@ -367,7 +372,7 @@
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:61ebf634dd669e95129a55c84cf467a967e48db786a13ebabcef4c3834e77f8f",
-    "tools/scheduler_manifest.json": "sha256:4d414e1ed231e4fa3104b0a8ad8060a4129e2fb0dae1f9fb52e62e09c0f03cd9",
+    "tools/scheduler_manifest.json": "sha256:356dbb1af994c07b4d6e10ca65e3bc7a730cb263699e60512fc3d72907ccac26",
     "tools/task_surface_manifest.json": "sha256:23c948a27552c757bb6483c15666bac31bfecb1203a7f5abf9b1dc9b5954c0a2",
     "tools/task_surface.generated.mk": "sha256:acc4c045d386cead29161ddead147f04fd493046ef6372982d40b9de262a20d3"
   }
