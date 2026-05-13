@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 8: li
 
 This planning artifact does not implement Phase 8 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status before Sprint 0: Phase 8 is listed as `planned` in `tools/phase_registry.json`; `tools/phase8_test_map.json` and `docs/testing/phase8_coverage_ledger.md` do not yet exist; `make explain-phase PHASE=phase8` reports no covered rows. Phase 7 has exited with passing public wrappers and `make check`; Phase 8 must preserve the Phase 7 handoff boundaries recorded below.
+Current repo status after Sprint 0 on 2026-05-13: Phase 8 is listed as `active` in `tools/phase_registry.json`; `tools/phase8_test_map.json` and `docs/testing/phase8_coverage_ledger.md` exist; generated schedule artifacts have been regenerated through the canonical phase schedule target; `make explain-phase PHASE=phase8` reports the manifest, ledger path, all declared execution dependencies, service requirements, and 19 authoritative placeholder-owned rows. The Sprint 0 placeholders are intentionally red selection scaffolding, not Phase 8 behavior evidence, and must be replaced before Phase 8 exit. Phase 7 has exited with passing public wrappers and `make check`; Phase 8 must preserve the Phase 7 handoff boundaries recorded below.
 
 ## Phase Objective
 
@@ -42,7 +42,7 @@ Out of scope unless an owner decision pulls it forward:
 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
-| [ ] | 0. Phase 8 ownership manifest and harness setup | [ ] planned | `tools/phase8_test_map.json` and generated ledger do not yet exist. | Establish row ownership and direct evidence locations before feature work. |
+| [x] | 0. Phase 8 ownership manifest and harness setup | [x] manifest, ledger, schedule drift, name check, target plan, and ID audit passed | None for the requested Sprint 0 gates. `make agent-finalize` now fails at duration-baseline coverage until successful retained Phase 8 service-backed evidence exists. | Phase 8 is active with red placeholders only; all placeholders must be removed before Phase 8 exit. |
 | [ ] | 1. Typed links, tags, and rollback handoff | [ ] planned | Tag rollback remains Phase 8-owned from Phase 7. | Close `record_tag` reversibility and prove link/tag projection/history/query atomicity. |
 | [ ] | 2. Saved-view persistence and create defaults | [ ] planned | Saved-view storage and routes are not yet implemented. | Create/list foundation, private default, exact scope tokens, one `view_schema_id`. |
 | [ ] | 3. Saved-view patch, duplicate, and delete | [ ] planned | Requires Sprint 2 persistence. | No-op patch semantics and duplicate-visible-view semantics land here. |
@@ -135,7 +135,7 @@ Expected harness deliverables:
 
 Objective: Establish Phase 8 test ownership before feature work so TDD rows can be selected by repo tooling.
 
-Status: Planned.
+Status: Complete for harness setup on 2026-05-13. Phase 8 is active and selectable; placeholder tests remain intentionally red and are not exit evidence.
 
 Relevant IDs: all `U-8-*`, `U-8-GRID-01`, `I-8-*`, `E-8-*`; `tools/phase8_test_map.json`; `docs/testing/phase8_coverage_ledger.md`.
 
@@ -154,16 +154,16 @@ Files and areas:
 - `tools/phase_registry.json`
 - `tools/phase8_test_map.json`
 - `docs/testing/phase8_coverage_ledger.md`
-- `tools/service_backed_schedule_manifest.json`
-- `tools/check_schedule_manifest.json`
-- Initial backend tests in the owning modules selected by later sprints.
-- Initial frontend tests under `apps/web/src`.
-- Initial browser tests under `apps/web/e2e/phase8.*.spec.ts` or the locally chosen equivalent.
+- `tools/scheduler_manifest.json`
+- `tools/execution_topology_render_index.json`
+- Backend placeholder tests in the owning modules selected by later sprints.
+- Frontend placeholder test under `apps/web/src/WorkbookShell.phase8.query.test.tsx`.
+- Browser placeholder test under `apps/web/e2e/phase8.workbook.spec.ts`.
 
 Test-first sequence:
 1. Add manifest rows for every `U-8-01..U-8-10`, `U-8-GRID-01`, `I-8-01..I-8-04`, and `E-8-01..E-8-04` row before product behavior implementation.
 2. Declare one authoritative execution dependency per row and list any support-only tests as support, not row owners.
-3. Add initial failing or narrowly skipped row symbols/titles only where the repo's manifest tooling requires discoverable tests before behavior exists; replace all placeholders before Phase 8 exit.
+3. Add initial failing row symbols/titles only where the repo's manifest tooling requires discoverable tests before behavior exists; replace all placeholders before Phase 8 exit.
 4. Add `forbidden_id_files` for known support-only carryover files from Phases 3 through 7 so earlier phase tests cannot accidentally claim Phase 8 IDs.
 5. Generate ledger and schedule artifacts through canonical commands.
 
@@ -173,6 +173,24 @@ Implementation tasks:
 - Generate `docs/testing/phase8_coverage_ledger.md`.
 - Generate service-backed and check schedules after the manifest is active.
 - Record Phase 7 handoff boundaries in manifest notes.
+
+Implementation results:
+- `tools/phase8_test_map.json` now owns every authoritative `U-8-01..U-8-10`, `U-8-GRID-01`, `I-8-01..I-8-04`, and `E-8-01..E-8-04` row with exactly one authoritative execution dependency per row.
+- `forbidden_id_files` records Phase 3 through Phase 7 support-only carryover files so earlier phase tests cannot claim Phase 8 IDs.
+- Manifest notes record the Phase 7 handoff boundaries for typed tag rollback, `AC-184`, `AC-185`, and the non-reversible `record_tag` behavior that Phase 8 must close with direct evidence.
+- `tools/phase_registry.json` was moved to `active` only after row symbols and titles existed.
+- `docs/testing/phase8_coverage_ledger.md` was generated with `make phase-ledgers`.
+- `tools/scheduler_manifest.json` and `tools/execution_topology_render_index.json` were regenerated with `make phase-schedules`.
+- Placeholder owners were added at:
+  - `internal/modules/links/phase8_links_tags_test.go` for `U-8-01` and `I-8-03`.
+  - `internal/modules/savedviews/phase8_savedviews_test.go` for `U-8-02`, `U-8-03`, `U-8-04`, and `I-8-01`.
+  - `internal/modules/incidents/phase8_workbook_startup_test.go` for `U-8-05` and `I-8-02`.
+  - `internal/platform/viewquery/phase8_query_contract_test.go` for `U-8-06`, `U-8-07`, and `U-8-08`.
+  - `internal/modules/viewschemas/phase8_viewschema_test.go` for `U-8-09`.
+  - `internal/modules/workbook/phase8_row_wire_test.go` for `U-8-10` and `I-8-04`.
+  - `apps/web/src/WorkbookShell.phase8.query.test.tsx` for `U-8-GRID-01`.
+  - `apps/web/e2e/phase8.workbook.spec.ts` for `E-8-01..E-8-04`.
+- These placeholders fail with the Sprint 0 pending implementation message and must be removed, not skipped or grandfathered, before Phase 8 exit.
 
 Validation commands:
 - `make phase-map-check`
@@ -185,20 +203,32 @@ Validation commands:
 - `make target-plan-json`
 - `git diff --check`
 
+Sprint 0 validation results:
+- Passed: `make phase-map-check`.
+- Passed: `make explain-phase PHASE=phase8`; it reported `tools/phase8_test_map.json`, `docs/testing/phase8_coverage_ledger.md`, execution dependencies `backend_unit`, `backend_store`, `backend_integration`, `frontend_unit`, and `browser_functional`, service requirements, and target coverage for 19 authoritative rows.
+- Passed after generation: `make phase-ledgers` and `make phase-ledger-drift`.
+- Passed after generation: `make phase-schedules` and `make phase-schedule-drift`.
+- Passed: `make phase-test-name-check`.
+- Passed: `make target-plan-json`.
+- Passed: `git diff --check`.
+- Passed ID audit: every `U-8-*`, `I-8-*`, `E-8-*`, `U_8_*`, `I_8_*`, and `E_8_*` hit was in an approved Phase 8 placeholder, `tools/phase8_test_map.json`, generated Phase 8 ledger or scheduler metadata, the testing guide, or this implementation plan.
+- Additional maintenance note: `make agent-finalize` passed structure ledger refresh and schema shape validation, then failed at `go-test-duration-baseline-coverage` because the newly active Phase 8 service-backed placeholder tests have no successful-run duration baselines. Do not add synthetic baselines; refresh `tools/go_test_duration_baselines.json` only from successful retained service-backed evidence after real Phase 8 tests replace the placeholders.
+
 Deliverables:
 - `tools/phase8_test_map.json`
 - `docs/testing/phase8_coverage_ledger.md`
-- Generated schedule updates
+- Generated schedule updates in `tools/scheduler_manifest.json` and `tools/execution_topology_render_index.json`
 - Selectable Phase 8 row inventory with no accidental support-only ownership
 
 Risks and open questions:
-- Early placeholder tests are allowed only as temporary selection scaffolding and must not survive Phase 8 exit.
-- Manifest activation changes public task-surface behavior; activate only after row discovery is coherent.
+- Early placeholder tests now exist only as temporary selection scaffolding and must not survive Phase 8 exit.
+- Service-backed duration baselines are intentionally missing for active red Phase 8 placeholders until real service-backed Phase 8 tests pass in a retained run.
+- Manifest activation has changed public task-surface behavior; later sprints must keep the manifest coherent as placeholders are replaced by direct evidence.
 
 Exit criteria:
-- `make explain-phase PHASE=phase8` reports the manifest, ledger path, execution dependencies, service requirements, and target coverage.
-- `make phase-ledger-drift` and `make phase-schedule-drift` pass after generation.
-- Every Phase 8 authoritative row ID appears only in approved Phase 8 tests or manifest metadata.
+- Met for Sprint 0: `make explain-phase PHASE=phase8` reports the manifest, ledger path, execution dependencies, service requirements, and target coverage.
+- Met for Sprint 0: `make phase-ledger-drift` and `make phase-schedule-drift` pass after generation.
+- Met for Sprint 0: every Phase 8 authoritative row ID appears only in approved Phase 8 tests, manifest metadata, generated Phase 8 metadata, the testing guide, or this implementation plan.
 
 ## Sprint 1. Typed Links, Tags, and Rollback Handoff
 
