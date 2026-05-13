@@ -190,8 +190,9 @@ func appendGenericFilter(builder *strings.Builder, args *[]any, definition gener
 	if filter.FieldKey == "note.full_text" {
 		query, _ := filter.Arg["query"].(string)
 		for _, token := range strings.Fields(query) {
-			builder.WriteString("\n   AND lower(coalesce(p.title, '') || ' ' || coalesce(p.body, '')) LIKE ")
-			builder.WriteString(bind(args, "%"+token+"%"))
+			builder.WriteString("\n   AND ")
+			builder.WriteString(bind(args, token))
+			builder.WriteString(" = ANY(regexp_split_to_array(lower(coalesce(p.title, '') || ' ' || coalesce(p.body, '')), '[^[:alnum:]]+'))")
 		}
 		return nil
 	}

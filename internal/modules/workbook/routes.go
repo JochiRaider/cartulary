@@ -142,14 +142,18 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		}
 		nextToken = &token
 	}
-	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{
+	_ = httpapi.WriteSuccessWithMeta(w, r, http.StatusOK, map[string]any{
 		"incident_id":    incidentID.String(),
 		"view_schema_id": viewSchemaID,
 		"rows":           rows,
-	}, httpapi.PagingMeta{
-		Limit:      binding.Limit,
-		HasMore:    nextToken != nil,
-		NextCursor: nextToken,
+	}, httpapi.EnvelopeMeta{
+		RequestID: httpapi.RequestIDFromContext(r.Context()),
+		Paging: &httpapi.PagingMeta{
+			Limit:      binding.Limit,
+			HasMore:    nextToken != nil,
+			NextCursor: nextToken,
+		},
+		Query: query.Meta,
 	})
 }
 

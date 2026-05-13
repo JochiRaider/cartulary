@@ -1209,7 +1209,10 @@ function reconcileCommittedRowsWithLocalDrafts({
   };
 }
 
-function buildCollectionActions(fieldKey: CollectionFieldKey, rawInput: string) {
+function buildCollectionActions(
+  fieldKey: CollectionFieldKey,
+  rawInput: string,
+) {
   const actions = rawInput
     .split(/\r?\n/u)
     .filter((segment) => segment.trim() !== "")
@@ -1253,11 +1256,11 @@ export function buildCreatePayload(
     }
   }
 
-	for (const field of Object.values(timelineCollectionBindingIndex)) {
-		const actions = buildCollectionActions(
-			field.fieldKey,
-			row.collectionDrafts[field.draftKey],
-		);
+  for (const field of Object.values(timelineCollectionBindingIndex)) {
+    const actions = buildCollectionActions(
+      field.fieldKey,
+      row.collectionDrafts[field.draftKey],
+    );
     if (actions !== null) {
       payload[field.fieldKey] = actions;
     }
@@ -1368,7 +1371,7 @@ function buildCollectionPatchPayload(
   draftValue: string,
   clientTxnId: string,
 ) {
-	const actionPayload = buildCollectionActions(fieldKey, draftValue);
+  const actionPayload = buildCollectionActions(fieldKey, draftValue);
   if (row.rowVersion === null || actionPayload === null) {
     return null;
   }
@@ -1448,6 +1451,48 @@ function buildStableMutationSignature(payload: unknown): string {
 
 function readEnvelope<T>(payload: unknown): T {
   return payload as T;
+}
+
+type LatestQueryRuntime = {
+  controller: AbortController | null;
+  sequence: number;
+};
+
+type LatestQueryRequest = {
+  isCurrent: () => boolean;
+  signal: AbortSignal;
+};
+
+function beginLatestQuery(runtime: {
+  current: LatestQueryRuntime;
+}): LatestQueryRequest {
+  const previousController = runtime.current.controller;
+  const controller = new AbortController();
+  const sequence = runtime.current.sequence + 1;
+  runtime.current = { controller, sequence };
+  previousController?.abort();
+
+  return {
+    signal: controller.signal,
+    isCurrent: () =>
+      runtime.current.sequence === sequence &&
+      runtime.current.controller === controller &&
+      !controller.signal.aborted,
+  };
+}
+
+function abortLatestQuery(runtime: { current: LatestQueryRuntime }) {
+  runtime.current.controller?.abort();
+  runtime.current = {
+    controller: null,
+    sequence: runtime.current.sequence + 1,
+  };
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && error.name === "AbortError";
 }
 
 function readCookie(name: string): string | null {
@@ -8300,7 +8345,7 @@ function isPartyRefCollection(fieldKey: string): boolean {
 }
 
 function genericCollectionSupportsRemove(_fieldKey: string): boolean {
-	return true;
+  return true;
 }
 
 function genericCollectionItems(
@@ -8542,6 +8587,18 @@ export function WorkbookShell({
   const [genericFilterDraft, setGenericFilterDraft] = useState<FilterDraft>(
     () => defaultFilterDraft(activeContract),
   );
+  const entityQueryRuntimeRef = useRef<LatestQueryRuntime>({
+    controller: null,
+    sequence: 0,
+  });
+  const assessmentQueryRuntimeRef = useRef<LatestQueryRuntime>({
+    controller: null,
+    sequence: 0,
+  });
+  const genericQueryRuntimeRef = useRef<LatestQueryRuntime>({
+    controller: null,
+    sequence: 0,
+  });
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -8578,6 +8635,7 @@ export function WorkbookShell({
       viewSchemaId: string,
       entityType: EntityRow["entityType"],
       queryState: WorkbookQueryState,
+      signal: AbortSignal,
     ) => {
       const contract =
         viewSchemaId === hostsViewSchemaId ? hostsContract : identitiesContract;
@@ -8588,6 +8646,7 @@ export function WorkbookShell({
         ),
         {
           method: "POST",
+          signal,
           body: JSON.stringify(buildQueryRequest(contract, queryState)),
         },
       );
@@ -8601,17 +8660,34 @@ export function WorkbookShell({
   );
 
   const loadEntities = useCallback(async () => {
+    const request = beginLatestQuery(entityQueryRuntimeRef);
     setEntityLoadError(null);
     try {
       const [nextHosts, nextIdentities] = await Promise.all([
-        queryEntityView(hostsViewSchemaId, "host", hostQueryState),
-        queryEntityView(identitiesViewSchemaId, "identity", identityQueryState),
+        queryEntityView(
+          hostsViewSchemaId,
+          "host",
+          hostQueryState,
+          request.signal,
+        ),
+        queryEntityView(
+          identitiesViewSchemaId,
+          "identity",
+          identityQueryState,
+          request.signal,
+        ),
       ]);
+      if (!request.isCurrent()) {
+        return;
+      }
       setHostRows((current) => [...reconcileRecordRows(current, nextHosts)]);
       setIdentityRows((current) => [
         ...reconcileRecordRows(current, nextIdentities),
       ]);
     } catch (error) {
+      if (!request.isCurrent() || isAbortError(error)) {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : "Entity load failed.";
       if (
@@ -8658,8 +8734,10 @@ export function WorkbookShell({
 
   const loadAssessmentSurface = useCallback(async () => {
     if (surface !== assessmentsViewSchemaId) {
+      abortLatestQuery(assessmentQueryRuntimeRef);
       return;
     }
+    const request = beginLatestQuery(assessmentQueryRuntimeRef);
     setAssessmentLoadError(null);
     try {
       const result = await fetchJSON<ViewQueryEnvelope>(
@@ -8669,17 +8747,24 @@ export function WorkbookShell({
         ),
         {
           method: "POST",
+          signal: request.signal,
           body: JSON.stringify(
             buildQueryRequest(assessmentsContract, assessmentQueryState),
           ),
         },
       );
+      if (!request.isCurrent()) {
+        return;
+      }
       if (!result.ok) {
         throw new Error(parseErrorMessage(result.payload));
       }
       const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
       setAssessmentRows(envelope.data.rows);
     } catch (error) {
+      if (!request.isCurrent() || isAbortError(error)) {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : "Assessment load failed.";
       if (
@@ -8702,8 +8787,10 @@ export function WorkbookShell({
 
   const loadGenericSurface = useCallback(async () => {
     if (isSpecializedSurface) {
+      abortLatestQuery(genericQueryRuntimeRef);
       return;
     }
+    const request = beginLatestQuery(genericQueryRuntimeRef);
     setGenericLoadError(null);
     try {
       const result = await fetchJSON<ViewQueryEnvelope>(
@@ -8713,17 +8800,24 @@ export function WorkbookShell({
         ),
         {
           method: "POST",
+          signal: request.signal,
           body: JSON.stringify(
             buildQueryRequest(activeContract, genericQueryState),
           ),
         },
       );
+      if (!request.isCurrent()) {
+        return;
+      }
       if (!result.ok) {
         throw new Error(parseErrorMessage(result.payload));
       }
       const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
       setGenericRows(envelope.data.rows);
     } catch (error) {
+      if (!request.isCurrent() || isAbortError(error)) {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : "Surface load failed.";
       if (
@@ -8745,6 +8839,15 @@ export function WorkbookShell({
     onIncidentAccessLost,
     surface,
   ]);
+
+  useEffect(
+    () => () => {
+      abortLatestQuery(entityQueryRuntimeRef);
+      abortLatestQuery(assessmentQueryRuntimeRef);
+      abortLatestQuery(genericQueryRuntimeRef);
+    },
+    [],
+  );
 
   useEffect(() => {
     void Promise.all([loadEntities(), loadSessionRole()]);

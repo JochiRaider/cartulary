@@ -5,7 +5,7 @@ This ledger is generated from `tools/phase8_test_map.json`. Update the manifest 
 - Scope: Links, tags, saved views, sorting, filtering, grouping, startup selection, and projection-backed query semantics.
 - Normative owners: Core 01 §3.3.4; Core 01 §3.3.5.2; Core 01 §7.4; Core 01 §8; Core 02 §11–§12; Core 03 §2 and §14; Core 04 §2.
 - Authority: `tools/phase8_test_map.json` is the enforced Phase 8 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.
-- Phase 8 is active once this manifest has selectable placeholder rows. The placeholders are discovery scaffolding only and must be replaced with direct non-placeholder evidence before Phase 8 exit.
+- Phase 8 is active and rows must remain backed by direct evidence in their declared execution layer before Phase 8 exit.
 - Every authoritative Phase 8 row has exactly one declared execution dependency from the approved evidence layers: backend_unit, backend_store, backend_integration, frontend_unit, or browser_functional.
 - Phase 7 handoff boundaries are preserved: typed tag rollback, AC-184, and AC-185 are Phase 8-owned; merge-specific rollback and Phase 9 keyboard or clipboard behavior remain non-claims.
 - Existing Phase 3 through Phase 7 tests may support substrate confidence but are forbidden from claiming Phase 8 row identifiers.
@@ -36,8 +36,8 @@ This ledger is generated from `tools/phase8_test_map.json`. Update the manifest 
 | `U-8-07` | `internal/platform/viewquery/phase8_query_contract_test.go::TestPhase8_TimelineGroupingWhitelist_U_8_07` | `backend_unit` | Timeline grouping permits only the declared whitelist and never serializes group headers as writable rows. | Browser rendering of grouping and full query execution are covered by separate rows. |
 | `U-8-08` | `internal/platform/viewquery/phase8_query_contract_test.go::TestPhase8_QueryNormalizationMeta_U_8_08` | `backend_unit` | Sort and filter ceilings, canonical normalization, meta.query, default-tail expansion, and grouping omission semantics follow the Phase 8 query contract. | Saved-view persistence and browser workflows are covered by separate rows. |
 | `U-8-09` | `internal/modules/viewschemas/phase8_viewschema_test.go::TestPhase8_ViewSchemaDiscovery_U_8_09` | `backend_unit` | View-schema discovery exposes exact sorting and grouping contracts, null-last ordering, and no client-sortable record_id. | Runtime query validation and browser control payloads are covered by separate rows. |
-| `U-8-10` | `internal/modules/workbook/phase8_row_wire_test.go::TestPhase8_RowWireFamilies_U_8_10` | `backend_store` | Full-row and sparse-patch wire families preserve hidden writable fields, authoritative nulls, and canonical changed_field_keys plus affected_views metadata. | Cursor continuation and browser workflows are covered by separate rows. |
-| `U-8-GRID-01` | `apps/web/src/WorkbookShell.phase8.query.test.tsx::Phase 8 U-8-GRID-01 stable query controls placeholder` | `frontend_unit` | Grid sort, filter, and group controls send only stable contract keys and never labels, vendor indexes, projection-table names, or storage-table names. | Server query validation and browser-functional workflows are covered by separate rows. |
+| `U-8-10` | `internal/modules/workbook/phase8_row_wire_test.go::TestPhase8_RowWireFamilies_I_8_04_RowWireContract` | `backend_integration` | Full-row and sparse-patch wire families preserve hidden writable fields, authoritative nulls, and canonical changed_field_keys plus affected_views metadata. | Cursor continuation and browser workflows are covered by separate rows. |
+| `U-8-GRID-01` | `apps/web/src/WorkbookShell.phase8.query.test.tsx::Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls` | `frontend_unit` | Grid sort, filter, and group controls send only stable contract keys and never labels, vendor indexes, projection-table names, or storage-table names. | Server query validation and browser-functional workflows are covered by separate rows. |
 
 ## Integration
 
@@ -46,16 +46,16 @@ This ledger is generated from `tools/phase8_test_map.json`. Update the manifest 
 | `I-8-01` | `internal/modules/savedviews/phase8_savedviews_test.go::TestPhase8_SavedViewLifecyclePersistence_I_8_01` | `backend_integration` | Saved-view create, update, duplicate, and delete persist normalized state and authorization consequences in the database. | Browser saved-view workflows are covered by E-8-01. |
 | `I-8-02` | `internal/modules/incidents/phase8_workbook_startup_test.go::TestPhase8_WorkbookStartupFallback_I_8_02` | `backend_integration` | Startup selection fallback behaves correctly across valid, missing, hidden, and invalid saved-view refs. | Browser-visible startup behavior is covered by E-8-02. |
 | `I-8-03` | `internal/modules/links/phase8_links_tags_test.go::TestPhase8_LinkTagProjectionHistoryQuery_I_8_03` | `backend_integration` | Link and tag mutations atomically update projections, history, and view-query results. | Saved-view lifecycle, startup fallback, cursor continuation, and browser workflows are covered by separate rows. |
-| `I-8-04` | `internal/modules/workbook/phase8_row_wire_test.go::TestPhase8_LiveAuthorizedCursorPagination_I_8_04` | `backend_integration` | Cursor pagination re-derives live authorization, rejects tampering, returns fetch-time payloads, and lets fresh queries evaluate live state. | Browser exact search behavior is covered by E-8-04. |
+| `I-8-04` | `internal/modules/workbook/phase8_row_wire_test.go::TestPhase8_LiveAuthorizedCursorPagination_I_8_04`, `TestPhase8_NotesFullText_AC185_E_8_04` | `backend_integration` | Cursor pagination re-derives live authorization, rejects tampering, returns fetch-time payloads, lets fresh queries evaluate live state, and Notes full_text search uses exact token semantics for AC-185. | Browser exact search behavior is covered by E-8-04. |
 
 ## Browser E2E
 
 | Row | Evidence | Execution | Claim | Out of scope |
 | --- | --- | --- | --- | --- |
-| `E-8-01` | `apps/web/e2e/phase8.workbook.spec.ts::E-8-01 saved-view lifecycle placeholder` | `browser_functional` | Browser saved-view lifecycle covers create private, convert to shared when allowed, duplicate system, and cannot edit system in place. | Backend saved-view persistence is covered by U-8-02, U-8-04, and I-8-01. |
-| `E-8-02` | `apps/web/e2e/phase8.workbook.spec.ts::E-8-02 workbook startup fallback placeholder` | `browser_functional` | Browser startup honors explicit sheet, home, default, and Timeline fallback while clearing invalid pointers. | Backend startup selection is covered by U-8-05 and I-8-02. |
-| `E-8-03` | `apps/web/e2e/phase8.workbook.spec.ts::E-8-03 timeline sort filter group placeholder` | `browser_functional` | Browser Timeline sort, filter, and group reaches a stable viewport and deterministic grouping with no writable header rows. | Backend query validation and view-schema discovery are covered by U-8-06 through U-8-09. |
-| `E-8-04` | `apps/web/e2e/phase8.workbook.spec.ts::E-8-04 exact search placeholder` | `browser_functional` | Browser exact-token full_text and strict prefix behavior do not degrade to fuzzy or relevance-ranked search. | Backend cursor continuation is covered by I-8-04. |
+| `E-8-01` | `apps/web/e2e/phase8.workbook.spec.ts::E-8-01 saved-view lifecycle requires product saved-view routes and browser affordances` | `browser_functional` | Browser saved-view lifecycle remains explicitly blocked until product saved-view routes and browser affordances exist. | Backend saved-view contract scaffolding is covered by U-8-02, U-8-04, and I-8-01; full saved-view lifecycle remains a Phase 8 exit blocker. |
+| `E-8-02` | `apps/web/e2e/phase8.workbook.spec.ts::E-8-02 workbook startup falls back to Timeline for an unsupported explicit sheet` | `browser_functional` | Browser startup honors explicit sheet, home, default, and Timeline fallback while clearing invalid pointers. | Backend startup selection is covered by U-8-05 and I-8-02. |
+| `E-8-03` | `apps/web/e2e/phase8.workbook.spec.ts::E-8-03 browser Timeline sort, filter, and group controls submit stable query keys` | `browser_functional` | Browser Timeline sort, filter, and group reaches a stable viewport and deterministic grouping with no writable header rows. | Backend query validation and view-schema discovery are covered by U-8-06 through U-8-09. |
+| `E-8-04` | `apps/web/e2e/phase8.workbook.spec.ts::E-8-04 browser Notes full_text and prefix queries remain exact` | `browser_functional` | Browser exact-token full_text and strict prefix behavior do not degrade to fuzzy or relevance-ranked search. | Backend cursor continuation is covered by I-8-04. |
 
 ## Shared Harness Coverage
 
@@ -69,4 +69,4 @@ This ledger is generated from `tools/phase8_test_map.json`. Update the manifest 
 
 - Existing Phase 3 through Phase 7 backend tests under timeline, entities, evidence, workbook, collaboration, revisions, and WebSocket packages remain support-only for Phase 8.
 - Existing Phase 3 through Phase 7 frontend and browser specs remain previous-phase evidence and are forbidden from claiming Phase 8 IDs.
-- Sprint 0 placeholders are not product evidence; they are temporary selectable TDD row owners and must be removed before Phase 8 exit.
+- Incomplete Phase 8 rows must remain visible as blockers and cannot be counted as exit evidence.

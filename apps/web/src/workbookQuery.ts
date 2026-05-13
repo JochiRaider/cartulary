@@ -228,6 +228,14 @@ function buildFilterFromDraft(draft: FilterDraft): WorkbookFilter | null {
     return null;
   }
 
+  if (draft.fieldKey === "note.full_text") {
+    return {
+      fieldKey: draft.fieldKey,
+      op: "full_text",
+      arg: { query: trimmed },
+    };
+  }
+
   if (mode === "tagset") {
     const values = trimmed
       .split(/[\n,]/u)

@@ -73,6 +73,12 @@ type RawField = {
   readonly write_kind?: "read_only" | "direct_value" | "action_payload";
 };
 
+type RawSyntheticFilterPredicate = {
+  readonly field_key: string;
+  readonly filter_ops?: readonly string[];
+  readonly label: string;
+};
+
 type RawViewContract = {
   readonly default_hidden_fields?: readonly string[];
   readonly default_sort?: ReadonlyArray<{
@@ -88,6 +94,7 @@ type RawViewContract = {
   };
   readonly sort_fields?: readonly string[];
   readonly surface_kind: string;
+  readonly synthetic_filter_predicates?: readonly RawSyntheticFilterPredicate[];
   readonly technical_fields?: readonly string[];
   readonly title: string;
   readonly view_schema_id: string;
@@ -131,9 +138,36 @@ function parseContract(json: string): ViewContract {
       }),
     ),
   );
+  const syntheticFilterFields = Object.freeze(
+    (raw.synthetic_filter_predicates ?? []).map(
+      (field): ViewFieldContract => ({
+        fieldKey: field.field_key,
+        label: field.label,
+        createWritable: false,
+        defaultHidden: true,
+        stringContractId: null,
+        directScalarContractId: null,
+        directReferenceContractId: null,
+        writeAction: null,
+        enumValues: null,
+        headerSortFieldKey: null,
+        filterOps: Object.freeze([...(field.filter_ops ?? [])]),
+        groupable: false,
+        sortable: false,
+        readKind: "synthetic_filter",
+        writeKind: "read_only",
+        clearable: false,
+        conflictResolutionClass: null,
+        entityBindingMode: null,
+      }),
+    ),
+  );
   const fieldMap = Object.freeze(
     Object.fromEntries(
-      fields.map((field) => [field.fieldKey, field]),
+      [...fields, ...syntheticFilterFields].map((field) => [
+        field.fieldKey,
+        field,
+      ]),
     ) as Record<string, ViewFieldContract>,
   );
   const defaultSort = Object.freeze(
@@ -151,7 +185,10 @@ function parseContract(json: string): ViewContract {
     ...(raw.default_hidden_fields ?? []),
   ]);
   const sortFields = Object.freeze([...(raw.sort_fields ?? [])]);
-  const filterFields = Object.freeze([...(raw.filter_fields ?? [])]);
+  const filterFields = Object.freeze([
+    ...(raw.filter_fields ?? []),
+    ...syntheticFilterFields.map((field) => field.fieldKey),
+  ]);
   const groupingFields = Object.freeze([...(raw.grouping_fields ?? [])]);
   const technicalFields = Object.freeze([...(raw.technical_fields ?? [])]);
 

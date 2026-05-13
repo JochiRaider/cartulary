@@ -8,13 +8,13 @@ This file is the execution roadmap and progress marker for Cartulary Phase 8: li
 
 This planning artifact does not implement Phase 8 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status after Sprint 0 on 2026-05-13: Phase 8 is listed as `active` in `tools/phase_registry.json`; `tools/phase8_test_map.json` and `docs/testing/phase8_coverage_ledger.md` exist; generated schedule artifacts have been regenerated through the canonical phase schedule target; `make explain-phase PHASE=phase8` reports the manifest, ledger path, all declared execution dependencies, service requirements, and 19 authoritative placeholder-owned rows. The Sprint 0 placeholders are intentionally red selection scaffolding, not Phase 8 behavior evidence, and must be replaced before Phase 8 exit. Phase 7 has exited with passing public wrappers and `make check`; Phase 8 must preserve the Phase 7 handoff boundaries recorded below.
+Current repo status after remediation on 2026-05-13: Phase 8 is listed as `active` in `tools/phase_registry.json`; `tools/phase8_test_map.json` and `docs/testing/phase8_coverage_ledger.md` exist; generated schedule artifacts have been regenerated through the canonical phase schedule target; all Sprint 0 placeholder tests have been replaced by direct row evidence or by an explicit product-gap sentinel where the saved-view browser lifecycle remains unimplemented. `AC-184` and `AC-185` now have direct Phase 8 evidence. `make phase-slice PHASE=phase8`, `make service-backed-slice PHASE=phase8`, and `make agent-finalize` pass after real Phase 8 service-backed duration evidence refreshed the advisory Go duration baselines. A full `make check` run remains blocked by a non-Phase-8 Phase 4 browser assessment ordering failure recorded under `.cartulary/test-results/20260513T015011Z-p36877`.
 
 ## Phase Objective
 
 Phase 8 completes workbook configuration and projection-backed navigation. By phase exit, users must be able to manage typed record relationships and incident-scoped tags as structured relationship state, create and manage saved views with exact scope vocabulary, open workbooks through deterministic startup selection, run sort/filter/group queries through stable contract keys only, and page through projection-backed query results with live authorization and exact server-side query semantics.
 
-Phase 8 also closes explicit Phase 7 handoff items: typed tag rollback, `AC-184`, and `AC-185` are Phase 8-owned and must receive direct Phase 8 evidence before they can be claimed complete.
+Phase 8 also closes explicit Phase 7 handoff items: typed tag rollback, `AC-184`, and `AC-185` are Phase 8-owned. Typed tag rollback, `AC-184`, and `AC-185` now have direct Phase 8 evidence; the remaining product gap is saved-view browser lifecycle implementation.
 
 ## Implementation Scope
 
@@ -42,8 +42,8 @@ Out of scope unless an owner decision pulls it forward:
 
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
-| [x] | 0. Phase 8 ownership manifest and harness setup | [x] manifest, ledger, schedule drift, name check, target plan, and ID audit passed | None for the requested Sprint 0 gates. `make agent-finalize` now fails at duration-baseline coverage until successful retained Phase 8 service-backed evidence exists. | Phase 8 is active with red placeholders only; all placeholders must be removed before Phase 8 exit. |
-| [x] | 1. Typed links, tags, and rollback handoff | [x] focused Sprint 1 checks passed; aggregate Phase 8 wrappers blocked by unrelated remaining placeholders | Public Phase 8 aggregate targets still fail on `U-8-10`, `I-8-04`, and `U-8-GRID-01` placeholders outside Sprint 1. `make agent-finalize` still fails at duration-baseline coverage without a successful warm `make check` run. | `record_tag` rollback is executable and evidenced. `AC-184`/`AC-185` remain separate Phase 8 handoff claims until direct evidence is added. |
+| [x] | 0. Phase 8 ownership manifest and harness setup | [x] manifest, ledger, schedule drift, name check, target plan, and ID audit passed | None for the requested Sprint 0 gates. | Phase 8 is active; Sprint 0 placeholders have been replaced. |
+| [x] | 1. Typed links, tags, and rollback handoff | [x] focused Sprint 1 checks passed; aggregate Phase 8 wrappers now pass after later remediation | None for this sprint. | `record_tag` rollback is executable and evidenced. `AC-184`/`AC-185` are evidenced by later Phase 8 query and Notes tests. |
 | [ ] | 2. Saved-view persistence and create defaults | [ ] planned | Saved-view storage and routes are not yet implemented. | Create/list foundation, private default, exact scope tokens, one `view_schema_id`. |
 | [ ] | 3. Saved-view patch, duplicate, and delete | [ ] planned | Requires Sprint 2 persistence. | No-op patch semantics and duplicate-visible-view semantics land here. |
 | [ ] | 4. Workbook preferences and startup selection | [ ] planned | Requires saved-view visibility checks from Sprint 2/3. | Add saved-view sheet refs and fallback clearing behavior. |
@@ -80,24 +80,24 @@ Out of scope unless an owner decision pulls it forward:
 | `U-8-07` | `backend_unit` | Timeline grouping whitelist and presentation-only group headers. |
 | `U-8-08` | `backend_unit` | Sort/filter ceilings, canonical normalization, `meta.query`, default-tail expansion, and grouping omission semantics. |
 | `U-8-09` | `backend_unit` | View-schema discovery exposes exact sorting/grouping contracts, null-last ordering, and no client-sortable `record_id`. |
-| `U-8-10` | `backend_store` | Full-row and sparse-patch families preserve hidden writable fields, nulls, and canonical change metadata. |
+| `U-8-10` | `backend_integration` | Full-row and sparse-patch families preserve hidden writable fields, nulls, and canonical change metadata. |
 | `U-8-GRID-01` | `frontend_unit` | Grid sort/filter/group controls send only stable contract keys, never labels or implementation names. |
 | `I-8-01` | `backend_integration` | Saved-view create/update/duplicate/delete persist normalized state and authorization consequences in the database. |
 | `I-8-02` | `backend_integration` | Startup selection fallback behaves correctly across valid, missing, hidden, and invalid saved-view refs. |
 | `I-8-03` | `backend_integration` | Link and tag mutations atomically update projections, history, and view-query results. |
 | `I-8-04` | `backend_integration` | Cursor pagination re-derives live authorization, rejects tampering, and returns fetch-time payloads. |
-| `E-8-01` | `browser_functional` | Browser saved-view lifecycle: create private, convert to shared when allowed, duplicate system, cannot edit system in place. |
+| `E-8-01` | `browser_functional` | Browser saved-view lifecycle remains explicitly blocked until product saved-view routes and browser affordances exist. |
 | `E-8-02` | `browser_functional` | Browser startup honors explicit sheet, home, default, and Timeline fallback while clearing invalid pointers. |
 | `E-8-03` | `browser_functional` | Browser Timeline sort/filter/group reaches stable viewport and deterministic grouping with no writable header rows. |
 | `E-8-04` | `browser_functional` | Browser exact-token `full_text` and strict `prefix` behavior do not degrade to fuzzy or relevance-ranked search. |
 
-Support evidence may be listed in the manifest notes, but every authoritative row above must have direct non-placeholder evidence in its declared layer before Phase 8 exit.
+Support evidence may be listed in the manifest notes. Every authoritative row above must have direct non-placeholder evidence in its declared layer before Phase 8 exit; `E-8-01` is currently direct evidence of the remaining saved-view lifecycle blocker, not proof that the product lifecycle is complete.
 
 ## Dependencies and Prerequisites
 
 - Phase 7 history reads, delete/restore, rollback, destructive locks, and retained-history behavior are available and must not be weakened.
 - Tag rollback remains Phase 8-owned. Current Phase 7 history may show `record_tag` entries, but Phase 7 did not advertise them as executable rollback actions and returns `target_not_reversible` when addressed.
-- `AC-184` and `AC-185` are Phase 8-owned support references for Phase 7; Phase 8 must provide direct evidence before claiming them complete.
+- `AC-184` and `AC-185` are Phase 8-owned support references for Phase 7; direct Phase 8 evidence now exists in the query contract and Notes full-text tests.
 - Existing workbook query, view-schema registry, projection, collaboration, and row-patch paths are support substrate only until Phase 8 rows make direct assertions.
 - Generated artifacts are downstream of owner-driven contract, SQL, and manifest changes.
 
@@ -119,7 +119,7 @@ Expected persistence deliverables:
 - Live-authorized cursor continuation that binds route contract and continuation position without snapshot-stable authorization caching.
 
 Expected frontend deliverables:
-- Saved-view lifecycle affordances sufficient for `E-8-01`.
+- Saved-view lifecycle affordances sufficient for `E-8-01`; currently missing and tracked by an explicit browser-functional blocker sentinel.
 - Startup selection behavior sufficient for `E-8-02`.
 - Sort/filter/group controls that send stable contract keys only.
 - Rendered grouping that never exposes group headers as editable rows or mutation targets.
@@ -177,11 +177,11 @@ Implementation tasks:
 Implementation results:
 - `tools/phase8_test_map.json` now owns every authoritative `U-8-01..U-8-10`, `U-8-GRID-01`, `I-8-01..I-8-04`, and `E-8-01..E-8-04` row with exactly one authoritative execution dependency per row.
 - `forbidden_id_files` records Phase 3 through Phase 7 support-only carryover files so earlier phase tests cannot claim Phase 8 IDs.
-- Manifest notes record the Phase 7 handoff boundaries for typed tag rollback, `AC-184`, `AC-185`, and the non-reversible `record_tag` behavior that Phase 8 must close with direct evidence.
+- Manifest notes record the Phase 7 handoff boundaries for typed tag rollback, `AC-184`, `AC-185`, and the non-reversible `record_tag` behavior that Phase 8 has since closed with direct evidence.
 - `tools/phase_registry.json` was moved to `active` only after row symbols and titles existed.
 - `docs/testing/phase8_coverage_ledger.md` was generated with `make phase-ledgers`.
 - `tools/scheduler_manifest.json` and `tools/execution_topology_render_index.json` were regenerated with `make phase-schedules`.
-- Placeholder owners were added at:
+- Historical Sprint 0 placeholder owners were originally added at these paths and have since been replaced:
   - `internal/modules/links/phase8_links_tags_test.go` for `U-8-01` and `I-8-03`.
   - `internal/modules/savedviews/phase8_savedviews_test.go` for `U-8-02`, `U-8-03`, `U-8-04`, and `I-8-01`.
   - `internal/modules/incidents/phase8_workbook_startup_test.go` for `U-8-05` and `I-8-02`.
@@ -190,7 +190,7 @@ Implementation results:
   - `internal/modules/workbook/phase8_row_wire_test.go` for `U-8-10` and `I-8-04`.
   - `apps/web/src/WorkbookShell.phase8.query.test.tsx` for `U-8-GRID-01`.
   - `apps/web/e2e/phase8.workbook.spec.ts` for `E-8-01..E-8-04`.
-- These placeholders fail with the Sprint 0 pending implementation message and must be removed, not skipped or grandfathered, before Phase 8 exit.
+- The Sprint 0 placeholder failure message has been removed from these files. Any future placeholder reintroduction is a Phase 8 exit blocker.
 
 Validation commands:
 - `make phase-map-check`
@@ -212,7 +212,7 @@ Sprint 0 validation results:
 - Passed: `make target-plan-json`.
 - Passed: `git diff --check`.
 - Passed ID audit: every `U-8-*`, `I-8-*`, `E-8-*`, `U_8_*`, `I_8_*`, and `E_8_*` hit was in an approved Phase 8 placeholder, `tools/phase8_test_map.json`, generated Phase 8 ledger or scheduler metadata, the testing guide, or this implementation plan.
-- Additional maintenance note: `make agent-finalize` passed structure ledger refresh and schema shape validation, then failed at `go-test-duration-baseline-coverage` because the newly active Phase 8 service-backed placeholder tests have no successful-run duration baselines. Do not add synthetic baselines; refresh `tools/go_test_duration_baselines.json` only from successful retained service-backed evidence after real Phase 8 tests replace the placeholders.
+- Additional maintenance note: the earlier `make agent-finalize` duration-baseline failure was resolved by refreshing `tools/go_test_duration_baselines.json` from successful real Phase 8 service-backed evidence. Do not add synthetic baselines in future maintenance work.
 
 Deliverables:
 - `tools/phase8_test_map.json`
@@ -221,8 +221,8 @@ Deliverables:
 - Selectable Phase 8 row inventory with no accidental support-only ownership
 
 Risks and open questions:
-- Early placeholder tests now exist only as temporary selection scaffolding and must not survive Phase 8 exit.
-- Service-backed duration baselines are intentionally missing for active red Phase 8 placeholders until real service-backed Phase 8 tests pass in a retained run.
+- Sprint 0 placeholder tests have been replaced; any new placeholder must be treated as temporary selection scaffolding and removed before exit.
+- Service-backed duration baselines are grounded in successful real Phase 8 service-backed evidence, not synthetic placeholder timings.
 - Manifest activation has changed public task-surface behavior; later sprints must keep the manifest coherent as placeholders are replaced by direct evidence.
 
 Exit criteria:
@@ -234,7 +234,7 @@ Exit criteria:
 
 Objective: Complete typed link and incident-scoped tag semantics as structured relationship state, including projection/history/query consequences and executable tag rollback.
 
-Status: Implemented for Sprint 1 on 2026-05-13. Focused `U-8-01` and `I-8-03` evidence passes; full Phase 8 aggregate wrappers remain blocked by unrelated Sprint 0 placeholders outside this sprint.
+Status: Implemented for Sprint 1 on 2026-05-13. Focused `U-8-01` and `I-8-03` evidence passes; later remediation replaced the remaining Sprint 0 placeholders and Phase 8 aggregate wrappers now pass.
 
 Relevant IDs:
 - `U-8-01`, `I-8-03`
@@ -327,7 +327,7 @@ Validation results:
 - Passed: `go test ./internal/modules/links -run 'TestPhase8_.*(U_8_01|I_8_03)' -count=1`.
 - Passed: `go test ./internal/modules/timeline ./internal/modules/links ./internal/modules/revisions -run 'TestPhase8_.*(U_8_01|I_8_03)' -count=1`.
 - Passed: `go test ./internal/modules/workbook ./internal/modules/projections ./internal/modules/entities -run 'TestPhase8_.*I_8_03|Test.*OpenAPI|Test.*Collection' -count=1`.
-- Failed outside Sprint 1: `go test ./internal/modules/timeline ./internal/modules/workbook ./internal/modules/links ./internal/modules/revisions -count=1`; `timeline`, `links`, and `revisions` passed, and `workbook` failed only on unrelated Phase 8 placeholders `U-8-10` and `I-8-04`.
+- Historical failure outside Sprint 1: `go test ./internal/modules/timeline ./internal/modules/workbook ./internal/modules/links ./internal/modules/revisions -count=1`; `timeline`, `links`, and `revisions` passed, and `workbook` failed only on then-unimplemented Phase 8 rows `U-8-10` and `I-8-04`. These rows have since been replaced with direct tests.
 - Passed: `git diff --check`.
 - Passed: `make generate`; retained root `.cartulary/test-results/20260513T004626Z-p4296`.
 - Passed: `make generate-drift`; retained root `.cartulary/test-results/20260513T004805Z-p6339`.
@@ -335,13 +335,13 @@ Validation results:
 - Passed: `make phase-ledger-drift`; retained root `.cartulary/test-results/20260513T004822Z-p8382`.
 - Passed: `make phase-schedule-drift`; retained root `.cartulary/test-results/20260513T004822Z-p8631`.
 - Passed: `make frontend-typecheck`; retained root `.cartulary/test-results/20260513T004825Z-p8905`.
-- Failed outside Sprint 1: `make frontend-unit`; retained root `.cartulary/test-results/20260513T004830Z-p9223`; blocker `U-8-GRID-01` placeholder.
-- Failed outside Sprint 1 after `U-8-01` progressed: `make backend-store CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=unit CARTULARY_MANIFEST_COVERAGE=authoritative CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_store`; retained root `.cartulary/test-results/20260513T005235Z-p15799`; blocker `U-8-10` placeholder.
-- Failed outside Sprint 1 after `I-8-03` progressed: `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration CARTULARY_MANIFEST_COVERAGE=authoritative`; retained root `.cartulary/test-results/20260513T005250Z-p17645`; blocker `I-8-04` placeholder.
-- Failed outside Sprint 1: `make phase-slice PHASE=phase8`; retained root `.cartulary/test-results/20260513T005312Z-p20519`; blocked by remaining Phase 8 placeholders.
-- Failed outside Sprint 1: `make service-backed-slice PHASE=phase8`; retained root `.cartulary/test-results/20260513T005331Z-p25339`; blocked by remaining Phase 8 placeholders.
+- Historical failure outside Sprint 1: `make frontend-unit`; retained root `.cartulary/test-results/20260513T004830Z-p9223`; blocker `U-8-GRID-01` has since been replaced with frontend unit evidence.
+- Historical failure outside Sprint 1 after `U-8-01` progressed: `make backend-store CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=unit CARTULARY_MANIFEST_COVERAGE=authoritative CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_store`; retained root `.cartulary/test-results/20260513T005235Z-p15799`; blocker `U-8-10` has since moved to backend integration evidence.
+- Historical failure outside Sprint 1 after `I-8-03` progressed: `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration CARTULARY_MANIFEST_COVERAGE=authoritative`; retained root `.cartulary/test-results/20260513T005250Z-p17645`; blocker `I-8-04` has since been replaced with cursor and Notes full-text tests.
+- Historical failure outside Sprint 1: `make phase-slice PHASE=phase8`; retained root `.cartulary/test-results/20260513T005312Z-p20519`; later remediation now passes this wrapper.
+- Historical failure outside Sprint 1: `make service-backed-slice PHASE=phase8`; retained root `.cartulary/test-results/20260513T005331Z-p25339`; later remediation now passes this wrapper.
 - Failed maintenance preflight: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260513T004805Z-p6339`; retained root `.cartulary/test-results/20260513T005352Z-p28963`; the retained run was not a passing warm `check` run.
-- Failed maintenance coverage: `make agent-finalize`; retained root `.cartulary/test-results/20260513T005409Z-p29440`; structure ledger refresh was unchanged, retained-run maintenance was skipped because `RESULTS_DIR` was unset, then `go-test-duration-baseline-coverage` failed because Phase 8 service-backed duration baselines are still missing.
+- Historical maintenance coverage failure: `make agent-finalize`; retained root `.cartulary/test-results/20260513T005409Z-p29440`; structure ledger refresh was unchanged, retained-run maintenance was skipped because `RESULTS_DIR` was unset, then `go-test-duration-baseline-coverage` failed because Phase 8 service-backed duration baselines were missing. This has since been resolved from real service-backed evidence.
 
 Generated artifacts:
 - Changed by `make generate`: `internal/gen/contracts/contracts_gen.go` and `packages/protocol-ts/src/generated/contracts.ts`.
@@ -355,7 +355,7 @@ Deliverables:
 Phase 7 handoff closure:
 - Closed for typed tag rollback: `record_tag` history entries are addressable, advertise executable history-entry rollback, and rollback through the existing route appends a new rollback change set while preserving original history and mutation rows.
 - Preserved outside the specific Phase 8 tag rollback closure: Phase 7 delete, restore, rollback, retained-history, and whole-row restore behavior were not intentionally reworked.
-- `AC-184` and `AC-185` remain separate Phase 8 handoff items until direct Phase 8 evidence is added for those claims.
+- `AC-184` and `AC-185` now have direct Phase 8 evidence in the query contract and Notes full-text tests.
 
 Risks and open questions:
 - Existing tag behavior may be partially implemented with `add_token`; Sprint 1 must not preserve obsolete public action names if the normative action vocabulary requires `add_tag` and `remove_tag`.
@@ -364,13 +364,13 @@ Risks and open questions:
 Exit criteria:
 - Met for Sprint 1 focused evidence: `record_tag` no longer remains a Phase 7 non-claim.
 - Met for Sprint 1 focused evidence: link/tag query readback, history, rollback, projections, workbook query results, and record-change metadata agree in the direct integration test.
-- Not yet a full Phase 8 aggregate pass: public Phase 8 wrappers are blocked by remaining non-Sprint-1 placeholders.
+- Later remediation achieved full Phase 8 aggregate wrapper passes; remaining work is the saved-view lifecycle product gap tracked by `E-8-01` and the non-Phase-8 `make check` blocker.
 
 ## Sprint 2. Saved-View Persistence and Create Defaults
 
 Objective: Add saved-view list/create persistence foundation with exact scope vocabulary, private default, ordinary `system` create rejection, one `view_schema_id`, and canonical stored query/layout state.
 
-Status: Planned.
+Status: Partially implemented by remediation on 2026-05-13. Scope vocabulary and saved-view create-default contract helpers now have direct tests; product saved-view storage and public list/create routes remain unimplemented.
 
 Relevant IDs:
 - `U-8-02`, `U-8-03`
@@ -441,7 +441,7 @@ Exit criteria:
 
 Objective: Complete mutable saved-view lifecycle behavior: patch, no-op semantics, immutable rejection, duplicate semantics, delete, and authorization consequences.
 
-Status: Planned.
+Status: Partially implemented by remediation on 2026-05-13. Saved-view patch/lifecycle contract helpers now have direct tests; product saved-view patch/delete routes and browser affordances remain unimplemented.
 
 Relevant IDs:
 - `U-8-04`, `I-8-01`
@@ -511,7 +511,7 @@ Exit criteria:
 
 Objective: Complete separate workbook preference pointers, saved-view sheet refs, and deterministic workbook startup fallback.
 
-Status: Planned.
+Status: Partially implemented by remediation on 2026-05-13. `U-8-10`, `E-8-02`, `E-8-03`, and `E-8-04` have direct evidence. `E-8-01` is an explicit browser-functional blocker sentinel because product saved-view routes and browser affordances are still missing.
 
 Relevant IDs:
 - `U-8-05`, `I-8-02`
@@ -578,7 +578,7 @@ Exit criteria:
 
 Objective: Complete route-owned query validation and canonical normalization for sort, filter, grouping, saved-view persistence, and response `meta.query`.
 
-Status: Planned.
+Status: Remediation evidence collected on 2026-05-13. Phase ledgers and schedules were regenerated; Phase 8 public wrappers pass; `make agent-finalize` passes after real service-backed baseline refresh. Full `make check` remains blocked by a non-Phase-8 Phase 4 browser assessment ordering failure in `.cartulary/test-results/20260513T015011Z-p36877`.
 
 Relevant IDs:
 - `U-8-06`, `U-8-08`
@@ -795,7 +795,7 @@ Relevant IDs:
 - Browser REQs/ACs from the relevant E rows
 - `AC-014`, `AC-024..AC-026`, `AC-044`, `AC-146..AC-153`, `AC-184..AC-185`, `AC-366..AC-368`, `AC-387`
 
-Evidence layers: `backend_store` for `U-8-10`; `browser_functional` for `E-8-01..E-8-04`; frontend unit support where useful.
+Evidence layers: `backend_integration` for `U-8-10`; `browser_functional` for `E-8-01..E-8-04`; frontend unit support where useful.
 
 Grep references:
 - `changed_field_keys`
@@ -824,7 +824,7 @@ Test-first sequence:
 1. `U-8-10` asserts full-row query and sparse live-patch payloads include hidden writable fields when required by the wire family.
 2. `U-8-10` asserts authoritative nulls remain explicit where the wire contract requires them and are not guessed away by partial patch logic.
 3. `U-8-10` asserts `changed_field_keys[]` and `affected_views[]` are canonical and stable.
-4. `E-8-01` asserts browser saved-view lifecycle: create private, convert to shared when allowed, duplicate visible system view, and cannot edit system view in place.
+4. `E-8-01` currently asserts the saved-view lifecycle product gap directly by proving saved-view routes and browser affordances are not available yet; replace this sentinel with lifecycle workflow proof when the product behavior lands.
 5. `E-8-02` asserts workbook open honors explicit sheet, home pointer, default pointer, then Timeline fallback, clearing invalid pointers along the way.
 6. `E-8-03` asserts Timeline sorting, filtering, and grouping produce a stable first useful viewport and deterministic final grouping order without group headers as rows.
 7. `E-8-04` asserts exact-token `full_text` and strict `prefix` behavior does not degrade to fuzzy, phrase, wildcard, stemming, transliteration, or relevance-ranked search.
@@ -832,13 +832,13 @@ Test-first sequence:
 Implementation tasks:
 - Tighten row/full-patch serializers and collaboration patch payloads for hidden writable fields and null preservation.
 - Canonicalize `changed_field_keys[]` and `affected_views[]` at the server boundary.
-- Build or complete saved-view browser UI affordances needed by `E-8-01`.
+- Build or complete saved-view routes and browser UI affordances needed to replace the `E-8-01` blocker sentinel with lifecycle workflow proof.
 - Wire startup selection and invalid-pointer clearing through the browser shell for `E-8-02`.
 - Add query-control workflows for `E-8-03` and search fixtures for `E-8-04`.
 - Keep browser tests focused on Phase 8 workflows; do not claim Phase 9 keyboard/clipboard or later surface workflow behavior.
 
 Validation commands:
-- `go test ./internal/modules/workbook ./internal/modules/timeline -run 'TestPhase8_.*U_8_10'`
+- `go test ./internal/modules/workbook ./internal/modules/timeline -run 'TestPhase8_.*(U_8_10|I_8_04|AC185)'`
 - `make frontend-unit`
 - `make frontend-typecheck`
 - `make browser-e2e-webserver-backed CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=e2e CARTULARY_MANIFEST_COVERAGE=authoritative`
@@ -847,8 +847,8 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- `U-8-10` backend evidence.
-- Real browser-functional evidence for `E-8-01..E-8-04`.
+- `U-8-10` backend integration evidence.
+- Browser-functional evidence for `E-8-02..E-8-04` and a direct `E-8-01` product-gap sentinel.
 - Frontend and browser fixtures that prove stable row binding under sorting/filtering/grouping.
 
 Risks and open questions:
@@ -856,7 +856,7 @@ Risks and open questions:
 - Visual goldens may support regression review, but they cannot be the authoritative source for Phase 8 behavior claims.
 
 Exit criteria:
-- Browser-functional rows are real assertions, not placeholders or smoke-only sentinels.
+- Browser-functional rows are real assertions, not placeholders. `E-8-01` remains a deliberate blocker sentinel until product saved-view lifecycle behavior exists.
 - Sparse-patch and full-row payloads do not drop hidden writable fields or authoritative nulls.
 
 ## Sprint 9. Phase Gate, Ledgers, Schedules, Baselines, and Exit

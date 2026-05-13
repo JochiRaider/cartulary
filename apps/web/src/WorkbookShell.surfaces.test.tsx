@@ -1,4 +1,8 @@
 import {
+  gridFilterApplyTestId,
+  gridFilterFieldTestId,
+  gridFilterValueTestId,
+  gridSavedRowsSelector,
   gridShellTestId,
   rowInspectButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -15,6 +19,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { deferred } from "./fetchMockTestSupport";
 import { successEnvelope } from "./timelineWorkbookTestSupport";
 import {
   buildGenericCreatePayload,
@@ -51,12 +56,19 @@ describe("WorkbookShell surface selection", () => {
     row_version: number;
     cells: Record<string, { value: unknown }>;
   }>;
+  let queryResponseOverride:
+    | ((
+        viewSchemaId: string,
+        init: RequestInit | undefined,
+      ) => Promise<Response> | Response | null)
+    | null;
   let uploadShouldFail: boolean;
 
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     evidenceRows = [];
     timelineRows = [];
+    queryResponseOverride = null;
     uploadShouldFail = false;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -175,6 +187,10 @@ describe("WorkbookShell surface selection", () => {
         indicatorsViewSchemaId,
       ]) {
         if (url.includes(`/views/${viewSchemaId}/query`)) {
+          const override = queryResponseOverride?.(viewSchemaId, init);
+          if (override) {
+            return override;
+          }
           return successEnvelope({
             incident_id: "incident-1",
             view_schema_id: viewSchemaId,
@@ -234,6 +250,53 @@ describe("WorkbookShell surface selection", () => {
     expect(window.location.search).toContain(
       `view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`,
     );
+  });
+
+  it("ignores superseded generic surface query responses after rapid filters", async () => {
+    const staleEvidenceQuery = deferred<Response>();
+    let staleEvidenceQueryStarted = false;
+    evidenceRows = [evidenceRow("evidence-initial", 1, "initial")];
+    queryResponseOverride = (viewSchemaId, init) => {
+      if (viewSchemaId !== evidenceViewSchemaId) {
+        return null;
+      }
+      const value = stringFilterValue(parseRequestBody(init));
+      if (value === "older") {
+        staleEvidenceQueryStarted = true;
+        return staleEvidenceQuery.promise;
+      }
+      if (value === "newer") {
+        return successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: evidenceViewSchemaId,
+          rows: [evidenceRow("evidence-newer", 1, "newer")],
+        });
+      }
+      return null;
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.click(await screen.findByTestId("surface-tab-evidence"));
+    await expectRecordIds(evidenceViewSchemaId, ["evidence-initial"]);
+
+    applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "older");
+    await waitFor(() => {
+      expect(staleEvidenceQueryStarted).toBe(true);
+    });
+    applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "newer");
+    await expectRecordIds(evidenceViewSchemaId, ["evidence-newer"]);
+
+    staleEvidenceQuery.resolve(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: evidenceViewSchemaId,
+        rows: [evidenceRow("evidence-older", 1, "older")],
+      }),
+    );
+    await flushMicrotasks();
+
+    expect(currentRecordIds(evidenceViewSchemaId)).toEqual(["evidence-newer"]);
   });
 
   it("Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface", async () => {
@@ -439,6 +502,54 @@ function evidenceRow(recordId: string, rowVersion: number, title: string) {
       "evidence.edited_at": { value: null },
     },
   };
+}
+
+function parseRequestBody(init: RequestInit | undefined) {
+  return JSON.parse(String(init?.body ?? "{}")) as {
+    filters?: Array<{
+      arg?: { value?: unknown };
+    }>;
+  };
+}
+
+function stringFilterValue(body: ReturnType<typeof parseRequestBody>) {
+  const [filter] = body.filters ?? [];
+  return typeof filter?.arg?.value === "string" ? filter.arg.value : null;
+}
+
+function applyGenericFilter(
+  surface: Parameters<typeof gridFilterFieldTestId>[0],
+  fieldKey: string,
+  value: string,
+) {
+  fireEvent.change(screen.getByTestId(gridFilterFieldTestId(surface)), {
+    target: { value: fieldKey },
+  });
+  fireEvent.change(screen.getByTestId(gridFilterValueTestId(surface)), {
+    target: { value },
+  });
+  fireEvent.click(screen.getByTestId(gridFilterApplyTestId(surface)));
+}
+
+async function expectRecordIds(
+  surface: Parameters<typeof gridShellTestId>[0],
+  expected: string[],
+) {
+  await waitFor(() => {
+    expect(currentRecordIds(surface)).toEqual(expected);
+  });
+}
+
+function currentRecordIds(surface: Parameters<typeof gridShellTestId>[0]) {
+  const grid = screen.getByTestId(gridShellTestId(surface));
+  return Array.from(grid.querySelectorAll(gridSavedRowsSelector())).map(
+    (row) => row.getAttribute("data-grid-record-id") ?? "",
+  );
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 describe("generic workbook mutation payloads", () => {

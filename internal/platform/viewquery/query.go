@@ -193,7 +193,6 @@ func normalizeSort(raw json.RawMessage, schema viewschema.Schema) ([]viewschema.
 	for _, fieldKey := range schema.SortFields() {
 		allowed[fieldKey] = struct{}{}
 	}
-	allowed["record_id"] = struct{}{}
 
 	normalized := make([]viewschema.SortEntry, 0, len(items))
 	seen := make(map[string]struct{}, len(items))

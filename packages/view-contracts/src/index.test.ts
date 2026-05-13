@@ -17,6 +17,22 @@ describe("view-contracts", () => {
     expect(timeline.groupingFields).toContain("timeline.capture_state");
   });
 
+  it("exposes synthetic filter predicates as filter-only fields", () => {
+    const notes = requireViewContract("cartulary.view.notes.v1");
+
+    expect(notes.filterFields).toContain("note.full_text");
+    expect(notes.fieldMap["note.full_text"]).toMatchObject({
+      fieldKey: "note.full_text",
+      filterOps: ["full_text"],
+      label: "Full Text",
+      sortable: false,
+      writeKind: "read_only",
+    });
+    expect(visibleFields(notes).map((field) => field.fieldKey)).not.toContain(
+      "note.full_text",
+    );
+  });
+
   it("resolves header sort keys and field capabilities from contract metadata", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v1");
 
