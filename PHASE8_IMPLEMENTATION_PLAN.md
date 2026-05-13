@@ -43,7 +43,7 @@ Out of scope unless an owner decision pulls it forward:
 | Done | Sprint | Validation | Blockers | Follow-up Notes |
 | --- | --- | --- | --- | --- |
 | [x] | 0. Phase 8 ownership manifest and harness setup | [x] manifest, ledger, schedule drift, name check, target plan, and ID audit passed | None for the requested Sprint 0 gates. `make agent-finalize` now fails at duration-baseline coverage until successful retained Phase 8 service-backed evidence exists. | Phase 8 is active with red placeholders only; all placeholders must be removed before Phase 8 exit. |
-| [ ] | 1. Typed links, tags, and rollback handoff | [ ] planned | Tag rollback remains Phase 8-owned from Phase 7. | Close `record_tag` reversibility and prove link/tag projection/history/query atomicity. |
+| [x] | 1. Typed links, tags, and rollback handoff | [x] focused Sprint 1 checks passed; aggregate Phase 8 wrappers blocked by unrelated remaining placeholders | Public Phase 8 aggregate targets still fail on `U-8-10`, `I-8-04`, and `U-8-GRID-01` placeholders outside Sprint 1. `make agent-finalize` still fails at duration-baseline coverage without a successful warm `make check` run. | `record_tag` rollback is executable and evidenced. `AC-184`/`AC-185` remain separate Phase 8 handoff claims until direct evidence is added. |
 | [ ] | 2. Saved-view persistence and create defaults | [ ] planned | Saved-view storage and routes are not yet implemented. | Create/list foundation, private default, exact scope tokens, one `view_schema_id`. |
 | [ ] | 3. Saved-view patch, duplicate, and delete | [ ] planned | Requires Sprint 2 persistence. | No-op patch semantics and duplicate-visible-view semantics land here. |
 | [ ] | 4. Workbook preferences and startup selection | [ ] planned | Requires saved-view visibility checks from Sprint 2/3. | Add saved-view sheet refs and fallback clearing behavior. |
@@ -234,7 +234,7 @@ Exit criteria:
 
 Objective: Complete typed link and incident-scoped tag semantics as structured relationship state, including projection/history/query consequences and executable tag rollback.
 
-Status: Planned.
+Status: Implemented for Sprint 1 on 2026-05-13. Focused `U-8-01` and `I-8-03` evidence passes; full Phase 8 aggregate wrappers remain blocked by unrelated Sprint 0 placeholders outside this sprint.
 
 Relevant IDs:
 - `U-8-01`, `I-8-03`
@@ -282,6 +282,39 @@ Implementation tasks:
 - Refresh affected projections and publish ordinary workbook invalidation/change events.
 - Keep whole-row restore behavior unchanged: it must not implicitly recreate or delete relationship-like adjuncts.
 
+Implementation results:
+- Replaced `internal/modules/links/phase8_links_tags_test.go` placeholders with direct `U-8-01` backend-store evidence and direct `I-8-03` backend-integration evidence.
+- Added shared `fieldnorm.NormalizeTagLabel`, enforcing trim, NFC, control rejection, normalized-empty rejection, a 64 Unicode-scalar ceiling, and locale-independent folded dedupe keys.
+- Updated `timeline.tags` and `note.tags` mutation decoding to use `add_tag { tag_name }` and `remove_tag { item_ref }`; obsolete `add_token` is rejected for tag fields and remains available for mention-token fields.
+- Persisted tags as structured `record_tags` rows and emitted tag collection items as `item_ref="record_tag:<record_id>:<tag_id>"`, `item_kind="tag"`, `display_text=<tag_name>`, and `tag_id=<record_tag_id>`.
+- Persisted tag add/remove mutations as `change_set_mutations.target_kind='record_tag'` with composite target IDs and full before/after tag detail.
+- Extended history selection, rollback addressability, rollback changed-field mapping, and direct history-entry rollback for `record_tag`; rollback now appends a new attributed `source='rollback'` change set and does not rewrite prior history.
+- Added migration `00013_phase8_relationship_vocabulary.sql` to enforce the closed Core 02 base `record_links.link_type` vocabulary.
+- Updated OpenAPI `CollectionActionsV1` with `CollectionAddTagAction` and `CollectionRemoveTagAction`, then regenerated downstream contract artifacts.
+- Updated frontend tag mutation payload builders and support tests to emit `add_tag` / `remove_tag`.
+
+Files changed:
+- `db/migrations/00013_phase8_relationship_vocabulary.sql`
+- `contracts/openapi/cartulary.openapi.yaml`
+- `internal/gen/contracts/contracts_gen.go`
+- `packages/protocol-ts/src/generated/contracts.ts`
+- `internal/platform/fieldnorm/text.go`
+- `internal/modules/links/phase8_links_tags_test.go`
+- `internal/modules/timeline/api.go`
+- `internal/modules/timeline/store.go`
+- `internal/modules/timeline/phase3_decoder_test.go`
+- `internal/modules/entities/timeline_projection.go`
+- `internal/modules/entities/openapi_contract_test.go`
+- `internal/modules/revisions/store.go`
+- `internal/modules/revisions/rollback_store.go`
+- `internal/modules/workbook/store.go`
+- `internal/modules/workbook/mutation_api.go`
+- `internal/modules/workbook/mutation_store.go`
+- `internal/modules/workbook/phase6_conflict_support_test.go`
+- `internal/modules/workbook/workbook_mutation_integration_test.go`
+- `apps/web/src/WorkbookShell.tsx`
+- `apps/web/src/WorkbookShell.surfaces.test.tsx`
+
 Validation commands:
 - `go test ./internal/modules/timeline ./internal/modules/links ./internal/modules/revisions -run 'TestPhase8_.*(U_8_01|I_8_03)'`
 - `go test ./internal/modules/workbook ./internal/modules/projections -run 'TestPhase8_.*I_8_03'`
@@ -289,18 +322,49 @@ Validation commands:
 - `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration CARTULARY_MANIFEST_COVERAGE=authoritative`
 - `git diff --check`
 
+Validation results:
+- Red check before implementation: `go test ./internal/modules/links -run 'TestPhase8_.*(U_8_01|I_8_03)'` failed as expected on closed vocabulary, `add_tag`, obsolete `add_token`, and integration behavior.
+- Passed: `go test ./internal/modules/links -run 'TestPhase8_.*(U_8_01|I_8_03)' -count=1`.
+- Passed: `go test ./internal/modules/timeline ./internal/modules/links ./internal/modules/revisions -run 'TestPhase8_.*(U_8_01|I_8_03)' -count=1`.
+- Passed: `go test ./internal/modules/workbook ./internal/modules/projections ./internal/modules/entities -run 'TestPhase8_.*I_8_03|Test.*OpenAPI|Test.*Collection' -count=1`.
+- Failed outside Sprint 1: `go test ./internal/modules/timeline ./internal/modules/workbook ./internal/modules/links ./internal/modules/revisions -count=1`; `timeline`, `links`, and `revisions` passed, and `workbook` failed only on unrelated Phase 8 placeholders `U-8-10` and `I-8-04`.
+- Passed: `git diff --check`.
+- Passed: `make generate`; retained root `.cartulary/test-results/20260513T004626Z-p4296`.
+- Passed: `make generate-drift`; retained root `.cartulary/test-results/20260513T004805Z-p6339`.
+- Passed: `make migration-drift`; retained root `.cartulary/test-results/20260513T004811Z-p7066`.
+- Passed: `make phase-ledger-drift`; retained root `.cartulary/test-results/20260513T004822Z-p8382`.
+- Passed: `make phase-schedule-drift`; retained root `.cartulary/test-results/20260513T004822Z-p8631`.
+- Passed: `make frontend-typecheck`; retained root `.cartulary/test-results/20260513T004825Z-p8905`.
+- Failed outside Sprint 1: `make frontend-unit`; retained root `.cartulary/test-results/20260513T004830Z-p9223`; blocker `U-8-GRID-01` placeholder.
+- Failed outside Sprint 1 after `U-8-01` progressed: `make backend-store CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=unit CARTULARY_MANIFEST_COVERAGE=authoritative CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_store`; retained root `.cartulary/test-results/20260513T005235Z-p15799`; blocker `U-8-10` placeholder.
+- Failed outside Sprint 1 after `I-8-03` progressed: `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration CARTULARY_MANIFEST_COVERAGE=authoritative`; retained root `.cartulary/test-results/20260513T005250Z-p17645`; blocker `I-8-04` placeholder.
+- Failed outside Sprint 1: `make phase-slice PHASE=phase8`; retained root `.cartulary/test-results/20260513T005312Z-p20519`; blocked by remaining Phase 8 placeholders.
+- Failed outside Sprint 1: `make service-backed-slice PHASE=phase8`; retained root `.cartulary/test-results/20260513T005331Z-p25339`; blocked by remaining Phase 8 placeholders.
+- Failed maintenance preflight: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260513T004805Z-p6339`; retained root `.cartulary/test-results/20260513T005352Z-p28963`; the retained run was not a passing warm `check` run.
+- Failed maintenance coverage: `make agent-finalize`; retained root `.cartulary/test-results/20260513T005409Z-p29440`; structure ledger refresh was unchanged, retained-run maintenance was skipped because `RESULTS_DIR` was unset, then `go-test-duration-baseline-coverage` failed because Phase 8 service-backed duration baselines are still missing.
+
+Generated artifacts:
+- Changed by `make generate`: `internal/gen/contracts/contracts_gen.go` and `packages/protocol-ts/src/generated/contracts.ts`.
+- `make generate-drift` passed after generation.
+
 Deliverables:
 - Direct `U-8-01` and `I-8-03` evidence.
 - Executable `record_tag` rollback and clear Phase 7 handoff closure.
 - Updated API/schema/error docs only where owner-driven behavior changed.
+
+Phase 7 handoff closure:
+- Closed for typed tag rollback: `record_tag` history entries are addressable, advertise executable history-entry rollback, and rollback through the existing route appends a new rollback change set while preserving original history and mutation rows.
+- Preserved outside the specific Phase 8 tag rollback closure: Phase 7 delete, restore, rollback, retained-history, and whole-row restore behavior were not intentionally reworked.
+- `AC-184` and `AC-185` remain separate Phase 8 handoff items until direct Phase 8 evidence is added for those claims.
 
 Risks and open questions:
 - Existing tag behavior may be partially implemented with `add_token`; Sprint 1 must not preserve obsolete public action names if the normative action vocabulary requires `add_tag` and `remove_tag`.
 - Relationship changes must be atomic with history/projection refresh; a projection-only assertion is insufficient evidence.
 
 Exit criteria:
-- `record_tag` no longer remains a Phase 7 non-claim.
-- Link/tag query readback, history, rollback, and projection state agree after service restart.
+- Met for Sprint 1 focused evidence: `record_tag` no longer remains a Phase 7 non-claim.
+- Met for Sprint 1 focused evidence: link/tag query readback, history, rollback, projections, workbook query results, and record-change metadata agree in the direct integration test.
+- Not yet a full Phase 8 aggregate pass: public Phase 8 wrappers are blocked by remaining non-Sprint-1 placeholders.
 
 ## Sprint 2. Saved-View Persistence and Create Defaults
 

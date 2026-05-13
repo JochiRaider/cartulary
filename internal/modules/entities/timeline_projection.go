@@ -293,10 +293,10 @@ SELECT record_tag_id, tag_name
 			return fmt.Errorf("scan timeline tag row: %w", err)
 		}
 		tags = append(tags, map[string]any{
-			"item_ref":     "record_tag:" + recordTagID.String(),
+			"item_ref":     "record_tag:" + record.RecordID.String() + ":" + recordTagID.String(),
 			"item_kind":    "tag",
 			"display_text": tagName,
-			"raw_text":     tagName,
+			"tag_id":       recordTagID.String(),
 		})
 	}
 	if err := tagRows.Err(); err != nil {

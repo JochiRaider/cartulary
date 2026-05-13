@@ -182,6 +182,8 @@ func assertCollectionActionsContract(t *testing.T, schemas map[string]any) {
 	refs := refsFromOneOf(t, objectAt(t, actions, "items"))
 	actionSchemas := map[string]string{
 		"CollectionAddTokenAction":        "add_token",
+		"CollectionAddTagAction":          "add_tag",
+		"CollectionRemoveTagAction":       "remove_tag",
 		"CollectionAddRecordRefAction":    "add_record_ref",
 		"CollectionRemoveRecordRefAction": "remove_record_ref",
 		"CollectionAddPartyRefAction":     "add_party_ref",

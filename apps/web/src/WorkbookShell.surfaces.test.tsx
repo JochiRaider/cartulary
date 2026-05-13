@@ -485,7 +485,7 @@ describe("generic workbook mutation payloads", () => {
       field_key: "note.tags",
       action_payload: {
         kind: "collection_actions_v1",
-        actions: [{ op: "add_token", raw_text: "urgent" }],
+        actions: [{ op: "add_tag", tag_name: "urgent" }],
       },
     });
     expect(

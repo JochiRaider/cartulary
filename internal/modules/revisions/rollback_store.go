@@ -311,6 +311,13 @@ SELECT csm.change_set_id,
                       OR visible.after_value ->> 'source_record_id' = $3
                   )
               )
+              OR (
+                  visible.target_kind = 'record_tag'
+                  AND (
+                      visible.before_value ->> 'record_id' = $3
+                      OR visible.after_value ->> 'record_id' = $3
+                  )
+              )
           )
    )
  ORDER BY csm.sequence_no ASC
@@ -572,6 +579,12 @@ func (s *Store) applyRollbackPlanTx(ctx context.Context, tx pgx.Tx, actor authn.
 			return rollbackApplyResult{}, err
 		}
 		changes = append(changes, mentionChanges...)
+	case "record_tag":
+		tagChanges, err := s.applyRecordTagRollbackTx(ctx, tx, actor, record.IncidentID, plan, changeSetID, &sequenceNo, now)
+		if err != nil {
+			return rollbackApplyResult{}, err
+		}
+		changes = append(changes, tagChanges...)
 	default:
 		return rollbackApplyResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
@@ -710,7 +723,11 @@ func (s *Store) applyChangeSetRollbackPlanTx(ctx context.Context, tx pgx.Tx, act
 				return nil, err
 			}
 			for _, recordID := range affected {
-				addRollbackChangedKeys(changedKeys, recordID, nil)
+				keys, err := rollbackRecordTagChangedFieldKeysTx(ctx, tx, recordID)
+				if err != nil {
+					return nil, err
+				}
+				addRollbackChangedKeys(changedKeys, recordID, keys)
 			}
 		case "entity_preserved_identifier":
 			affected, err := s.applyEntityPreservedIdentifierRollbackMutationTx(ctx, tx, target, changeSetID, sequenceNo, now)
@@ -1258,6 +1275,65 @@ func (s *Store) applyMentionRollbackTx(ctx context.Context, tx pgx.Tx, actor aut
 	}
 	change.ChangedFieldKeys = []string{rollbackMentionFieldKey(target.BeforeValue)}
 	return []RollbackRecordChange{change}, nil
+}
+
+func (s *Store) applyRecordTagRollbackTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, plan rollbackPlan, changeSetID uuid.UUID, sequenceNo *int, now time.Time) ([]RollbackRecordChange, error) {
+	target := plan.Target
+	value := target.BeforeValue
+	if target.OperationKind == "create" {
+		value = target.AfterValue
+	}
+	identity, err := parseRollbackRecordTagIdentity(value)
+	if err != nil {
+		return nil, err
+	}
+	if identity.IncidentID != incidentID {
+		return nil, ErrRollbackTargetNotFound
+	}
+	beforeSnapshots, err := snapshotRollbackAffectedRecordsTx(ctx, tx, plan.Affected)
+	if err != nil {
+		return nil, err
+	}
+	tagBefore, err := loadRollbackRecordTagValueTx(ctx, tx, identity.RecordTagID)
+	if err != nil {
+		return nil, err
+	}
+	switch target.OperationKind {
+	case "patch", "delete":
+		if err := restoreRollbackRecordTagTx(ctx, tx, identity.RecordTagID, target.BeforeValue, now); err != nil {
+			return nil, err
+		}
+	case "create":
+		if err := tombstoneRollbackRecordTagTx(ctx, tx, identity.RecordTagID, actor.ID, now); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+	if err := rebuildRollbackProjectionsTx(ctx, tx, incidentID); err != nil {
+		return nil, err
+	}
+	tagAfter, err := loadRollbackRecordTagValueTx(ctx, tx, identity.RecordTagID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.insertRollbackMutationTx(ctx, tx, changeSetID, sequenceNo, target, tagBefore, tagAfter); err != nil {
+		return nil, err
+	}
+	changes := make([]RollbackRecordChange, 0, len(plan.Affected))
+	for _, recordID := range plan.Affected {
+		change, err := s.insertRollbackRecordRevisionForAffectedTx(ctx, tx, actor, recordID, changeSetID, now, beforeSnapshots[recordID])
+		if err != nil {
+			return nil, err
+		}
+		keys, err := rollbackRecordTagChangedFieldKeysTx(ctx, tx, recordID)
+		if err != nil {
+			return nil, err
+		}
+		change.ChangedFieldKeys = keys
+		changes = append(changes, change)
+	}
+	return changes, nil
 }
 
 func snapshotRollbackAffectedRecordsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
@@ -1985,6 +2061,7 @@ func loadRollbackRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uu
 	err := tx.QueryRow(ctx, `
 SELECT jsonb_build_object(
     'record_tag_id', record_tag_id::text,
+    'tag_id', record_tag_id::text,
     'incident_id', incident_id::text,
     'record_id', record_id::text,
     'tag_name', tag_name,
@@ -2599,6 +2676,21 @@ func rollbackRecordLinkChangedFieldKeysTx(ctx context.Context, tx pgx.Tx, target
 		return []string{"evidence.linked_record_count"}, nil
 	}
 	return nil, nil
+}
+
+func rollbackRecordTagChangedFieldKeysTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) ([]string, error) {
+	record, err := loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
+	if err != nil {
+		return nil, err
+	}
+	switch record.RecordType {
+	case "timeline_event":
+		return []string{"timeline.tags"}, nil
+	case "artifact":
+		return []string{"note.tags"}, nil
+	default:
+		return nil, nil
+	}
 }
 
 func rollbackSourceForRecordType(recordType string, value map[string]any) (map[string]any, error) {

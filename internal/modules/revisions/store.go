@@ -375,6 +375,13 @@ SELECT cs.change_set_id,
 	               OR csm.after_value ->> 'source_record_id' = $3
 	           )
 	       )
+	       OR (
+	           csm.target_kind = 'record_tag'
+	           AND (
+	               csm.before_value ->> 'record_id' = $3
+	               OR csm.after_value ->> 'record_id' = $3
+	           )
+	       )
 	   )
 	 ORDER BY cs.created_at DESC, cs.change_set_id DESC, csm.sequence_no ASC
 	`, record.RecordID, record.IncidentID, record.RecordID.String())
@@ -580,6 +587,9 @@ func singleEntryAddressable(targetKind string, targetID string, recordID uuid.UU
 		case "entity_mention":
 			return mutationJSONReferencesRecord(beforeValue, recordID, "source_record_id") ||
 				mutationJSONReferencesRecord(afterValue, recordID, "source_record_id")
+		case "record_tag":
+			return mutationJSONReferencesRecord(beforeValue, recordID, "record_id") ||
+				mutationJSONReferencesRecord(afterValue, recordID, "record_id")
 		default:
 			return false
 		}
@@ -587,6 +597,9 @@ func singleEntryAddressable(targetKind string, targetID string, recordID uuid.UU
 	switch targetKind {
 	case "record", "timeline_record", "host", "identity", "indicator", "assessment", "evidence":
 		return true
+	case "record_tag":
+		return mutationJSONReferencesRecord(beforeValue, recordID, "record_id") ||
+			mutationJSONReferencesRecord(afterValue, recordID, "record_id")
 	default:
 		return false
 	}

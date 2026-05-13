@@ -2634,6 +2634,12 @@
                   "$ref": "#/components/schemas/CollectionAddTokenAction"
                 },
                 {
+                  "$ref": "#/components/schemas/CollectionAddTagAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveTagAction"
+                },
+                {
                   "$ref": "#/components/schemas/CollectionAddRecordRefAction"
                 },
                 {
@@ -2674,6 +2680,40 @@
         "required": [
           "op",
           "raw_text"
+        ]
+      },
+      "CollectionAddTagAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_tag"
+          },
+          "tag_name": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "op",
+          "tag_name"
+        ]
+      },
+      "CollectionRemoveTagAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_tag"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^record_tag:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
         ]
       },
       "CollectionAddRecordRefAction": {

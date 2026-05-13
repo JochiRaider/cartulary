@@ -100,6 +100,7 @@ func TestSupportPhase6Unit_ConflictHelperSuggestsOnlyCleanTextMerges(t *testing.
 
 func TestSupportPhase6Unit_ConflictHelperBuildsCollectionConflictValues(t *testing.T) {
 	recordID := uuid.New()
+	serverTagID := uuid.NewString()
 	base := map[string]any{
 		"kind":    "collection_value_v1",
 		"ordered": false,
@@ -112,16 +113,16 @@ func TestSupportPhase6Unit_ConflictHelperBuildsCollectionConflictValues(t *testi
 		2,
 		hashRequestPayload(map[string]any{"client": "phase6-u-6-04"}),
 		workbookPatchConflictWindow{BaseRow: phase6Row("note.tags", base), ChangedFields: nil},
-		PatchChange{FieldKey: "note.tags", Collection: &CollectionActionPayload{Actions: []CollectionAction{{Op: "add_token", NormalizedText: "client-tag"}}}},
+		PatchChange{FieldKey: "note.tags", Collection: &CollectionActionPayload{Actions: []CollectionAction{{Op: "add_tag", RawText: "client-tag", NormalizedText: "client-tag"}}}},
 		workbookPatchChangedField{ServerUpdatedBy: uuid.New(), ServerUpdatedAt: time.Now().UTC()},
 		phase6Row("note.tags", map[string]any{
 			"kind":    "collection_value_v1",
 			"ordered": false,
 			"items": []any{map[string]any{
-				"item_ref":     "tag:server-tag",
+				"item_ref":     "record_tag:" + recordID.String() + ":" + serverTagID,
 				"item_kind":    "tag",
 				"display_text": "server-tag",
-				"raw_text":     "server-tag",
+				"tag_id":       serverTagID,
 			}},
 		}),
 	)
@@ -138,7 +139,7 @@ func TestSupportPhase6Unit_ConflictHelperBuildsCollectionConflictValues(t *testi
 		"conflict_token":"token",
 		"resolution_kind":"merged_value",
 		"client_txn_id":"txn-resolve",
-		"resolved_value":{"kind":"collection_actions_v1","actions":[{"op":"add_token","raw_text":"final-tag"}]}
+		"resolved_value":{"kind":"collection_actions_v1","actions":[{"op":"add_tag","tag_name":"final-tag"}]}
 	}`), "token", workbookConflictTokenClaims{ViewSchemaID: NotesViewSchemaID, FieldKey: "note.tags"})
 	if apiErr != nil {
 		t.Fatalf("decode collection resolver request: %#v", apiErr)

@@ -1022,5 +1022,5 @@ func addRiskRef(text string) map[string]any {
 }
 
 func addToken(text string) map[string]any {
-	return map[string]any{"op": "add_token", "raw_text": text}
+	return map[string]any{"op": "add_tag", "tag_name": text}
 }

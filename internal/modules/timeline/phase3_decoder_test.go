@@ -110,7 +110,7 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 					"action_payload": {
 						"kind": "collection_actions_v1",
 						"actions": [
-							{ "op": "add_token", "raw_text": "critical-host" }
+							{ "op": "add_tag", "tag_name": "critical-host" }
 						]
 					}
 				}
@@ -123,7 +123,7 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 			t.Fatalf("unexpected field key: got %q", got)
 		}
 		if got := request.CanonicalChange[0].ActionPayload.Actions[0].NormalizedText; got != "critical-host" {
-			t.Fatalf("unexpected normalized tag token: got %q", got)
+			t.Fatalf("unexpected normalized tag label: got %q", got)
 		}
 	})
 

@@ -1140,8 +1140,18 @@ func applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UU
 				return false, err
 			}
 			changed = changed || applied
-		case "add_token":
-			applied, err := upsertTagTx(ctx, tx, incidentID, recordID, action.NormalizedText, actorID, now)
+		case "add_tag":
+			applied, err := upsertTagTx(ctx, tx, incidentID, recordID, action.RawText, action.NormalizedText, actorID, now)
+			if err != nil {
+				return false, err
+			}
+			changed = changed || applied
+		case "remove_tag":
+			_, tagID, err := recordTagItemRefParts(action.ItemRef)
+			if err != nil {
+				return false, mutationValidationError(fieldKey, "invalid_value")
+			}
+			applied, err := tombstoneTagTx(ctx, tx, incidentID, recordID, tagID, actorID, now)
 			if err != nil {
 				return false, err
 			}
@@ -1271,23 +1281,59 @@ UPDATE handoff_risk_refs
 	return true, nil
 }
 
-func upsertTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagName string, actorID uuid.UUID, now time.Time) (bool, error) {
-	if tagName == "" {
+func upsertTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagName string, normalizedTagName string, actorID uuid.UUID, now time.Time) (bool, error) {
+	if tagName == "" || normalizedTagName == "" {
 		return false, mutationValidationError("note.tags", "invalid_value")
 	}
 	tag, err := tx.Exec(ctx, `
 INSERT INTO record_tags (
     incident_id, record_id, tag_name, normalized_tag_name,
     created_by_user_id, created_at, updated_at
-) VALUES ($1, $2, $3, $3, $4, $5, $5)
+) VALUES ($1, $2, $3, $4, $5, $6, $6)
 ON CONFLICT (incident_id, record_id, normalized_tag_name)
 WHERE deleted_at IS NULL
 DO NOTHING
-`, incidentID, recordID, tagName, actorID, now)
+`, incidentID, recordID, tagName, normalizedTagName, actorID, now)
 	if err != nil {
 		return false, fmt.Errorf("upsert record tag: %w", err)
 	}
 	return tag.RowsAffected() > 0, nil
+}
+
+func tombstoneTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
+	tag, err := tx.Exec(ctx, `
+UPDATE record_tags
+   SET deleted_at = $5,
+       deleted_by_user_id = $4,
+       updated_at = $5
+ WHERE incident_id = $1
+   AND record_id = $2
+   AND record_tag_id = $3
+   AND deleted_at IS NULL
+`, incidentID, recordID, tagID, actorID, now)
+	if err != nil {
+		return false, fmt.Errorf("remove record tag: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return false, mutationValidationError("note.tags", "invalid_value")
+	}
+	return true, nil
+}
+
+func recordTagItemRefParts(itemRef string) (uuid.UUID, uuid.UUID, error) {
+	parts := strings.Split(itemRef, ":")
+	if len(parts) != 3 || parts[0] != "record_tag" {
+		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
+	}
+	recordID, err := uuid.Parse(parts[1])
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, err
+	}
+	tagID, err := uuid.Parse(parts[2])
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, err
+	}
+	return recordID, tagID, nil
 }
 
 func touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID, now time.Time) error {
@@ -1488,9 +1534,9 @@ func applyWorkbookCollectionConflictActions(recordID uuid.UUID, fieldKey string,
 	}
 	for index, action := range payload.Actions {
 		switch action.Op {
-		case "add_record_ref", "add_party_ref", "add_token", "add_risk_ref":
+		case "add_record_ref", "add_party_ref", "add_tag", "add_risk_ref":
 			items = upsertWorkbookCollectionConflictItem(items, newWorkbookClientCollectionItem(recordID, fieldKey, action, requestHash, index))
-		case "remove_record_ref", "remove_party_ref", "remove_risk_ref":
+		case "remove_record_ref", "remove_party_ref", "remove_tag", "remove_risk_ref":
 			items = removeWorkbookCollectionConflictItem(items, action.ItemRef)
 		default:
 			return nil, fmt.Errorf("unsupported collection action: %s", action.Op)
@@ -1563,12 +1609,13 @@ func newWorkbookClientCollectionItem(recordID uuid.UUID, fieldKey string, action
 			"display_text": "party:" + partyID,
 			"party_id":     partyID,
 		}
-	case "add_token":
+	case "add_tag":
+		tagID := workbookConflictLocalUUID(recordID, fieldKey, action, requestHash, actionIndex)
 		return map[string]any{
-			"item_ref":     "tag:" + action.NormalizedText,
+			"item_ref":     "record_tag:" + recordID.String() + ":" + tagID.String(),
 			"item_kind":    "tag",
-			"display_text": action.NormalizedText,
-			"raw_text":     action.NormalizedText,
+			"display_text": action.RawText,
+			"tag_id":       tagID.String(),
 		}
 	case "add_risk_ref":
 		riskRefID := workbookConflictLocalUUID(recordID, fieldKey, action, requestHash, actionIndex)

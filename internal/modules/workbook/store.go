@@ -664,11 +664,11 @@ func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) 
 
 func tagCollectionExprFor(alias string) string {
 	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'item_ref', 'tag:' || rt.normalized_tag_name,
+        'item_ref', 'record_tag:' || rt.record_id::text || ':' || rt.record_tag_id::text,
         'item_kind', 'tag',
         'display_text', rt.tag_name,
-        'raw_text', rt.tag_name
-    ) ORDER BY rt.normalized_tag_name ASC), '[]'::jsonb)
+        'tag_id', rt.record_tag_id::text
+    ) ORDER BY rt.normalized_tag_name ASC, rt.record_tag_id ASC), '[]'::jsonb)
       FROM record_tags rt
      WHERE rt.incident_id = ` + alias + `.incident_id
        AND rt.record_id = ` + alias + `.record_id

@@ -9,6 +9,7 @@ import (
 )
 
 var autoResolutionCaseFolder = cases.Fold()
+var tagLabelCaseFolder = cases.Fold()
 
 func NormalizeLine(raw string) (string, bool) {
 	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
@@ -21,6 +22,25 @@ func NormalizeLine(raw string) (string, bool) {
 		}
 	}
 	return normalized, true
+}
+
+func NormalizeTagLabel(raw string) (string, string, bool) {
+	label, ok := NormalizeLine(raw)
+	if !ok {
+		return "", "", false
+	}
+	if countRunes(label) > 64 {
+		return "", "", false
+	}
+	return label, tagLabelCaseFolder.String(label), true
+}
+
+func countRunes(value string) int {
+	count := 0
+	for range value {
+		count++
+	}
+	return count
 }
 
 func NormalizeNote(raw string) (string, bool) {

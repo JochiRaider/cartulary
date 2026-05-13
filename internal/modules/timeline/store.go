@@ -165,6 +165,14 @@ type attachedEvidenceMutation struct {
 	AfterValue   map[string]any
 }
 
+type recordTagMutation struct {
+	RecordTagID uuid.UUID
+	RecordID    uuid.UUID
+	Operation   string
+	BeforeValue map[string]any
+	AfterValue  map[string]any
+}
+
 type RecordSubstrateSnapshot struct {
 	RecordID            uuid.UUID
 	RowVersion          int64
@@ -386,7 +394,8 @@ FROM inserted_record, inserted_timeline_event
 	if err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, now.UTC()); err != nil {
 		return MutationResult{}, err
 	}
-	if err := applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC()); err != nil {
+	tagMutations, err := applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC())
+	if err != nil {
 		return MutationResult{}, err
 	}
 	attachedEvidenceMutations, err := applyAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.AttachedEvidence, now.UTC())
@@ -428,6 +437,9 @@ FROM inserted_record, inserted_timeline_event
 		return MutationResult{}, err
 	}
 	if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, 2, attachedEvidenceMutations); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(attachedEvidenceMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
 	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
@@ -678,10 +690,14 @@ func (s *Store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 			return MutationResult{}, err
 		}
 	}
+	var tagMutations []recordTagMutation
 	if tagChanged {
-		if err := applyPatchTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC()); err != nil {
+		var err error
+		tagMutations, err = applyPatchTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
+		if err != nil {
 			return MutationResult{}, err
 		}
+		tagChanged = len(tagMutations) > 0
 	}
 	var attachedEvidenceMutations []attachedEvidenceMutation
 	if evidenceChanged {
@@ -762,6 +778,9 @@ RETURNING recorded_at
 		return MutationResult{}, err
 	}
 	if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, 2, attachedEvidenceMutations); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(attachedEvidenceMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
 	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
@@ -1039,7 +1058,7 @@ func applyCollectionConflictActions(fieldKey string, baseValue any, payload *Col
 	}
 	for index, action := range payload.Actions {
 		switch action.Op {
-		case "add_token":
+		case "add_token", "add_tag":
 			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, false))
 		case "add_resolved_ref":
 			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, true))
@@ -1060,7 +1079,7 @@ func applyCollectionConflictActions(fieldKey string, baseValue any, payload *Col
 				item["item_kind"] = "unresolved_mention"
 				removeResolutionMetadata(item, true)
 			}
-		case "remove_record_ref":
+		case "remove_record_ref", "remove_tag":
 			items = removeCollectionItem(items, action.ItemRef)
 		default:
 			return nil, fmt.Errorf("unsupported collection action: %s", action.Op)
@@ -1115,8 +1134,8 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 	rawText := action.RawText
 	displayText := action.RawText
 	if fieldKey == "timeline.tags" {
-		rawText = action.NormalizedText
-		displayText = action.NormalizedText
+		rawText = ""
+		displayText = action.RawText
 	}
 	item := map[string]any{
 		"item_ref":     clientCollectionItemRef(fieldKey, action, requestHash, actionIndex),
@@ -1125,6 +1144,10 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 	}
 	if fieldKey == "timeline.tags" {
 		item["item_kind"] = "tag"
+		tagID := clientCollectionLocalUUID(fieldKey, action, requestHash, actionIndex)
+		item["item_ref"] = "record_tag:client:" + tagID.String()
+		item["tag_id"] = tagID.String()
+		delete(item, "raw_text")
 		return item
 	}
 	if fieldKey == "timeline.attached_evidence_ids" {
@@ -1147,6 +1170,17 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 	}
 	item["item_kind"] = "unresolved_mention"
 	return item
+}
+
+func clientCollectionLocalUUID(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {
+	sum := hashRequestPayload(map[string]any{
+		"request_hash": base64.RawURLEncoding.EncodeToString(requestHash),
+		"field_key":    fieldKey,
+		"action_index": actionIndex,
+		"op":           action.Op,
+		"text":         action.NormalizedText,
+	})
+	return uuid.NewSHA1(uuid.NameSpaceOID, sum)
 }
 
 func clientCollectionItemRef(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) string {
@@ -2082,10 +2116,10 @@ SELECT record_tag_id, tag_name
 			return fmt.Errorf("scan timeline tag row: %w", err)
 		}
 		tags = append(tags, map[string]any{
-			"item_ref":     "record_tag:" + recordTagID.String(),
+			"item_ref":     recordTagMutationTarget(record.RecordID, recordTagID),
 			"item_kind":    "tag",
 			"display_text": tagName,
-			"raw_text":     tagName,
+			"tag_id":       recordTagID.String(),
 		})
 	}
 	if err := tagRows.Err(); err != nil {
@@ -2164,7 +2198,7 @@ func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uui
 	return nil
 }
 
-func applyCreateTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, tags *CollectionActionPayload, now time.Time) error {
+func applyCreateTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, tags *CollectionActionPayload, now time.Time) ([]recordTagMutation, error) {
 	return insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, tags, now)
 }
 
@@ -2210,16 +2244,19 @@ func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 	return nil
 }
 
-func applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
+func applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]recordTagMutation, error) {
+	mutations := make([]recordTagMutation, 0)
 	for _, change := range changes {
 		if change.FieldKey != "timeline.tags" || change.ActionPayload == nil {
 			continue
 		}
-		if err := insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now); err != nil {
-			return err
+		applied, err := insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now)
+		if err != nil {
+			return nil, err
 		}
+		mutations = append(mutations, applied...)
 	}
-	return nil
+	return mutations, nil
 }
 
 func applyPatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]attachedEvidenceMutation, error) {
@@ -2387,33 +2424,16 @@ SELECT jsonb_build_object(
 	return value, nil
 }
 
-func insertTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) error {
+func insertTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) ([]recordTagMutation, error) {
 	if payload == nil || len(payload.Actions) == 0 {
-		return nil
+		return nil, nil
 	}
+	mutations := make([]recordTagMutation, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
-		if action.Op != "add_token" {
-			return fmt.Errorf("unsupported tag action: %s", action.Op)
-		}
-
-		var exists bool
-		if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM record_tags
-     WHERE incident_id = $1
-       AND record_id = $2
-       AND normalized_tag_name = $3
-       AND deleted_at IS NULL
-)
-`, incidentID, recordID, action.NormalizedText).Scan(&exists); err != nil {
-			return fmt.Errorf("query active record tag: %w", err)
-		}
-		if exists {
-			continue
-		}
-
-		if _, err := tx.Exec(ctx, `
+		switch action.Op {
+		case "add_tag":
+			var tagID uuid.UUID
+			err := tx.QueryRow(ctx, `
 INSERT INTO record_tags (
     incident_id,
     record_id,
@@ -2424,11 +2444,130 @@ INSERT INTO record_tags (
     updated_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $6)
-`, incidentID, recordID, action.NormalizedText, action.NormalizedText, actorUserID, now.UTC()); err != nil {
-			return fmt.Errorf("insert record tag: %w", err)
+ON CONFLICT (incident_id, record_id, normalized_tag_name)
+WHERE deleted_at IS NULL
+DO NOTHING
+RETURNING record_tag_id
+`, incidentID, recordID, action.RawText, action.NormalizedText, actorUserID, now.UTC()).Scan(&tagID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return nil, fmt.Errorf("insert record tag: %w", err)
+			}
+			after, err := loadRecordTagValueTx(ctx, tx, tagID)
+			if err != nil {
+				return nil, err
+			}
+			mutations = append(mutations, recordTagMutation{RecordTagID: tagID, RecordID: recordID, Operation: "create", AfterValue: after})
+		case "remove_tag":
+			itemRecordID, tagID, err := recordTagItemRefParts(action.ItemRef)
+			if err != nil || itemRecordID != recordID {
+				return nil, fmt.Errorf("invalid record tag item ref")
+			}
+			before, err := loadRecordTagValueTx(ctx, tx, tagID)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+			tag, err := tx.Exec(ctx, `
+UPDATE record_tags
+   SET deleted_at = $5,
+       deleted_by_user_id = $4,
+       updated_at = $5
+ WHERE incident_id = $1
+   AND record_id = $2
+   AND record_tag_id = $3
+   AND deleted_at IS NULL
+`, incidentID, recordID, tagID, actorUserID, now.UTC())
+			if err != nil {
+				return nil, fmt.Errorf("remove record tag: %w", err)
+			}
+			if tag.RowsAffected() == 0 {
+				continue
+			}
+			after, err := loadRecordTagValueTx(ctx, tx, tagID)
+			if err != nil {
+				return nil, err
+			}
+			mutations = append(mutations, recordTagMutation{RecordTagID: tagID, RecordID: recordID, Operation: "delete", BeforeValue: before, AfterValue: after})
+		default:
+			return nil, fmt.Errorf("unsupported tag action: %s", action.Op)
 		}
 	}
+	return mutations, nil
+}
+
+func (s *Store) insertRecordTagMutationEntriesTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequenceNo int, mutations []recordTagMutation) error {
+	sequenceNo := startSequenceNo
+	for _, mutation := range mutations {
+		if mutation.RecordTagID == uuid.Nil || mutation.RecordID == uuid.Nil {
+			continue
+		}
+		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+			ChangeSetID:   changeSetID,
+			SequenceNo:    sequenceNo,
+			TargetKind:    "record_tag",
+			TargetID:      recordTagMutationTarget(mutation.RecordID, mutation.RecordTagID),
+			OperationKind: mutation.Operation,
+			BeforeValue:   mutation.BeforeValue,
+			AfterValue:    mutation.AfterValue,
+		}); err != nil {
+			return err
+		}
+		sequenceNo++
+	}
 	return nil
+}
+
+func loadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error) {
+	var raw []byte
+	if err := tx.QueryRow(ctx, `
+SELECT jsonb_build_object(
+    'record_tag_id', record_tag_id::text,
+    'tag_id', record_tag_id::text,
+    'incident_id', incident_id::text,
+    'record_id', record_id::text,
+    'tag_name', tag_name,
+    'normalized_tag_name', normalized_tag_name,
+    'created_by_user_id', created_by_user_id::text,
+    'created_at', created_at,
+    'updated_at', updated_at,
+    'deleted_at', deleted_at,
+    'deleted_by_user_id', deleted_by_user_id::text
+)
+  FROM record_tags
+ WHERE record_tag_id = $1
+`, recordTagID).Scan(&raw); err != nil {
+		return nil, fmt.Errorf("load record tag value: %w", err)
+	}
+	var value map[string]any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, fmt.Errorf("decode record tag value: %w", err)
+	}
+	return value, nil
+}
+
+func recordTagMutationTarget(recordID uuid.UUID, tagID uuid.UUID) string {
+	return "record_tag:" + recordID.String() + ":" + tagID.String()
+}
+
+func recordTagItemRefParts(itemRef string) (uuid.UUID, uuid.UUID, error) {
+	parts := strings.Split(itemRef, ":")
+	if len(parts) != 3 || parts[0] != "record_tag" {
+		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
+	}
+	recordID, err := uuid.Parse(parts[1])
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, err
+	}
+	tagID, err := uuid.Parse(parts[2])
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, err
+	}
+	return recordID, tagID, nil
 }
 
 func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, options mentionInsertOptions, now time.Time) error {

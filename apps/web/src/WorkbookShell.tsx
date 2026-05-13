@@ -1209,14 +1209,21 @@ function reconcileCommittedRowsWithLocalDrafts({
   };
 }
 
-function buildCollectionActions(rawInput: string) {
+function buildCollectionActions(fieldKey: CollectionFieldKey, rawInput: string) {
   const actions = rawInput
     .split(/\r?\n/u)
     .filter((segment) => segment.trim() !== "")
-    .map((rawText) => ({
-      op: "add_token",
-      raw_text: rawText,
-    }));
+    .map((rawText) =>
+      fieldKey === "timeline.tags"
+        ? {
+            op: "add_tag",
+            tag_name: rawText,
+          }
+        : {
+            op: "add_token",
+            raw_text: rawText,
+          },
+    );
   if (actions.length < 1) {
     return null;
   }
@@ -1246,10 +1253,11 @@ export function buildCreatePayload(
     }
   }
 
-  for (const field of Object.values(timelineCollectionBindingIndex)) {
-    const actions = buildCollectionActions(
-      row.collectionDrafts[field.draftKey],
-    );
+	for (const field of Object.values(timelineCollectionBindingIndex)) {
+		const actions = buildCollectionActions(
+			field.fieldKey,
+			row.collectionDrafts[field.draftKey],
+		);
     if (actions !== null) {
       payload[field.fieldKey] = actions;
     }
@@ -1360,7 +1368,7 @@ function buildCollectionPatchPayload(
   draftValue: string,
   clientTxnId: string,
 ) {
-  const actionPayload = buildCollectionActions(draftValue);
+	const actionPayload = buildCollectionActions(fieldKey, draftValue);
   if (row.rowVersion === null || actionPayload === null) {
     return null;
   }
@@ -8051,7 +8059,9 @@ function buildGenericCollectionActions(
   }
   const actions = tokens.map((value) => {
     if (field.fieldKey === "note.tags") {
-      return { op: "add_token", raw_text: value };
+      return mode === "remove"
+        ? { op: "remove_tag", item_ref: value }
+        : { op: "add_tag", tag_name: value };
     }
     if (isPartyRefCollection(field.fieldKey)) {
       return mode === "remove"
@@ -8289,8 +8299,8 @@ function isPartyRefCollection(fieldKey: string): boolean {
   );
 }
 
-function genericCollectionSupportsRemove(fieldKey: string): boolean {
-  return fieldKey !== "note.tags";
+function genericCollectionSupportsRemove(_fieldKey: string): boolean {
+	return true;
 }
 
 function genericCollectionItems(

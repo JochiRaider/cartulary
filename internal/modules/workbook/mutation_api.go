@@ -79,6 +79,7 @@ type CollectionActionPayload struct {
 
 type CollectionAction struct {
 	Op             string
+	RawText        string
 	LinkedRecordID *uuid.UUID
 	PartyID        *uuid.UUID
 	ItemRef        string
@@ -476,18 +477,30 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 	action := CollectionAction{Op: op}
 	switch op {
 	case "add_token":
-		if !isTagCollection(fieldKey) || !objectHasOnlyFields(object, "op", "raw_text") {
+		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+	case "add_tag":
+		if !isTagCollection(fieldKey) || !objectHasOnlyFields(object, "op", "tag_name") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		rawText, ok := decodeStringActionField(object, "raw_text")
+		rawText, ok := decodeStringActionField(object, "tag_name")
 		if !ok {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		normalized, ok := fieldnorm.NormalizeLine(rawText)
+		label, normalized, ok := fieldnorm.NormalizeTagLabel(rawText)
 		if !ok {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
+		action.RawText = label
 		action.NormalizedText = normalized
+	case "remove_tag":
+		if !isTagCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		itemRef, ok := decodeStringActionField(object, "item_ref")
+		if !ok || !strings.HasPrefix(itemRef, "record_tag:") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.ItemRef = itemRef
 	case "add_record_ref":
 		if !isRecordRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "linked_record_id") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
@@ -745,6 +758,9 @@ func canonicalCollectionActionPayload(payload CollectionActionPayload) map[strin
 		}
 		if action.ItemRef != "" {
 			entry["item_ref"] = action.ItemRef
+		}
+		if action.Op == "add_tag" && action.RawText != "" {
+			entry["tag_name"] = action.RawText
 		}
 		if action.Op == "add_token" && action.NormalizedText != "" {
 			entry["raw_text"] = action.NormalizedText
