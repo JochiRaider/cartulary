@@ -146,10 +146,13 @@
       "runner": "go_test",
       "package": "./internal/modules/savedviews",
       "file": "internal/modules/savedviews/phase8_savedviews_test.go",
-      "symbol": "TestPhase8_SavedViewCreateDefaults_U_8_02",
+      "symbols": [
+        "TestPhase8_SavedViewCreateDefaults_U_8_02",
+        "TestPhase8_SavedViewOpenAPICreateInputIsLenient_U_8_02"
+      ],
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Ordinary saved-view create defaults omitted scope to private, rejects ordinary system create, and persists exactly one view_schema_id.",
+      "claim": "Ordinary saved-view create defaults omitted scope to private, rejects ordinary system create, persists exactly one view_schema_id, and documents lenient create input with canonical resource output in OpenAPI.",
       "out_of_scope": "Patch, duplicate, delete, startup selection, and browser workflow behavior are covered by separate rows.",
       "execution_family": "backend-store-phase8-savedviews",
       "execution_label": "backend-store phase8 saved views",

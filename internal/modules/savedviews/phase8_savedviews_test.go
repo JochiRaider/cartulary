@@ -3,6 +3,7 @@ package savedviews_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -10,9 +11,11 @@ import (
 	"testing"
 	"time"
 
+	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
 )
@@ -156,6 +159,176 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 		phase2test.WithCookies(viewerSession),
 	)
 	httptestx.RequireErrorEnvelope(t, replayDifferentIncident, http.StatusBadRequest, "invalid_pagination_request")
+
+	emptyDefaultsResp := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
+		map[string]any{
+			"view_schema_id": timeline.TimelineViewSchemaID,
+			"display_name":   "Empty query defaults",
+			"query_json":     map[string]any{},
+		},
+		phase2test.WithCookies(viewerSession, viewerCSRF),
+		phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+	)
+	emptyCreated := httptestx.RequireSuccessEnvelope(t, emptyDefaultsResp, http.StatusCreated)["data"].(map[string]any)
+	requireEmptyCanonicalQueryJSON(t, emptyCreated["query_json"].(map[string]any))
+	requireDefaultLayoutJSON(t, emptyCreated["layout_json"].(map[string]any))
+	requireStoredSavedViewMatchesResource(t, harness.DB, emptyCreated)
+
+	invalidCases := map[string]struct {
+		displayName string
+		queryJSON   map[string]any
+		layoutJSON  map[string]any
+		field       string
+		reasonCode  string
+	}{
+		"group by null": {
+			displayName: "Invalid group by null",
+			queryJSON:   map[string]any{"group_by": nil},
+			field:       "query_json.group_by",
+			reasonCode:  "invalid_group_by",
+		},
+		"query sort record id": {
+			displayName: "Invalid query sort record id",
+			queryJSON: map[string]any{
+				"sort": []any{map[string]any{"field_key": "record_id", "direction": "asc"}},
+			},
+			field:      "query_json.sort[0].field_key",
+			reasonCode: "forbidden_field",
+		},
+		"query filter row version": {
+			displayName: "Invalid query filter row version",
+			queryJSON: map[string]any{
+				"filters": []any{map[string]any{"field_key": "row_version", "op": "eq", "arg": map[string]any{"value": 1}}},
+			},
+			field:      "query_json.filters[0].field_key",
+			reasonCode: "forbidden_field",
+		},
+		"query group by record id": {
+			displayName: "Invalid query group by record id",
+			queryJSON:   map[string]any{"group_by": "record_id"},
+			field:       "query_json.group_by",
+			reasonCode:  "forbidden_field",
+		},
+		"layout column order record id": {
+			displayName: "Invalid layout column order record id",
+			queryJSON:   map[string]any{},
+			layoutJSON:  map[string]any{"layout_schema_id": "cartulary.layout.v1", "column_order": []any{"record_id"}, "hidden_field_keys": []any{}, "column_widths": []any{}},
+			field:       "layout_json.column_order[0]",
+			reasonCode:  "forbidden_field",
+		},
+		"layout hidden row version": {
+			displayName: "Invalid layout hidden row version",
+			queryJSON:   map[string]any{},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["hidden_field_keys"] = []any{"row_version"} }),
+			field:       "layout_json.hidden_field_keys[0]",
+			reasonCode:  "forbidden_field",
+		},
+		"layout width record id": {
+			displayName: "Invalid layout width record id",
+			queryJSON:   map[string]any{},
+			layoutJSON: savedViewLayoutWith(t, func(layout map[string]any) {
+				layout["column_widths"] = []any{map[string]any{"field_key": "record_id", "width_px": 160}}
+			}),
+			field:      "layout_json.column_widths[0].field_key",
+			reasonCode: "forbidden_field",
+		},
+		"layout width row version": {
+			displayName: "Invalid layout width row version",
+			queryJSON:   map[string]any{},
+			layoutJSON: savedViewLayoutWith(t, func(layout map[string]any) {
+				layout["column_widths"] = []any{map[string]any{"field_key": "row_version", "width_px": 160}}
+			}),
+			field:      "layout_json.column_widths[0].field_key",
+			reasonCode: "forbidden_field",
+		},
+	}
+	for name, testCase := range invalidCases {
+		t.Run(name, func(t *testing.T) {
+			body := map[string]any{
+				"view_schema_id": timeline.TimelineViewSchemaID,
+				"display_name":   testCase.displayName,
+				"query_json":     testCase.queryJSON,
+			}
+			if testCase.layoutJSON != nil {
+				body["layout_json"] = testCase.layoutJSON
+			}
+			resp := phase2test.DoJSON(
+				t,
+				http.MethodPost,
+				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
+				body,
+				phase2test.WithCookies(viewerSession, viewerCSRF),
+				phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+			)
+			errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+			requireSavedViewErrorDetails(t, errBody, testCase.field, testCase.reasonCode)
+			if got := countSavedViewsByName(t, harness.DB, incidentID, testCase.displayName); got != 0 {
+				t.Fatalf("invalid saved-view create must not persist %q, got %d rows", testCase.displayName, got)
+			}
+		})
+	}
+}
+
+func TestPhase8_SavedViewOpenAPICreateInputIsLenient_U_8_02(t *testing.T) {
+	artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
+	if !ok {
+		t.Fatal("generated OpenAPI artifact missing from internal/gen/contracts")
+	}
+	var document map[string]any
+	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
+		t.Fatalf("decode generated OpenAPI artifact JSON: %v", err)
+	}
+	schemas := objectAt(t, objectAt(t, document, "components"), "schemas")
+
+	createRequest := schemaAt(t, schemas, "SavedViewCreateRequest")
+	createProps := objectAt(t, createRequest, "properties")
+	queryRef := stringAt(t, objectAt(t, createProps, "query_json"), "$ref")
+	if queryRef != "#/components/schemas/SavedViewCreateQueryJSON" {
+		t.Fatalf("create query_json must use create-input schema, got %q", queryRef)
+	}
+	layoutRef := stringAt(t, objectAt(t, createProps, "layout_json"), "$ref")
+	if layoutRef != "#/components/schemas/SavedViewCreateLayoutJSON" {
+		t.Fatalf("create layout_json must use create-input schema, got %q", layoutRef)
+	}
+
+	createQuery := schemaAt(t, schemas, "SavedViewCreateQueryJSON")
+	if required, ok := createQuery["required"]; ok {
+		t.Fatalf("create query_json must not require sort or filters, got required=%#v", required)
+	}
+	createQueryProps := objectAt(t, createQuery, "properties")
+	if _, ok := createQueryProps["sort"]; !ok {
+		t.Fatal("create query_json must still declare optional sort")
+	}
+	if _, ok := createQueryProps["filters"]; !ok {
+		t.Fatal("create query_json must still declare optional filters")
+	}
+	groupBy := objectAt(t, createQueryProps, "group_by")
+	if stringAt(t, groupBy, "type") != "string" {
+		t.Fatalf("create group_by must be string-only and non-nullable, got %#v", groupBy)
+	}
+
+	resourceQuery := schemaAt(t, schemas, "SavedViewQueryJSON")
+	requireStringSet(t, resourceQuery["required"], []string{"sort", "filters"})
+
+	createLayout := schemaAt(t, schemas, "SavedViewCreateLayoutJSON")
+	variants, ok := createLayout["oneOf"].([]any)
+	if !ok || len(variants) != 2 {
+		t.Fatalf("create layout_json must allow empty object or canonical layout, got %#v", createLayout)
+	}
+	emptyVariant, ok := variants[0].(map[string]any)
+	if !ok || emptyVariant["maxProperties"] != float64(0) {
+		t.Fatalf("create layout_json first variant must be {}, got %#v", variants[0])
+	}
+	fullVariant, ok := variants[1].(map[string]any)
+	if !ok || fullVariant["$ref"] != "#/components/schemas/SavedViewLayoutJSON" {
+		t.Fatalf("create layout_json second variant must be canonical layout ref, got %#v", variants[1])
+	}
+
+	resourceLayout := schemaAt(t, schemas, "SavedViewLayoutJSON")
+	requireStringSet(t, resourceLayout["required"], []string{"layout_schema_id", "column_order", "hidden_field_keys", "column_widths"})
 }
 
 func TestPhase8_SavedViewScopeVocabulary_U_8_03(t *testing.T) {
@@ -242,6 +415,21 @@ func requireCanonicalQueryJSON(t testing.TB, query map[string]any, groupBy *stri
 	}
 }
 
+func requireEmptyCanonicalQueryJSON(t testing.TB, query map[string]any) {
+	t.Helper()
+	sortEntries, ok := query["sort"].([]any)
+	if !ok || len(sortEntries) != 0 {
+		t.Fatalf("query_json.sort must normalize to [], got %#v", query)
+	}
+	filters, ok := query["filters"].([]any)
+	if !ok || len(filters) != 0 {
+		t.Fatalf("query_json.filters must normalize to [], got %#v", query)
+	}
+	if _, exists := query["group_by"]; exists {
+		t.Fatalf("inactive group_by must be omitted, got %#v", query)
+	}
+}
+
 func requireDefaultLayoutJSON(t testing.TB, layout map[string]any) {
 	t.Helper()
 	if layout["layout_schema_id"] != "cartulary.layout.v1" {
@@ -280,6 +468,20 @@ SELECT scope, view_schema_id, query_json, layout_json
 	}
 	if string(layoutJSON) == "{}" {
 		t.Fatal("persisted layout_json must not remain {}")
+	}
+	var storedQuery any
+	if err := json.Unmarshal(queryJSON, &storedQuery); err != nil {
+		t.Fatalf("decode stored query_json: %v", err)
+	}
+	if !reflect.DeepEqual(storedQuery, resource["query_json"]) {
+		t.Fatalf("stored query_json must match resource:\nstored=%#v\nresource=%#v", storedQuery, resource["query_json"])
+	}
+	var storedLayout any
+	if err := json.Unmarshal(layoutJSON, &storedLayout); err != nil {
+		t.Fatalf("decode stored layout_json: %v", err)
+	}
+	if !reflect.DeepEqual(storedLayout, resource["layout_json"]) {
+		t.Fatalf("stored layout_json must match resource:\nstored=%#v\nresource=%#v", storedLayout, resource["layout_json"])
 	}
 }
 
@@ -360,5 +562,81 @@ func requireSavedViewErrorDetails(t testing.TB, envelope map[string]any, field s
 	details := envelope["error"].(map[string]any)["details"].(map[string]any)
 	if details["field"] != field || details["reason_code"] != reasonCode {
 		t.Fatalf("unexpected error details: %#v", details)
+	}
+}
+
+func savedViewLayoutWith(t testing.TB, mutate func(map[string]any)) map[string]any {
+	t.Helper()
+	raw, layoutErr := viewschema.DefaultLayout(timeline.TimelineViewSchemaID)
+	if layoutErr != nil {
+		t.Fatalf("build default layout: %+v", layoutErr)
+	}
+	var layout map[string]any
+	if err := json.Unmarshal(raw, &layout); err != nil {
+		t.Fatalf("decode default layout: %v", err)
+	}
+	mutate(layout)
+	return layout
+}
+
+func schemaAt(t testing.TB, schemas map[string]any, name string) map[string]any {
+	t.Helper()
+	value, ok := schemas[name]
+	if !ok {
+		t.Fatalf("OpenAPI schema %q missing", name)
+	}
+	typed, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("OpenAPI schema %q is %T, want object", name, value)
+	}
+	return typed
+}
+
+func objectAt(t testing.TB, root map[string]any, path ...string) map[string]any {
+	t.Helper()
+	current := any(root)
+	for _, key := range path {
+		object, ok := current.(map[string]any)
+		if !ok {
+			t.Fatalf("path %v: parent for %q is %T, want object", path, key, current)
+		}
+		value, ok := object[key]
+		if !ok {
+			t.Fatalf("path %v missing key %q", path, key)
+		}
+		current = value
+	}
+	object, ok := current.(map[string]any)
+	if !ok {
+		t.Fatalf("path %v is %T, want object", path, current)
+	}
+	return object
+}
+
+func stringAt(t testing.TB, root map[string]any, key string) string {
+	t.Helper()
+	value, ok := root[key].(string)
+	if !ok {
+		t.Fatalf("key %q is %T, want string", key, root[key])
+	}
+	return value
+}
+
+func requireStringSet(t testing.TB, value any, want []string) {
+	t.Helper()
+	items, ok := value.([]any)
+	if !ok {
+		t.Fatalf("required must be array, got %#v", value)
+	}
+	got := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok {
+			t.Fatalf("required item is %T, want string", item)
+		}
+		got = append(got, text)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected required fields: got %v want %v", got, want)
 	}
 }

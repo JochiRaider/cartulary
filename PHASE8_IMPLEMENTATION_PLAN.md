@@ -44,7 +44,7 @@ Out of scope unless an owner decision pulls it forward:
 | --- | --- | --- | --- | --- |
 | [x] | 0. Phase 8 ownership manifest and harness setup | [x] manifest, ledger, schedule drift, name check, target plan, and ID audit passed | None for the requested Sprint 0 gates. | Phase 8 is active; Sprint 0 placeholders have been replaced. |
 | [x] | 1. Typed links, tags, and rollback handoff | [x] focused Sprint 1 checks passed; aggregate Phase 8 wrappers now pass after later remediation | None for this sprint. | `record_tag` rollback is executable and evidenced. `AC-184`/`AC-185` are evidenced by later Phase 8 query and Notes tests. |
-| [ ] | 2. Saved-view persistence and create defaults | [ ] planned | Saved-view storage and routes are not yet implemented. | Create/list foundation, private default, exact scope tokens, one `view_schema_id`. |
+| [x] | 2. Saved-view persistence and create defaults | [x] implemented | Remediated on 2026-05-14; storage/routes, create defaults, list visibility, OpenAPI create-input/resource-output split, route-level negative coverage, ledgers, schedules, and duration baselines are current. | Create/list foundation, private default, exact scope tokens, one `view_schema_id`, canonical query/layout persistence. |
 | [ ] | 3. Saved-view patch, duplicate, and delete | [ ] planned | Requires Sprint 2 persistence. | No-op patch semantics and duplicate-visible-view semantics land here. |
 | [ ] | 4. Workbook preferences and startup selection | [ ] planned | Requires saved-view visibility checks from Sprint 2/3. | Add saved-view sheet refs and fallback clearing behavior. |
 | [ ] | 5. Query contract validation and normalization | [ ] planned | Existing query decoder must be audited against saved-view persistence and `meta.query`. | Stable keys only, ceilings, canonical filters/sort/group, duplicate rejection. |
@@ -370,7 +370,7 @@ Exit criteria:
 
 Objective: Add saved-view list/create persistence foundation with exact scope vocabulary, private default, ordinary `system` create rejection, one `view_schema_id`, and canonical stored query/layout state.
 
-Status: Partially implemented by remediation on 2026-05-13. Scope vocabulary and saved-view create-default contract helpers now have direct tests; product saved-view storage and public list/create routes remain unimplemented.
+Status: Implemented and remediated on 2026-05-14. Product saved-view storage, SQL, public list/create routes, scope vocabulary, create defaults, canonical query/layout persistence, OpenAPI create-input/resource-output split, and route-level negative coverage now have direct evidence. The 2026-05-14 follow-up closed the contract defect where OpenAPI required pre-normalized `query_json.sort`, `query_json.filters`, and full `layout_json` even though the create route accepts omitted/defaulted input.
 
 Relevant IDs:
 - `U-8-02`, `U-8-03`
@@ -379,6 +379,11 @@ Relevant IDs:
 - `AC-146..AC-152`
 
 Evidence layers: `backend_store` for `U-8-02`; `backend_unit` for `U-8-03`; `backend_integration` support for `I-8-01`.
+
+Remediation evidence added on 2026-05-14:
+- `TestPhase8_SavedViewCreateDefaults_U_8_02` now explicitly covers `query_json:{}` normalization to `sort:[]` and `filters:[]`, omitted `group_by`, omitted `layout_json` normalization to the schema default, `group_by:null` rejection, and `record_id` / `row_version` rejection in both `query_json` and `layout_json`.
+- `TestPhase8_SavedViewOpenAPICreateInputIsLenient_U_8_02` asserts `SavedViewCreateRequest` uses lenient create-input schemas while `SavedViewResource` continues to use strict canonical persisted schemas.
+- `tools/phase8_test_map.json`, `docs/testing/phase8_coverage_ledger.md`, generated schedule artifacts, and `tools/go_test_duration_baselines.json` were refreshed after adding the new authoritative U-8-02 test.
 
 Grep references:
 - `saved-views`
@@ -397,45 +402,61 @@ Files and areas:
 - `contracts/errors/index.json`
 - `db/migrations/**`
 - `db/queries/**`
-- New or existing saved-view route/service module, expected default home `internal/modules/savedviews`
+- Saved-view route/service module under `internal/modules/savedviews`
 - `internal/app/runtime.go`
 - `internal/platform/viewquery`
 - `internal/platform/viewschema`
 - Generated SQL and protocol outputs via `make generate`
 
 Test-first sequence:
-1. `U-8-03` unit tests assert only `private`, `shared`, and `system` parse; `team` and unknown/null scope tokens fail closed.
-2. `U-8-02` store/route tests assert omitted create scope persists as `private`, explicit `scope='system'` is rejected on the ordinary public create route, and each saved view binds exactly one `view_schema_id`.
-3. Create tests assert `query_json` and `layout_json` normalize through the same stable field-key grammar as workbook query/view-schema contracts.
-4. List tests assert visible saved views only, deterministic `updated_at desc, saved_view_id asc` ordering, and bound cursor paging.
+1. Completed: `U-8-03` unit tests assert only `private`, `shared`, and `system` parse; `team` and unknown/null scope tokens fail closed.
+2. Completed: `U-8-02` store/route tests assert omitted create scope persists as `private`, explicit `scope='system'` is rejected on the ordinary public create route, and each saved view binds exactly one `view_schema_id`.
+3. Completed: Create tests assert `query_json` and `layout_json` normalize through the same stable field-key grammar as workbook query/view-schema contracts.
+4. Completed: List tests assert visible saved views only, deterministic `updated_at desc, saved_view_id asc` ordering, and bound cursor paging.
+5. Completed: OpenAPI regression tests assert create input accepts omitted `sort` / `filters` and omitted or `{}` `layout_json`, while resource output remains canonical and complete.
 
 Implementation tasks:
-- Add saved-view storage and SQL queries if absent.
-- Add `GET` and `POST /api/v1/incidents/{incident_id}/saved-views`.
-- Validate `display_name`, `scope`, `view_schema_id`, `query_json`, and `layout_json` under owner contracts.
-- Normalize omitted `query_json.sort` and `query_json.filters` to `[]`; omit inactive `group_by`; reject `group_by=null`.
-- Normalize omitted or `{}` `layout_json` to the schema-derived `cartulary.layout.v1` default.
-- Reject `record_id` and `row_version` anywhere inside saved-view `query_json` or `layout_json`.
+- Completed: Saved-view storage and SQL queries exist for create/list.
+- Completed: `GET` and `POST /api/v1/incidents/{incident_id}/saved-views` are registered and covered.
+- Completed: `display_name`, `scope`, `view_schema_id`, `query_json`, and `layout_json` validate under owner contracts.
+- Completed: Omitted `query_json.sort` and `query_json.filters` normalize to `[]`; inactive `group_by` is omitted; `group_by=null` is rejected.
+- Completed: Omitted or `{}` `layout_json` normalizes to the schema-derived `cartulary.layout.v1` default.
+- Completed: `record_id` and `row_version` are rejected anywhere inside saved-view `query_json` or `layout_json`.
+- Completed: OpenAPI now distinguishes lenient create-input schemas (`SavedViewCreateQueryJSON`, `SavedViewCreateLayoutJSON`) from canonical persisted resource schemas (`SavedViewQueryJSON`, `SavedViewLayoutJSON`).
 
 Validation commands:
-- `go test ./internal/modules/savedviews ./internal/platform/viewquery ./internal/platform/viewschema -run 'TestPhase8_.*(U_8_02|U_8_03)'`
+Passed on 2026-05-14:
+- `go test ./internal/modules/savedviews ./internal/platform/viewquery ./internal/platform/viewschema -run 'TestPhase8_.*(U_8_02|U_8_03|U_8_06|U_8_08)'`
+- `go test ./internal/modules/entities ./internal/modules/savedviews -run 'Test.*OpenAPI|TestPhase8_SavedViewCreateDefaults_U_8_02'`
 - `make generate`
 - `make generate-drift`
 - `make backend-store CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_store`
+- `make phase-slice PHASE=phase8`
+- `make service-backed-slice PHASE=phase8`
+- `make go-test-duration-baseline-coverage`
+- `make phase-ledger-drift`
+- `make phase-schedule-drift`
 - `git diff --check`
+- `make agent-finalize`
 
 Deliverables:
-- Saved-view storage and create/list route foundation.
-- OpenAPI and error-contract updates.
-- Generated code refreshed from source artifacts.
+- Delivered: Saved-view storage and create/list route foundation.
+- Delivered: Core 03 saved-view normalization clarification.
+- Delivered: OpenAPI create-input/resource-output schema split.
+- Delivered: Route-level negative tests and empty-query canonical persistence tests.
+- Delivered: Generated Go and TypeScript contract artifacts refreshed from source artifacts.
+- Delivered: Phase 8 manifest, coverage ledger, schedule artifacts, and Go duration baselines refreshed for the added U-8-02 evidence.
 
 Risks and open questions:
-- If implementation inspection finds a narrower existing module owner than `internal/modules/savedviews`, use that module and record the owner decision in this plan.
-- System saved views may need seed/admin-only creation outside ordinary create; do not add such a path unless owner text requires it.
+- Closed: `internal/modules/savedviews` is the module owner for saved-view list/create.
+- Preserved: `system` saved views may still need seed/admin-only creation outside ordinary create in a later sprint; no such path was added because owner text does not require it here.
+- Maintenance note: `agent-finalize` initially exposed the new OpenAPI regression test as missing from `tools/phase8_test_map.json` and then as missing duration baseline coverage. Both were remediated by adding the test to the U-8-02 row and refreshing duration baselines from a successful Phase 8 service-backed run. A pruned baseline refresh was refused because the retained run was partial; the non-pruned refresh succeeded and baseline coverage now passes.
 
 Exit criteria:
-- Saved-view resources persist normalized canonical state and enforce exact scope vocabulary.
-- The ordinary create route cannot create `system` views.
+- Met: Saved-view resources persist normalized canonical state and enforce exact scope vocabulary.
+- Met: The ordinary create route cannot create `system` views.
+- Met: OpenAPI create contracts match route behavior for omitted `query_json.sort`, omitted `query_json.filters`, and omitted or `{}` `layout_json`.
+- Met: Route-level tests reject `group_by:null` and forbidden technical fields in both saved-view persisted blobs.
 
 ## Sprint 3. Saved-View Patch, Duplicate, and Delete
 

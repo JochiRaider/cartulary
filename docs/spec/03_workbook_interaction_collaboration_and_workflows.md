@@ -102,6 +102,8 @@ A saved view MUST persist, at minimum:
 - `saved_view_version`.
 
 `layout_json` carries only shared portable layout state. Selection, scroll position, focused cell, local popover state, open inspector state, preview state, and presence remain client-local and MUST NOT be persisted as part of a saved view.
+
+Persisted saved-view `query_json` MUST use the same stable field-key grammar as workbook view queries. Omitted `sort` and `filters` members MUST persist as empty arrays. Inactive grouping MUST persist by omitting `query_json.group_by`; explicit JSON `null` for `group_by` is invalid. Omitted create-time `layout_json` and create-time `layout_json={}` MUST normalize to the schema-derived `cartulary.layout.v1` default before persistence.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-151, AC-152, AC-231
 
