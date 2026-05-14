@@ -1265,6 +1265,8 @@ Verified by: TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015
 
 Screenshots, videos, traces, visual geometry diagnostics, and Playwright HTML reports are diagnostic secret-bearing artifacts. They MUST NOT be described as safe to upload or publish without separate review. Browser visual targets MAY retain compact geometry diagnostics for workbook screenshot failures, including scroll metrics, visible field keys, required element rectangles, active element identity, and inspector state. Those diagnostics are harness mechanics only; they MUST NOT define product UI behavior or visual-snapshot refresh authority.
 
+Workbook visual regression tests that capture an outer grid shell while driving an inner grid scrollport MUST normalize and verify both layers before assertion. The screenshot-target shell MUST be reset to `scrollLeft=0` and `scrollTop=0` for left/default viewport captures unless a test explicitly declares a different shell-scroll contract, while the owned grid scrollport MUST be normalized to the test's declared scroll or anchor state. Anchor-based captures that intentionally frame off-screen workbook columns are explicit shell-scroll contracts and MUST still reset stale shell state before computing their deterministic offset. Visual diagnostics SHOULD identify the screenshot target and report both shell and scrollport scroll metrics. This normalization is harness mechanics only; it does not promote visual-snapshot refresh authority into the current conformance profile.
+
 ### 15.1 Secret Pattern Table
 
 | Secret class               | Match rule                                                                          | Redaction token                      |

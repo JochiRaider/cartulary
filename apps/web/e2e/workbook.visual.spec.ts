@@ -60,6 +60,13 @@ type GridVisualScrollState = {
   left: GridVisualScrollLeft;
 };
 
+type WorkbookGridVisualScrollSnapshot = {
+  shellTop: number;
+  shellLeft: number;
+  scrollportTop: number;
+  scrollportLeft: number;
+};
+
 type GridVisualAnchor = {
   kind: "timelineEvidenceActions";
   rowId: string;
@@ -906,7 +913,9 @@ async function normalizeWorkbookGridVisualState(
   await waitForVisualLayoutFrame(page);
   const expected = await setWorkbookGridScroll(page, surface, scroll);
   await expect
-    .poll(() => readWorkbookGridScroll(page, surface))
+    .poll(() => readWorkbookGridScroll(page, surface), {
+      message: `Expected ${surface} grid visual scroll to normalize shell and scrollport state`,
+    })
     .toEqual(expected);
   await waitForVisualLayoutFrame(page);
 }
@@ -921,12 +930,19 @@ async function normalizeWorkbookGridAnchorVisualState(
   await expect
     .poll(
       async () => {
-        await setWorkbookGridAnchor(page, surface, anchor);
+        const expected = await setWorkbookGridAnchor(page, surface, anchor);
         const state = await readWorkbookGridAnchorState(page, surface, anchor);
-        return state.ready;
+        return (
+          state.ready &&
+          state.diagnostics.scroll.shell.left === expected.shellLeft &&
+          state.diagnostics.scroll.shell.top === expected.shellTop &&
+          state.diagnostics.scroll.scrollport.left ===
+            expected.scrollportLeft &&
+          state.diagnostics.scroll.scrollport.top === expected.scrollportTop
+        );
       },
       {
-        message: `Expected ${surface} grid visual anchor ${anchor.kind} to reach stable geometry`,
+        message: `Expected ${surface} grid visual anchor ${anchor.kind} to reach stable geometry with normalized shell and scrollport state`,
         timeout: 6_000,
       },
     )
@@ -948,7 +964,7 @@ async function setWorkbookGridScroll(
   page: Page,
   surface: string,
   scroll: GridVisualScrollState,
-) {
+): Promise<WorkbookGridVisualScrollSnapshot> {
   return page.evaluate(
     ({ left, scrollportSelector, surface, top }) => {
       const shell = document.querySelector<HTMLElement>(
@@ -976,11 +992,17 @@ async function setWorkbookGridScroll(
       );
       const expectedLeft = left === "left" ? 0 : left;
       const expectedTop = Math.min(Math.max(0, top), maxTop);
+      shell.scrollTop = 0;
+      shell.scrollLeft = 0;
       scrollport.scrollTop = expectedTop;
       scrollport.scrollLeft = Math.min(Math.max(0, expectedLeft), maxLeft);
+      shell.scrollTop = 0;
+      shell.scrollLeft = 0;
       return {
-        top: scrollport.scrollTop,
-        left: scrollport.scrollLeft,
+        shellTop: Math.round(shell.scrollTop),
+        shellLeft: Math.round(shell.scrollLeft),
+        scrollportTop: Math.round(scrollport.scrollTop),
+        scrollportLeft: Math.round(scrollport.scrollLeft),
       };
     },
     {
@@ -1028,7 +1050,7 @@ async function setWorkbookGridAnchor(
   page: Page,
   surface: string,
   anchor: GridVisualAnchor,
-) {
+): Promise<WorkbookGridVisualScrollSnapshot> {
   return page.evaluate(
     ({ anchor, scrollportSelector, selectors, surface }) => {
       const shell = document.querySelector<HTMLElement>(
@@ -1060,19 +1082,23 @@ async function setWorkbookGridAnchor(
           (element) => element.getAttribute("data-testid") === testId,
         ) ?? null;
 
+      shell.scrollTop = 0;
+      shell.scrollLeft = 0;
       scrollport.scrollTop = expectedTop;
       const actionButton = byTestId(selectors.requiredTestIds.actionButton);
       if (actionButton === null) {
+        shell.scrollLeft = Math.max(0, shell.scrollWidth - shell.clientWidth);
         scrollport.scrollLeft = maxLeft;
       } else {
         actionButton.scrollIntoView({ block: "nearest", inline: "end" });
       }
+      shell.scrollTop = 0;
 
-      const scrollportRect = scrollport.getBoundingClientRect();
       const requiredElements = Object.values(selectors.requiredTestIds)
         .map((testId) => byTestId(testId))
         .filter((element): element is HTMLElement => element !== null);
       if (requiredElements.length > 0) {
+        const shellRect = shell.getBoundingClientRect();
         const leftMost = Math.min(
           ...requiredElements.map(
             (element) => element.getBoundingClientRect().left,
@@ -1084,23 +1110,25 @@ async function setWorkbookGridAnchor(
           ),
         );
         const padding = 8;
-        if (leftMost < scrollportRect.left + padding) {
-          scrollport.scrollLeft = Math.max(
+        if (leftMost < shellRect.left + padding) {
+          shell.scrollLeft = Math.max(
             0,
-            scrollport.scrollLeft - (scrollportRect.left + padding - leftMost),
+            shell.scrollLeft - (shellRect.left + padding - leftMost),
           );
-        } else if (rightMost > scrollportRect.right - padding) {
-          scrollport.scrollLeft = Math.min(
-            maxLeft,
-            scrollport.scrollLeft +
-              (rightMost - (scrollportRect.right - padding)),
+        } else if (rightMost > shellRect.right - padding) {
+          shell.scrollLeft = Math.min(
+            Math.max(0, shell.scrollWidth - shell.clientWidth),
+            shell.scrollLeft + (rightMost - (shellRect.right - padding)),
           );
         }
       }
+      shell.scrollTop = 0;
 
       return {
-        top: scrollport.scrollTop,
-        left: scrollport.scrollLeft,
+        shellTop: Math.round(shell.scrollTop),
+        shellLeft: Math.round(shell.scrollLeft),
+        scrollportTop: Math.round(scrollport.scrollTop),
+        scrollportLeft: Math.round(scrollport.scrollLeft),
       };
     },
     {
@@ -1135,7 +1163,7 @@ async function readWorkbookGridAnchorState(
           );
         }
         const scrollport = scrollports[0];
-        const scrollportRect = scrollport.getBoundingClientRect();
+        const shellRect = shell.getBoundingClientRect();
         const byTestId = (testId: string) =>
           Array.from(shell.querySelectorAll<HTMLElement>("[data-testid]")).find(
             (element) => element.getAttribute("data-testid") === testId,
@@ -1148,10 +1176,10 @@ async function readWorkbookGridAnchorState(
           const visible =
             rect.width > 0 &&
             rect.height > 0 &&
-            rect.right <= scrollportRect.right - 1 &&
-            rect.left >= scrollportRect.left + 1 &&
-            rect.bottom >= scrollportRect.top + 1 &&
-            rect.top <= scrollportRect.bottom - 1;
+            rect.right <= shellRect.right - 1 &&
+            rect.left >= shellRect.left + 1 &&
+            rect.bottom >= shellRect.top + 1 &&
+            rect.top <= shellRect.bottom - 1;
           return {
             bottom: Math.round(rect.bottom),
             height: Math.round(rect.height),
@@ -1176,10 +1204,10 @@ async function readWorkbookGridAnchorState(
             return (
               rect.width > 0 &&
               rect.height > 0 &&
-              rect.right >= scrollportRect.left + 1 &&
-              rect.left <= scrollportRect.right - 1 &&
-              rect.bottom >= scrollportRect.top + 1 &&
-              rect.top <= scrollportRect.bottom - 1
+              rect.right >= shellRect.left + 1 &&
+              rect.left <= shellRect.right - 1 &&
+              rect.bottom >= shellRect.top + 1 &&
+              rect.top <= shellRect.bottom - 1
             );
           })
           .map((element) => element.getAttribute("data-grid-field-key") ?? "")
@@ -1211,21 +1239,34 @@ async function readWorkbookGridAnchorState(
             hiddenTestIds.length === 0 &&
             missingFieldKeys.length === 0,
           requiredRects,
+          screenshotTargetTestId: `${surface}-grid-shell`,
           scroll: {
-            clientHeight: scrollport.clientHeight,
-            clientWidth: scrollport.clientWidth,
-            left: Math.round(scrollport.scrollLeft),
-            maxLeft: Math.max(
-              0,
-              scrollport.scrollWidth - scrollport.clientWidth,
-            ),
-            maxTop: Math.max(
-              0,
-              scrollport.scrollHeight - scrollport.clientHeight,
-            ),
-            scrollHeight: scrollport.scrollHeight,
-            scrollWidth: scrollport.scrollWidth,
-            top: Math.round(scrollport.scrollTop),
+            shell: {
+              clientHeight: shell.clientHeight,
+              clientWidth: shell.clientWidth,
+              left: Math.round(shell.scrollLeft),
+              maxLeft: Math.max(0, shell.scrollWidth - shell.clientWidth),
+              maxTop: Math.max(0, shell.scrollHeight - shell.clientHeight),
+              scrollHeight: shell.scrollHeight,
+              scrollWidth: shell.scrollWidth,
+              top: Math.round(shell.scrollTop),
+            },
+            scrollport: {
+              clientHeight: scrollport.clientHeight,
+              clientWidth: scrollport.clientWidth,
+              left: Math.round(scrollport.scrollLeft),
+              maxLeft: Math.max(
+                0,
+                scrollport.scrollWidth - scrollport.clientWidth,
+              ),
+              maxTop: Math.max(
+                0,
+                scrollport.scrollHeight - scrollport.clientHeight,
+              ),
+              scrollHeight: scrollport.scrollHeight,
+              scrollWidth: scrollport.scrollWidth,
+              top: Math.round(scrollport.scrollTop),
+            },
           },
           surface,
           visibleFieldKeys,
@@ -1250,8 +1291,14 @@ async function readWorkbookGridAnchorState(
       if (firstSample === undefined) {
         throw new Error("Expected grid visual anchor diagnostics to sample");
       }
+      const lastSample = samples[samples.length - 1];
+      if (lastSample === undefined) {
+        throw new Error(
+          "Expected grid visual anchor diagnostics to retain a final sample",
+        );
+      }
       return {
-        diagnostics: samples[samples.length - 1],
+        diagnostics: lastSample,
         ready:
           samples.every((sample) => sample.ready) &&
           samples.every(
@@ -1275,14 +1322,12 @@ async function attachWorkbookGridVisualDiagnostics(
   surface: string,
   options: GridVisualRegressionOptions,
 ) {
-  if (options.testInfo === undefined) {
-    return;
-  }
+  const testInfo = options.testInfo ?? test.info();
   const diagnostics =
     "anchor" in options
       ? await readWorkbookGridAnchorState(page, surface, options.anchor)
       : await readWorkbookGridDiagnostics(page, surface);
-  await options.testInfo.attach(`${name}-grid-diagnostics`, {
+  await testInfo.attach(`${name}-grid-diagnostics`, {
     body: JSON.stringify(diagnostics, null, 2),
     contentType: "application/json",
   });
@@ -1334,18 +1379,34 @@ async function readWorkbookGridDiagnostics(page: Page, surface: string) {
           document.querySelector('[data-testid="timeline-inspector"]') !== null,
         ready: true,
         requiredRects: {},
+        screenshotTargetTestId: `${surface}-grid-shell`,
         scroll: {
-          clientHeight: scrollport.clientHeight,
-          clientWidth: scrollport.clientWidth,
-          left: Math.round(scrollport.scrollLeft),
-          maxLeft: Math.max(0, scrollport.scrollWidth - scrollport.clientWidth),
-          maxTop: Math.max(
-            0,
-            scrollport.scrollHeight - scrollport.clientHeight,
-          ),
-          scrollHeight: scrollport.scrollHeight,
-          scrollWidth: scrollport.scrollWidth,
-          top: Math.round(scrollport.scrollTop),
+          shell: {
+            clientHeight: shell.clientHeight,
+            clientWidth: shell.clientWidth,
+            left: Math.round(shell.scrollLeft),
+            maxLeft: Math.max(0, shell.scrollWidth - shell.clientWidth),
+            maxTop: Math.max(0, shell.scrollHeight - shell.clientHeight),
+            scrollHeight: shell.scrollHeight,
+            scrollWidth: shell.scrollWidth,
+            top: Math.round(shell.scrollTop),
+          },
+          scrollport: {
+            clientHeight: scrollport.clientHeight,
+            clientWidth: scrollport.clientWidth,
+            left: Math.round(scrollport.scrollLeft),
+            maxLeft: Math.max(
+              0,
+              scrollport.scrollWidth - scrollport.clientWidth,
+            ),
+            maxTop: Math.max(
+              0,
+              scrollport.scrollHeight - scrollport.clientHeight,
+            ),
+            scrollHeight: scrollport.scrollHeight,
+            scrollWidth: scrollport.scrollWidth,
+            top: Math.round(scrollport.scrollTop),
+          },
         },
         surface,
         visibleFieldKeys,
@@ -1358,7 +1419,10 @@ async function readWorkbookGridDiagnostics(page: Page, surface: string) {
   );
 }
 
-async function readWorkbookGridScroll(page: Page, surface: string) {
+async function readWorkbookGridScroll(
+  page: Page,
+  surface: string,
+): Promise<WorkbookGridVisualScrollSnapshot> {
   return page.evaluate(
     ({ scrollportSelector, surface }) => {
       const shell = document.querySelector<HTMLElement>(
@@ -1376,8 +1440,10 @@ async function readWorkbookGridScroll(page: Page, surface: string) {
         );
       }
       return {
-        top: scrollports[0].scrollTop,
-        left: scrollports[0].scrollLeft,
+        shellTop: Math.round(shell.scrollTop),
+        shellLeft: Math.round(shell.scrollLeft),
+        scrollportTop: Math.round(scrollports[0].scrollTop),
+        scrollportLeft: Math.round(scrollports[0].scrollLeft),
       };
     },
     {
