@@ -325,6 +325,94 @@
           "summary": "A mutation field value has the wrong shape or scalar type."
         },
         {
+          "code": "invalid_scope",
+          "summary": "A saved-view scope value is outside the exact private, shared, or system vocabulary."
+        },
+        {
+          "code": "system_scope_forbidden",
+          "summary": "The ordinary saved-view create route cannot create system-scoped saved views."
+        },
+        {
+          "code": "unknown_view_schema",
+          "summary": "The request references a view_schema_id outside the registered view-schema vocabulary."
+        },
+        {
+          "code": "forbidden_field",
+          "summary": "The request includes record_id or row_version inside saved-view persisted state."
+        },
+        {
+          "code": "invalid_layout_schema",
+          "summary": "The saved-view layout_json layout_schema_id is outside the supported layout vocabulary."
+        },
+        {
+          "code": "invalid_column_order",
+          "summary": "The saved-view layout_json column_order is not a full view-schema field permutation."
+        },
+        {
+          "code": "invalid_field_order",
+          "summary": "The saved-view layout_json arrays are not in canonical sorted order."
+        },
+        {
+          "code": "unknown_field_key",
+          "summary": "The saved-view layout_json references a field key outside the bound view schema."
+        },
+        {
+          "code": "invalid_width_px",
+          "summary": "The saved-view layout_json column width is outside the supported pixel-width range."
+        },
+        {
+          "code": "invalid_sort_entry",
+          "summary": "The saved-view query_json sort entry is malformed."
+        },
+        {
+          "code": "sort_count_exceeded",
+          "summary": "The saved-view query_json sort array exceeds the public sort limit."
+        },
+        {
+          "code": "duplicate_sort_field",
+          "summary": "The saved-view query_json sort array repeats a field key."
+        },
+        {
+          "code": "sort_field_not_allowed",
+          "summary": "The saved-view query_json sort field is not sortable through the bound view schema."
+        },
+        {
+          "code": "invalid_filter_operand",
+          "summary": "The saved-view query_json filter operand is malformed for the requested operator."
+        },
+        {
+          "code": "filter_count_exceeded",
+          "summary": "The saved-view query_json filters array exceeds the public filter limit."
+        },
+        {
+          "code": "duplicate_filter_field",
+          "summary": "The saved-view query_json filters array repeats a singleton filter field."
+        },
+        {
+          "code": "unknown_filter_field",
+          "summary": "The saved-view query_json filter field is outside the bound view schema."
+        },
+        {
+          "code": "operator_not_allowed",
+          "summary": "The saved-view query_json filter operator is not allowed for the addressed field."
+        },
+        {
+          "code": "empty_full_text_after_tokenization",
+          "summary": "The saved-view full-text filter contains no searchable tokens after normalization."
+        },
+        {
+          "code": "empty_values_after_normalization",
+          "summary": "The saved-view multi-value filter contains no values after normalization."
+        },
+        {
+          "code": "invalid_group_by",
+          "summary": "The saved-view query_json group_by member is malformed."
+        },
+        {
+          "code": "group_by_not_allowed",
+          "summary": "The saved-view query_json group_by field is not groupable through the bound view schema."
+        },
+        {
           "code": "unsupported_field_key",
           "summary": "The request targets a field key not writable through the addressed mutation contract."
         },

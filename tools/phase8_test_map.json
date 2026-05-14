@@ -152,7 +152,16 @@
       "claim": "Ordinary saved-view create defaults omitted scope to private, rejects ordinary system create, and persists exactly one view_schema_id.",
       "out_of_scope": "Patch, duplicate, delete, startup selection, and browser workflow behavior are covered by separate rows.",
       "execution_family": "backend-store-phase8-savedviews",
-      "execution_label": "backend-store phase8 saved views"
+      "execution_label": "backend-store phase8 saved views",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Saved-view create/list coverage starts the real runtime harness and verifies route-owned authorization, cursor, and persistence behavior through committed state."
     },
     {
       "id": "U-8-03",
@@ -345,11 +354,11 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase8.workbook.spec.ts",
-      "title": "E-8-01 saved-view lifecycle requires product saved-view routes and browser affordances",
+      "title": "E-8-01 saved-view route foundation persists canonical state while browser lifecycle affordances remain pending",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "Browser saved-view lifecycle remains explicitly blocked until product saved-view routes and browser affordances exist.",
-      "out_of_scope": "Backend saved-view contract scaffolding is covered by U-8-02, U-8-04, and I-8-01; full saved-view lifecycle remains a Phase 8 exit blocker."
+      "claim": "The browser-authenticated public saved-view list/create route foundation exists and persists canonical state; full browser lifecycle affordances remain pending.",
+      "out_of_scope": "Patch, duplicate, delete, startup selection, and in-product saved-view browser controls remain outside Sprint 2."
     },
     {
       "id": "E-8-02",

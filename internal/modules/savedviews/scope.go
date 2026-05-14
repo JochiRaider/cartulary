@@ -1,6 +1,6 @@
 package savedviews
 
-import "strings"
+import "github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 
 type Scope string
 
@@ -31,9 +31,17 @@ func IsOrdinaryCreateScope(scope Scope) bool {
 }
 
 func NormalizeDisplayName(value string) (string, bool) {
-	normalized := strings.TrimSpace(value)
-	if normalized == "" {
+	normalized, ok := fieldnorm.NormalizeLine(value)
+	if !ok || countRunes(normalized) > 256 {
 		return "", false
 	}
 	return normalized, true
+}
+
+func countRunes(value string) int {
+	count := 0
+	for range value {
+		count++
+	}
+	return count
 }

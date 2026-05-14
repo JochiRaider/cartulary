@@ -11,6 +11,7 @@ import {
   apiBase,
   createIncident,
   createViewRow,
+  csrfHeaders,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
@@ -18,22 +19,75 @@ import {
 const notesViewSchemaId = "cartulary.view.notes.v1";
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
-test("E-8-01 saved-view lifecycle requires product saved-view routes and browser affordances", async ({
+test("E-8-01 saved-view route foundation persists canonical state while browser lifecycle affordances remain pending", async ({
   page,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E801"),
-    "Phase 8 E-8-01 saved-view lifecycle blocker",
+    "Phase 8 E-8-01 saved-view route foundation",
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
 
-  const response = await page.request.get(
+  const listBefore = await page.request.get(
     `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
   );
-  expect(response.status()).toBe(404);
+  expect(listBefore.status()).toBe(200);
+  const beforeBody = (await listBefore.json()) as {
+    data: { saved_views: unknown[] };
+  };
+  expect(beforeBody.data.saved_views).toEqual([]);
+
+  const createResponse = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        view_schema_id: timelineViewSchemaId,
+        display_name: "  Phase 8 saved view  ",
+        query_json: {},
+        layout_json: {},
+      },
+    },
+  );
+  expect(createResponse.status()).toBe(201);
+  const createBody = (await createResponse.json()) as {
+    data: {
+      display_name: string;
+      layout_json: {
+        column_widths: unknown[];
+        layout_schema_id: string;
+      };
+      query_json: {
+        filters: unknown[];
+        sort: unknown[];
+      };
+      scope: string;
+      view_schema_id: string;
+    };
+  };
+  expect(createBody.data.scope).toBe("private");
+  expect(createBody.data.display_name).toBe("Phase 8 saved view");
+  expect(createBody.data.view_schema_id).toBe(timelineViewSchemaId);
+  expect(createBody.data.query_json.sort).toEqual([]);
+  expect(createBody.data.query_json.filters).toEqual([]);
+  expect(createBody.data.layout_json.layout_schema_id).toBe(
+    "cartulary.layout.v1",
+  );
+  expect(createBody.data.layout_json.column_widths).toEqual([]);
+
+  const listAfter = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
+  );
+  expect(listAfter.status()).toBe(200);
+  const afterBody = (await listAfter.json()) as {
+    data: { saved_views: Array<{ display_name: string }> };
+  };
+  expect(afterBody.data.saved_views.map((view) => view.display_name)).toEqual([
+    "Phase 8 saved view",
+  ]);
 });
 
 test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit sheet", async ({

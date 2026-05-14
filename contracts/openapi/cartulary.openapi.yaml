@@ -323,6 +323,166 @@
         }
       }
     },
+    "/api/v1/incidents/{incident_id}/saved-views": {
+      "get": {
+        "tags": [
+          "saved-views"
+        ],
+        "operationId": "listIncidentSavedViews",
+        "summary": "List saved views visible to the current incident member.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Visible saved-view list response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewListEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid saved-view pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "saved-views"
+        ],
+        "operationId": "createIncidentSavedView",
+        "summary": "Create one ordinary private or shared saved view for the incident.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved-view create response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid saved-view create payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows": {
       "post": {
         "tags": [
@@ -1758,6 +1918,236 @@
             "type": "string"
           }
         }
+      },
+      "SavedViewScope": {
+        "type": "string",
+        "enum": [
+          "private",
+          "shared",
+          "system"
+        ]
+      },
+      "SavedViewCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "query_json": {
+            "$ref": "#/components/schemas/SavedViewQueryJSON"
+          },
+          "layout_json": {
+            "$ref": "#/components/schemas/SavedViewLayoutJSON"
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "display_name",
+          "query_json"
+        ]
+      },
+      "SavedViewQueryJSON": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewQueryFilter"
+            }
+          },
+          "group_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sort",
+          "filters"
+        ]
+      },
+      "SavedViewLayoutJSON": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "layout_schema_id": {
+            "type": "string",
+            "const": "cartulary.layout.v1"
+          },
+          "column_order": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hidden_field_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "column_widths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedViewColumnWidth"
+            }
+          }
+        },
+        "required": [
+          "layout_schema_id",
+          "column_order",
+          "hidden_field_keys",
+          "column_widths"
+        ]
+      },
+      "SavedViewColumnWidth": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "width_px": {
+            "type": "integer",
+            "minimum": 40,
+            "maximum": 4096
+          }
+        },
+        "required": [
+          "field_key",
+          "width_px"
+        ]
+      },
+      "SavedViewResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "saved_view_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view_schema_id": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SavedViewScope"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "query_json": {
+            "$ref": "#/components/schemas/SavedViewQueryJSON"
+          },
+          "layout_json": {
+            "$ref": "#/components/schemas/SavedViewLayoutJSON"
+          },
+          "owner_user_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "saved_view_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "saved_view_id",
+          "incident_id",
+          "view_schema_id",
+          "scope",
+          "display_name",
+          "query_json",
+          "layout_json",
+          "owner_user_id",
+          "created_at",
+          "updated_at",
+          "saved_view_version"
+        ]
+      },
+      "SavedViewListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "saved_views": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedViewResource"
+            }
+          }
+        },
+        "required": [
+          "saved_views"
+        ]
+      },
+      "SavedViewListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SavedViewListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SavedViewEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SavedViewResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
       },
       "TimelineCreateRequest": {
         "type": "object",

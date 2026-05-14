@@ -596,6 +596,20 @@ type RouteIdempotency struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type SavedView struct {
+	SavedViewID      pgtype.UUID        `json:"saved_view_id"`
+	IncidentID       pgtype.UUID        `json:"incident_id"`
+	ViewSchemaID     string             `json:"view_schema_id"`
+	Scope            string             `json:"scope"`
+	DisplayName      string             `json:"display_name"`
+	QueryJson        []byte             `json:"query_json"`
+	LayoutJson       []byte             `json:"layout_json"`
+	OwnerUserID      pgtype.UUID        `json:"owner_user_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	SavedViewVersion int64              `json:"saved_view_version"`
+}
+
 type TaskRequest struct {
 	RecordID           pgtype.UUID        `json:"record_id"`
 	IncidentID         pgtype.UUID        `json:"incident_id"`

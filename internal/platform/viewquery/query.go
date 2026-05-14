@@ -1,6 +1,7 @@
 package viewquery
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"slices"
@@ -47,6 +48,12 @@ type FieldSpec struct {
 type Query struct {
 	Meta       viewschema.QueryMeta
 	Pagination pagination.Query
+}
+
+type PersistedQuery struct {
+	Sort    []viewschema.SortEntry `json:"sort"`
+	Filters []viewschema.Filter    `json:"filters"`
+	GroupBy *string                `json:"group_by,omitempty"`
 }
 
 var queryCaseFolder = cases.Fold()
@@ -102,6 +109,68 @@ func Decode(reader io.Reader, viewSchemaID string) (Query, *ValidationError) {
 	}, nil
 }
 
+func NormalizePersisted(raw json.RawMessage, viewSchemaID string) (json.RawMessage, *ValidationError) {
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if !ok {
+		return nil, &ValidationError{
+			Field:      "view_schema_id",
+			ReasonCode: "unknown_view_schema",
+		}
+	}
+	spec, ok := lookupSpec(viewSchemaID)
+	if !ok {
+		return nil, &ValidationError{
+			Field:      "view_schema_id",
+			ReasonCode: "unknown_view_schema",
+		}
+	}
+	if len(bytes.TrimSpace(raw)) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil, &ValidationError{Field: "query_json", ReasonCode: "field_not_nullable"}
+	}
+	if field, ok := containsForbiddenWorkbookState(raw); ok {
+		return nil, &ValidationError{Field: field, ReasonCode: "forbidden_field"}
+	}
+	decoded, err := decodeObject(bytes.NewReader(raw))
+	if err != nil {
+		if err.Field == "" {
+			err.Field = "query_json"
+		}
+		return nil, err
+	}
+	if err := validatePersistedTopLevelMembers(decoded); err != nil {
+		return nil, err
+	}
+
+	sortEntries, err := normalizeSort(decoded["sort"], schema)
+	if err != nil {
+		return nil, err
+	}
+	if sortEntries == nil {
+		sortEntries = []viewschema.SortEntry{}
+	}
+	filters, err := normalizeFilters(decoded["filters"], spec)
+	if err != nil {
+		return nil, err
+	}
+	if filters == nil {
+		filters = []viewschema.Filter{}
+	}
+	groupBy, err := normalizeGroupBy(decoded["group_by"], schema)
+	if err != nil {
+		return nil, err
+	}
+
+	payload, marshalErr := json.Marshal(PersistedQuery{
+		Sort:    sortEntries,
+		Filters: filters,
+		GroupBy: groupBy,
+	})
+	if marshalErr != nil {
+		return nil, &ValidationError{Field: "query_json", ReasonCode: "invalid_value"}
+	}
+	return json.RawMessage(payload), nil
+}
+
 func decodeObject(reader io.Reader) (map[string]json.RawMessage, *ValidationError) {
 	if reader == nil {
 		return map[string]json.RawMessage{}, nil
@@ -132,6 +201,56 @@ func validateTopLevelMembers(raw map[string]json.RawMessage) *ValidationError {
 		}
 	}
 	return nil
+}
+
+func validatePersistedTopLevelMembers(raw map[string]json.RawMessage) *ValidationError {
+	for key := range raw {
+		switch key {
+		case "sort", "filters", "group_by":
+		default:
+			return &ValidationError{
+				Field:      "query_json." + key,
+				ReasonCode: "unknown_field",
+			}
+		}
+	}
+	return nil
+}
+
+func containsForbiddenWorkbookState(raw json.RawMessage) (string, bool) {
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return "", false
+	}
+	return containsForbiddenValue(value, "query_json")
+}
+
+func containsForbiddenValue(value any, path string) (string, bool) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			fieldPath := path + "." + key
+			if key == "record_id" || key == "row_version" {
+				return fieldPath, true
+			}
+			if found, ok := containsForbiddenValue(nested, fieldPath); ok {
+				return found, true
+			}
+		}
+	case []any:
+		for index, nested := range typed {
+			if found, ok := containsForbiddenValue(nested, path+"["+itoa(index)+"]"); ok {
+				return found, true
+			}
+		}
+	case string:
+		if typed == "record_id" || typed == "row_version" {
+			return path, true
+		}
+	}
+	return "", false
 }
 
 func normalizePagination(raw map[string]json.RawMessage) (pagination.Query, *ValidationError) {
