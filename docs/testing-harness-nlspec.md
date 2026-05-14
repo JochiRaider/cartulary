@@ -325,6 +325,16 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-014
 Generated manifests are execution inputs, not caller configuration. A caller-supplied variable that attempts to override a non-overridable manifest field MUST fail with `configuration_error` before child work.
 Verified by: TH-HARNESS-AC-002
 
+**TH-HARNESS-REQ-102**
+When a scheduler work unit invokes a child runner that starts its own worker pool, the scheduler input MUST either declare logical resource claims equal to the child worker budget or constrain that child worker budget through scheduler-owned environment. The scheduler-owned value wins for that scheduled work unit even when the same variable has a different direct public-target default. In the current check profile, scheduled `frontend-unit` MUST run Vitest with `VITEST_MAX_WORKERS=2` and MUST claim `host_cpu=2`; direct `make frontend-unit` MAY keep a faster developer default outside the check scheduler.
+
+Auto-derived scheduler capacity MUST NOT resolve below the largest declared claim for that resource in the normalized work-unit set. Caller overrides MAY still choose lower limits, but such overrides are configuration errors when they cannot satisfy a declared work unit.
+Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-021
+
+**TH-HARNESS-REQ-103**
+Frontend unit harness tests that depend on asynchronous jsdom rendering, workbook row hydration, controlled input replacement, or virtualized grid mounting MUST use shared bounded wait helpers with actionable diagnostics. The default wait budget MUST be finite and configuration-backed. Tests SHOULD wait for stable workbook row identity when identity matters, not only for a visible row count. Helper diagnostics SHOULD identify expected row IDs, mounted row IDs, surface, and the failing selector class without reclassifying ordinary test assertions away from `failure_class=product`.
+Verified by: TH-HARNESS-AC-021
+
 ### 5.1 Precedence
 
 | Precedence | Source                                 | Rule                                                                                                   |
@@ -760,6 +770,7 @@ family-specific source forms as runtime scheduler manifests.
 | `work_units[].failure_keys[]`      | string array         |       no | completion keys              | Added on failure.                                           |
 | `work_units[].complete_on_failure` | boolean              |       no | `false`                      | Adds completion keys even when command fails.               |
 | `work_units[].resource_claims`     | object               |      yes | `{}`                         | Logical claims only.                                        |
+| `work_units[].env`                 | object               |       no | `{}`                         | Scheduler-owned child environment values; MUST NOT override scheduler-owned harness identity variables. |
 | `work_units[].timeout_seconds`     | integer              |       no | target-family default        | Must be positive and bounded by registry.                   |
 | `work_units[].retained_resource_claims` | object         |       no | `{}`                         | Claims kept after work-unit exit until explicit release.    |
 | `work_units[].release_retained_resource_claims` | object |       no | `{}`                         | Retained claims to release after work-unit exit.            |
@@ -773,6 +784,8 @@ aggregation, MUST remain in `work_units[]` and MUST NOT be modeled as an
 unconditional scheduler finalizer.
 
 `weight_ms` is an advisory scheduling estimate. It MUST NOT be treated as a logical resource claim, timeout, benchmark claim, pass/fail threshold, or product performance conformance statement.
+
+Nested child-runner concurrency is not advisory. A work unit whose command launches a worker pool MUST keep its declared resource claims and scheduled child worker budget aligned according to Section 5. Direct public targets may expose different developer-loop defaults only when the scheduler-owned invocation remains deterministic and resource-accounted.
 
 Retained resource claims represent continuing logical capacity pressure after a work unit exits. They MUST NOT be used to preserve historical ownership for resources that no longer constrain future work. A browser stage session MAY retain browser stack, stage-lane, and process claims while the stage remains live, but it MUST NOT retain broad database or object-store capacity solely because the stage used those services during readiness.
 
@@ -1336,6 +1349,7 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-018 | Sections 4, 10, 11 | Warm scheduler health            | Retained warm `check` fixture plus over-budget, measurement-in-default-check, and skewed-lane fixtures | `make scheduler-summary-timing-drift RESULTS_DIR=<dir> TARGET=check SCHEDULER_WARM_CHECK_BUDGET_MS=60000 SCHEDULER_WARM_CHECK_BALANCE_RATIO=1.25` | Success only for in-budget balanced fixtures                    | Bounded summary                                        | Bounded diagnostic on failure fixture                  | Scheduler and target summaries identify `check-service-backed` wall time and evaluated lanes       | Measurement stage or skewed non-isolated lane passes unnoticed                    | none                                                    |
 | TH-HARNESS-AC-019 | Section 8.2        | Agent finalizer                  | Fake Make fixture plus valid, missing, failed, incomplete, contaminated, and non-warm retained run fixtures | `make agent-finalize`; `RESULTS_DIR=<dir> make agent-finalize`; `CARTULARY_OUTPUT_MODE=machine make agent-finalize` | Success for coherent maintenance inputs; fail-fast for first failed action substep or invalid retained run | One `[FINALIZE]` line then bounded result/artifact lines; machine emits one JSON object | Bounded failure diagnostic naming failed action/substep | `agent-finalize/finalize-summary.json`, child summaries/logs, and `finalize_summary` artifact ref | Excluded targets run, mutation starts after invalid `RESULTS_DIR`, machine output requires log parsing, semantic action IDs are absent, or skipped-after-failure work is absent | No cleanup or destructive command is run               |
 | TH-HARNESS-AC-020 | Section 4          | Public target semantic value     | Current target registry plus one synthetic shallow-wrapper fixture           | Registry semantic-value checker                                                           | Success only when every public target declares at least one semantic behavior and every declared behavior has an owner section | Bounded report                                         | Empty on success                                             | Semantic-value parity report                                                                    | Target with only child command aliases and no semantic behavior passes        | none                                                    |
+| TH-HARNESS-AC-021 | Sections 5, 10     | Frontend-unit harness stability  | Current check topology plus delayed jsdom workbook-row and controlled-input helper fixtures | Topology contract tests; `make frontend-unit`; constrained `CHECK_HOST_CPU_JOBS=2 make check` | Success when scheduled Vitest workers and resource claims match and shared helpers tolerate bounded async hydration | Bounded summary                                        | Empty on success                                             | Scheduler manifest shows `frontend-unit` `host_cpu=2` and `VITEST_MAX_WORKERS=2`; frontend helper tests pass | `frontend-unit` can run more workers than it claims, row waits use unbounded/ad hoc selectors, or helper diagnostics omit mounted row identity | none                                                    |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
@@ -1343,12 +1357,12 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | ------------------------- | ---------------------------------- | ------------------------------------------------------- |
 | `TH-HARNESS-REQ-001..049` | Status, scope, authority, purpose  | TH-HARNESS-AC-013, TH-HARNESS-AC-015, TH-HARNESS-AC-016 |
 | `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020 |
-| `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003                    |
+| `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-021 |
 | `TH-HARNESS-REQ-150..199` | Result roots and artifact identity | TH-HARNESS-AC-003, TH-HARNESS-AC-015                    |
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005                    |
 | `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015, TH-HARNESS-AC-019 |
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014                    |
-| `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018                    |
+| `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021 |
 | `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017 |
 | `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008                                       |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010                    |

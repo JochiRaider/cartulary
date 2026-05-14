@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanupTimelineWorkbookTestGlobals,
   extractTimelineJSONBody,
+  findWorkbookCell,
   installTimelineWorkbookTestGlobals,
   latestTimelineWebSocket,
   successEnvelope,
@@ -106,7 +107,7 @@ describe("Phase 7 workbook history support coverage", () => {
       );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("row-record-1-summary");
+    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
     fireEvent.click(screen.getByTestId("row-history-open-record-1"));
 
     await screen.findByTestId("row-history-item-0");
@@ -202,7 +203,7 @@ describe("Phase 7 workbook history support coverage", () => {
       );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("row-record-1-summary");
+    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
     fireEvent.click(screen.getByTestId("row-history-open-record-1"));
     await screen.findByTestId("row-history-action-0-history_entry");
     fireEvent.click(screen.getByTestId("row-history-action-0-history_entry"));
@@ -295,7 +296,7 @@ describe("Phase 7 workbook history support coverage", () => {
       );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("row-record-1-summary");
+    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
     fireEvent.click(screen.getByTestId("row-history-open-record-1"));
     await screen.findByTestId("row-history-delete");
     fireEvent.click(screen.getByTestId("row-history-delete"));
@@ -314,7 +315,7 @@ describe("Phase 7 workbook history support coverage", () => {
     });
 
     fireEvent.click(screen.getByTestId("row-history-restore"));
-    await screen.findByTestId("row-record-1-summary");
+    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
     const restoreCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
       String(url).endsWith("/api/v1/records/record-1/restore"),
     );
@@ -363,7 +364,7 @@ describe("Phase 7 workbook history support coverage", () => {
       );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("row-record-1-summary");
+    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
     fireEvent.click(screen.getByTestId("row-history-open-record-1"));
     await screen.findByTestId("row-history-item-0");
 
@@ -409,8 +410,12 @@ describe("Phase 7 workbook history support coverage", () => {
     });
 
     await waitFor(() => {
-      expect(visibleGridRowRecordIds(container)).toEqual(["record-1"]);
+      expect(visibleGridRowRecordIds(container, "timeline")).toEqual([
+        "record-1",
+      ]);
     });
-    expect(screen.getByTestId("row-record-1-summary")).toBeTruthy();
+    expect(
+      await findWorkbookCell(container, "timeline", "record-1", "summary"),
+    ).toBeTruthy();
   });
 });

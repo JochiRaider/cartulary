@@ -1732,6 +1732,28 @@ if (summary.resource_limit_sources?.host_io !== "env:CHECK_HOST_IO_JOBS") {
 }
 EOF
 
+cpu_constrained_manifest="${success_dir}/cpu-constrained-manifest.json"
+cat >"$cpu_constrained_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schedules": [
+    {
+      "target": "check",
+      "capacity_profile": "check_default",
+      "resource_limits": { "host_cpu": "auto", "host_io": "auto", "suite_service_stack": 1, "migration_scratch_postgres": 1 },
+      "summary_groups": [
+        { "name": "io-heavy-work", "summary_targets": ["io-heavy"] }
+      ],
+      "work_units": [
+        { "target": "io-heavy", "weight_ms": 10, "needs": [], "produces_summary_targets": ["io-heavy"], "resource_claims": { "host_cpu": 1, "host_io": 3 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+cpu_constrained_output="$(CHECK_HOST_CPU_JOBS=2 CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 run_scheduler "$success_dir" "$cpu_constrained_manifest" cpu-constrained 2>&1)"
+assert_contains "$cpu_constrained_output" "[CHECK-SCHEDULER] check start work_units=1 capacity={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1}" "auto host_io must not resolve below declared claims under constrained host_cpu"
+
 browser_auto_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-browser-auto.XXXXXX")"
 cleanup_paths+=("$browser_auto_dir")
 write_fake_make "$browser_auto_dir"

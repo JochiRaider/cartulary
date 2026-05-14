@@ -1,3 +1,18 @@
+import { configure } from "@testing-library/dom";
+
+function positiveIntegerEnv(name: string, fallback: number) {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+configure({
+  asyncUtilTimeout: positiveIntegerEnv("CARTULARY_TEST_ASYNC_TIMEOUT_MS", 3000),
+});
+
 if (globalThis.ResizeObserver === undefined) {
   Object.defineProperty(globalThis, "ResizeObserver", {
     configurable: true,

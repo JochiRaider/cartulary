@@ -135,7 +135,7 @@ for (const manifestPath of phaseFiles) {
 }
 
 const statusFor = (index, fallback = "passed") => {
-  if (mode === "authoritative-failure" && index === 0) {
+  if ((mode === "authoritative-failure" || mode === "stack-failure") && index === 0) {
     return "failed";
   }
   return fallback;
@@ -146,7 +146,16 @@ const assertion = (title, status) => ({
   fullName: `frontend-unit smoke ${title}`,
   status,
   title,
-  failureMessages: status === "failed" ? ["frontend unit smoke failure"] : [],
+  failureMessages:
+    status !== "failed"
+      ? []
+      : mode === "stack-failure"
+        ? [
+            `Error: STACK_TRACE_ERROR
+    at task (file:///tmp/vitest/chunk-artifact.js:1784:27)
+    at ${path.join(root, "apps/web/src/WorkbookShell.phase3.grid.test.tsx")}:56:3`,
+          ]
+        : ["frontend unit smoke failure"],
   meta: {},
   tags: [],
 });
@@ -155,7 +164,10 @@ const byFile = new Map();
 for (const [index, row] of authoritative.entries()) {
   const absolute = path.join(root, row.file);
   const entries = byFile.get(absolute) ?? [];
-  entries.push(assertion(row.title, statusFor(index)));
+  const titles = Array.isArray(row.titles) ? row.titles : [row.title];
+  for (const title of titles.filter(Boolean)) {
+    entries.push(assertion(title, statusFor(index)));
+  }
   byFile.set(absolute, entries);
 }
 
@@ -261,7 +273,7 @@ for (const entry of (registry.phases ?? [])
         row.coverage === "authoritative" &&
         row.execution_dependency === "frontend_unit"
       ) {
-        authoritative += 1;
+        authoritative += Array.isArray(row.titles) ? row.titles.length : 1;
         phases.add(entry.phase);
       }
     }
@@ -306,3 +318,28 @@ assert_contains "$stderr_log" "/raw/frontend-unit/stderr.log" "authoritative fai
 assert_artifact_present "$runner_json" "authoritative failure runner artifact"
 assert_artifact_present "$stdout_log" "authoritative failure stdout artifact"
 assert_artifact_present "$stderr_log" "authoritative failure stderr artifact"
+
+stack_summary="$(run_case stack stack-failure fail)"
+stack_target_dir="${stack_summary%/target-summary.json}"
+"${NODE:-node}" - "$stack_target_dir" <<'EOF'
+const fs = require("node:fs");
+const path = require("node:path");
+const [targetDir] = process.argv.slice(2);
+const summaries = fs.readdirSync(targetDir, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => path.join(targetDir, entry.name, "phase-summary.json"))
+  .filter((summaryPath) => fs.existsSync(summaryPath))
+  .map((summaryPath) => JSON.parse(fs.readFileSync(summaryPath, "utf8")));
+const dossier = summaries
+  .flatMap((summary) => summary.dossiers ?? [])
+  .find((entry) => String(entry.message ?? "").includes("STACK_TRACE_ERROR"));
+if (!dossier) {
+  throw new Error("stack failure summary must include fallback STACK_TRACE_ERROR diagnostic");
+}
+if (!String(dossier.message).includes("first_app_frame=apps/web/src/WorkbookShell.phase3.grid.test.tsx:56")) {
+  throw new Error(`stack failure summary did not include first app frame: ${dossier.message}`);
+}
+if (!(dossier.diagnostic_tags ?? []).includes("vitest_stack_trace_error")) {
+  throw new Error("stack failure summary must include vitest_stack_trace_error diagnostic tag");
+}
+EOF

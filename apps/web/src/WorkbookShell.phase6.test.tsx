@@ -15,6 +15,7 @@ import {
   errorEnvelope,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
+  findWorkbookCell,
   installTimelineWorkbookTestGlobals,
   latestTimelineWebSocket,
   successEnvelope,
@@ -76,7 +77,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("row-record-1-summary");
+    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
     });
@@ -178,8 +179,11 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    const input = (await screen.findByTestId(
-      "row-record-1-summary",
+    const input = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
     input.focus();
     await changeInputValue(input, "Unsaved local");
@@ -250,8 +254,11 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    const input = (await screen.findByTestId(
-      "row-record-1-summary",
+    const input = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Unsaved local value");
@@ -333,8 +340,11 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    const input = (await screen.findByTestId(
-      "row-record-1-summary",
+    const input = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Local");
@@ -396,8 +406,11 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    const secondInput = (await screen.findByTestId(
-      "row-record-1-summary",
+    const secondInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
     fireEvent.focus(secondInput);
     await changeInputValue(secondInput, "Use local");
@@ -463,8 +476,11 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    const mergedInput = (await screen.findByTestId(
-      "row-record-1-summary",
+    const mergedInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
     fireEvent.focus(mergedInput);
     await changeInputValue(mergedInput, "Merge local");
@@ -522,11 +538,17 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    const firstInput = (await screen.findByTestId(
-      "row-record-1-summary",
+    const firstInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
-    const secondInput = (await screen.findByTestId(
-      "row-record-2-summary",
+    const secondInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-2",
+      "summary",
     )) as HTMLInputElement;
 
     await changeQueuedCellValue(firstInput, "One in flight");
@@ -643,11 +665,17 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    const firstInput = (await screen.findByTestId(
-      "row-record-1-summary",
+    const firstInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
-    const secondInput = (await screen.findByTestId(
-      "row-record-2-summary",
+    const secondInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-2",
+      "summary",
     )) as HTMLInputElement;
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
@@ -736,7 +764,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fetchMock.mockResolvedValueOnce(errorEnvelope("session_required", 401));
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("row-record-1-summary");
+    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
 
     for (let index = 1; index <= pendingReplayCapacity + 1; index += 1) {
       const recordID = index % 2 === 0 ? "record-2" : "record-1";
@@ -762,10 +790,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
         "64",
       );
     });
-    expect(screen.getByTestId("row-record-1-summary")).toHaveProperty(
-      "value",
-      "Queue 65 local",
-    );
+    expect(
+      await findWorkbookCell(document.body, "timeline", "record-1", "summary"),
+    ).toHaveProperty("value", "Queue 65 local");
     expect(
       fetchMock.mock.calls.filter(([url]) =>
         String(url).includes("/api/v1/records/"),
@@ -802,8 +829,11 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    const input = (await screen.findByTestId(
-      "row-record-1-summary",
+    const input = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
@@ -867,11 +897,17 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fetchMock.mockReturnValueOnce(firstPendingPatch.promise);
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    const firstInput = (await screen.findByTestId(
-      "row-record-1-summary",
+    const firstInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
-    const secondInput = (await screen.findByTestId(
-      "row-record-2-summary",
+    const secondInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-2",
+      "summary",
     )) as HTMLInputElement;
 
     await changeQueuedCellValue(firstInput, "Conflict local");

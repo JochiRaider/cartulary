@@ -5182,6 +5182,9 @@
           "profile": "frontend_unit_vitest",
           "priority_band": "harness_evidence",
           "order": 0,
+          "env": {
+            "VITEST_MAX_WORKERS": "2"
+          },
           "produces_summary_targets": [
             "frontend-unit"
           ],
@@ -7645,7 +7648,7 @@
         },
         "frontend_unit_vitest": {
           "resource_claims": {
-            "host_cpu": 1
+            "host_cpu": 2
           },
           "make_jobs": "host_cpu"
         },

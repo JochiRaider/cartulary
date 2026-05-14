@@ -3294,12 +3294,15 @@
             "frontend-unit"
           ],
           "resource_claims": {
-            "host_cpu": 1
+            "host_cpu": 2
           },
           "make_jobs": "host_cpu",
           "command": {
             "type": "make_target",
             "target": "frontend-unit"
+          },
+          "env": {
+            "VITEST_MAX_WORKERS": "2"
           }
         },
         {

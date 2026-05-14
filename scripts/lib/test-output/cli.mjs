@@ -27,6 +27,13 @@ import {
   summarizeFixtureActivities,
 } from "../fixture-reporting.mjs";
 import {
+  compactJSONString,
+  prettyJSONString,
+  secureMkdir,
+  secureWriteFile,
+  validateSchemaSync,
+} from "../harness-contract.mjs";
+import {
   collectEntries,
   loadManifest,
   packageMatchesPattern,
@@ -61,13 +68,6 @@ import {
   toolSummaryPath,
   verboseOutput,
 } from "../tool-output.mjs";
-import {
-  compactJSONString,
-  prettyJSONString,
-  secureMkdir,
-  secureWriteFile,
-  validateSchemaSync,
-} from "../harness-contract.mjs";
 import {
   phaseSummarySchemaID,
   repoRoot,
@@ -1030,15 +1030,13 @@ function resolveArtifactPath(value) {
 }
 
 function finalizeLine(summary) {
-  return (
-    [
-      `[FINALIZE] generated=${summary.generated?.status ?? "unknown"}`,
-      `files=${summary.generated?.updated_file_count ?? 0}`,
-      `duration=${summary.duration?.status ?? "skipped"}`,
-      `run_checks=${summary.run_checks?.status ?? "skipped"}`,
-      `results_dir=${summary.results_dir ?? "-"}`,
-    ].join(" ") + "\n"
-  );
+  return `${[
+    `[FINALIZE] generated=${summary.generated?.status ?? "unknown"}`,
+    `files=${summary.generated?.updated_file_count ?? 0}`,
+    `duration=${summary.duration?.status ?? "skipped"}`,
+    `run_checks=${summary.run_checks?.status ?? "skipped"}`,
+    `results_dir=${summary.results_dir ?? "-"}`,
+  ].join(" ")}\n`;
 }
 
 function createBasePhaseContext(runner) {
@@ -2844,7 +2842,9 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     rerunCommands: [`make ${targetSummary.target}`],
     schedulerTiming,
     extensions: {
-      ...(serviceMetadata ? { "cartulary.service_backed": serviceMetadata } : {}),
+      ...(serviceMetadata
+        ? { "cartulary.service_backed": serviceMetadata }
+        : {}),
     },
   });
 }
@@ -5286,6 +5286,67 @@ function classifyVitestFileFailure(ownerPath, phaseLabel, selection = null) {
   );
 }
 
+function firstVitestAppFrame(message) {
+  const frame = String(message)
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) =>
+      /(?:^at\s+|^\()\/?home\/.*\/cartulary\/apps\/web\/src\//.test(line),
+    );
+  if (!frame) {
+    return "";
+  }
+  const match = frame.match(/(apps\/web\/src\/[^:)]+):([0-9]+)(?::[0-9]+)?/);
+  if (!match) {
+    return "";
+  }
+  return `${match[1]}:${match[2]}`;
+}
+
+function vitestDiagnosticTags(message) {
+  const tags = [];
+  if (message.includes("STACK_TRACE_ERROR")) {
+    tags.push("vitest_stack_trace_error");
+  }
+  if (
+    message.includes('Unable to find an element by: [data-testid="row-') ||
+    message.includes("Expected workbook rows for surface")
+  ) {
+    tags.push("workbook_row_hydration_wait");
+  }
+  if (
+    message.includes("controlled_input_replacement_mismatch") ||
+    message.includes("Expected input value")
+  ) {
+    tags.push("controlled_input_replacement");
+  }
+  return tags;
+}
+
+function summarizeVitestFailureMessage({
+  fallback,
+  failureMessage,
+  ownerPath,
+  title,
+}) {
+  const firstLine = failureMessage.split("\n")[0]?.trim() ?? "";
+  if (firstLine && firstLine !== "Error: STACK_TRACE_ERROR") {
+    return firstLine;
+  }
+  if (failureMessage.includes("STACK_TRACE_ERROR")) {
+    const appFrame = firstVitestAppFrame(failureMessage);
+    return [
+      "Vitest reporter emitted STACK_TRACE_ERROR before preserving the assertion message",
+      `file=${ownerPath || "(unknown)"}`,
+      `title=${title || "(unknown)"}`,
+      appFrame ? `first_app_frame=${appFrame}` : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+  }
+  return firstLine || fallback;
+}
+
 function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
   const report = JSON.parse(readFileSync(reportFile, "utf8"));
   const owners = new Set();
@@ -5311,6 +5372,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       owners.add(classification.owner);
       counts.failed += 1;
       addCoverageFailureCount(counts, classification.coverage);
+      const failureMessage = fileResult.message ?? "";
       dossiers.push({
         coverage: classification.coverage,
         phase: classification.phase,
@@ -5318,9 +5380,13 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
         runner: "vitest",
         package_or_file: classification.owner,
         symbol_or_title: "(suite load)",
-        message:
-          fileResult.message?.split("\n")[0]?.trim() ||
-          `test file ${classification.owner} failed before a top-level test was attributed`,
+        message: summarizeVitestFailureMessage({
+          fallback: `test file ${classification.owner} failed before a top-level test was attributed`,
+          failureMessage,
+          ownerPath: classification.owner,
+          title: "(suite load)",
+        }),
+        diagnostic_tags: vitestDiagnosticTags(failureMessage),
         reproduce: renderVitestReproduceCommand(classification.owner),
         raw: relToRepo(reportFile),
       });
@@ -5365,9 +5431,13 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
         runner: "vitest",
         package_or_file: classification.owner,
         symbol_or_title: assertion.title ?? "(missing title)",
-        message:
-          failureMessage.split("\n")[0] ||
-          `${assertion.title ?? "vitest assertion"} failed`,
+        message: summarizeVitestFailureMessage({
+          fallback: `${assertion.title ?? "vitest assertion"} failed`,
+          failureMessage,
+          ownerPath: classification.owner,
+          title: assertion.title ?? "(missing title)",
+        }),
+        diagnostic_tags: vitestDiagnosticTags(failureMessage),
         reproduce: renderVitestReproduceCommand(
           classification.owner,
           (assertion.title ?? "").trim(),

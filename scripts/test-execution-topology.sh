@@ -374,6 +374,22 @@ assert.deepEqual(
   { LINT_SHELL_STRICT: "1" },
   "scheduled lint-shell must run ShellCheck in strict mode",
 );
+const frontendUnitWorkUnit = checkSchedule.work_units.find((unit) => unit.target === "frontend-unit");
+assert.deepEqual(
+  frontendUnitWorkUnit?.resource_claims,
+  { host_cpu: 2 },
+  "scheduled frontend-unit must claim the CPU capacity consumed by Vitest workers",
+);
+assert.deepEqual(
+  frontendUnitWorkUnit?.env,
+  { VITEST_MAX_WORKERS: "2" },
+  "scheduled frontend-unit must pin its Vitest worker budget independently of the direct target default",
+);
+assert.equal(
+  frontendUnitWorkUnit?.make_jobs,
+  "host_cpu",
+  "scheduled frontend-unit make jobs must stay tied to the claimed host_cpu budget",
+);
 assert.deepEqual(
   checkSchedule.work_units.map((unit) => [unit.target, unit.priority]),
   [

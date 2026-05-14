@@ -261,8 +261,62 @@ export function visibleGridRows(container: HTMLElement): HTMLDivElement[] {
   );
 }
 
-export function visibleGridRowRecordIds(container: HTMLElement): string[] {
-  return visibleGridRows(container).map(
+function testIdSelector(testId: string) {
+  return `[data-testid="${CSS.escape(testId)}"]`;
+}
+
+function positiveIntegerEnv(name: string, fallback: number) {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const workbookAsyncTimeoutMs = positiveIntegerEnv(
+  "CARTULARY_TEST_ASYNC_TIMEOUT_MS",
+  3000,
+);
+
+function workbookGridScope(
+  container: HTMLElement,
+  surface: WorkbookSurface,
+): HTMLElement {
+  return (
+    container.querySelector<HTMLElement>(
+      testIdSelector(gridShellTestId(surface)),
+    ) ?? container
+  );
+}
+
+function workbookRowDiagnostic(options: {
+  container: HTMLElement;
+  expectedRecordIds?: string[] | undefined;
+  expectedVisibleRows?: number | undefined;
+  surface: WorkbookSurface;
+}) {
+  const grid = workbookGridScope(options.container, options.surface);
+  const mountedRecordIds = visibleGridRows(grid)
+    .map((row) => row.getAttribute("data-grid-record-id") ?? "")
+    .filter(Boolean);
+  const expected =
+    options.expectedRecordIds === undefined
+      ? `count=${options.expectedVisibleRows ?? "(any)"}`
+      : `record_ids=${options.expectedRecordIds.join(",") || "(none)"}`;
+  return [
+    `Expected workbook rows for surface ${options.surface}: ${expected}.`,
+    `Mounted record_ids=${mountedRecordIds.join(",") || "(none)"}.`,
+    `Grid selector=${gridShellTestId(options.surface)} row_selector=${gridSavedRowsSelector()}.`,
+  ].join(" ");
+}
+
+export function visibleGridRowRecordIds(
+  container: HTMLElement,
+  surface?: WorkbookSurface,
+): string[] {
+  const scope = surface ? workbookGridScope(container, surface) : container;
+  return visibleGridRows(scope).map(
     (row) => row.getAttribute("data-grid-record-id") ?? "",
   );
 }
@@ -284,10 +338,76 @@ export function requiredGridRow(
 export async function waitForVisibleGridRowRecordIds(
   container: HTMLElement,
   expectedRecordIds: string[],
+  surface: WorkbookSurface = "timeline",
 ) {
-  await waitFor(() => {
-    expect(visibleGridRowRecordIds(container)).toEqual(expectedRecordIds);
+  await waitFor(
+    () => {
+      expect(visibleGridRowRecordIds(container, surface)).toEqual(
+        expectedRecordIds,
+      );
+    },
+    {
+      onTimeout: (error) =>
+        new Error(
+          `${error.message}\n${workbookRowDiagnostic({
+            container,
+            expectedRecordIds,
+            surface,
+          })}`,
+        ),
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
+}
+
+export async function waitForWorkbookRows({
+  container,
+  expectedRecordIds,
+  expectedVisibleRows,
+  surface,
+}: {
+  container: HTMLElement;
+  expectedRecordIds?: string[] | undefined;
+  expectedVisibleRows?: number | undefined;
+  surface: WorkbookSurface;
+}) {
+  if (expectedRecordIds === undefined && expectedVisibleRows === undefined) {
+    throw new Error(
+      "waitForWorkbookRows requires expectedRecordIds or expectedVisibleRows.",
+    );
+  }
+  const grid = await screen.findByTestId(gridShellTestId(surface), undefined, {
+    timeout: workbookAsyncTimeoutMs,
   });
+  await screen.findByTestId(gridFilterFieldTestId(surface), undefined, {
+    timeout: workbookAsyncTimeoutMs,
+  });
+  await waitFor(
+    () => {
+      if (expectedRecordIds !== undefined) {
+        expect(visibleGridRowRecordIds(container, surface)).toEqual(
+          expectedRecordIds,
+        );
+        return;
+      }
+      expect(
+        visibleGridRows(workbookGridScope(container, surface)),
+      ).toHaveLength(expectedVisibleRows ?? 0);
+    },
+    {
+      onTimeout: (error) =>
+        new Error(
+          `${error.message}\n${workbookRowDiagnostic({
+            container,
+            expectedRecordIds,
+            expectedVisibleRows,
+            surface,
+          })}`,
+        ),
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
+  return grid;
 }
 
 // Initial workbook readiness only covers mounted controls and row count.
@@ -301,12 +421,11 @@ export async function waitForWorkbookReady({
   expectedVisibleRows: number;
   surface: WorkbookSurface;
 }) {
-  const grid = await screen.findByTestId(gridShellTestId(surface));
-  await screen.findByTestId(gridFilterFieldTestId(surface));
-  await waitFor(() => {
-    expect(visibleGridRows(container)).toHaveLength(expectedVisibleRows);
+  return waitForWorkbookRows({
+    container,
+    expectedVisibleRows,
+    surface,
   });
-  return grid;
 }
 
 export async function waitForTimelineWorkbookReady(
@@ -324,9 +443,13 @@ export function gridScalarInput(
   container: HTMLElement,
   recordId: string,
   fieldKey: string,
+  surface?: WorkbookSurface,
 ) {
   const row = Array.from(
-    container.querySelectorAll<HTMLElement>(gridSavedRowsSelector()),
+    (surface
+      ? workbookGridScope(container, surface)
+      : container
+    ).querySelectorAll<HTMLElement>(gridSavedRowsSelector()),
   ).find(
     (candidate) => candidate.getAttribute("data-grid-record-id") === recordId,
   );
@@ -336,7 +459,33 @@ export function gridScalarInput(
   return within(row).getByTestId(rowCellTestId(recordId, fieldKey));
 }
 
-export async function changeInputValue(
+export async function findWorkbookCell(
+  container: HTMLElement,
+  surface: WorkbookSurface,
+  recordId: string,
+  fieldKey: string,
+) {
+  let cell: HTMLElement | null = null;
+  await waitFor(
+    () => {
+      cell = gridScalarInput(container, recordId, fieldKey, surface);
+    },
+    {
+      onTimeout: (error) =>
+        new Error(
+          `${error.message}\n${workbookRowDiagnostic({
+            container,
+            expectedRecordIds: [recordId],
+            surface,
+          })}`,
+        ),
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
+  return cell ?? gridScalarInput(container, recordId, fieldKey, surface);
+}
+
+export async function typeInputValue(
   input: HTMLInputElement | HTMLTextAreaElement,
   value: string,
 ) {
@@ -353,6 +502,32 @@ export async function changeInputValue(
       throw new Error(`Expected input value ${value}, got ${input.value}.`);
     }
   });
+  await new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+export async function changeInputValue(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
+  const user = userEvent.setup();
+  await user.click(input);
+  fireEvent.change(input, { target: { value } });
+  await waitFor(
+    () => {
+      if (input.value !== value) {
+        throw new Error(`Expected input value ${value}, got ${input.value}.`);
+      }
+    },
+    {
+      onTimeout: (error) =>
+        new Error(
+          `${error.message}\ncontrolled_input_replacement_mismatch expected=${JSON.stringify(
+            value,
+          )} actual=${JSON.stringify(input.value)}`,
+        ),
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
   await new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 

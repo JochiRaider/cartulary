@@ -146,6 +146,13 @@ function normalizePriority(value, label) {
   return value;
 }
 
+function maxResourceClaim(units, resource) {
+  return units.reduce(
+    (max, unit) => Math.max(max, unit.resourceClaims.get(resource) ?? 0),
+    1,
+  );
+}
+
 function normalizeUnitEnv(value, label) {
   if (value === undefined) {
     return {};
@@ -458,7 +465,10 @@ function _findSchedule(manifest, target, overrides) {
     {
       check_host_cpu: () => estimateCheckHostCPULimit(),
       check_host_io: ({ resourceLimits: currentLimits }) =>
-        estimateCheckHostIOLimit(currentLimits),
+        Math.max(
+          estimateCheckHostIOLimit(currentLimits),
+          maxResourceClaim(provisionalUnits, "host_io"),
+        ),
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
         estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, { cpuResources: ["host_cpu"] }),
     },
@@ -1304,7 +1314,10 @@ async function main() {
     autoLimitResolvers: (provisionalUnits) => ({
       check_host_cpu: () => estimateCheckHostCPULimit(),
       check_host_io: ({ resourceLimits: currentLimits }) =>
-        estimateCheckHostIOLimit(currentLimits),
+        Math.max(
+          estimateCheckHostIOLimit(currentLimits),
+          maxResourceClaim(provisionalUnits, "host_io"),
+        ),
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
         estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, { cpuResources: ["host_cpu"] }),
     }),

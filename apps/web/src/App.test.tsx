@@ -10,6 +10,7 @@ import {
   buildRecordChangedPayload,
   deferred,
   emitRecordChanged,
+  findWorkbookCell,
   successEnvelope,
   timelineRow,
   timelineViewSchemaId,
@@ -66,8 +67,11 @@ describe("Phase 3 Timeline workbook", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    const summaryInput = (await screen.findByTestId(
-      "row-record-1-summary",
+    const summaryInput = (await findWorkbookCell(
+      document.body,
+      "timeline",
+      "record-1",
+      "summary",
     )) as HTMLInputElement;
     summaryInput.focus();
     fireEvent.change(summaryInput, { target: { value: "Alpha enter" } });
