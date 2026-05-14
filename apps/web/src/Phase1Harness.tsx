@@ -1344,7 +1344,7 @@ const plainListStyle: CSSProperties = {
 };
 
 const monoTextStyle: CSSProperties = {
-  fontFamily: "ui-monospace, SFMono-Regular, SF Mono, Menlo, monospace",
+  fontFamily: "var(--font-mono)",
   wordBreak: "break-all",
 };
 

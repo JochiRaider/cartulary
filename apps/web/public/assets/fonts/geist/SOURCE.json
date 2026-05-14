@@ -1,0 +1,21 @@
+{
+  "family": "Geist",
+  "upstream": "https://github.com/vercel/geist-font",
+  "version_or_ref": "1.8.0 (91158e012bdc4abd59fa066d0eae9fc11c2c9f24)",
+  "source_archive": "https://github.com/vercel/geist-font/releases/download/1.8.0/geist-font-1.8.0.zip",
+  "license": "OFL-1.1",
+  "files": [
+    {
+      "path": "Geist[wght].woff2",
+      "sha256": "9ceed04f6edb0334ec20ad3ddd75754516d4da63dde8f01b25a961a5ea71e2f6",
+      "bytes": 69684
+    },
+    {
+      "path": "Geist-Italic[wght].woff2",
+      "sha256": "fc30f0513368921e77966387d499be1b3f4eb728da24f1470d5b32c2227c095c",
+      "bytes": 73076
+    }
+  ],
+  "retrieved_at": "2026-05-14T15:33:29.139Z",
+  "retrieved_by": "Codex using curl, GitHub release archives, and raw pinned upstream files"
+}

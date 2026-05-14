@@ -1,0 +1,21 @@
+{
+  "family": "Geist Mono",
+  "upstream": "https://github.com/vercel/geist-font",
+  "version_or_ref": "1.8.0 (91158e012bdc4abd59fa066d0eae9fc11c2c9f24)",
+  "source_archive": "https://github.com/vercel/geist-font/releases/download/1.8.0/geist-font-1.8.0.zip",
+  "license": "OFL-1.1",
+  "files": [
+    {
+      "path": "GeistMono[wght].woff2",
+      "sha256": "f2be56afe817546285c593cedf06110ef6240d5687257ca864315784b9b359ee",
+      "bytes": 71136
+    },
+    {
+      "path": "GeistMono-Italic[wght].woff2",
+      "sha256": "fd1860c6abe33e3b78b3faea45bd02e38e703ee870004b581eba3a1e6cd349f3",
+      "bytes": 78824
+    }
+  ],
+  "retrieved_at": "2026-05-14T15:33:29.139Z",
+  "retrieved_by": "Codex using curl, GitHub release archives, and raw pinned upstream files"
+}

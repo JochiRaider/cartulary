@@ -610,7 +610,14 @@ function makeDependencyBomComponents(records, licenseIndex) {
     .map((record) => {
       const license = licenseIndex.get(`${record.ecosystem}:${record.name}@${record.version}`);
       const component = {
-        type: record.ecosystem === "container" ? "container" : record.ecosystem === "node-workspace" ? "application" : "library",
+        type:
+          record.ecosystem === "container"
+            ? "container"
+            : record.ecosystem === "node-workspace"
+              ? "application"
+              : record.ecosystem === "font"
+                ? "file"
+                : "library",
         "bom-ref": record.ref,
         name: record.name,
         version: record.version,
@@ -666,6 +673,63 @@ function artifactRows(files) {
       bytes: statSync(file).size,
     }))
     .sort((a, b) => a.path.localeCompare(b.path));
+}
+
+function loadFontEvidence(ctx) {
+  const manifestFile = path.join(repoRoot, "apps", "web", "public", "assets", "fonts", "FONT_MANIFEST.json");
+  if (!existsSync(manifestFile)) {
+    return { manifestFile, manifest: null, records: new Map(), licenseEntries: [] };
+  }
+  const manifest = readJSON(manifestFile);
+  const records = new Map();
+  const licenseEntries = [];
+  for (const family of manifest.families ?? []) {
+    const version = family.version_or_ref ?? "unversioned";
+    const ref = bomRef("font", family.family, version);
+    const fontDir = path.join(repoRoot, "apps", "web", "public", "assets", "fonts", family.directory);
+    const licenseFile =
+      readdirSync(fontDir)
+        .filter((name) => /^(?:OFL|LICENSE)(?:\.[^.]+)?$/iu.test(name))
+        .sort()[0] ?? null;
+    const licenseEvidencePath = path.join(ctx.licensesDir, deterministicLicenseFilename("font", family.family, version));
+    if (licenseFile) {
+      copyFileSync(path.join(fontDir, licenseFile), licenseEvidencePath);
+    }
+    const record = {
+      ref,
+      ecosystem: "font",
+      name: family.family,
+      version,
+      classification: family.active_by_default ? "runtime vendored font" : "optional vendored font",
+      direct: true,
+      transitive: false,
+      optional: family.active_by_default !== true,
+      path: fontDir,
+      resolved: family.source,
+      evidence: [
+        "apps/web/public/assets/fonts/FONT_MANIFEST.json",
+        `apps/web/public/assets/fonts/${family.directory}/SOURCE.json`,
+        "apps/web/public/assets/fonts/NOTICE.fonts.md",
+      ],
+    };
+    records.set(ref, record);
+    licenseEntries.push({
+      package: family.family,
+      version,
+      ecosystem: "font",
+      classification: record.classification,
+      direct: true,
+      transitive: false,
+      license_expression: family.license,
+      raw_license_metadata: family.license,
+      evidence_source: licenseFile ? "vendored font license file" : "missing",
+      evidence_path: licenseFile ? rel(licenseEvidencePath) : null,
+      issue_flags: licenseFile ? [] : ["license_text_missing"],
+      review_flags: licenseReviewFlags(family.license, family.license),
+      font_files: family.files ?? [],
+    });
+  }
+  return { manifestFile, manifest, records, licenseEntries };
 }
 
 function writeMarkdownReport(file, lines) {
@@ -911,6 +975,7 @@ function main() {
   const goEvidence = collectGoEvidence(ctx);
   const nodeEvidence = collectNodeEvidence(ctx, packageManifests);
   const containerEvidence = collectContainerEvidence(ctx);
+  const fontEvidence = loadFontEvidence(ctx);
 
   const rootLicense = path.join(repoRoot, "LICENSE");
   const firstPartyLicenseOut = path.join(licensesDir, deterministicLicenseFilename("first-party", "cartulary", "0.0.0"));
@@ -1116,6 +1181,22 @@ function main() {
     unresolvedIssues.push(`${image.image}: ${issueFlags.join(", ")}`);
   }
 
+  for (const record of fontEvidence.records.values()) {
+    dependencyRecords.set(record.ref, record);
+    addProvenance(provenance, record.ref, {
+      dependency: `${record.name}@${record.version}`,
+      evidence: record.evidence,
+      source_path: record.path ? rel(record.path) : null,
+      font_manifest: fontEvidence.manifestFile ? rel(fontEvidence.manifestFile) : null,
+    });
+  }
+  for (const entry of fontEvidence.licenseEntries) {
+    licenseReport.push(entry);
+    if (entry.issue_flags.length > 0) {
+      unresolvedIssues.push(`${entry.package}@${entry.version}: ${entry.issue_flags.join(", ")}`);
+    }
+  }
+
   const declaredNodeNames = new Set(nodeEvidence.directIndex.keys());
   const usedUndeclared = [...importScan.keys()].filter(
     (name) => !declaredNodeNames.has(name) && !name.startsWith(firstPartyNpmScope),
@@ -1157,6 +1238,9 @@ function main() {
     if (record.classification === "runtime dependency" || record.classification === "first-party") {
       shippedRecords.set(record.ref, record);
     }
+  }
+  for (const record of fontEvidence.records.values()) {
+    shippedRecords.set(record.ref, record);
   }
   const combinedDependencies = new Map([[cartularyRef, new Set(shippedRecords.keys())]]);
   const combinedBom = makeCycloneDxBom({

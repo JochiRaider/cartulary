@@ -601,7 +601,7 @@ export function App() {
 
   if (route.incidentId !== "" && session !== null) {
     return (
-      <main style={pageStyle}>
+      <main className="cartulary-shell" style={pageStyle}>
         <section style={workbookFrameStyle}>
           <div style={workbookToolbarStyle}>
             <div>
@@ -653,7 +653,7 @@ export function App() {
 
   if (route.debugHarness) {
     return (
-      <main style={pageStyle}>
+      <main className="cartulary-shell" style={pageStyle}>
         <section style={landingPanelStyle}>
           <div style={landingHeroStyle}>
             <p style={landingEyebrowStyle}>Cartulary</p>
@@ -695,7 +695,7 @@ export function App() {
   }
 
   return (
-    <main style={pageStyle}>
+    <main className="cartulary-shell" style={pageStyle}>
       <div style={shellStackStyle}>
         <IncidentLanding
           createIncidentKey={createIncidentKey}
@@ -740,7 +740,7 @@ const pageStyle = {
   background:
     "linear-gradient(135deg, rgb(242 236 225) 0%, rgb(229 235 225) 50%, rgb(214 229 224) 100%)",
   color: "rgb(24 38 35)",
-  fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
+  fontFamily: "var(--font-ui)",
 };
 
 const landingPanelStyle = {

@@ -1,0 +1,240 @@
+{
+  "schema_id": "cartulary.font_manifest.v1",
+  "generated_at": "2026-05-14T15:33:29.139Z",
+  "base_path": "apps/web/public/assets/fonts",
+  "retrieval_policy": "Vendored browser/report fonts are served from repo assets; builds, tests, screenshots, and generated artifacts must not fetch remote font CDNs.",
+  "families": [
+    {
+      "family": "Inter",
+      "directory": "inter",
+      "role": "default-ui-grid-docs-sans",
+      "active_by_default": true,
+      "license": "OFL-1.1",
+      "version_or_ref": "v4.1 (e3a3d4c57d5ecc01453a575621882a384c1995a3)",
+      "source": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+      "files": [
+        {
+          "path": "inter/InterVariable.woff2",
+          "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+          "bytes": 352240
+        },
+        {
+          "path": "inter/InterVariable-Italic.woff2",
+          "sha256": "e564f652916db6c139570fefb9524a77c4d48f30c92928de9db19b6b5c7a262a",
+          "bytes": 387976
+        }
+      ]
+    },
+    {
+      "family": "JetBrains Mono",
+      "directory": "jetbrains-mono",
+      "role": "default-technical-mono",
+      "active_by_default": true,
+      "license": "OFL-1.1",
+      "version_or_ref": "v2.304 (cd5227bd1f61dff3bbd6c814ceaf7ffd95e947d9)",
+      "source": "https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip",
+      "files": [
+        {
+          "path": "jetbrains-mono/JetBrainsMono-Thin.woff2",
+          "sha256": "01c7c4cd01380e75fb1b5ff9900508afcd89a83d0b0e6f70e96ede53183ab53a",
+          "bytes": 90612
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-ExtraLight.woff2",
+          "sha256": "e7964fc553a794d00167f168dc174fdd19b083c30ad213bfc2e6a95876912a44",
+          "bytes": 92712
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-Light.woff2",
+          "sha256": "43eb798d59b557c3d87c1402ce684b3fda1ad66bf7ec8021b0a43dc31ad9c572",
+          "bytes": 93856
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-Regular.woff2",
+          "sha256": "a9cb1cd82332b23a47e3a1239d25d13c86d16c4220695e34b243effa999f45f2",
+          "bytes": 92164
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-Medium.woff2",
+          "sha256": "086c48dfbea9ddaff1320f7e09399b8e2924e88ce67453721255db3bdbb5a353",
+          "bytes": 93824
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-SemiBold.woff2",
+          "sha256": "918edad542a1da608fd2ba8daebaff9ac802309103fe760eed465b8b4e47faf1",
+          "bytes": 94472
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-Bold.woff2",
+          "sha256": "c503cc5ec5f8b2c7666b7ecda1adf44bd45f2e6579b2eba0fc292150416588a2",
+          "bytes": 94588
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-ExtraBold.woff2",
+          "sha256": "88097a36a292c145a14394f1fd5133f76b9a3d6fdb133834b2c94a3db61dd39a",
+          "bytes": 93692
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-ThinItalic.woff2",
+          "sha256": "c261d07880deb91518e190c19816ddc93a69bf4539b8486cad316b6ed59a065d",
+          "bytes": 94316
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-ExtraLightItalic.woff2",
+          "sha256": "c43d0dd87523c65879334d43651d3fb1815ca1d18d27507356e6704322d63b79",
+          "bytes": 95816
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-LightItalic.woff2",
+          "sha256": "49c50b344b458c1322d859f4f0d9db7f770533c1dbdab31defa0987c29925b9b",
+          "bytes": 97280
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-Italic.woff2",
+          "sha256": "cb6a1b246318ed3885d7dffa14a2609297fe80e9b8e500bea33b52fa312a36a4",
+          "bytes": 95864
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-MediumItalic.woff2",
+          "sha256": "1c9b7a62ee6c3f77c82982a3d0ab7ead8805f5e67ccfc1942037fc65f398f22b",
+          "bytes": 97808
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-SemiBoldItalic.woff2",
+          "sha256": "07daacf7fc1956b5b68d902ab4763a062b196a3665d713e54bff066c667c0674",
+          "bytes": 98124
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-BoldItalic.woff2",
+          "sha256": "3a013466c0eee979fb9d42c2d7a8887cd3645dc8b897cfc5b71781cf982efc5a",
+          "bytes": 98152
+        },
+        {
+          "path": "jetbrains-mono/JetBrainsMono-ExtraBoldItalic.woff2",
+          "sha256": "67718afd5e93925277efb878127107f0ff668059ef5fd799fb31ed12aaae7a96",
+          "bytes": 96864
+        }
+      ]
+    },
+    {
+      "family": "Geist",
+      "directory": "geist",
+      "role": "inactive-alternate-sans",
+      "active_by_default": false,
+      "license": "OFL-1.1",
+      "version_or_ref": "1.8.0 (91158e012bdc4abd59fa066d0eae9fc11c2c9f24)",
+      "source": "https://github.com/vercel/geist-font/releases/download/1.8.0/geist-font-1.8.0.zip",
+      "files": [
+        {
+          "path": "geist/Geist[wght].woff2",
+          "sha256": "9ceed04f6edb0334ec20ad3ddd75754516d4da63dde8f01b25a961a5ea71e2f6",
+          "bytes": 69684
+        },
+        {
+          "path": "geist/Geist-Italic[wght].woff2",
+          "sha256": "fc30f0513368921e77966387d499be1b3f4eb728da24f1470d5b32c2227c095c",
+          "bytes": 73076
+        }
+      ]
+    },
+    {
+      "family": "Geist Mono",
+      "directory": "geist-mono",
+      "role": "inactive-alternate-mono",
+      "active_by_default": false,
+      "license": "OFL-1.1",
+      "version_or_ref": "1.8.0 (91158e012bdc4abd59fa066d0eae9fc11c2c9f24)",
+      "source": "https://github.com/vercel/geist-font/releases/download/1.8.0/geist-font-1.8.0.zip",
+      "files": [
+        {
+          "path": "geist-mono/GeistMono[wght].woff2",
+          "sha256": "f2be56afe817546285c593cedf06110ef6240d5687257ca864315784b9b359ee",
+          "bytes": 71136
+        },
+        {
+          "path": "geist-mono/GeistMono-Italic[wght].woff2",
+          "sha256": "fd1860c6abe33e3b78b3faea45bd02e38e703ee870004b581eba3a1e6cd349f3",
+          "bytes": 78824
+        }
+      ]
+    },
+    {
+      "family": "Source Serif 4",
+      "directory": "source-serif-4",
+      "role": "reports-only-serif",
+      "active_by_default": false,
+      "license": "OFL-1.1",
+      "version_or_ref": "4.005R (2823e993c53fca27c5c8749f529b56a5a7c77b6b)",
+      "source": "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_WOFF2.zip",
+      "files": [
+        {
+          "path": "source-serif-4/SourceSerif4Variable-Roman.ttf.woff2",
+          "sha256": "940a76eda1388de39d38c8e7a79bf6ea058a387faee0a9f33c8d25c6ba05e1be",
+          "bytes": 429100
+        },
+        {
+          "path": "source-serif-4/SourceSerif4Variable-Italic.ttf.woff2",
+          "sha256": "9d28b5749a1ad096a295cb607c521bd1af4cd9979b6f37332daf70143149fb44",
+          "bytes": 346688
+        }
+      ]
+    },
+    {
+      "family": "Atkinson Hyperlegible",
+      "directory": "atkinson-hyperlegible",
+      "role": "selected-accessibility-reading-profile",
+      "active_by_default": false,
+      "license": "OFL-1.1",
+      "version_or_ref": "main 1cb311624b2ddf88e9e37873999d165a8cd28b46",
+      "source": "https://github.com/googlefonts/atkinson-hyperlegible/tree/1cb311624b2ddf88e9e37873999d165a8cd28b46",
+      "files": [
+        {
+          "path": "atkinson-hyperlegible/AtkinsonHyperlegible-Regular.woff2",
+          "sha256": "2df4ba17804bc7a36f123127966075d8427bff2df58d0d76820c1130bb1a4150",
+          "bytes": 23196
+        },
+        {
+          "path": "atkinson-hyperlegible/AtkinsonHyperlegible-Italic.woff2",
+          "sha256": "60bedf0954ffa7e7800eddd529b06c7558d09283667c74fef60170d8d241089e",
+          "bytes": 24908
+        },
+        {
+          "path": "atkinson-hyperlegible/AtkinsonHyperlegible-Bold.woff2",
+          "sha256": "da8fce41a04f8498fbf79076f92d304b12e70c76f71b143c5dcfb6536c93c075",
+          "bytes": 23776
+        },
+        {
+          "path": "atkinson-hyperlegible/AtkinsonHyperlegible-BoldItalic.woff2",
+          "sha256": "f27e95143bc12e8f40f955cf86c74e6afef4441abb89d271282ea0f9e93c1fd5",
+          "bytes": 25160
+        }
+      ]
+    },
+    {
+      "family": "IBM Plex Sans Condensed",
+      "directory": "ibm-plex-sans-condensed",
+      "role": "explicit-compact-metadata",
+      "active_by_default": false,
+      "license": "OFL-1.1",
+      "version_or_ref": "@ibm/plex-sans-condensed@2.0.0 (003d81ba2d9cfdd61ba39fdc60cc3dac44186a96)",
+      "source": "https://github.com/IBM/plex/releases/download/%40ibm/plex-sans-condensed%402.0.0/ibm-plex-sans-condensed.zip",
+      "files": [
+        {
+          "path": "ibm-plex-sans-condensed/IBMPlexSansCondensed-Regular.woff2",
+          "sha256": "a71a56e516751883cb7877112d39f9c13b92c2dc15caaf00277b7f9d941d673a",
+          "bytes": 63228
+        },
+        {
+          "path": "ibm-plex-sans-condensed/IBMPlexSansCondensed-SemiBold.woff2",
+          "sha256": "385a082a1eac88343eab01fb6746be04b7175dacaf4550b17dee76ea0f78126d",
+          "bytes": 66040
+        },
+        {
+          "path": "ibm-plex-sans-condensed/IBMPlexSansCondensed-Bold.woff2",
+          "sha256": "e1481c7a925b4bfb31bcbff09182b43d5f1c1eab7834a2b6ac51ac75b8c3f9a1",
+          "bytes": 63344
+        }
+      ]
+    }
+  ]
+}

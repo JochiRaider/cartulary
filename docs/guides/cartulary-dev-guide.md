@@ -212,6 +212,14 @@ The repo-local package boundary around that grid stack is fixed:
 - `/packages/test-utils` owns browser helper choreography for sort, filter, grouping, scroll, paste, and anchor assertions reused across functional and visual suites.
 - `/apps/web` owns workbook controllers, query state, HTTP mutation submission, pending replay, and WebSocket refresh behavior. Tests that target those controllers MUST import the workbook or controller modules directly rather than routing through `App.tsx` re-exports.
 
+### 2.3.2 Vendored font asset boundary
+
+The browser and generated-output typography baseline is centralized under `/apps/web/public/assets/fonts`. That directory owns the checked-in font files, `fonts.css`, `FONT_MANIFEST.json`, `NOTICE.fonts.md`, per-family license text, and per-family `SOURCE.json` provenance metadata.
+
+Font use MUST flow through role tokens from `fonts.css` rather than direct family names in React components or package styles. The active default roles are Inter for UI/grid sans text and JetBrains Mono for technical mono text. Geist, Geist Mono, Source Serif 4, Atkinson Hyperlegible, and IBM Plex Sans Condensed are declared only for their explicit alternate, report, accessibility, or compact metadata roles.
+
+Builds, documentation renders, screenshots, visual goldens, generated reports, and release artifacts MUST NOT fetch font files from remote CDNs. Deterministic validation paths SHOULD fail when active vendored UI/grid/mono fonts are missing. Use `scripts/check-font-bundle.mjs` or `make frontend-unit` to validate manifest checksums, source metadata, license text, notice coverage, CSS `local(...)` exclusion, and remote font CDN exclusion.
+
 ### 2.4 Frontend dev and build tools
 
 | Tool                               | Purpose                                            |

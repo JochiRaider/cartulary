@@ -1,4 +1,6 @@
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   assertMarkerAnchoredToGridTarget,
   changeGrouping,
@@ -896,7 +898,44 @@ async function prepareVisualRegressionState(page: Page) {
   await page.evaluate(() => {
     document.documentElement.dataset.visualSnapshot = "true";
   });
+  await waitForVendoredFonts(page);
+  await attachFontManifestDigest();
   await maskVisualDynamicText(page);
+}
+
+async function waitForVendoredFonts(page: Page) {
+  await page.evaluate(async () => {
+    await Promise.all([
+      document.fonts.load('400 12px "Inter"'),
+      document.fonts.load('400 12px "JetBrains Mono"'),
+    ]);
+    await document.fonts.ready;
+    const faces = Array.from(document.fonts);
+    for (const family of ["Inter", "JetBrains Mono"]) {
+      const familyFaces = faces.filter((face) => face.family === family);
+      if (familyFaces.length === 0) {
+        throw new Error(`missing vendored font-face for ${family}`);
+      }
+      const failedFace = familyFaces.find((face) => face.status === "error");
+      if (failedFace) {
+        throw new Error(`vendored font ${family} failed to load`);
+      }
+      if (!document.fonts.check(`400 12px "${family}"`)) {
+        throw new Error(`vendored font ${family} is not ready`);
+      }
+    }
+  });
+}
+
+async function attachFontManifestDigest() {
+  const manifest = readFileSync(
+    new URL("../public/assets/fonts/FONT_MANIFEST.json", import.meta.url),
+  );
+  const sha256 = createHash("sha256").update(manifest).digest("hex");
+  await test.info().attach("font-manifest-sha256", {
+    body: Buffer.from(`${sha256}\n`, "utf8"),
+    contentType: "text/plain",
+  });
 }
 
 async function normalizeWorkbookGridVisualState(

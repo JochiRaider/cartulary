@@ -1,0 +1,26 @@
+{
+  "family": "IBM Plex Sans Condensed",
+  "upstream": "https://github.com/IBM/plex",
+  "version_or_ref": "@ibm/plex-sans-condensed@2.0.0 (003d81ba2d9cfdd61ba39fdc60cc3dac44186a96)",
+  "source_archive": "https://github.com/IBM/plex/releases/download/%40ibm/plex-sans-condensed%402.0.0/ibm-plex-sans-condensed.zip",
+  "license": "OFL-1.1",
+  "files": [
+    {
+      "path": "IBMPlexSansCondensed-Regular.woff2",
+      "sha256": "a71a56e516751883cb7877112d39f9c13b92c2dc15caaf00277b7f9d941d673a",
+      "bytes": 63228
+    },
+    {
+      "path": "IBMPlexSansCondensed-SemiBold.woff2",
+      "sha256": "385a082a1eac88343eab01fb6746be04b7175dacaf4550b17dee76ea0f78126d",
+      "bytes": 66040
+    },
+    {
+      "path": "IBMPlexSansCondensed-Bold.woff2",
+      "sha256": "e1481c7a925b4bfb31bcbff09182b43d5f1c1eab7834a2b6ac51ac75b8c3f9a1",
+      "bytes": 63344
+    }
+  ],
+  "retrieved_at": "2026-05-14T15:33:29.139Z",
+  "retrieved_by": "Codex using curl, GitHub release archives, and raw pinned upstream files"
+}

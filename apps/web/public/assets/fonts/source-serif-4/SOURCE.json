@@ -1,0 +1,21 @@
+{
+  "family": "Source Serif 4",
+  "upstream": "https://github.com/adobe-fonts/source-serif",
+  "version_or_ref": "4.005R (2823e993c53fca27c5c8749f529b56a5a7c77b6b)",
+  "source_archive": "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_WOFF2.zip",
+  "license": "OFL-1.1",
+  "files": [
+    {
+      "path": "SourceSerif4Variable-Roman.ttf.woff2",
+      "sha256": "940a76eda1388de39d38c8e7a79bf6ea058a387faee0a9f33c8d25c6ba05e1be",
+      "bytes": 429100
+    },
+    {
+      "path": "SourceSerif4Variable-Italic.ttf.woff2",
+      "sha256": "9d28b5749a1ad096a295cb607c521bd1af4cd9979b6f37332daf70143149fb44",
+      "bytes": 346688
+    }
+  ],
+  "retrieved_at": "2026-05-14T15:33:29.139Z",
+  "retrieved_by": "Codex using curl, GitHub release archives, and raw pinned upstream files"
+}

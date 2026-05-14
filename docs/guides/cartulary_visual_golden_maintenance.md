@@ -44,6 +44,8 @@ When visual normalization helpers change, the handoff or pull request must state
 - which goldens were regenerated, or why none were affected;
 - whether the visual diff is explained by the intended contract change.
 
+When the vendored font bundle changes, treat the change as an intentional visual-refresh trigger only after reviewing the diff. The visual harness waits for `document.fonts.ready`, requires active Inter and JetBrains Mono faces to load, and retains the `FONT_MANIFEST.json` SHA-256 with screenshot artifacts so font metric changes can be traced to the bundle version.
+
 Skipped work units after a `browser-e2e-visual/visual` failure should be treated as cascade skips unless their own summaries show independent failures. Scheduler `resource:host_cpu`, `resource:host_io`, and dependency blocker counts are scheduling metadata, not root-cause failures.
 
 ## Validation Checklist
@@ -52,6 +54,7 @@ Before handoff:
 
 - run the narrow Playwright update flow for the affected visual test;
 - inspect the generated diff and confirm it matches the intended visual contract;
+- run `make frontend-unit` or `scripts/check-font-bundle.mjs` when font files, font CSS, manifests, or generated report templates changed;
 - run `make browser-e2e-visual`;
 - run `make agent-finalize`, passing `RESULTS_DIR=<successful retained run root>` when a successful retained run should refresh and validate timing maintenance inputs;
 - report whether `agent-finalize` ran unchanged, updated generated artifacts, skipped retained-run maintenance because `RESULTS_DIR` was unset, or failed.

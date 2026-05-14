@@ -136,7 +136,7 @@ export function Phase1AuthSurface({
   }
 
   return (
-    <main style={shellStyle}>
+    <main className="cartulary-shell" style={shellStyle}>
       <section style={shellPanelStyle}>
         <header style={sectionHeaderStyle}>
           <div>
@@ -1493,7 +1493,7 @@ const secondaryButtonStyle: CSSProperties = {
 };
 
 const monoTextStyle: CSSProperties = {
-  fontFamily: '"IBM Plex Mono", "SFMono-Regular", Consolas, monospace',
+  fontFamily: "var(--font-mono)",
   overflowWrap: "anywhere",
 };
 

@@ -201,7 +201,7 @@ export function GridTable<Row>({
 
   return (
     <DataGrid<AdapterGridRow<Row>, unknown>
-      className={gridScrollportClassName()}
+      className={`${gridScrollportClassName()} cartulary-grid`}
       columns={rdgColumns}
       enableVirtualization
       renderers={renderers}
@@ -459,6 +459,9 @@ const gridStyle = {
   blockSize: "100%",
   minWidth: "78rem",
   width: "max-content",
+  fontFamily: "var(--font-grid)",
+  fontVariantNumeric: "tabular-nums",
+  fontFeatureSettings: '"tnum" 1, "zero" 1',
   "--rdg-background-color": "rgb(255 255 255 / 0.82)",
   "--rdg-border-color": "rgb(199 214 207)",
   "--rdg-header-background-color": "rgb(242 247 243)",

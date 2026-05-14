@@ -1,0 +1,31 @@
+{
+  "family": "Atkinson Hyperlegible",
+  "upstream": "https://github.com/googlefonts/atkinson-hyperlegible",
+  "version_or_ref": "main 1cb311624b2ddf88e9e37873999d165a8cd28b46",
+  "source_archive": "https://github.com/googlefonts/atkinson-hyperlegible/tree/1cb311624b2ddf88e9e37873999d165a8cd28b46",
+  "license": "OFL-1.1",
+  "files": [
+    {
+      "path": "AtkinsonHyperlegible-Regular.woff2",
+      "sha256": "2df4ba17804bc7a36f123127966075d8427bff2df58d0d76820c1130bb1a4150",
+      "bytes": 23196
+    },
+    {
+      "path": "AtkinsonHyperlegible-Italic.woff2",
+      "sha256": "60bedf0954ffa7e7800eddd529b06c7558d09283667c74fef60170d8d241089e",
+      "bytes": 24908
+    },
+    {
+      "path": "AtkinsonHyperlegible-Bold.woff2",
+      "sha256": "da8fce41a04f8498fbf79076f92d304b12e70c76f71b143c5dcfb6536c93c075",
+      "bytes": 23776
+    },
+    {
+      "path": "AtkinsonHyperlegible-BoldItalic.woff2",
+      "sha256": "f27e95143bc12e8f40f955cf86c74e6afef4441abb89d271282ea0f9e93c1fd5",
+      "bytes": 25160
+    }
+  ],
+  "retrieved_at": "2026-05-14T15:33:29.139Z",
+  "retrieved_by": "Codex using curl, GitHub release archives, and raw pinned upstream files"
+}

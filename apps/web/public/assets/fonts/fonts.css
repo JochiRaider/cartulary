@@ -1,0 +1,298 @@
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./inter/InterVariable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./inter/InterVariable-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-Thin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 100;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-ThinItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-ExtraLight.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 200;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-ExtraLightItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-Light.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-LightItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-MediumItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-SemiBoldItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-BoldItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-ExtraBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+  src: url("./jetbrains-mono/JetBrainsMono-ExtraBoldItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./geist/Geist%5Bwght%5D.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Geist";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./geist/Geist-Italic%5Bwght%5D.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./geist-mono/GeistMono%5Bwght%5D.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./geist-mono/GeistMono-Italic%5Bwght%5D.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("./source-serif-4/SourceSerif4Variable-Roman.ttf.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("./source-serif-4/SourceSerif4Variable-Italic.ttf.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./atkinson-hyperlegible/AtkinsonHyperlegible-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./atkinson-hyperlegible/AtkinsonHyperlegible-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./atkinson-hyperlegible/AtkinsonHyperlegible-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./atkinson-hyperlegible/AtkinsonHyperlegible-BoldItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./ibm-plex-sans-condensed/IBMPlexSansCondensed-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./ibm-plex-sans-condensed/IBMPlexSansCondensed-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./ibm-plex-sans-condensed/IBMPlexSansCondensed-Bold.woff2") format("woff2");
+}
+
+:root {
+  --font-ui: "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", "Noto Sans", "Liberation Sans",
+    "DejaVu Sans", Arial, sans-serif;
+  --font-grid: "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", "Noto Sans", "Liberation Sans",
+    "DejaVu Sans", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular",
+    "Cascadia Mono", "Cascadia Code", Menlo, Monaco, Consolas,
+    "Liberation Mono", "DejaVu Sans Mono", monospace;
+  --font-alt-ui: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-alt-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  --font-report-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-readable: "Atkinson Hyperlegible", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-condensed: "IBM Plex Sans Condensed", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+body,
+.cartulary-shell {
+  font-family: var(--font-ui);
+}
+
+.cartulary-grid {
+  font-family: var(--font-grid);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+code,
+pre,
+kbd,
+samp,
+[data-field-kind="hash"],
+[data-field-kind="record-id"],
+[data-field-kind="technical-ref"] {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+}
+
+.report-body[data-template-tone="narrative"] {
+  font-family: var(--font-report-serif);
+}
+
+[data-reading-profile="hyperlegible"] {
+  font-family: var(--font-readable);
+}
+
+[data-density-role="narrow-metadata"] {
+  font-family: var(--font-condensed);
+}
