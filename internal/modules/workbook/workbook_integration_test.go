@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -284,15 +283,7 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 	})
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
 
-	payloadToken, signatureToken, ok := strings.Cut(cursor, ".")
-	if !ok {
-		t.Fatalf("expected signed cursor token, got %q", cursor)
-	}
-	replacement := "A"
-	if strings.HasPrefix(payloadToken, replacement) {
-		replacement = "B"
-	}
-	tamperedCursor := replacement + payloadToken[1:] + "." + signatureToken
+	tamperedCursor := tamperCursor(t, cursor)
 	resp := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": tamperedCursor,
 		"sort":         sortByName,

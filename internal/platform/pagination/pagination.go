@@ -1,15 +1,17 @@
 package pagination
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/url"
 	"slices"
 	"strconv"
-	"strings"
 )
 
 const (
@@ -60,12 +62,19 @@ type Cursor struct {
 }
 
 type Codec struct {
-	key []byte
+	aead cipher.AEAD
 }
 
 func NewCodec(key []byte) *Codec {
-	codec := &Codec{key: append([]byte(nil), key...)}
-	return codec
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(fmt.Sprintf("pagination: invalid cursor key: %v", err))
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(fmt.Sprintf("pagination: initialize cursor AEAD: %v", err))
+	}
+	return &Codec{aead: aead}
 }
 
 func ParseQuery(values url.Values) (Query, string) {
@@ -144,24 +153,27 @@ func (c *Codec) Encode(cursor Cursor) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	signature := sign(c.key, payload)
-	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+	nonce := make([]byte, c.aead.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", err
+	}
+	sealed := c.aead.Seal(nonce, nonce, payload, []byte(CursorVersion))
+	return base64.RawURLEncoding.EncodeToString(sealed), nil
 }
 
 func (c *Codec) Decode(token string) (Cursor, error) {
-	payloadToken, signatureToken, ok := strings.Cut(token, ".")
-	if !ok || payloadToken == "" || signatureToken == "" {
-		return Cursor{}, ErrInvalidCursorToken
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(payloadToken)
+	sealed, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
 		return Cursor{}, ErrInvalidCursorToken
 	}
-	signature, err := base64.RawURLEncoding.DecodeString(signatureToken)
-	if err != nil {
+	nonceSize := c.aead.NonceSize()
+	if len(sealed) <= nonceSize {
 		return Cursor{}, ErrInvalidCursorToken
 	}
-	if !hmac.Equal(signature, sign(c.key, payload)) {
+	nonce := sealed[:nonceSize]
+	ciphertext := sealed[nonceSize:]
+	payload, err := c.aead.Open(nil, nonce, ciphertext, []byte(CursorVersion))
+	if err != nil {
 		return Cursor{}, ErrInvalidCursorToken
 	}
 
@@ -296,10 +308,4 @@ func equalScope(left map[string]string, right map[string]string) bool {
 		}
 	}
 	return true
-}
-
-func sign(key []byte, payload []byte) []byte {
-	mac := hmac.New(sha256.New, key)
-	_, _ = mac.Write(payload)
-	return mac.Sum(nil)
 }

@@ -120,7 +120,7 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
+	rows, nextCursor, err := pageWorkbookResources(binding, cursor, query.Meta, resources)
 	switch {
 	case errors.Is(err, pagination.ErrInvalidCursorToken):
 		writeAPIError(w, r, invalidViewQuery("", pagination.ReasonInvalidCursorToken))

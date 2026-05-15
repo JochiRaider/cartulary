@@ -18,6 +18,7 @@
       "`browser-e2e-webserver-backed` carries authoritative `E-8-*` browser-functional rows."
     ],
     "support_execution_extras": [
+      "Phase 8 workbook backend integration support covers exact-token full_text, strict prefix, and null-last ordering readiness for the browser-owned E-8-04 row.",
       "Phase 3 through Phase 7 workbook, projection, mutation, collaboration, evidence, history, rollback, visual, and browser tests remain support-only for Phase 8.",
       "Support-only carryover files are listed in forbidden_id_files so they cannot accidentally claim Phase 8 IDs."
     ],
@@ -124,7 +125,21 @@
     "internal/modules/workbook/workbook_mutation_integration_test.go",
     "internal/platform/ws/phase6_ws_test.go"
   ],
-  "support_go_targets": [],
+  "support_go_targets": [
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase8_row_wire_test.go",
+      "symbols": [
+        "TestSupportPhase8Integration_NotesFullTextExactSearch_AC185",
+        "TestSupportPhase8Integration_PrefixAndNullLastOrdering"
+      ],
+      "selection_pattern": "TestSupportPhase8Integration_",
+      "execution_family": "backend-integration-phase8-search",
+      "execution_label": "backend-integration support phase8 search"
+    }
+  ],
   "unit": [
     {
       "id": "U-8-01",
@@ -356,11 +371,12 @@
       "file": "internal/modules/workbook/phase8_row_wire_test.go",
       "symbols": [
         "TestPhase8_LiveAuthorizedCursorPagination_I_8_04",
-        "TestPhase8_NotesFullText_AC185_E_8_04"
+        "TestPhase8_CursorContinuationRechecksAuthorization_I_8_04",
+        "TestPhase8_CursorContinuationRechecksMembership_I_8_04"
       ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
-      "claim": "Cursor pagination re-derives live authorization, rejects tampering, returns fetch-time payloads, lets fresh queries evaluate live state, and Notes full_text search uses exact token semantics for AC-185.",
+      "claim": "Cursor pagination re-derives live authorization, rejects tampering, returns fetch-time payloads, and lets fresh queries evaluate live state.",
       "out_of_scope": "Browser exact search behavior is covered by E-8-04.",
       "execution_family": "backend-integration-phase8-cursor",
       "execution_label": "backend-integration phase8 cursor"

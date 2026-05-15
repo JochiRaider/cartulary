@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -129,31 +128,19 @@ func TestCodecRejectsTamperedCursor(t *testing.T) {
 		t.Fatalf("encode cursor: %v", err)
 	}
 
-	payloadToken, signatureToken, ok := strings.Cut(token, ".")
-	if !ok {
-		t.Fatalf("unexpected token shape %q", token)
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(payloadToken)
+	sealed, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
-		t.Fatalf("decode payload: %v", err)
+		t.Fatalf("decode token: %v", err)
 	}
 	var decoded map[string]any
-	if err := json.Unmarshal(payload, &decoded); err != nil {
-		t.Fatalf("unmarshal payload: %v", err)
-	}
-	decoded["actor_user_id"] = "admin-2"
-	tamperedPayload, err := json.Marshal(decoded)
-	if err != nil {
-		t.Fatalf("marshal tampered payload: %v", err)
-	}
-	tamperedToken := base64.RawURLEncoding.EncodeToString(tamperedPayload) + "." + signatureToken
-	if _, err := codec.Decode(tamperedToken); err == nil {
-		t.Fatal("expected tampered payload to fail signature validation")
+	if err := json.Unmarshal(sealed, &decoded); err == nil {
+		t.Fatalf("cursor token must be opaque encrypted bytes, decoded plaintext %#v", decoded)
 	}
 
-	tamperedSignature := token[:len(token)-1] + "A"
-	if _, err := codec.Decode(tamperedSignature); err == nil {
-		t.Fatal("expected tampered signature to fail validation")
+	tampered := append([]byte(nil), sealed...)
+	tampered[len(tampered)-1] ^= 0x01
+	if _, err := codec.Decode(base64.RawURLEncoding.EncodeToString(tampered)); err == nil {
+		t.Fatal("expected tampered cursor to fail authentication")
 	}
 }
 

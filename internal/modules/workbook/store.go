@@ -182,6 +182,7 @@ func buildGenericQuerySQL(incidentID uuid.UUID, definition genericSurface, query
 		} else {
 			builder.WriteString(" ASC")
 		}
+		builder.WriteString(" NULLS LAST")
 	}
 	return builder.String(), args, nil
 }
@@ -208,10 +209,12 @@ func appendGenericFilter(builder *strings.Builder, args *[]any, definition gener
 		return appendEqualityFilter(builder, args, field, filter.Arg)
 	case "prefix":
 		value, _ := filter.Arg["value"].(string)
-		builder.WriteString("\n   AND lower(coalesce((")
+		builder.WriteString("\n   AND left(lower(coalesce((")
 		builder.WriteString(field.expr)
-		builder.WriteString(")::text, '')) LIKE ")
-		builder.WriteString(bind(args, value+"%"))
+		builder.WriteString(")::text, '')), char_length(")
+		builder.WriteString(bind(args, value))
+		builder.WriteString(")) = ")
+		builder.WriteString(bind(args, value))
 		return nil
 	case "range":
 		return appendRangeFilter(builder, args, field, filter.Arg)

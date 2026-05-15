@@ -122,9 +122,89 @@ func TestPhase8_LiveAuthorizedCursorPagination_I_8_04(t *testing.T) {
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected cursor_query_mismatch, got %#v", details)
 	}
+
+	otherView := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{
+		"cursor_token": cursor,
+	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	errBody = httptestx.RequireErrorEnvelope(t, otherView, http.StatusBadRequest, "invalid_view_query")
+	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
+		t.Fatalf("expected view_schema cursor_query_mismatch, got %#v", details)
+	}
+
+	otherIncident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-i-8-04-other-incident",
+		"incident_key":  "IR-PHASE8-I-8-04-OTHER",
+		"title":         "Phase 8 cursor other",
+	})
+	otherIncidentID := phase4test.MustUUID(t, otherIncident["incident_id"].(string))
+	otherRoute := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+entities.HostsViewSchemaID+"/query", map[string]any{
+		"cursor_token": cursor,
+		"sort":         sortByName,
+	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	errBody = httptestx.RequireErrorEnvelope(t, otherRoute, http.StatusBadRequest, "invalid_view_query")
+	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
+		t.Fatalf("expected incident cursor_query_mismatch, got %#v", details)
+	}
 }
 
-func TestPhase8_NotesFullText_AC185_E_8_04(t *testing.T) {
+func TestPhase8_CursorContinuationRechecksAuthorization_I_8_04(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase8-i-8-04-cursor-auth")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-i-8-04-auth-incident",
+		"incident_key":  "IR-PHASE8-I-8-04-AUTH",
+		"title":         "Phase 8 cursor auth",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
+	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
+
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
+	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sortByName})
+	cursor := responsePaging(pageOne)["next_cursor"].(string)
+
+	execSeed(t, harness, `
+UPDATE user_sessions
+   SET revoked_at = now(),
+       revoke_reason_code = 'phase8_test_revoked',
+       updated_at = now()
+ WHERE user_id = $1
+   AND revoked_at IS NULL
+`, adminUserID)
+	sessionResp := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+		"cursor_token": cursor,
+		"sort":         sortByName,
+	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, sessionResp, http.StatusUnauthorized, "session_required")
+}
+
+func TestPhase8_CursorContinuationRechecksMembership_I_8_04(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase8-i-8-04-cursor-membership")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-i-8-04-membership-incident",
+		"incident_key":  "IR-PHASE8-I-8-04-MEMBER",
+		"title":         "Phase 8 cursor membership",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
+	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
+
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
+	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sortByName})
+	cursor := responsePaging(pageOne)["next_cursor"].(string)
+
+	execSeed(t, harness, `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID)
+	membershipResp := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+		"cursor_token": cursor,
+		"sort":         sortByName,
+	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, membershipResp, http.StatusNotFound, "incident_not_found")
+}
+
+func TestSupportPhase8Integration_NotesFullTextExactSearch_AC185(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase8-ac185-notes")
 	adminLogin, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -135,23 +215,44 @@ func TestPhase8_NotesFullText_AC185_E_8_04(t *testing.T) {
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
 	alpha := seedNoteArtifact(t, harness, incidentID, actorID, "Alpha Delta", ptrString("Responder contained shell"))
+	bravo := seedNoteArtifact(t, harness, incidentID, actorID, "Bravo Alpha", ptrString("Shell token appears earlier alphabetically"))
 	seedNoteArtifact(t, harness, incidentID, actorID, "Powershell only", nil)
+	phrase := seedNoteArtifact(t, harness, incidentID, actorID, "Phrase note", ptrString("alpha middle shell"))
+	seedNoteArtifact(t, harness, incidentID, actorID, "Wildcard note", ptrString("shells alpha"))
 	seedNoteArtifact(t, harness, incidentID, actorID, "Cafe note", ptrString("cafe token"))
 	seedNoteArtifact(t, harness, incidentID, actorID, "Accent note", ptrString("café token"))
 
 	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.notes.v1/query"
 	exact := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"sort":    []map[string]any{{"field_key": "note.title", "direction": "asc"}},
 		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": "shell alpha shell"}}},
 	})
-	if ids := rowIDs(responseRows(exact)); !reflect.DeepEqual(ids, []string{alpha.String()}) {
+	if ids := rowIDs(responseRows(exact)); !reflect.DeepEqual(ids, []string{alpha.String(), bravo.String(), phrase.String()}) {
 		t.Fatalf("exact full_text must match every unique token, got %v", ids)
 	}
 
 	substring := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"sort":    []map[string]any{{"field_key": "note.title", "direction": "asc"}},
 		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": "shell"}}},
 	})
-	if ids := rowIDs(responseRows(substring)); !reflect.DeepEqual(ids, []string{alpha.String()}) {
+	if ids := rowIDs(responseRows(substring)); !reflect.DeepEqual(ids, []string{alpha.String(), bravo.String(), phrase.String()}) {
 		t.Fatalf("full_text must not match powershell by substring, got %v", ids)
+	}
+
+	reordered := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"sort":    []map[string]any{{"field_key": "note.title", "direction": "asc"}},
+		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": "shell alpha shell"}}},
+	})
+	if ids := rowIDs(responseRows(reordered)); !reflect.DeepEqual(ids, []string{alpha.String(), bravo.String(), phrase.String()}) {
+		t.Fatalf("full_text must preserve applied sort order rather than relevance, got %v", ids)
+	}
+
+	phraseQuery := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"sort":    []map[string]any{{"field_key": "note.title", "direction": "asc"}},
+		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": "alpha shell"}}},
+	})
+	if ids := rowIDs(responseRows(phraseQuery)); !reflect.DeepEqual(ids, []string{alpha.String(), bravo.String(), phrase.String()}) {
+		t.Fatalf("full_text must use all-token membership without phrase ordering, got %v", ids)
 	}
 
 	accent := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
@@ -170,17 +271,60 @@ func TestPhase8_NotesFullText_AC185_E_8_04(t *testing.T) {
 	}
 }
 
+func TestSupportPhase8Integration_PrefixAndNullLastOrdering(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase8-e-8-04-prefix-null-last")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-e-8-04-prefix-incident",
+		"incident_key":  "IR-PHASE8-E-8-04-PREFIX",
+		"title":         "Phase 8 prefix",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	alpha := uuid.New()
+	infix := uuid.New()
+	wildcard := uuid.New()
+	nullHost := uuid.New()
+	seedHostForPaging(t, harness, incidentID, adminUserID, alpha, "Host A")
+	seedHostForPaging(t, harness, incidentID, adminUserID, infix, "Host B")
+	seedHostForPaging(t, harness, incidentID, adminUserID, wildcard, "Host C")
+	seedHostForPaging(t, harness, incidentID, adminUserID, nullHost, "Zulu")
+	execSeed(t, harness, `
+UPDATE host_grid_projection
+   SET location = CASE record_id
+       WHEN $1 THEN 'Alpha'
+       WHEN $2 THEN 'XAlpha'
+       WHEN $3 THEN 'Al%ha'
+       WHEN $4 THEN NULL
+       END
+ WHERE record_id IN ($1, $2, $3, $4)
+`, alpha, infix, wildcard, nullHost)
+
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	prefix := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"sort":    []map[string]any{{"field_key": "host.display_name", "direction": "asc"}},
+		"filters": []map[string]any{{"field_key": "host.location", "op": "prefix", "arg": map[string]any{"value": "al"}}},
+	})
+	if ids := rowIDs(responseRows(prefix)); !reflect.DeepEqual(ids, []string{alpha.String(), wildcard.String()}) {
+		t.Fatalf("prefix must be anchored and treat wildcard chars literally, got %v", ids)
+	}
+
+	desc := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"sort": []map[string]any{{"field_key": "host.location", "direction": "desc"}},
+	})
+	ids := rowIDs(responseRows(desc))
+	if len(ids) != 4 || ids[len(ids)-1] != nullHost.String() {
+		t.Fatalf("null sort values must remain last for descending sort, got %v", ids)
+	}
+}
+
 func tamperCursor(t testing.TB, cursor string) string {
 	t.Helper()
-	payloadToken, signatureToken, ok := strings.Cut(cursor, ".")
-	if !ok {
-		t.Fatalf("expected signed cursor token, got %q", cursor)
-	}
 	replacement := "A"
-	if strings.HasPrefix(payloadToken, replacement) {
+	if strings.HasPrefix(cursor, replacement) {
 		replacement = "B"
 	}
-	return replacement + payloadToken[1:] + "." + signatureToken
+	return replacement + cursor[1:]
 }
 
 func seedNoteArtifact(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, body *string) uuid.UUID {

@@ -973,7 +973,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 11026,
+          "weight_ms": 11021,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1365,7 +1365,7 @@
           "label": "backend-integration/backend-integration-incidents-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 8764,
+          "weight_ms": 8758,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1405,7 +1405,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 8726,
+          "weight_ms": 8721,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1485,7 +1485,7 @@
           "label": "backend-store/backend-store-shard-05",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 7643,
+          "weight_ms": 7681,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1604,7 +1604,7 @@
           "label": "backend-integration/backend-integration-auth-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 7197,
+          "weight_ms": 7192,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1724,7 +1724,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-03",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 6266,
+          "weight_ms": 6261,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1764,7 +1764,7 @@
           "label": "backend-integration/backend-integration-evidence-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5888,
+          "weight_ms": 5883,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1804,7 +1804,7 @@
           "label": "backend-integration/backend-integration-entities-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5648,
+          "weight_ms": 5643,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1844,7 +1844,7 @@
           "label": "backend-integration/backend-integration-revisions-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5305,
+          "weight_ms": 5300,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1878,13 +1878,53 @@
           }
         },
         {
+          "id": "check-service-backed:backend-store:backend-store-phase8-startup-shard-01",
+          "kind": "go_shard",
+          "target": "backend-store",
+          "label": "backend-store/backend-store-phase8-startup-shard-01",
+          "aggregate_target": "backend-store",
+          "priority": 0,
+          "weight_ms": 5032,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-store-phase8-startup-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-store-phase8-startup-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-store"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-store-phase8-startup-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-store",
+            "shard": "backend-store-phase8-startup-shard-01",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
           "id": "check-service-backed:backend-store:backend-store-phase8-savedviews-shard-01",
           "kind": "go_shard",
           "target": "backend-store",
           "label": "backend-store/backend-store-phase8-savedviews-shard-01",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 5003,
+          "weight_ms": 5002,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1918,52 +1958,13 @@
           }
         },
         {
-          "id": "check-service-backed:backend-store:backend-store-phase8-links-tags-shard-01",
-          "kind": "go_shard",
-          "target": "backend-store",
-          "label": "backend-store/backend-store-phase8-links-tags-shard-01",
-          "aggregate_target": "backend-store",
-          "priority": 0,
-          "weight_ms": 4785,
-          "needs": [
-            "service_session:check-service-backed"
-          ],
-          "completion_keys": [
-            "go_shard:backend-store-phase8-links-tags-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:backend-store-phase8-links-tags-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-store"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-store-phase8-links-tags-shard-01",
-          "scheduler_profile": "transaction_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1,
-            "minio": 1,
-            "postgres": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-store",
-            "shard": "backend-store-phase8-links-tags-shard-01",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-store:backend-store-phase8-savedviews-shard-02",
           "kind": "go_shard",
           "target": "backend-store",
           "label": "backend-store/backend-store-phase8-savedviews-shard-02",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 4533,
+          "weight_ms": 4831,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -1996,34 +1997,33 @@
           }
         },
         {
-          "id": "check-service-backed:backend-store:backend-store-phase8-startup-shard-01",
+          "id": "check-service-backed:backend-store:backend-store-phase8-links-tags-shard-01",
           "kind": "go_shard",
           "target": "backend-store",
-          "label": "backend-store/backend-store-phase8-startup-shard-01",
+          "label": "backend-store/backend-store-phase8-links-tags-shard-01",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 4485,
+          "weight_ms": 4782,
           "needs": [
             "service_session:check-service-backed"
           ],
           "completion_keys": [
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "running_dependency_keys": [
             "backend-store"
           ],
           "complete_on_failure": true,
-          "shard": "backend-store-phase8-startup-shard-01",
-          "scheduler_profile": "clone_heavy",
+          "shard": "backend-store-phase8-links-tags-shard-01",
+          "scheduler_profile": "transaction_heavy",
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 2,
+            "host_io": 1,
             "minio": 1,
-            "postgres": 1,
-            "postgres_clone": 1
+            "postgres": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -2031,7 +2031,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-startup-shard-01",
+            "shard": "backend-store-phase8-links-tags-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -2082,7 +2082,7 @@
           "label": "backend-integration/backend-integration-workbook-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 4036,
+          "weight_ms": 4034,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2161,7 +2161,7 @@
           "label": "backend-integration/backend-integration-incidents-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 3104,
+          "weight_ms": 3098,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2241,7 +2241,7 @@
           "label": "backend-integration/backend-integration-app-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 2996,
+          "weight_ms": 2991,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2321,7 +2321,7 @@
           "label": "backend-integration/backend-integration-platform-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 2654,
+          "weight_ms": 2649,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2434,13 +2434,53 @@
           }
         },
         {
+          "id": "check-service-backed:backend-integration-support:backend-integration-phase8-search-shard-01",
+          "kind": "go_shard",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-phase8-search-shard-01",
+          "aggregate_target": "backend-integration-support",
+          "priority": 0,
+          "weight_ms": 2299,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:backend-integration-phase8-search-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-phase8-search-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-phase8-search-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-phase8-search-shard-01",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
           "id": "check-service-backed:backend-integration-support:backend-integration-workbook-shard-02",
           "kind": "go_shard",
           "target": "backend-integration-support",
           "label": "backend-integration-support/backend-integration-workbook-shard-02",
           "aggregate_target": "backend-integration-support",
           "priority": 0,
-          "weight_ms": 2045,
+          "weight_ms": 2050,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2474,27 +2514,27 @@
           }
         },
         {
-          "id": "check-service-backed:backend-integration:backend-integration-phase8-startup-shard-01",
+          "id": "check-service-backed:backend-integration:backend-integration-phase8-cursor-shard-01",
           "kind": "go_shard",
           "target": "backend-integration",
-          "label": "backend-integration/backend-integration-phase8-startup-shard-01",
+          "label": "backend-integration/backend-integration-phase8-cursor-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1824,
+          "weight_ms": 2024,
           "needs": [
             "service_session:check-service-backed"
           ],
           "completion_keys": [
-            "go_shard:backend-integration-phase8-startup-shard-01"
+            "go_shard:backend-integration-phase8-cursor-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-integration-phase8-startup-shard-01"
+            "go_shard:backend-integration-phase8-cursor-shard-01"
           ],
           "running_dependency_keys": [
             "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "backend-integration-phase8-startup-shard-01",
+          "shard": "backend-integration-phase8-cursor-shard-01",
           "scheduler_profile": "clone_heavy",
           "resource_claims": {
             "host_cpu": 1,
@@ -2509,7 +2549,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-startup-shard-01",
+            "shard": "backend-integration-phase8-cursor-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -2520,7 +2560,7 @@
           "label": "backend-integration/backend-integration-collaboration-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1805,
+          "weight_ms": 1800,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2554,27 +2594,27 @@
           }
         },
         {
-          "id": "check-service-backed:backend-integration:backend-integration-phase8-cursor-shard-01",
+          "id": "check-service-backed:backend-integration:backend-integration-phase8-startup-shard-01",
           "kind": "go_shard",
           "target": "backend-integration",
-          "label": "backend-integration/backend-integration-phase8-cursor-shard-01",
+          "label": "backend-integration/backend-integration-phase8-startup-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1596,
+          "weight_ms": 1708,
           "needs": [
             "service_session:check-service-backed"
           ],
           "completion_keys": [
-            "go_shard:backend-integration-phase8-cursor-shard-01"
+            "go_shard:backend-integration-phase8-startup-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-integration-phase8-cursor-shard-01"
+            "go_shard:backend-integration-phase8-startup-shard-01"
           ],
           "running_dependency_keys": [
             "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "backend-integration-phase8-cursor-shard-01",
+          "shard": "backend-integration-phase8-startup-shard-01",
           "scheduler_profile": "clone_heavy",
           "resource_claims": {
             "host_cpu": 1,
@@ -2589,7 +2629,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-cursor-shard-01",
+            "shard": "backend-integration-phase8-startup-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -2680,7 +2720,7 @@
           "label": "backend-integration/backend-integration-phase8-savedviews-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1408,
+          "weight_ms": 1437,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2720,7 +2760,7 @@
           "label": "backend-integration/backend-integration-phase8-links-tags-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1381,
+          "weight_ms": 1350,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2760,7 +2800,7 @@
           "label": "backend-integration/backend-integration-phase8-row-wire-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1216,
+          "weight_ms": 1244,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2800,7 +2840,7 @@
           "label": "backend-integration/backend-integration-platform-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 901,
+          "weight_ms": 896,
           "needs": [
             "service_session:check-service-backed"
           ],
@@ -2883,10 +2923,10 @@
             "go_shard:backend-store-shard-05",
             "go_shard:backend-store-collaboration-shard-01",
             "go_shard:backend-store-shard-03",
+            "go_shard:backend-store-phase8-startup-shard-01",
             "go_shard:backend-store-phase8-savedviews-shard-01",
-            "go_shard:backend-store-phase8-links-tags-shard-01",
             "go_shard:backend-store-phase8-savedviews-shard-02",
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "completion_keys": [
             "backend-store"
@@ -2907,10 +2947,10 @@
             "backend-store-shard-05",
             "backend-store-collaboration-shard-01",
             "backend-store-shard-03",
+            "backend-store-phase8-startup-shard-01",
             "backend-store-phase8-savedviews-shard-01",
-            "backend-store-phase8-links-tags-shard-01",
             "backend-store-phase8-savedviews-shard-02",
-            "backend-store-phase8-startup-shard-01"
+            "backend-store-phase8-links-tags-shard-01"
           ],
           "unblock_label": "backend-store",
           "command": {
@@ -2941,9 +2981,9 @@
             "go_shard:backend-integration-app-shard-01",
             "go_shard:backend-integration-platform-shard-02",
             "go_shard:backend-integration-testutil-shard-01",
-            "go_shard:backend-integration-phase8-startup-shard-01",
-            "go_shard:backend-integration-collaboration-shard-01",
             "go_shard:backend-integration-phase8-cursor-shard-01",
+            "go_shard:backend-integration-collaboration-shard-01",
+            "go_shard:backend-integration-phase8-startup-shard-01",
             "go_shard:backend-integration-testutil-shard-02",
             "go_shard:backend-integration-phase8-savedviews-shard-01",
             "go_shard:backend-integration-phase8-links-tags-shard-01",
@@ -2976,9 +3016,9 @@
             "backend-integration-app-shard-01",
             "backend-integration-platform-shard-02",
             "backend-integration-testutil-shard-01",
-            "backend-integration-phase8-startup-shard-01",
-            "backend-integration-collaboration-shard-01",
             "backend-integration-phase8-cursor-shard-01",
+            "backend-integration-collaboration-shard-01",
+            "backend-integration-phase8-startup-shard-01",
             "backend-integration-testutil-shard-02",
             "backend-integration-phase8-savedviews-shard-01",
             "backend-integration-phase8-links-tags-shard-01",
@@ -3015,6 +3055,7 @@
             "go_shard:backend-integration-collaboration-shard-02",
             "go_shard:backend-integration-timeline-shard-04",
             "go_shard:backend-integration-auth-shard-03",
+            "go_shard:backend-integration-phase8-search-shard-01",
             "go_shard:backend-integration-workbook-shard-02",
             "go_shard:backend-integration-platform-shard-03"
           ],
@@ -3045,6 +3086,7 @@
             "backend-integration-collaboration-shard-02",
             "backend-integration-timeline-shard-04",
             "backend-integration-auth-shard-03",
+            "backend-integration-phase8-search-shard-01",
             "backend-integration-workbook-shard-02",
             "backend-integration-platform-shard-03"
           ],
@@ -4163,7 +4205,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 11026,
+          "weight_ms": 11021,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-01"
@@ -4505,7 +4547,7 @@
           "label": "backend-integration/backend-integration-incidents-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 8764,
+          "weight_ms": 8758,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-incidents-shard-01"
@@ -4540,7 +4582,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 8726,
+          "weight_ms": 8721,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-02"
@@ -4610,7 +4652,7 @@
           "label": "backend-store/backend-store-shard-05",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 7643,
+          "weight_ms": 7681,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-shard-05"
@@ -4714,7 +4756,7 @@
           "label": "backend-integration/backend-integration-auth-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 7197,
+          "weight_ms": 7192,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-auth-shard-01"
@@ -4819,7 +4861,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-03",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 6266,
+          "weight_ms": 6261,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-03"
@@ -4854,7 +4896,7 @@
           "label": "backend-integration/backend-integration-evidence-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5888,
+          "weight_ms": 5883,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-evidence-shard-01"
@@ -4889,7 +4931,7 @@
           "label": "backend-integration/backend-integration-entities-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5648,
+          "weight_ms": 5643,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-entities-shard-01"
@@ -4924,7 +4966,7 @@
           "label": "backend-integration/backend-integration-revisions-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5305,
+          "weight_ms": 5300,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-revisions-shard-01"
@@ -4952,6 +4994,41 @@
           }
         },
         {
+          "id": "backend-store:backend-store-phase8-startup-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-store",
+          "label": "backend-store/backend-store-phase8-startup-shard-01",
+          "aggregate_target": "backend-store",
+          "priority": 0,
+          "weight_ms": 5032,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-store-phase8-startup-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-store-phase8-startup-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-store"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-store-phase8-startup-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-store",
+            "shard": "backend-store-phase8-startup-shard-01"
+          }
+        },
+        {
           "id": "backend-store:backend-store-phase8-savedviews-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -4959,7 +5036,7 @@
           "label": "backend-store/backend-store-phase8-savedviews-shard-01",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 5003,
+          "weight_ms": 5002,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-phase8-savedviews-shard-01"
@@ -4987,40 +5064,6 @@
           }
         },
         {
-          "id": "backend-store:backend-store-phase8-links-tags-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-store",
-          "label": "backend-store/backend-store-phase8-links-tags-shard-01",
-          "aggregate_target": "backend-store",
-          "priority": 0,
-          "weight_ms": 4785,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-store-phase8-links-tags-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:backend-store-phase8-links-tags-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-store"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-store-phase8-links-tags-shard-01",
-          "scheduler_profile": "transaction_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1,
-            "minio": 1,
-            "postgres": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-store",
-            "shard": "backend-store-phase8-links-tags-shard-01"
-          }
-        },
-        {
           "id": "backend-store:backend-store-phase8-savedviews-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -5028,7 +5071,7 @@
           "label": "backend-store/backend-store-phase8-savedviews-shard-02",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 4533,
+          "weight_ms": 4831,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-phase8-savedviews-shard-02"
@@ -5055,38 +5098,37 @@
           }
         },
         {
-          "id": "backend-store:backend-store-phase8-startup-shard-01",
+          "id": "backend-store:backend-store-phase8-links-tags-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-store",
-          "label": "backend-store/backend-store-phase8-startup-shard-01",
+          "label": "backend-store/backend-store-phase8-links-tags-shard-01",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 4485,
+          "weight_ms": 4782,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "running_dependency_keys": [
             "backend-store"
           ],
           "complete_on_failure": true,
-          "shard": "backend-store-phase8-startup-shard-01",
-          "scheduler_profile": "clone_heavy",
+          "shard": "backend-store-phase8-links-tags-shard-01",
+          "scheduler_profile": "transaction_heavy",
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 2,
+            "go_io": 1,
             "minio": 1,
-            "postgres": 1,
-            "postgres_clone": 1
+            "postgres": 1
           },
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-startup-shard-01"
+            "shard": "backend-store-phase8-links-tags-shard-01"
           }
         },
         {
@@ -5132,7 +5174,7 @@
           "label": "backend-integration/backend-integration-workbook-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 4036,
+          "weight_ms": 4034,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-workbook-shard-01"
@@ -5201,7 +5243,7 @@
           "label": "backend-integration/backend-integration-incidents-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 3104,
+          "weight_ms": 3098,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-incidents-shard-02"
@@ -5271,7 +5313,7 @@
           "label": "backend-integration/backend-integration-app-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 2996,
+          "weight_ms": 2991,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-app-shard-01"
@@ -5341,7 +5383,7 @@
           "label": "backend-integration/backend-integration-platform-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 2654,
+          "weight_ms": 2649,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-platform-shard-02"
@@ -5438,6 +5480,41 @@
           }
         },
         {
+          "id": "backend-integration-support:backend-integration-phase8-search-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-phase8-search-shard-01",
+          "aggregate_target": "backend-integration-support",
+          "priority": 0,
+          "weight_ms": 2299,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-phase8-search-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-phase8-search-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-phase8-search-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-phase8-search-shard-01"
+          }
+        },
+        {
           "id": "backend-integration-support:backend-integration-workbook-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -5445,7 +5522,7 @@
           "label": "backend-integration-support/backend-integration-workbook-shard-02",
           "aggregate_target": "backend-integration-support",
           "priority": 0,
-          "weight_ms": 2045,
+          "weight_ms": 2050,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-workbook-shard-02"
@@ -5473,26 +5550,26 @@
           }
         },
         {
-          "id": "backend-integration:backend-integration-phase8-startup-shard-01",
+          "id": "backend-integration:backend-integration-phase8-cursor-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-integration",
-          "label": "backend-integration/backend-integration-phase8-startup-shard-01",
+          "label": "backend-integration/backend-integration-phase8-cursor-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1824,
+          "weight_ms": 2024,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-integration-phase8-startup-shard-01"
+            "go_shard:backend-integration-phase8-cursor-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-integration-phase8-startup-shard-01"
+            "go_shard:backend-integration-phase8-cursor-shard-01"
           ],
           "running_dependency_keys": [
             "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "backend-integration-phase8-startup-shard-01",
+          "shard": "backend-integration-phase8-cursor-shard-01",
           "scheduler_profile": "clone_heavy",
           "resource_claims": {
             "go_cpu": 1,
@@ -5504,7 +5581,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-startup-shard-01"
+            "shard": "backend-integration-phase8-cursor-shard-01"
           }
         },
         {
@@ -5515,7 +5592,7 @@
           "label": "backend-integration/backend-integration-collaboration-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1805,
+          "weight_ms": 1800,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-collaboration-shard-01"
@@ -5543,26 +5620,26 @@
           }
         },
         {
-          "id": "backend-integration:backend-integration-phase8-cursor-shard-01",
+          "id": "backend-integration:backend-integration-phase8-startup-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-integration",
-          "label": "backend-integration/backend-integration-phase8-cursor-shard-01",
+          "label": "backend-integration/backend-integration-phase8-startup-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1596,
+          "weight_ms": 1708,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-integration-phase8-cursor-shard-01"
+            "go_shard:backend-integration-phase8-startup-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-integration-phase8-cursor-shard-01"
+            "go_shard:backend-integration-phase8-startup-shard-01"
           ],
           "running_dependency_keys": [
             "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "backend-integration-phase8-cursor-shard-01",
+          "shard": "backend-integration-phase8-startup-shard-01",
           "scheduler_profile": "clone_heavy",
           "resource_claims": {
             "go_cpu": 1,
@@ -5574,7 +5651,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-cursor-shard-01"
+            "shard": "backend-integration-phase8-startup-shard-01"
           }
         },
         {
@@ -5655,7 +5732,7 @@
           "label": "backend-integration/backend-integration-phase8-savedviews-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1408,
+          "weight_ms": 1437,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-savedviews-shard-01"
@@ -5690,7 +5767,7 @@
           "label": "backend-integration/backend-integration-phase8-links-tags-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1381,
+          "weight_ms": 1350,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-links-tags-shard-01"
@@ -5725,7 +5802,7 @@
           "label": "backend-integration/backend-integration-phase8-row-wire-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1216,
+          "weight_ms": 1244,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-row-wire-shard-01"
@@ -5760,7 +5837,7 @@
           "label": "backend-integration/backend-integration-platform-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 901,
+          "weight_ms": 896,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-platform-shard-01"
@@ -5803,10 +5880,10 @@
             "go_shard:backend-store-shard-05",
             "go_shard:backend-store-collaboration-shard-01",
             "go_shard:backend-store-shard-03",
+            "go_shard:backend-store-phase8-startup-shard-01",
             "go_shard:backend-store-phase8-savedviews-shard-01",
-            "go_shard:backend-store-phase8-links-tags-shard-01",
             "go_shard:backend-store-phase8-savedviews-shard-02",
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "completion_keys": [
             "backend-store"
@@ -5824,10 +5901,10 @@
             "backend-store-shard-05",
             "backend-store-collaboration-shard-01",
             "backend-store-shard-03",
+            "backend-store-phase8-startup-shard-01",
             "backend-store-phase8-savedviews-shard-01",
-            "backend-store-phase8-links-tags-shard-01",
             "backend-store-phase8-savedviews-shard-02",
-            "backend-store-phase8-startup-shard-01"
+            "backend-store-phase8-links-tags-shard-01"
           ],
           "unblock_label": "backend-store",
           "command": {
@@ -5858,9 +5935,9 @@
             "go_shard:backend-integration-app-shard-01",
             "go_shard:backend-integration-platform-shard-02",
             "go_shard:backend-integration-testutil-shard-01",
-            "go_shard:backend-integration-phase8-startup-shard-01",
-            "go_shard:backend-integration-collaboration-shard-01",
             "go_shard:backend-integration-phase8-cursor-shard-01",
+            "go_shard:backend-integration-collaboration-shard-01",
+            "go_shard:backend-integration-phase8-startup-shard-01",
             "go_shard:backend-integration-testutil-shard-02",
             "go_shard:backend-integration-phase8-savedviews-shard-01",
             "go_shard:backend-integration-phase8-links-tags-shard-01",
@@ -5890,9 +5967,9 @@
             "backend-integration-app-shard-01",
             "backend-integration-platform-shard-02",
             "backend-integration-testutil-shard-01",
-            "backend-integration-phase8-startup-shard-01",
-            "backend-integration-collaboration-shard-01",
             "backend-integration-phase8-cursor-shard-01",
+            "backend-integration-collaboration-shard-01",
+            "backend-integration-phase8-startup-shard-01",
             "backend-integration-testutil-shard-02",
             "backend-integration-phase8-savedviews-shard-01",
             "backend-integration-phase8-links-tags-shard-01",
@@ -5929,6 +6006,7 @@
             "go_shard:backend-integration-collaboration-shard-02",
             "go_shard:backend-integration-timeline-shard-04",
             "go_shard:backend-integration-auth-shard-03",
+            "go_shard:backend-integration-phase8-search-shard-01",
             "go_shard:backend-integration-workbook-shard-02",
             "go_shard:backend-integration-platform-shard-03"
           ],
@@ -5956,6 +6034,7 @@
             "backend-integration-collaboration-shard-02",
             "backend-integration-timeline-shard-04",
             "backend-integration-auth-shard-03",
+            "backend-integration-phase8-search-shard-01",
             "backend-integration-workbook-shard-02",
             "backend-integration-platform-shard-03"
           ],
@@ -6161,7 +6240,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 11026,
+          "weight_ms": 11021,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-01"
@@ -6503,7 +6582,7 @@
           "label": "backend-integration/backend-integration-incidents-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 8764,
+          "weight_ms": 8758,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-incidents-shard-01"
@@ -6538,7 +6617,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 8726,
+          "weight_ms": 8721,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-02"
@@ -6608,7 +6687,7 @@
           "label": "backend-store/backend-store-shard-05",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 7643,
+          "weight_ms": 7681,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-shard-05"
@@ -6712,7 +6791,7 @@
           "label": "backend-integration/backend-integration-auth-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 7197,
+          "weight_ms": 7192,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-auth-shard-01"
@@ -6817,7 +6896,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-03",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 6266,
+          "weight_ms": 6261,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-03"
@@ -6852,7 +6931,7 @@
           "label": "backend-integration/backend-integration-evidence-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5888,
+          "weight_ms": 5883,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-evidence-shard-01"
@@ -6887,7 +6966,7 @@
           "label": "backend-integration/backend-integration-entities-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5648,
+          "weight_ms": 5643,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-entities-shard-01"
@@ -6922,7 +7001,7 @@
           "label": "backend-integration/backend-integration-revisions-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5305,
+          "weight_ms": 5300,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-revisions-shard-01"
@@ -6950,6 +7029,41 @@
           }
         },
         {
+          "id": "backend-store:backend-store-phase8-startup-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-store",
+          "label": "backend-store/backend-store-phase8-startup-shard-01",
+          "aggregate_target": "backend-store",
+          "priority": 0,
+          "weight_ms": 5032,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-store-phase8-startup-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-store-phase8-startup-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-store"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-store-phase8-startup-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-store",
+            "shard": "backend-store-phase8-startup-shard-01"
+          }
+        },
+        {
           "id": "backend-store:backend-store-phase8-savedviews-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -6957,7 +7071,7 @@
           "label": "backend-store/backend-store-phase8-savedviews-shard-01",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 5003,
+          "weight_ms": 5002,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-phase8-savedviews-shard-01"
@@ -6985,40 +7099,6 @@
           }
         },
         {
-          "id": "backend-store:backend-store-phase8-links-tags-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-store",
-          "label": "backend-store/backend-store-phase8-links-tags-shard-01",
-          "aggregate_target": "backend-store",
-          "priority": 0,
-          "weight_ms": 4785,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-store-phase8-links-tags-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:backend-store-phase8-links-tags-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-store"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-store-phase8-links-tags-shard-01",
-          "scheduler_profile": "transaction_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1,
-            "minio": 1,
-            "postgres": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-store",
-            "shard": "backend-store-phase8-links-tags-shard-01"
-          }
-        },
-        {
           "id": "backend-store:backend-store-phase8-savedviews-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -7026,7 +7106,7 @@
           "label": "backend-store/backend-store-phase8-savedviews-shard-02",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 4533,
+          "weight_ms": 4831,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-phase8-savedviews-shard-02"
@@ -7053,38 +7133,37 @@
           }
         },
         {
-          "id": "backend-store:backend-store-phase8-startup-shard-01",
+          "id": "backend-store:backend-store-phase8-links-tags-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-store",
-          "label": "backend-store/backend-store-phase8-startup-shard-01",
+          "label": "backend-store/backend-store-phase8-links-tags-shard-01",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 4485,
+          "weight_ms": 4782,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "running_dependency_keys": [
             "backend-store"
           ],
           "complete_on_failure": true,
-          "shard": "backend-store-phase8-startup-shard-01",
-          "scheduler_profile": "clone_heavy",
+          "shard": "backend-store-phase8-links-tags-shard-01",
+          "scheduler_profile": "transaction_heavy",
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 2,
+            "go_io": 1,
             "minio": 1,
-            "postgres": 1,
-            "postgres_clone": 1
+            "postgres": 1
           },
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-startup-shard-01"
+            "shard": "backend-store-phase8-links-tags-shard-01"
           }
         },
         {
@@ -7130,7 +7209,7 @@
           "label": "backend-integration/backend-integration-workbook-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 4036,
+          "weight_ms": 4034,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-workbook-shard-01"
@@ -7199,7 +7278,7 @@
           "label": "backend-integration/backend-integration-incidents-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 3104,
+          "weight_ms": 3098,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-incidents-shard-02"
@@ -7269,7 +7348,7 @@
           "label": "backend-integration/backend-integration-app-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 2996,
+          "weight_ms": 2991,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-app-shard-01"
@@ -7339,7 +7418,7 @@
           "label": "backend-integration/backend-integration-platform-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 2654,
+          "weight_ms": 2649,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-platform-shard-02"
@@ -7436,6 +7515,41 @@
           }
         },
         {
+          "id": "backend-integration-support:backend-integration-phase8-search-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-phase8-search-shard-01",
+          "aggregate_target": "backend-integration-support",
+          "priority": 0,
+          "weight_ms": 2299,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-phase8-search-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-phase8-search-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-phase8-search-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-phase8-search-shard-01"
+          }
+        },
+        {
           "id": "backend-integration-support:backend-integration-workbook-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -7443,7 +7557,7 @@
           "label": "backend-integration-support/backend-integration-workbook-shard-02",
           "aggregate_target": "backend-integration-support",
           "priority": 0,
-          "weight_ms": 2045,
+          "weight_ms": 2050,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-workbook-shard-02"
@@ -7471,26 +7585,26 @@
           }
         },
         {
-          "id": "backend-integration:backend-integration-phase8-startup-shard-01",
+          "id": "backend-integration:backend-integration-phase8-cursor-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-integration",
-          "label": "backend-integration/backend-integration-phase8-startup-shard-01",
+          "label": "backend-integration/backend-integration-phase8-cursor-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1824,
+          "weight_ms": 2024,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-integration-phase8-startup-shard-01"
+            "go_shard:backend-integration-phase8-cursor-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-integration-phase8-startup-shard-01"
+            "go_shard:backend-integration-phase8-cursor-shard-01"
           ],
           "running_dependency_keys": [
             "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "backend-integration-phase8-startup-shard-01",
+          "shard": "backend-integration-phase8-cursor-shard-01",
           "scheduler_profile": "clone_heavy",
           "resource_claims": {
             "go_cpu": 1,
@@ -7502,7 +7616,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-startup-shard-01"
+            "shard": "backend-integration-phase8-cursor-shard-01"
           }
         },
         {
@@ -7513,7 +7627,7 @@
           "label": "backend-integration/backend-integration-collaboration-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1805,
+          "weight_ms": 1800,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-collaboration-shard-01"
@@ -7541,26 +7655,26 @@
           }
         },
         {
-          "id": "backend-integration:backend-integration-phase8-cursor-shard-01",
+          "id": "backend-integration:backend-integration-phase8-startup-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-integration",
-          "label": "backend-integration/backend-integration-phase8-cursor-shard-01",
+          "label": "backend-integration/backend-integration-phase8-startup-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1596,
+          "weight_ms": 1708,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-integration-phase8-cursor-shard-01"
+            "go_shard:backend-integration-phase8-startup-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-integration-phase8-cursor-shard-01"
+            "go_shard:backend-integration-phase8-startup-shard-01"
           ],
           "running_dependency_keys": [
             "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "backend-integration-phase8-cursor-shard-01",
+          "shard": "backend-integration-phase8-startup-shard-01",
           "scheduler_profile": "clone_heavy",
           "resource_claims": {
             "go_cpu": 1,
@@ -7572,7 +7686,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-cursor-shard-01"
+            "shard": "backend-integration-phase8-startup-shard-01"
           }
         },
         {
@@ -7653,7 +7767,7 @@
           "label": "backend-integration/backend-integration-phase8-savedviews-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1408,
+          "weight_ms": 1437,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-savedviews-shard-01"
@@ -7688,7 +7802,7 @@
           "label": "backend-integration/backend-integration-phase8-links-tags-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1381,
+          "weight_ms": 1350,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-links-tags-shard-01"
@@ -7723,7 +7837,7 @@
           "label": "backend-integration/backend-integration-phase8-row-wire-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1216,
+          "weight_ms": 1244,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-row-wire-shard-01"
@@ -7758,7 +7872,7 @@
           "label": "backend-integration/backend-integration-platform-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 901,
+          "weight_ms": 896,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-platform-shard-01"
@@ -7801,10 +7915,10 @@
             "go_shard:backend-store-shard-05",
             "go_shard:backend-store-collaboration-shard-01",
             "go_shard:backend-store-shard-03",
+            "go_shard:backend-store-phase8-startup-shard-01",
             "go_shard:backend-store-phase8-savedviews-shard-01",
-            "go_shard:backend-store-phase8-links-tags-shard-01",
             "go_shard:backend-store-phase8-savedviews-shard-02",
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "completion_keys": [
             "backend-store"
@@ -7822,10 +7936,10 @@
             "backend-store-shard-05",
             "backend-store-collaboration-shard-01",
             "backend-store-shard-03",
+            "backend-store-phase8-startup-shard-01",
             "backend-store-phase8-savedviews-shard-01",
-            "backend-store-phase8-links-tags-shard-01",
             "backend-store-phase8-savedviews-shard-02",
-            "backend-store-phase8-startup-shard-01"
+            "backend-store-phase8-links-tags-shard-01"
           ],
           "unblock_label": "backend-store",
           "command": {
@@ -7856,9 +7970,9 @@
             "go_shard:backend-integration-app-shard-01",
             "go_shard:backend-integration-platform-shard-02",
             "go_shard:backend-integration-testutil-shard-01",
-            "go_shard:backend-integration-phase8-startup-shard-01",
-            "go_shard:backend-integration-collaboration-shard-01",
             "go_shard:backend-integration-phase8-cursor-shard-01",
+            "go_shard:backend-integration-collaboration-shard-01",
+            "go_shard:backend-integration-phase8-startup-shard-01",
             "go_shard:backend-integration-testutil-shard-02",
             "go_shard:backend-integration-phase8-savedviews-shard-01",
             "go_shard:backend-integration-phase8-links-tags-shard-01",
@@ -7888,9 +8002,9 @@
             "backend-integration-app-shard-01",
             "backend-integration-platform-shard-02",
             "backend-integration-testutil-shard-01",
-            "backend-integration-phase8-startup-shard-01",
-            "backend-integration-collaboration-shard-01",
             "backend-integration-phase8-cursor-shard-01",
+            "backend-integration-collaboration-shard-01",
+            "backend-integration-phase8-startup-shard-01",
             "backend-integration-testutil-shard-02",
             "backend-integration-phase8-savedviews-shard-01",
             "backend-integration-phase8-links-tags-shard-01",
@@ -7927,6 +8041,7 @@
             "go_shard:backend-integration-collaboration-shard-02",
             "go_shard:backend-integration-timeline-shard-04",
             "go_shard:backend-integration-auth-shard-03",
+            "go_shard:backend-integration-phase8-search-shard-01",
             "go_shard:backend-integration-workbook-shard-02",
             "go_shard:backend-integration-platform-shard-03"
           ],
@@ -7954,6 +8069,7 @@
             "backend-integration-collaboration-shard-02",
             "backend-integration-timeline-shard-04",
             "backend-integration-auth-shard-03",
+            "backend-integration-phase8-search-shard-01",
             "backend-integration-workbook-shard-02",
             "backend-integration-platform-shard-03"
           ],
@@ -8551,7 +8667,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 11026,
+          "weight_ms": 11021,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-01"
@@ -8893,7 +9009,7 @@
           "label": "backend-integration/backend-integration-incidents-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 8764,
+          "weight_ms": 8758,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-incidents-shard-01"
@@ -8928,7 +9044,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 8726,
+          "weight_ms": 8721,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-02"
@@ -8998,7 +9114,7 @@
           "label": "backend-store/backend-store-shard-05",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 7643,
+          "weight_ms": 7681,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-shard-05"
@@ -9102,7 +9218,7 @@
           "label": "backend-integration/backend-integration-auth-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 7197,
+          "weight_ms": 7192,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-auth-shard-01"
@@ -9207,7 +9323,7 @@
           "label": "backend-integration/backend-integration-timeline-shard-03",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 6266,
+          "weight_ms": 6261,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-timeline-shard-03"
@@ -9242,7 +9358,7 @@
           "label": "backend-integration/backend-integration-evidence-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5888,
+          "weight_ms": 5883,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-evidence-shard-01"
@@ -9277,7 +9393,7 @@
           "label": "backend-integration/backend-integration-entities-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5648,
+          "weight_ms": 5643,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-entities-shard-01"
@@ -9312,7 +9428,7 @@
           "label": "backend-integration/backend-integration-revisions-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 5305,
+          "weight_ms": 5300,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-revisions-shard-01"
@@ -9340,6 +9456,41 @@
           }
         },
         {
+          "id": "backend-store:backend-store-phase8-startup-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-store",
+          "label": "backend-store/backend-store-phase8-startup-shard-01",
+          "aggregate_target": "backend-store",
+          "priority": 0,
+          "weight_ms": 5032,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-store-phase8-startup-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-store-phase8-startup-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-store"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-store-phase8-startup-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-store",
+            "shard": "backend-store-phase8-startup-shard-01"
+          }
+        },
+        {
           "id": "backend-store:backend-store-phase8-savedviews-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -9347,7 +9498,7 @@
           "label": "backend-store/backend-store-phase8-savedviews-shard-01",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 5003,
+          "weight_ms": 5002,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-phase8-savedviews-shard-01"
@@ -9375,40 +9526,6 @@
           }
         },
         {
-          "id": "backend-store:backend-store-phase8-links-tags-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-store",
-          "label": "backend-store/backend-store-phase8-links-tags-shard-01",
-          "aggregate_target": "backend-store",
-          "priority": 0,
-          "weight_ms": 4785,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-store-phase8-links-tags-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:backend-store-phase8-links-tags-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-store"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-store-phase8-links-tags-shard-01",
-          "scheduler_profile": "transaction_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1,
-            "minio": 1,
-            "postgres": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-store",
-            "shard": "backend-store-phase8-links-tags-shard-01"
-          }
-        },
-        {
           "id": "backend-store:backend-store-phase8-savedviews-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -9416,7 +9533,7 @@
           "label": "backend-store/backend-store-phase8-savedviews-shard-02",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 4533,
+          "weight_ms": 4831,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-store-phase8-savedviews-shard-02"
@@ -9443,38 +9560,37 @@
           }
         },
         {
-          "id": "backend-store:backend-store-phase8-startup-shard-01",
+          "id": "backend-store:backend-store-phase8-links-tags-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-store",
-          "label": "backend-store/backend-store-phase8-startup-shard-01",
+          "label": "backend-store/backend-store-phase8-links-tags-shard-01",
           "aggregate_target": "backend-store",
           "priority": 0,
-          "weight_ms": 4485,
+          "weight_ms": 4782,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "running_dependency_keys": [
             "backend-store"
           ],
           "complete_on_failure": true,
-          "shard": "backend-store-phase8-startup-shard-01",
-          "scheduler_profile": "clone_heavy",
+          "shard": "backend-store-phase8-links-tags-shard-01",
+          "scheduler_profile": "transaction_heavy",
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 2,
+            "go_io": 1,
             "minio": 1,
-            "postgres": 1,
-            "postgres_clone": 1
+            "postgres": 1
           },
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-startup-shard-01"
+            "shard": "backend-store-phase8-links-tags-shard-01"
           }
         },
         {
@@ -9520,7 +9636,7 @@
           "label": "backend-integration/backend-integration-workbook-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 4036,
+          "weight_ms": 4034,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-workbook-shard-01"
@@ -9589,7 +9705,7 @@
           "label": "backend-integration/backend-integration-incidents-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 3104,
+          "weight_ms": 3098,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-incidents-shard-02"
@@ -9659,7 +9775,7 @@
           "label": "backend-integration/backend-integration-app-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 2996,
+          "weight_ms": 2991,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-app-shard-01"
@@ -9729,7 +9845,7 @@
           "label": "backend-integration/backend-integration-platform-shard-02",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 2654,
+          "weight_ms": 2649,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-platform-shard-02"
@@ -9826,6 +9942,41 @@
           }
         },
         {
+          "id": "backend-integration-support:backend-integration-phase8-search-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-phase8-search-shard-01",
+          "aggregate_target": "backend-integration-support",
+          "priority": 0,
+          "weight_ms": 2299,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-phase8-search-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-phase8-search-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-phase8-search-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "minio": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-phase8-search-shard-01"
+          }
+        },
+        {
           "id": "backend-integration-support:backend-integration-workbook-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -9833,7 +9984,7 @@
           "label": "backend-integration-support/backend-integration-workbook-shard-02",
           "aggregate_target": "backend-integration-support",
           "priority": 0,
-          "weight_ms": 2045,
+          "weight_ms": 2050,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-workbook-shard-02"
@@ -9861,26 +10012,26 @@
           }
         },
         {
-          "id": "backend-integration:backend-integration-phase8-startup-shard-01",
+          "id": "backend-integration:backend-integration-phase8-cursor-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-integration",
-          "label": "backend-integration/backend-integration-phase8-startup-shard-01",
+          "label": "backend-integration/backend-integration-phase8-cursor-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1824,
+          "weight_ms": 2024,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-integration-phase8-startup-shard-01"
+            "go_shard:backend-integration-phase8-cursor-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-integration-phase8-startup-shard-01"
+            "go_shard:backend-integration-phase8-cursor-shard-01"
           ],
           "running_dependency_keys": [
             "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "backend-integration-phase8-startup-shard-01",
+          "shard": "backend-integration-phase8-cursor-shard-01",
           "scheduler_profile": "clone_heavy",
           "resource_claims": {
             "go_cpu": 1,
@@ -9892,7 +10043,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-startup-shard-01"
+            "shard": "backend-integration-phase8-cursor-shard-01"
           }
         },
         {
@@ -9903,7 +10054,7 @@
           "label": "backend-integration/backend-integration-collaboration-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1805,
+          "weight_ms": 1800,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-collaboration-shard-01"
@@ -9931,26 +10082,26 @@
           }
         },
         {
-          "id": "backend-integration:backend-integration-phase8-cursor-shard-01",
+          "id": "backend-integration:backend-integration-phase8-startup-shard-01",
           "kind": "go_shard",
           "class": "backend",
           "target": "backend-integration",
-          "label": "backend-integration/backend-integration-phase8-cursor-shard-01",
+          "label": "backend-integration/backend-integration-phase8-startup-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1596,
+          "weight_ms": 1708,
           "needs": [],
           "completion_keys": [
-            "go_shard:backend-integration-phase8-cursor-shard-01"
+            "go_shard:backend-integration-phase8-startup-shard-01"
           ],
           "failure_keys": [
-            "go_shard:backend-integration-phase8-cursor-shard-01"
+            "go_shard:backend-integration-phase8-startup-shard-01"
           ],
           "running_dependency_keys": [
             "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "backend-integration-phase8-cursor-shard-01",
+          "shard": "backend-integration-phase8-startup-shard-01",
           "scheduler_profile": "clone_heavy",
           "resource_claims": {
             "go_cpu": 1,
@@ -9962,7 +10113,7 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-cursor-shard-01"
+            "shard": "backend-integration-phase8-startup-shard-01"
           }
         },
         {
@@ -10043,7 +10194,7 @@
           "label": "backend-integration/backend-integration-phase8-savedviews-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1408,
+          "weight_ms": 1437,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-savedviews-shard-01"
@@ -10078,7 +10229,7 @@
           "label": "backend-integration/backend-integration-phase8-links-tags-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1381,
+          "weight_ms": 1350,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-links-tags-shard-01"
@@ -10113,7 +10264,7 @@
           "label": "backend-integration/backend-integration-phase8-row-wire-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 1216,
+          "weight_ms": 1244,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-phase8-row-wire-shard-01"
@@ -10148,7 +10299,7 @@
           "label": "backend-integration/backend-integration-platform-shard-01",
           "aggregate_target": "backend-integration",
           "priority": 0,
-          "weight_ms": 901,
+          "weight_ms": 896,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-platform-shard-01"
@@ -10191,10 +10342,10 @@
             "go_shard:backend-store-shard-05",
             "go_shard:backend-store-collaboration-shard-01",
             "go_shard:backend-store-shard-03",
+            "go_shard:backend-store-phase8-startup-shard-01",
             "go_shard:backend-store-phase8-savedviews-shard-01",
-            "go_shard:backend-store-phase8-links-tags-shard-01",
             "go_shard:backend-store-phase8-savedviews-shard-02",
-            "go_shard:backend-store-phase8-startup-shard-01"
+            "go_shard:backend-store-phase8-links-tags-shard-01"
           ],
           "completion_keys": [
             "backend-store"
@@ -10212,10 +10363,10 @@
             "backend-store-shard-05",
             "backend-store-collaboration-shard-01",
             "backend-store-shard-03",
+            "backend-store-phase8-startup-shard-01",
             "backend-store-phase8-savedviews-shard-01",
-            "backend-store-phase8-links-tags-shard-01",
             "backend-store-phase8-savedviews-shard-02",
-            "backend-store-phase8-startup-shard-01"
+            "backend-store-phase8-links-tags-shard-01"
           ],
           "unblock_label": "backend-store",
           "command": {
@@ -10246,9 +10397,9 @@
             "go_shard:backend-integration-app-shard-01",
             "go_shard:backend-integration-platform-shard-02",
             "go_shard:backend-integration-testutil-shard-01",
-            "go_shard:backend-integration-phase8-startup-shard-01",
-            "go_shard:backend-integration-collaboration-shard-01",
             "go_shard:backend-integration-phase8-cursor-shard-01",
+            "go_shard:backend-integration-collaboration-shard-01",
+            "go_shard:backend-integration-phase8-startup-shard-01",
             "go_shard:backend-integration-testutil-shard-02",
             "go_shard:backend-integration-phase8-savedviews-shard-01",
             "go_shard:backend-integration-phase8-links-tags-shard-01",
@@ -10278,9 +10429,9 @@
             "backend-integration-app-shard-01",
             "backend-integration-platform-shard-02",
             "backend-integration-testutil-shard-01",
-            "backend-integration-phase8-startup-shard-01",
-            "backend-integration-collaboration-shard-01",
             "backend-integration-phase8-cursor-shard-01",
+            "backend-integration-collaboration-shard-01",
+            "backend-integration-phase8-startup-shard-01",
             "backend-integration-testutil-shard-02",
             "backend-integration-phase8-savedviews-shard-01",
             "backend-integration-phase8-links-tags-shard-01",
@@ -10317,6 +10468,7 @@
             "go_shard:backend-integration-collaboration-shard-02",
             "go_shard:backend-integration-timeline-shard-04",
             "go_shard:backend-integration-auth-shard-03",
+            "go_shard:backend-integration-phase8-search-shard-01",
             "go_shard:backend-integration-workbook-shard-02",
             "go_shard:backend-integration-platform-shard-03"
           ],
@@ -10344,6 +10496,7 @@
             "backend-integration-collaboration-shard-02",
             "backend-integration-timeline-shard-04",
             "backend-integration-auth-shard-03",
+            "backend-integration-phase8-search-shard-01",
             "backend-integration-workbook-shard-02",
             "backend-integration-platform-shard-03"
           ],

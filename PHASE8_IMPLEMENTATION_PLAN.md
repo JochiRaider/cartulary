@@ -48,7 +48,7 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 3. Saved-view patch, duplicate, and delete | [x] implemented and audited | None for this sprint. | Patch/delete routes, stale-version conflict, structural no-op behavior, ordinary-create duplicate semantics, system immutability, and delete-only configuration removal are evidenced. |
 | [x] | 4. Workbook preferences and startup selection | [x] implemented and audited | None for this sprint. | Separate preference pointers, saved-view and base-surface sheet refs, deterministic startup fallback, and invalid-pointer clearing are evidenced by backend store/integration rows. |
 | [x] | 5. Query contract validation and normalization | [x] implemented and audited | None for this sprint. | Stable keys only, ceilings, canonical filters/sort/group, duplicate rejection, saved-view persistence separation, and query response `meta.query` schema are evidenced. |
-| [ ] | 6. Projection-backed execution, search, and cursor semantics | [ ] planned | Requires Sprint 5 canonical query contract. | Live-authorized keyset cursor, exact-token `full_text`, strict `prefix`, null-last ordering. |
+| [x] | 6. Projection-backed execution, search, and cursor semantics | [x] implemented and audited | None for backend Sprint 6 evidence. Browser-functional `E-8-04` remains Sprint 8 scope. | Live-authorized keyset cursor is authoritative under `I-8-04`; exact-token `full_text`, strict `prefix`, and null-last ordering are backend support evidence for browser-owned `E-8-04`. |
 | [ ] | 7. Grouping, discovery, and grid controls | [ ] planned | Requires Sprint 5/6 query semantics. | Timeline whitelist, presentation-only headers, no client-sortable `record_id`, stable frontend keys. |
 | [ ] | 8. Sparse patch, hidden writable fields, and browser workflows | [ ] planned | Requires backend query/saved-view/startup behaviors. | Complete browser-functional rows `E-8-01..E-8-04` and sparse-patch row `U-8-10`. |
 | [ ] | 9. Phase gate, ledgers, schedules, baselines, and exit | [ ] planned | Depends on all authoritative rows having direct non-placeholder evidence. | Finalize generated artifacts, public wrappers, service-backed slices, and `make check` or recorded non-Phase-8 blocker. |
@@ -716,7 +716,7 @@ Exit criteria:
 
 Objective: Make projection-backed query execution conform to canonical sort/filter/search semantics and live-authorized cursor continuation.
 
-Status: Planned.
+Status: Implemented and audited for backend Sprint 6 evidence on 2026-05-15. Cursor continuation is authoritative `I-8-04` evidence; backend exact-search, strict-prefix, and null-last execution checks are support-only readiness evidence for the browser-owned `E-8-04` row.
 
 Relevant IDs:
 - `I-8-04`, `E-8-04`
@@ -750,8 +750,8 @@ Test-first sequence:
 1. `I-8-04` asserts cursor continuation re-derives current session, route authorization, incident membership, and route visibility before returning rows.
 2. `I-8-04` asserts cursor tokens are opaque and reject tampering or replay against a different bound route/query contract.
 3. `I-8-04` asserts continuation returns fetch-time row payloads and fresh first-page queries evaluate current live state from the beginning.
-4. `E-8-04` backend support asserts `full_text` matches exact normalized tokens and `prefix` matches only at code-point offset 0 after comparison normalization.
-5. `E-8-04` asserts no fuzzy similarity, phrase semantics, wildcard semantics, stemming, transliteration, accent-insensitive matching, or hidden relevance ranking changes result inclusion or ordering.
+4. Backend support for browser-owned `E-8-04` asserts `full_text` matches exact normalized tokens and `prefix` matches only at code-point offset 0 after comparison normalization.
+5. Backend support for browser-owned `E-8-04` asserts no fuzzy similarity, phrase semantics, wildcard semantics, stemming, transliteration, accent-insensitive matching, or hidden relevance ranking changes result inclusion or ordering.
 
 Implementation tasks:
 - Bind workbook query pagination to `live_authorized_keyset`; explicitly avoid `snapshot_stable` behavior for live routes.
@@ -762,14 +762,36 @@ Implementation tasks:
 
 Validation commands:
 - `go test ./internal/modules/workbook ./internal/platform/pagination -run 'TestPhase8_.*I_8_04'`
-- `go test ./internal/modules/workbook -run 'TestPhase8_.*E_8_04'`
+- `go test ./internal/modules/workbook -run 'TestSupportPhase8Integration_(NotesFullTextExactSearch|PrefixAndNullLastOrdering)'`
+- `make phase-map-check`
+- `make phase-ledger-drift`
+- `make phase-schedule-drift`
+- `make generate-drift`
 - `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration`
 - `make service-backed-slice PHASE=phase8`
 - `git diff --check`
 
+Sprint 6 validation results:
+- Passed: `go test ./internal/modules/workbook ./internal/platform/pagination -run 'TestPhase8_.*I_8_04'`.
+- Passed: `go test ./internal/modules/workbook -run 'TestSupportPhase8Integration_(NotesFullTextExactSearch|PrefixAndNullLastOrdering)'`.
+- Passed: `make phase-map-check`.
+- Passed after regeneration: `make phase-ledgers`; retained root `.cartulary/test-results/20260515T230754Z-p548999`.
+- Passed after regeneration: `make phase-schedules`; retained root `.cartulary/test-results/20260515T233129Z-p598388`.
+- Passed: `make phase-ledger-drift`; retained root `.cartulary/test-results/20260515T233201Z-p599121`.
+- Passed: `make phase-schedule-drift`; retained root `.cartulary/test-results/20260515T233201Z-p599123`.
+- Passed: `make generate-drift`; retained root `.cartulary/test-results/20260515T233201Z-p599163`.
+- Passed: `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration`; retained root `.cartulary/test-results/20260515T231359Z-p555538`.
+- Passed: `make service-backed-slice PHASE=phase8`; retained root `.cartulary/test-results/20260515T231925Z-p562343`.
+- Passed: `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260515T231925Z-p562343`; retained root `.cartulary/test-results/20260515T233124Z-p598268`. Full prune mode was not used because the retained run was a Phase 8 slice, not a full `test-service-backed` or `check-service-backed` scheduler run.
+- Passed after baseline refresh: `make go-test-duration-baseline-coverage`; retained root `.cartulary/test-results/20260515T233129Z-p598390`.
+- Passed after baseline refresh: `make go-test-duration-baseline-drift RESULTS_DIR=.cartulary/test-results/20260515T231925Z-p562343`; retained root `.cartulary/test-results/20260515T233905Z-p622295`.
+- Passed: `make agent-finalize` without `RESULTS_DIR`; retained root `.cartulary/test-results/20260515T233748Z-p619004`; generated artifacts were unchanged and retained-run duration maintenance was skipped because no successful warm `check` run was available.
+- Attempted: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260515T231925Z-p562343`; failed at retained-run preflight because current finalizer policy requires a passing warm `check` run with check scheduler summaries, not a partial `service-backed-slice` run.
+- Attempted: `make check`; latest retained root `.cartulary/test-results/20260515T233208Z-p600118` failed before service-backed/browser execution at `lint-biome` for pre-existing `apps/web/src/WorkbookShell.tsx` formatting and `lint/correctness/useExhaustiveDependencies`. This blocker is outside the Sprint 6 backend evidence remediation.
+
 Deliverables:
 - Direct live-authorized cursor evidence.
-- Exact search semantics ready for browser workflow in Sprint 8.
+- Backend exact search semantics ready for browser workflow in Sprint 8.
 - No snapshot-stable live workbook continuation behavior.
 
 Risks and open questions:

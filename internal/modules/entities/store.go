@@ -226,6 +226,7 @@ SELECT
   JOIN host_grid_projection p
     ON p.record_id = h.record_id
  WHERE h.incident_id = $1
+   AND r.deleted_at IS NULL
    AND p.host_state IN ('stub', 'canonical')`)
 	args := []any{incidentID}
 
@@ -298,6 +299,7 @@ SELECT
   JOIN identity_grid_projection p
     ON p.record_id = i.record_id
  WHERE i.incident_id = $1
+   AND r.deleted_at IS NULL
    AND p.identity_state IN ('stub', 'canonical')`)
 	args := []any{incidentID}
 
@@ -356,6 +358,8 @@ SELECT
   JOIN records r
     ON r.record_id = i.record_id
  WHERE i.incident_id = $1`)
+	builder.WriteString(`
+   AND r.deleted_at IS NULL`)
 	args := []any{incidentID}
 
 	for _, filter := range query.Filters {
@@ -411,6 +415,7 @@ func appendOrderBy(builder *strings.Builder, sort []viewschema.SortEntry, expres
 		} else {
 			builder.WriteString(" ASC")
 		}
+		builder.WriteString(" NULLS LAST")
 	}
 	return nil
 }
@@ -452,10 +457,12 @@ func appendQueryTextClause(builder *strings.Builder, args *[]any, expr string, f
 		return appendQueryCaseFoldedEqualityClause(builder, args, expr, filter.Arg)
 	case "prefix":
 		value, _ := filter.Arg["value"].(string)
-		builder.WriteString("\n   AND lower(coalesce((")
+		builder.WriteString("\n   AND left(lower(coalesce((")
 		builder.WriteString(expr)
-		builder.WriteString(")::text, '')) LIKE ")
-		builder.WriteString(bindQueryValue(args, value+"%", ""))
+		builder.WriteString(")::text, '')), char_length(")
+		builder.WriteString(bindQueryValue(args, value, ""))
+		builder.WriteString(")) = ")
+		builder.WriteString(bindQueryValue(args, value, ""))
 		return nil
 	default:
 		return fmt.Errorf("text filter operator %q not mapped", filter.Op)

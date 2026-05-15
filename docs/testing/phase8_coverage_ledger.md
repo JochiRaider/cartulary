@@ -20,6 +20,8 @@ This ledger is generated from `tools/phase8_test_map.json`. Update the manifest 
 
 ## Support-Only Execution
 
+- `internal/modules/workbook/phase8_row_wire_test.go` runs through `backend-integration-support` with `TestSupportPhase8Integration_` and is forbidden from claiming `I-8-*` identifiers.
+- Phase 8 workbook backend integration support covers exact-token full_text, strict prefix, and null-last ordering readiness for the browser-owned E-8-04 row.
 - Phase 3 through Phase 7 workbook, projection, mutation, collaboration, evidence, history, rollback, visual, and browser tests remain support-only for Phase 8.
 - Support-only carryover files are listed in forbidden_id_files so they cannot accidentally claim Phase 8 IDs.
 
@@ -46,7 +48,7 @@ This ledger is generated from `tools/phase8_test_map.json`. Update the manifest 
 | `I-8-01` | `internal/modules/savedviews/phase8_savedviews_test.go::TestPhase8_SavedViewLifecyclePersistence_I_8_01` | `backend_integration` | Saved-view create, update, duplicate, and delete persist normalized state and authorization consequences in the database. | Browser saved-view workflows are covered by E-8-01. |
 | `I-8-02` | `internal/modules/incidents/phase8_workbook_startup_test.go::TestPhase8_WorkbookStartupFallback_I_8_02`, `TestPhase8_WorkbookStartupBaseSurfaceDoesNotRequireSavedView_I_8_02` | `backend_integration` | Startup selection fallback behaves correctly across valid, missing, hidden, and invalid saved-view refs. | Browser-visible startup behavior is covered by E-8-02. |
 | `I-8-03` | `internal/modules/links/phase8_links_tags_test.go::TestPhase8_LinkTagProjectionHistoryQuery_I_8_03` | `backend_integration` | Link and tag mutations atomically update projections, history, and view-query results. | Saved-view lifecycle, startup fallback, cursor continuation, and browser workflows are covered by separate rows. |
-| `I-8-04` | `internal/modules/workbook/phase8_row_wire_test.go::TestPhase8_LiveAuthorizedCursorPagination_I_8_04`, `TestPhase8_NotesFullText_AC185_E_8_04` | `backend_integration` | Cursor pagination re-derives live authorization, rejects tampering, returns fetch-time payloads, lets fresh queries evaluate live state, and Notes full_text search uses exact token semantics for AC-185. | Browser exact search behavior is covered by E-8-04. |
+| `I-8-04` | `internal/modules/workbook/phase8_row_wire_test.go::TestPhase8_LiveAuthorizedCursorPagination_I_8_04`, `TestPhase8_CursorContinuationRechecksAuthorization_I_8_04`, `TestPhase8_CursorContinuationRechecksMembership_I_8_04` | `backend_integration` | Cursor pagination re-derives live authorization, rejects tampering, returns fetch-time payloads, and lets fresh queries evaluate live state. | Browser exact search behavior is covered by E-8-04. |
 
 ## Browser E2E
 

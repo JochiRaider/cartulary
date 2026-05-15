@@ -1763,7 +1763,8 @@ SELECT
   FROM timeline_grid_projection t
   JOIN records r
     ON r.record_id = t.record_id
- WHERE t.incident_id = $1`)
+ WHERE t.incident_id = $1
+   AND r.deleted_at IS NULL`)
 
 	args := []any{incidentID}
 	for _, filter := range query.Filters {
@@ -1787,6 +1788,7 @@ SELECT
 		} else {
 			builder.WriteString(" ASC")
 		}
+		builder.WriteString(" NULLS LAST")
 	}
 
 	return builder.String(), args, nil
@@ -1853,10 +1855,12 @@ func appendStringFilterClause(builder *strings.Builder, args *[]any, expr string
 		return appendEqualityClause(builder, args, expr, filter.Arg)
 	case "prefix":
 		value, _ := filter.Arg["value"].(string)
-		builder.WriteString("\n   AND lower(coalesce((")
+		builder.WriteString("\n   AND left(lower(coalesce((")
 		builder.WriteString(expr)
-		builder.WriteString(")::text, '')) LIKE ")
-		builder.WriteString(bindWithCast(args, value+"%", ""))
+		builder.WriteString(")::text, '')), char_length(")
+		builder.WriteString(bindWithCast(args, value, ""))
+		builder.WriteString(")) = ")
+		builder.WriteString(bindWithCast(args, value, ""))
 		return nil
 	default:
 		return fmt.Errorf("string filter operator %q not mapped", filter.Op)
