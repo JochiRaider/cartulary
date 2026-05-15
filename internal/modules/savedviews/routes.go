@@ -33,6 +33,8 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		}
 		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/saved-views", service.handleCollection)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/saved-views", service.handleCollection)
+		mux.HandleFunc("PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", service.handleItem)
+		mux.HandleFunc("DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", service.handleItem)
 		return nil
 	}
 }
@@ -72,6 +74,27 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 		s.handleList(w, r, incidentID)
 	case http.MethodPost:
 		s.handleCreate(w, r, incidentID)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Service) handleItem(w http.ResponseWriter, r *http.Request) {
+	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	savedViewID, err := uuid.Parse(r.PathValue("saved_view_id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodPatch:
+		s.handlePatch(w, r, incidentID, savedViewID)
+	case http.MethodDelete:
+		s.handleDelete(w, r, incidentID, savedViewID)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -165,6 +188,64 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, incidentI
 	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, BuildResource(record))
 }
 
+func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	membership, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	current, err := s.store.GetVisibleForUpdate(r.Context(), incidentID, savedViewID, principal.User.ID)
+	if err != nil {
+		writeAPIError(w, r, savedViewError(err))
+		return
+	}
+	request, apiErr := DecodePatchRequest(r.Body, current.ViewSchemaID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	record, err := s.store.Patch(r.Context(), principal.User, membership.Role, incidentID, savedViewID, request, s.now())
+	if err != nil {
+		writeAPIError(w, r, savedViewError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildResource(record))
+}
+
+func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	membership, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if err := s.store.Delete(r.Context(), principal.User, membership.Role, incidentID, savedViewID); err != nil {
+		writeAPIError(w, r, savedViewError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
+		"saved_view_id": savedViewID,
+		"deleted":       true,
+	})
+}
+
 func savedViewListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (ListPageRequest, string) {
 	request := ListPageRequest{Limit: binding.Limit + 1}
 	if cursor == nil {
@@ -222,6 +303,22 @@ func buildSavedViewListPage(binding pagination.Binding, anchor time.Time, record
 			"last_saved_view_id": last.SavedViewID.String(),
 		},
 	}, nil
+}
+
+func savedViewError(err error) *auth.APIError {
+	var versionConflict *SavedViewVersionConflictError
+	switch {
+	case errors.Is(err, ErrSavedViewNotFound):
+		return savedViewNotFoundError()
+	case errors.Is(err, ErrSavedViewMutationDenied):
+		return authorizationDeniedError()
+	case errors.As(err, &versionConflict):
+		return savedViewVersionConflictError(versionConflict)
+	case errors.Is(err, ErrSavedViewVersionConflict):
+		return savedViewVersionConflictError(nil)
+	default:
+		return internalAPIError(err)
+	}
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {

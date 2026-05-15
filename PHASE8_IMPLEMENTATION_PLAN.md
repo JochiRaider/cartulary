@@ -45,7 +45,7 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 0. Phase 8 ownership manifest and harness setup | [x] manifest, ledger, schedule drift, name check, target plan, and ID audit passed | None for the requested Sprint 0 gates. | Phase 8 is active; Sprint 0 placeholders have been replaced. |
 | [x] | 1. Typed links, tags, and rollback handoff | [x] focused Sprint 1 checks passed; aggregate Phase 8 wrappers now pass after later remediation | None for this sprint. | `record_tag` rollback is executable and evidenced. `AC-184`/`AC-185` are evidenced by later Phase 8 query and Notes tests. |
 | [x] | 2. Saved-view persistence and create defaults | [x] implemented | Remediated on 2026-05-14; storage/routes, create defaults, list visibility, OpenAPI create-input/resource-output split, route-level negative coverage, ledgers, schedules, and duration baselines are current. | Create/list foundation, private default, exact scope tokens, one `view_schema_id`, canonical query/layout persistence. |
-| [ ] | 3. Saved-view patch, duplicate, and delete | [ ] planned | Requires Sprint 2 persistence. | No-op patch semantics and duplicate-visible-view semantics land here. |
+| [x] | 3. Saved-view patch, duplicate, and delete | [x] implemented and audited | None for this sprint. | Patch/delete routes, stale-version conflict, structural no-op behavior, ordinary-create duplicate semantics, system immutability, and delete-only configuration removal are evidenced. |
 | [ ] | 4. Workbook preferences and startup selection | [ ] planned | Requires saved-view visibility checks from Sprint 2/3. | Add saved-view sheet refs and fallback clearing behavior. |
 | [ ] | 5. Query contract validation and normalization | [ ] planned | Existing query decoder must be audited against saved-view persistence and `meta.query`. | Stable keys only, ceilings, canonical filters/sort/group, duplicate rejection. |
 | [ ] | 6. Projection-backed execution, search, and cursor semantics | [ ] planned | Requires Sprint 5 canonical query contract. | Live-authorized keyset cursor, exact-token `full_text`, strict `prefix`, null-last ordering. |
@@ -462,7 +462,7 @@ Exit criteria:
 
 Objective: Complete mutable saved-view lifecycle behavior: patch, no-op semantics, immutable rejection, duplicate semantics, delete, and authorization consequences.
 
-Status: Partially implemented by remediation on 2026-05-13. Saved-view patch/lifecycle contract helpers now have direct tests; product saved-view patch/delete routes and browser affordances remain unimplemented.
+Status: Implemented and audited on 2026-05-15. Product saved-view patch and delete routes are wired through route, service, store, SQL, generated SQL, OpenAPI, and error contracts. `U-8-04` and `I-8-01` have direct, non-placeholder evidence in their declared layers. Browser saved-view lifecycle behavior remains Sprint 8 `E-8-01` scope and was not counted as Sprint 3 completion evidence.
 
 Relevant IDs:
 - `U-8-04`, `I-8-01`
@@ -501,12 +501,20 @@ Test-first sequence:
 5. `I-8-01` asserts delete removes only the saved-view configuration object and never underlying records, links, tags, evidence, or workbook rows.
 
 Implementation tasks:
-- Add saved-view patch and delete routes.
-- Implement stale `base_saved_view_version` conflict handling.
-- Implement no-op detection after normalized structural equality, not textual JSON comparison.
-- Enforce scope transition rules and ownership/role authorization.
-- Implement duplicate semantics by ordinary create from a visible saved-view resource's normalized query/layout unless normative route text adds a narrower duplicate route.
-- Ensure deleted or hidden saved views become invalid for startup preference resolution in Sprint 4.
+- Completed: added saved-view patch and delete routes at `/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`.
+- Completed: implemented stale `base_saved_view_version` conflict handling with `saved_view_version_conflict`.
+- Completed: implemented no-op detection after normalized structural equality, not textual JSON comparison.
+- Completed: enforced patch mutable-field limits, immutable/server-managed field rejection, ownership/role authorization, and `system` saved-view immutability.
+- Completed: implemented duplicate-visible-view semantics by ordinary create from a visible saved-view resource's normalized `view_schema_id`, `query_json`, and `layout_json`; no narrower duplicate route was required by normative owner text.
+- Deferred to Sprint 4 evidence: deleted or hidden saved views become invalid for startup preference resolution; Sprint 3 depends on that behavior but does not claim startup completion.
+
+Implementation results:
+- `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}` accepts required `base_saved_view_version` plus optional `display_name`, `query_json`, `layout_json`, and `scope` limited to ordinary `private`/`shared` values.
+- Patch rejects attempted mutation of `incident_id`, `saved_view_id`, `view_schema_id`, `owner_user_id`, `created_at`, `updated_at`, `saved_view_version`, and unknown members with `invalid_mutation_payload`.
+- Structurally valid no-op patch returns the current saved-view resource and does not advance `saved_view_version` or `updated_at`.
+- Non-owner incident members may see shared and system saved views but cannot mutate or delete them in place; incident admins can mutate/delete ordinary private/shared saved views; `system` saved views remain immutable through ordinary write paths.
+- Duplicate from a visible shared or system saved view is represented as ordinary create of a new caller-owned saved view using normalized source query/layout state. Duplicating a `system` saved view does not mutate the `system` row in place.
+- Delete removes the `saved_views` configuration row only and preserves underlying records, links, tags, evidence, projections, workbook rows, and workbook preference rows.
 
 Validation commands:
 - `go test ./internal/modules/savedviews -run 'TestPhase8_.*(U_8_04|I_8_01)'`
@@ -515,24 +523,32 @@ Validation commands:
 - `make generate-drift`
 - `git diff --check`
 
+Sprint 3 validation results:
+- Passed: `go test ./internal/modules/savedviews -run 'TestPhase8_.*(U_8_04|I_8_01)'`.
+- Passed: `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration CARTULARY_MANIFEST_COVERAGE=authoritative`; latest audit run reported 117 tests, 0 failed, run root `.cartulary/test-results/20260515T005016Z-p1215826`.
+- Passed: `make generate`; run root `.cartulary/test-results/20260515T005547Z-p1224913`.
+- Passed: `make generate-drift`; run root `.cartulary/test-results/20260515T005557Z-p1225682`.
+- Passed: `git diff --check`; the audit also checked staged whitespace with `git diff --cached --check`.
+
 Deliverables:
 - Patch/delete lifecycle routes.
 - Duplicate-visible-view path via ordinary create semantics.
 - Direct service-backed saved-view lifecycle evidence.
 
 Risks and open questions:
-- Authorization must distinguish private owner visibility, incident admin visibility, shared visibility, and system immutability.
-- Duplicate semantics must not accidentally allow in-place mutation of `system` saved views.
+- Closed: authorization distinguishes private owner visibility, incident admin visibility, shared visibility, non-owner mutation denial, and `system` immutability.
+- Closed: duplicate-visible-view behavior uses ordinary create and does not allow in-place mutation of `system` saved views.
+- Preserved scope boundary: `E-8-01` may receive browser support later in Sprint 8, but browser lifecycle behavior is not Sprint 3 completion evidence.
 
 Exit criteria:
-- `I-8-01` passes against a real database and proves create/update/duplicate/delete consequences.
-- Saved-view patch no-op cannot advance version or timestamp.
+- Met: `I-8-01` passes against a real database and proves create/update/duplicate/delete consequences.
+- Met: saved-view patch no-op cannot advance version or timestamp.
 
 ## Sprint 4. Workbook Preferences and Startup Selection
 
 Objective: Complete separate workbook preference pointers, saved-view sheet refs, and deterministic workbook startup fallback.
 
-Status: Partially implemented by remediation on 2026-05-13. `U-8-10`, `E-8-02`, `E-8-03`, and `E-8-04` have direct evidence. `E-8-01` is an explicit browser-functional blocker sentinel because product saved-view routes and browser affordances are still missing.
+Status: Partially implemented by remediation on 2026-05-13. `U-8-10`, `E-8-02`, `E-8-03`, and `E-8-04` have direct evidence. `E-8-01` remains an explicit browser-functional blocker sentinel because in-product saved-view lifecycle affordances are still missing; Sprint 3 backend saved-view lifecycle routes now exist and are evidenced separately.
 
 Relevant IDs:
 - `U-8-05`, `I-8-02`

@@ -134,6 +134,16 @@
       "summary": "The record mutation used a stale base_row_version."
     },
     {
+      "code": "saved_view_not_found",
+      "http_status": 404,
+      "summary": "The requested saved view is not visible to the current authenticated user."
+    },
+    {
+      "code": "saved_view_version_conflict",
+      "http_status": 409,
+      "summary": "The saved-view patch used a stale base_saved_view_version."
+    },
+    {
       "code": "record_deleted_use_restore",
       "http_status": 409,
       "summary": "The addressed record is soft-deleted and must be restored before ordinary record mutation."
@@ -319,6 +329,10 @@
         {
           "code": "unknown_field",
           "summary": "The request includes a member not declared by the addressed mutation contract."
+        },
+        {
+          "code": "server_managed_field",
+          "summary": "The request attempted to set server-managed mutation state."
         },
         {
           "code": "invalid_value",

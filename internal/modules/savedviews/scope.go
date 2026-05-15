@@ -1,6 +1,10 @@
 package savedviews
 
-import "github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+import (
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+)
 
 type Scope string
 
@@ -28,6 +32,16 @@ func DefaultCreateScope(value *string) (Scope, bool) {
 
 func IsOrdinaryCreateScope(scope Scope) bool {
 	return scope == ScopePrivate || scope == ScopeShared
+}
+
+func CanMutate(record Record, actorUserID uuid.UUID, membershipRole string) bool {
+	if record.Scope == ScopeSystem {
+		return false
+	}
+	if membershipRole == "admin" {
+		return true
+	}
+	return record.OwnerUserID != nil && *record.OwnerUserID == actorUserID
 }
 
 func NormalizeDisplayName(value string) (string, bool) {

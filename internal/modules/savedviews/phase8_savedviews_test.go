@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
@@ -18,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
 func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
@@ -360,38 +364,299 @@ func TestPhase8_SavedViewScopeVocabulary_U_8_03(t *testing.T) {
 }
 
 func TestPhase8_SavedViewPatchContract_U_8_04(t *testing.T) {
-	displayName, ok := savedviews.NormalizeDisplayName("  Analyst triage  ")
-	if !ok || displayName != "Analyst triage" {
-		t.Fatalf("display name must normalize before no-op comparison, got %q ok=%v", displayName, ok)
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase8-savedviews-u-8-04")
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-u-8-04-incident",
+		"incident_key":  "IR-U804",
+		"title":         "Phase 8 saved-view patch",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	owner := phase2test.SeedLocalUserRecord(t, harness.DB, "phase8-u804-owner@example.test", "Phase8 U804 Owner", "Phase8U804Owner1!", false, false, true)
+	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
+		"client_txn_id": "txn-phase8-u-8-04-owner-membership",
+		"user_id":       owner.ID.String(),
+		"role":          "viewer",
+	})
+
+	createRequest, apiErr := savedviews.DecodeCreateRequest(strings.NewReader(`{
+		"view_schema_id":"cartulary.view.timeline.v1",
+		"display_name":"Analyst triage",
+		"query_json":{},
+		"layout_json":{}
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode create request: %#v", apiErr)
 	}
-	if _, ok := savedviews.NormalizeDisplayName(" \t "); ok {
-		t.Fatal("empty normalized display names must be rejected")
+	store := savedviews.NewStore(harness.Server.Runtime.Postgres)
+	createdAt := time.Date(2026, 5, 14, 14, 0, 0, 0, time.UTC)
+	created, err := store.Create(context.Background(), owner, incidentID, createRequest, createdAt)
+	if err != nil {
+		t.Fatalf("create saved view through store: %v", err)
 	}
-	if _, ok := savedviews.ParseScope("team"); ok {
-		t.Fatal("patch must not preserve obsolete team scope")
+
+	patchRequest := decodeSavedViewPatchMap(t, created.ViewSchemaID, map[string]any{
+		"base_saved_view_version": 1,
+		"display_name":            "  Analyst triage shared  ",
+		"scope":                   "shared",
+		"query_json": map[string]any{
+			"filters": []any{map[string]any{"field_key": "timeline.tags", "op": "contains_any", "arg": map[string]any{"values": []any{"beta", "alpha", "alpha"}}}},
+			"sort":    []any{},
+		},
+		"layout_json": savedViewLayoutWith(t, func(layout map[string]any) {
+			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.summary", "width_px": 240}}
+		}),
+	})
+	patchedAt := createdAt.Add(5 * time.Minute)
+	patched, err := store.Patch(context.Background(), owner, "viewer", incidentID, created.SavedViewID, patchRequest, patchedAt)
+	if err != nil {
+		t.Fatalf("patch saved view through store: %v", err)
+	}
+	if patched.DisplayName != "Analyst triage shared" || patched.Scope != savedviews.ScopeShared {
+		t.Fatalf("patch did not normalize mutable fields: %#v", patched)
+	}
+	if patched.SavedViewVersion != created.SavedViewVersion+1 || !patched.UpdatedAt.Equal(patchedAt) {
+		t.Fatalf("material patch must advance version and updated_at once: before=%#v after=%#v", created, patched)
+	}
+	var patchedQuery map[string]any
+	if err := json.Unmarshal(patched.QueryJSON, &patchedQuery); err != nil {
+		t.Fatalf("decode patched query: %v", err)
+	}
+	requireCanonicalQueryJSON(t, patchedQuery, nil)
+
+	noOpRequest := decodeSavedViewPatchMap(t, patched.ViewSchemaID, map[string]any{
+		"base_saved_view_version": 2,
+		"display_name":            "Analyst triage shared",
+		"scope":                   "shared",
+		"query_json": map[string]any{
+			"sort":    []any{},
+			"filters": []any{map[string]any{"field_key": "timeline.tags", "op": "contains_any", "arg": map[string]any{"values": []any{"alpha", "beta"}}}},
+		},
+		"layout_json": savedViewLayoutWith(t, func(layout map[string]any) {
+			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.summary", "width_px": 240}}
+		}),
+	})
+	noOp, err := store.Patch(context.Background(), owner, "viewer", incidentID, patched.SavedViewID, noOpRequest, patchedAt.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("no-op patch through store: %v", err)
+	}
+	if noOp.SavedViewVersion != patched.SavedViewVersion || !noOp.UpdatedAt.Equal(patched.UpdatedAt) {
+		t.Fatalf("structural no-op advanced version or timestamp: before=%#v after=%#v", patched, noOp)
+	}
+
+	staleRequest := noOpRequest
+	staleRequest.BaseSavedViewVersion = 1
+	_, err = store.Patch(context.Background(), owner, "viewer", incidentID, patched.SavedViewID, staleRequest, patchedAt.Add(2*time.Hour))
+	var conflict *savedviews.SavedViewVersionConflictError
+	if !errors.As(err, &conflict) {
+		t.Fatalf("stale saved-view patch got %v want SavedViewVersionConflictError", err)
+	}
+	if conflict.BaseSavedViewVersion != 1 || conflict.CurrentSavedViewVersion != 2 {
+		t.Fatalf("unexpected saved-view conflict details: %#v", conflict)
+	}
+
+	for name, body := range map[string]string{
+		"incident id":    `{"base_saved_view_version":2,"incident_id":"` + incidentID.String() + `"}`,
+		"saved view id":  `{"base_saved_view_version":2,"saved_view_id":"` + created.SavedViewID.String() + `"}`,
+		"view schema id": `{"base_saved_view_version":2,"view_schema_id":"` + timeline.TimelineViewSchemaID + `"}`,
+		"owner":          `{"base_saved_view_version":2,"owner_user_id":"` + owner.ID.String() + `"}`,
+		"created at":     `{"base_saved_view_version":2,"created_at":"2026-05-14T15:00:00Z"}`,
+		"updated at":     `{"base_saved_view_version":2,"updated_at":"2026-05-14T15:00:00Z"}`,
+		"version":        `{"base_saved_view_version":2,"saved_view_version":3}`,
+		"unknown":        `{"base_saved_view_version":2,"bogus":true}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, apiErr := savedviews.DecodePatchRequest(strings.NewReader(body), timeline.TimelineViewSchemaID)
+			if apiErr == nil || apiErr.Code != "invalid_mutation_payload" {
+				t.Fatalf("expected invalid_mutation_payload for %s, got %#v", name, apiErr)
+			}
+		})
 	}
 }
 
 func TestPhase8_SavedViewLifecyclePersistence_I_8_01(t *testing.T) {
-	current := struct {
-		scope            savedviews.Scope
-		version          int64
-		normalizedName   string
-		underlyingDelete bool
-	}{scope: savedviews.ScopePrivate, version: 3, normalizedName: "Analyst triage"}
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase8-savedviews-i-8-01")
+	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-i-8-01-incident",
+		"incident_key":  "IR-I801",
+		"title":         "Phase 8 saved-view lifecycle",
+	})
+	incidentID := incident["incident_id"].(string)
+	incidentUUID := phase4test.MustUUID(t, incidentID)
+	adminUUID := phase4test.MustUUID(t, adminID)
 
-	nextName, ok := savedviews.NormalizeDisplayName("Analyst triage")
-	if !ok {
-		t.Fatal("expected valid normalized name")
+	ownerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-i801-owner@example.test", "Phase8 I801 Owner", "Phase8I801Owner1!", false, false, true)
+	peerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-i801-peer@example.test", "Phase8 I801 Peer", "Phase8I801Peer1!", false, false, true)
+	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-owner-membership", "user_id": ownerID, "role": "viewer"})
+	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-peer-membership", "user_id": peerID, "role": "viewer"})
+	ownerSession, ownerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-i801-owner@example.test", "Phase8I801Owner1!")
+	peerSession, peerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-i801-peer@example.test", "Phase8I801Peer1!")
+
+	timelineOne := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-one", "timeline.summary": "Saved-view delete keeps records"})
+	timelineTwo := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-two", "timeline.summary": "Saved-view delete keeps linked records"})
+	recordOneID := phase4test.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
+	recordTwoID := phase4test.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
+	phase4test.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
+	phase4test.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "sprint3")
+	evidenceResp := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
+		map[string]any{"client_txn_id": "txn-phase8-i-8-01-evidence", "evidence.title": "Saved-view delete keeps evidence"},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, evidenceResp, http.StatusCreated)
+
+	beforeCounts := savedViewUnderlyingCounts(t, harness.DB, incidentID)
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 14, 15, 0, 0, 0, time.UTC))
+	created := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, ownerSession, ownerCSRF, map[string]any{
+		"view_schema_id": timeline.TimelineViewSchemaID,
+		"display_name":   "  Owner private  ",
+		"query_json": map[string]any{
+			"filters": []any{map[string]any{"field_key": "timeline.tags", "op": "contains_any", "arg": map[string]any{"values": []any{"beta", "alpha", "alpha"}}}},
+		},
+		"layout_json": map[string]any{},
+	})
+	requireCanonicalQueryJSON(t, created["query_json"].(map[string]any), nil)
+	requireDefaultLayoutJSON(t, created["layout_json"].(map[string]any))
+
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 14, 15, 5, 0, 0, time.UTC))
+	patched := patchSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, created["saved_view_id"].(string), ownerSession, ownerCSRF, map[string]any{
+		"base_saved_view_version": int64FromResource(t, created, "saved_view_version"),
+		"display_name":            " Shared triage ",
+		"scope":                   "shared",
+		"query_json": map[string]any{
+			"sort":    []any{},
+			"filters": []any{map[string]any{"field_key": "timeline.tags", "op": "contains_any", "arg": map[string]any{"values": []any{"beta", "alpha", "alpha"}}}},
+		},
+		"layout_json": savedViewLayoutWith(t, func(layout map[string]any) {
+			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.summary", "width_px": 240}}
+		}),
+	})
+	if patched["display_name"] != "Shared triage" || patched["scope"] != "shared" {
+		t.Fatalf("patch did not persist normalized public fields: %#v", patched)
 	}
-	if current.normalizedName == nextName && current.scope == savedviews.ScopePrivate {
-		if current.version != 3 {
-			t.Fatalf("structural no-op must preserve version, got %d", current.version)
-		}
+	if int64FromResource(t, patched, "saved_view_version") != int64FromResource(t, created, "saved_view_version")+1 {
+		t.Fatalf("patch did not advance saved_view_version exactly once: before=%#v after=%#v", created, patched)
 	}
-	if current.underlyingDelete {
-		t.Fatal("saved-view delete must not imply record deletion")
+	if patched["updated_at"] == created["updated_at"] {
+		t.Fatalf("material patch did not refresh updated_at: before=%#v after=%#v", created, patched)
 	}
+	requireStoredSavedViewMatchesResource(t, harness.DB, patched)
+
+	noOp := patchSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, created["saved_view_id"].(string), ownerSession, ownerCSRF, map[string]any{
+		"base_saved_view_version": int64FromResource(t, patched, "saved_view_version"),
+		"display_name":            "Shared triage",
+		"scope":                   "shared",
+		"query_json": map[string]any{
+			"filters": []any{map[string]any{"field_key": "timeline.tags", "op": "contains_any", "arg": map[string]any{"values": []any{"alpha", "beta"}}}},
+			"sort":    []any{},
+		},
+		"layout_json": patched["layout_json"],
+	})
+	if int64FromResource(t, noOp, "saved_view_version") != int64FromResource(t, patched, "saved_view_version") || noOp["updated_at"] != patched["updated_at"] {
+		t.Fatalf("route no-op advanced saved_view_version or updated_at: before=%#v after=%#v", patched, noOp)
+	}
+
+	staleResp := phase2test.DoJSON(
+		t,
+		http.MethodPatch,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
+		map[string]any{"base_saved_view_version": 1, "display_name": "stale overwrite"},
+		phase2test.WithCookies(ownerSession, ownerCSRF),
+		phase2test.WithHeader(authn.CSRFHeaderName, ownerCSRF.Value),
+	)
+	staleBody := httptestx.RequireErrorEnvelope(t, staleResp, http.StatusConflict, "saved_view_version_conflict")
+	staleDetails := staleBody["error"].(map[string]any)["details"].(map[string]any)
+	if staleDetails["base_saved_view_version"] != float64(1) || staleDetails["current_saved_view_version"] != float64(2) {
+		t.Fatalf("unexpected stale conflict details: %#v", staleDetails)
+	}
+
+	peerPatch := phase2test.DoJSON(
+		t,
+		http.MethodPatch,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
+		map[string]any{"base_saved_view_version": int64FromResource(t, patched, "saved_view_version"), "display_name": "peer overwrite"},
+		phase2test.WithCookies(peerSession, peerCSRF),
+		phase2test.WithHeader(authn.CSRFHeaderName, peerCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, peerPatch, http.StatusForbidden, "authorization_denied")
+
+	duplicate := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, peerSession, peerCSRF, map[string]any{
+		"view_schema_id": patched["view_schema_id"],
+		"display_name":   "Peer duplicate from visible shared",
+		"scope":          "private",
+		"query_json":     patched["query_json"],
+		"layout_json":    patched["layout_json"],
+	})
+	if duplicate["saved_view_id"] == patched["saved_view_id"] || duplicate["owner_user_id"] != peerID {
+		t.Fatalf("duplicate must be a new ordinary saved view owned by caller: source=%#v duplicate=%#v", patched, duplicate)
+	}
+	if !reflect.DeepEqual(duplicate["query_json"], patched["query_json"]) || !reflect.DeepEqual(duplicate["layout_json"], patched["layout_json"]) {
+		t.Fatalf("duplicate must persist normalized source query/layout copy:\nsource=%#v\nduplicate=%#v", patched, duplicate)
+	}
+
+	systemID := "00000000-0000-0000-0000-000000008153"
+	seedSavedView(t, harness.DB, systemID, incidentID, timeline.TimelineViewSchemaID, "system", "System visible source", "", "2026-05-14T15:10:00Z")
+	systemPatch := phase2test.DoJSON(
+		t,
+		http.MethodPatch,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+systemID,
+		map[string]any{"base_saved_view_version": 1, "display_name": "system overwrite"},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, systemPatch, http.StatusForbidden, "authorization_denied")
+	systemResource := visibleSavedViewByName(t, harness.Server.HTTP.URL, incidentID, peerSession, "System visible source")
+	systemDuplicate := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, peerSession, peerCSRF, map[string]any{
+		"view_schema_id": systemResource["view_schema_id"],
+		"display_name":   "Peer duplicate from visible system",
+		"query_json":     systemResource["query_json"],
+		"layout_json":    systemResource["layout_json"],
+	})
+	if systemDuplicate["scope"] != "private" || systemDuplicate["saved_view_id"] == systemID {
+		t.Fatalf("system duplicate must be a new ordinary private saved view: %#v", systemDuplicate)
+	}
+
+	peerDelete := phase2test.DoJSON(
+		t,
+		http.MethodDelete,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
+		nil,
+		phase2test.WithCookies(peerSession, peerCSRF),
+		phase2test.WithHeader(authn.CSRFHeaderName, peerCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, peerDelete, http.StatusForbidden, "authorization_denied")
+	systemDelete := phase2test.DoJSON(
+		t,
+		http.MethodDelete,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+systemID,
+		nil,
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, systemDelete, http.StatusForbidden, "authorization_denied")
+
+	deleteResp := phase2test.DoJSON(
+		t,
+		http.MethodDelete,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
+		nil,
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	deleteData := httptestx.RequireSuccessEnvelope(t, deleteResp, http.StatusOK)["data"].(map[string]any)
+	if deleteData["saved_view_id"] != created["saved_view_id"] || deleteData["deleted"] != true {
+		t.Fatalf("unexpected delete response: %#v", deleteData)
+	}
+	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM saved_views WHERE saved_view_id::text = $1`, created["saved_view_id"]); got != 0 {
+		t.Fatalf("delete must remove only the saved-view configuration row, got %d rows", got)
+	}
+	requireSavedViewUnderlyingCounts(t, harness.DB, incidentID, beforeCounts)
 }
 
 func requireCanonicalQueryJSON(t testing.TB, query map[string]any, groupBy *string) {
@@ -511,13 +776,17 @@ func seedSavedView(t testing.TB, db *sql.DB, savedViewID string, incidentID stri
 	if err != nil {
 		t.Fatalf("parse seed timestamp: %v", err)
 	}
+	layoutJSON, layoutErr := viewschema.DefaultLayout(viewSchemaID)
+	if layoutErr != nil {
+		t.Fatalf("build seed saved-view layout: %+v", layoutErr)
+	}
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO saved_views (
     saved_view_id, incident_id, view_schema_id, scope, display_name, query_json, layout_json,
     owner_user_id, created_at, updated_at, saved_view_version
 )
-VALUES ($1, $2, $3, $4, $5, '{"sort":[],"filters":[]}'::jsonb, '{"layout_schema_id":"cartulary.layout.v1","column_order":["timeline.occurred_at"],"hidden_field_keys":[],"column_widths":[]}'::jsonb, $6, $7, $7, 1)
-`, savedViewID, incidentID, viewSchemaID, scope, name, ownerExpr, ts); err != nil {
+VALUES ($1, $2, $3, $4, $5, '{"sort":[],"filters":[]}'::jsonb, $6::jsonb, $7, $8, $8, 1)
+`, savedViewID, incidentID, viewSchemaID, scope, name, layoutJSON, ownerExpr, ts); err != nil {
 		t.Fatalf("seed saved view %s: %v", name, err)
 	}
 }
@@ -555,6 +824,105 @@ func contains(values []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func decodeSavedViewPatchMap(t testing.TB, viewSchemaID string, body map[string]any) savedviews.PatchRequest {
+	t.Helper()
+	payload, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal saved-view patch body: %v", err)
+	}
+	request, apiErr := savedviews.DecodePatchRequest(strings.NewReader(string(payload)), viewSchemaID)
+	if apiErr != nil {
+		t.Fatalf("decode saved-view patch body: %#v", apiErr)
+	}
+	return request
+}
+
+func createSavedViewHTTP(t testing.TB, baseURL string, incidentID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
+	t.Helper()
+	resp := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views",
+		body,
+		phase2test.WithCookies(session, csrf),
+		phase2test.WithHeader(authn.CSRFHeaderName, csrf.Value),
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+func patchSavedViewHTTP(t testing.TB, baseURL string, incidentID string, savedViewID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
+	t.Helper()
+	resp := phase2test.DoJSON(
+		t,
+		http.MethodPatch,
+		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views/"+savedViewID,
+		body,
+		phase2test.WithCookies(session, csrf),
+		phase2test.WithHeader(authn.CSRFHeaderName, csrf.Value),
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+}
+
+func visibleSavedViewByName(t testing.TB, baseURL string, incidentID string, session *http.Cookie, name string) map[string]any {
+	t.Helper()
+	resp := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=100",
+		nil,
+		phase2test.WithCookies(session),
+	)
+	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	for _, item := range body["data"].(map[string]any)["saved_views"].([]any) {
+		resource := item.(map[string]any)
+		if resource["display_name"] == name {
+			return resource
+		}
+	}
+	t.Fatalf("saved view %q not visible in list %#v", name, body)
+	return nil
+}
+
+func int64FromResource(t testing.TB, resource map[string]any, key string) int64 {
+	t.Helper()
+	value, ok := resource[key].(float64)
+	if !ok {
+		t.Fatalf("resource[%q] is %T, want JSON number", key, resource[key])
+	}
+	return int64(value)
+}
+
+type savedViewUnderlyingRowCounts struct {
+	Records                     int
+	TimelineProjection          int
+	RecordLinks                 int
+	RecordTags                  int
+	Evidence                    int
+	IncidentWorkbookPreferences int
+	UserWorkbookPreferences     int
+}
+
+func savedViewUnderlyingCounts(t testing.TB, db *sql.DB, incidentID string) savedViewUnderlyingRowCounts {
+	t.Helper()
+	return savedViewUnderlyingRowCounts{
+		Records:                     phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM records WHERE incident_id::text = $1`, incidentID),
+		TimelineProjection:          phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID),
+		RecordLinks:                 phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM record_links WHERE incident_id::text = $1`, incidentID),
+		RecordTags:                  phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM record_tags WHERE incident_id::text = $1`, incidentID),
+		Evidence:                    phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM evidence WHERE incident_id::text = $1`, incidentID),
+		IncidentWorkbookPreferences: phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id::text = $1`, incidentID),
+		UserWorkbookPreferences:     phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id::text = $1`, incidentID),
+	}
+}
+
+func requireSavedViewUnderlyingCounts(t testing.TB, db *sql.DB, incidentID string, want savedViewUnderlyingRowCounts) {
+	t.Helper()
+	got := savedViewUnderlyingCounts(t, db, incidentID)
+	if got != want {
+		t.Fatalf("saved-view delete changed underlying workbook/record/evidence/link/tag data: got %+v want %+v", got, want)
+	}
 }
 
 func requireSavedViewErrorDetails(t testing.TB, envelope map[string]any, field string, reasonCode string) {

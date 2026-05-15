@@ -78,6 +78,74 @@ func (q *Queries) CreateSavedView(ctx context.Context, arg CreateSavedViewParams
 	return i, err
 }
 
+const deleteSavedView = `-- name: DeleteSavedView :exec
+DELETE FROM saved_views
+WHERE incident_id = $1
+  AND saved_view_id = $2
+`
+
+type DeleteSavedViewParams struct {
+	IncidentID  pgtype.UUID `json:"incident_id"`
+	SavedViewID pgtype.UUID `json:"saved_view_id"`
+}
+
+func (q *Queries) DeleteSavedView(ctx context.Context, arg DeleteSavedViewParams) error {
+	_, err := q.db.Exec(ctx, deleteSavedView, arg.IncidentID, arg.SavedViewID)
+	return err
+}
+
+const getVisibleSavedViewForUpdate = `-- name: GetVisibleSavedViewForUpdate :one
+SELECT
+    sv.saved_view_id,
+    sv.incident_id,
+    sv.view_schema_id,
+    sv.scope,
+    sv.display_name,
+    sv.query_json,
+    sv.layout_json,
+    sv.owner_user_id,
+    sv.created_at,
+    sv.updated_at,
+    sv.saved_view_version
+FROM saved_views sv
+JOIN incident_memberships m
+  ON m.incident_id = sv.incident_id
+ AND m.user_id = $3
+WHERE sv.incident_id = $1
+  AND sv.saved_view_id = $2
+  AND (
+      sv.scope IN ('shared', 'system')
+      OR sv.owner_user_id = $3
+      OR m.role = 'admin'
+  )
+FOR UPDATE OF sv
+`
+
+type GetVisibleSavedViewForUpdateParams struct {
+	IncidentID  pgtype.UUID `json:"incident_id"`
+	SavedViewID pgtype.UUID `json:"saved_view_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetVisibleSavedViewForUpdate(ctx context.Context, arg GetVisibleSavedViewForUpdateParams) (SavedView, error) {
+	row := q.db.QueryRow(ctx, getVisibleSavedViewForUpdate, arg.IncidentID, arg.SavedViewID, arg.UserID)
+	var i SavedView
+	err := row.Scan(
+		&i.SavedViewID,
+		&i.IncidentID,
+		&i.ViewSchemaID,
+		&i.Scope,
+		&i.DisplayName,
+		&i.QueryJson,
+		&i.LayoutJson,
+		&i.OwnerUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SavedViewVersion,
+	)
+	return i, err
+}
+
 const listVisibleSavedViews = `-- name: ListVisibleSavedViews :many
 SELECT
     sv.saved_view_id,
@@ -153,4 +221,66 @@ func (q *Queries) ListVisibleSavedViews(ctx context.Context, arg ListVisibleSave
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateSavedView = `-- name: UpdateSavedView :one
+UPDATE saved_views
+SET
+    scope = $3,
+    display_name = $4,
+    query_json = $5::jsonb,
+    layout_json = $6::jsonb,
+    updated_at = $7,
+    saved_view_version = saved_view_version + 1
+WHERE incident_id = $1
+  AND saved_view_id = $2
+RETURNING
+    saved_view_id,
+    incident_id,
+    view_schema_id,
+    scope,
+    display_name,
+    query_json,
+    layout_json,
+    owner_user_id,
+    created_at,
+    updated_at,
+    saved_view_version
+`
+
+type UpdateSavedViewParams struct {
+	IncidentID  pgtype.UUID        `json:"incident_id"`
+	SavedViewID pgtype.UUID        `json:"saved_view_id"`
+	Scope       string             `json:"scope"`
+	DisplayName string             `json:"display_name"`
+	Column5     []byte             `json:"column_5"`
+	Column6     []byte             `json:"column_6"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateSavedView(ctx context.Context, arg UpdateSavedViewParams) (SavedView, error) {
+	row := q.db.QueryRow(ctx, updateSavedView,
+		arg.IncidentID,
+		arg.SavedViewID,
+		arg.Scope,
+		arg.DisplayName,
+		arg.Column5,
+		arg.Column6,
+		arg.UpdatedAt,
+	)
+	var i SavedView
+	err := row.Scan(
+		&i.SavedViewID,
+		&i.IncidentID,
+		&i.ViewSchemaID,
+		&i.Scope,
+		&i.DisplayName,
+		&i.QueryJson,
+		&i.LayoutJson,
+		&i.OwnerUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SavedViewVersion,
+	)
+	return i, err
 }

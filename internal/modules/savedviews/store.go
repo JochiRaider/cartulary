@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
@@ -16,6 +17,34 @@ import (
 
 type Store struct {
 	pool postgres.DB
+}
+
+var (
+	ErrSavedViewNotFound        = errors.New("savedviews: saved view not found")
+	ErrSavedViewVersionConflict = errors.New("savedviews: saved view version conflict")
+	ErrSavedViewMutationDenied  = errors.New("savedviews: saved view mutation denied")
+)
+
+type SavedViewVersionConflictError struct {
+	SavedViewID             uuid.UUID
+	BaseSavedViewVersion    int64
+	CurrentSavedViewVersion int64
+}
+
+func (e *SavedViewVersionConflictError) Error() string {
+	return ErrSavedViewVersionConflict.Error()
+}
+
+func (e *SavedViewVersionConflictError) Unwrap() error {
+	return ErrSavedViewVersionConflict
+}
+
+func (e *SavedViewVersionConflictError) Details() map[string]any {
+	return map[string]any{
+		"saved_view_id":              e.SavedViewID.String(),
+		"base_saved_view_version":    e.BaseSavedViewVersion,
+		"current_saved_view_version": e.CurrentSavedViewVersion,
+	}
 }
 
 type Record struct {
@@ -93,6 +122,122 @@ func (s *Store) ListVisible(ctx context.Context, incidentID uuid.UUID, userID uu
 		records = append(records, record)
 	}
 	return records, nil
+}
+
+func (s *Store) GetVisibleForUpdate(ctx context.Context, incidentID uuid.UUID, savedViewID uuid.UUID, userID uuid.UUID) (Record, error) {
+	row, err := sqlc.New(s.pool).GetVisibleSavedViewForUpdate(ctx, sqlc.GetVisibleSavedViewForUpdateParams{
+		IncidentID:  pgUUID(incidentID),
+		SavedViewID: pgUUID(savedViewID),
+		UserID:      pgUUID(userID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Record{}, ErrSavedViewNotFound
+	}
+	if err != nil {
+		return Record{}, fmt.Errorf("get visible saved view: %w", err)
+	}
+	return recordFromSQL(row)
+}
+
+func (s *Store) Patch(ctx context.Context, actor authn.UserRecord, membershipRole string, incidentID uuid.UUID, savedViewID uuid.UUID, request PatchRequest, now time.Time) (Record, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Record{}, fmt.Errorf("begin saved view patch transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	q := sqlc.New(tx)
+	row, err := q.GetVisibleSavedViewForUpdate(ctx, sqlc.GetVisibleSavedViewForUpdateParams{
+		IncidentID:  pgUUID(incidentID),
+		SavedViewID: pgUUID(savedViewID),
+		UserID:      pgUUID(actor.ID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Record{}, ErrSavedViewNotFound
+	}
+	if err != nil {
+		return Record{}, fmt.Errorf("get saved view for patch: %w", err)
+	}
+	current, err := recordFromSQL(row)
+	if err != nil {
+		return Record{}, err
+	}
+	if !CanMutate(current, actor.ID, membershipRole) {
+		return Record{}, ErrSavedViewMutationDenied
+	}
+	if current.SavedViewVersion != request.BaseSavedViewVersion {
+		return Record{}, &SavedViewVersionConflictError{
+			SavedViewID:             current.SavedViewID,
+			BaseSavedViewVersion:    request.BaseSavedViewVersion,
+			CurrentSavedViewVersion: current.SavedViewVersion,
+		}
+	}
+
+	next, changed, err := ApplyPatch(current, request, now)
+	if err != nil {
+		return Record{}, fmt.Errorf("apply saved view patch: %w", err)
+	}
+	if !changed {
+		return current, nil
+	}
+	updated, err := q.UpdateSavedView(ctx, sqlc.UpdateSavedViewParams{
+		IncidentID:  pgUUID(incidentID),
+		SavedViewID: pgUUID(savedViewID),
+		Scope:       string(next.Scope),
+		DisplayName: next.DisplayName,
+		Column5:     next.QueryJSON,
+		Column6:     next.LayoutJSON,
+		UpdatedAt:   pgtype.Timestamptz{Time: next.UpdatedAt.UTC(), Valid: true},
+	})
+	if err != nil {
+		return Record{}, fmt.Errorf("update saved view: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Record{}, fmt.Errorf("commit saved view patch transaction: %w", err)
+	}
+	return recordFromSQL(updated)
+}
+
+func (s *Store) Delete(ctx context.Context, actor authn.UserRecord, membershipRole string, incidentID uuid.UUID, savedViewID uuid.UUID) error {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin saved view delete transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	q := sqlc.New(tx)
+	row, err := q.GetVisibleSavedViewForUpdate(ctx, sqlc.GetVisibleSavedViewForUpdateParams{
+		IncidentID:  pgUUID(incidentID),
+		SavedViewID: pgUUID(savedViewID),
+		UserID:      pgUUID(actor.ID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrSavedViewNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get saved view for delete: %w", err)
+	}
+	current, err := recordFromSQL(row)
+	if err != nil {
+		return err
+	}
+	if !CanMutate(current, actor.ID, membershipRole) {
+		return ErrSavedViewMutationDenied
+	}
+	if err := q.DeleteSavedView(ctx, sqlc.DeleteSavedViewParams{
+		IncidentID:  pgUUID(incidentID),
+		SavedViewID: pgUUID(savedViewID),
+	}); err != nil {
+		return fmt.Errorf("delete saved view: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit saved view delete transaction: %w", err)
+	}
+	return nil
 }
 
 func recordFromSQL(row sqlc.SavedView) (Record, error) {
