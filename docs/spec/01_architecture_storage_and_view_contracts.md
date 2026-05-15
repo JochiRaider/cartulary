@@ -457,7 +457,7 @@ The base-profile route set MUST include stable route families for:
 - view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
 - extension-claim discovery: `GET /api/v1/extensions`,
 - saved-view discovery and persistence: `GET /api/v1/incidents/{incident_id}/saved-views`, `POST /api/v1/incidents/{incident_id}/saved-views`, `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`, `DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`,
-- workbook-preference discovery and persistence: `GET /api/v1/incidents/{incident_id}/workbook-preferences/me`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`, `GET /api/v1/incidents/{incident_id}/workbook-preferences/default`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default`,
+- workbook-preference discovery and persistence plus startup selection: `GET /api/v1/incidents/{incident_id}/workbook-preferences/me`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`, `GET /api/v1/incidents/{incident_id}/workbook-preferences/default`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default`, `GET /api/v1/incidents/{incident_id}/workbook-startup`,
 - workbook query and row creation: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`,
 - record mutation, explicit Timeline capture-state actions, soft-delete, restore, history, rollback, and same-field conflict resolution: `PATCH /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/mark-reviewed`, `POST /api/v1/records/{record_id}/supersede`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, `GET /api/v1/records/{record_id}/history`, `POST /api/v1/records/{record_id}/rollback`, `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`,
 - entity merge initiation: `POST /api/v1/records/{survivor_record_id}/merge`,
@@ -1859,6 +1859,11 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-
 `workbook-preferences/default` MUST expose, at minimum, `incident_id`, `default_sheet_ref`, `created_at`, `updated_at`, and `updated_by_user_id`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default` MUST accept only a JSON object exactly of the form `{ "default_sheet_ref": <sheet_ref|null> }`. If the preference object does not yet exist, the route MUST create it. If it already exists, the route MUST replace only `default_sheet_ref`. Unknown top-level members MUST fail with `400` and `error.code = invalid_mutation_payload`. A structurally valid no-op update MUST return `200 OK` with the current resource and MUST NOT change `updated_at` or `updated_by_user_id`. An effective change MUST return `200 OK` with the resulting resource, MUST update `updated_at` exactly once, and MUST set `updated_by_user_id` to the current actor. The route MUST fail closed for callers whose current incident role is not `admin`.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
+
+**REQ-01-151.1**
+`GET /api/v1/incidents/{incident_id}/workbook-startup` MUST expose workbook startup selection using the ordered fallback owned by Core 03 §2.4. The route MUST accept either legacy `view_schema_id=<id>` or general `sheet_ref_kind=view_schema|saved_view&sheet_ref_id=<id>` query selectors for an explicit launch pointer; supplying both selector forms MUST fail with `400` and `error.code = invalid_startup_request`. A successful response MUST include `incident_id`, `selected_sheet_ref`, `selected_view_schema_id`, `selected_saved_view`, `source`, `cleared_pointers[]`, `home_sheet_ref`, and `default_sheet_ref`. `selected_view_schema_id` is the base schema used by workbook query routes; `selected_sheet_ref` is the selected startup identity and MAY be a distinct `saved_view` reference. The route MUST NOT treat an empty saved-view list as absence of any pack-independent base-profile surface identified by `view_schema`.
+Profiles: base
+Verified by: AC-150, AC-153, AC-231
 
 #### 3.3.5.3 Incident resource and creation contract
 

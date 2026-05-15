@@ -192,7 +192,10 @@
       "claim": "Ordinary saved-view patch enforces the mutable-field contract, rejects immutable mutation, and preserves version and timestamp on no-op patches.",
       "out_of_scope": "Create defaults, lifecycle integration, and browser workflows are covered by separate rows.",
       "execution_family": "backend-store-phase8-savedviews",
-      "execution_label": "backend-store phase8 saved views"
+      "execution_label": "backend-store phase8 saved views",
+      "fixture_policy": {
+        "postgres": "transaction"
+      }
     },
     {
       "id": "U-8-05",
@@ -202,11 +205,20 @@
       "file": "internal/modules/incidents/phase8_workbook_startup_test.go",
       "symbol": "TestPhase8_WorkbookPreferencePointers_U_8_05",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain",
-      "claim": "home_sheet_ref and default_sheet_ref remain separate and startup fallback clears invalid, hidden, missing, or unauthorized pointers before continuing.",
+      "evidence_layer": "route_contract",
+      "claim": "Workbook preference routes keep home_sheet_ref and default_sheet_ref separate, preserve no-op timestamps, enforce default-pointer admin policy, and clear a hidden saved-view home pointer before startup fallback continues.",
       "out_of_scope": "Saved-view lifecycle persistence and browser-visible startup behavior are covered by separate rows.",
       "execution_family": "backend-store-phase8-startup",
-      "execution_label": "backend-store phase8 startup"
+      "execution_label": "backend-store phase8 startup",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 1
+        }
+      },
+      "template_clone_reason": "Workbook preference route coverage starts the real runtime harness to verify route-owned authorization, no-op timestamps, saved-view visibility, and startup pointer clearing through committed state."
     },
     {
       "id": "U-8-06",
@@ -311,7 +323,10 @@
       "runner": "go_test",
       "package": "./internal/modules/incidents",
       "file": "internal/modules/incidents/phase8_workbook_startup_test.go",
-      "symbol": "TestPhase8_WorkbookStartupFallback_I_8_02",
+      "symbols": [
+        "TestPhase8_WorkbookStartupFallback_I_8_02",
+        "TestPhase8_WorkbookStartupBaseSurfaceDoesNotRequireSavedView_I_8_02"
+      ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Startup selection fallback behaves correctly across valid, missing, hidden, and invalid saved-view refs.",

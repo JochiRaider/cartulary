@@ -172,6 +172,7 @@ type WorkbookRow = {
 type TimelineWorkbookProps = {
   incidentId: string;
   apiBase?: string | undefined;
+  sheetRef?: WorkbookSheetRef | undefined;
   hostEntities?: EntityRow[];
   identityEntities?: EntityRow[];
   entityIndex?: Record<string, EntityRow>;
@@ -481,6 +482,23 @@ type EntityApiRow = TimelineApiRow;
 type WorkbookSheetRef = {
   id: string;
   kind: "saved_view" | "view_schema";
+};
+
+type WorkbookStartupEnvelope = {
+  data?: {
+    incident_id: string;
+    selected_sheet_ref: WorkbookSheetRef;
+    selected_view_schema_id: string;
+    selected_saved_view: unknown | null;
+    source: "default" | "explicit" | "home" | "timeline";
+    cleared_pointers: Array<{
+      source: "default" | "home";
+      sheet_ref: WorkbookSheetRef;
+      reason_code: string;
+    }>;
+    home_sheet_ref: WorkbookSheetRef | null;
+    default_sheet_ref: WorkbookSheetRef | null;
+  };
 };
 
 type WorkbookPresenceMode = "editing" | "idle" | "viewing";
@@ -1588,12 +1606,13 @@ function workbookPresence(
     mode: WorkbookPresenceMode;
     recordId: string | null;
   } = { fieldKey: null, mode: "viewing", recordId: null },
+  sheetRef: WorkbookSheetRef = {
+    kind: "view_schema",
+    id: timelineViewSchemaId,
+  },
 ): WorkbookPresenceInput {
   const input: WorkbookPresenceInput = {
-    sheet_ref: {
-      kind: "view_schema",
-      id: timelineViewSchemaId,
-    },
+    sheet_ref: { ...sheetRef },
     mode: presence.mode,
   };
   if (presence.recordId !== null) {
@@ -2026,6 +2045,7 @@ function TimelineScalarEditor({
 export function TimelineWorkbook({
   incidentId,
   apiBase,
+  sheetRef,
   hostEntities = [],
   identityEntities = [],
   entityIndex = {},
@@ -2165,6 +2185,10 @@ export function TimelineWorkbook({
     },
     [],
   );
+  const activeSheetRef = useMemo<WorkbookSheetRef>(
+    () => sheetRef ?? { kind: "view_schema", id: timelineViewSchemaId },
+    [sheetRef],
+  );
 
   useEffect(() => {
     currentPresenceRef.current = currentPresence;
@@ -2192,12 +2216,12 @@ export function TimelineWorkbook({
         JSON.stringify({
           type: "presence_update",
           payload: {
-            presence: workbookPresence(currentPresenceRef.current),
+            presence: workbookPresence(currentPresenceRef.current, activeSheetRef),
           },
         }),
       );
     }, 150);
-  }, [currentPresence]);
+  }, [activeSheetRef, currentPresence]);
 
   const publishPendingQueueState = useCallback(() => {
     const pending = pendingQueueRef.current;
@@ -2229,10 +2253,6 @@ export function TimelineWorkbook({
   const changeSocketURL = useMemo(
     () => websocketPath(apiBase, `/ws/v1/incidents/${incidentId}`),
     [apiBase, incidentId],
-  );
-  const activeSheetRef = useMemo<WorkbookSheetRef>(
-    () => ({ kind: "view_schema", id: timelineViewSchemaId }),
-    [],
   );
   const nextDraftIndex = useCallback(() => {
     const value = draftCounterRef.current;
@@ -3541,7 +3561,7 @@ export function TimelineWorkbook({
               client_instance_id: clientInstanceId,
               resume_token: resumeToken,
               last_seen_stream_seq: socketLastSeenStreamSeqRef.current,
-              presence: workbookPresence(currentPresenceRef.current),
+              presence: workbookPresence(currentPresenceRef.current, activeSheetRef),
             },
           }),
         );
@@ -3552,7 +3572,7 @@ export function TimelineWorkbook({
           type: "hello",
           payload: {
             client_instance_id: clientInstanceId,
-            presence: workbookPresence(currentPresenceRef.current),
+            presence: workbookPresence(currentPresenceRef.current, activeSheetRef),
           },
         }),
       );
@@ -4535,11 +4555,11 @@ export function TimelineWorkbook({
       JSON.stringify({
         type: "presence_update",
         payload: {
-          presence: workbookPresence(presence),
+          presence: workbookPresence(presence, activeSheetRef),
         },
       }),
     );
-  }, []);
+  }, [activeSheetRef]);
 
   const handleSelectRow = useCallback(
     (recordId: string) => {
@@ -8528,6 +8548,38 @@ function surfaceSlug(viewSchemaID: string): string {
   return viewSchemaID.replace(/^cartulary\.view\./, "").replace(/\.v1$/, "");
 }
 
+function knownWorkbookViewSchemaID(viewSchemaID: string): string {
+  return allWorkbookContracts.some(
+    (contract) => contract.viewSchemaId === viewSchemaID,
+  )
+    ? viewSchemaID
+    : timelineViewSchemaId;
+}
+
+function isWorkbookSheetRef(value: unknown): value is WorkbookSheetRef {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return (
+    (record.kind === "view_schema" || record.kind === "saved_view") &&
+    typeof record.id === "string" &&
+    record.id !== ""
+  );
+}
+
+function startupQueryFromURLParams(params: URLSearchParams): string {
+  const startupParams = new URLSearchParams();
+  for (const key of ["view_schema_id", "sheet_ref_kind", "sheet_ref_id"]) {
+    const value = params.get(key);
+    if (value !== null) {
+      startupParams.set(key, value);
+    }
+  }
+  const query = startupParams.toString();
+  return query ? `?${query}` : "";
+}
+
 export function WorkbookShell({
   incidentId,
   apiBase,
@@ -8537,17 +8589,12 @@ export function WorkbookShell({
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const initialViewSchemaID = useMemo(() => {
     const explicit = params.get("view_schema_id");
-    if (
-      explicit &&
-      allWorkbookContracts.some(
-        (contract) => contract.viewSchemaId === explicit,
-      )
-    ) {
-      return explicit;
-    }
-    return timelineViewSchemaId;
+    return explicit ? knownWorkbookViewSchemaID(explicit) : timelineViewSchemaId;
   }, [params]);
   const [surface, setSurface] = useState<SurfaceKind>(initialViewSchemaID);
+  const [startupSheetRef, setStartupSheetRef] = useState<WorkbookSheetRef>(
+    () => ({ kind: "view_schema", id: initialViewSchemaID }),
+  );
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
   const [identityRows, setIdentityRows] = useState<EntityRow[]>([]);
   const [entityLoadError, setEntityLoadError] = useState<string | null>(null);
@@ -8599,6 +8646,11 @@ export function WorkbookShell({
     controller: null,
     sequence: 0,
   });
+  const selectWorkbookSurface = useCallback((viewSchemaID: string) => {
+    const nextSurface = knownWorkbookViewSchemaID(viewSchemaID);
+    setSurface(nextSurface);
+    setStartupSheetRef({ kind: "view_schema", id: nextSurface });
+  }, []);
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -8850,6 +8902,40 @@ export function WorkbookShell({
   );
 
   useEffect(() => {
+    let cancelled = false;
+    const startupQuery = startupQueryFromURLParams(params);
+    const loadStartup = async () => {
+      const result = await fetchJSON<WorkbookStartupEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/workbook-startup${startupQuery}`,
+        ),
+      );
+      if (cancelled || !result.ok) {
+        return;
+      }
+      const envelope = readEnvelope<WorkbookStartupEnvelope>(result.payload);
+      const startup = envelope.data;
+      if (
+        !startup ||
+        !isWorkbookSheetRef(startup.selected_sheet_ref) ||
+        typeof startup.selected_view_schema_id !== "string"
+      ) {
+        return;
+      }
+      const nextSurface = knownWorkbookViewSchemaID(
+        startup.selected_view_schema_id,
+      );
+      setSurface(nextSurface);
+      setStartupSheetRef({ ...startup.selected_sheet_ref });
+    };
+    void loadStartup();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, incidentId, params]);
+
+  useEffect(() => {
     void Promise.all([loadEntities(), loadSessionRole()]);
   }, [loadEntities, loadSessionRole]);
 
@@ -8871,10 +8957,18 @@ export function WorkbookShell({
   useEffect(() => {
     const next = new URLSearchParams(window.location.search);
     next.set("incident_id", incidentId);
-    next.set("view_schema_id", surface);
+    if (startupSheetRef.kind === "saved_view") {
+      next.delete("view_schema_id");
+      next.set("sheet_ref_kind", startupSheetRef.kind);
+      next.set("sheet_ref_id", startupSheetRef.id);
+    } else {
+      next.set("view_schema_id", surface);
+      next.delete("sheet_ref_kind");
+      next.delete("sheet_ref_id");
+    }
     next.delete("surface");
     window.history.replaceState({}, "", `/?${next.toString()}`);
-  }, [incidentId, surface]);
+  }, [incidentId, startupSheetRef, surface]);
 
   return (
     <section style={panelStyle}>
@@ -8902,7 +8996,7 @@ export function WorkbookShell({
                 }}
                 type="button"
                 onClick={() => {
-                  setSurface(viewSchemaID);
+                  selectWorkbookSurface(viewSchemaID);
                 }}
               >
                 {contract.title}
@@ -8923,7 +9017,7 @@ export function WorkbookShell({
               }
               onChange={(event) => {
                 if (event.target.value) {
-                  setSurface(event.target.value);
+                  selectWorkbookSurface(event.target.value);
                 }
               }}
             >
@@ -8975,6 +9069,7 @@ export function WorkbookShell({
           identityEntities={identityRows}
           incidentId={incidentId}
           onRefreshEntities={loadEntities}
+          sheetRef={startupSheetRef}
         />
       ) : surface === hostsViewSchemaId ||
         surface === identitiesViewSchemaId ? (

@@ -443,6 +443,47 @@ func BuildUserWorkbookPreferencesResource(record UserWorkbookPreferencesRecord) 
 	}
 }
 
+func BuildWorkbookStartupResource(record WorkbookStartupRecord) map[string]any {
+	cleared := make([]map[string]any, 0, len(record.ClearedPointers))
+	for _, pointer := range record.ClearedPointers {
+		cleared = append(cleared, map[string]any{
+			"source":      pointer.Source,
+			"sheet_ref":   decodeOptionalJSON(pointer.SheetRef),
+			"reason_code": pointer.ReasonCode,
+		})
+	}
+	var savedView any
+	if record.SelectedSavedView != nil {
+		savedView = BuildStartupSavedViewResource(*record.SelectedSavedView)
+	}
+	return map[string]any{
+		"incident_id":             record.IncidentID,
+		"selected_sheet_ref":      decodeOptionalJSON(record.SelectedSheetRef),
+		"selected_view_schema_id": record.SelectedViewSchemaID,
+		"selected_saved_view":     savedView,
+		"source":                  record.Source,
+		"cleared_pointers":        cleared,
+		"home_sheet_ref":          decodeOptionalJSON(record.HomeSheetRef),
+		"default_sheet_ref":       decodeOptionalJSON(record.DefaultSheetRef),
+	}
+}
+
+func BuildStartupSavedViewResource(record StartupSavedViewRecord) map[string]any {
+	return map[string]any{
+		"saved_view_id":      record.SavedViewID,
+		"incident_id":        record.IncidentID,
+		"view_schema_id":     record.ViewSchemaID,
+		"scope":              record.Scope,
+		"display_name":       record.DisplayName,
+		"query_json":         decodeOptionalJSON(record.QueryJSON),
+		"layout_json":        decodeOptionalJSON(record.LayoutJSON),
+		"owner_user_id":      record.OwnerUserID,
+		"created_at":         record.CreatedAt,
+		"updated_at":         record.UpdatedAt,
+		"saved_view_version": record.SavedViewVersion,
+	}
+}
+
 func BuildExtensionResource(profile httpapi.ExtensionProfile) map[string]any {
 	return map[string]any{
 		"profile_id":     profile.ProfileID,
@@ -659,12 +700,14 @@ func canonicalSheetRef(value json.RawMessage, field string) ([]byte, *auth.APIEr
 	} else if err := json.Unmarshal(rawKind, &kind); err != nil || strings.TrimSpace(kind) == "" {
 		return nil, invalidMutationPayload(field+".kind", "invalid_sheet_ref")
 	}
+	kind = strings.TrimSpace(kind)
 	var id string
 	if rawID, ok := object["id"]; !ok {
 		return nil, invalidMutationPayload(field+".id", "missing_required_field")
 	} else if err := json.Unmarshal(rawID, &id); err != nil || strings.TrimSpace(id) == "" {
 		return nil, invalidMutationPayload(field+".id", "invalid_sheet_ref")
 	}
+	id = strings.TrimSpace(id)
 
 	if apiErr := resolveWorkbookPreferenceSheetRef(kind, id, field); apiErr != nil {
 		return nil, apiErr
@@ -691,7 +734,10 @@ func resolveWorkbookPreferenceSheetRef(kind string, id string, field string) *au
 		}
 		return nil
 	case "saved_view":
-		return invalidMutationPayload(field, "unsupported_sheet_ref")
+		if _, err := uuid.Parse(id); err != nil {
+			return invalidMutationPayload(field+".id", "invalid_saved_view_id")
+		}
+		return nil
 	default:
 		return invalidMutationPayload(field+".kind", "unsupported_sheet_ref_kind")
 	}

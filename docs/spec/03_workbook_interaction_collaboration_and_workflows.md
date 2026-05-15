@@ -206,11 +206,12 @@ Workbook open MUST select the starting surface in this order:
 2. the caller's `home_sheet_ref`, if present, still valid, and visible to the caller,
 3. the incident-wide `default_sheet_ref`, if present, still valid, and visible to the caller,
 4. `cartulary.view.timeline.v1`.
+The startup selection resource defined by Core 01 MUST return both the selected `sheet_ref` identity and the base `view_schema_id` used for workbook queries so a selected saved view is not collapsed into the base surface identity.
 Profiles: base
 Verified by: AC-150, AC-153, AC-231
 
 **REQ-03-031**
-If a referenced saved view or view schema is missing, no longer visible to the caller, invalid because a required optional pack is unavailable, or invalid because the referenced `view_schema_id` is not standardized for the current profile, the implementation MUST clear the invalid pointer and continue to the next step in the ordered fallback chain rather than failing workbook open. This fallback logic MUST NOT depend on the existence of a saved-view object for any pack-independent base-profile registry surface listed in Core 01 REQ-01-307, because those surfaces remain directly addressable by standardized `view_schema_id`.
+If a persisted referenced saved view or view schema is missing, deleted, no longer visible to the caller, invalid because a required optional pack is unavailable, or invalid because the referenced `view_schema_id` is not standardized for the current profile, the implementation MUST clear the invalid pointer and continue to the next step in the ordered fallback chain rather than failing workbook open. Invalid explicit launch pointers are not persisted and therefore MUST be skipped without reporting a cleared pointer. This fallback logic MUST NOT depend on the existence of a saved-view object for any pack-independent base-profile registry surface listed in Core 01 REQ-01-307, because those surfaces remain directly addressable by standardized `view_schema_id`.
 Profiles: base
 Verified by: AC-150, AC-153, AC-231
 

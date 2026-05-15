@@ -269,6 +269,15 @@ func TestSupportPhase2_WorkbookPreferencesPutDecodersCanonicalizeSheetRefs(t *te
 	if string(userRequest.HomeSheetRef) != `{"kind":"view_schema","id":"cartulary.view.timeline.v1"}` {
 		t.Fatalf("unexpected canonical user sheet_ref: %s", userRequest.HomeSheetRef)
 	}
+	savedViewRequest, apiErr := DecodeUserWorkbookPreferencesPutRequest(strings.NewReader(`{
+		"home_sheet_ref":{"id":"00000000-0000-0000-0000-000000000153","kind":"saved_view"}
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode saved-view workbook preferences PUT: %v", apiErr)
+	}
+	if string(savedViewRequest.HomeSheetRef) != `{"kind":"saved_view","id":"00000000-0000-0000-0000-000000000153"}` {
+		t.Fatalf("unexpected canonical saved-view sheet_ref: %s", savedViewRequest.HomeSheetRef)
+	}
 
 	defaultRequest, apiErr := DecodeDefaultWorkbookPreferencesPutRequest(strings.NewReader(`{
 		"default_sheet_ref":null
@@ -319,10 +328,10 @@ func TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads(t *te
 			reasonCode: "unknown_field",
 		},
 		{
-			name:       "saved view unsupported until persistence exists",
+			name:       "invalid saved view id",
 			body:       `{"home_sheet_ref":{"kind":"saved_view","id":"svw_1"}}`,
-			field:      "home_sheet_ref",
-			reasonCode: "unsupported_sheet_ref",
+			field:      "home_sheet_ref.id",
+			reasonCode: "invalid_saved_view_id",
 		},
 	}
 

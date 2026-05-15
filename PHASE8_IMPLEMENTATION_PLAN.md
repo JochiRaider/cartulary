@@ -548,7 +548,7 @@ Exit criteria:
 
 Objective: Complete separate workbook preference pointers, saved-view sheet refs, and deterministic workbook startup fallback.
 
-Status: Partially implemented by remediation on 2026-05-13. `U-8-10`, `E-8-02`, `E-8-03`, and `E-8-04` have direct evidence. `E-8-01` remains an explicit browser-functional blocker sentinel because in-product saved-view lifecycle affordances are still missing; Sprint 3 backend saved-view lifecycle routes now exist and are evidenced separately.
+Status: Complete for backend Sprint 4 on 2026-05-15. `U-8-05` has passing canonical `backend-store` evidence and `I-8-02` has passing canonical `backend-integration` evidence. `E-8-02` remains browser support evidence for visible startup behavior; `E-8-01` remains a separate Sprint 8 browser saved-view lifecycle product-gap sentinel and is not Sprint 4 completion evidence.
 
 Relevant IDs:
 - `U-8-05`, `I-8-02`
@@ -610,6 +610,14 @@ Risks and open questions:
 Exit criteria:
 - Workbook open never fails solely because a saved-view pointer became hidden, deleted, or invalid; it clears and falls through deterministically.
 - `home_sheet_ref` and `default_sheet_ref` semantics remain separate.
+
+Implementation evidence collected on 2026-05-15:
+- Files changed: `internal/modules/savedviews/phase8_savedviews_test.go`, `internal/modules/incidents/phase8_workbook_startup_test.go`, `tools/phase8_test_map.json`, `docs/testing/phase8_coverage_ledger.md`, `tools/execution_topology_render_index.json`, `tools/scheduler_manifest.json`, plus the existing Sprint 4 implementation and generated contract artifacts listed in the earlier handoff.
+- Tests added or tightened: `U-8-04` now uses rollback-backed store-domain fixture setup instead of a full HTTP runtime; `U-8-05` now explicitly proves preference separation/no-op/admin behavior and a persisted hidden saved-view home pointer clearing before fallback; `I-8-02` remains the comprehensive startup fallback row.
+- Validation results: focused `go test ./internal/modules/savedviews -run TestPhase8_SavedViewPatchContract_U_8_04 -count=1` passed; focused `go test ./internal/modules/incidents -run TestPhase8_WorkbookPreferencePointers_U_8_05 -count=1` passed; `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make generate-drift`, `make explain-phase PHASE=phase8`, and `git diff --check` passed; canonical `make backend-store CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_store` passed; canonical `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration` passed; `make service-backed-slice PHASE=phase8` passed.
+- Retained artifact roots: `phase-ledgers` `.cartulary/test-results/20260515T035132Z-p1471907`; `phase-schedules` `.cartulary/test-results/20260515T035135Z-p1472099`; `phase-ledger-drift` `.cartulary/test-results/20260515T035209Z-p1472899`; `phase-schedule-drift` `.cartulary/test-results/20260515T035209Z-p1472930`; `generate-drift` `.cartulary/test-results/20260515T035209Z-p1472942`; canonical backend-store `.cartulary/test-results/20260515T035217Z-p1474027`; canonical backend-integration `.cartulary/test-results/20260515T035738Z-p1482122`; service-backed slice `.cartulary/test-results/20260515T040306Z-p1491280`; finalizer without retained-run maintenance `.cartulary/test-results/20260515T040907Z-p1502827`.
+- Finalizer note: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260515T040306Z-p1491280` failed retained-run preflight because the finalizer currently requires a retained warm `check` run with `check/scheduler-summary.json`, not a `service-backed-slice` run. `make agent-finalize` without `RESULTS_DIR` then passed with `generated=unchanged`, `duration=skipped`, and `run_checks=skipped`.
+- Closed blocker: the previous canonical `backend-store` failure on `TestPhase8_SavedViewPatchContract_U_8_04` is fixed. Sprint 4 backend completion must continue to rely on canonical `backend-store`/`backend-integration` evidence, not on focused diagnostics or browser `E-8-02` support evidence alone.
 
 ## Sprint 5. Query Contract Validation and Normalization
 

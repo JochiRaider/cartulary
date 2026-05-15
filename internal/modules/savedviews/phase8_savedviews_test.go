@@ -15,11 +15,13 @@ import (
 	"github.com/google/uuid"
 
 	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase2storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
@@ -364,20 +366,19 @@ func TestPhase8_SavedViewScopeVocabulary_U_8_03(t *testing.T) {
 }
 
 func TestPhase8_SavedViewPatchContract_U_8_04(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase8-savedviews-u-8-04")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase8-u-8-04-incident",
-		"incident_key":  "IR-U804",
-		"title":         "Phase 8 saved-view patch",
+	harness := phase2storetest.StartStore(t, "phase8-savedviews-u-8-04")
+	admin := phase2storetest.SeedLocalUserRecord(t, harness.DB, "phase8-u804-admin@example.test", "Phase8 U804 Admin", "Phase8U804Admin1!", false, false, true)
+	incident := phase2storetest.CreateIncidentInStore(t, harness.DB, admin, incidents.CreateIncidentRequest{
+		ClientTxnID: "txn-phase8-u-8-04-incident",
+		IncidentKey: "IR-U804",
+		Title:       "Phase 8 saved-view patch",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
-	owner := phase2test.SeedLocalUserRecord(t, harness.DB, "phase8-u804-owner@example.test", "Phase8 U804 Owner", "Phase8U804Owner1!", false, false, true)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
-		"client_txn_id": "txn-phase8-u-8-04-owner-membership",
-		"user_id":       owner.ID.String(),
-		"role":          "viewer",
+	incidentID := incident.Incident.ID
+	owner := phase2storetest.SeedLocalUserRecord(t, harness.DB, "phase8-u804-owner@example.test", "Phase8 U804 Owner", "Phase8U804Owner1!", false, false, true)
+	phase2storetest.CreateMembershipInStore(t, harness.DB, admin, incidentID, owner, incidents.MembershipCreateRequest{
+		ClientTxnID: "txn-phase8-u-8-04-owner-membership",
+		UserID:      &owner.ID,
+		Role:        "viewer",
 	})
 
 	createRequest, apiErr := savedviews.DecodeCreateRequest(strings.NewReader(`{
@@ -389,7 +390,7 @@ func TestPhase8_SavedViewPatchContract_U_8_04(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decode create request: %#v", apiErr)
 	}
-	store := savedviews.NewStore(harness.Server.Runtime.Postgres)
+	store := savedviews.NewStore(harness.DB)
 	createdAt := time.Date(2026, 5, 14, 14, 0, 0, 0, time.UTC)
 	created, err := store.Create(context.Background(), owner, incidentID, createRequest, createdAt)
 	if err != nil {

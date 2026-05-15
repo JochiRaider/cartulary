@@ -32,6 +32,7 @@ const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
 const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 const indicatorsViewSchemaId = "cartulary.view.indicators.v1";
+const savedViewId = "11111111-1111-4111-8111-111111111111";
 
 function requireField(
   contract: ViewContract,
@@ -62,6 +63,12 @@ describe("WorkbookShell surface selection", () => {
         init: RequestInit | undefined,
       ) => Promise<Response> | Response | null)
     | null;
+  let startupSelection: {
+    selected_sheet_ref: { kind: "saved_view" | "view_schema"; id: string };
+    selected_view_schema_id: string;
+    selected_saved_view: unknown | null;
+    source: "default" | "explicit" | "home" | "timeline";
+  };
   let uploadShouldFail: boolean;
 
   beforeEach(() => {
@@ -69,6 +76,12 @@ describe("WorkbookShell surface selection", () => {
     evidenceRows = [];
     timelineRows = [];
     queryResponseOverride = null;
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
+      selected_view_schema_id: timelineViewSchemaId,
+      selected_saved_view: null,
+      source: "timeline",
+    };
     uploadShouldFail = false;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -109,6 +122,15 @@ describe("WorkbookShell surface selection", () => {
         return successEnvelope({
           default_sheet_ref: null,
           home_sheet_ref: null,
+        });
+      }
+      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+        return successEnvelope({
+          incident_id: "incident-1",
+          ...startupSelection,
+          cleared_pointers: [],
+          home_sheet_ref: null,
+          default_sheet_ref: null,
         });
       }
       if (url.endsWith("/api/v1/evidence-records/evidence-1/preview-handle")) {
@@ -249,6 +271,86 @@ describe("WorkbookShell surface selection", () => {
     });
     expect(window.location.search).toContain(
       `view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`,
+    );
+  });
+
+  it("uses backend startup selection for the initial workbook grid surface", async () => {
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
+      selected_view_schema_id: evidenceViewSchemaId,
+      selected_saved_view: null,
+      source: "default",
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/workbook-startup"),
+        expect.objectContaining({ credentials: "include" }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(`/views/${evidenceViewSchemaId}/query`),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(window.location.search).toContain(
+      `view_schema_id=${encodeURIComponent(evidenceViewSchemaId)}`,
+    );
+  });
+
+  it("keeps a selected saved-view sheet ref distinct from its base view_schema", async () => {
+    startupSelection = {
+      selected_sheet_ref: { kind: "saved_view", id: savedViewId },
+      selected_view_schema_id: evidenceViewSchemaId,
+      selected_saved_view: {
+        saved_view_id: savedViewId,
+        incident_id: "incident-1",
+        view_schema_id: evidenceViewSchemaId,
+      },
+      source: "home",
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(`/views/${evidenceViewSchemaId}/query`),
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(window.location.search).toContain("sheet_ref_kind=saved_view");
+    });
+    expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
+    expect(window.location.search).not.toContain("view_schema_id=");
+  });
+
+  it("passes invalid explicit base surfaces to backend startup fallback", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?view_schema_id=cartulary.view.unknown.v1",
+    );
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
+      selected_view_schema_id: timelineViewSchemaId,
+      selected_saved_view: null,
+      source: "timeline",
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `/workbook-startup?view_schema_id=${encodeURIComponent(
+            "cartulary.view.unknown.v1",
+          )}`,
+        ),
+        expect.objectContaining({ credentials: "include" }),
+      );
+    });
+    expect(window.location.search).toContain(
+      `view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`,
     );
   });
 

@@ -343,6 +343,9 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 	case "workbook-preferences/me":
 		s.handleIncidentWorkbookPreferencesMe(w, r, incidentID)
 		return
+	case "workbook-startup":
+		s.handleIncidentWorkbookStartup(w, r, incidentID)
+		return
 	}
 
 	if len(segments) == 3 && segments[1] == "memberships" {
@@ -672,6 +675,38 @@ func (s *Service) handleIncidentWorkbookPreferencesMe(w http.ResponseWriter, r *
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Service) handleIncidentWorkbookStartup(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, false)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	membership, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	explicitSheetRef, apiErr := ParseStartupExplicitSheetRef(r.URL.Query())
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	record, err := s.store.ResolveWorkbookStartup(r.Context(), incidentID, principal.User.ID, membership.Role, explicitSheetRef, s.now())
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildWorkbookStartupResource(record))
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *auth.APIError) {

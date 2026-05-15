@@ -292,6 +292,69 @@
         }
       }
     },
+    "/api/v1/incidents/{incident_id}/workbook-startup": {
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getIncidentWorkbookStartup",
+        "summary": "Resolve the caller's workbook startup sheet for one incident.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "view_schema_id",
+            "in": "query",
+            "required": false,
+            "description": "Legacy explicit launch pointer for a base view-schema surface.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sheet_ref_kind",
+            "in": "query",
+            "required": false,
+            "description": "Explicit launch pointer kind. Must be paired with sheet_ref_id and must not be combined with view_schema_id.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "view_schema",
+                "saved_view"
+              ]
+            }
+          },
+          {
+            "name": "sheet_ref_id",
+            "in": "query",
+            "required": false,
+            "description": "Explicit launch pointer identifier. Must be paired with sheet_ref_kind.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workbook startup selection response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookStartupEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
       "post": {
         "tags": [
@@ -2050,6 +2113,120 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/UserWorkbookPreferencesResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "WorkbookStartupSource": {
+        "type": "string",
+        "enum": [
+          "explicit",
+          "home",
+          "default",
+          "timeline"
+        ]
+      },
+      "WorkbookStartupClearedPointer": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "home",
+              "default"
+            ]
+          },
+          "sheet_ref": {
+            "$ref": "#/components/schemas/SheetRef"
+          },
+          "reason_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "sheet_ref",
+          "reason_code"
+        ]
+      },
+      "WorkbookStartupResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "selected_sheet_ref": {
+            "$ref": "#/components/schemas/SheetRef"
+          },
+          "selected_view_schema_id": {
+            "type": "string"
+          },
+          "selected_saved_view": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SavedViewResource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/WorkbookStartupSource"
+          },
+          "cleared_pointers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkbookStartupClearedPointer"
+            }
+          },
+          "home_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "default_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "incident_id",
+          "selected_sheet_ref",
+          "selected_view_schema_id",
+          "selected_saved_view",
+          "source",
+          "cleared_pointers",
+          "home_sheet_ref",
+          "default_sheet_ref"
+        ]
+      },
+      "WorkbookStartupEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkbookStartupResource"
           },
           "meta": {
             "$ref": "#/components/schemas/EnvelopeMeta"
