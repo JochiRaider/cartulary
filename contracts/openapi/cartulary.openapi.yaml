@@ -1884,6 +1884,50 @@
           "request_id"
         ]
       },
+      "WorkbookQueryMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "paging": {
+            "$ref": "#/components/schemas/PagingMeta"
+          },
+          "query": {
+            "$ref": "#/components/schemas/WorkbookQueryMetaQuery"
+          }
+        },
+        "required": [
+          "request_id",
+          "query"
+        ]
+      },
+      "WorkbookQueryMetaQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewQueryFilter"
+            }
+          },
+          "group_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sort",
+          "filters"
+        ]
+      },
       "PagingMeta": {
         "type": "object",
         "additionalProperties": false,
@@ -4076,7 +4120,7 @@
             "$ref": "#/components/schemas/WorkbookQueryData"
           },
           "meta": {
-            "$ref": "#/components/schemas/EnvelopeMeta"
+            "$ref": "#/components/schemas/WorkbookQueryMeta"
           }
         },
         "required": [

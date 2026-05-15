@@ -47,7 +47,7 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 2. Saved-view persistence and create defaults | [x] implemented | Remediated on 2026-05-14; storage/routes, create defaults, list visibility, OpenAPI create-input/resource-output split, route-level negative coverage, ledgers, schedules, and duration baselines are current. | Create/list foundation, private default, exact scope tokens, one `view_schema_id`, canonical query/layout persistence. |
 | [x] | 3. Saved-view patch, duplicate, and delete | [x] implemented and audited | None for this sprint. | Patch/delete routes, stale-version conflict, structural no-op behavior, ordinary-create duplicate semantics, system immutability, and delete-only configuration removal are evidenced. |
 | [x] | 4. Workbook preferences and startup selection | [x] implemented and audited | None for this sprint. | Separate preference pointers, saved-view and base-surface sheet refs, deterministic startup fallback, and invalid-pointer clearing are evidenced by backend store/integration rows. |
-| [ ] | 5. Query contract validation and normalization | [ ] planned | Existing query decoder must be audited against saved-view persistence and `meta.query`. | Stable keys only, ceilings, canonical filters/sort/group, duplicate rejection. |
+| [x] | 5. Query contract validation and normalization | [x] implemented and audited | None for this sprint. | Stable keys only, ceilings, canonical filters/sort/group, duplicate rejection, saved-view persistence separation, and query response `meta.query` schema are evidenced. |
 | [ ] | 6. Projection-backed execution, search, and cursor semantics | [ ] planned | Requires Sprint 5 canonical query contract. | Live-authorized keyset cursor, exact-token `full_text`, strict `prefix`, null-last ordering. |
 | [ ] | 7. Grouping, discovery, and grid controls | [ ] planned | Requires Sprint 5/6 query semantics. | Timeline whitelist, presentation-only headers, no client-sortable `record_id`, stable frontend keys. |
 | [ ] | 8. Sparse patch, hidden writable fields, and browser workflows | [ ] planned | Requires backend query/saved-view/startup behaviors. | Complete browser-functional rows `E-8-01..E-8-04` and sparse-patch row `U-8-10`. |
@@ -640,7 +640,7 @@ Conformance audit results on 2026-05-15:
 
 Objective: Complete route-owned query validation and canonical normalization for sort, filter, grouping, saved-view persistence, and response `meta.query`.
 
-Status: Remediation evidence collected on 2026-05-13. Phase ledgers and schedules were regenerated; Phase 8 public wrappers pass; `make agent-finalize` passes after real service-backed baseline refresh. Full `make check` remains blocked by a non-Phase-8 Phase 4 browser assessment ordering failure in `.cartulary/test-results/20260513T015011Z-p36877`.
+Status: Completed in this run on 2026-05-15. The Sprint 5 checklist drift was reconciled against current code, tests, manifests, ledgers, and generated artifacts. Focused `U-8-06` and `U-8-08` evidence now explicitly covers stable query keys, rejection cases, canonical normalization, saved-view persistence separation, and query response `meta.query` schema. Full `make check` remains blocked by a previously documented non-Phase-8 Phase 4 browser assessment ordering failure in `.cartulary/test-results/20260513T015011Z-p36877`.
 
 Relevant IDs:
 - `U-8-06`, `U-8-08`
@@ -685,6 +685,12 @@ Implementation tasks:
 - Bind saved-view `query_json` validation to the same canonical user-query normalizer, while storing only user overrides and not applied effective sort.
 - Add OpenAPI schemas for `meta.query` and reason-code details where absent.
 - Ensure `Group: None` is represented by omission, never JSON `null`.
+
+Implementation results:
+- Existing product code already implemented the Sprint 5 normalizer behavior; no route or query execution semantics were changed.
+- `internal/platform/viewquery/phase8_query_contract_test.go` now explicitly accepts stable `field_key` query inputs and rejects labels, vendor/projection/storage keys, technical fields, invalid operators, malformed arguments, duplicate filter/sort keys, non-sortable fields, non-groupable fields, and malformed `group_by`.
+- `U-8-08` now proves exact sort/filter ceilings, canonical filter ordering, set value normalization, prefix normalization, full-text token canonicalization, response-side `meta.query` array presence with inactive grouping omission, default-tail expansion, server `record_id asc` tie-breaker, and saved-view `query_json` user-override-only persistence.
+- `contracts/openapi/cartulary.openapi.yaml` now declares query-specific `WorkbookQueryMeta` and `WorkbookQueryMetaQuery` schemas so workbook query responses expose required `meta.query.sort` and `meta.query.filters` with optional string-only `group_by`.
 
 Validation commands:
 - `go test ./internal/platform/viewquery ./internal/modules/workbook ./internal/modules/savedviews -run 'TestPhase8_.*(U_8_06|U_8_08)'`
