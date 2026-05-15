@@ -46,7 +46,7 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 1. Typed links, tags, and rollback handoff | [x] focused Sprint 1 checks passed; aggregate Phase 8 wrappers now pass after later remediation | None for this sprint. | `record_tag` rollback is executable and evidenced. `AC-184`/`AC-185` are evidenced by later Phase 8 query and Notes tests. |
 | [x] | 2. Saved-view persistence and create defaults | [x] implemented | Remediated on 2026-05-14; storage/routes, create defaults, list visibility, OpenAPI create-input/resource-output split, route-level negative coverage, ledgers, schedules, and duration baselines are current. | Create/list foundation, private default, exact scope tokens, one `view_schema_id`, canonical query/layout persistence. |
 | [x] | 3. Saved-view patch, duplicate, and delete | [x] implemented and audited | None for this sprint. | Patch/delete routes, stale-version conflict, structural no-op behavior, ordinary-create duplicate semantics, system immutability, and delete-only configuration removal are evidenced. |
-| [ ] | 4. Workbook preferences and startup selection | [ ] planned | Requires saved-view visibility checks from Sprint 2/3. | Add saved-view sheet refs and fallback clearing behavior. |
+| [x] | 4. Workbook preferences and startup selection | [x] implemented and audited | None for this sprint. | Separate preference pointers, saved-view and base-surface sheet refs, deterministic startup fallback, and invalid-pointer clearing are evidenced by backend store/integration rows. |
 | [ ] | 5. Query contract validation and normalization | [ ] planned | Existing query decoder must be audited against saved-view persistence and `meta.query`. | Stable keys only, ceilings, canonical filters/sort/group, duplicate rejection. |
 | [ ] | 6. Projection-backed execution, search, and cursor semantics | [ ] planned | Requires Sprint 5 canonical query contract. | Live-authorized keyset cursor, exact-token `full_text`, strict `prefix`, null-last ordering. |
 | [ ] | 7. Grouping, discovery, and grid controls | [ ] planned | Requires Sprint 5/6 query semantics. | Timeline whitelist, presentation-only headers, no client-sortable `record_id`, stable frontend keys. |
@@ -596,7 +596,11 @@ Validation commands:
 - `make backend-store CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_store`
 - `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration`
 - `make frontend-unit`
+- `make phase-ledger-drift`
+- `make phase-schedule-drift`
+- `make generate-drift`
 - `git diff --check`
+- `git diff --cached --check`
 
 Deliverables:
 - Saved-view-capable sheet refs.
@@ -618,6 +622,19 @@ Implementation evidence collected on 2026-05-15:
 - Retained artifact roots: `phase-ledgers` `.cartulary/test-results/20260515T035132Z-p1471907`; `phase-schedules` `.cartulary/test-results/20260515T035135Z-p1472099`; `phase-ledger-drift` `.cartulary/test-results/20260515T035209Z-p1472899`; `phase-schedule-drift` `.cartulary/test-results/20260515T035209Z-p1472930`; `generate-drift` `.cartulary/test-results/20260515T035209Z-p1472942`; canonical backend-store `.cartulary/test-results/20260515T035217Z-p1474027`; canonical backend-integration `.cartulary/test-results/20260515T035738Z-p1482122`; service-backed slice `.cartulary/test-results/20260515T040306Z-p1491280`; finalizer without retained-run maintenance `.cartulary/test-results/20260515T040907Z-p1502827`.
 - Finalizer note: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260515T040306Z-p1491280` failed retained-run preflight because the finalizer currently requires a retained warm `check` run with `check/scheduler-summary.json`, not a `service-backed-slice` run. `make agent-finalize` without `RESULTS_DIR` then passed with `generated=unchanged`, `duration=skipped`, and `run_checks=skipped`.
 - Closed blocker: the previous canonical `backend-store` failure on `TestPhase8_SavedViewPatchContract_U_8_04` is fixed. Sprint 4 backend completion must continue to rely on canonical `backend-store`/`backend-integration` evidence, not on focused diagnostics or browser `E-8-02` support evidence alone.
+
+Conformance audit results on 2026-05-15:
+- Scope audited: `U-8-05` and `I-8-02` only. Browser `E-8-02`, frontend startup state, generated artifacts, and Phase 2 carryover tests were treated as support or follow-up evidence, not Sprint 4 completion authority.
+- Authoritative requirements reviewed: Core 01 workbook preference and startup routes plus `sheet_ref`; Core 02 separate workbook preference objects; Core 03 startup fallback and pointer clearing; Core 04 `AC-150` and `AC-153`; `tools/phase8_test_map.json`; `docs/testing/phase8_coverage_ledger.md`.
+- Files and contracts inspected: `internal/modules/incidents/routes.go`, `internal/modules/incidents/api.go`, `internal/modules/incidents/startup.go`, `internal/modules/incidents/store.go`, `internal/modules/savedviews/store.go`, `internal/modules/savedviews/routes.go`, `internal/modules/savedviews/scope.go`, `db/queries/savedviews_phase8.sql`, `db/queries/incidents_phase2.sql`, `contracts/openapi/cartulary.openapi.yaml`, `apps/web/src/WorkbookShell.tsx`, and `apps/web/e2e/phase8.workbook.spec.ts`.
+- Tests inspected: `internal/modules/incidents/phase8_workbook_startup_test.go`, `internal/modules/savedviews/phase8_savedviews_test.go`, relevant Phase 2 workbook-preference support tests, and browser startup support tests.
+- Diagnostic validation: `go test ./internal/modules/incidents ./internal/modules/savedviews -run 'TestPhase8_.*(U_8_05|I_8_02)'` passed; `internal/modules/savedviews` had no matching Sprint 4 symbols and was diagnostic only.
+- Canonical validation: `make backend-store CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=backend_store` passed with retained root `.cartulary/test-results/20260515T130133Z-p37769`; the `backend-store-phase8-startup` child ran only authoritative `U-8-05` and passed with exit status 0.
+- Canonical validation: `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=integration` passed with retained root `.cartulary/test-results/20260515T130730Z-p73688`; the `backend-integration-phase8-startup` child ran both authoritative `I-8-02` symbols and passed with exit status 0.
+- Support validation: `make frontend-unit` passed with retained root `.cartulary/test-results/20260515T131259Z-p82007`; this remains support evidence for Sprint 4.
+- Drift and hygiene validation: `make phase-ledger-drift` passed at `.cartulary/test-results/20260515T131317Z-p83186`; `make phase-schedule-drift` passed at `.cartulary/test-results/20260515T131322Z-p83381`; `make generate-drift` passed at `.cartulary/test-results/20260515T131327Z-p83631`; `git diff --check` and `git diff --cached --check` passed.
+- Findings: no Sprint 4 blockers and no in-scope evidence gaps. Direct canonical evidence proves preference separation, caller-only `home_sheet_ref` mutation, admin-only incident `default_sheet_ref` mutation, no-op timestamp/updater preservation, `saved_view` and `view_schema` sheet refs, deterministic explicit/home/default/Timeline fallback, stored invalid-pointer clearing, and saved-view visibility checks.
+- Completion statement: Sprint 4 has sufficient direct backend-store and backend-integration evidence for `U-8-05` and `I-8-02`. It is not being marked complete based on browser-only evidence, support-only tests, generated artifacts, or absence of failing tests.
 
 ## Sprint 5. Query Contract Validation and Normalization
 
