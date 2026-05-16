@@ -273,6 +273,20 @@ test.describe("Phase 3 workbook visual evidence", () => {
         ),
       ),
     ).toBeVisible();
+    await expect(
+      page.getByTestId(
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          "rough",
+        ),
+      ),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByTestId(gridShellTestId(timelineViewSchemaId))
+        .getByText("Unassigned", { exact: true }),
+    ).toHaveCount(0);
 
     await assertWorkbookGridVisualRegression(
       page,
