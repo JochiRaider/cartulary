@@ -168,30 +168,66 @@ export function buildGridPresentationRows<Row>({
     }));
   }
 
-  const presentationRows: GridPresentationRow<Row>[] = [];
-  let activeGroupLabel: string | null = null;
-  const groupSegmentCounts = new Map<string, number>();
+  const buckets: Array<{
+    groupKeyValue: string;
+    groupLabel: string | null;
+    rows: Array<GridRow<Row>>;
+  }> = [];
+  const bucketsByKey = new Map<
+    string,
+    {
+      groupKeyValue: string;
+      groupLabel: string | null;
+      rows: Array<GridRow<Row>>;
+    }
+  >();
+  const recordlessRows: Array<GridRow<Row>> = [];
 
   for (const row of rows) {
+    if (row.recordId === null) {
+      recordlessRows.push(row);
+      continue;
+    }
     const nextGroupLabel = normalizeGroupLabel(
       getGroupLabel(row.data, groupBy),
     );
-    if (nextGroupLabel !== activeGroupLabel) {
-      activeGroupLabel = nextGroupLabel;
-      const groupKeyValue = nextGroupLabel ?? "empty";
-      const groupSegment = groupSegmentCounts.get(groupKeyValue) ?? 0;
-      groupSegmentCounts.set(groupKeyValue, groupSegment + 1);
-      presentationRows.push({
-        groupBy,
+    const bucketMapKey =
+      nextGroupLabel === null ? "group:null" : `group:value:${nextGroupLabel}`;
+    let bucket = bucketsByKey.get(bucketMapKey);
+    if (bucket === undefined) {
+      bucket = {
+        groupKeyValue: nextGroupLabel ?? "empty",
         groupLabel: nextGroupLabel,
-        key: `group:${groupBy}:${groupKeyValue}:${groupSegment}`,
-        kind: "group",
-        testId:
-          nextGroupLabel === null || getGroupRowTestId === undefined
-            ? undefined
-            : getGroupRowTestId(groupBy, nextGroupLabel),
+        rows: [],
+      };
+      bucketsByKey.set(bucketMapKey, bucket);
+      buckets.push(bucket);
+    }
+    bucket.rows.push(row);
+  }
+
+  const presentationRows: GridPresentationRow<Row>[] = [];
+  for (const bucket of buckets) {
+    presentationRows.push({
+      groupBy,
+      groupLabel: bucket.groupLabel,
+      key: `group:${groupBy}:${bucket.groupKeyValue}:0`,
+      kind: "group",
+      testId:
+        bucket.groupLabel === null || getGroupRowTestId === undefined
+          ? undefined
+          : getGroupRowTestId(groupBy, bucket.groupLabel),
+    });
+    for (const row of bucket.rows) {
+      presentationRows.push({
+        gridRow: row,
+        key: row.key,
+        kind: "data",
       });
     }
+  }
+
+  for (const row of recordlessRows) {
     presentationRows.push({
       gridRow: row,
       key: row.key,

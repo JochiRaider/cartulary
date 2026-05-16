@@ -25,6 +25,20 @@ function gridRow(
   };
 }
 
+function draftRow(
+  key: string,
+  state: string | null | undefined,
+): GridRow<HarnessRow> {
+  return {
+    key,
+    recordId: null,
+    data: {
+      label: key,
+      state,
+    },
+  };
+}
+
 function summarizeRows(
   rows: readonly GridPresentationRow<HarnessRow>[],
 ): readonly string[] {
@@ -76,7 +90,7 @@ describe("grid presentation rows", () => {
     ]);
   });
 
-  it("inserts group rows only when consecutive normalized labels change", () => {
+  it("builds one group bucket per normalized committed label", () => {
     const rows = [
       gridRow("record-1", "open"),
       gridRow("record-2", "open"),
@@ -97,15 +111,14 @@ describe("grid presentation rows", () => {
       "group:open:group:state:open:0:group-state-open",
       "data:record-1",
       "data:record-2",
+      "data:record-5",
       "group:reviewed:group:state:reviewed:0:group-state-reviewed",
       "data:record-3",
       "data:record-4",
-      "group:open:group:state:open:1:group-state-open",
-      "data:record-5",
     ]);
   });
 
-  it("normalizes empty group labels to the unassigned group without test IDs", () => {
+  it("normalizes committed empty group labels to the unassigned group without test IDs", () => {
     const rows = [
       gridRow("record-1", null),
       gridRow("record-2", undefined),
@@ -122,6 +135,7 @@ describe("grid presentation rows", () => {
     });
 
     expect(summarizeRows(presentationRows)).toEqual([
+      "group:null:group:state:empty:0:no-test-id",
       "data:record-1",
       "data:record-2",
       "data:record-3",
@@ -151,6 +165,32 @@ describe("grid presentation rows", () => {
       "group:null:group:state:empty:0:no-test-id",
       "data:record-2",
       "data:record-3",
+    ]);
+  });
+
+  it("keeps recordless draft rows outside grouped committed result buckets", () => {
+    const rows = [
+      gridRow("record-1", "open"),
+      draftRow("draft-1", "rough"),
+      gridRow("record-2", "reviewed"),
+      gridRow("record-3", null),
+    ];
+
+    const presentationRows = buildGridPresentationRows({
+      getGroupLabel: (row) => row.state,
+      getGroupRowTestId: (fieldKey, value) => `group-${fieldKey}-${value}`,
+      groupBy: "state",
+      rows,
+    });
+
+    expect(summarizeRows(presentationRows)).toEqual([
+      "group:open:group:state:open:0:group-state-open",
+      "data:record-1",
+      "group:reviewed:group:state:reviewed:0:group-state-reviewed",
+      "data:record-2",
+      "group:null:group:state:empty:0:no-test-id",
+      "data:record-3",
+      "data:draft-1",
     ]);
   });
 

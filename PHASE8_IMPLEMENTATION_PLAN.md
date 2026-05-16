@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 8: li
 
 This planning artifact does not implement Phase 8 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status after remediation on 2026-05-13: Phase 8 is listed as `active` in `tools/phase_registry.json`; `tools/phase8_test_map.json` and `docs/testing/phase8_coverage_ledger.md` exist; generated schedule artifacts have been regenerated through the canonical phase schedule target; all Sprint 0 placeholder tests have been replaced by direct row evidence or by an explicit product-gap sentinel where the saved-view browser lifecycle remains unimplemented. `AC-184` and `AC-185` now have direct Phase 8 evidence. `make phase-slice PHASE=phase8`, `make service-backed-slice PHASE=phase8`, and `make agent-finalize` pass after real Phase 8 service-backed duration evidence refreshed the advisory Go duration baselines. A full `make check` run remains blocked by a non-Phase-8 Phase 4 browser assessment ordering failure recorded under `.cartulary/test-results/20260513T015011Z-p36877`.
+Current repo status after remediation on 2026-05-16: Phase 8 is listed as `active` in `tools/phase_registry.json`; `tools/phase8_test_map.json` and `docs/testing/phase8_coverage_ledger.md` exist; generated schedule artifacts have been regenerated through the canonical phase schedule target; all Sprint 0 placeholder tests have been replaced by direct row evidence or by an explicit product-gap sentinel where the saved-view browser lifecycle remains unimplemented. `AC-184` and `AC-185` now have direct Phase 8 evidence. `P8S8-AUD-001` was resolved by tightening the Core 03 group-header boundary, keeping recordless draft/create affordances outside grouped committed result buckets, and scoping `E-8-03` browser proof to the active Timeline grid. `make phase-slice PHASE=phase8`, `make service-backed-slice PHASE=phase8`, and `make agent-finalize` pass after the grouping remediation. A full `make check` run remains blocked by a historical non-Phase-8 Phase 4 browser assessment ordering failure recorded under `.cartulary/test-results/20260513T015011Z-p36877` unless a newer full check proves otherwise.
 
 ## Phase Objective
 
@@ -25,7 +25,7 @@ In scope:
 - Separate workbook preference pointers: caller-owned `home_sheet_ref` and incident-wide `default_sheet_ref`.
 - Workbook startup selection fallback: explicit launch pointer, caller home pointer, incident default pointer, then `cartulary.view.timeline.v1`, clearing invalid, hidden, missing, or unauthorized pointers before continuing.
 - View-query validation and normalization for `sort[]`, `filters[]`, `group_by`, pagination, `meta.query`, saved-view query persistence, saved-view layout persistence, and cursor binding.
-- Timeline grouping whitelist and presentation-only group headers.
+- Timeline grouping whitelist and presentation-only group headers, with local draft/create affordances excluded from grouping buckets.
 - View-schema discovery of `sort_fields`, `header_sort_field_key`, grouping whitelists, null-last ordering, and no client-sortable `record_id`.
 - Full-row and sparse-patch wire families preserving hidden writable fields, authoritative nulls, and canonical `changed_field_keys[]` plus `affected_views[]`.
 - Browser-visible saved-view, startup, sorting, filtering, grouping, and exact search workflows.
@@ -50,7 +50,7 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 5. Query contract validation and normalization | [x] implemented and audited | None for this sprint. | Stable keys only, ceilings, canonical filters/sort/group, duplicate rejection, saved-view persistence separation, and query response `meta.query` schema are evidenced. |
 | [x] | 6. Projection-backed execution, search, and cursor semantics | [x] implemented and audited | None for backend Sprint 6 evidence. Browser-functional `E-8-04` remains Sprint 8 scope. | Live-authorized keyset cursor is authoritative under `I-8-04`; exact-token `full_text`, strict `prefix`, and null-last ordering are backend support evidence for browser-owned `E-8-04`. |
 | [x] | 7. Grouping, discovery, and grid controls | [x] implemented and audited | None for this sprint. | Timeline whitelist, presentation-only group headers, public null-last discovery, no client-sortable `record_id`, and stable frontend query keys are evidenced. `E-8-03` remains Sprint 8 browser follow-up. |
-| [ ] | 8. Sparse patch, hidden writable fields, and browser workflows | [ ] planned | Requires backend query/saved-view/startup behaviors. | Complete browser-functional rows `E-8-01..E-8-04` and sparse-patch row `U-8-10`. |
+| [x] | 8. Sparse patch, hidden writable fields, and browser workflows | [x] implemented and validated | None for Sprint 8 validation after `P8S8-AUD-001` remediation. `E-8-01` remains an explicit saved-view lifecycle UI sentinel because product affordances are still absent. | `U-8-10` backend row-wire evidence and browser-functional `E-8-02..E-8-04` evidence pass; `E-8-03` now proves committed-row-only grouping headers under the public Phase 8 slice; `E-8-01` route foundation plus negative affordance sentinel remains direct. |
 | [ ] | 9. Phase gate, ledgers, schedules, baselines, and exit | [ ] planned | Depends on all authoritative rows having direct non-placeholder evidence. | Finalize generated artifacts, public wrappers, service-backed slices, and `make check` or recorded non-Phase-8 blocker. |
 
 ## Global References
@@ -899,7 +899,7 @@ Exit criteria:
 
 Objective: Complete sparse-patch/full-row wire semantics and browser-functional Phase 8 workflows.
 
-Status: Planned.
+Status: Implemented and validated on 2026-05-16. `U-8-10` has direct backend integration evidence. `E-8-02..E-8-04` have direct browser-functional evidence. `P8S8-AUD-001` initially exposed an `E-8-03` public-slice blocker at `.cartulary/test-results/20260516T153853Z-p33306` because the grouped Timeline proof saw duplicate `timeline-group-timeline_capture_state-rough` headers. The blocker is resolved: grouped presentation now excludes recordless draft/create affordances from committed result buckets, the owner spec states that boundary, and `E-8-03` scopes group proof to the active Timeline grid. `E-8-01` remains an explicit browser blocker sentinel: saved-view routes are present and asserted, but in-product saved-view lifecycle affordances are still absent and are not disguised as completed lifecycle workflow proof.
 
 Relevant IDs:
 - `U-8-10`
@@ -958,6 +958,49 @@ Validation commands:
 - `make phase-slice PHASE=phase8`
 - `make service-backed-slice PHASE=phase8`
 - `git diff --check`
+
+Observed implementation results:
+- Changed files: `internal/platform/ws/ws.go`, `internal/modules/workbook/phase8_row_wire_test.go`, `apps/web/e2e/phase8.workbook.spec.ts`, and this plan file.
+- `internal/platform/ws/ws.go` now compacts sorted `changed_field_keys[]`, making the websocket row-patch metadata sorted and duplicate-insensitive at the payload boundary.
+- `internal/modules/workbook/phase8_row_wire_test.go` tightened `U-8-10` direct evidence for full-row hidden writable Timeline fields, sparse websocket patch preservation of explicit authoritative null for `evidence.received_at`, omission of unchanged cells, canonical `changed_field_keys[]`, and deterministic public `affected_views[]`/`patch_cells` shape.
+- `apps/web/e2e/phase8.workbook.spec.ts` retained the `E-8-01` saved-view route foundation and added negative browser affordance assertions so the test remains an explicit lifecycle UI blocker sentinel.
+- `apps/web/e2e/phase8.workbook.spec.ts` tightened `E-8-02` startup evidence for explicit view-schema open, browser-authenticated startup resolution of caller home pointer, incident default pointer, invalid explicit pointer fallback, deleted default clearing, hidden home clearing, and final Timeline fallback.
+- `apps/web/e2e/phase8.workbook.spec.ts` tightened `E-8-03` with real Timeline sort, filter, filter removal, grouping controls, stable first useful rows, deterministic final group label order, row order within groups, and presentation-only group headers with no record ids or interactive controls.
+- `apps/web/e2e/phase8.workbook.spec.ts` tightened `E-8-04` with UI-driven `note.full_text` proof plus browser-authenticated query probes for exact-token, non-phrase, non-wildcard/stemming, non-transliteration/diacritic, non-substring, deterministic sorted result, and strict anchored `prefix` behavior.
+
+Additional `P8S8-AUD-001` remediation results:
+- `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` now states that visible group headers are derived from committed rows in the latest applicable query result and that local draft rows, create affordances, loading rows, and other recordless UI affordances cannot create or join grouping buckets.
+- `packages/grid-adapter/src/core.ts` now builds grouped presentation rows from committed rows first and appends recordless rows outside grouped buckets; committed null grouping values still produce the presentation-only `Unassigned` bucket.
+- `packages/grid-adapter/src/core.test.ts` and `packages/grid-adapter/src/index.test.tsx` now cover one-header-per-bucket grouping, committed empty grouping buckets, and recordless draft rows outside grouping.
+- `apps/web/e2e/phase8.workbook.spec.ts` now scopes `E-8-03` group-header identity and row-order proof to `timeline-grid-shell`, asserts unique visible group-header test ids, and no longer treats the Timeline draft row as an `Unassigned` grouping bucket.
+
+Validation results:
+- `make agent-finalize`: passed; generated artifacts unchanged; retained-run maintenance skipped because `RESULTS_DIR` was unset. Retained root: `.cartulary/test-results/20260516T052148Z-p1018885`.
+- `go test ./internal/modules/workbook ./internal/modules/timeline -run 'TestPhase8_.*(U_8_10|I_8_04|AC185)'`: passed.
+- `make frontend-unit`: passed. Retained root: `.cartulary/test-results/20260516T052158Z-p1019958`.
+- `make frontend-typecheck`: passed. Retained root: `.cartulary/test-results/20260516T052158Z-p1019965`.
+- `make browser-e2e-webserver-backed CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=e2e CARTULARY_MANIFEST_COVERAGE=authoritative`: passed. Retained root: `.cartulary/test-results/20260516T052042Z-p1011959`.
+- `make phase-slice PHASE=phase8`: passed. Retained root: `.cartulary/test-results/20260516T052213Z-p1022031`.
+- `make service-backed-slice PHASE=phase8`: passed. Retained root: `.cartulary/test-results/20260516T052743Z-p1036191`.
+- `git diff --check`: passed.
+
+Additional `P8S8-AUD-001` validation results:
+- `corepack pnpm --dir apps/web exec vitest run ../../packages/grid-adapter/src/core.test.ts ../../packages/grid-adapter/src/index.test.tsx`: passed.
+- `corepack pnpm --filter @cartulary/web test -- --run apps/web/src/WorkbookShell.phase8.query.test.tsx`: passed.
+- `make frontend-typecheck`: passed. Retained root: `.cartulary/test-results/20260516T170434Z-p199151`.
+- `make browser-e2e-webserver-backed CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=e2e CARTULARY_MANIFEST_COVERAGE=authoritative`: passed. Retained root: `.cartulary/test-results/20260516T170448Z-p199784`.
+- `make frontend-unit`: passed. Retained root: `.cartulary/test-results/20260516T170448Z-p199796`.
+- `make phase-slice PHASE=phase8`: passed. Retained root: `.cartulary/test-results/20260516T170553Z-p209019`.
+- `make service-backed-slice PHASE=phase8`: passed. Retained root: `.cartulary/test-results/20260516T171124Z-p225022`.
+- `make agent-finalize`: passed; generated artifacts unchanged; retained-run maintenance skipped because `RESULTS_DIR` was unset. Retained root: `.cartulary/test-results/20260516T171124Z-p225020`.
+- `make phase-ledger-drift`: passed. Retained root: `.cartulary/test-results/20260516T171656Z-p237902`.
+- `make phase-schedule-drift`: passed. Retained root: `.cartulary/test-results/20260516T171656Z-p237908`.
+- `git diff --check`: passed.
+
+Blockers and follow-up notes:
+- No Sprint 8 validation blocker remains. `P8S8-AUD-001` is resolved by the committed-row-only grouping boundary and the passing public Phase 8 slice.
+- `E-8-01` saved-view lifecycle UI remains intentionally blocked by absent in-product saved-view lifecycle affordances. The direct sentinel remains explicit and route-backed saved-view create/list foundation is still asserted.
+- No generated Go/TypeScript outputs, generated ledgers, generated schedules, visual goldens, lockfiles, or normative Core 00-04 behavior text were hand-edited.
 
 Deliverables:
 - `U-8-10` backend integration evidence.
@@ -1090,7 +1133,7 @@ Phase 9 may rely on these completed Phase 8 contracts after exit:
 - Stable view-query validation and canonical `meta.query` semantics for later surfaces.
 - Stable view-schema discovery keys for keyboard, clipboard, and remaining workbook surface controls.
 - Saved-view lifecycle and startup selection behavior that can address required base surfaces by `sheet_ref.kind='view_schema'` and user-created views by `sheet_ref.kind='saved_view'`.
-- Presentation-only group headers that are never editable rows or mutation targets.
+- Presentation-only group headers that are never editable rows or mutation targets; local draft/create affordances remain outside grouped committed result buckets.
 - Full-row and sparse-patch contracts that preserve hidden writable fields, authoritative nulls, stable `record_id`, `row_version`, `changed_field_keys[]`, and `affected_views[]`.
 - Exact-token and strict-prefix search semantics without relevance ranking.
 

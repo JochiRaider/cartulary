@@ -1805,12 +1805,12 @@ Verified by: AC-024, AC-025, AC-026, AC-231
 ### 14.5 Group-header behavior
 
 **REQ-03-231**
-A grouped workbook surface whose active `view_schema` declares `grouping_fields` MUST expose exactly one derived group-header level.
+A grouped workbook surface whose active `view_schema` declares `grouping_fields` MUST expose exactly one derived group-header level. For the latest applicable query result rendered in one workbook surface, each visible grouping bucket derived from committed rows MUST have at most one visible group header.
 Profiles: base
 Verified by: AC-025, AC-026, AC-231, AC-364
 
 **REQ-03-232**
-Group headers are derived UI rows only. They MUST be derived solely from the active `group_by` key and the corresponding `group_values[group_by]` bucket for the grouped rows. They MUST NOT use manual labels, client heuristics that invent new buckets, subtotal rows, summary rows, spacer rows, or other synthetic rows. They:
+Group headers are derived UI rows only. They MUST be derived solely from committed rows in the latest applicable query result, the active `group_by` key, and the corresponding `group_values[group_by]` bucket for those grouped rows. Local draft rows, create affordances, loading rows, and other recordless UI affordances MUST NOT create grouping buckets, join grouping buckets, or generate group headers. Group headers MUST NOT use manual labels, client heuristics that invent new buckets, subtotal rows, summary rows, spacer rows, or other synthetic rows. They:
 
 - MUST NOT have a `record_id`,
 - MUST NOT accept inline edits,

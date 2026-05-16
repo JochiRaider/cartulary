@@ -685,6 +685,7 @@ func recordChangedMessage(change RecordChange) Message {
 func RecordChangePayload(change RecordChange) map[string]any {
 	changedKeys := append([]string(nil), change.ChangedFieldKeys...)
 	slices.Sort(changedKeys)
+	changedKeys = slices.Compact(changedKeys)
 	changeKind := change.ChangeKind
 	if changeKind == "" {
 		changeKind = "invalidate"

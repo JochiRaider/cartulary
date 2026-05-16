@@ -517,7 +517,7 @@ describe("grid-adapter", () => {
       shell.querySelectorAll(
         '[data-testid="grouped-editable-group-state-open"]',
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(screen.getByTestId("grouped-editable-row-record-3")).toBeTruthy();
   });
 

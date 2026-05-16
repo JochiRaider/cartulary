@@ -1,21 +1,31 @@
 import {
   applyFilterChip,
   changeGrouping,
+  removeFilterChip,
   sortByHeader,
 } from "@cartulary/test-utils";
-import { gridGroupRowTestId, rowCellTestId } from "@cartulary/ui-contracts";
+import {
+  gridGroupRowTestId,
+  gridShellTestId,
+  rowCellTestId,
+} from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
   apiBase,
   createIncident,
+  createIncidentMemberUser,
   createViewRow,
   csrfHeaders,
+  loginLocalSession,
+  uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
 
+const evidenceViewSchemaId = "cartulary.view.evidence.v1";
+const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const notesViewSchemaId = "cartulary.view.notes.v1";
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
@@ -88,6 +98,13 @@ test("E-8-01 saved-view route foundation persists canonical state while browser 
   expect(afterBody.data.saved_views.map((view) => view.display_name)).toEqual([
     "Phase 8 saved view",
   ]);
+
+  await expect(page.locator("[data-testid*='saved-view']")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: /duplicate saved view|delete saved view/i,
+    }),
+  ).toHaveCount(0);
 });
 
 test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit sheet", async ({
@@ -100,12 +117,121 @@ test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit
   );
 
   await page.goto(
-    `/?incident_id=${incidentId}&view_schema_id=cartulary.view.unknown.v1`,
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      hostsViewSchemaId,
+    )}`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Hosts surface" }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(hostsViewSchemaId)}`),
   );
 
+  const homeSavedView = await createSavedView(page, incidentId, {
+    display_name: "Phase 8 home hosts",
+    scope: "shared",
+    view_schema_id: hostsViewSchemaId,
+  });
+  await putUserHomeSheetRef(page, incidentId, {
+    kind: "saved_view",
+    id: homeSavedView.saved_view_id,
+  });
+  const homeStartup = await getWorkbookStartup(page, incidentId);
+  expect(homeStartup.source).toBe("home");
+  expect(homeStartup.selected_view_schema_id).toBe(hostsViewSchemaId);
+  expect(homeStartup.selected_sheet_ref).toEqual({
+    kind: "saved_view",
+    id: homeSavedView.saved_view_id,
+  });
+  const explicitSavedViewStartup = await getWorkbookStartup(
+    page,
+    incidentId,
+    `?sheet_ref_kind=saved_view&sheet_ref_id=${homeSavedView.saved_view_id}`,
+  );
+  expect(explicitSavedViewStartup.source).toBe("explicit");
+  expect(explicitSavedViewStartup.selected_view_schema_id).toBe(
+    hostsViewSchemaId,
+  );
+  expect(explicitSavedViewStartup.selected_sheet_ref).toEqual({
+    kind: "saved_view",
+    id: homeSavedView.saved_view_id,
+  });
+
+  await putUserHomeSheetRef(page, incidentId, null);
+  await putDefaultSheetRef(page, incidentId, {
+    kind: "view_schema",
+    id: evidenceViewSchemaId,
+  });
+  const defaultStartup = await getWorkbookStartup(page, incidentId);
+  expect(defaultStartup.source).toBe("default");
+  expect(defaultStartup.selected_view_schema_id).toBe(evidenceViewSchemaId);
+  expect(defaultStartup.selected_sheet_ref).toEqual({
+    kind: "view_schema",
+    id: evidenceViewSchemaId,
+  });
+
+  const invalidExplicitStartup = await getWorkbookStartup(
+    page,
+    incidentId,
+    "?view_schema_id=cartulary.view.unknown.v1",
+  );
+  expect(invalidExplicitStartup.source).toBe("default");
+  expect(invalidExplicitStartup.selected_view_schema_id).toBe(
+    evidenceViewSchemaId,
+  );
+
+  const deletedDefault = await createSavedView(page, incidentId, {
+    display_name: "Phase 8 deleted default",
+    view_schema_id: evidenceViewSchemaId,
+  });
+  await putDefaultSheetRef(page, incidentId, {
+    kind: "saved_view",
+    id: deletedDefault.saved_view_id,
+  });
+  await deleteSavedView(page, incidentId, deletedDefault.saved_view_id);
+  const deletedDefaultStartup = await getWorkbookStartup(page, incidentId);
+  expect(deletedDefaultStartup.source).toBe("timeline");
+  expect(deletedDefaultStartup.selected_sheet_ref).toEqual({
+    kind: "view_schema",
+    id: timelineViewSchemaId,
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
   await expect(page.getByTestId("surface-tab-timeline")).toBeVisible();
   await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
+  expect(
+    (await getDefaultWorkbookPreferences(page, incidentId)).default_sheet_ref,
+  ).toBeNull();
+
+  const hiddenSavedView = await createSavedView(page, incidentId, {
+    display_name: "Phase 8 hidden home",
+    view_schema_id: hostsViewSchemaId,
+  });
+  const viewerPassword = "Phase8E802Viewer!";
+  const viewer = await createIncidentMemberUser(page, incidentId, {
+    email: uniqueEmail("phase8-e802-viewer"),
+    display_name: "Phase 8 E-8-02 Viewer",
+    initial_password: viewerPassword,
+    role: "viewer",
+  });
+  await loginLocalSession(page, viewer.email, viewerPassword);
+  await putUserHomeSheetRef(page, incidentId, {
+    kind: "saved_view",
+    id: hiddenSavedView.saved_view_id,
+  });
+  const hiddenHomeStartup = await getWorkbookStartup(page, incidentId);
+  expect(hiddenHomeStartup.source).toBe("timeline");
+  expect(hiddenHomeStartup.selected_sheet_ref).toEqual({
+    kind: "view_schema",
+    id: timelineViewSchemaId,
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
+  expect(
+    (await getUserWorkbookPreferences(page, incidentId)).home_sheet_ref,
+  ).toBeNull();
 });
 
 test("E-8-03 browser Timeline sort, filter, and group controls submit stable query keys", async ({
@@ -124,6 +250,10 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
     client_txn_id: uniqueTxn("e803-beta"),
     "timeline.summary": "Beta Phase 8",
   });
+  const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e803-gamma"),
+    "timeline.summary": "Gamma Phase 8",
+  });
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
@@ -140,6 +270,12 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
   expect(readPostBody(await sortRequest)).toEqual({
     sort: [{ direction: "asc", field_key: "timeline.summary" }],
   });
+  await expectFirstDataRow(page, String(alpha.record_id));
+  expect(await visibleRecordIds(page)).toEqual([
+    String(alpha.record_id),
+    String(beta.record_id),
+    String(gamma.record_id),
+  ]);
 
   const filterRequest = waitForViewQuery(
     page,
@@ -157,28 +293,65 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
     ],
     sort: [{ direction: "asc", field_key: "timeline.summary" }],
   });
+  await expectFirstDataRow(page, String(beta.record_id));
+  expect(await visibleRecordIds(page)).toEqual([String(beta.record_id)]);
+
+  const removeFilterRequest = waitForViewQuery(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  await removeFilterChip(page, "timeline", "timeline.capture_state");
+  expect(readPostBody(await removeFilterRequest)).toEqual({
+    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+  });
 
   const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
   await changeGrouping(page, "timeline", "timeline.capture_state");
   expect(readPostBody(await groupRequest)).toEqual({
-    filters: [
-      {
-        arg: { value: "reviewed" },
-        field_key: "timeline.capture_state",
-        op: "eq",
-      },
-    ],
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
       { direction: "asc", field_key: "timeline.summary" },
     ],
   });
+  const timelineGrid = page.getByTestId(gridShellTestId("timeline"));
+  await expect
+    .poll(async () => visibleGroupLabels(page))
+    .toEqual(["reviewed", "rough"]);
   await expect(
-    page.getByTestId(
+    timelineGrid.getByTestId(
       gridGroupRowTestId("timeline", "timeline.capture_state", "reviewed"),
     ),
-  ).toBeVisible();
+  ).toHaveCount(1);
+  await expect(
+    timelineGrid.getByTestId(
+      gridGroupRowTestId("timeline", "timeline.capture_state", "rough"),
+    ),
+  ).toHaveCount(1);
+  const groupTestIds = await visibleGroupTestIds(page);
+  expect(groupTestIds).toEqual([
+    gridGroupRowTestId("timeline", "timeline.capture_state", "reviewed"),
+    gridGroupRowTestId("timeline", "timeline.capture_state", "rough"),
+  ]);
+  expect(new Set(groupTestIds).size).toBe(groupTestIds.length);
+  expect(await visibleRecordIds(page)).toEqual([
+    String(beta.record_id),
+    String(alpha.record_id),
+    String(gamma.record_id),
+  ]);
+  for (const state of ["reviewed", "rough"]) {
+    const groupRow = timelineGrid
+      .getByTestId(
+        gridGroupRowTestId("timeline", "timeline.capture_state", state),
+      )
+      .locator("xpath=ancestor::*[@role='row'][1]");
+    await expect(groupRow).toHaveCount(1);
+    await expect(groupRow).not.toHaveAttribute("data-grid-record-id", /.+/);
+    await expect(
+      groupRow.locator("input, textarea, select, button"),
+    ).toHaveCount(0);
+  }
 });
 
 test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
@@ -194,9 +367,24 @@ test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
     "note.title": "Alpha Delta",
     "note.body": "Responder contained shell",
   });
+  const bravo = await createViewRow(page, incidentId, notesViewSchemaId, {
+    client_txn_id: uniqueTxn("e804-bravo"),
+    "note.title": "Bravo Alpha",
+    "note.body": "Shell token appears earlier alphabetically",
+  });
   const powershell = await createViewRow(page, incidentId, notesViewSchemaId, {
     client_txn_id: uniqueTxn("e804-powershell"),
     "note.title": "Powershell only",
+  });
+  const phrase = await createViewRow(page, incidentId, notesViewSchemaId, {
+    client_txn_id: uniqueTxn("e804-phrase"),
+    "note.title": "Phrase note",
+    "note.body": "alpha middle shell",
+  });
+  await createViewRow(page, incidentId, notesViewSchemaId, {
+    client_txn_id: uniqueTxn("e804-wildcard"),
+    "note.title": "Wildcard note",
+    "note.body": "shells alpha",
   });
   const cafe = await createViewRow(page, incidentId, notesViewSchemaId, {
     client_txn_id: uniqueTxn("e804-cafe"),
@@ -207,6 +395,31 @@ test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
     client_txn_id: uniqueTxn("e804-accent"),
     "note.title": "Accent note",
     "note.body": "café token",
+  });
+  const evidencePrefix = await createViewRow(
+    page,
+    incidentId,
+    evidenceViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e804-evidence-alpha"),
+      "evidence.title": "Prefix Alpha",
+      "evidence.storage_ref": "Alpha",
+    },
+  );
+  const evidenceWildcardLiteral = await createViewRow(
+    page,
+    incidentId,
+    evidenceViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e804-evidence-wildcard"),
+      "evidence.title": "Prefix Wildcard",
+      "evidence.storage_ref": "Al%ha",
+    },
+  );
+  await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("e804-evidence-infix"),
+    "evidence.title": "Prefix Infix",
+    "evidence.storage_ref": "XAlpha",
   });
   const timelinePrefix = await createViewRow(
     page,
@@ -262,6 +475,25 @@ test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
   expect(
     rowIDs(
       await queryViewRows(page, incidentId, notesViewSchemaId, {
+        sort: [{ direction: "asc", field_key: "note.title" }],
+        filters: [
+          {
+            arg: { query: "shell alpha shell" },
+            field_key: "note.full_text",
+            op: "full_text",
+          },
+        ],
+      }),
+    ),
+  ).toEqual([
+    String(alpha.record_id),
+    String(bravo.record_id),
+    String(phrase.record_id),
+  ]);
+  expect(
+    rowIDs(
+      await queryViewRows(page, incidentId, notesViewSchemaId, {
+        sort: [{ direction: "asc", field_key: "note.title" }],
         filters: [
           {
             arg: { query: "shell" },
@@ -271,7 +503,24 @@ test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
         ],
       }),
     ),
-  ).toEqual([String(alpha.record_id)]);
+  ).toEqual([
+    String(alpha.record_id),
+    String(bravo.record_id),
+    String(phrase.record_id),
+  ]);
+  expect(
+    rowIDs(
+      await queryViewRows(page, incidentId, notesViewSchemaId, {
+        filters: [
+          {
+            arg: { query: "respond" },
+            field_key: "note.full_text",
+            op: "full_text",
+          },
+        ],
+      }),
+    ),
+  ).toEqual([]);
   expect(
     rowIDs(
       await queryViewRows(page, incidentId, notesViewSchemaId, {
@@ -298,6 +547,49 @@ test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
       }),
     ),
   ).toEqual([String(accent.record_id)]);
+  expect(
+    rowIDs(
+      await queryViewRows(page, incidentId, evidenceViewSchemaId, {
+        sort: [{ direction: "asc", field_key: "evidence.title" }],
+        filters: [
+          {
+            arg: { value: "al" },
+            field_key: "evidence.storage_ref",
+            op: "prefix",
+          },
+        ],
+      }),
+    ),
+  ).toEqual([
+    String(evidencePrefix.record_id),
+    String(evidenceWildcardLiteral.record_id),
+  ]);
+  expect(
+    rowIDs(
+      await queryViewRows(page, incidentId, evidenceViewSchemaId, {
+        filters: [
+          {
+            arg: { value: "lph" },
+            field_key: "evidence.storage_ref",
+            op: "prefix",
+          },
+        ],
+      }),
+    ),
+  ).toEqual([]);
+  expect(
+    rowIDs(
+      await queryViewRows(page, incidentId, evidenceViewSchemaId, {
+        filters: [
+          {
+            arg: { value: "al%" },
+            field_key: "evidence.storage_ref",
+            op: "prefix",
+          },
+        ],
+      }),
+    ),
+  ).toEqual([String(evidenceWildcardLiteral.record_id)]);
   expect(
     rowIDs(
       await queryViewRows(page, incidentId, timelineViewSchemaId, {
@@ -371,6 +663,154 @@ function waitForViewQuery(
 
 function readPostBody(request: { postData: () => string | null }) {
   return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
+}
+
+type WorkbookSheetRef = {
+  kind: "saved_view" | "view_schema";
+  id: string;
+};
+
+type SavedViewResource = {
+  saved_view_id: string;
+  view_schema_id: string;
+};
+
+type WorkbookPreferencesResource = {
+  default_sheet_ref?: WorkbookSheetRef | null;
+  home_sheet_ref?: WorkbookSheetRef | null;
+};
+
+type WorkbookStartupResource = {
+  selected_sheet_ref: WorkbookSheetRef;
+  selected_view_schema_id: string;
+  source: "default" | "explicit" | "home" | "timeline";
+};
+
+async function createSavedView(
+  page: Page,
+  incidentId: string,
+  data: {
+    display_name: string;
+    scope?: "private" | "shared";
+    view_schema_id: string;
+  },
+) {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        ...data,
+        query_json: {},
+        layout_json: {},
+      },
+    },
+  );
+  expect(response.status()).toBe(201);
+  return ((await response.json()) as { data: SavedViewResource }).data;
+}
+
+async function deleteSavedView(
+  page: Page,
+  incidentId: string,
+  savedViewId: string,
+) {
+  const response = await page.request.delete(
+    `${apiBase}/api/v1/incidents/${incidentId}/saved-views/${savedViewId}`,
+    {
+      headers: await csrfHeaders(page),
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+async function putDefaultSheetRef(
+  page: Page,
+  incidentId: string,
+  ref: WorkbookSheetRef | null,
+) {
+  const response = await page.request.put(
+    `${apiBase}/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+    {
+      headers: await csrfHeaders(page),
+      data: { default_sheet_ref: ref },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+async function putUserHomeSheetRef(
+  page: Page,
+  incidentId: string,
+  ref: WorkbookSheetRef | null,
+) {
+  const response = await page.request.put(
+    `${apiBase}/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+    {
+      headers: await csrfHeaders(page),
+      data: { home_sheet_ref: ref },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+async function getDefaultWorkbookPreferences(page: Page, incidentId: string) {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: WorkbookPreferencesResource })
+    .data;
+}
+
+async function getUserWorkbookPreferences(page: Page, incidentId: string) {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: WorkbookPreferencesResource })
+    .data;
+}
+
+async function getWorkbookStartup(page: Page, incidentId: string, query = "") {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/workbook-startup${query}`,
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: WorkbookStartupResource }).data;
+}
+
+async function visibleRecordIds(page: Page) {
+  return page
+    .getByTestId(gridShellTestId("timeline"))
+    .locator('[role="row"][data-grid-record-id]:not([data-grid-record-id=""])')
+    .evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),
+    );
+}
+
+async function visibleGroupLabels(page: Page) {
+  return page
+    .getByTestId(gridShellTestId("timeline"))
+    .locator('[data-testid^="timeline-group-timeline-capture_state-"]')
+    .evaluateAll((nodes) =>
+      nodes.map((node) => (node.textContent ?? "").trim()),
+    );
+}
+
+async function visibleGroupTestIds(page: Page) {
+  return page
+    .getByTestId(gridShellTestId("timeline"))
+    .locator('[data-testid^="timeline-group-timeline-capture_state-"]')
+    .evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("data-testid") ?? ""),
+    );
+}
+
+async function expectFirstDataRow(page: Page, recordId: string) {
+  await expect
+    .poll(async () => (await visibleRecordIds(page))[0] ?? null)
+    .toBe(recordId);
 }
 
 async function queryViewRows(

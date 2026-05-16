@@ -3,8 +3,10 @@ package workbook_test
 import (
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -25,8 +27,8 @@ func TestPhase8_RowWireFamilies_I_8_04_RowWireContract(t *testing.T) {
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 	recordID := seedNoteArtifact(t, harness, incidentID, actorID, "Visible title", nil)
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.notes.v1/query"
-	envelope := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{})
+	notesQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.notes.v1/query"
+	envelope := queryWorkbook(t, harness, adminLogin, notesQueryURL, map[string]any{})
 	rows := responseRows(envelope)
 	if len(rows) != 1 || rows[0]["record_id"] != recordID.String() {
 		t.Fatalf("expected queried note row, got %#v", rows)
@@ -56,23 +58,132 @@ func TestPhase8_RowWireFamilies_I_8_04_RowWireContract(t *testing.T) {
 	if !reflect.DeepEqual(patchCells, map[string]any{"note.title": cells["note.title"]}) {
 		t.Fatalf("sparse patch must include only changed cells, got %#v", patchCells)
 	}
-	payload := platformws.RecordChangePayload(platformws.RecordChange{
+	directPayload := platformws.RecordChangePayload(platformws.RecordChange{
 		IncidentID:       incidentID,
 		RecordID:         recordID,
 		RowVersion:       2,
 		ChangeSetID:      uuid.New(),
 		ClientTxnID:      "txn-phase8-u-8-10-patch",
 		ActorUserID:      actorID,
-		ChangedFieldKeys: []string{"note.title", "note.body"},
+		ChangedFieldKeys: []string{"note.title", "note.body", "note.title"},
 		ViewSchemaID:     "cartulary.view.notes.v1",
 		PatchCells:       platformws.BuildViewRowPatch(rows[0], []string{"note.title", "note.body"}),
 	})
-	if got := payload["changed_field_keys"]; !reflect.DeepEqual(got, []string{"note.body", "note.title"}) {
+	if got := directPayload["changed_field_keys"]; !reflect.DeepEqual(got, []string{"note.body", "note.title"}) {
 		t.Fatalf("changed_field_keys must be canonical, got %#v", got)
 	}
-	affectedViews := payload["affected_views"].([]map[string]any)
+	affectedViews := directPayload["affected_views"].([]map[string]any)
 	if len(affectedViews) != 1 || affectedViews[0]["view_schema_id"] != "cartulary.view.notes.v1" || affectedViews[0]["change_kind"] != "patch" {
 		t.Fatalf("unexpected affected_views: %#v", affectedViews)
+	}
+
+	timelineCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.timeline.v1", map[string]any{
+		"client_txn_id":        "txn-phase8-u-8-10-timeline-create",
+		"timeline.summary":     "Phase 8 hidden writable row",
+		"timeline.details":     "Hidden details",
+		"timeline.source_text": "Hidden source",
+		"timeline.occurred_at": "2026-05-16T12:00:00Z",
+	})
+	timelineRow := timelineCreated["row"].(map[string]any)
+	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
+	timelineQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.timeline.v1/query"
+	timelineRows := responseRows(queryWorkbook(t, harness, adminLogin, timelineQueryURL, map[string]any{}))
+	var queriedTimelineRow map[string]any
+	for _, row := range timelineRows {
+		if row["record_id"] == timelineRecordID.String() {
+			queriedTimelineRow = row
+			break
+		}
+	}
+	if queriedTimelineRow == nil {
+		t.Fatalf("expected queried timeline row, got %#v", timelineRows)
+	}
+	timelineCells := queriedTimelineRow["cells"].(map[string]any)
+	for _, fieldKey := range []string{"timeline.details", "timeline.source_text"} {
+		cell, ok := timelineCells[fieldKey].(map[string]any)
+		if !ok {
+			t.Fatalf("full row omitted hidden writable field %s: %#v", fieldKey, timelineCells)
+		}
+		if got := cell["value"]; got == nil || got == "" {
+			t.Fatalf("full row did not preserve hidden writable %s value: %#v", fieldKey, cell)
+		}
+	}
+
+	patchEvidenceCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
+		"client_txn_id":               "txn-phase8-u-8-10-evidence-create",
+		"evidence.title":              "Phase 8 sparse evidence",
+		"evidence.lifecycle_state":    "received",
+		"evidence.received_at":        "2026-05-16T12:05:00Z",
+		"evidence.collector_party_id": nil,
+	})
+	patchEvidenceRow := patchEvidenceCreated["row"].(map[string]any)
+	patchEvidenceRecordID := phase4test.MustUUID(t, patchEvidenceRow["record_id"].(string))
+	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(4)
+	defer unsubscribe()
+	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": patchEvidenceRow["row_version"],
+		"client_txn_id":    "txn-phase8-u-8-10-evidence-null-patch",
+		"changes": []map[string]any{
+			{"field_key": "evidence.received_at", "value": nil},
+		},
+	})
+	patchedRow := patched["row"].(map[string]any)
+	change := requireHubRecordChange(t, hubChanges, patchEvidenceRecordID, int64(patchedRow["row_version"].(float64)))
+	payload := platformws.RecordChangePayload(change)
+	changedKeys := payload["changed_field_keys"].([]string)
+	if !slices.IsSorted(changedKeys) || len(changedKeys) != len(slices.Compact(append([]string(nil), changedKeys...))) || !slices.Contains(changedKeys, "evidence.received_at") {
+		t.Fatalf("route-backed changed_field_keys must be canonical public keys, got %#v", changedKeys)
+	}
+	routeAffectedViews := payload["affected_views"].([]map[string]any)
+	if len(routeAffectedViews) != 1 {
+		t.Fatalf("expected one affected view, got %#v", routeAffectedViews)
+	}
+	affectedView := routeAffectedViews[0]
+	if affectedView["view_schema_id"] != "cartulary.view.evidence.v1" || affectedView["change_kind"] != "patch" {
+		t.Fatalf("affected_views must use public deterministic metadata, got %#v", affectedView)
+	}
+	patch := affectedView["patch_cells"].(map[string]any)
+	if patch["record_id"] != patchEvidenceRecordID.String() || int64Value(patch["row_version"]) != int64Value(patchedRow["row_version"]) {
+		t.Fatalf("patch_cells must carry authoritative row identity/version, got %#v", patch)
+	}
+	routePatchCells := patch["cells"].(map[string]any)
+	if _, ok := routePatchCells["evidence.title"]; ok {
+		t.Fatalf("sparse patch included unchanged title cell: %#v", routePatchCells)
+	}
+	receivedAtCell := routePatchCells["evidence.received_at"].(map[string]any)
+	if got := receivedAtCell["value"]; got != nil {
+		t.Fatalf("sparse patch must preserve authoritative null received_at, got %#v", got)
+	}
+}
+
+func int64Value(value any) int64 {
+	switch typed := value.(type) {
+	case int64:
+		return typed
+	case int:
+		return int64(typed)
+	case float64:
+		return int64(typed)
+	default:
+		return 0
+	}
+}
+
+func requireHubRecordChange(t testing.TB, changes <-chan platformws.RecordChange, recordID uuid.UUID, rowVersion int64) platformws.RecordChange {
+	t.Helper()
+	deadline := time.After(5 * time.Second)
+	var last platformws.RecordChange
+	for {
+		select {
+		case change := <-changes:
+			last = change
+			if change.RecordID == recordID && change.RowVersion == rowVersion {
+				return change
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for record change record=%s version=%d after %#v", recordID, rowVersion, last)
+		}
 	}
 }
 
