@@ -49,7 +49,7 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 4. Workbook preferences and startup selection | [x] implemented and audited | None for this sprint. | Separate preference pointers, saved-view and base-surface sheet refs, deterministic startup fallback, and invalid-pointer clearing are evidenced by backend store/integration rows. |
 | [x] | 5. Query contract validation and normalization | [x] implemented and audited | None for this sprint. | Stable keys only, ceilings, canonical filters/sort/group, duplicate rejection, saved-view persistence separation, and query response `meta.query` schema are evidenced. |
 | [x] | 6. Projection-backed execution, search, and cursor semantics | [x] implemented and audited | None for backend Sprint 6 evidence. Browser-functional `E-8-04` remains Sprint 8 scope. | Live-authorized keyset cursor is authoritative under `I-8-04`; exact-token `full_text`, strict `prefix`, and null-last ordering are backend support evidence for browser-owned `E-8-04`. |
-| [ ] | 7. Grouping, discovery, and grid controls | [ ] planned | Requires Sprint 5/6 query semantics. | Timeline whitelist, presentation-only headers, no client-sortable `record_id`, stable frontend keys. |
+| [x] | 7. Grouping, discovery, and grid controls | [x] implemented and audited | None for this sprint. | Timeline whitelist, presentation-only group headers, public null-last discovery, no client-sortable `record_id`, and stable frontend query keys are evidenced. `E-8-03` remains Sprint 8 browser follow-up. |
 | [ ] | 8. Sparse patch, hidden writable fields, and browser workflows | [ ] planned | Requires backend query/saved-view/startup behaviors. | Complete browser-functional rows `E-8-01..E-8-04` and sparse-patch row `U-8-10`. |
 | [ ] | 9. Phase gate, ledgers, schedules, baselines, and exit | [ ] planned | Depends on all authoritative rows having direct non-placeholder evidence. | Finalize generated artifacts, public wrappers, service-backed slices, and `make check` or recorded non-Phase-8 blocker. |
 
@@ -806,7 +806,7 @@ Exit criteria:
 
 Objective: Complete Timeline grouping, view-schema discovery, and frontend query-control contracts so grouping and header controls are stable-key, presentation-only behavior.
 
-Status: Planned.
+Status: Implemented and audited on 2026-05-16. `U-8-07`, `U-8-09`, and `U-8-GRID-01` have direct non-placeholder evidence in their declared layers. `E-8-03` remains Sprint 8 browser-functional follow-up and was not promoted into this sprint.
 
 Relevant IDs:
 - `U-8-07`, `U-8-09`, `U-8-GRID-01`
@@ -864,9 +864,32 @@ Deliverables:
 - Frontend grid controls conform to stable-key query contract.
 - Group headers remain presentation-only.
 
-Risks and open questions:
-- Existing view schemas may include `record_id` in `default_sort`; that is allowed as server-applied tie-breaker but not as a client-sortable field.
-- Frontend grouping UX must not introduce editable pseudo-rows that can be selected as mutation targets.
+Observed implementation results:
+- Owner text: `docs/spec/01_architecture_storage_and_view_contracts.md` now requires public `view_schema_resource_v1.sort_null_order` with current-profile value `last`.
+- Source contracts: `contracts/view-schemas/*.json` and `contracts/openapi/cartulary.openapi.yaml` expose `sort_null_order: "last"`; generated downstream artifacts were refreshed by `make generate`.
+- Backend source: `internal/platform/viewschema`, `internal/platform/viewquery`, `internal/modules/workbook`, and `tools/contractgen` now cover public discovery, strict Timeline grouping keys, and presentation-only grouped workbook rows.
+- Frontend source: `apps/web/src/workbookQuery.ts`, `apps/web/src/WorkbookShell.phase8.query.test.tsx`, and the adjacent `apps/web/src/WorkbookShell.tsx` hook dependency/formatting fix keep query controls on public discovery keys only.
+- Evidence ownership: `tools/phase8_test_map.json`, `docs/testing/phase8_coverage_ledger.md`, and `tools/execution_topology_render_index.json` now map `U-8-07` to workbook backend-unit evidence and `U-8-09` to `internal/platform/viewschema`.
+- Generated outputs: `internal/gen/contracts/contracts_gen.go` and `packages/protocol-ts/src/generated/contracts.ts` changed only through `make generate`.
+
+Validation results:
+- Pass: `make generate`, retained root `.cartulary/test-results/20260516T015041Z-p758558`.
+- Pass: `make phase-ledgers`, retained root `.cartulary/test-results/20260516T015228Z-p761233`.
+- Pass: `make phase-schedules`, retained root `.cartulary/test-results/20260516T015230Z-p761406`.
+- Pass: `go test ./internal/platform/viewschema ./internal/platform/viewquery ./internal/modules/workbook -run 'TestPhase8_.*(U_8_07|U_8_09)'`.
+- Pass: support regression `go test ./internal/platform/viewquery -run TestTimelineGroupingWhitelistRejectsNonContractKeys`.
+- Pass: `make frontend-unit CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_SECTION=unit CARTULARY_MANIFEST_COVERAGE=authoritative CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit`, retained root `.cartulary/test-results/20260516T015653Z-p772620`.
+- Pass: `make frontend-typecheck`, retained root `.cartulary/test-results/20260516T015716Z-p774173`.
+- Pass: `make lint-biome`, retained root `.cartulary/test-results/20260516T015653Z-p772622`.
+- Pass: `make generate-drift`, retained root `.cartulary/test-results/20260516T015458Z-p768644`.
+- Pass: `make phase-ledger-drift`, retained root `.cartulary/test-results/20260516T015458Z-p768652`.
+- Pass: `make phase-schedule-drift`, retained root `.cartulary/test-results/20260516T015458Z-p768654`.
+- Pass: `make agent-finalize`, retained root `.cartulary/test-results/20260516T015512Z-p769852`; generated artifacts unchanged, retained-run maintenance skipped because `RESULTS_DIR` was unset.
+- Pass: `git diff --check`.
+
+Blockers and follow-up:
+- No Sprint 7 blockers remain.
+- Sprint 8 still owns browser-functional workflow completion for `E-8-03`; this sprint only added frontend unit support for `U-8-GRID-01`.
 
 Exit criteria:
 - `U-8-GRID-01` has authoritative frontend unit coverage.

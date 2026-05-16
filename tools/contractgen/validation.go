@@ -24,6 +24,7 @@ var (
 		"default_hidden_fields",
 		"default_sort",
 		"sort_fields",
+		"sort_null_order",
 		"filter_fields",
 		"synthetic_filter_predicates",
 		"grouping_fields",
@@ -309,6 +310,9 @@ func validateViewSchemaShape(value any, relativePath string) error {
 		if _, err := stringArray(object[key], relativePath+"."+key, false); err != nil {
 			return err
 		}
+	}
+	if _, err := requireEnumString(object, "sort_null_order", relativePath, "last"); err != nil {
+		return err
 	}
 	inlineCreate, err := asObject(object["inline_create"], relativePath+".inline_create")
 	if err != nil {

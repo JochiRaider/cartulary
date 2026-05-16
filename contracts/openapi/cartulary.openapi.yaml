@@ -4947,6 +4947,12 @@
               "type": "string"
             }
           },
+          "sort_null_order": {
+            "type": "string",
+            "enum": [
+              "last"
+            ]
+          },
           "filter_fields": {
             "type": "array",
             "items": {
@@ -4981,6 +4987,7 @@
           "required_reference_pack_keys",
           "default_sort",
           "sort_fields",
+          "sort_null_order",
           "filter_fields",
           "synthetic_filter_predicates",
           "grouping_fields",

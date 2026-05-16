@@ -54,6 +54,7 @@
     "host.containment_status",
     "host.edited_at"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "host.host_state",
     "host.business_owner",

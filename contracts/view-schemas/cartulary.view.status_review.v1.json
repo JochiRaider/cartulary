@@ -49,6 +49,7 @@
     "status_review.timestamp_day",
     "status_review.next_report_day"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "status_review.timestamp_day",
     "status_review.review_owner_user_id",

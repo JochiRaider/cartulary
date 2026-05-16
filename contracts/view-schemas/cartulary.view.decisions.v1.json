@@ -50,6 +50,7 @@
     "decision.updated_at",
     "decision.is_superseded"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "decision.status",
     "decision.owner_user_id",

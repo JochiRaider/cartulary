@@ -126,6 +126,7 @@ func validViewSchema(id string) map[string]any {
 			},
 		},
 		"sort_fields":                 []any{"name"},
+		"sort_null_order":             "last",
 		"filter_fields":               []any{"name"},
 		"synthetic_filter_predicates": []any{},
 		"grouping_fields":             []any{},

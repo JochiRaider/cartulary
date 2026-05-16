@@ -44,6 +44,7 @@
     "lesson.updated_at",
     "lesson.timestamp_day"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "lesson.closure_state",
     "lesson.owner_user_id",

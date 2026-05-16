@@ -142,14 +142,17 @@ export function buildQueryRequest(
       field_key: entry.fieldKey,
     }));
   }
-  if (state.filters.length > 0) {
-    request.filters = state.filters.map((filter) => ({
+  const filters = state.filters.filter(
+    (filter) => contract.filterableFieldMap[filter.fieldKey],
+  );
+  if (filters.length > 0) {
+    request.filters = filters.map((filter) => ({
       arg: filter.arg,
       field_key: filter.fieldKey,
       op: filter.op,
     }));
   }
-  if (state.groupBy) {
+  if (state.groupBy && contract.groupableFieldMap[state.groupBy]) {
     request.group_by = state.groupBy;
   }
   return request;
@@ -193,16 +196,19 @@ function normalizeSortForRequest(
   contract: ViewContract,
   state: WorkbookQueryState,
 ): readonly WorkbookSortEntry[] {
+  const sort = state.sort.filter(
+    (entry) => contract.sortableFieldMap[entry.fieldKey],
+  );
   if (!state.groupBy) {
-    return state.sort;
+    return sort;
   }
-  if (state.sort.some((entry) => entry.fieldKey === state.groupBy)) {
-    return state.sort;
+  if (sort.some((entry) => entry.fieldKey === state.groupBy)) {
+    return sort;
   }
   if (!contract.groupableFieldMap[state.groupBy]) {
-    return state.sort;
+    return sort;
   }
-  return [{ fieldKey: state.groupBy, direction: "asc" }, ...state.sort];
+  return [{ fieldKey: state.groupBy, direction: "asc" }, ...sort];
 }
 
 function buildFilterFromDraft(draft: FilterDraft): WorkbookFilter | null {

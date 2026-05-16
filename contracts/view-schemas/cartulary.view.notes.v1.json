@@ -40,6 +40,7 @@
     "note.updated_at",
     "note.created_by_user_id"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "note.tags",
     "note.created_by_user_id",

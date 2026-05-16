@@ -57,6 +57,7 @@ type schemaDocument struct {
 	RequiredReferencePackKeys []string                   `json:"required_reference_pack_keys"`
 	DefaultSort               []SortEntry                `json:"default_sort"`
 	SortFields                []string                   `json:"sort_fields"`
+	SortNullOrder             string                     `json:"sort_null_order"`
 	FilterFields              []string                   `json:"filter_fields"`
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
@@ -78,6 +79,7 @@ type Schema struct {
 	PermitsZeroFieldCreate bool
 	defaultSort            []SortEntry
 	sortFields             []string
+	sortNullOrder          string
 	filterFields           []string
 	groupingFields         []string
 	fields                 map[string]Field
@@ -112,6 +114,7 @@ type ViewSchemaResource struct {
 	RequiredReferencePackKeys []string                   `json:"required_reference_pack_keys"`
 	DefaultSort               []SortEntry                `json:"default_sort"`
 	SortFields                []string                   `json:"sort_fields"`
+	SortNullOrder             string                     `json:"sort_null_order"`
 	FilterFields              []string                   `json:"filter_fields"`
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
@@ -243,6 +246,7 @@ func loadRegistry() {
 				PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
 				defaultSort:            append([]SortEntry(nil), document.DefaultSort...),
 				sortFields:             append([]string(nil), document.SortFields...),
+				sortNullOrder:          document.SortNullOrder,
 				filterFields:           append([]string(nil), document.FilterFields...),
 				groupingFields:         append([]string(nil), document.GroupingFields...),
 				fields:                 fieldIndex,
@@ -291,6 +295,7 @@ func buildPublicResource(document schemaDocument) ViewSchemaResource {
 		RequiredReferencePackKeys: cloneStrings(document.RequiredReferencePackKeys),
 		DefaultSort:               cloneSortEntries(document.DefaultSort),
 		SortFields:                cloneStrings(document.SortFields),
+		SortNullOrder:             document.SortNullOrder,
 		FilterFields:              cloneStrings(document.FilterFields),
 		SyntheticFilterPredicates: cloneSyntheticFilterPredicates(document.SyntheticFilterPredicates),
 		GroupingFields:            cloneStrings(document.GroupingFields),

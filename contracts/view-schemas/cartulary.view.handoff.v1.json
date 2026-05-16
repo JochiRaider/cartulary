@@ -51,6 +51,7 @@
     "handoff.timestamp_day",
     "handoff.ack_state"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "handoff.timestamp_day",
     "handoff.outgoing_owner_user_id",

@@ -13,6 +13,7 @@ describe("view-contracts", () => {
 
     expect(timeline.permitsZeroFieldCreate).toBe(true);
     expect(timeline.sortFields).toContain("timeline.sort_ts");
+    expect(timeline.sortNullOrder).toBe("last");
     expect(timeline.filterFields).toContain("timeline.capture_state");
     expect(timeline.groupingFields).toContain("timeline.capture_state");
   });

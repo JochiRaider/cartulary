@@ -48,6 +48,7 @@
     "assessment.assessed_at",
     "assessment.supporting_link_count"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "assessment.subject_type",
     "assessment.assessment_state",

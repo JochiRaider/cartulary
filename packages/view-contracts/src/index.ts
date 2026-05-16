@@ -49,6 +49,7 @@ export type ViewContract = {
   readonly filterableFieldMap: Readonly<Record<string, true>>;
   readonly groupableFieldMap: Readonly<Record<string, true>>;
   readonly sortFields: readonly string[];
+  readonly sortNullOrder: "last";
   readonly technicalFields: readonly string[];
 };
 
@@ -93,6 +94,7 @@ type RawViewContract = {
     readonly permits_zero_field_create?: boolean;
   };
   readonly sort_fields?: readonly string[];
+  readonly sort_null_order?: "last";
   readonly surface_kind: string;
   readonly synthetic_filter_predicates?: readonly RawSyntheticFilterPredicate[];
   readonly technical_fields?: readonly string[];
@@ -185,6 +187,7 @@ function parseContract(json: string): ViewContract {
     ...(raw.default_hidden_fields ?? []),
   ]);
   const sortFields = Object.freeze([...(raw.sort_fields ?? [])]);
+  const sortNullOrder = raw.sort_null_order ?? "last";
   const filterFields = Object.freeze([
     ...(raw.filter_fields ?? []),
     ...syntheticFilterFields.map((field) => field.fieldKey),
@@ -200,6 +203,7 @@ function parseContract(json: string): ViewContract {
     defaultSort,
     defaultVisibleFields,
     sortFields,
+    sortNullOrder,
     filterFields,
     groupingFields,
     technicalFields,

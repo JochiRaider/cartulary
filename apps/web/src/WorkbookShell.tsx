@@ -2216,7 +2216,10 @@ export function TimelineWorkbook({
         JSON.stringify({
           type: "presence_update",
           payload: {
-            presence: workbookPresence(currentPresenceRef.current, activeSheetRef),
+            presence: workbookPresence(
+              currentPresenceRef.current,
+              activeSheetRef,
+            ),
           },
         }),
       );
@@ -3561,7 +3564,10 @@ export function TimelineWorkbook({
               client_instance_id: clientInstanceId,
               resume_token: resumeToken,
               last_seen_stream_seq: socketLastSeenStreamSeqRef.current,
-              presence: workbookPresence(currentPresenceRef.current, activeSheetRef),
+              presence: workbookPresence(
+                currentPresenceRef.current,
+                activeSheetRef,
+              ),
             },
           }),
         );
@@ -3572,7 +3578,10 @@ export function TimelineWorkbook({
           type: "hello",
           payload: {
             client_instance_id: clientInstanceId,
-            presence: workbookPresence(currentPresenceRef.current, activeSheetRef),
+            presence: workbookPresence(
+              currentPresenceRef.current,
+              activeSheetRef,
+            ),
           },
         }),
       );
@@ -3765,6 +3774,7 @@ export function TimelineWorkbook({
       socket?.close();
     };
   }, [
+    activeSheetRef,
     advanceViewportContinuity,
     applyRecordChangedPatch,
     beginViewportContinuity,
@@ -4542,24 +4552,27 @@ export function TimelineWorkbook({
     [queueScalarSave, setScalarEditorDraftValue],
   );
 
-  const sendPresenceUpdate = useCallback((presence: typeof currentPresence) => {
-    const target = activeSocketRef.current;
-    if (
-      target === null ||
-      !socketEstablishedRef.current ||
-      !socketIsOpen(target)
-    ) {
-      return;
-    }
-    target.send(
-      JSON.stringify({
-        type: "presence_update",
-        payload: {
-          presence: workbookPresence(presence, activeSheetRef),
-        },
-      }),
-    );
-  }, [activeSheetRef]);
+  const sendPresenceUpdate = useCallback(
+    (presence: typeof currentPresence) => {
+      const target = activeSocketRef.current;
+      if (
+        target === null ||
+        !socketEstablishedRef.current ||
+        !socketIsOpen(target)
+      ) {
+        return;
+      }
+      target.send(
+        JSON.stringify({
+          type: "presence_update",
+          payload: {
+            presence: workbookPresence(presence, activeSheetRef),
+          },
+        }),
+      );
+    },
+    [activeSheetRef],
+  );
 
   const handleSelectRow = useCallback(
     (recordId: string) => {
@@ -8589,7 +8602,9 @@ export function WorkbookShell({
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const initialViewSchemaID = useMemo(() => {
     const explicit = params.get("view_schema_id");
-    return explicit ? knownWorkbookViewSchemaID(explicit) : timelineViewSchemaId;
+    return explicit
+      ? knownWorkbookViewSchemaID(explicit)
+      : timelineViewSchemaId;
   }, [params]);
   const [surface, setSurface] = useState<SurfaceKind>(initialViewSchemaID);
   const [startupSheetRef, setStartupSheetRef] = useState<WorkbookSheetRef>(

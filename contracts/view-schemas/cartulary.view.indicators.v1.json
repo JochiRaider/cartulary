@@ -59,6 +59,7 @@
     "indicator.lifecycle_summary",
     "indicator.supporting_link_count"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "indicator.indicator_type",
     "indicator.value_kind",

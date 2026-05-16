@@ -58,6 +58,9 @@ func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 	if len(resource.DefaultSort) == 0 || resource.DefaultSort[len(resource.DefaultSort)-1] != (SortEntry{FieldKey: "record_id", Direction: "asc"}) {
 		t.Fatalf("%s default_sort must end with record_id asc: %#v", resource.ViewSchemaID, resource.DefaultSort)
 	}
+	if resource.SortNullOrder != "last" {
+		t.Fatalf("%s has unexpected sort_null_order: %q", resource.ViewSchemaID, resource.SortNullOrder)
+	}
 	if len(resource.Fields) == 0 {
 		t.Fatalf("%s must expose fields", resource.ViewSchemaID)
 	}

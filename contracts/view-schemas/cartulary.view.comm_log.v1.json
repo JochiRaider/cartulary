@@ -54,6 +54,7 @@
     "comm_log.timestamp_day",
     "comm_log.next_report_day"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "comm_log.comm_type",
     "comm_log.timestamp_day",

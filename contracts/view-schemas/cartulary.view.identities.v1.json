@@ -54,6 +54,7 @@
     "identity.reset_status",
     "identity.edited_at"
   ],
+  "sort_null_order": "last",
   "filter_fields": [
     "identity.identity_state",
     "identity.privilege_level",

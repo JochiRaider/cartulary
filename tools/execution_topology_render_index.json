@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:d89cf1e3b84f3b454e054109be22905a516c1d1a653129cc67b981248a6a30e4",
+  "input_digest": "sha256:ac727a3e6d1a903629d049902fe770d47df40b769e283025fd71ae34175fdec7",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -357,7 +357,7 @@
     {
       "path": "tools/phase8_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:4605d2bb4eca0ea5605554e541b48aeba26c5a5e24a0b50d154049a29c9e2515"
+      "hash": "sha256:129bd35db3eac82e41776088b34d63872f700b20649e0298b41fac5df9f659b6"
     },
     {
       "path": "tools/scheduler_resource_registry.json",

@@ -70,8 +70,23 @@ func TestPhase8_StableFieldKeysOnly_U_8_06(t *testing.T) {
 	}
 }
 
-func TestPhase8_TimelineGroupingWhitelist_U_8_07(t *testing.T) {
-	for _, key := range []string{"timeline.capture_state", "timeline.has_evidence", "timeline.has_unresolved_mentions"} {
+func TestTimelineGroupingWhitelistRejectsNonContractKeys(t *testing.T) {
+	wantWhitelist := []string{
+		"timeline.occurred_day",
+		"timeline.recorded_day",
+		"timeline.capture_state",
+		"timeline.has_evidence",
+		"timeline.has_unresolved_mentions",
+	}
+	schema, ok := viewschema.Lookup(timelineViewSchemaID)
+	if !ok {
+		t.Fatal("timeline schema not registered")
+	}
+	if !reflect.DeepEqual(schema.GroupingFields(), wantWhitelist) {
+		t.Fatalf("timeline grouping whitelist changed:\ngot  %#v\nwant %#v", schema.GroupingFields(), wantWhitelist)
+	}
+
+	for _, key := range wantWhitelist {
 		t.Run(key, func(t *testing.T) {
 			query, err := Decode(strings.NewReader(`{"group_by":`+quoteJSON(key)+`}`), timelineViewSchemaID)
 			if err != nil {
@@ -83,12 +98,28 @@ func TestPhase8_TimelineGroupingWhitelist_U_8_07(t *testing.T) {
 		})
 	}
 
-	query, err := Decode(strings.NewReader(`{"group_by":"timeline.summary"}`), timelineViewSchemaID)
-	if err == nil {
-		t.Fatalf("expected invalid grouping key, got %#v", query)
-	}
-	if err.ReasonCode != "group_by_not_allowed" || err.FieldKey != "timeline.summary" {
-		t.Fatalf("unexpected grouping error: %+v", err)
+	for name, testCase := range map[string]struct {
+		key        string
+		reasonCode string
+	}{
+		"visible label":     {key: "Capture State", reasonCode: "group_by_not_allowed"},
+		"summary":           {key: "timeline.summary", reasonCode: "group_by_not_allowed"},
+		"tags collection":   {key: "timeline.tags", reasonCode: "group_by_not_allowed"},
+		"record id":         {key: "record_id", reasonCode: "group_by_not_allowed"},
+		"row version":       {key: "row_version", reasonCode: "group_by_not_allowed"},
+		"projection column": {key: "timeline_grid_projection.capture_state", reasonCode: "group_by_not_allowed"},
+		"storage column":    {key: "timeline_events.capture_state", reasonCode: "group_by_not_allowed"},
+		"event type":        {key: "timeline.event_type", reasonCode: "group_by_not_allowed"},
+	} {
+		t.Run("rejects "+name, func(t *testing.T) {
+			query, err := Decode(strings.NewReader(`{"group_by":`+quoteJSON(testCase.key)+`}`), timelineViewSchemaID)
+			if err == nil {
+				t.Fatalf("expected invalid grouping key, got %#v", query)
+			}
+			if err.ReasonCode != testCase.reasonCode || err.FieldKey != testCase.key {
+				t.Fatalf("unexpected grouping error: %+v", err)
+			}
+		})
 	}
 }
 
