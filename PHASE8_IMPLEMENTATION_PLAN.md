@@ -8,7 +8,7 @@ This file is the execution roadmap and progress marker for Cartulary Phase 8: li
 
 This planning artifact does not implement Phase 8 behavior. It is intentionally root-level so agents can find it quickly during handoff or interrupted implementation sessions. No README update is required for discoverability.
 
-Current repo status after remediation on 2026-05-16: Phase 8 is listed as `active` in `tools/phase_registry.json`; `tools/phase8_test_map.json` and `docs/testing/phase8_coverage_ledger.md` exist; generated schedule artifacts have been regenerated through the canonical phase schedule target; all Sprint 0 placeholder tests have been replaced by direct row evidence or by an explicit product-gap sentinel where the saved-view browser lifecycle remains unimplemented. `AC-184` and `AC-185` now have direct Phase 8 evidence. `P8S8-AUD-001` was resolved by tightening the Core 03 group-header boundary, keeping recordless draft/create affordances outside grouped committed result buckets, and scoping `E-8-03` browser proof to the active Timeline grid. `make phase-slice PHASE=phase8`, `make service-backed-slice PHASE=phase8`, and `make agent-finalize` pass after the grouping remediation. A full `make check` run remains blocked by a historical non-Phase-8 Phase 4 browser assessment ordering failure recorded under `.cartulary/test-results/20260513T015011Z-p36877` unless a newer full check proves otherwise.
+Current repo status after Sprint 9 gate execution on 2026-05-16: Phase 8 is listed as `active` in `tools/phase_registry.json`; `tools/phase8_test_map.json` and `docs/testing/phase8_coverage_ledger.md` exist and cover all 19 authoritative rows; generated contract, ledger, and schedule drift checks pass; all Sprint 0 placeholder tests have been replaced by direct row evidence or by an explicit product-gap sentinel where the saved-view browser lifecycle remains unimplemented. `AC-184` and `AC-185` now have direct Phase 8 evidence. `P8S8-AUD-001` was resolved by tightening the Core 03 group-header boundary, keeping recordless draft/create affordances outside grouped committed result buckets, and scoping `E-8-03` browser proof to the active Timeline grid. `make phase-slice PHASE=phase8`, `make service-backed-slice PHASE=phase8`, `make test-fast`, and `make agent-finalize` pass after the grouping remediation. The latest full `make check` run is blocked by a non-Phase-8 Phase 3 visual golden mismatch in `browser-e2e-visual/visual`, recorded under `.cartulary/test-results/20260516T185011Z-p459690`.
 
 ## Phase Objective
 
@@ -51,7 +51,7 @@ Out of scope unless an owner decision pulls it forward:
 | [x] | 6. Projection-backed execution, search, and cursor semantics | [x] implemented and audited | None for backend Sprint 6 evidence. Browser-functional `E-8-04` remains Sprint 8 scope. | Live-authorized keyset cursor is authoritative under `I-8-04`; exact-token `full_text`, strict `prefix`, and null-last ordering are backend support evidence for browser-owned `E-8-04`. |
 | [x] | 7. Grouping, discovery, and grid controls | [x] implemented and audited | None for this sprint. | Timeline whitelist, presentation-only group headers, public null-last discovery, no client-sortable `record_id`, and stable frontend query keys are evidenced. `E-8-03` remains Sprint 8 browser follow-up. |
 | [x] | 8. Sparse patch, hidden writable fields, and browser workflows | [x] implemented and validated | None for Sprint 8 validation after `P8S8-AUD-001` remediation. `E-8-01` remains an explicit saved-view lifecycle UI sentinel because product affordances are still absent. | `U-8-10` backend row-wire evidence and browser-functional `E-8-02..E-8-04` evidence pass; `E-8-03` now proves committed-row-only grouping headers under the public Phase 8 slice; `E-8-01` route foundation plus negative affordance sentinel remains direct. |
-| [ ] | 9. Phase gate, ledgers, schedules, baselines, and exit | [ ] planned | Depends on all authoritative rows having direct non-placeholder evidence. | Finalize generated artifacts, public wrappers, service-backed slices, and `make check` or recorded non-Phase-8 blocker. |
+| [x] | 9. Phase gate, ledgers, schedules, baselines, and exit | [x] Phase 8 authoritative selections, public wrappers, generated drift, ledger drift, schedule drift, `test-fast`, and `agent-finalize` passed | Latest `make check` is blocked by non-Phase-8 Phase 3 visual golden `V-3-GRID-03`; no Phase 8 authoritative row failed. | No qualifying successful warm `check` root was available for duration-baseline refresh; Phase 9 handoff remains compatibility-only. |
 
 ## Global References
 
@@ -1039,8 +1039,11 @@ Files and areas:
 - `PHASE8_IMPLEMENTATION_PLAN.md`
 - `tools/phase8_test_map.json`
 - `docs/testing/phase8_coverage_ledger.md`
-- `tools/service_backed_schedule_manifest.json`
-- `tools/check_schedule_manifest.json`
+- `tools/scheduler_manifest.json`
+- `tools/browser_e2e_batch_manifest.json`
+- `tools/task_surface_manifest.json`
+- `tools/task_surface.generated.mk`
+- `tools/execution_topology_render_index.json`
 - Duration baseline artifacts when applicable.
 - Generated outputs under `internal/gen/**` and `packages/protocol-ts/src/generated/**` produced only by canonical generation.
 
@@ -1080,6 +1083,47 @@ Validation commands:
 - `make agent-finalize`
 - `make check`
 - `git diff --check`
+
+Sprint 9 validation results:
+- Passed: `make explain-phase PHASE=phase8`; it reported `tools/phase8_test_map.json`, `docs/testing/phase8_coverage_ledger.md`, 19 authoritative rows, one support row, and execution dependencies `backend_unit`, `backend_store`, `backend_integration`, `backend_integration_support`, `frontend_unit`, and `browser_functional`.
+- Passed: `make phase-map-check`; no retained artifact root was printed.
+- Passed: `make phase-test-name-check`; no retained artifact root was printed.
+- Inspection confirmed `tools/phase8_test_map.json` declares all `U-8-01..U-8-10`, `U-8-GRID-01`, `I-8-01..I-8-04`, and `E-8-01..E-8-04` rows as authoritative with one declared execution dependency per row. `docs/testing/phase8_coverage_ledger.md` renders the same rows and keeps support-only evidence separate.
+- `E-8-01` remains honest: the browser row title and claim state that the saved-view route foundation persists canonical state while full browser lifecycle affordances remain pending. No passing lifecycle UI behavior is claimed.
+- Passed: `make generate`; retained root `.cartulary/test-results/20260516T181927Z-p371495`.
+- Passed: `make generate-drift`; retained root `.cartulary/test-results/20260516T181933Z-p372132`.
+- Passed: `make phase-ledgers`; retained root `.cartulary/test-results/20260516T181939Z-p373136`.
+- Passed: `make phase-ledger-drift`; retained root `.cartulary/test-results/20260516T181942Z-p373409`.
+- Passed: `make phase-schedules`; retained root `.cartulary/test-results/20260516T181945Z-p373685`.
+- Passed: `make phase-schedule-drift`; retained root `.cartulary/test-results/20260516T181948Z-p373948`.
+- Passed: `make backend-unit CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_COVERAGE=authoritative`; 64 tests, retained root `.cartulary/test-results/20260516T181956Z-p374792`.
+- Passed: `make backend-store CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_COVERAGE=authoritative`; 82 tests, retained root `.cartulary/test-results/20260516T182010Z-p378244`.
+- Passed: `make backend-integration CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_COVERAGE=authoritative`; 119 tests, retained root `.cartulary/test-results/20260516T182527Z-p388654`.
+- Passed: `make frontend-unit CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_COVERAGE=authoritative`; retained root `.cartulary/test-results/20260516T183057Z-p401075`.
+- Passed: `make frontend-typecheck`; retained root `.cartulary/test-results/20260516T183113Z-p403139`.
+- Passed: `make browser-e2e-webserver-backed CARTULARY_MANIFEST_PHASE=phase8 CARTULARY_MANIFEST_COVERAGE=authoritative`; 42 tests, retained root `.cartulary/test-results/20260516T183122Z-p403751`.
+- Passed: `make phase-slice PHASE=phase8`; 6/6 work units, 25 tests, retained root `.cartulary/test-results/20260516T183233Z-p410948`.
+- Passed: `make service-backed-slice PHASE=phase8`; 4/4 work units, 19 tests, retained root `.cartulary/test-results/20260516T183804Z-p425170`.
+- Passed: `make agent-finalize`; retained root `.cartulary/test-results/20260516T184333Z-p438863`; summary reported `generated=unchanged files=0 duration=skipped run_checks=skipped results_dir=-`, so retained-run duration maintenance was skipped because `RESULTS_DIR` was unset.
+- Passed: `make test-fast`; 2/2 work units, 497 tests, retained root `.cartulary/test-results/20260516T184353Z-p440279`.
+- Failed outside Phase 8: `make check`; retained root `.cartulary/test-results/20260516T185011Z-p459690`; failed work unit `browser-e2e-visual/visual` under child target `browser-e2e-visual`; scheduler classified the failure as `product` / `test_assertion_failure`; failing row/test `V-3-GRID-03 captures Timeline grouped rows and currently exposed grid chrome` in `apps/web/e2e/workbook.visual.spec.ts`; first actionable reason was Playwright `toHaveScreenshot` mismatch for `v-3-grid-03-grouped-grid.png` on `getByTestId('timeline-grid-shell')`, with 1384 differing pixels. This is Phase 3 visual-golden evidence, not a Phase 8 authoritative row.
+- Passed: `git diff --check`; no whitespace errors were reported after the observed-results update.
+
+Sprint 9 artifact and baseline results:
+- Generated contract outputs under `internal/gen/**` and `packages/protocol-ts/src/generated/**` were refreshed only through `make generate`; `make generate-drift` then passed.
+- Generated phase ledgers and schedules were refreshed through `make phase-ledgers` and `make phase-schedules`; both drift checks passed.
+- Current generated schedule outputs are `tools/scheduler_manifest.json`, `tools/browser_e2e_batch_manifest.json`, `tools/task_surface_manifest.json`, `tools/task_surface.generated.mk`, and `tools/execution_topology_render_index.json`. Obsolete `tools/service_backed_schedule_manifest.json` and `tools/check_schedule_manifest.json` were not created.
+- No duration baselines were refreshed. The available successful Phase 8 service-backed roots are not qualifying successful warm `check` roots, and the only Sprint 9 `make check` root failed before completion.
+- No support-only tests, generated files, visual goldens, guide prose, or this planning artifact were treated as Phase 8 behavior owners.
+
+Sprint 9 changed files:
+- `PHASE8_IMPLEMENTATION_PLAN.md` records observed Sprint 9 results and the non-Phase-8 full-check blocker.
+- No generated contract, ledger, schedule, baseline, lockfile, or visual-golden tracked diff was produced by the Sprint 9 commands.
+
+Sprint 9 Phase 9 handoff notes:
+- Phase 9 may rely on Phase 8 shared contracts for stable view-schema keys, view-query validation and canonical `meta.query`, saved-view route and startup-selection contracts, row patch/full-row wire metadata, browser startup and query workflows, presentation-only grouping headers, and exact-token or strict-prefix search behavior.
+- Phase 8 did not implement Phase 9 keyboard, clipboard, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, or coordination-surface workflow behavior.
+- The remaining `E-8-01` browser lifecycle gap is recorded as a Phase 8 sentinel for absent in-product saved-view lifecycle affordances, not as completed lifecycle UI behavior.
 
 Deliverables:
 - Current manifest, ledger, schedules, and generated artifacts.
