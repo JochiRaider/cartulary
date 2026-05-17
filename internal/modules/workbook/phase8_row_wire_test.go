@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
-func TestPhase8_RowWireFamilies_I_8_04_RowWireContract(t *testing.T) {
+func TestPhase8_RowWireFamilies_U_8_10(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase8-u-8-10-row-wire")
 	adminLogin, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{

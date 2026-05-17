@@ -335,6 +335,10 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-021
 Frontend unit harness tests that depend on asynchronous jsdom rendering, workbook row hydration, controlled input replacement, or virtualized grid mounting MUST use shared bounded wait helpers with actionable diagnostics. The default wait budget MUST be finite and configuration-backed. Tests SHOULD wait for stable workbook row identity when identity matters, not only for a visible row count. Helper diagnostics SHOULD identify expected row IDs, mounted row IDs, surface, and the failing selector class without reclassifying ordinary test assertions away from `failure_class=product`.
 Verified by: TH-HARNESS-AC-021
 
+**TH-HARNESS-REQ-104**
+Authoritative phase-manifest evidence names and titles MUST include the exact row identity they claim, using either the public hyphenated form such as `U-8-10` or the runner-safe underscore form such as `U_8_10`. This applies to `symbol`, every member of `symbols[]`, `title`, and every member of `titles[]` when those fields are used by an authoritative row. Supplemental and support-only evidence MAY omit authoritative row identity only when it does not claim authoritative coverage. Rendered ledgers, schedules, and other generated companions remain downstream of the manifest and MUST NOT become alternate traceability owners.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
+
 ### 5.1 Precedence
 
 | Precedence | Source                                 | Rule                                                                                                   |
@@ -640,6 +644,9 @@ When `RESULTS_DIR` is set, `agent-finalize` MUST validate the supplied retained 
 Verified by: TH-HARNESS-AC-019
 
 Duration-baseline refreshes remain advisory harness planning data and MUST NOT become benchmark claims or product performance conformance evidence.
+Verified by: TH-HARNESS-AC-019
+
+When `agent-finalize` mutates tracked generated or baseline artifacts, those mutations MUST be explicit in `finalize-summary.json` through `generated.updated_file_count` and `updated_files[]`. Audit or handoff records that cite an `agent-finalize` run MUST distinguish pre-existing worktree changes from finalizer-caused updates. A finalizer update MUST NOT be treated as silent remediation merely because the command succeeded.
 Verified by: TH-HARNESS-AC-019
 
 `agent-finalize` MUST NOT invoke `format`, `generate`, `generate-drift`, `migration-drift`, `test-fast`, `test`, `check`, `ci`, `release-check`, browser E2E targets, security scan targets, build targets, `clean`, `distclean`, or `benchmark-claim-check`.
@@ -1060,6 +1067,8 @@ Destructive reset, cleanup, attach-mode service mutation, and non-idempotent ope
 | Runtime reset route         |            `1` | none    | none                                                       | `30s`            | none                                              |
 | Owned teardown and cleanup  |            `1` | none    | none                                                       | cleanup-specific | cleanup records failure and leaves proof for janitor |
 
+Stale janitor cleanup of previously owned service containers is a proof-gated startup preflight maintenance step, not authoritative product evidence. Once ownership proof and current-suite exclusion pass, Docker `not found` and Docker "removal already in progress" results MUST be accepted as idempotent cleanup outcomes and MUST NOT fail the new suite. Concurrent removal MUST be retained as deferred cleanup diagnostics. Docker daemon/list failures, unsafe ownership proof, and non-idempotent removal failures remain blocking startup-preflight failures.
+
 Attach mode MAY write diagnostic records and lease observations. It MUST NOT delete externally supplied services, containers, databases, buckets, or object prefixes.
 
 For browser owned stacks, a listener conflict detected before process startup maps to `resource_conflict`. Backend or frontend process exit before readiness maps to `service_start_error`. A live owned process that does not satisfy its readiness predicates before the deadline maps to `service_readiness_timeout`. Suite-admin login failures after owned readiness has been proven are no longer treated as readiness failures.
@@ -1210,6 +1219,8 @@ normalize_cleanup_candidate(path):
 | Container       | Completed summary or lease cleanup state older than 15 minutes. | Harness Docker labels older than 24 hours. | Running container may be stopped only if proof predicate passes and label owner matches. |
 | Browser fixture | Completed target summary older than 15 minutes.                 | Fixture metadata older than 6 hours.       | Delete only generated fixture directory with ownership metadata.                         |
 | Browser process/session | Completed session lease older than 15 minutes.          | Session lease older than 6 hours with matching runtime-root marker and process command/env proof. | Running processes may be stopped only when PGID, runtime root, command/env proof, and lease identity all match; a port listener alone is never sufficient proof. |
+
+For container cleanup, an already-deleting Docker resource is treated as deferred successful cleanup only after the same proof predicates pass. This compatibility rule exists to make repeated service-backed public targets reproducible under Docker's asynchronous removal lifecycle; it MUST NOT broaden cleanup authority to unlabelled, current-suite, or externally owned containers.
 
 ### 13.4 Dry-Run Contract
 

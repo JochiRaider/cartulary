@@ -12,8 +12,8 @@
     ],
     "authoritative_execution": [
       "`backend-unit` carries authoritative pure backend Phase 8 rows for saved-view scope vocabulary, query contract validation, grouping semantics, normalization, and view-schema discovery.",
-      "`backend-store` carries authoritative service-backed Phase 8 unit rows for links and tags, saved-view create or patch behavior, workbook preferences, and row wire-family semantics.",
-      "`backend-integration` carries authoritative service-backed Phase 8 integration rows for saved-view lifecycle, startup fallback, link and tag atomic consequences, and live-authorized cursor pagination.",
+      "`backend-store` carries authoritative service-backed Phase 8 unit rows for links and tags, saved-view create or patch behavior, and workbook preferences.",
+      "`backend-integration` carries authoritative service-backed Phase 8 integration rows for saved-view lifecycle, startup fallback, link and tag atomic consequences, row wire-family semantics, and live-authorized cursor pagination.",
       "`frontend-unit` carries authoritative `U-8-GRID-01` grid control evidence through Vitest.",
       "`browser-e2e-webserver-backed` carries authoritative `E-8-*` browser-functional rows."
     ],
@@ -297,7 +297,7 @@
       "runner": "go_test",
       "package": "./internal/modules/workbook",
       "file": "internal/modules/workbook/phase8_row_wire_test.go",
-      "symbol": "TestPhase8_RowWireFamilies_I_8_04_RowWireContract",
+      "symbol": "TestPhase8_RowWireFamilies_U_8_10",
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Full-row and sparse-patch wire families preserve hidden writable fields, authoritative nulls, and canonical changed_field_keys plus affected_views metadata.",

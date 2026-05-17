@@ -352,7 +352,15 @@ func TestPhase4_CoordinationDefaults_I_4_COORD_01(t *testing.T) {
 	requireCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 0)
 }
 
+func TestPhase4_GenericCollectionPatch_I_4_COLLECTION_01(t *testing.T) {
+	testPhase4CoordinationCollections(t)
+}
+
 func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
+	testPhase4CoordinationCollections(t)
+}
+
+func testPhase4CoordinationCollections(t *testing.T) {
 	harness := phase4test.StartServer(t, "workbook-coordination-mutations")
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{

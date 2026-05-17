@@ -13,6 +13,7 @@ import (
 	"time"
 
 	dockercontainer "github.com/moby/moby/api/types/container"
+	dockerclient "github.com/moby/moby/client"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
@@ -1255,6 +1256,106 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 	}
 }
 
+func TestCleanupPreviousSuiteServiceContainersAcceptsConcurrentRemoval(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+
+	cli := &fakeSuiteContainerClient{
+		items: []dockercontainer.Summary{{
+			ID:      "fc621a862739f3b8c8a8fe32207ce9e7c9e9543f677377d0eb10dcf4e806ffc3",
+			Created: now.Add(-staleSuiteContainerAge - time.Second).Unix(),
+			Labels: map[string]string{
+				testServiceLabelManaged: testServiceManagedValue,
+				testServiceLabelSuiteID: "stale-suite",
+				testServiceLabelRunID:   "stale-run",
+				testServiceLabelService: suiteservices.ServicePostgres,
+			},
+		}},
+		removeErrs: map[string]error{
+			"fc621a862739f3b8c8a8fe32207ce9e7c9e9543f677377d0eb10dcf4e806ffc3": errors.New("Error response from daemon: removal of container fc621a862739f3b8c8a8fe32207ce9e7c9e9543f677377d0eb10dcf4e806ffc3 is already in progress"),
+		},
+	}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err != nil {
+		t.Fatalf("concurrent stale-container removal must not fail preflight: %v", err)
+	}
+	if summary.Scanned != 1 || summary.Removed != 0 || summary.Deferred != 1 {
+		t.Fatalf("unexpected cleanup summary: %#v", summary)
+	}
+	if len(cli.removeIDs) != 1 {
+		t.Fatalf("expected one remove attempt, got %#v", cli.removeIDs)
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersSkipsCurrentSuite(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+
+	cli := &fakeSuiteContainerClient{
+		items: []dockercontainer.Summary{{
+			ID:      "active-container",
+			Created: now.Add(-staleSuiteContainerAge - time.Hour).Unix(),
+			Labels: map[string]string{
+				testServiceLabelManaged: testServiceManagedValue,
+				testServiceLabelSuiteID: "active-suite",
+				testServiceLabelRunID:   "wrapper-tests",
+				testServiceLabelService: suiteservices.ServicePostgres,
+			},
+		}},
+	}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err != nil {
+		t.Fatalf("cleanup current-suite container: %v", err)
+	}
+	if summary.Scanned != 1 || summary.Removed != 0 || summary.Deferred != 0 {
+		t.Fatalf("unexpected cleanup summary: %#v", summary)
+	}
+	if len(cli.removeIDs) != 0 {
+		t.Fatalf("current-suite container must not be removed, got %#v", cli.removeIDs)
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersReportsFatalRemove(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+
+	cli := &fakeSuiteContainerClient{
+		items: []dockercontainer.Summary{{
+			ID:      "fatal-container",
+			Created: now.Add(-staleSuiteContainerAge - time.Second).Unix(),
+			Labels: map[string]string{
+				testServiceLabelManaged: testServiceManagedValue,
+				testServiceLabelSuiteID: "stale-suite",
+				testServiceLabelRunID:   "stale-run",
+				testServiceLabelService: suiteservices.ServicePostgres,
+			},
+		}},
+		removeErrs: map[string]error{"fatal-container": errors.New("permission denied")},
+	}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err == nil {
+		t.Fatal("expected fatal stale-container remove error")
+	}
+	if !strings.Contains(err.Error(), "remove stale suite service container fatal-contai") {
+		t.Fatalf("unexpected fatal error: %v", err)
+	}
+	if summary.Scanned != 1 || summary.Removed != 0 || summary.Deferred != 0 {
+		t.Fatalf("unexpected cleanup summary on fatal error: %#v", summary)
+	}
+}
+
 func TestCleanupOwnedServicesFailsFastOnBrowserFixtureLeak(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
@@ -1392,6 +1493,30 @@ func (fakeChild) Wait() error            { return nil }
 func (fakeChild) Signal(os.Signal) error { return nil }
 func (fakeChild) Kill() error            { return nil }
 func (fakeChild) PID() int               { return 4242 }
+
+type fakeSuiteContainerClient struct {
+	items      []dockercontainer.Summary
+	listErr    error
+	removeErrs map[string]error
+	removeIDs  []string
+}
+
+func (c *fakeSuiteContainerClient) ContainerList(context.Context, dockerclient.ContainerListOptions) (dockerclient.ContainerListResult, error) {
+	if c.listErr != nil {
+		return dockerclient.ContainerListResult{}, c.listErr
+	}
+	return dockerclient.ContainerListResult{Items: c.items}, nil
+}
+
+func (c *fakeSuiteContainerClient) ContainerRemove(_ context.Context, containerID string, _ dockerclient.ContainerRemoveOptions) (dockerclient.ContainerRemoveResult, error) {
+	c.removeIDs = append(c.removeIDs, containerID)
+	if c.removeErrs != nil {
+		if err := c.removeErrs[containerID]; err != nil {
+			return dockerclient.ContainerRemoveResult{}, err
+		}
+	}
+	return dockerclient.ContainerRemoveResult{}, nil
+}
 
 func stringContains(haystack string, needle string) bool {
 	return strings.Contains(haystack, needle)

@@ -65,6 +65,34 @@ func TestPhase10_NewStore_U_10_01(t *testing.T) {
 	}
 }
 
+func TestScanAllowsBackendIntegrationManifestUnitSymbol(t *testing.T) {
+	root := newFixtureRepo(t)
+	writeFixtureFile(t, root, "internal/modules/future/phase10_integration_test.go", `package future
+
+import (
+	"testing"
+
+	rt "github.com/JochiRaider/cartulary/internal/testutil/phase10test"
+)
+
+func TestPhase10_RowWire_U_10_02(t *testing.T) {
+	rt.StartServer(t, "phase10")
+}
+`)
+	writeFixtureManifest(t, root, "phase10", `[
+	{
+		"coverage": "authoritative",
+		"runner": "go_test",
+		"execution_dependency": "backend_integration",
+		"symbol": "TestPhase10_RowWire_U_10_02"
+	}
+]`)
+
+	if findings := scanFixture(t, root); len(findings) != 0 {
+		t.Fatalf("expected backend_integration manifest unit symbol to be allowed, got %#v", findings)
+	}
+}
+
 func TestScanAllowsBackendStoreManifestSymbolsArray(t *testing.T) {
 	root := newFixtureRepo(t)
 	writeFixtureFile(t, root, "internal/modules/future/phase10_store_test.go", `package future

@@ -187,6 +187,20 @@ undeclared_output="$(assert_fails "undeclared ID" run_checker "$undeclared_root"
 assert_contains "$undeclared_output" "TestPhase5_Create_U_5_02" "undeclared ID output"
 assert_contains "$undeclared_output" "U_5_01" "undeclared ID expected fragment output"
 
+wrong_row_root="$tmp_dir/wrong-row"
+write_case "$wrong_row_root" "internal/modules/future" 'package future
+
+import "testing"
+
+func TestPhase5_Create_I_5_01(t *testing.T) {}
+'
+wrong_row_manifest="$tmp_dir/wrong-row-manifest"
+write_phase5_manifest "$wrong_row_manifest"
+perl -0pi -e 's/TestPhase5_Create_U_5_01/TestPhase5_Create_I_5_01/' "$wrong_row_manifest/tools/phase5_test_map.json"
+wrong_row_output="$(assert_fails "wrong row ID in authoritative manifest" run_checker "$wrong_row_root" "$wrong_row_manifest")"
+assert_contains "$wrong_row_output" "TestPhase5_Create_I_5_01" "wrong row manifest output"
+assert_contains "$wrong_row_output" "authoritative evidence for U-5-01 must include U-5-01 or U_5_01" "wrong row manifest reason"
+
 legacy_root="$tmp_dir/legacy"
 write_case "$legacy_root" "internal/modules/future" 'package future
 

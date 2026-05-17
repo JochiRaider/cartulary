@@ -89,7 +89,7 @@ func main() {
 	})
 
 	fmt.Fprintln(os.Stderr, "Service-backed unit-test guard failed.")
-	fmt.Fprintln(os.Stderr, "Only authoritative Go U-tests whose manifest entry declares execution_dependency=backend_store may start pgtest/s3test or runtime helpers directly.")
+	fmt.Fprintln(os.Stderr, "Only authoritative Go U-tests whose manifest entry declares a service-backed execution dependency may start pgtest/s3test or runtime helpers directly.")
 	for _, finding := range findings {
 		fmt.Fprintf(os.Stderr, "  %s: %s:%d uses %s from %s\n", finding.Test, finding.File, finding.Line, finding.Selector, finding.ImportPath)
 	}
@@ -103,7 +103,7 @@ func scan() ([]finding, error) {
 func scanRoot(repoRoot string) ([]finding, error) {
 	fset := token.NewFileSet()
 	var findings []finding
-	allowedTests, err := loadBackendStoreUnitTests(repoRoot)
+	allowedTests, err := loadServiceBackedUnitTests(repoRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func scanRoot(repoRoot string) ([]finding, error) {
 	return findings, nil
 }
 
-func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
+func loadServiceBackedUnitTests(repoRoot string) (map[string]struct{}, error) {
 	root := repoRoot
 	if override := os.Getenv("CARTULARY_PHASE_MANIFEST_ROOT"); override != "" {
 		root = override
@@ -212,7 +212,7 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 		}
 
 		for _, entry := range manifest.Unit {
-			if entry.Coverage != "authoritative" || entry.Runner != "go_test" || entry.ExecutionDependency != "backend_store" {
+			if entry.Coverage != "authoritative" || entry.Runner != "go_test" || !isServiceBackedExecutionDependency(entry.ExecutionDependency) {
 				continue
 			}
 			if entry.Symbol != "" {
@@ -226,6 +226,15 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 		}
 	}
 	return allowed, nil
+}
+
+func isServiceBackedExecutionDependency(dependency string) bool {
+	switch dependency {
+	case "backend_store", "backend_integration", "backend_process":
+		return true
+	default:
+		return false
+	}
 }
 
 func loadPhaseRegistry(root string) ([]phaseRegistryEntry, error) {

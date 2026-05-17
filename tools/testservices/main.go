@@ -139,7 +139,19 @@ type suitePreflightResult struct {
 	ReaperReady                 bool
 	StaleContainersScanned      int
 	StaleContainersRemoved      int
+	StaleContainersDeferred     int
 	RyukDisabledForSuiteStartup bool
+}
+
+type staleSuiteContainerCleanupSummary struct {
+	Scanned  int
+	Removed  int
+	Deferred int
+}
+
+type suiteContainerClient interface {
+	ContainerList(context.Context, dockerclient.ContainerListOptions) (dockerclient.ContainerListResult, error)
+	ContainerRemove(context.Context, string, dockerclient.ContainerRemoveOptions) (dockerclient.ContainerRemoveResult, error)
 }
 
 type serviceLease struct {
@@ -910,9 +922,10 @@ func runSuiteStartupPreflight(ctx context.Context, env map[string]string) (suite
 	}
 	result.ReaperReady = true
 
-	scanned, removed, err := cleanupPreviousSuiteServiceContainers(ctx, cli, env, time.Now().UTC())
-	result.StaleContainersScanned = scanned
-	result.StaleContainersRemoved = removed
+	cleanupSummary, err := cleanupPreviousSuiteServiceContainers(ctx, cli, env, time.Now().UTC())
+	result.StaleContainersScanned = cleanupSummary.Scanned
+	result.StaleContainersRemoved = cleanupSummary.Removed
+	result.StaleContainersDeferred = cleanupSummary.Deferred
 	if err != nil {
 		return result, err
 	}
@@ -1621,6 +1634,7 @@ func recordSuitePreflight(deps dependencies, env map[string]string, result suite
 		"reaper_ready":                    result.ReaperReady,
 		"stale_containers_scanned":        result.StaleContainersScanned,
 		"stale_containers_removed":        result.StaleContainersRemoved,
+		"stale_containers_deferred":       result.StaleContainersDeferred,
 		"ryuk_disabled_for_suite_startup": result.RyukDisabledForSuiteStartup,
 	}
 	status := "pass"
@@ -2237,7 +2251,7 @@ func leasedServiceContainers(ctx context.Context, cli *dockerclient.Client, leas
 	return ids, nil
 }
 
-func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli *dockerclient.Client, env map[string]string, now time.Time) (int, int, error) {
+func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli suiteContainerClient, env map[string]string, now time.Time) (staleSuiteContainerCleanupSummary, error) {
 	filters := dockerclient.Filters{}.
 		Add("label", fmt.Sprintf("%s=%s", testServiceLabelManaged, testServiceManagedValue))
 	result, err := cli.ContainerList(ctx, dockerclient.ContainerListOptions{
@@ -2245,10 +2259,10 @@ func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli *dockerclien
 		Filters: filters,
 	})
 	if err != nil {
-		return 0, 0, fmt.Errorf("list managed suite service containers: %w", err)
+		return staleSuiteContainerCleanupSummary{}, fmt.Errorf("list managed suite service containers: %w", err)
 	}
 
-	removed := 0
+	summary := staleSuiteContainerCleanupSummary{Scanned: len(result.Items)}
 	for _, item := range result.Items {
 		if !previousSuiteContainerCleanupEligible(env, item, now) {
 			continue
@@ -2257,12 +2271,37 @@ func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli *dockerclien
 			RemoveVolumes: true,
 			Force:         true,
 		})
-		if err != nil && !isDockerNotFound(err) {
-			return len(result.Items), removed, fmt.Errorf("remove stale suite service container %s: %w", shortContainerID(item.ID), err)
+		status, fatalErr := classifyStaleContainerRemove(item.ID, err)
+		switch status {
+		case staleContainerCleanupRemoved, staleContainerCleanupNotFound:
+			summary.Removed++
+		case staleContainerCleanupRemovalInProgress:
+			summary.Deferred++
+		case staleContainerCleanupFatal:
+			return summary, fatalErr
 		}
-		removed++
 	}
-	return len(result.Items), removed, nil
+	return summary, nil
+}
+
+const (
+	staleContainerCleanupRemoved           = "removed"
+	staleContainerCleanupNotFound          = "not_found"
+	staleContainerCleanupRemovalInProgress = "removal_in_progress"
+	staleContainerCleanupFatal             = "fatal"
+)
+
+func classifyStaleContainerRemove(containerID string, err error) (string, error) {
+	if err == nil {
+		return staleContainerCleanupRemoved, nil
+	}
+	if isDockerNotFound(err) {
+		return staleContainerCleanupNotFound, nil
+	}
+	if isDockerRemovalInProgress(err) {
+		return staleContainerCleanupRemovalInProgress, nil
+	}
+	return staleContainerCleanupFatal, fmt.Errorf("remove stale suite service container %s: %w", shortContainerID(containerID), err)
 }
 
 func previousSuiteContainerCleanupEligible(env map[string]string, item dockercontainer.Summary, now time.Time) bool {
@@ -2360,6 +2399,14 @@ func isDockerNotFound(err error) bool {
 	}
 	lower := strings.ToLower(err.Error())
 	return strings.Contains(lower, "no such container") || strings.Contains(lower, "not found") || strings.Contains(lower, "404")
+}
+
+func isDockerRemovalInProgress(err error) bool {
+	if err == nil {
+		return false
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "removal of container") && strings.Contains(lower, "already in progress")
 }
 
 func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService, minioSvc minioService) map[string]string {

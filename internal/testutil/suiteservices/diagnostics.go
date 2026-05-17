@@ -109,6 +109,7 @@ type PreflightSummary struct {
 	ReaperReady                 bool   `json:"reaper_ready"`
 	StaleContainersScanned      int    `json:"stale_containers_scanned"`
 	StaleContainersRemoved      int    `json:"stale_containers_removed"`
+	StaleContainersDeferred     int    `json:"stale_containers_deferred"`
 	RyukDisabledForSuiteStartup bool   `json:"ryuk_disabled_for_suite_startup"`
 	Message                     string `json:"message,omitempty"`
 }
@@ -360,6 +361,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 				ReaperReady:                 boolDetail(event.Details, "reaper_ready"),
 				StaleContainersScanned:      intValue(event.Details, "stale_containers_scanned"),
 				StaleContainersRemoved:      intValue(event.Details, "stale_containers_removed"),
+				StaleContainersDeferred:     intValue(event.Details, "stale_containers_deferred"),
 				RyukDisabledForSuiteStartup: boolDetail(event.Details, "ryuk_disabled_for_suite_startup"),
 				Message:                     stringDetail(event.Details, "message"),
 			}

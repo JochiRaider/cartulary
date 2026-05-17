@@ -13,8 +13,8 @@ This ledger is generated from `tools/phase8_test_map.json`. Update the manifest 
 ## Authoritative Execution
 
 - `backend-unit` carries authoritative pure backend Phase 8 rows for saved-view scope vocabulary, query contract validation, grouping semantics, normalization, and view-schema discovery.
-- `backend-store` carries authoritative service-backed Phase 8 unit rows for links and tags, saved-view create or patch behavior, workbook preferences, and row wire-family semantics.
-- `backend-integration` carries authoritative service-backed Phase 8 integration rows for saved-view lifecycle, startup fallback, link and tag atomic consequences, and live-authorized cursor pagination.
+- `backend-store` carries authoritative service-backed Phase 8 unit rows for links and tags, saved-view create or patch behavior, and workbook preferences.
+- `backend-integration` carries authoritative service-backed Phase 8 integration rows for saved-view lifecycle, startup fallback, link and tag atomic consequences, row wire-family semantics, and live-authorized cursor pagination.
 - `frontend-unit` carries authoritative `U-8-GRID-01` grid control evidence through Vitest.
 - `browser-e2e-webserver-backed` carries authoritative `E-8-*` browser-functional rows.
 
@@ -38,7 +38,7 @@ This ledger is generated from `tools/phase8_test_map.json`. Update the manifest 
 | `U-8-07` | `internal/modules/workbook/phase8_grouping_contract_test.go::TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07` | `backend_unit` | Timeline grouping permits only the declared whitelist and grouped workbook responses serialize only full row resources, never group headers, subtotals, paste targets, writable pseudo-rows, or record_id-bound mutation targets. | Browser rendering of grouping and full query execution are covered by separate rows. |
 | `U-8-08` | `internal/platform/viewquery/phase8_query_contract_test.go::TestPhase8_QueryNormalizationMeta_U_8_08` | `backend_unit` | Sort and filter ceilings, canonical normalization, meta.query, default-tail expansion, and grouping omission semantics follow the Phase 8 query contract. | Saved-view persistence and browser workflows are covered by separate rows. |
 | `U-8-09` | `internal/platform/viewschema/phase8_viewschema_test.go::TestPhase8_ViewSchemaDiscovery_U_8_09` | `backend_unit` | View-schema discovery exposes exact sorting and grouping contracts, null-last ordering, and no client-sortable record_id. | Runtime query validation and browser control payloads are covered by separate rows. |
-| `U-8-10` | `internal/modules/workbook/phase8_row_wire_test.go::TestPhase8_RowWireFamilies_I_8_04_RowWireContract` | `backend_integration` | Full-row and sparse-patch wire families preserve hidden writable fields, authoritative nulls, and canonical changed_field_keys plus affected_views metadata. | Cursor continuation and browser workflows are covered by separate rows. |
+| `U-8-10` | `internal/modules/workbook/phase8_row_wire_test.go::TestPhase8_RowWireFamilies_U_8_10` | `backend_integration` | Full-row and sparse-patch wire families preserve hidden writable fields, authoritative nulls, and canonical changed_field_keys plus affected_views metadata. | Cursor continuation and browser workflows are covered by separate rows. |
 | `U-8-GRID-01` | `apps/web/src/WorkbookShell.phase8.query.test.tsx::Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls` | `frontend_unit` | Grid sort, filter, and group controls send only stable contract keys and never labels, vendor indexes, projection-table names, or storage-table names. | Server query validation and browser-functional workflows are covered by separate rows. |
 
 ## Integration

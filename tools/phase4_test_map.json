@@ -413,7 +413,7 @@
       "runner": "go_test",
       "package": "./internal/modules/workbook",
       "file": "internal/modules/workbook/workbook_mutation_integration_test.go",
-      "symbol": "TestPhase4_CoordinationCollections_I_4_COORD_02",
+      "symbol": "TestPhase4_GenericCollectionPatch_I_4_COLLECTION_01",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
       "claim": "Generic record patch collection fields use stable record anchors, `field_key`, `row_version`, `base_row_version`, `collection_actions_v1`, and `collection_value_v1` semantics for add/remove/replace actions without accepting legacy array-shaped writes.",
