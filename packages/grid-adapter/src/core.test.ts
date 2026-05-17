@@ -4,6 +4,8 @@ import {
   buildGridPresentationRows,
   type GridPresentationRow,
   type GridRow,
+  navigateGridCellAnchor,
+  resolveGridCellAnchor,
 } from "./core";
 
 type HarnessRow = {
@@ -215,5 +217,127 @@ describe("grid presentation rows", () => {
       "group:reviewed:group:state:reviewed:0:group-state-reviewed",
       "data:record-3",
     ]);
+  });
+});
+
+describe("grid Cartulary anchors", () => {
+  const columns = [
+    { fieldKey: "summary", label: "Summary", renderCell: () => null },
+    { fieldKey: "state", label: "State", renderCell: () => null },
+  ] as const;
+
+  it("translates valid presentation coordinates into stable record_id and field_key anchors", () => {
+    const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
+    const presentationRows = buildGridPresentationRows({ rows });
+
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: { rowIndex: 1, fieldKey: "state" },
+      }),
+    ).toEqual({
+      recordId: "record-2",
+      fieldKey: "state",
+    });
+  });
+
+  it("clears anchors for invalid row, field, group, and recordless targets", () => {
+    const rows = [
+      gridRow("record-1", "open"),
+      gridRow("record-2", "closed"),
+      draftRow("draft-1", "rough"),
+    ];
+    const presentationRows = buildGridPresentationRows({
+      getGroupLabel: (row) => row.state,
+      getGroupRowTestId: (fieldKey, value) => `group-${fieldKey}-${value}`,
+      groupBy: "state",
+      rows,
+    });
+
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: { rowIndex: -1, fieldKey: "state" },
+      }),
+    ).toBeNull();
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: { rowIndex: 1, fieldKey: "__cartulary_actions__" },
+      }),
+    ).toBeNull();
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: { rowIndex: 0, fieldKey: "summary" },
+      }),
+    ).toBeNull();
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: {
+          rowIndex: presentationRows.length - 1,
+          fieldKey: "summary",
+        },
+      }),
+    ).toBeNull();
+  });
+
+  it("updates anchors for keyboard navigation and clears on presentation-only targets", () => {
+    const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
+    const presentationRows = buildGridPresentationRows({ rows });
+
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current: { recordId: "record-1", fieldKey: "summary" },
+        intent: { key: "ArrowRight" },
+        presentationRows,
+      }),
+    ).toEqual({ recordId: "record-1", fieldKey: "state" });
+
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current: { recordId: "record-1", fieldKey: "state" },
+        intent: { key: "Enter" },
+        presentationRows,
+      }),
+    ).toEqual({ recordId: "record-2", fieldKey: "state" });
+
+    const groupedRows = buildGridPresentationRows({
+      getGroupLabel: (row) => row.state,
+      groupBy: "state",
+      rows,
+    });
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current: { recordId: "record-1", fieldKey: "summary" },
+        intent: { key: "ArrowUp" },
+        presentationRows: groupedRows,
+      }),
+    ).toBeNull();
+  });
+
+  it("does not treat vendor selection changes alone as anchor updates", () => {
+    const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
+    const presentationRows = buildGridPresentationRows({ rows });
+    const current = { recordId: "record-1", fieldKey: "summary" };
+    const vendorSelection = { rowIndex: 1, fieldKey: "state" };
+
+    expect(current).toEqual({ recordId: "record-1", fieldKey: "summary" });
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: vendorSelection,
+      }),
+    ).toEqual({ recordId: "record-2", fieldKey: "state" });
   });
 });

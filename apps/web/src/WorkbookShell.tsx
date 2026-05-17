@@ -1,9 +1,13 @@
 import {
+  buildGridPresentationRows,
   type GridActionsColumn,
+  type GridCellAnchor,
   type GridColumn,
+  type GridNavigationIntent,
   type GridRow,
   GridTable,
   GridViewport,
+  navigateGridCellAnchor,
   reconcileRecordRows,
 } from "@cartulary/grid-adapter";
 import {
@@ -36,6 +40,7 @@ import {
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   startTransition,
   useCallback,
   useEffect,
@@ -53,6 +58,7 @@ import {
   type ScrollPosition,
   type ViewportSnapshot,
 } from "./workbookContinuity";
+import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
 import {
   applyFilterDraft,
   buildQueryRequest,
@@ -510,6 +516,19 @@ type WorkbookPresenceInput = {
   field_key?: string;
 };
 
+type WorkbookFocusAnchor = GridCellAnchor & {
+  readonly surface: WorkbookSurface;
+};
+
+type WorkbookGridFocusRuntime = {
+  readonly anchor: WorkbookFocusAnchor | null;
+  readonly navigate: (
+    current: GridCellAnchor,
+    intent: GridNavigationIntent,
+  ) => void;
+  readonly update: (recordId: string | null, fieldKey: string) => void;
+};
+
 type PresenceRecord = WorkbookPresenceInput & {
   connection_id: string;
   display_name: string;
@@ -517,6 +536,123 @@ type PresenceRecord = WorkbookPresenceInput & {
   observed_at: string;
   user_id: string;
 };
+
+function formatWorkbookFocusAnchor(anchor: WorkbookFocusAnchor | null) {
+  return anchor === null
+    ? "cleared"
+    : `${anchor.surface}:${anchor.recordId}:${anchor.fieldKey}`;
+}
+
+function useWorkbookGridFocus<Row>({
+  columns,
+  getGroupLabel,
+  groupBy,
+  rows,
+  surface,
+}: {
+  readonly columns: readonly GridColumn<Row>[];
+  readonly getGroupLabel?: (
+    row: Row,
+    fieldKey: string,
+  ) => string | null | undefined;
+  readonly groupBy?: string | null | undefined;
+  readonly rows: readonly GridRow<Row>[];
+  readonly surface: WorkbookSurface;
+}): WorkbookGridFocusRuntime {
+  const [anchor, setAnchor] = useState<WorkbookFocusAnchor | null>(null);
+
+  const update = useCallback(
+    (recordId: string | null, fieldKey: string) => {
+      if (
+        recordId === null ||
+        recordId.trim() === "" ||
+        !columns.some((column) => column.fieldKey === fieldKey)
+      ) {
+        setAnchor(null);
+        return;
+      }
+      setAnchor({ fieldKey, recordId, surface });
+    },
+    [columns, surface],
+  );
+
+  const navigate = useCallback(
+    (current: GridCellAnchor, intent: GridNavigationIntent) => {
+      const nextAnchor = navigateGridCellAnchor({
+        columns,
+        current,
+        intent,
+        presentationRows: buildGridPresentationRows({
+          getGroupLabel,
+          groupBy,
+          rows,
+        }),
+      });
+      if (nextAnchor === null) {
+        setAnchor(null);
+        return;
+      }
+      setAnchor({ ...nextAnchor, surface });
+      window.setTimeout(() => {
+        const element = document.querySelector<HTMLElement>(
+          `[data-testid="${CSS.escape(
+            rowCellTestId(nextAnchor.recordId, nextAnchor.fieldKey),
+          )}"]`,
+        );
+        element?.focus({ preventScroll: true });
+      }, 0);
+    },
+    [columns, getGroupLabel, groupBy, rows, surface],
+  );
+
+  return { anchor, navigate, update };
+}
+
+function WorkbookFocusAnchorStatus({
+  anchor,
+}: {
+  readonly anchor: WorkbookFocusAnchor | null;
+}) {
+  return (
+    <span data-testid="workbook-focus-anchor" style={visuallyHiddenStyle}>
+      {formatWorkbookFocusAnchor(anchor)}
+    </span>
+  );
+}
+
+function FocusableWorkbookCell({
+  children,
+  fieldKey,
+  focus,
+  recordId,
+}: {
+  readonly children: ReactNode;
+  readonly fieldKey: string;
+  readonly focus: WorkbookGridFocusRuntime;
+  readonly recordId: string;
+}) {
+  return (
+    <span
+      data-testid={rowCellTestId(recordId, fieldKey)}
+      onFocus={() => {
+        focus.update(recordId, fieldKey);
+      }}
+      onKeyDown={(event) => {
+        const command = mapWorkbookKeyboardCommand(event);
+        if (command.preventDefault) {
+          event.preventDefault();
+        }
+        if (command.kind === "navigate") {
+          focus.navigate({ fieldKey, recordId }, command.intent);
+        }
+      }}
+      style={focusableCellStyle}
+      tabIndex={0}
+    >
+      {children}
+    </span>
+  );
+}
 
 type EntityRow = {
   entityType: "host" | "identity";
@@ -735,6 +871,17 @@ function timelineScalarBindingForField(
   return binding.kind === "scalar" ? binding : null;
 }
 
+function timelineFocusFieldForFieldKey(fieldKey: string): FocusFieldKey | null {
+  const binding = timelineFieldBinding(fieldKey);
+  if (binding.kind === "scalar") {
+    return binding.key;
+  }
+  if (binding.kind === "collection") {
+    return binding.draftKey;
+  }
+  return null;
+}
+
 function timelineColumnWidth(fieldKey: string): number {
   switch (fieldKey) {
     case "timeline.occurred_at":
@@ -918,6 +1065,46 @@ function timelineGroupLabel(row: WorkbookRow, fieldKey: string) {
 function entityGroupLabel(row: EntityRow, fieldKey: string) {
   const value = stringifyGridValue(readCellValue(row.rawRow, fieldKey)).trim();
   return value === "" ? "Unassigned" : value;
+}
+
+function entityCellContent(
+  entityType: EntityRow["entityType"],
+  row: EntityRow,
+  fieldKey: string,
+): ReactNode {
+  const displayField =
+    entityType === "host" ? "host.display_name" : "identity.display_name";
+  const primaryField = entityType === "host" ? "host.hostname" : "identity.upn";
+  const stateField =
+    entityType === "host" ? "host.host_state" : "identity.identity_state";
+  const aliasesField =
+    entityType === "host" ? "host.aliases" : "identity.aliases";
+  if (fieldKey === displayField) {
+    return row.label;
+  }
+  if (fieldKey === primaryField) {
+    return row.secondaryText || "None";
+  }
+  if (fieldKey === stateField) {
+    return row.state;
+  }
+  if (fieldKey === aliasesField) {
+    return row.aliasTexts.length > 0 ? (
+      <div style={entityAliasListStyle}>
+        {row.aliasTexts.map((alias) => (
+          <span key={alias} style={tagChipStyle}>
+            {alias}
+          </span>
+        ))}
+      </div>
+    ) : (
+      "No aliases"
+    );
+  }
+  if (fieldKey === "row_version") {
+    return String(row.rowVersion);
+  }
+  return genericCellLabel(row.rawRow.cells[fieldKey]?.value);
 }
 
 function rowFromApi(row: TimelineApiRow): WorkbookRow {
@@ -1900,6 +2087,7 @@ function TimelineScalarEditor({
   onBlurCommit,
   onDraftChange,
   onEditModeChange,
+  onFocusAnchor,
   onFocusRecord,
   onKeyCommit,
   onPasteCommit,
@@ -1934,6 +2122,7 @@ function TimelineScalarEditor({
     fieldKey: string,
     editing: boolean,
   ) => void;
+  readonly onFocusAnchor: (recordId: string | null, fieldKey: string) => void;
   readonly onFocusRecord: (recordId: string) => void;
   readonly onKeyCommit: (
     event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -1969,6 +2158,9 @@ function TimelineScalarEditor({
 
   const handleFocus = () => {
     hasActiveEditRef.current = true;
+    if (surface === "grid") {
+      onFocusAnchor(rowRecordId, presenceFieldKey);
+    }
     if (rowRecordId) {
       onFocusRecord(rowRecordId);
     }
@@ -2067,6 +2259,8 @@ export function TimelineWorkbook({
     Record<string, string>
   >({});
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [workbookFocusAnchor, setWorkbookFocusAnchor] =
+    useState<WorkbookFocusAnchor | null>(null);
   const [selectedMentionRef, setSelectedMentionRef] = useState<string | null>(
     null,
   );
@@ -2130,6 +2324,7 @@ export function TimelineWorkbook({
   const socketConnectionIDRef = useRef<string | null>(null);
   const presenceUpdateTimerRef = useRef<number | null>(null);
   const currentPresenceRef = useRef(currentPresence);
+  const workbookFocusAnchorRef = useRef<WorkbookFocusAnchor | null>(null);
   const hasLoadedRowsRef = useRef(false);
   const loadSequenceRef = useRef(0);
   const scalarDraftValuesRef = useRef(new Map<string, string>());
@@ -2142,6 +2337,10 @@ export function TimelineWorkbook({
   const rowInputRefs = useRef(
     new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
   );
+  const timelineAnchorColumnsRef = useRef<readonly GridColumn<WorkbookRow>[]>(
+    [],
+  );
+  const timelineAnchorRowsRef = useRef<readonly GridRow<WorkbookRow>[]>([]);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const viewportContinuityTokenRef = useRef(1);
   const [viewportContinuityRequest, setViewportContinuityRequest] =
@@ -2225,6 +2424,35 @@ export function TimelineWorkbook({
       );
     }, 150);
   }, [activeSheetRef, currentPresence]);
+
+  const updateWorkbookFocusAnchor = useCallback(
+    (anchor: WorkbookFocusAnchor | null) => {
+      workbookFocusAnchorRef.current = anchor;
+      setWorkbookFocusAnchor(anchor);
+    },
+    [],
+  );
+
+  const updateTimelineFocusAnchor = useCallback(
+    (recordId: string | null, fieldKey: string) => {
+      if (
+        recordId === null ||
+        recordId.trim() === "" ||
+        !timelineAnchorColumnsRef.current.some(
+          (column) => column.fieldKey === fieldKey,
+        )
+      ) {
+        updateWorkbookFocusAnchor(null);
+        return;
+      }
+      updateWorkbookFocusAnchor({
+        fieldKey,
+        recordId,
+        surface: "timeline",
+      });
+    },
+    [updateWorkbookFocusAnchor],
+  );
 
   const publishPendingQueueState = useCallback(() => {
     const pending = pendingQueueRef.current;
@@ -2537,6 +2765,45 @@ export function TimelineWorkbook({
           );
     return selector ?? rowInputRefs.current.get(focusKey) ?? null;
   }, []);
+
+  const resolveTimelineAnchorElement = useCallback(
+    (anchor: GridCellAnchor) => {
+      const focusField = timelineFocusFieldForFieldKey(anchor.fieldKey);
+      if (focusField !== null) {
+        const inputElement = resolveInputElement(
+          inputFocusKey(anchor.recordId, focusField, "grid"),
+        );
+        if (inputElement !== null) {
+          return inputElement;
+        }
+      }
+      const testId =
+        anchor.fieldKey === "timeline.capture_state"
+          ? rowCellTestId(anchor.recordId, "capture-state")
+          : anchor.fieldKey === "row_version"
+            ? rowCellTestId(anchor.recordId, "row-version")
+            : rowCellTestId(anchor.recordId, anchor.fieldKey);
+      return document.querySelector<HTMLElement>(
+        `[data-testid="${CSS.escape(testId)}"]`,
+      );
+    },
+    [resolveInputElement],
+  );
+
+  const restoreTimelineFocusAnchor = useCallback(
+    (anchor: GridCellAnchor) => {
+      const element = resolveTimelineAnchorElement(anchor);
+      if (element === null) {
+        return false;
+      }
+      if (!element.hasAttribute("tabindex")) {
+        element.tabIndex = -1;
+      }
+      element.focus({ preventScroll: true });
+      return document.activeElement === element;
+    },
+    [resolveTimelineAnchorElement],
+  );
 
   const resolveViewportContinuityElement = useCallback(
     (target: ViewportContinuityTarget) => {
@@ -4459,6 +4726,52 @@ export function TimelineWorkbook({
       });
   }
 
+  const currentTimelineAnchorFor = useCallback(
+    (rowKey: string, fieldKey: string): GridCellAnchor | null => {
+      const row = rowsRef.current.find((candidate) => candidate.key === rowKey);
+      if (row?.recordId === null || row?.recordId === undefined) {
+        updateWorkbookFocusAnchor(null);
+        return null;
+      }
+      const anchor = {
+        fieldKey,
+        recordId: row.recordId,
+      };
+      updateTimelineFocusAnchor(anchor.recordId, anchor.fieldKey);
+      return anchor;
+    },
+    [updateTimelineFocusAnchor, updateWorkbookFocusAnchor],
+  );
+
+  const navigateTimelineFocusAnchor = useCallback(
+    (current: GridCellAnchor, intent: GridNavigationIntent) => {
+      const nextAnchor = navigateGridCellAnchor({
+        columns: timelineAnchorColumnsRef.current,
+        current,
+        intent,
+        presentationRows: buildGridPresentationRows({
+          getGroupLabel: (row, fieldKey) => timelineGroupLabel(row, fieldKey),
+          groupBy: queryState.groupBy,
+          rows: timelineAnchorRowsRef.current,
+        }),
+      });
+      if (nextAnchor === null) {
+        updateWorkbookFocusAnchor(null);
+        return;
+      }
+      updateTimelineFocusAnchor(nextAnchor.recordId, nextAnchor.fieldKey);
+      window.setTimeout(() => {
+        restoreTimelineFocusAnchor(nextAnchor);
+      }, 0);
+    },
+    [
+      queryState.groupBy,
+      restoreTimelineFocusAnchor,
+      updateTimelineFocusAnchor,
+      updateWorkbookFocusAnchor,
+    ],
+  );
+
   const handleBlur = useCallback(
     (
       rowKey: string,
@@ -4487,8 +4800,40 @@ export function TimelineWorkbook({
       focusField: keyof RowValues,
       surface: TimelineScalarEditorSurface,
     ) => {
-      if (event.key === "Enter" || event.key === "Tab") {
+      const priorGridAnchor = workbookFocusAnchorRef.current;
+      if (
+        surface === "inspector" &&
+        event.key === "Escape" &&
+        priorGridAnchor?.surface === "timeline"
+      ) {
         event.preventDefault();
+        restoreTimelineFocusAnchor(priorGridAnchor);
+        return;
+      }
+      const binding = Object.values(timelineScalarBindingIndex).find(
+        (candidate) => candidate.key === focusField,
+      );
+      const fieldKey = binding?.fieldKey ?? focusField;
+      const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
+      const command = mapWorkbookKeyboardCommand(event, {
+        closeInspector:
+          anchor !== null &&
+          (surface === "inspector" ||
+            selectedRowId !== null ||
+            rowHistory.recordId !== null ||
+            rowHistory.status !== "idle"),
+        history: anchor !== null,
+        previewLinkedEvidence:
+          anchor !== null && event.currentTarget.value === "",
+      });
+      if (command.preventDefault) {
+        event.preventDefault();
+      }
+      if (
+        command.kind === "navigate" &&
+        anchor === null &&
+        (command.intent.key === "Enter" || command.intent.key === "Tab")
+      ) {
         queueScalarSave(
           rowKey,
           focusField,
@@ -4499,9 +4844,59 @@ export function TimelineWorkbook({
           },
           event.currentTarget.value,
         );
+        return;
+      }
+      if (command.kind === "navigate" && anchor !== null) {
+        if (command.intent.key === "Enter" || command.intent.key === "Tab") {
+          queueScalarSave(
+            rowKey,
+            focusField,
+            {
+              continueOnFreshDraft: true,
+              preserveInputFocus: false,
+              surface,
+            },
+            event.currentTarget.value,
+          );
+        }
+        navigateTimelineFocusAnchor(anchor, command.intent);
+        return;
+      }
+      if (command.kind === "open-history" && anchor !== null) {
+        openRowHistory(anchor.recordId);
+        return;
+      }
+      if (command.kind === "close-inspector" && anchor !== null) {
+        setSelectedRowId(null);
+        setSelectedMentionRef(null);
+        setInspectorMessage(null);
+        setRowHistory({
+          recordId: null,
+          status: "idle",
+          data: null,
+          message: null,
+        });
+        restoreTimelineFocusAnchor(anchor);
+        return;
+      }
+      if (command.kind === "preview-linked-evidence" && anchor !== null) {
+        setSelectedRowId(anchor.recordId);
+        setInspectorMessage(
+          "Linked evidence preview is unavailable for this row.",
+        );
+        restoreTimelineFocusAnchor(anchor);
       }
     },
-    [queueScalarSave],
+    [
+      currentTimelineAnchorFor,
+      navigateTimelineFocusAnchor,
+      openRowHistory,
+      queueScalarSave,
+      rowHistory.recordId,
+      rowHistory.status,
+      restoreTimelineFocusAnchor,
+      selectedRowId,
+    ],
   );
 
   const handleCollectionKeyDown = useCallback(
@@ -4511,6 +4906,84 @@ export function TimelineWorkbook({
       fieldKey: CollectionFieldKey,
       draftKey: CollectionDraftKey,
     ) => {
+      const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
+      const command = mapWorkbookKeyboardCommand(event, {
+        closeInspector:
+          anchor !== null &&
+          (selectedRowId !== null ||
+            rowHistory.recordId !== null ||
+            rowHistory.status !== "idle"),
+        history: anchor !== null,
+        previewLinkedEvidence:
+          anchor !== null && event.currentTarget.value === "",
+        quickLink:
+          anchor !== null &&
+          (fieldKey === "timeline.host_refs" ||
+            fieldKey === "timeline.identity_refs"),
+      });
+      if (command.preventDefault) {
+        event.preventDefault();
+      }
+      if (command.kind === "navigate" && anchor !== null) {
+        if (command.intent.key === "Enter" || command.intent.key === "Tab") {
+          queueCollectionSave(
+            rowKey,
+            fieldKey,
+            draftKey,
+            event.currentTarget.value,
+          );
+        }
+        navigateTimelineFocusAnchor(anchor, command.intent);
+        return;
+      }
+      if (command.kind === "open-history" && anchor !== null) {
+        openRowHistory(anchor.recordId);
+        return;
+      }
+      if (command.kind === "close-inspector" && anchor !== null) {
+        setSelectedRowId(null);
+        setSelectedMentionRef(null);
+        setInspectorMessage(null);
+        setRowHistory({
+          recordId: null,
+          status: "idle",
+          data: null,
+          message: null,
+        });
+        restoreTimelineFocusAnchor(anchor);
+        return;
+      }
+      if (command.kind === "preview-linked-evidence" && anchor !== null) {
+        setSelectedRowId(anchor.recordId);
+        setInspectorMessage(
+          "Linked evidence preview is unavailable for this row.",
+        );
+        restoreTimelineFocusAnchor(anchor);
+        return;
+      }
+      if (command.kind === "quick-link" && anchor !== null) {
+        const row = rowsRef.current.find(
+          (candidate) => candidate.recordId === anchor.recordId,
+        );
+        const mention =
+          row === undefined
+            ? undefined
+            : [
+                ...row.collectionValues.hostRefs,
+                ...row.collectionValues.identityRefs,
+              ].find((item) => item.itemKind !== "resolved_ref");
+        if (mention !== undefined) {
+          setSelectedRowId(anchor.recordId);
+          setSelectedMentionRef(mention.itemRef);
+          setInspectorMessage(null);
+        } else {
+          setSelectedRowId(anchor.recordId);
+          setInspectorMessage(
+            "No unresolved mention is available for quick link.",
+          );
+        }
+        return;
+      }
       if (event.key === "Enter" || event.key === "Tab") {
         event.preventDefault();
         queueCollectionSave(
@@ -4521,7 +4994,16 @@ export function TimelineWorkbook({
         );
       }
     },
-    [queueCollectionSave],
+    [
+      currentTimelineAnchorFor,
+      navigateTimelineFocusAnchor,
+      openRowHistory,
+      queueCollectionSave,
+      restoreTimelineFocusAnchor,
+      rowHistory.recordId,
+      rowHistory.status,
+      selectedRowId,
+    ],
   );
 
   const handlePaste = useCallback(
@@ -4873,6 +5355,7 @@ export function TimelineWorkbook({
             field={binding.key}
             multiline={binding.multiline}
             onEditModeChange={handleEditModePresence}
+            onFocusAnchor={updateTimelineFocusAnchor}
             registerInput={registerInput}
             presenceFieldKey={binding.fieldKey}
             rowKey={row.key}
@@ -4931,6 +5414,7 @@ export function TimelineWorkbook({
       registerInput,
       setScalarEditorDraftValue,
       timelineBindingLabel,
+      updateTimelineFocusAnchor,
     ],
   );
 
@@ -5027,6 +5511,7 @@ export function TimelineWorkbook({
               );
             }}
             onFocus={() => {
+              updateTimelineFocusAnchor(row.recordId, binding.fieldKey);
               if (row.recordId) {
                 handleSelectRow(row.recordId);
               }
@@ -5052,6 +5537,7 @@ export function TimelineWorkbook({
       registerInput,
       timelineBindingLabel,
       queueCollectionSave,
+      updateTimelineFocusAnchor,
     ],
   );
 
@@ -5312,6 +5798,11 @@ export function TimelineWorkbook({
       })),
     [handleSelectRow, rows, selectedRowId],
   );
+
+  useEffect(() => {
+    timelineAnchorColumnsRef.current = timelineColumns;
+    timelineAnchorRowsRef.current = timelineGridRows;
+  }, [timelineColumns, timelineGridRows]);
 
   const getTimelineGroupLabel = useCallback(
     (row: WorkbookRow, fieldKey: string) => timelineGroupLabel(row, fieldKey),
@@ -5742,6 +6233,7 @@ export function TimelineWorkbook({
           >
             {saveState}
           </strong>
+          <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
           <div
             aria-label={`${activeSheetPresenceRecords.length} collaborators present on this sheet`}
             data-testid="presence-header"
@@ -6369,7 +6861,7 @@ function EntityWorkbookSurface({
     selectedEntity && loserEntity
       ? buildMergePlan(selectedEntity, loserEntity)
       : null;
-  const entityColumns: readonly GridColumn<EntityRow>[] = [
+  const entityAnchorColumns: readonly GridColumn<EntityRow>[] = [
     {
       fieldKey:
         entityType === "host" ? "host.display_name" : "identity.display_name",
@@ -6382,7 +6874,7 @@ function EntityWorkbookSurface({
           entityType === "host" ? "host.display_name" : "identity.display_name"
         ]?.label ?? "Name",
       width: 240,
-      renderCell: (row) => row.label,
+      renderCell: () => null,
       sortableFieldKey:
         entityType === "host" ? "host.display_name" : "identity.display_name",
     },
@@ -6397,7 +6889,7 @@ function EntityWorkbookSurface({
           entityType === "host" ? "host.hostname" : "identity.upn"
         ]?.label ?? "Primary",
       width: 260,
-      renderCell: (row) => row.secondaryText || "None",
+      renderCell: () => null,
       sortableFieldKey:
         entityType === "host" ? "host.hostname" : "identity.upn",
     },
@@ -6408,19 +6900,7 @@ function EntityWorkbookSurface({
           entityType === "host" ? "host.aliases" : "identity.aliases"
         ]?.label ?? "Aliases",
       width: 320,
-      renderCell: (row) => (
-        <div style={relationshipItemsWrapStyle}>
-          {row.aliasTexts.length > 0 ? (
-            row.aliasTexts.map((alias) => (
-              <span key={alias} style={aliasChipStyle}>
-                {alias}
-              </span>
-            ))
-          ) : (
-            <span style={emptyRelationshipStyle}>No aliases</span>
-          )}
-        </div>
-      ),
+      renderCell: () => null,
     },
     {
       fieldKey:
@@ -6434,7 +6914,7 @@ function EntityWorkbookSurface({
           entityType === "host" ? "host.host_state" : "identity.identity_state"
         ]?.label ?? "State",
       width: 140,
-      renderCell: (row) => row.state,
+      renderCell: () => null,
       sortableFieldKey:
         entityType === "host" ? "host.host_state" : "identity.identity_state",
     },
@@ -6442,9 +6922,36 @@ function EntityWorkbookSurface({
       fieldKey: "row_version",
       label: "Version",
       width: 96,
-      renderCell: (row) => row.rowVersion,
+      renderCell: () => null,
     },
   ];
+  const entityGridRows: readonly GridRow<EntityRow>[] = rows.map((row) => ({
+    key: row.recordId,
+    recordId: row.recordId,
+    data: row,
+    selected: row.recordId === selectedEntity?.recordId,
+    testId: `${entityType}-row-${row.recordId}`,
+  }));
+  const entityFocus = useWorkbookGridFocus({
+    columns: entityAnchorColumns,
+    getGroupLabel: (row, fieldKey) => entityGroupLabel(row, fieldKey),
+    groupBy: queryState.groupBy,
+    rows: entityGridRows,
+    surface,
+  });
+  const entityColumns: readonly GridColumn<EntityRow>[] =
+    entityAnchorColumns.map((column) => ({
+      ...column,
+      renderCell: (row) => (
+        <FocusableWorkbookCell
+          fieldKey={column.fieldKey}
+          focus={entityFocus}
+          recordId={row.recordId}
+        >
+          {entityCellContent(entityType, row, column.fieldKey)}
+        </FocusableWorkbookCell>
+      ),
+    }));
   const entityActionsColumn: GridActionsColumn<EntityRow> = {
     headerTestId: gridActionsHeaderTestId(surface),
     label: "Actions",
@@ -6463,13 +6970,6 @@ function EntityWorkbookSurface({
       </button>
     ),
   };
-  const entityGridRows: readonly GridRow<EntityRow>[] = rows.map((row) => ({
-    key: row.recordId,
-    recordId: row.recordId,
-    data: row,
-    selected: row.recordId === selectedEntity?.recordId,
-    testId: `${entityType}-row-${row.recordId}`,
-  }));
 
   useEffect(() => {
     if (selectedEntity) {
@@ -6555,6 +7055,7 @@ function EntityWorkbookSurface({
           <p style={bodyStyle}>Incident {incidentId}</p>
         </div>
       </header>
+      <WorkbookFocusAnchorStatus anchor={entityFocus.anchor} />
 
       <div style={splitShellStyle}>
         <div>
@@ -6822,18 +7323,14 @@ function AssessmentWorkbookSurface({
     "assessment.confidence_band",
     ["unset", "low", "medium", "high"],
   ).filter(isAssessmentConfidenceBand);
-  const columns: readonly GridColumn<EntityApiRow>[] = visibleFields(
+  const anchorColumns: readonly GridColumn<EntityApiRow>[] = visibleFields(
     assessmentsContract,
   ).map((field) => ({
     fieldKey: field.fieldKey,
     headerTestId: gridSortHeaderTestId(assessmentsViewSchemaId, field.fieldKey),
     label: field.label,
     width: assessmentColumnWidth(field.fieldKey),
-    renderCell: (row) => (
-      <span data-testid={rowCellTestId(row.record_id, field.fieldKey)}>
-        {genericCellLabel(row.cells[field.fieldKey]?.value)}
-      </span>
-    ),
+    renderCell: () => null,
     sortableFieldKey: resolveHeaderSortFieldKey(
       assessmentsContract,
       field.fieldKey,
@@ -6845,6 +7342,28 @@ function AssessmentWorkbookSurface({
       recordId: row.record_id,
       data: row,
       testId: `assessment-row-${row.record_id}`,
+    }),
+  );
+  const assessmentFocus = useWorkbookGridFocus({
+    columns: anchorColumns,
+    getGroupLabel: (row, fieldKey) =>
+      genericCellLabel(row.cells[fieldKey]?.value),
+    groupBy: queryState.groupBy,
+    rows: gridRows,
+    surface: assessmentsViewSchemaId,
+  });
+  const columns: readonly GridColumn<EntityApiRow>[] = anchorColumns.map(
+    (field) => ({
+      ...field,
+      renderCell: (row) => (
+        <FocusableWorkbookCell
+          fieldKey={field.fieldKey}
+          focus={assessmentFocus}
+          recordId={row.record_id}
+        >
+          {genericCellLabel(row.cells[field.fieldKey]?.value)}
+        </FocusableWorkbookCell>
+      ),
     }),
   );
 
@@ -6940,6 +7459,7 @@ function AssessmentWorkbookSurface({
           <p style={bodyStyle}>Incident {incidentId}</p>
         </div>
       </header>
+      <WorkbookFocusAnchorStatus anchor={assessmentFocus.anchor} />
 
       <div style={splitShellStyle}>
         <div>
@@ -7455,20 +7975,44 @@ function GenericWorkbookSurface({
     [apiBase, incidentId, onRefresh, setEvidenceMessage],
   );
 
-  const columns: readonly GridColumn<EntityApiRow>[] = visibleFields(
+  const anchorColumns: readonly GridColumn<EntityApiRow>[] = visibleFields(
     contract,
   ).map((field) => ({
     fieldKey: field.fieldKey,
     headerTestId: gridSortHeaderTestId(surface, field.fieldKey),
     label: field.label,
     width: field.defaultHidden ? 160 : 220,
-    renderCell: (row) => (
-      <span data-testid={rowCellTestId(row.record_id, field.fieldKey)}>
-        {genericCellLabel(row.cells[field.fieldKey]?.value)}
-      </span>
-    ),
+    renderCell: () => null,
     sortableFieldKey: resolveHeaderSortFieldKey(contract, field.fieldKey),
   }));
+  const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
+    key: row.record_id,
+    recordId: row.record_id,
+    data: row,
+    testId: `generic-row-${contract.viewSchemaId}-${row.record_id}`,
+  }));
+  const genericFocus = useWorkbookGridFocus({
+    columns: anchorColumns,
+    getGroupLabel: (row, fieldKey) =>
+      genericCellLabel(row.cells[fieldKey]?.value),
+    groupBy: queryState.groupBy,
+    rows: gridRows,
+    surface,
+  });
+  const columns: readonly GridColumn<EntityApiRow>[] = anchorColumns.map(
+    (field) => ({
+      ...field,
+      renderCell: (row) => (
+        <FocusableWorkbookCell
+          fieldKey={field.fieldKey}
+          focus={genericFocus}
+          recordId={row.record_id}
+        >
+          {genericCellLabel(row.cells[field.fieldKey]?.value)}
+        </FocusableWorkbookCell>
+      ),
+    }),
+  );
   const evidenceActionsColumn = useMemo<
     GridActionsColumn<EntityApiRow> | undefined
   >(() => {
@@ -7553,12 +8097,6 @@ function GenericWorkbookSurface({
     issueEvidenceHandle,
     surface,
   ]);
-  const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
-    key: row.record_id,
-    recordId: row.record_id,
-    data: row,
-    testId: `generic-row-${contract.viewSchemaId}-${row.record_id}`,
-  }));
   const selectedEditRow =
     rows.find((row) => row.record_id === editRecordId) ?? null;
   const selectedEditField =
@@ -7681,6 +8219,7 @@ function GenericWorkbookSurface({
           {mutationState}
         </div>
       </header>
+      <WorkbookFocusAnchorStatus anchor={genericFocus.anchor} />
 
       {writableFields.length > 0 ? (
         <section style={genericMutationPanelStyle}>
@@ -9279,6 +9818,14 @@ const blurSurfaceButtonStyle = {
   cursor: "default",
 };
 
+const visuallyHiddenStyle = {
+  position: "absolute" as const,
+  inlineSize: 1,
+  blockSize: 1,
+  overflow: "hidden",
+  clipPath: "inset(50%)",
+};
+
 const statusClusterStyle = {
   display: "grid",
   gap: "0.25rem",
@@ -9365,6 +9912,14 @@ const gridShellStyle = {
   background: "rgb(255 255 255 / 0.82)",
   blockSize: "min(70vh, 46rem)",
   minBlockSize: "18rem",
+};
+
+const focusableCellStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: "2rem",
+  minWidth: "100%",
+  outlineOffset: "2px",
 };
 
 const stateCellStyle = {
@@ -9725,11 +10280,10 @@ const chipMetaStyle = {
   letterSpacing: "0.04em",
 };
 
-const aliasChipStyle = {
-  ...relationshipChipStyle,
-  border: "1px solid rgb(188 205 198)",
-  background: "rgb(240 247 243)",
-  color: "rgb(45 74 66)",
+const entityAliasListStyle = {
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: "0.35rem",
 };
 
 const tagChipStyle = {

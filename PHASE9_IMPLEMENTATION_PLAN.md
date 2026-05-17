@@ -80,8 +80,8 @@ Carried-forward compatibility boundaries:
 
 | Done | Sprint | Primary validation | Blockers | Follow-up notes |
 | --- | --- | --- | --- | --- |
-| [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` | All authoritative Phase 9 rows are represented by intentional failing Sprint 0 blocker sentinels until replaced by real evidence. | Manifest, registry entry, generated ledger, generated schedule updates, and support-only carryover guards are in place. |
-| [ ] | 1. Keyboard and grid anchors | `make frontend-unit`, `make phase-slice PHASE=phase9` | TODO: identify exact keyboard adapter gaps. | Cover keyboard command mapping and Cartulary focus anchors. |
+| [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` | Harness setup is complete; current blocker sentinels remain only for rows not yet replaced by later sprint evidence. | Manifest, registry entry, generated ledger, generated schedule updates, support-only carryover guards, and Sprint 0 blocker boundaries are in place. |
+| [x] | 1. Keyboard and grid anchors | `make frontend-unit`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `git diff --check` | No Sprint 1-owned blocker remains; aggregate targets still fail on later Phase 9 blocker sentinels and one outside-Phase-9 browser regression. | Direct Sprint 1 evidence now covers keyboard command mapping, Cartulary grid anchors, live workbook shortcuts, and shared grid keyboard anchor semantics. |
 | [ ] | 2. Clipboard and bulk paste | `make backend-unit`, `make backend-integration`, `make frontend-unit` | TODO: inspect tabular ingest and paste mutation support. | Cover multi-cell paste, fill-down, tags, and sorted/filtered anchoring. |
 | [ ] | 3. Notes and Indicators | `make backend-store`, `make backend-integration` | TODO: inspect current Notes and Indicators create/query gaps. | Keep Notes artifact-backed and Indicators canonical. |
 | [ ] | 4. Parties and text-plus-link flows | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect current party-link UI and direct-reference gaps. | Preserve text/ref independence and exact-match reuse. |
@@ -245,11 +245,12 @@ Deliverables:
   - `tools/scheduler_manifest.json`
   - `tools/execution_topology_render_index.json`
 - Intentional blocker-sentinel tests:
+  - This list records the Sprint 0 seed state. Later sprints may replace individual sentinel owners with direct evidence; the current Phase 9 manifest and generated ledger remain the source of truth for current row ownership.
   - `internal/modules/workbook/phase9_sprint0_sentinel_test.go` covers `U-9-02`, `U-9-03`, `U-9-07`, `U-9-08`, `U-9-09`, `U-9-10`, `U-9-11`, `U-9-12`, `U-9-13`, `I-9-01`, `I-9-02`, and `I-9-03`.
   - `internal/modules/entities/phase9_sprint0_sentinel_test.go` covers `U-9-04` and `U-9-05`.
   - `internal/modules/assessments/phase9_sprint0_sentinel_test.go` covers `U-9-06`.
-  - `apps/web/src/WorkbookShell.phase9.sentinel.test.tsx` covers `U-9-01`, `U-9-GRID-01`, and `I-9-GRID-01`.
-  - `apps/web/e2e/phase9.sentinel.spec.ts` covers `E-9-01` through `E-9-08` and `E-9-GRID-01`.
+  - `apps/web/src/WorkbookShell.phase9.sentinel.test.tsx` initially covered `U-9-01`, `U-9-GRID-01`, and `I-9-GRID-01`; after Sprint 1 replacements, it remains the blocker owner for `I-9-GRID-01`.
+  - `apps/web/e2e/phase9.sentinel.spec.ts` initially covered `E-9-01` through `E-9-08` and `E-9-GRID-01`; after Sprint 1 replacements, it remains the blocker owner for `E-9-02` through `E-9-08`.
 
 Sprint 0 validation record:
 - `make phase-map-check`: initially failed because the new active Phase 9 ledger was missing.
@@ -276,9 +277,9 @@ Sprint 0 validation record:
 - `git diff --check`: passed.
 
 Sprint 0 status:
-- Complete for harness setup.
+- Complete for harness setup and historical seed-state ownership.
 - Phase 9 remains `active` because public wrappers can select coherent Phase 9 rows.
-- Remaining blocker sentinels intentionally prevent Phase 9 completion claims until later sprints replace them with direct behavior evidence.
+- Some Sprint 0 blocker sentinels have been replaced by direct later-sprint evidence; remaining blocker sentinels intentionally prevent broader Phase 9 completion claims until the relevant sprint replaces them with direct behavior evidence.
 
 Risks:
 - Prematurely marking Phase 9 active without selectable rows.
@@ -289,8 +290,8 @@ Risks:
 Exit criteria:
 - Phase 9 is discoverable through `make explain-phase PHASE=phase9`.
 - Manifest and ledger drift checks pass.
-- All placeholder or sentinel rows are visible, intentional, and not described as behavior completion.
-- Phase 9 is active but incomplete while any Sprint 0 blocker sentinel remains.
+- All placeholder or sentinel rows are visible, intentional, and not described as behavior completion while they remain sentinels.
+- Phase 9 is active but incomplete while any blocker sentinel remains.
 
 ## Sprint 1. Keyboard Contract and Grid Anchors
 
@@ -303,8 +304,9 @@ Files or areas to inspect:
 - `apps/web/src/WorkbookShell.tsx`
 - Existing frontend workbook tests under `apps/web/src`
 - Existing browser workflow specs under `apps/web/e2e`
-- TODO: exact focus-anchor state symbols.
-- TODO: exact keyboard-command dispatch files and test symbols.
+- Focus-anchor symbols: `GridCellAnchor`, `resolveGridCellAnchor`, and `navigateGridCellAnchor` in `packages/grid-adapter/src/core.ts`; `formatWorkbookFocusAnchor`, `useWorkbookGridFocus`, and `rowCellTestId` wiring in `apps/web/src/WorkbookShell.tsx`.
+- Keyboard-command symbols: `WorkbookKeyboardCommand`, `WorkbookKeyboardAvailability`, and `mapWorkbookKeyboardCommand` in `apps/web/src/workbookKeyboard.ts`.
+- Direct Sprint 1 test files: `apps/web/src/workbookKeyboard.test.ts`, `apps/web/src/GridAdapter.phase9.anchor.test.ts`, and `apps/web/e2e/phase9.keyboard.spec.ts`.
 
 Test-first sequence:
 1. Add frontend unit tests for Arrow, Enter, Shift+Enter, Tab, Ctrl+V, Ctrl+K, Space, Alt+H, and Esc command mapping.
@@ -327,9 +329,31 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- Direct authoritative evidence for `U-9-01`, `U-9-GRID-01`, and `E-9-01`.
-- Browser support evidence for `E-9-GRID-01` where keyboard behavior crosses required system views.
-- TODO: exact artifact root for passing browser evidence.
+- Direct authoritative evidence for `U-9-01`: `apps/web/src/workbookKeyboard.test.ts`.
+- Direct authoritative evidence for `U-9-GRID-01`: `apps/web/src/GridAdapter.phase9.anchor.test.ts`.
+- Direct authoritative browser evidence for `E-9-01`: `apps/web/e2e/phase9.keyboard.spec.ts`.
+- Browser shared-grid evidence for `E-9-GRID-01`: `apps/web/e2e/phase9.keyboard.spec.ts`.
+- Ctrl+V evidence is paste-intent and routing/sentinel behavior only; Sprint 1 does not claim Sprint 2 clipboard paste, multi-cell paste, fill-down, sorted or filtered paste anchoring, or bulk-edit semantics.
+
+Sprint 1 validation record:
+- `make frontend-unit`: failed overall because the later Phase 9 `I-9-GRID-01` blocker sentinel remains selected.
+  - Artifact root: `.cartulary/test-results/20260517T154853Z-p203958`
+  - Sprint 1-owned status: `U-9-01` and `U-9-GRID-01` frontend-unit evidence passed.
+  - Failure ownership: later Phase 9 / Sprint 2, not Sprint 1.
+- `make browser-e2e-webserver-backed`: failed overall because later Phase 9 browser-functional sentinels and an outside-Phase-9 browser regression remain selected.
+  - Artifact root: `.cartulary/test-results/20260517T154929Z-p205996`
+  - Sprint 1-owned status: `E-9-01` and `E-9-GRID-01` evidence in `apps/web/e2e/phase9.keyboard.spec.ts` passed.
+  - Failure ownership: `E-9-02` through `E-9-08` are later Phase 9 blocker sentinels; `E-4-04` is outside Phase 9.
+- `make phase-slice PHASE=phase9`: failed overall because later Phase 9 sentinels remain selected.
+  - Artifact root: `.cartulary/test-results/20260517T155126Z-p214602`
+  - Sprint 1-owned status: direct Sprint 1 frontend and browser rows passed.
+  - Failure ownership: later Phase 9, not Sprint 1.
+- `git diff --check`: passed.
+
+Sprint 1 status:
+- Complete for row-level Sprint 1 claimability.
+- Phase 9 remains active and incomplete while later blocker sentinels remain.
+- Existing Sprint 1 evidence proves keyboard command dispatch, adapter-owned anchor translation by `record_id` and `field_key`, live workbook shortcut behavior without module switching, and shared grid keyboard anchors across representative workbook grid surfaces.
 
 Risks:
 - Treating RDG or vendor selection state as the authoritative focus anchor.

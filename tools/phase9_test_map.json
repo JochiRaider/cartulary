@@ -5,20 +5,21 @@
   "ledger": {
     "title": "Phase 9 Coverage Ledger",
     "notes": [
-      "Sprint 0 activates Phase 9 as a selectable harness phase using explicit blocker sentinels only.",
+      "Sprint 0 activates Phase 9 as a selectable harness phase using explicit blocker sentinels; Sprint 1 replaces keyboard dispatch, grid-anchor, and keyboard browser rows with direct evidence.",
       "Every authoritative Phase 9 row has exactly one declared execution dependency from the approved evidence layers: backend_unit, backend_store, backend_integration, frontend_unit, or browser_functional.",
-      "All Sprint 0 sentinel tests intentionally fail when selected and must not be treated as implemented behavior.",
+      "Sprint 1 row-level evidence can be green while aggregate Phase 9 targets remain red from later-row blocker sentinels; that status does not complete broader Phase 9.",
+      "Remaining Sprint 0 sentinel tests intentionally fail when selected and must not be treated as implemented behavior.",
       "Optional standardized Findings, Investigative Queries, and Forensic Keywords rows remain blocker sentinels until later work records direct coverage for exposed surfaces or an owner-cited N/A interpretation."
     ],
     "authoritative_execution": [
       "`backend-unit` selects Phase 9 blocker sentinels for pure backend clipboard, timestamp, direct-reference, and registry rows until real implementation evidence replaces them.",
       "`backend-store` selects Phase 9 blocker sentinels for Notes, Indicators, Parties, Assessments, Tasks and Decisions, coordination, optional standardized surfaces, and manual relationship collection rows until real implementation evidence replaces them.",
       "`backend-integration` selects Phase 9 blocker sentinels for clipboard persistence, workbook projection, and party-link helper rows until real implementation evidence replaces them.",
-      "`frontend-unit` selects Phase 9 blocker sentinels for keyboard command and grid-anchor rows until real implementation evidence replaces them.",
-      "`browser-e2e-webserver-backed` selects Phase 9 blocker sentinels for browser-functional workbook workflows until real implementation evidence replaces them."
+      "`frontend-unit` selects direct Sprint 1 evidence for keyboard command and grid-anchor rows while later frontend Phase 9 rows remain blocker sentinels until real implementation evidence replaces them.",
+      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard and shared-grid browser evidence while later browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
     ],
     "support_execution_extras": [
-      "Phase 4 workbook generic, assessment, Party, Indicator, and coordination smoke evidence remains support-only substrate and cannot claim Phase 9 completion.",
+      "Phase 4 workbook generic, assessment, Party, Indicator, and coordination smoke evidence remains support-only substrate and cannot claim Phase 9 completion or satisfy Phase 9 row ownership by itself.",
       "Phase 6 grid, collaboration, pending-queue, and conflict marker evidence remains support-only substrate and cannot claim Phase 9 keyboard, clipboard, or shared-grid completion.",
       "Phase 8 query, saved-view, grouping, sorting, filtering, and startup evidence remains support-only substrate and cannot claim Phase 9 workbook behavior.",
       "Support-only carryover files are listed in forbidden_id_files so they cannot accidentally claim Phase 9 identifiers."
@@ -109,12 +110,15 @@
       "id": "U-9-01",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 U-9-01 Sprint 0 blocker sentinel",
+      "file": "apps/web/src/workbookKeyboard.test.ts",
+      "titles": [
+        "Phase 9 U-9-01 maps required workbook keys without hidden paste macro behavior",
+        "Phase 9 U-9-01 fails closed when optional shortcut actions are unavailable"
+      ],
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "frontend_unit_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for the keyboard command contract; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing keyboard behavior is later Phase 9 work."
+      "evidence_layer": "frontend_unit",
+      "claim": "Keyboard command mapping covers Arrow keys, Enter, Shift+Enter, Tab, Ctrl+V, Ctrl+K, Space, Alt+H, and Esc without hidden paste macro behavior.",
+      "out_of_scope": "Ctrl+V is classified as paste intent only; Sprint 2 owns paste and bulk-edit semantics."
     },
     {
       "id": "U-9-02",
@@ -288,12 +292,17 @@
       "id": "U-9-GRID-01",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 U-9-GRID-01 Sprint 0 blocker sentinel",
+      "file": "apps/web/src/GridAdapter.phase9.anchor.test.ts",
+      "titles": [
+        "Phase 9 U-9-GRID-01 resolves vendor coordinates to stable record_id and field_key anchors",
+        "Phase 9 U-9-GRID-01 clears invalid row, field, group row, and recordless draft targets",
+        "Phase 9 U-9-GRID-01 resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors",
+        "Phase 9 U-9-GRID-01 keeps vendor selection separate until translated by the adapter contract"
+      ],
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "frontend_unit_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for Cartulary focus-anchor keyboard navigation; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing grid anchor keyboard behavior is later Phase 9 work."
+      "evidence_layer": "frontend_unit",
+      "claim": "The grid adapter translates vendor row, column, selection, and keyboard navigation coordinates into stable Cartulary anchors by record_id and field_key, clears invalid or presentation-only targets, and keeps vendor selection separate until translated through the adapter contract.",
+      "out_of_scope": "Sorted or filtered paste anchor translation remains owned by I-9-GRID-01 in Sprint 2."
     }
   ],
   "integration": [
@@ -356,12 +365,12 @@
       "id": "E-9-01",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase9.sentinel.spec.ts",
-      "title": "Phase 9 E-9-01 Sprint 0 blocker sentinel",
+      "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+      "title": "Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without module switching",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser_functional_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for browser keyboard shortcuts; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing browser keyboard workflow behavior is later Phase 9 work."
+      "evidence_layer": "browser_functional",
+      "claim": "Required Sprint 1 keyboard shortcuts operate on the live Timeline workbook grid without route or module switching: Arrow keys, Enter, Shift+Enter, Tab, Ctrl+V paste intent, Ctrl+K same-surface quick-link or resolve, Space same-surface linked-evidence preview state, Alt+H row history, and Esc inspector or history close.",
+      "out_of_scope": "Ctrl+V remains paste-intent only and does not claim Sprint 2 paste behavior."
     },
     {
       "id": "E-9-02",
@@ -444,12 +453,12 @@
       "id": "E-9-GRID-01",
       "coverage": "authoritative",
       "runner": "playwright",
-      "file": "apps/web/e2e/phase9.sentinel.spec.ts",
-      "title": "Phase 9 E-9-GRID-01 Sprint 0 blocker sentinel",
+      "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+      "title": "Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbook cells",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser_functional_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for shared grid semantics across required system views; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing shared grid browser semantics is later Phase 9 work."
+      "evidence_layer": "browser_functional",
+      "claim": "Shared grid keyboard anchor behavior remains stable across Timeline cells, renderer-family surfaces, the Assessments system view, and the required Task Requests generic system view using stable record_id and field_key anchors.",
+      "out_of_scope": "Later Phase 9 paste, bulk-edit, presence, save-state, conflict-marker, and optional standardized surface behavior remain blocked by their own browser-functional sentinels."
     }
   ]
 }

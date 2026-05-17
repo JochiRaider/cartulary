@@ -13,14 +13,21 @@ import {
 
 export {
   assertGridRows,
+  buildGridPresentationRows,
   type GridActionsColumn,
+  type GridCellAnchor,
+  type GridCellSelection,
   type GridColumn,
+  type GridNavigationIntent,
+  type GridNavigationKey,
   type GridRow,
   type GridSortDirection,
   type GridSortEntry,
   type GridTableProps,
   type GridViewportProps,
+  navigateGridCellAnchor,
   reconcileRecordRows,
+  resolveGridCellAnchor,
 } from "./core";
 
 export const gridAdapterVendor = "semantic-test-grid";
