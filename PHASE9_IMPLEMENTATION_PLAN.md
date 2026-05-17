@@ -15,11 +15,12 @@ Authority model:
 - Generated files, generated ledgers, generated schedules, visual goldens, support-only tests, retained run artifacts, and previous phase plans are not behavior authorities.
 - `docs/domain.md` is a vocabulary and concept reference for terminology-sensitive work. It does not replace the owner specs.
 
-Current repo status confirmed while creating this plan:
-- `tools/phase_registry.json` currently stops at Phase 8.
-- `tools/phase9_test_map.json` does not exist yet.
-- `docs/testing/phase9_coverage_ledger.md` does not exist yet.
-- No direct Phase 9 behavior is claimed by this document.
+Current repo status after Sprint 0:
+- `tools/phase_registry.json` includes Phase 9 as `active`.
+- `tools/phase9_test_map.json` exists and represents every authoritative Phase 9 row exactly once.
+- `docs/testing/phase9_coverage_ledger.md` exists and is generated from the Phase 9 manifest.
+- Phase 9 is selectable only through explicit blocker sentinels. These sentinels intentionally fail when executed and are not behavior completion evidence.
+- No direct Phase 9 product behavior is claimed by this document or by Sprint 0.
 
 ## Phase Objective
 
@@ -79,7 +80,7 @@ Carried-forward compatibility boundaries:
 
 | Done | Sprint | Primary validation | Blockers | Follow-up notes |
 | --- | --- | --- | --- | --- |
-| [ ] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` | TODO: record initial selectable-row blockers. | Add manifest, registry entry, ledgers, schedules, and placeholders or sentinels only. |
+| [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` | All authoritative Phase 9 rows are represented by intentional failing Sprint 0 blocker sentinels until replaced by real evidence. | Manifest, registry entry, generated ledger, generated schedule updates, and support-only carryover guards are in place. |
 | [ ] | 1. Keyboard and grid anchors | `make frontend-unit`, `make phase-slice PHASE=phase9` | TODO: identify exact keyboard adapter gaps. | Cover keyboard command mapping and Cartulary focus anchors. |
 | [ ] | 2. Clipboard and bulk paste | `make backend-unit`, `make backend-integration`, `make frontend-unit` | TODO: inspect tabular ingest and paste mutation support. | Cover multi-cell paste, fill-down, tags, and sorted/filtered anchoring. |
 | [ ] | 3. Notes and Indicators | `make backend-store`, `make backend-integration` | TODO: inspect current Notes and Indicators create/query gaps. | Keep Notes artifact-backed and Indicators canonical. |
@@ -202,7 +203,12 @@ Files or areas to inspect:
 - `scripts/render-phase-ledgers.mjs`
 - `scripts/render-execution-topology-artifacts.mjs`
 - `scripts/check-phase-test-names.mjs`
-- TODO: exact placeholder or sentinel test files by layer.
+- Sprint 0 sentinel files by layer:
+  - `internal/modules/workbook/phase9_sprint0_sentinel_test.go`
+  - `internal/modules/entities/phase9_sprint0_sentinel_test.go`
+  - `internal/modules/assessments/phase9_sprint0_sentinel_test.go`
+  - `apps/web/src/WorkbookShell.phase9.sentinel.test.tsx`
+  - `apps/web/e2e/phase9.sentinel.spec.ts`
 
 Test-first sequence:
 1. Create `tools/phase9_test_map.json` with every authoritative Phase 9 row and exactly one authoritative execution dependency per row.
@@ -235,8 +241,44 @@ Deliverables:
 - `tools/phase9_test_map.json`
 - Updated `tools/phase_registry.json`
 - Generated `docs/testing/phase9_coverage_ledger.md`
-- Generated schedule updates if selected by the manifest.
-- TODO: list exact placeholder or sentinel tests created for Phase 9.
+- Generated schedule updates:
+  - `tools/scheduler_manifest.json`
+  - `tools/execution_topology_render_index.json`
+- Intentional blocker-sentinel tests:
+  - `internal/modules/workbook/phase9_sprint0_sentinel_test.go` covers `U-9-02`, `U-9-03`, `U-9-07`, `U-9-08`, `U-9-09`, `U-9-10`, `U-9-11`, `U-9-12`, `U-9-13`, `I-9-01`, `I-9-02`, and `I-9-03`.
+  - `internal/modules/entities/phase9_sprint0_sentinel_test.go` covers `U-9-04` and `U-9-05`.
+  - `internal/modules/assessments/phase9_sprint0_sentinel_test.go` covers `U-9-06`.
+  - `apps/web/src/WorkbookShell.phase9.sentinel.test.tsx` covers `U-9-01`, `U-9-GRID-01`, and `I-9-GRID-01`.
+  - `apps/web/e2e/phase9.sentinel.spec.ts` covers `E-9-01` through `E-9-08` and `E-9-GRID-01`.
+
+Sprint 0 validation record:
+- `make phase-map-check`: initially failed because the new active Phase 9 ledger was missing.
+  - Artifact root: `.cartulary/test-results/20260517T024138Z-p1619183`
+  - Failure class: `harness`
+  - Failure reason: `unknown_failure`
+  - Message: `active phase9 ledger missing: docs/testing/phase9_coverage_ledger.md`
+  - Ownership: Sprint 0-owned ordering issue.
+  - Corrective action: generated the ledger through `make phase-ledgers`.
+- `make phase-map-check`: passed after ledger generation.
+  - Artifact root: `.cartulary/test-results/20260517T024152Z-p1619835`
+- `make explain-phase PHASE=phase9`: passed and discovered Phase 9 with 27 authoritative rows.
+- `make phase-ledgers`: passed.
+  - Artifact root: `.cartulary/test-results/20260517T024201Z-p1620338`
+- `make phase-ledger-drift`: passed.
+  - Artifact root: `.cartulary/test-results/20260517T024204Z-p1620547`
+- `make phase-schedules`: passed.
+  - Artifact root: `.cartulary/test-results/20260517T024208Z-p1620825`
+- `make phase-schedule-drift`: passed.
+  - Artifact root: `.cartulary/test-results/20260517T024244Z-p1621838`
+- `make phase-test-name-check`: passed.
+  - Artifact root: `.cartulary/test-results/20260517T024247Z-p1622080`
+- `make target-plan-json`: passed and emitted coherent Phase 9 target-plan rows.
+- `git diff --check`: passed.
+
+Sprint 0 status:
+- Complete for harness setup.
+- Phase 9 remains `active` because public wrappers can select coherent Phase 9 rows.
+- Remaining blocker sentinels intentionally prevent Phase 9 completion claims until later sprints replace them with direct behavior evidence.
 
 Risks:
 - Prematurely marking Phase 9 active without selectable rows.
@@ -248,6 +290,7 @@ Exit criteria:
 - Phase 9 is discoverable through `make explain-phase PHASE=phase9`.
 - Manifest and ledger drift checks pass.
 - All placeholder or sentinel rows are visible, intentional, and not described as behavior completion.
+- Phase 9 is active but incomplete while any Sprint 0 blocker sentinel remains.
 
 ## Sprint 1. Keyboard Contract and Grid Anchors
 
