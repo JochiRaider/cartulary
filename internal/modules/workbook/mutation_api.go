@@ -418,11 +418,10 @@ func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMe
 		if err := json.Unmarshal(value, &raw); err != nil {
 			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(raw))
-		if err != nil {
+		utc, ok := fieldnorm.NormalizeTimestampInstant(raw)
+		if !ok {
 			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		utc := parsed.UTC()
 		return ValueChange{Kind: "timestamp", Timestamp: &utc}, utc.Format(time.RFC3339Nano), nil
 	}
 	if field.DirectReferenceContractID != nil {

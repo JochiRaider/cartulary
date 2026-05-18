@@ -815,15 +815,11 @@ func normalizeScalar(kind FieldKind, raw json.RawMessage, allowNull bool) (any, 
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, &ValidationError{ReasonCode: "invalid_filter_operand"}
 		}
-		value = strings.TrimSpace(value)
-		if value == "" {
+		normalized, ok := fieldnorm.NormalizeTimestampInstantText(value)
+		if !ok {
 			return nil, &ValidationError{ReasonCode: "invalid_filter_operand"}
 		}
-		parsed, err := time.Parse(time.RFC3339, value)
-		if err != nil {
-			return nil, &ValidationError{ReasonCode: "invalid_filter_operand"}
-		}
-		return parsed.UTC().Format(time.RFC3339Nano), nil
+		return normalized, nil
 	case FieldKindFullText:
 		return nil, &ValidationError{ReasonCode: "operator_not_allowed"}
 	default:

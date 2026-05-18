@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase9",
-  "note": "Phase 9 ownership manifest for keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces when exposed, and remaining analyst-work workbook surfaces. Sprint 1 and Sprint 2 direct rows declare claim_status=implemented; remaining Sprint 0 blocker sentinels declare claim_status=blocked and keep the aggregate Phase 9 claim incomplete.",
+  "note": "Phase 9 ownership manifest for keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces when exposed, and remaining analyst-work workbook surfaces. Sprint 1 through Sprint 5 direct rows declare claim_status=implemented where complete; remaining Sprint 0 blocker sentinels declare claim_status=blocked and keep the aggregate Phase 9 claim incomplete.",
   "ledger": {
     "title": "Phase 9 Coverage Ledger",
     "notes": [
@@ -15,11 +15,11 @@
       "Optional standardized Findings, Investigative Queries, and Forensic Keywords rows remain blocker sentinels until later work records direct coverage for exposed surfaces or an owner-cited N/A interpretation."
     ],
     "authoritative_execution": [
-      "`backend-unit` selects direct Sprint 2 shared tabular-ingest planning evidence for clipboard paste, while timestamp and registry rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, and blocker sentinels for Assessments, Tasks and Decisions, coordination, optional standardized surfaces, and manual relationship collection rows until real implementation evidence replaces them.",
-      "`backend-integration` selects direct Sprint 2 clipboard persistence, entity-origin paste, and bulk-mutation evidence while workbook projection and party-link helper rows remain blocker sentinels until real implementation evidence replaces them.",
+      "`backend-unit` selects direct Sprint 2 shared tabular-ingest planning evidence for clipboard paste and direct Sprint 5 timestamp_instant_v1 evidence, while registry rows remain blocker sentinels until real implementation evidence replaces them.",
+      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, direct Sprint 5 Assessment evidence, and blocker sentinels for Tasks and Decisions, coordination, optional standardized surfaces, and non-assessment manual relationship collection rows until real implementation evidence replaces them.",
+      "`backend-integration` selects direct Sprint 2 clipboard persistence, entity-origin paste, bulk-mutation evidence, and Sprint 5 Assessment projection-backed query evidence while later required surfaces remain covered by their own rows or blocker sentinels until real implementation evidence replaces them.",
       "`frontend-unit` selects direct Sprint 1 keyboard command/grid-anchor evidence plus Sprint 2 rendered paste-dispatch anchor evidence while later frontend Phase 9 rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, and shared-grid browser evidence while later browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
+      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, Sprint 5 assessment workflow evidence, and shared-grid browser evidence while later browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
     ],
     "support_execution_extras": [
       "Phase 4 workbook generic, assessment, Party, Indicator, and coordination smoke evidence remains support-only substrate and cannot claim Phase 9 completion or satisfy Phase 9 row ownership by itself.",
@@ -211,15 +211,15 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/assessments",
-      "file": "internal/modules/assessments/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_U_9_06",
+      "file": "internal/modules/assessments/phase9_assessment_contract_test.go",
+      "symbol": "TestPhase9_AssessmentsAppendOnlyStatesAndBands_U_9_06",
       "execution_dependency": "backend_store",
-      "evidence_layer": "backend_store_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for append-only compromise assessments; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing assessment behavior is later Phase 9 work.",
-      "execution_family": "backend-store-phase9-assessments-blockers",
-      "execution_label": "backend-store phase9 assessments blocker sentinels",
-      "claim_status": "blocked"
+      "evidence_layer": "backend_store",
+      "claim": "Compromise Assessments append incident-scoped host and identity judgment records, use only the closed assessment_state vocabulary with disproven and cleared distinct, reject operational-response state values and in-place semantic assessment PATCH attempts, require the minimum create-time semantic set after normalization, default omitted assessed_at/assessor/confidence_score to commit timestamp/authenticated actor/NULL, derive deterministic confidence bands including unset for NULL confidence, expose separate assessment_state and confidence_band filters, and sort confidence_band in canonical unset, low, medium, high order.",
+      "out_of_scope": "Task Request, Decision, coordination, optional standardized surfaces, and correction workflows beyond append-only assessment creation remain later Phase 9 work.",
+      "execution_family": "backend-store-phase9-assessments",
+      "execution_label": "backend-store phase9 assessments evidence",
+      "claim_status": "implemented"
     },
     {
       "id": "U-9-07",
@@ -271,15 +271,15 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_U_9_10",
+      "file": "internal/modules/workbook/phase9_timestamp_contract_test.go",
+      "symbol": "TestPhase9_TimestampInstantPatchDecoder_U_9_10",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "backend_unit_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for timestamp_instant_v1 behavior; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing timestamp validation and client-local draft preservation is later Phase 9 work.",
-      "execution_family": "backend-unit-phase9-blockers",
-      "execution_label": "backend-unit phase9 blocker sentinels",
-      "claim_status": "blocked"
+      "evidence_layer": "backend_unit",
+      "claim": "timestamp_instant_v1 accepts RFC 3339 JSON strings with Z or numeric offsets, normalizes offset-equivalent values to one UTC instant for equality and idempotency hashing, clears only timestamp fields declared clearable=true, rejects explicit null for non-clearable fields, and fails closed for empty strings, whitespace-padded strings, timezone-less strings, date-only strings, numbers, booleans, arrays, and objects in workbook mutation and timestamp query operand decoding.",
+      "out_of_scope": "Visible invalid timestamp draft preservation is claimed by E-9-05 rather than this backend-unit row.",
+      "execution_family": "backend-unit-phase9-timestamps",
+      "execution_label": "backend-unit phase9 timestamp evidence",
+      "claim_status": "implemented"
     },
     {
       "id": "U-9-11",
@@ -303,16 +303,16 @@
       "id": "U-9-12",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_U_9_12",
+      "package": "./internal/modules/assessments",
+      "file": "internal/modules/assessments/phase9_assessment_contract_test.go",
+      "symbol": "TestPhase9_AssessmentSupportRefsRejectClientConfidence_U_9_12",
       "execution_dependency": "backend_store",
-      "evidence_layer": "backend_store_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for manual relationship collection confidence behavior; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing manual relationship collection behavior is later Phase 9 work.",
-      "execution_family": "backend-store-phase9-workbook-blockers",
-      "execution_label": "backend-store phase9 workbook blocker sentinels",
-      "claim_status": "blocked"
+      "evidence_layer": "backend_store",
+      "claim": "The Assessment support_refs collection-action payload rejects client-supplied confidence and manual supported_by links created or preserved through assessment.support_refs persist provenance='manual' with authoritative confidence=NULL.",
+      "out_of_scope": "Task Request, Decision, coordination, and other manual relationship collection confidence surfaces remain later Phase 9 work.",
+      "execution_family": "backend-store-phase9-assessments",
+      "execution_label": "backend-store phase9 assessment support refs evidence",
+      "claim_status": "implemented"
     },
     {
       "id": "U-9-13",
@@ -373,13 +373,16 @@
       "runner": "go_test",
       "package": "./internal/modules/workbook",
       "file": "internal/modules/workbook/phase9_notes_indicators_test.go",
-      "symbol": "TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02",
+      "symbols": [
+        "TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02",
+        "TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02"
+      ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
-      "claim": "The Sprint 3 Notes and Indicators portions of required-surface persistence query through workbook projections: Notes through artifact_grid_projection filtered to artifact_type='note' and Indicators through indicator_grid_projection behind cartulary.view.indicators.v1.",
-      "out_of_scope": "Later required surfaces beyond Notes and Indicators remain covered by their own Phase 9 rows and blocker sentinels until implemented.",
-      "execution_family": "backend-integration-phase9-notes-indicators",
-      "execution_label": "backend-integration phase9 notes and indicators evidence",
+      "claim": "The Sprint 3 Notes and Indicators portions and Sprint 5 Assessment portion of required-surface persistence query through workbook projections: Notes through artifact_grid_projection filtered to artifact_type='note', Indicators through indicator_grid_projection behind cartulary.view.indicators.v1, and Assessments through assessment_grid_projection including projected confidence band and support-link count.",
+      "out_of_scope": "Later required surfaces beyond Notes, Indicators, and the Sprint 5 Assessment portion remain covered by their own Phase 9 rows and blocker sentinels until implemented.",
+      "execution_family": "backend-integration-phase9-required-surfaces",
+      "execution_label": "backend-integration phase9 required-surface projection evidence",
       "claim_status": "implemented"
     },
     {
@@ -474,12 +477,12 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
-      "title": "Phase 9 E-9-05 Sprint 0 blocker sentinel",
+      "title": "Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser_functional_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for assessment history and filters browser workflow; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing assessment browser workflow behavior is later Phase 9 work.",
-      "claim_status": "blocked"
+      "evidence_layer": "browser_functional",
+      "claim": "The browser workbook assessment workflow appends visible assessment history rows across unknown, suspected, confirmed, disproven, and cleared states; persists band-first confidence choices as unset, low, medium, and high; displays support-link count; filters assessment_state and confidence_band separately; and keeps an invalid assessed_at timestamp draft client-local without creating a persisted assessment row.",
+      "out_of_scope": "Task Request, Decision, coordination, optional standardized surface, import, and reporting browser workflows remain later Phase 9 work.",
+      "claim_status": "implemented"
     },
     {
       "id": "E-9-06",

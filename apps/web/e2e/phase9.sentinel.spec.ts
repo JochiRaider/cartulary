@@ -1,3 +1,4 @@
+import { applyFilterChip, removeFilterChip } from "@cartulary/test-utils";
 import {
   conflictMarkerTestId,
   gridScrollportSelector,
@@ -16,9 +17,13 @@ import {
   uniqueTxn,
 } from "./helpers";
 import {
+  assessmentsViewSchemaId,
   commLogViewSchemaId,
+  createAssessmentViaUI,
   evidenceViewSchemaId,
   editGenericCell,
+  expectAssessmentGridOrder,
+  hostsViewSchemaId,
   indicatorsViewSchemaId,
   notesViewSchemaId,
   partiesViewSchemaId,
@@ -760,8 +765,178 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await addAndRemoveCommPartyRef("comm_log.attendee_party_ids");
 });
 
-test("Phase 9 E-9-05 Sprint 0 blocker sentinel", async () => {
-  expect(phase9Sprint0SentinelMessage).toContain("blocker sentinel");
+test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E905"),
+    "Phase 9 E-9-05 assessment workflow",
+  );
+  const subjectA = await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e905-host-a"),
+    "host.display_name": "Phase 9 Assessment Host A",
+    "host.hostname": "phase9-assessment-a.example.test",
+  });
+  const subjectB = await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e905-host-b"),
+    "host.display_name": "Phase 9 Assessment Host B",
+    "host.hostname": "phase9-assessment-b.example.test",
+  });
+  const support = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e905-support"),
+    "timeline.summary": "Phase 9 assessment support event",
+  });
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      assessmentsViewSchemaId,
+    )}`,
+  );
+  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId("assessment-create-panel")).toBeVisible();
+  await expect(page.getByTestId("assessment-create-subject")).toHaveValue(
+    subjectA.record_id as string,
+  );
+
+  const invalidTimestamp = "2026-04-24 12:00:00";
+  await page.getByTestId("assessment-create-state").selectOption("confirmed");
+  await page
+    .getByTestId("assessment-create-confidence-band")
+    .selectOption("high");
+  await page
+    .getByTestId("assessment-create-rationale")
+    .fill("Invalid timestamp must remain a draft.");
+  await page.getByTestId("assessment-create-assessed-at").fill(invalidTimestamp);
+  const failedCreate = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/views/${assessmentsViewSchemaId}/rows`),
+  );
+  await page.getByTestId("assessment-create-submit").click();
+  expect((await failedCreate).status()).toBe(400);
+  await expect(page.getByTestId("assessment-create-message")).toContainText(
+    "invalid_mutation_payload",
+  );
+  await expect(page.getByTestId("assessment-create-assessed-at")).toHaveValue(
+    invalidTimestamp,
+  );
+  expect(
+    await queryViewRows(page, incidentId, assessmentsViewSchemaId),
+  ).toHaveLength(0);
+
+  const createdUnknown = await createAssessmentViaUI(page, {
+    assessedAt: "2026-04-24T10:00:00Z",
+    confidenceBand: "unset",
+    rationale: "Phase 9 unknown rationale.",
+    state: "unknown",
+    supportRecordIds: [],
+  });
+  const createdSuspected = await createAssessmentViaUI(page, {
+    assessedAt: "2026-04-24T11:00:00Z",
+    confidenceBand: "low",
+    rationale: "Phase 9 suspected rationale.",
+    state: "suspected",
+    supportRecordIds: [],
+  });
+  const createdConfirmed = await createAssessmentViaUI(page, {
+    assessedAt: "2026-04-24T12:00:00Z",
+    confidenceBand: "medium",
+    rationale: "Phase 9 confirmed rationale.",
+    state: "confirmed",
+    supportRecordIds: [support.record_id as string],
+  });
+
+  await page
+    .getByTestId("assessment-create-subject")
+    .selectOption(subjectB.record_id as string);
+  const createdDisproven = await createAssessmentViaUI(page, {
+    assessedAt: "2026-04-24T13:00:00Z",
+    confidenceBand: "medium",
+    rationale: "Phase 9 disproven rationale.",
+    state: "disproven",
+    supportRecordIds: [],
+  });
+  const createdCleared = await createAssessmentViaUI(page, {
+    assessedAt: "2026-04-24T14:00:00Z",
+    confidenceBand: "high",
+    rationale: "Phase 9 cleared rationale.",
+    state: "cleared",
+    supportRecordIds: [],
+  });
+
+  await expectAssessmentGridOrder(page, [
+    createdCleared.record_id,
+    createdDisproven.record_id,
+    createdConfirmed.record_id,
+    createdSuspected.record_id,
+    createdUnknown.record_id,
+  ]);
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdDisproven.record_id, "assessment.subject_ref"),
+    ),
+  ).toHaveText(subjectB.record_id as string);
+  await expect(
+    page.getByTestId(
+      rowCellTestId(
+        createdConfirmed.record_id,
+        "assessment.supporting_link_count",
+      ),
+    ),
+  ).toHaveText("1");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdUnknown.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("unset");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdSuspected.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("low");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdConfirmed.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("medium");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdCleared.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("high");
+
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+    "disproven",
+  );
+  await expectAssessmentGridOrder(page, [createdDisproven.record_id]);
+  await removeFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+  );
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+    "cleared",
+  );
+  await expectAssessmentGridOrder(page, [createdCleared.record_id]);
+  await removeFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+  );
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.confidence_band",
+    "high",
+  );
+  await expectAssessmentGridOrder(page, [createdCleared.record_id]);
 });
 
 test("Phase 9 E-9-06 Sprint 0 blocker sentinel", async () => {

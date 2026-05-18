@@ -82,10 +82,11 @@ const (
 )
 
 type genericField struct {
-	key     string
-	expr    string
-	kind    fieldKind
-	ordered bool
+	key      string
+	expr     string
+	sortExpr string
+	kind     fieldKind
+	ordered  bool
 }
 
 type genericSurface struct {
@@ -176,7 +177,7 @@ func buildGenericQuerySQL(incidentID uuid.UUID, definition genericSurface, query
 		if !ok {
 			return "", nil, fmt.Errorf("sort field %q not mapped for %s", entry.FieldKey, definition.viewSchemaID)
 		}
-		builder.WriteString(field.expr)
+		builder.WriteString(field.orderExpr())
 		if entry.Direction == "desc" {
 			builder.WriteString(" DESC")
 		} else {
@@ -185,6 +186,13 @@ func buildGenericQuerySQL(incidentID uuid.UUID, definition genericSurface, query
 		builder.WriteString(" NULLS LAST")
 	}
 	return builder.String(), args, nil
+}
+
+func (f genericField) orderExpr() string {
+	if f.sortExpr != "" {
+		return f.sortExpr
+	}
+	return f.expr
 }
 
 func appendGenericFilter(builder *strings.Builder, args *[]any, definition genericSurface, filter viewschema.Filter) error {
@@ -484,7 +492,7 @@ LEFT JOIN LATERAL (
 			{key: "assessment.subject_ref", expr: "a.subject_ref", kind: fieldKindText},
 			{key: "assessment.subject_type", expr: "a.subject_type", kind: fieldKindText},
 			{key: "assessment.assessment_state", expr: "a.assessment_state", kind: fieldKindText},
-			{key: "assessment.confidence_band", expr: "a.confidence_band", kind: fieldKindText},
+			{key: "assessment.confidence_band", expr: "a.confidence_band", sortExpr: "CASE a.confidence_band WHEN 'unset' THEN 0 WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 ELSE 4 END", kind: fieldKindText},
 			{key: "assessment.confidence_score", expr: "a.confidence_score", kind: fieldKindNumber},
 			{key: "assessment.rationale", expr: "a.rationale", kind: fieldKindText},
 			{key: "assessment.assessor", expr: "a.assessor", kind: fieldKindText},

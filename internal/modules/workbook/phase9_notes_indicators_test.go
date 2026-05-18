@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -127,6 +128,59 @@ func TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02(t *test
 		t.Fatalf("query indicators through workbook store: %v", err)
 	}
 	requireQueriedRow(t, indicatorRows, indicator.RecordID)
+}
+
+func TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
+	harness := phase4storetest.StartStore(t, "phase9-i-9-02-assessments")
+	workbookStore := workbook.NewStore(harness.DB)
+	assessmentStore := assessments.NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902-assessments@example.test", "I902 Assessments", "I902AssessmentsPass1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-assessment-incident", "IR-I902-ASSESS", "Phase 9 I-9-02 assessments")
+
+	hostID := uuid.New()
+	supportID := uuid.New()
+	phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 projection assessment host", "phase9-projection-assessment", "", "")
+	phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
+
+	confidenceScore := 85
+	request := assessments.CreateRequest{
+		ClientTxnID:     "txn-phase9-i-9-02-assessment",
+		SubjectRef:      &hostID,
+		SubjectType:     "host",
+		AssessmentState: "confirmed",
+		ConfidenceScore: &confidenceScore,
+		Rationale:       "Projection-backed assessment row.",
+		SupportRefs:     []uuid.UUID{supportID},
+	}
+	created, err := assessmentStore.CreateAssessmentRow(
+		context.Background(),
+		actor,
+		incident.ID,
+		request,
+		assessments.CreateRequestHash(request),
+		"req-phase9-i-9-02-assessment",
+		time.Date(2026, 5, 17, 16, 10, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("create projection assessment: %v", err)
+	}
+
+	query := mustQueryMeta(t, workbook.AssessmentsViewSchemaID)
+	query.Filters = []viewschema.Filter{
+		{FieldKey: "assessment.confidence_band", Op: "eq", Arg: map[string]any{"value": "high"}},
+	}
+	rows, err := workbookStore.QueryRows(context.Background(), incident.ID, workbook.AssessmentsViewSchemaID, query)
+	if err != nil {
+		t.Fatalf("query assessments through workbook projection: %v", err)
+	}
+	row := requireQueriedRow(t, rows, created.RecordID)
+	cells := row["cells"].(map[string]any)
+	if got := cells["assessment.confidence_band"].(map[string]any)["value"]; got != "high" {
+		t.Fatalf("expected projected confidence band high, got %#v", got)
+	}
+	if got := cells["assessment.supporting_link_count"].(map[string]any)["value"]; got != int64(1) && got != int32(1) && got != 1 {
+		t.Fatalf("expected projected supporting link count, got %#v", got)
+	}
 }
 
 func textChange(value string) workbook.ValueChange {

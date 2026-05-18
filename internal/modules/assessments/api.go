@@ -283,11 +283,7 @@ func decodeTimestamp(value json.RawMessage) (time.Time, bool) {
 	if err := json.Unmarshal(value, &raw); err != nil {
 		return time.Time{}, false
 	}
-	parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(raw))
-	if err != nil {
-		return time.Time{}, false
-	}
-	return parsed.UTC(), true
+	return fieldnorm.NormalizeTimestampInstant(raw)
 }
 
 func decodeSupportActionPayload(value json.RawMessage) ([]uuid.UUID, bool) {
