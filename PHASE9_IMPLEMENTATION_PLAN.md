@@ -15,13 +15,13 @@ Authority model:
 - Generated files, generated ledgers, generated schedules, visual goldens, support-only tests, retained run artifacts, and previous phase plans are not behavior authorities.
 - `docs/domain.md` is a vocabulary and concept reference for terminology-sensitive work. It does not replace the owner specs.
 
-Current repo status after Sprint 4 audit:
+Current repo status after Sprint 5 audit:
 - `tools/phase_registry.json` includes Phase 9 as `active`.
 - `tools/phase9_test_map.json` exists and represents every authoritative Phase 9 row exactly once.
 - `docs/testing/phase9_coverage_ledger.md` exists and is generated from the Phase 9 manifest.
-- Direct Sprint 1 through Sprint 4 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, Host/Identity entity-origin paste, Notes, Indicators, Parties, and party text-plus-link flows.
+- Direct Sprint 1 through Sprint 5 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, Host/Identity entity-origin paste, Notes, Indicators, Parties, party text-plus-link flows, append-only Compromise Assessments, the assessment portion of manual relationship confidence handling, timestamp scalar validation, assessment projection-backed reads, and browser-visible invalid timestamp draft handling where implemented.
 - Remaining later-sprint blocker sentinels intentionally prevent a full Phase 9 completion claim until replaced by direct behavior evidence or owner-cited `N/A` coverage where applicable.
-- The broad `browser-e2e-webserver-backed` aggregate passed in the Sprint 4 audit. Phase 9 completion is still not claimed while later Phase 9 sprint rows remain separately owned.
+- The broad `browser-e2e-webserver-backed` aggregate passed in the Sprint 5 audit. Phase 9 completion is still not claimed while later Phase 9 sprint rows remain separately owned.
 
 ## Phase Objective
 
@@ -86,7 +86,7 @@ Carried-forward compatibility boundaries:
 | [x] | 2. Clipboard and bulk paste | `make backend-unit`, `make backend-integration`, `make frontend-unit`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `make phase-ledger-drift`, `git diff --check` | No Sprint 2-owned blocker remains; full Phase 9 remains incomplete while later blocker rows remain, and broad browser aggregate status is still affected by outside-Phase-9 `E-4-04`. | Covers shared tabular-ingest planning, Timeline paste, Host/Identity entity-origin paste, fill-down, tags, conflict grouping, sorted/filtered anchoring, file-import separation, and generated-ledger traceability. |
 | [x] | 3. Notes and Indicators | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 3-owned blocker remains. This does not claim Phase 9 completion; later Phase 9 sprint rows remain separately owned. | Direct Sprint 3 evidence covers Notes as artifact-backed `note` rows, canonical Indicators with distinct observations and lifecycle history, workbook projection query, Notes linked creation, registry opening by canonical `view_schema_id`, and shared grid anchors for Notes/Indicators. |
 | [x] | 4. Parties and text-plus-link flows | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 4-owned blocker remains. Caveat: `U-9-11` is requested by older planning text as backend-unit evidence, but current direct evidence is mapped and executed as backend-store because same-incident active-target validation depends on store state. | Direct Sprint 4 evidence covers incident-scoped Parties, exact reuse by normalized `primary_email` or `external_ref`, stable-ID-only direct refs, independent text/ref clears, same-surface party actions, and row context preservation. |
-| [ ] | 5. Assessments and timestamp contract | `make backend-store`, `make backend-unit`, `make browser-e2e-webserver-backed` | TODO: inspect append-only and timestamp-local-draft gaps. | Cover assessment history and timestamp validation. |
+| [x] | 5. Assessments and timestamp contract | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 5-owned blocker remains. This does not claim Phase 9 completion; Task Request, Decision, coordination, optional standardized surface, and remaining non-assessment relationship rows remain later Phase 9 work. | Direct Sprint 5 evidence covers append-only Compromise Assessments, closed `assessment_state`, deterministic confidence bands, timestamp scalar validation and clearability, assessment support-ref confidence rejection, assessment projection reads, and browser-visible invalid timestamp draft behavior. |
 | [ ] | 6. Task Requests and Decisions | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect task/decision lifecycle implementation status. | Keep bounded lifecycle and fail-closed contradiction handling. |
 | [ ] | 7. Coordination surfaces | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect coordination artifact create/query/edit gaps. | Cover `comm_log`, `handoff`, `status_review`, and `lesson`. |
 | [ ] | 8. Optional surfaces and registry closure | `make backend-unit`, `make backend-store`, conditional browser evidence | TODO: determine whether optional standardized surfaces are exposed. | Mark optional surfaces as direct evidence or `N/A`. |
@@ -616,37 +616,47 @@ Files or areas to inspect:
 - `internal/platform/fieldnorm`
 - `apps/web/src/WorkbookShell.assessments.test.tsx`
 - `apps/web/e2e/phase4.workbook.assessments.spec.ts`
-- TODO: exact timestamp scalar parsing/validation helper.
-- TODO: exact local unsaved draft handling for invalid timestamps.
+- `internal/platform/fieldnorm/timestamp.go` for `timestamp_instant_v1` parsing and UTC normalization.
+- `apps/web/src/WorkbookShell.tsx` for assessment create drafts, band-first confidence mapping, and invalid timestamp draft preservation.
+- `apps/web/e2e/phase9.sentinel.spec.ts` for the direct `E-9-05` browser workflow.
 
-Test-first sequence:
-1. Add backend store tests for append-only assessment semantics, closed `assessment_state`, and deterministic `confidence_band`.
-2. Add backend unit tests for `timestamp_instant_v1` accepted values, invalid values, explicit JSON `null`, and clearability.
-3. Add backend store tests for `assessment.support_refs` rejecting client-supplied `confidence` and preserving authoritative `confidence=null`.
-4. Add browser tests for assessment sequences `unknown -> suspected -> confirmed -> cleared` and `unknown -> disproven`.
-5. Add frontend/browser coverage for invalid timestamp draft preservation where visible editing is implemented.
+Evidence sequence:
+1. Backend store `U-9-06` evidence proves append-only assessment rows, closed `assessment_state`, distinct `disproven` and `cleared`, rejection of operational-response state values, rejection of in-place semantic patches, minimum create-set enforcement, create defaults, deterministic `confidence_band` derivation, separate `assessment_state` and `confidence_band` filters, and canonical confidence-band sort order.
+2. Backend unit `U-9-10` evidence proves `timestamp_instant_v1` accepts only RFC 3339 JSON strings with explicit `Z` or numeric offsets, normalizes offset-equivalent instants to UTC for equality and idempotency hashing, rejects invalid shapes including empty strings and timezone-less strings, and applies explicit JSON `null` only to clearable timestamp fields.
+3. Backend store `U-9-12` evidence proves the assessment `support_refs` collection action rejects client-supplied `confidence` and persists manual `supported_by` links with `provenance='manual'` and `confidence=NULL`.
+4. Backend integration `I-9-02` evidence proves assessment rows query through `assessment_grid_projection` with projected confidence band and support-link count where Sprint 5 depends on projection-backed reads.
+5. Browser-functional `E-9-05` evidence proves visible assessment history across `unknown`, `suspected`, `confirmed`, `disproven`, and `cleared`, band-first confidence behavior, separate assessment filters, support-link count display, and invalid `assessment.assessed_at` draft preservation after authoritative save rejection.
 
-Implementation tasks:
-- Ensure assessment create commits only when the minimum semantic create set is satisfied.
-- Reject in-place semantic edits to existing assessment rows where append-only semantics require a new row.
-- Keep operational response states out of `assessment_state`.
-- Persist band-first confidence defaults through `confidence_score` and derive `confidence_band`.
-- Enforce RFC 3339 explicit-timezone validation for direct timestamp scalars.
-- Preserve invalid timestamp drafts as client-local unsaved state without rendering them as authoritative row values.
-- Reject client-supplied `confidence` in manual relationship collections.
+Completed behavior:
+- Assessment create commits only when `assessment.subject_ref`, `assessment.subject_type`, `assessment.assessment_state`, and non-empty `assessment.rationale` are present after create-time normalization.
+- Context-preseeded subject values and `assessment.support_refs` may seed the create surface, but do not satisfy the minimum semantic create set by themselves.
+- Existing assessment rows reject in-place semantic edits to append-only assessment fields and supporting-link semantics.
+- Operational response terms such as `contained`, `isolated`, `disabled`, `reset`, and `monitored` remain outside `assessment_state`.
+- Omitted `assessment.assessed_at`, `assessment.assessor`, and `assessment.confidence_score` default to commit timestamp, authenticated actor, and `NULL`.
+- `confidence_score=NULL` derives `confidence_band='unset'`; exact score bands derive `low`, `medium`, and `high` at `0..39`, `40..69`, and `70..100`; canonical ascending order is `unset`, `low`, `medium`, `high`.
+- Band-first editing persists `unset`, `low`, `medium`, and `high` as `NULL`, `25`, `55`, and `85`.
+- `assessment.assessed_at` binds to `timestamp_instant_v1`, is `clearable=false`, and rejects explicit JSON `null`.
+- Empty strings, timezone-less strings, date-only strings, and non-string JSON values fail closed for `timestamp_instant_v1`; empty string is never a timestamp clear token.
+- Invalid timestamp drafts remain client-local unsaved editor state without creating a durable row or rendering the invalid draft as an authoritative persisted value.
+- Assessment manual relationship collection actions preserve server-owned link confidence: client-supplied `confidence` is rejected and authoritative manual links keep `confidence=NULL`.
 
 Validation commands:
-- `make backend-unit`
-- `make backend-store`
-- `make backend-integration`
-- `make browser-e2e-webserver-backed`
-- `make phase-slice PHASE=phase9`
-- `make service-backed-slice PHASE=phase9`
-- `git diff --check`
+- `make backend-unit`: passed; retained root `.cartulary/test-results/20260518T215646Z-p2813166`.
+- `make backend-store`: passed; retained root `.cartulary/test-results/20260518T215700Z-p2814677`.
+- `make backend-integration`: passed; retained root `.cartulary/test-results/20260518T220224Z-p2824898`.
+- `make browser-e2e-webserver-backed`: passed; retained root `.cartulary/test-results/20260518T220755Z-p2836242`.
+- `make phase-slice PHASE=phase9`: passed; retained root `.cartulary/test-results/20260518T220907Z-p2843650`.
+- `make service-backed-slice PHASE=phase9`: passed; retained root `.cartulary/test-results/20260518T221452Z-p2856624`.
+- `git diff --check`: passed without retained harness root.
 
 Deliverables:
-- Direct authoritative evidence for `U-9-06`, `U-9-10`, the assessment portion of `U-9-12`, and `E-9-05`.
-- TODO: exact artifact root for assessment browser evidence.
+- Direct authoritative evidence for `U-9-06`, `U-9-10`, the assessment portion of `U-9-12`, applicable `I-9-02`, and `E-9-05`.
+- Targeted Sprint 5 evidence inside the Phase 9 wrapper run:
+  - Backend unit timestamp evidence: `.cartulary/test-results/20260518T220907Z-p2843650/backend-unit/backend-unit-phase9-timestamp-evidence`
+  - Backend store Assessments evidence: `.cartulary/test-results/20260518T220907Z-p2843650/backend-store/backend-store-phase9-assessments-evidence`
+  - Backend store assessment support-refs evidence: `.cartulary/test-results/20260518T220907Z-p2843650/backend-store/backend-store-phase9-assessment-support-refs-evidence`
+  - Backend integration required-surface projection evidence: `.cartulary/test-results/20260518T220907Z-p2843650/backend-integration/backend-integration-phase9-required-surface-projection-evidence`
+  - Browser Phase 9 authoritative selection: `.cartulary/test-results/20260518T220907Z-p2843650/browser-e2e-webserver-backed/browser-e2e-functional-phase9-authoritative`
 
 Risks:
 - Overwriting prior assessment history.
@@ -658,6 +668,7 @@ Exit criteria:
 - Assessment and timestamp direct evidence passes.
 - Invalid timestamp behavior is visibly client-local until corrected, discarded, or explicitly cleared where clearable.
 - Manual relationship confidence remains authoritative `null`.
+- Sprint 5 is complete for direct behavior evidence. This does not claim full Phase 9 completion.
 
 ## Sprint 6. Task Requests and Decisions
 
