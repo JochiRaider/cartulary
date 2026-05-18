@@ -84,7 +84,7 @@ Carried-forward compatibility boundaries:
 | [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` | Harness setup is complete; current blocker sentinels remain only for rows not yet replaced by later sprint evidence. | Manifest, registry entry, generated ledger, generated schedule updates, support-only carryover guards, and Sprint 0 blocker boundaries are in place. |
 | [x] | 1. Keyboard and grid anchors | `make frontend-unit`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `git diff --check` | No Sprint 1-owned blocker remains; aggregate targets still fail on later Phase 9 blocker sentinels and one outside-Phase-9 browser regression. | Direct Sprint 1 evidence now covers keyboard command mapping, Cartulary grid anchors, live workbook shortcuts, and shared grid keyboard anchor semantics. |
 | [x] | 2. Clipboard and bulk paste | `make backend-unit`, `make backend-integration`, `make frontend-unit`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `make phase-ledger-drift`, `git diff --check` | No Sprint 2-owned blocker remains; full Phase 9 remains incomplete while later blocker rows remain, and broad browser aggregate status is still affected by outside-Phase-9 `E-4-04`. | Covers shared tabular-ingest planning, Timeline paste, Host/Identity entity-origin paste, fill-down, tags, conflict grouping, sorted/filtered anchoring, file-import separation, and generated-ledger traceability. |
-| [ ] | 3. Notes and Indicators | `make backend-store`, `make backend-integration` | TODO: inspect current Notes and Indicators create/query gaps. | Keep Notes artifact-backed and Indicators canonical. |
+| [x] | 3. Notes and Indicators | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 3-owned blocker remains. This does not claim Phase 9 completion; later Phase 9 sprint rows remain separately owned. | Direct Sprint 3 evidence covers Notes as artifact-backed `note` rows, canonical Indicators with distinct observations and lifecycle history, workbook projection query, Notes linked creation, registry opening by canonical `view_schema_id`, and shared grid anchors for Notes/Indicators. |
 | [ ] | 4. Parties and text-plus-link flows | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect current party-link UI and direct-reference gaps. | Preserve text/ref independence and exact-match reuse. |
 | [ ] | 5. Assessments and timestamp contract | `make backend-store`, `make backend-unit`, `make browser-e2e-webserver-backed` | TODO: inspect append-only and timestamp-local-draft gaps. | Cover assessment history and timestamp validation. |
 | [ ] | 6. Task Requests and Decisions | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect task/decision lifecycle implementation status. | Keep bounded lifecycle and fail-closed contradiction handling. |
@@ -479,6 +479,8 @@ Objective: Complete Notes as an artifact-backed built-in sheet and Indicators as
 
 Relevant IDs: `U-9-03`, `U-9-04`, `I-9-02`, `E-9-03`, `E-9-08`, `E-9-GRID-01`; support context from `AC-068..AC-070`, `AC-112`, `AC-116..AC-122`.
 
+Completion status: complete for Sprint 3 as of the read-only audit retained on 2026-05-18. The audit found direct Phase 9 evidence for each Sprint 3 row and did not count Phase 4 smoke coverage, support-only tests, generated ledgers, generated schedules, retained run artifacts, or broad aggregate green status as behavior authority. This status does not claim Phase 9 completion.
+
 Files or areas to inspect:
 - `contracts/view-schemas/cartulary.view.notes.v1.json`
 - `contracts/view-schemas/cartulary.view.indicators.v1.json`
@@ -488,15 +490,16 @@ Files or areas to inspect:
 - `internal/platform/viewschema`
 - `apps/web/src/WorkbookShell.tsx`
 - `apps/web/e2e/phase4Helpers.ts`
-- TODO: exact Notes persistence module if separated from workbook.
-- TODO: exact Indicator lifecycle storage and route symbols.
+- Notes persistence is not separated into a Notes-only module; Notes create, linked-note create, tags, history, and projection query run through shared workbook artifact paths in `internal/modules/workbook/mutation_store.go`, `internal/modules/workbook/store.go`, and `db/migrations/00016_phase9_linked_notes_projection.sql`.
+- Indicator canonical storage, observation storage, lifecycle interval storage, and projection rollups run through `internal/modules/entities/indicator_store.go`; canonical Indicator create is routed through `internal/modules/entities/routes.go` for `cartulary.view.indicators.v1`.
 
-Test-first sequence:
-1. Add backend store tests proving Notes create/query use artifact-backed `artifact_type='note'` rows and no Notes-specific silo.
-2. Add backend store tests proving canonical indicator identity, source-bound observations, and lifecycle state remain separate.
-3. Add integration tests proving Notes and Indicators persist and query through workbook projections.
-4. Add browser tests for Notes built-in tab creation and record linking.
-5. Add registry browser evidence proving Notes remains a required built-in sheet identity.
+Completed evidence:
+1. `internal/modules/workbook/phase9_notes_indicators_test.go::TestPhase9_NotesAreArtifactBackedRows_U_9_03` proves Notes create/query use artifact-backed `artifact_type='note'` rows, shared tags and revision history, no Notes-specific table, linked-note `record_links`, and `cartulary.view.notes.v1` query exposure.
+2. `internal/modules/entities/phase9_indicators_test.go::TestPhase9_IndicatorsCanonicalObservationLifecycle_U_9_04` proves canonical indicator identity, duplicate canonical create reuse, source-bound observations as distinct occurrences, lifecycle intervals as distinct history, and projection rollups.
+3. `internal/modules/workbook/phase9_notes_indicators_test.go::TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02` proves Notes and Indicators persist and query through workbook projections.
+4. `apps/web/e2e/phase9.sentinel.spec.ts::Phase 9 E-9-03 Notes tab creates artifact-backed linked notes` proves Notes built-in tab creation and record linking.
+5. `apps/web/e2e/phase9.sentinel.spec.ts::Phase 9 E-9-08 Notes and Indicators open by canonical view schema IDs` proves Sprint 3 registry opening through canonical identities.
+6. `apps/web/e2e/phase9.keyboard.spec.ts::Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbook cells` proves the Notes/Indicators portions of shared grid anchor semantics used by Sprint 3.
 
 Implementation tasks:
 - Ensure Notes create and linked-note actions use the shared artifact model.
@@ -515,7 +518,17 @@ Validation commands:
 
 Deliverables:
 - Direct authoritative evidence for `U-9-03`, `U-9-04`, `I-9-02`, `E-9-03`, and the Notes/Indicators portions of `E-9-08` and `E-9-GRID-01`.
-- TODO: exact artifact roots for Notes and Indicator evidence.
+- Retained validation roots from the Sprint 3 audit:
+  - `make backend-store`: `.cartulary/test-results/20260518T022943Z-p936004`
+  - `make backend-integration`: `.cartulary/test-results/20260518T023509Z-p946945`
+  - `make browser-e2e-webserver-backed`: `.cartulary/test-results/20260518T024044Z-p958235`
+  - `make phase-slice PHASE=phase9`: `.cartulary/test-results/20260518T024202Z-p965722`
+  - `make service-backed-slice PHASE=phase9`: `.cartulary/test-results/20260518T024749Z-p979405`
+  - `git diff --check`: passed without retained harness root.
+- Targeted retained evidence roots inside the Phase 9 wrapper run:
+  - Backend store Notes/Indicators: `.cartulary/test-results/20260518T024202Z-p965722/backend-store/backend-store-phase9-notes-and-indicators-evidence`
+  - Backend integration Notes/Indicators: `.cartulary/test-results/20260518T024202Z-p965722/backend-integration/backend-integration-phase9-notes-and-indicators-evidence`
+  - Browser Phase 9 authoritative selection: `.cartulary/test-results/20260518T024044Z-p958235/browser-e2e-webserver-backed/browser-e2e-functional-phase9-authoritative`
 
 Risks:
 - Treating `artifact` as a synonym for Notes.
