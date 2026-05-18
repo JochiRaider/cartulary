@@ -50,6 +50,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations", service.handleBulkMutations)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleCreate)
 		mux.HandleFunc("PATCH /api/v1/records/{record_id}", service.handlePatch)
+		mux.HandleFunc("POST /api/v1/records/{record_id}/linked-notes", service.handleLinkedNoteCreate)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", service.handleConflictResolve)
 		return nil
 	}
@@ -485,6 +486,38 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.store.PatchWorkbookRow(r.Context(), principal.User, recordID, request, PatchRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
+}
+
+func (s *Service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request) {
+	sourceRecordID, ok := pathUUID(w, r, "record_id")
+	if !ok {
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeLinkedNoteCreateRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	incidentID, err := s.store.LinkedNoteSourceIncident(r.Context(), sourceRecordID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	result, err := s.store.CreateLinkedNote(r.Context(), principal.User, sourceRecordID, request, LinkedNoteCreateRequestHash(sourceRecordID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 

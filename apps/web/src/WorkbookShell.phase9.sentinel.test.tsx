@@ -23,9 +23,6 @@ import {
 } from "./timelineWorkbookTestSupport";
 import { TimelineWorkbook, clipboardTextLooksTabular } from "./WorkbookShell";
 
-const phase9Sprint0SentinelMessage =
-  "Phase 9 Sprint 0 blocker sentinel: this is not behavior completion evidence; replace this sentinel with real Phase 9 implementation evidence before claiming the row complete.";
-
 type PasteHarnessRow = {
   readonly label: string;
   readonly state: string | null | undefined;
@@ -567,9 +564,9 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
         { kind: "create" },
       ],
     });
-    expect(
-      screen.getByTestId("workbook-focus-anchor").textContent,
-    ).toBe("timeline:record-1:timeline.summary");
+    expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      "timeline:record-1:timeline.summary",
+    );
   });
 
   it("Phase 9 E-9-02 registers grouped paste conflicts without losing selection continuity", async () => {
@@ -683,9 +680,9 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
     expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
     expect(screen.getByTestId("timeline-grid-shell")).toBeTruthy();
-    expect(
-      screen.getByTestId("workbook-focus-anchor").textContent,
-    ).toBe("timeline:record-1:timeline.summary");
+    expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      "timeline:record-1:timeline.summary",
+    );
     expect(
       screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),
     ).toBeTruthy();

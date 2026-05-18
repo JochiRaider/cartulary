@@ -1,4 +1,8 @@
-import { conflictMarkerTestId, rowCellTestId } from "@cartulary/ui-contracts";
+import {
+  conflictMarkerTestId,
+  gridShellTestId,
+  rowCellTestId,
+} from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
 import {
@@ -9,6 +13,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
+import { indicatorsViewSchemaId, notesViewSchemaId } from "./phase4Helpers";
 
 const phase9Sprint0SentinelMessage =
   "Phase 9 Sprint 0 blocker sentinel: this is not behavior completion evidence; replace this sentinel with real Phase 9 implementation evidence before claiming the row complete.";
@@ -112,9 +117,7 @@ test("Phase 9 E-9-02 pastes a representative 20x5 Timeline clipboard range", asy
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `timeline:${seed.record_id}:timeline.summary`,
   );
-  await expect(
-    page.getByText(`Timeline row ${seed.record_id}`),
-  ).toBeVisible();
+  await expect(page.getByText(`Timeline row ${seed.record_id}`)).toBeVisible();
   await expect(
     page.getByTestId(rowCellTestId(seed.record_id as string, "summary")),
   ).toHaveValue("Phase 9 paste summary 1");
@@ -140,9 +143,9 @@ test("Phase 9 E-9-02 pastes a representative 20x5 Timeline clipboard range", asy
     collectionDisplayTexts(first?.cells["timeline.identity_refs"]?.value),
   ).toContain("phase9-user-1@example.test");
   expect(first?.cells["timeline.evidence_count"]?.value).toBe(0);
-  expect(collectionDisplayTexts(first?.cells["timeline.tags"]?.value)).toContain(
-    "phase9-tag-1",
-  );
+  expect(
+    collectionDisplayTexts(first?.cells["timeline.tags"]?.value),
+  ).toContain("phase9-tag-1");
   const twentieth = matchingRows.find((row) => {
     const cells = row.cells as Record<string, { value: unknown }>;
     return cells["timeline.summary"]?.value === "Phase 9 paste summary 20";
@@ -275,8 +278,64 @@ test("Phase 9 E-9-02 groups paste conflicts and preserves selection continuity",
   await expect(page.getByTestId("save-state")).toHaveText("Conflict");
 });
 
-test("Phase 9 E-9-03 Sprint 0 blocker sentinel", async () => {
-  expect(phase9Sprint0SentinelMessage).toContain("blocker sentinel");
+test("Phase 9 E-9-03 Notes tab creates artifact-backed linked notes", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E903"),
+    "Phase 9 E-9-03 Notes linked create",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e903-source"),
+    "timeline.summary": "Phase 9 linked note source",
+  });
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      notesViewSchemaId,
+    )}`,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(notesViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId("generic-create-note-source-record")
+      .locator(`option[value="${source.record_id}"]`),
+  ).toHaveCount(1);
+  await page
+    .getByTestId("generic-create-field-note.title")
+    .fill("Phase 9 E-9-03 linked note");
+  await page
+    .getByTestId("generic-create-field-note.body")
+    .fill("Created from the Notes tab with a source record link.");
+  await page
+    .getByTestId("generic-create-note-source-record")
+    .selectOption(source.record_id as string);
+
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(`/api/v1/records/${source.record_id}/linked-notes`),
+  );
+  await page.getByTestId(`generic-create-submit-${notesViewSchemaId}`).click();
+  const response = await responsePromise;
+  expect(response.ok()).toBeTruthy();
+  const envelope = (await response.json()) as {
+    data: { row: { record_id: string } };
+  };
+  const noteRecordId = envelope.data.row.record_id;
+  await expect(
+    page.getByTestId(rowCellTestId(noteRecordId, "note.title")),
+  ).toHaveText("Phase 9 E-9-03 linked note");
+
+  const rows = await queryViewRows(page, incidentId, notesViewSchemaId);
+  const noteRow = rows.find((row) => row.record_id === noteRecordId);
+  expect(noteRow).toBeTruthy();
+  expect(noteRow?.cells["note.linked_record_count"]?.value).toBe(1);
 });
 
 test("Phase 9 E-9-04 Sprint 0 blocker sentinel", async () => {
@@ -295,8 +354,57 @@ test("Phase 9 E-9-07 Sprint 0 blocker sentinel", async () => {
   expect(phase9Sprint0SentinelMessage).toContain("blocker sentinel");
 });
 
-test("Phase 9 E-9-08 Sprint 0 blocker sentinel", async () => {
-  expect(phase9Sprint0SentinelMessage).toContain("blocker sentinel");
+test("Phase 9 E-9-08 Notes and Indicators open by canonical view schema IDs", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E908"),
+    "Phase 9 E-9-08 registry identities",
+  );
+  await createViewRow(page, incidentId, notesViewSchemaId, {
+    client_txn_id: uniqueTxn("e908-note"),
+    "note.title": "Phase 9 registry note",
+  });
+  const indicator = await createViewRow(
+    page,
+    incidentId,
+    indicatorsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e908-indicator"),
+      "indicator.indicator_type": "ipv4_addr",
+      "indicator.value_kind": "atomic",
+      "indicator.display_value": "203.0.113.92",
+    },
+  );
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      notesViewSchemaId,
+    )}`,
+  );
+  await expect(page.getByTestId("surface-tab-notes")).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(notesViewSchemaId)),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(notesViewSchemaId)}`),
+  );
+
+  await page
+    .getByTestId("system-view-selector")
+    .selectOption(indicatorsViewSchemaId);
+  await expect(
+    page.getByTestId(gridShellTestId(indicatorsViewSchemaId)),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`),
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(indicator.record_id as string, "indicator.display_value"),
+    ),
+  ).toHaveText("203.0.113.92");
 });
 
 function collectionDisplayTexts(value: unknown): string[] {

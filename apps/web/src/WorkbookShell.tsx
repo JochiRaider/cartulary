@@ -728,8 +728,11 @@ type GenericReferenceOptions = {
   taskRequests: GenericReferenceOption[];
   decisions: GenericReferenceOption[];
   evidence: GenericReferenceOption[];
+  hosts: GenericReferenceOption[];
+  identities: GenericReferenceOption[];
   notes: GenericReferenceOption[];
   timeline: GenericReferenceOption[];
+  noteSourceRecords: GenericReferenceOption[];
   allRecords: GenericReferenceOption[];
 };
 
@@ -5228,7 +5231,7 @@ export function TimelineWorkbook({
                 }
                 if (pasteConflictKeys.length > 1) {
                   setPasteConflictGroup({ keys: pasteConflictKeys });
-                  setActiveConflictKey(pasteConflictKeys[0]);
+                  setActiveConflictKey(pasteConflictKeys[0] ?? null);
                 } else if (pasteConflictKeys.length === 0) {
                   setPasteConflictGroup(null);
                 }
@@ -6712,9 +6715,7 @@ export function TimelineWorkbook({
                       disabled={activePasteConflictIndex <= 0}
                       onClick={() => {
                         const previousKey =
-                          activePasteConflictKeys[
-                            activePasteConflictIndex - 1
-                          ];
+                          activePasteConflictKeys[activePasteConflictIndex - 1];
                         if (previousKey) {
                           setActiveConflictKey(previousKey);
                         }
@@ -6732,9 +6733,7 @@ export function TimelineWorkbook({
                       }
                       onClick={() => {
                         const nextKey =
-                          activePasteConflictKeys[
-                            activePasteConflictIndex + 1
-                          ];
+                          activePasteConflictKeys[activePasteConflictIndex + 1];
                         if (nextKey) {
                           setActiveConflictKey(nextKey);
                         }
@@ -8149,6 +8148,7 @@ function GenericWorkbookSurface({
   const [editRecordId, setEditRecordId] = useState("");
   const [editFieldKey, setEditFieldKey] = useState("");
   const [editValue, setEditValue] = useState("");
+  const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
   const [editCollectionMode, setEditCollectionMode] =
     useState<GenericCollectionMode>("add");
   const [referenceOptions, setReferenceOptions] =
@@ -8164,6 +8164,7 @@ function GenericWorkbookSurface({
   const [evidencePreview, setEvidencePreview] =
     useState<EvidencePreviewState | null>(null);
   const isEvidenceSurface = contract.viewSchemaId === evidenceViewSchemaId;
+  const isNotesSurface = contract.viewSchemaId === notesViewSchemaId;
 
   useEffect(() => {
     setCreateDraft((current) => {
@@ -8176,6 +8177,8 @@ function GenericWorkbookSurface({
     setReferenceLoadError(null);
     const targetViewSchemaIds = [
       timelineViewSchemaId,
+      hostsViewSchemaId,
+      identitiesViewSchemaId,
       partiesViewSchemaId,
       taskRequestsViewSchemaId,
       decisionsViewSchemaId,
@@ -8225,6 +8228,14 @@ function GenericWorkbookSurface({
         evidenceViewSchemaId,
         rowsByView[evidenceViewSchemaId] ?? [],
       ),
+      hosts: genericReferenceOptionsFromRows(
+        hostsViewSchemaId,
+        rowsByView[hostsViewSchemaId] ?? [],
+      ),
+      identities: genericReferenceOptionsFromRows(
+        identitiesViewSchemaId,
+        rowsByView[identitiesViewSchemaId] ?? [],
+      ),
       notes: genericReferenceOptionsFromRows(
         notesViewSchemaId,
         rowsByView[notesViewSchemaId] ?? [],
@@ -8233,10 +8244,19 @@ function GenericWorkbookSurface({
         timelineViewSchemaId,
         rowsByView[timelineViewSchemaId] ?? [],
       ),
+      noteSourceRecords: [],
       allRecords: [],
     };
+    next.noteSourceRecords = [
+      ...next.timeline,
+      ...next.hosts,
+      ...next.identities,
+      ...next.evidence,
+    ];
     next.allRecords = [
       ...next.timeline,
+      ...next.hosts,
+      ...next.identities,
       ...next.evidence,
       ...next.notes,
       ...next.taskRequests,
@@ -8564,11 +8584,12 @@ function GenericWorkbookSurface({
     }
     setMutationState("Syncing");
     setMutationError(null);
+    const createPath =
+      isNotesSurface && linkedNoteSourceRecordId !== ""
+        ? `/api/v1/records/${linkedNoteSourceRecordId}/linked-notes`
+        : `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`;
     const result = await fetchJSON<ViewMutationEnvelope>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`,
-      ),
+      apiPath(apiBase, createPath),
       { method: "POST", body: JSON.stringify(payload) },
     );
     if (!result.ok) {
@@ -8577,6 +8598,7 @@ function GenericWorkbookSurface({
       return;
     }
     setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
+    setLinkedNoteSourceRecordId("");
     setMutationState("Saved");
     await onRefresh();
     await refreshReferenceOptions();
@@ -8667,6 +8689,30 @@ function GenericWorkbookSurface({
                 />
               </label>
             ))}
+            {isNotesSurface ? (
+              <label
+                htmlFor="generic-create-note-source-record"
+                style={labelStyle}
+              >
+                Linked source
+                <select
+                  data-testid="generic-create-note-source-record"
+                  id="generic-create-note-source-record"
+                  style={selectStyle}
+                  value={linkedNoteSourceRecordId}
+                  onChange={(event) => {
+                    setLinkedNoteSourceRecordId(event.target.value);
+                  }}
+                >
+                  <option value="">None</option>
+                  {referenceOptions.noteSourceRecords.map((option) => (
+                    <option key={option.recordId} value={option.recordId}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </div>
           <button
             data-testid={`generic-create-submit-${contract.viewSchemaId}`}
@@ -9225,8 +9271,11 @@ function emptyGenericReferenceOptions(): GenericReferenceOptions {
     taskRequests: [],
     decisions: [],
     evidence: [],
+    hosts: [],
+    identities: [],
     notes: [],
     timeline: [],
+    noteSourceRecords: [],
     allRecords: [],
   };
 }
@@ -9245,6 +9294,10 @@ function genericReferenceOptionsFromRows(
 function genericRowLabel(contract: ViewContract, row: EntityApiRow): string {
   const preferredFieldKeys = [
     "timeline.summary",
+    "host.display_name",
+    "host.hostname",
+    "identity.display_name",
+    "identity.upn",
     "party.display_name",
     "task.title",
     "decision.summary",

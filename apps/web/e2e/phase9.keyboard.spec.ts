@@ -14,6 +14,7 @@ import {
   hostRefsFieldKey,
   hostsViewSchemaId,
   identitiesViewSchemaId,
+  indicatorsViewSchemaId,
   notesViewSchemaId,
   taskRequestsViewSchemaId,
 } from "./phase4Helpers";
@@ -191,11 +192,16 @@ test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbo
     `hosts:${host.record_id}:host.hostname`,
   );
 
-  const identity = await createViewRow(page, incidentId, identitiesViewSchemaId, {
-    client_txn_id: uniqueTxn("e9grid01-identity"),
-    "identity.display_name": "Phase 9 identity anchor",
-    "identity.upn": "phase9.identity@example.test",
-  });
+  const identity = await createViewRow(
+    page,
+    incidentId,
+    identitiesViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e9grid01-identity"),
+      "identity.display_name": "Phase 9 identity anchor",
+      "identity.upn": "phase9.identity@example.test",
+    },
+  );
   await page.goto(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
       identitiesViewSchemaId,
@@ -296,6 +302,35 @@ test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbo
   await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
     `${notesViewSchemaId}:${note.record_id}:`,
   );
+
+  const indicator = await createViewRow(
+    page,
+    incidentId,
+    indicatorsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e9grid01-indicator"),
+      "indicator.indicator_type": "ipv4_addr",
+      "indicator.value_kind": "atomic",
+      "indicator.display_value": "203.0.113.91",
+    },
+  );
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      indicatorsViewSchemaId,
+    )}`,
+  );
+  const indicatorType = page.getByTestId(
+    rowCellTestId(indicator.record_id as string, "indicator.indicator_type"),
+  );
+  await expect(indicatorType).toHaveText("ipv4_addr");
+  await indicatorType.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${indicatorsViewSchemaId}:${indicator.record_id}:indicator.indicator_type`,
+  );
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${indicatorsViewSchemaId}:${indicator.record_id}:indicator.value_kind`,
+  );
 });
 
 test("Phase 9 E-9-GRID-01 Host entity-origin clipboard paste reuses exact matches and creates stubs", async ({
@@ -395,11 +430,16 @@ test("Phase 9 E-9-GRID-01 Identity entity-origin clipboard paste reuses exact ma
     uniqueIncidentKey("E9GRIDIDENTITYPASTE"),
     "Phase 9 E-9-GRID-01 identity paste",
   );
-  const existing = await createViewRow(page, incidentId, identitiesViewSchemaId, {
-    client_txn_id: uniqueTxn("e9grid-identity-existing"),
-    "identity.display_name": "Phase 9 reusable identity",
-    "identity.upn": "phase9.identity.reuse@example.test",
-  });
+  const existing = await createViewRow(
+    page,
+    incidentId,
+    identitiesViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e9grid-identity-existing"),
+      "identity.display_name": "Phase 9 reusable identity",
+      "identity.upn": "phase9.identity.reuse@example.test",
+    },
+  );
   const postURLs: string[] = [];
   page.on("request", (request) => {
     if (request.method() === "POST") {
@@ -465,8 +505,7 @@ test("Phase 9 E-9-GRID-01 Identity entity-origin clipboard paste reuses exact ma
   const created = rows.find(
     (row) =>
       row.record_id !== existing.record_id &&
-      stringCell(row, "identity.upn") ===
-        "phase9.identity.create@example.test",
+      stringCell(row, "identity.upn") === "phase9.identity.create@example.test",
   );
   expect(created).toBeTruthy();
   if (created) {

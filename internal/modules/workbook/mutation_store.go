@@ -153,6 +153,153 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 	}, nil
 }
 
+func (s *Store) CreateLinkedNote(ctx context.Context, actor authn.UserRecord, sourceRecordID uuid.UUID, request LinkedNoteCreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    workbookLinkedNoteRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    sourceRecordID.String(),
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
+			return MutationResult{}, authn.ErrClientTxnConflict
+		}
+		payload, err := decodeStoredResponse(existing.ResponseJSON)
+		if err != nil {
+			return MutationResult{}, fmt.Errorf("decode replayed linked note payload: %w", err)
+		}
+		recordID, err := extractPayloadUUID(payload, "row", "record_id")
+		if err != nil {
+			return MutationResult{}, err
+		}
+		return MutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ViewSchemaID: NotesViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
+	} else if !errors.Is(err, authn.ErrNotFound) {
+		return MutationResult{}, fmt.Errorf("query linked note idempotency: %w", err)
+	}
+	create := CreateRequest{
+		ViewSchemaID: NotesViewSchemaID,
+		ClientTxnID:  request.ClientTxnID,
+		Values:       request.Values,
+		Collections:  request.Collections,
+	}
+	if err := validateCreateRequest(create); err != nil {
+		return MutationResult{}, err
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return MutationResult{}, fmt.Errorf("begin linked note transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	incidentID, err := loadLinkedNoteSourceIncidentTx(ctx, tx, sourceRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	recordID, err := s.recordStore.InsertTx(ctx, tx, recordsInsertParams(incidentID, "artifact", actor.ID, now.UTC()))
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if err := insertArtifactTx(ctx, tx, recordID, incidentID, actor.ID, create, now.UTC()); err != nil {
+		return MutationResult{}, err
+	}
+	if err := applyCollectionPayloadsTx(ctx, tx, incidentID, recordID, actor.ID, create.Collections, now.UTC()); err != nil {
+		return MutationResult{}, err
+	}
+	if err := insertLinkedNoteReferenceTx(ctx, tx, incidentID, sourceRecordID, recordID, actor.ID, now.UTC()); err != nil {
+		return MutationResult{}, err
+	}
+	row, err := s.loadGenericRowTx(ctx, tx, NotesViewSchemaID, recordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	changeSetID, err := s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+		IncidentID:  incidentID,
+		ActorUserID: actor.ID,
+		Source:      workbookLinkedNoteRouteKey,
+		ClientTxnID: &request.ClientTxnID,
+		RequestID:   &requestID,
+		CreatedAt:   now.UTC(),
+	})
+	if err != nil {
+		return MutationResult{}, err
+	}
+	afterVersionID := workbookVersionID(recordID, 1)
+	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		ChangeSetID:    changeSetID,
+		SequenceNo:     1,
+		TargetKind:     "record",
+		TargetID:       recordID.String(),
+		OperationKind:  "create",
+		AfterVersionID: &afterVersionID,
+		AfterValue:     row,
+	}); err != nil {
+		return MutationResult{}, err
+	}
+	linkAfter := map[string]any{
+		"src_record_id": sourceRecordID.String(),
+		"dst_record_id": recordID.String(),
+		"link_type":     "references_artifact",
+	}
+	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		ChangeSetID:   changeSetID,
+		SequenceNo:    2,
+		TargetKind:    "record_link",
+		TargetID:      sourceRecordID.String() + ":references_artifact:" + recordID.String(),
+		OperationKind: "create",
+		AfterValue:    linkAfter,
+	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		ChangeSetID: changeSetID,
+		RecordID:    recordID,
+		RowVersion:  1,
+		AfterValue:  row,
+	}); err != nil {
+		return MutationResult{}, err
+	}
+	payload := BuildMutationPayload(NotesViewSchemaID, changeSetID, row)
+	payload["source_record_id"] = sourceRecordID.String()
+	payload["link_type"] = "references_artifact"
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusCreated, payload); err != nil {
+		if authn.IsUniqueViolation(err) {
+			return MutationResult{}, authn.ErrClientTxnConflict
+		}
+		return MutationResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return MutationResult{}, fmt.Errorf("commit linked note transaction: %w", err)
+	}
+	return MutationResult{
+		Payload:          payload,
+		StatusCode:       http.StatusCreated,
+		IncidentID:       incidentID,
+		RecordID:         recordID,
+		ChangeSetID:      changeSetID,
+		ClientTxnID:      request.ClientTxnID,
+		RowVersion:       1,
+		ViewSchemaID:     NotesViewSchemaID,
+		ChangedFieldKeys: changedFieldKeys(nil, row),
+	}, nil
+}
+
+func (s *Store) LinkedNoteSourceIncident(ctx context.Context, sourceRecordID uuid.UUID) (uuid.UUID, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	incidentID, err := loadLinkedNoteSourceIncidentTx(ctx, tx, sourceRecordID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.UUID{}, err
+	}
+	return incidentID, nil
+}
+
 func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	if len(request.Changes) == 0 {
 		return MutationResult{}, mutationValidationError("changes", "empty_changes")
@@ -1211,6 +1358,22 @@ DO NOTHING
 	return tag.RowsAffected() > 0, nil
 }
 
+func insertLinkedNoteReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, actorID uuid.UUID, now time.Time) error {
+	_, err := tx.Exec(ctx, `
+INSERT INTO record_links (
+    incident_id, src_record_id, dst_record_id, link_type, field_key,
+    provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
+) VALUES ($1, $2, $3, 'references_artifact', NULL, 'manual', NULL, $4, $4, $5, $5)
+ON CONFLICT (incident_id, src_record_id, dst_record_id, link_type)
+WHERE deleted_at IS NULL AND field_key IS NULL
+DO NOTHING
+`, incidentID, src, dst, actorID, now)
+	if err != nil {
+		return fmt.Errorf("insert linked note reference: %w", err)
+	}
+	return nil
+}
+
 func tombstoneReferenceLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, expectedTargetType string, actorID uuid.UUID, now time.Time) (bool, error) {
 	targetTypePredicate := ""
 	args := []any{incidentID, src, dst, fieldKey, actorID, now, linkTypeForField(fieldKey)}
@@ -1244,6 +1407,18 @@ UPDATE record_links
 		return false, mutationValidationError(fieldKey, "invalid_value")
 	}
 	return true, nil
+}
+
+func loadLinkedNoteSourceIncidentTx(ctx context.Context, tx pgx.Tx, sourceRecordID uuid.UUID) (uuid.UUID, error) {
+	var incidentID uuid.UUID
+	err := tx.QueryRow(ctx, `
+SELECT incident_id
+  FROM records
+ WHERE record_id = $1
+   AND record_type IN ('timeline_event', 'host', 'identity', 'evidence')
+   AND deleted_at IS NULL
+`, sourceRecordID).Scan(&incidentID)
+	return incidentID, err
 }
 
 func upsertRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, text string, normalized string, actorID uuid.UUID, now time.Time) (bool, error) {

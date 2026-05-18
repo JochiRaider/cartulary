@@ -21,6 +21,7 @@ export const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
 export const partiesViewSchemaId = "cartulary.view.parties.v1";
 export const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 export const notesViewSchemaId = "cartulary.view.notes.v1";
+export const indicatorsViewSchemaId = "cartulary.view.indicators.v1";
 export const taskRequestsViewSchemaId = "cartulary.view.task_requests.v1";
 export const decisionsViewSchemaId = "cartulary.view.decisions.v1";
 export const commLogViewSchemaId = "cartulary.view.comm_log.v1";

@@ -20,6 +20,7 @@ const (
 	workbookCreateRouteKey          = "workbook.rows.create"
 	workbookPatchRouteKey           = "workbook.records.patch"
 	workbookConflictResolveRouteKey = "workbook.records.conflicts.resolve"
+	workbookLinkedNoteRouteKey      = "workbook.records.linked_notes.create"
 	maxPatchChanges                 = 32
 	maxCollectionActions            = 64
 )
@@ -42,6 +43,12 @@ type CreateRequest struct {
 	ClientTxnID  string
 	Values       map[string]ValueChange
 	Collections  map[string]CollectionActionPayload
+}
+
+type LinkedNoteCreateRequest struct {
+	ClientTxnID string
+	Values      map[string]ValueChange
+	Collections map[string]CollectionActionPayload
 }
 
 type PatchRequest struct {
@@ -190,6 +197,18 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
 	}
 	return request, nil
+}
+
+func DecodeLinkedNoteCreateRequest(reader io.Reader) (LinkedNoteCreateRequest, *auth.APIError) {
+	create, apiErr := DecodeCreateRequest(NotesViewSchemaID, reader)
+	if apiErr != nil {
+		return LinkedNoteCreateRequest{}, apiErr
+	}
+	return LinkedNoteCreateRequest{
+		ClientTxnID: create.ClientTxnID,
+		Values:      create.Values,
+		Collections: create.Collections,
+	}, nil
 }
 
 func DecodePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError) {
@@ -601,6 +620,16 @@ func ConflictResolveRequestHash(claims workbookConflictTokenClaims, request Conf
 		"current_row_version": claims.CurrentRowVersion,
 		"resolved_value":      request.CanonicalAny,
 	})
+}
+
+func LinkedNoteCreateRequestHash(sourceRecordID uuid.UUID, request LinkedNoteCreateRequest) []byte {
+	payload := map[string]any{
+		"source_record_id": sourceRecordID.String(),
+		"view_schema_id":   NotesViewSchemaID,
+		"values":           canonicalValues(request.Values),
+		"collection_ops":   canonicalCollections(request.Collections),
+	}
+	return hashRequestPayload(payload)
 }
 
 func BuildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[string]any) map[string]any {
