@@ -150,6 +150,18 @@ func recordAlreadyDeletedError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusConflict, Code: "record_already_deleted", Details: map[string]any{}}
 }
 
+func recordDeleteBlockedError(details map[string]any) *auth.APIError {
+	if details == nil {
+		details = map[string]any{}
+	}
+	return &auth.APIError{
+		Status:  http.StatusConflict,
+		Code:    "record_delete_blocked",
+		Message: "record delete blocked",
+		Details: details,
+	}
+}
+
 func recordNotDeletedError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusConflict, Code: "record_not_deleted", Details: map[string]any{}}
 }

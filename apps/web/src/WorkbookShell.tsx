@@ -736,6 +736,13 @@ type GenericReferenceOptions = {
   allRecords: GenericReferenceOption[];
 };
 
+type PartyLinkPair = {
+  key: string;
+  label: string;
+  textFieldKey: string;
+  refFieldKey: string;
+};
+
 type GenericCollectionMode = "add" | "remove";
 
 type ViewportContinuityFollowup = "none" | "entity-refresh";
@@ -8151,6 +8158,8 @@ function GenericWorkbookSurface({
   const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
   const [editCollectionMode, setEditCollectionMode] =
     useState<GenericCollectionMode>("add");
+  const [partyLinkPairKey, setPartyLinkPairKey] = useState("");
+  const [partyLinkExistingPartyId, setPartyLinkExistingPartyId] = useState("");
   const [referenceOptions, setReferenceOptions] =
     useState<GenericReferenceOptions>(() => emptyGenericReferenceOptions());
   const [referenceLoadError, setReferenceLoadError] = useState<string | null>(
@@ -8165,6 +8174,10 @@ function GenericWorkbookSurface({
     useState<EvidencePreviewState | null>(null);
   const isEvidenceSurface = contract.viewSchemaId === evidenceViewSchemaId;
   const isNotesSurface = contract.viewSchemaId === notesViewSchemaId;
+  const partyLinkPairs = useMemo(
+    () => partyLinkPairsForContract(contract),
+    [contract],
+  );
 
   useEffect(() => {
     setCreateDraft((current) => {
@@ -8172,6 +8185,15 @@ function GenericWorkbookSurface({
       return { ...defaults, ...current };
     });
   }, [contract, currentUserId]);
+
+  useEffect(() => {
+    setPartyLinkPairKey((current) => {
+      if (partyLinkPairs.some((pair) => pair.key === current)) {
+        return current;
+      }
+      return partyLinkPairs[0]?.key ?? "";
+    });
+  }, [partyLinkPairs]);
 
   const refreshReferenceOptions = useCallback(async () => {
     setReferenceLoadError(null);
@@ -8543,6 +8565,10 @@ function GenericWorkbookSurface({
     writableFields.find((field) => field.fieldKey === editFieldKey) ??
     writableFields[0] ??
     null;
+  const selectedPartyLinkPair =
+    partyLinkPairs.find((pair) => pair.key === partyLinkPairKey) ??
+    partyLinkPairs[0] ??
+    null;
   const selectedEditCollectionItems =
     selectedEditRow !== null && selectedEditField !== null
       ? genericCollectionItems(selectedEditRow, selectedEditField.fieldKey)
@@ -8643,6 +8669,137 @@ function GenericWorkbookSurface({
     setMutationState("Saved");
     await onRefresh();
     await refreshReferenceOptions();
+  };
+
+  const submitPartyLinkPatch = async (
+    changes: Array<Record<string, unknown>>,
+    txnPrefix: string,
+  ) => {
+    if (selectedEditRow === null) {
+      setMutationError("Select a row before changing a party link.");
+      return false;
+    }
+    setMutationState("Syncing");
+    setMutationError(null);
+    const result = await fetchJSON<ViewMutationEnvelope>(
+      apiPath(apiBase, `/api/v1/records/${selectedEditRow.record_id}`),
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          view_schema_id: contract.viewSchemaId,
+          base_row_version: selectedEditRow.row_version,
+          client_txn_id: `${txnPrefix}-${contract.viewSchemaId}-${Date.now()}`,
+          changes,
+        }),
+      },
+    );
+    if (!result.ok) {
+      setMutationState("Conflict");
+      setMutationError(parseMutationError(result.payload));
+      return false;
+    }
+    setMutationState("Saved");
+    await onRefresh();
+    await refreshReferenceOptions();
+    return true;
+  };
+
+  const createPartyFromText = async () => {
+    if (selectedEditRow === null || selectedPartyLinkPair === null) {
+      setMutationError("Select a row and party field first.");
+      return;
+    }
+    const rawText = normalizeValue(
+      String(
+        selectedEditRow.cells[selectedPartyLinkPair.textFieldKey]?.value ?? "",
+      ),
+    );
+    if (rawText === "") {
+      setMutationError("Party text is empty.");
+      return;
+    }
+    setMutationState("Syncing");
+    setMutationError(null);
+    const createPayload: Record<string, unknown> = {
+      client_txn_id: `party-from-text-${contract.viewSchemaId}-${Date.now()}`,
+      "party.display_name": rawText,
+      "party.party_kind": "person",
+    };
+    const email = extractEmailFromPartyText(rawText);
+    if (email !== null) {
+      createPayload["party.primary_email"] = email;
+    }
+    const createResult = await fetchJSON<ViewMutationEnvelope>(
+      apiPath(
+        apiBase,
+        `/api/v1/incidents/${incidentId}/views/${partiesViewSchemaId}/rows`,
+      ),
+      { method: "POST", body: JSON.stringify(createPayload) },
+    );
+    if (!createResult.ok) {
+      setMutationState("Conflict");
+      setMutationError(parseMutationError(createResult.payload));
+      return;
+    }
+    const partyID = readEnvelope<ViewMutationEnvelope>(
+      createResult.payload,
+    ).data.row.record_id;
+    await submitPartyLinkPatch(
+      [{ field_key: selectedPartyLinkPair.refFieldKey, value: partyID }],
+      "party-link-created",
+    );
+  };
+
+  const linkExistingParty = async () => {
+    if (selectedPartyLinkPair === null || partyLinkExistingPartyId === "") {
+      setMutationError("Select an existing party.");
+      return;
+    }
+    await submitPartyLinkPatch(
+      [
+        {
+          field_key: selectedPartyLinkPair.refFieldKey,
+          value: partyLinkExistingPartyId,
+        },
+      ],
+      "party-link-existing",
+    );
+  };
+
+  const clearPartyLink = async () => {
+    if (selectedPartyLinkPair === null) {
+      setMutationError("Select a party field first.");
+      return;
+    }
+    await submitPartyLinkPatch(
+      [{ field_key: selectedPartyLinkPair.refFieldKey, value: null }],
+      "party-clear-link",
+    );
+  };
+
+  const clearPartyText = async () => {
+    if (selectedPartyLinkPair === null) {
+      setMutationError("Select a party field first.");
+      return;
+    }
+    await submitPartyLinkPatch(
+      [{ field_key: selectedPartyLinkPair.textFieldKey, value: null }],
+      "party-clear-text",
+    );
+  };
+
+  const clearPartyBoth = async () => {
+    if (selectedPartyLinkPair === null) {
+      setMutationError("Select a party field first.");
+      return;
+    }
+    await submitPartyLinkPatch(
+      [
+        { field_key: selectedPartyLinkPair.textFieldKey, value: null },
+        { field_key: selectedPartyLinkPair.refFieldKey, value: null },
+      ],
+      "party-clear-both",
+    );
   };
 
   return (
@@ -8795,6 +8952,97 @@ function GenericWorkbookSurface({
                 }}
               >
                 Update
+              </button>
+            </div>
+          ) : null}
+
+          {partyLinkPairs.length > 0 && selectedEditRow !== null ? (
+            <div style={genericEditRowStyle}>
+              <select
+                aria-label="Party link field"
+                data-testid="party-link-pair"
+                style={selectStyle}
+                value={selectedPartyLinkPair?.key ?? ""}
+                onChange={(event) => {
+                  setPartyLinkPairKey(event.target.value);
+                }}
+              >
+                {partyLinkPairs.map((pair) => (
+                  <option key={pair.key} value={pair.key}>
+                    {pair.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Existing party"
+                data-testid="party-link-existing-party"
+                style={selectStyle}
+                value={partyLinkExistingPartyId}
+                onChange={(event) => {
+                  setPartyLinkExistingPartyId(event.target.value);
+                }}
+              >
+                <option value="">Party</option>
+                {referenceOptions.parties.map((option) => (
+                  <option key={option.recordId} value={option.recordId}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                data-testid="party-link-create-from-text"
+                disabled={mutationState === "Syncing"}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void createPartyFromText();
+                }}
+              >
+                Create party from text
+              </button>
+              <button
+                data-testid="party-link-link-existing"
+                disabled={mutationState === "Syncing"}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void linkExistingParty();
+                }}
+              >
+                Link existing party
+              </button>
+              <button
+                data-testid="party-link-clear-link"
+                disabled={mutationState === "Syncing"}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void clearPartyLink();
+                }}
+              >
+                Clear party link
+              </button>
+              <button
+                data-testid="party-link-clear-text"
+                disabled={mutationState === "Syncing"}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void clearPartyText();
+                }}
+              >
+                Clear party text
+              </button>
+              <button
+                data-testid="party-link-clear-both"
+                disabled={mutationState === "Syncing"}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void clearPartyBoth();
+                }}
+              >
+                Clear both
               </button>
             </div>
           ) : null}
@@ -9289,6 +9537,50 @@ function genericReferenceOptionsFromRows(
     label: genericRowLabel(requireViewContract(viewSchemaId), row),
     viewSchemaId,
   }));
+}
+
+function partyLinkPairsForContract(contract: ViewContract): PartyLinkPair[] {
+  const hasField = (fieldKey: string) => Boolean(contract.fieldMap[fieldKey]);
+  const pairs: PartyLinkPair[] = [];
+  if (
+    hasField("evidence.collector_party_text") &&
+    hasField("evidence.collector_party_id")
+  ) {
+    pairs.push({
+      key: "evidence.collector_party_text:evidence.collector_party_id",
+      label: "Collector",
+      textFieldKey: "evidence.collector_party_text",
+      refFieldKey: "evidence.collector_party_id",
+    });
+  }
+  if (
+    hasField("evidence.source_party_text") &&
+    hasField("evidence.source_party_id")
+  ) {
+    pairs.push({
+      key: "evidence.source_party_text:evidence.source_party_id",
+      label: "Source",
+      textFieldKey: "evidence.source_party_text",
+      refFieldKey: "evidence.source_party_id",
+    });
+  }
+  if (
+    hasField("task.requester_party_text") &&
+    hasField("task.requester_party_id")
+  ) {
+    pairs.push({
+      key: "task.requester_party_text:task.requester_party_id",
+      label: "Requester",
+      textFieldKey: "task.requester_party_text",
+      refFieldKey: "task.requester_party_id",
+    });
+  }
+  return pairs;
+}
+
+function extractEmailFromPartyText(value: string): string | null {
+  const match = value.match(/[^\s<>@]+@[^\s<>@]+/u);
+  return match?.[0] ?? null;
 }
 
 function genericRowLabel(contract: ViewContract, row: EntityApiRow): string {

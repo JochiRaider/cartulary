@@ -990,7 +990,7 @@
             }
           },
           "409": {
-            "description": "Delete concurrency, tombstone, lock, or idempotency conflict",
+            "description": "Delete concurrency, tombstone, precondition, lock, or idempotency conflict",
             "content": {
               "application/json": {
                 "schema": {

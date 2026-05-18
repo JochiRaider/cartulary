@@ -61,6 +61,19 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 
+	if request.ViewSchemaID == PartiesViewSchemaID {
+		result, reused, err := s.reusePartyCreateTx(ctx, tx, actor, incidentID, request, idempotencyKey, requestHash, requestID, now.UTC())
+		if err != nil {
+			return MutationResult{}, err
+		}
+		if reused {
+			if err := tx.Commit(ctx); err != nil {
+				return MutationResult{}, fmt.Errorf("commit workbook party reuse transaction: %w", err)
+			}
+			return result, nil
+		}
+	}
+
 	recordType := recordTypeForView(request.ViewSchemaID)
 	if recordType == "" {
 		return MutationResult{}, mutationValidationError("view_schema_id", "unknown_view_schema")
@@ -151,6 +164,135 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 		ViewSchemaID:     request.ViewSchemaID,
 		ChangedFieldKeys: changedFieldKeys(nil, row),
 	}, nil
+}
+
+func (s *Store) reusePartyCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time) (MutationResult, bool, error) {
+	recordID, found, err := findReusablePartyTx(ctx, tx, incidentID, request)
+	if err != nil || !found {
+		return MutationResult{}, false, err
+	}
+	row, err := s.loadGenericRowTx(ctx, tx, PartiesViewSchemaID, recordID)
+	if err != nil {
+		return MutationResult{}, false, err
+	}
+	changeSetID, err := s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+		IncidentID:  incidentID,
+		ActorUserID: actor.ID,
+		Source:      workbookCreateRouteKey,
+		ClientTxnID: &request.ClientTxnID,
+		RequestID:   &requestID,
+		CreatedAt:   now.UTC(),
+	})
+	if err != nil {
+		return MutationResult{}, false, err
+	}
+	rowVersion, err := rowVersionFromGenericRow(row)
+	if err != nil {
+		return MutationResult{}, false, err
+	}
+	afterVersionID := workbookVersionID(recordID, rowVersion)
+	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		ChangeSetID:    changeSetID,
+		SequenceNo:     1,
+		TargetKind:     "record",
+		TargetID:       recordID.String(),
+		OperationKind:  "reuse",
+		AfterVersionID: &afterVersionID,
+		AfterValue:     row,
+	}); err != nil {
+		return MutationResult{}, false, err
+	}
+	payload := BuildMutationPayload(PartiesViewSchemaID, changeSetID, row)
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
+		if authn.IsUniqueViolation(err) {
+			return MutationResult{}, false, authn.ErrClientTxnConflict
+		}
+		return MutationResult{}, false, err
+	}
+	return MutationResult{
+		Payload:      payload,
+		StatusCode:   http.StatusOK,
+		IncidentID:   incidentID,
+		RecordID:     recordID,
+		ChangeSetID:  changeSetID,
+		ClientTxnID:  request.ClientTxnID,
+		RowVersion:   rowVersion,
+		ViewSchemaID: PartiesViewSchemaID,
+	}, true, nil
+}
+
+func findReusablePartyTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (uuid.UUID, bool, error) {
+	if value := normalizedOptionalText(request.Values, "party.primary_email"); value != "" {
+		recordID, found, err := findUniqueReusablePartyByFieldTx(ctx, tx, incidentID, "primary_email", value)
+		if err != nil || found {
+			return recordID, found, err
+		}
+	}
+	if value := normalizedOptionalText(request.Values, "party.external_ref"); value != "" {
+		return findUniqueReusablePartyByFieldTx(ctx, tx, incidentID, "external_ref", value)
+	}
+	return uuid.UUID{}, false, nil
+}
+
+func findUniqueReusablePartyByFieldTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, column string, normalizedValue string) (uuid.UUID, bool, error) {
+	if column != "primary_email" && column != "external_ref" {
+		return uuid.UUID{}, false, fmt.Errorf("unsupported party reuse column %q", column)
+	}
+	rows, err := tx.Query(ctx, `
+SELECT p.record_id
+  FROM parties p
+  JOIN records r
+    ON r.incident_id = p.incident_id
+   AND r.record_id = p.record_id
+   AND r.record_type = 'party'
+   AND r.deleted_at IS NULL
+ WHERE p.incident_id = $1
+   AND lower(trim(p.`+column+`)) = $2
+ ORDER BY p.record_id ASC
+ LIMIT 2
+`, incidentID, normalizedValue)
+	if err != nil {
+		return uuid.UUID{}, false, fmt.Errorf("find reusable party: %w", err)
+	}
+	defer rows.Close()
+	var matches []uuid.UUID
+	for rows.Next() {
+		var recordID uuid.UUID
+		if err := rows.Scan(&recordID); err != nil {
+			return uuid.UUID{}, false, fmt.Errorf("scan reusable party: %w", err)
+		}
+		matches = append(matches, recordID)
+	}
+	if err := rows.Err(); err != nil {
+		return uuid.UUID{}, false, fmt.Errorf("iterate reusable parties: %w", err)
+	}
+	if len(matches) != 1 {
+		return uuid.UUID{}, false, nil
+	}
+	return matches[0], true, nil
+}
+
+func normalizedOptionalText(values map[string]ValueChange, fieldKey string) string {
+	value, ok := values[fieldKey]
+	if !ok || value.Text == nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(*value.Text))
+}
+
+func rowVersionFromGenericRow(row map[string]any) (int64, error) {
+	switch value := row["row_version"].(type) {
+	case int64:
+		return value, nil
+	case int:
+		return int64(value), nil
+	case int32:
+		return int64(value), nil
+	case float64:
+		return int64(value), nil
+	default:
+		return 0, fmt.Errorf("generic row has unexpected row_version type %T", value)
+	}
 }
 
 func (s *Store) CreateLinkedNote(ctx context.Context, actor authn.UserRecord, sourceRecordID uuid.UUID, request LinkedNoteCreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {

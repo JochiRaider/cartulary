@@ -154,6 +154,11 @@
       "summary": "The addressed record is already soft-deleted."
     },
     {
+      "code": "record_delete_blocked",
+      "http_status": 409,
+      "summary": "The addressed record cannot be soft-deleted while owner-defined active incoming references or integrity dependencies remain."
+    },
+    {
       "code": "record_not_deleted",
       "http_status": 409,
       "summary": "The addressed record is not currently soft-deleted."

@@ -15,8 +15,8 @@
       "Optional standardized Findings, Investigative Queries, and Forensic Keywords rows remain blocker sentinels until later work records direct coverage for exposed surfaces or an owner-cited N/A interpretation."
     ],
     "authoritative_execution": [
-      "`backend-unit` selects direct Sprint 2 shared tabular-ingest planning evidence for clipboard paste, while timestamp, direct-reference, and registry rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`backend-store` selects Phase 9 blocker sentinels for Notes, Indicators, Parties, Assessments, Tasks and Decisions, coordination, optional standardized surfaces, and manual relationship collection rows until real implementation evidence replaces them.",
+      "`backend-unit` selects direct Sprint 2 shared tabular-ingest planning evidence for clipboard paste, while timestamp and registry rows remain blocker sentinels until real implementation evidence replaces them.",
+      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, and blocker sentinels for Assessments, Tasks and Decisions, coordination, optional standardized surfaces, and manual relationship collection rows until real implementation evidence replaces them.",
       "`backend-integration` selects direct Sprint 2 clipboard persistence, entity-origin paste, and bulk-mutation evidence while workbook projection and party-link helper rows remain blocker sentinels until real implementation evidence replaces them.",
       "`frontend-unit` selects direct Sprint 1 keyboard command/grid-anchor evidence plus Sprint 2 rendered paste-dispatch anchor evidence while later frontend Phase 9 rows remain blocker sentinels until real implementation evidence replaces them.",
       "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, and shared-grid browser evidence while later browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
@@ -196,15 +196,15 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/entities",
-      "file": "internal/modules/entities/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_U_9_05",
+      "file": "internal/modules/entities/phase9_parties_test.go",
+      "symbol": "TestPhase9_PartyExactMatchReuseAndRawTextPreservation_U_9_05",
       "execution_dependency": "backend_store",
-      "evidence_layer": "backend_store_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for Party exact-match reuse and raw text preservation; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing Party text-plus-link behavior is later Phase 9 work.",
-      "execution_family": "backend-store-phase9-entities-blockers",
-      "execution_label": "backend-store phase9 entities blocker sentinels",
-      "claim_status": "blocked"
+      "evidence_layer": "backend_store",
+      "claim": "Party create reuses exactly one active same-incident Party by normalized primary_email or, failing that, external_ref, never reuses deleted exact-match Parties, while display/org/role and phone-like text do not drive reuse and ordinary party text remains source-preserving without auto-creating or auto-linking Party records.",
+      "out_of_scope": "Party merge, global contacts, phone-number normalization as a reusable identity key, deployment users, and later Phase 9 workflow surfaces remain unclaimed.",
+      "execution_family": "backend-store-phase9-parties",
+      "execution_label": "backend-store phase9 parties evidence",
+      "claim_status": "implemented"
     },
     {
       "id": "U-9-06",
@@ -286,15 +286,18 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_U_9_11",
-      "execution_dependency": "backend_unit",
-      "evidence_layer": "backend_unit_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for direct-reference field behavior; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing direct-reference validation and text-plus-ref independence is later Phase 9 work.",
-      "execution_family": "backend-unit-phase9-blockers",
-      "execution_label": "backend-unit phase9 blocker sentinels",
-      "claim_status": "blocked"
+      "file": "internal/modules/workbook/phase9_party_refs_test.go",
+      "symbols": [
+        "TestPhase9_U_9_11_DirectPartyReferencesAcceptOnlyExactStableIDs",
+        "TestPhase9_U_9_11_DirectPartyReferencesRequireSameIncidentActiveParties"
+      ],
+      "execution_dependency": "backend_store",
+      "evidence_layer": "backend_store",
+      "claim": "Direct Party-reference writes accept only exact stable party identifiers, reject non-direct or non-exact lexical shapes including whitespace-padded IDs, labels, emails, and non-scalars, preserve direct value=null clear semantics, and fail closed for foreign-incident, deleted, wrong-type, or deployment-user UUID targets without mutating the referencing row.",
+      "out_of_scope": "Decision-reference portions of the direct-reference registry remain owned by later Phase 9 rows.",
+      "execution_family": "backend-store-phase9-parties",
+      "execution_label": "backend-store phase9 parties evidence",
+      "claim_status": "implemented"
     },
     {
       "id": "U-9-12",
@@ -384,15 +387,15 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_I_9_03",
+      "file": "internal/modules/workbook/phase9_parties_integration_test.go",
+      "symbol": "TestPhase9_PartyLinkHelperFieldsPreserveTextIndependently_I_9_03",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "backend_integration_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for party-link helper field behavior; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing party-link helper behavior is later Phase 9 work.",
-      "execution_family": "backend-integration-phase9-blockers",
-      "execution_label": "backend-integration phase9 blocker sentinels",
-      "claim_status": "blocked"
+      "evidence_layer": "backend_integration",
+      "claim": "Party-link helper field writes update hidden same-incident Party references without overwriting preserved requester, collector, or source text; clear-link, clear-text, and clear-both semantics round-trip through full row refresh state; foreign, deleted, wrong-type, or deployment-user UUID targets fail closed for requester, collector, source, audience, and attendee party references; comm-log audience text is preserved when audience or attendee party refs are added or removed; and deleting a Party with active direct or collection incoming references fails closed.",
+      "out_of_scope": "Task/Decision workflow creation and coordination collection workflows remain later Phase 9 work.",
+      "execution_family": "backend-integration-phase9-parties",
+      "execution_label": "backend-integration phase9 parties evidence",
+      "claim_status": "implemented"
     },
     {
       "id": "I-9-GRID-01",
@@ -459,12 +462,12 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
-      "title": "Phase 9 E-9-04 Sprint 0 blocker sentinel",
+      "title": "Phase 9 E-9-04 Party create and link preserve raw text on the workbook surface",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser_functional_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for Party create/link browser workflow; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing Party browser workflow behavior is later Phase 9 work.",
-      "claim_status": "blocked"
+      "evidence_layer": "browser_functional",
+      "claim": "The browser workbook surface keeps ordinary Evidence and Task Request party text edits text-only without auto-linking, exposes same-surface Party create-from-text, link-existing, clear-link, clear-text, and clear-both actions for source-preserving party text/ref pairs, preserves selected row/focus/scroll context and one-PATCH clear-both submission, and preserves Communications Log audience text while adding and removing supplemental audience and attendee party refs.",
+      "out_of_scope": "Assessment, Decision, broader coordination, optional standardized surface, import, and reporting browser workflows remain later Phase 9 work.",
+      "claim_status": "implemented"
     },
     {
       "id": "E-9-05",

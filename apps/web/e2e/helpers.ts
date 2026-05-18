@@ -29,6 +29,18 @@ export const sessionCookieName = "cartulary_session";
 export const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
 
+export type ViewApiCell = {
+  value: unknown;
+  [key: string]: unknown;
+};
+
+export type ViewApiRow = {
+  record_id: string;
+  row_version: number;
+  cells: Record<string, ViewApiCell>;
+  [key: string]: unknown;
+};
+
 function originFromEnv(name: string, fallback: string) {
   return (process.env[name] ?? fallback).replace(/\/+$/, "");
 }
@@ -524,7 +536,7 @@ export async function createViewRow(
   incidentId: string,
   viewSchemaId: string,
   payload: Record<string, unknown>,
-) {
+): Promise<ViewApiRow> {
   const response = await page.request.post(
     `${apiBase}/api/v1/incidents/${incidentId}/views/${viewSchemaId}/rows`,
     {
@@ -533,15 +545,14 @@ export async function createViewRow(
     },
   );
   expect(response.ok()).toBeTruthy();
-  return ((await response.json()) as { data: { row: Record<string, unknown> } })
-    .data.row;
+  return ((await response.json()) as { data: { row: ViewApiRow } }).data.row;
 }
 
 export async function queryViewRows(
   page: Page,
   incidentId: string,
   viewSchemaId: string,
-) {
+): Promise<ViewApiRow[]> {
   const response = await page.request.post(
     `${apiBase}/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
     {
@@ -551,7 +562,7 @@ export async function queryViewRows(
   expect(response.ok()).toBeTruthy();
   return (
     (await response.json()) as {
-      data: { rows: Array<Record<string, unknown>> };
+      data: { rows: ViewApiRow[] };
     }
   ).data.rows;
 }

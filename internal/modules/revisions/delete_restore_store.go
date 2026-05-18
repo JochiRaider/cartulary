@@ -23,10 +23,13 @@ var (
 	ErrRowVersionConflict      = errors.New("revisions: row version conflict")
 	ErrRecordDeletedUseRestore = errors.New("revisions: record deleted use restore")
 	ErrRecordAlreadyDeleted    = errors.New("revisions: record already deleted")
+	ErrRecordDeleteBlocked     = errors.New("revisions: record delete blocked")
 	ErrRecordNotDeleted        = errors.New("revisions: record not deleted")
 	ErrRecordLocked            = errors.New("revisions: record locked")
 	ErrUnsupportedRecordType   = errors.New("revisions: unsupported record type")
 )
+
+const activeIncomingPartyReferenceReason = "active_incoming_party_reference"
 
 type RowVersionConflictError struct {
 	RecordID          uuid.UUID
@@ -60,6 +63,26 @@ func (e *RecordLockedError) Error() string {
 
 func (e *RecordLockedError) Unwrap() error {
 	return ErrRecordLocked
+}
+
+type RecordDeleteBlockedError struct {
+	RecordID   uuid.UUID
+	ReasonCode string
+}
+
+func (e *RecordDeleteBlockedError) Error() string {
+	return ErrRecordDeleteBlocked.Error()
+}
+
+func (e *RecordDeleteBlockedError) Unwrap() error {
+	return ErrRecordDeleteBlocked
+}
+
+func (e *RecordDeleteBlockedError) Details() map[string]any {
+	return map[string]any{
+		"record_id":   e.RecordID.String(),
+		"reason_code": e.ReasonCode,
+	}
 }
 
 type DeleteRestoreResult struct {
@@ -178,6 +201,11 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	}
 	if !deleting && record.DeletedAt == nil {
 		return DeleteRestoreResult{}, ErrRecordNotDeleted
+	}
+	if deleting {
+		if err := validateDeletePreconditionsTx(ctx, tx, record); err != nil {
+			return DeleteRestoreResult{}, err
+		}
 	}
 
 	beforeSnapshot, err := adapter.snapshotTx(ctx, tx, record.RecordID)
@@ -303,6 +331,63 @@ SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_
 		record.DeletedByUserID = &parsed
 	}
 	return record, nil
+}
+
+func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, record deleteRestoreRecord) error {
+	switch record.RecordType {
+	case "party":
+		hasIncoming, err := hasActiveIncomingPartyReferenceTx(ctx, tx, record.IncidentID, record.RecordID)
+		if err != nil {
+			return err
+		}
+		if hasIncoming {
+			return &RecordDeleteBlockedError{
+				RecordID:   record.RecordID,
+				ReasonCode: activeIncomingPartyReferenceReason,
+			}
+		}
+	}
+	return nil
+}
+
+func hasActiveIncomingPartyReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, partyID uuid.UUID) (bool, error) {
+	var exists bool
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM evidence e
+      JOIN records r
+        ON r.incident_id = e.incident_id
+       AND r.record_id = e.record_id
+       AND r.deleted_at IS NULL
+     WHERE e.incident_id = $1
+       AND (e.collector_party_id = $2 OR e.source_party_id = $2)
+    UNION ALL
+    SELECT 1
+      FROM task_requests t
+      JOIN records r
+        ON r.incident_id = t.incident_id
+       AND r.record_id = t.record_id
+       AND r.deleted_at IS NULL
+     WHERE t.incident_id = $1
+       AND t.requester_party_id = $2
+    UNION ALL
+    SELECT 1
+      FROM record_links rl
+      JOIN records src
+        ON src.incident_id = rl.incident_id
+       AND src.record_id = rl.src_record_id
+       AND src.deleted_at IS NULL
+     WHERE rl.incident_id = $1
+       AND rl.dst_record_id = $2
+       AND rl.link_type = 'references_record'
+       AND rl.field_key IN ('comm_log.audience_party_ids', 'comm_log.attendee_party_ids')
+       AND rl.deleted_at IS NULL
+)
+`, incidentID, partyID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("validate party delete references: %w", err)
+	}
+	return exists, nil
 }
 
 func LockRecordEnvelopesNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {

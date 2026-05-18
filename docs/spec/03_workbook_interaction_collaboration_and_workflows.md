@@ -2121,12 +2121,12 @@ Profiles: base
 Verified by: AC-231, AC-277
 
 **REQ-03-267**
-Ordinary text entry into requester, collector, source, audience, or attendee text fields MUST NOT auto-create or auto-link a `party` record.
+Ordinary text entry into requester, collector, source, or audience text fields MUST NOT auto-create or auto-link a `party` record. The base profile does not define a separate Communications Log attendee text field; attendee semantics on that surface are represented by supplemental party-reference collections.
 Profiles: base
 Verified by: AC-231, AC-279
 
 **REQ-03-268**
-Where the active surface exposes requester, collector, source, audience, or attendee semantics, the inspector or Parties view MUST support explicit `Create party from text`, `Link existing party`, `Clear party link`, `Clear party text`, and `Clear both` actions. The implementation MAY expose those actions through any same-surface command set that preserves their distinct behavior and non-destructive defaults.
+Where the active surface exposes requester, collector, source, or audience text/ref pair semantics, the inspector or Parties view MUST support explicit `Create party from text`, `Link existing party`, `Clear party link`, `Clear party text`, and `Clear both` actions. Where the active surface exposes audience or attendee supplemental party-reference collection semantics, the implementation MUST support explicit same-surface link and clear actions for those references without replacing required source-preserving audience text. The implementation MAY expose those actions through any same-surface command set that preserves their distinct behavior and non-destructive defaults.
 Profiles: base
 Verified by: AC-231, AC-278, AC-279
 

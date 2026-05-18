@@ -425,6 +425,17 @@ func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMe
 		utc := parsed.UTC()
 		return ValueChange{Kind: "timestamp", Timestamp: &utc}, utc.Format(time.RFC3339Nano), nil
 	}
+	if field.DirectReferenceContractID != nil {
+		var raw string
+		if err := json.Unmarshal(value, &raw); err != nil {
+			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		parsed, err := uuid.Parse(raw)
+		if err != nil || parsed.String() != raw {
+			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		return ValueChange{Kind: "uuid", UUID: &parsed}, parsed.String(), nil
+	}
 	if isUUIDField(fieldKey, field) {
 		var raw string
 		if err := json.Unmarshal(value, &raw); err != nil {
@@ -735,7 +746,11 @@ func canonicalValues(values map[string]ValueChange) map[string]any {
 	slices.Sort(keys)
 	result := map[string]any{}
 	for _, key := range keys {
-		result[key] = canonicalValue(values[key])
+		value := canonicalValue(values[key])
+		if value == nil {
+			continue
+		}
+		result[key] = value
 	}
 	return result
 }

@@ -15,13 +15,13 @@ Authority model:
 - Generated files, generated ledgers, generated schedules, visual goldens, support-only tests, retained run artifacts, and previous phase plans are not behavior authorities.
 - `docs/domain.md` is a vocabulary and concept reference for terminology-sensitive work. It does not replace the owner specs.
 
-Current repo status after Sprint 2 audit:
+Current repo status after Sprint 4 audit:
 - `tools/phase_registry.json` includes Phase 9 as `active`.
 - `tools/phase9_test_map.json` exists and represents every authoritative Phase 9 row exactly once.
 - `docs/testing/phase9_coverage_ledger.md` exists and is generated from the Phase 9 manifest.
-- Direct Sprint 1 and Sprint 2 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, and Host/Identity entity-origin paste.
+- Direct Sprint 1 through Sprint 4 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, Host/Identity entity-origin paste, Notes, Indicators, Parties, and party text-plus-link flows.
 - Remaining later-sprint blocker sentinels intentionally prevent a full Phase 9 completion claim until replaced by direct behavior evidence or owner-cited `N/A` coverage where applicable.
-- The broad `browser-e2e-webserver-backed` aggregate still has an outside-Phase-9 `E-4-04` product assertion failure; Phase 9 browser-functional evidence passed when selected through the Phase 9 slice.
+- The broad `browser-e2e-webserver-backed` aggregate passed in the Sprint 4 audit. Phase 9 completion is still not claimed while later Phase 9 sprint rows remain separately owned.
 
 ## Phase Objective
 
@@ -85,7 +85,7 @@ Carried-forward compatibility boundaries:
 | [x] | 1. Keyboard and grid anchors | `make frontend-unit`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `git diff --check` | No Sprint 1-owned blocker remains; aggregate targets still fail on later Phase 9 blocker sentinels and one outside-Phase-9 browser regression. | Direct Sprint 1 evidence now covers keyboard command mapping, Cartulary grid anchors, live workbook shortcuts, and shared grid keyboard anchor semantics. |
 | [x] | 2. Clipboard and bulk paste | `make backend-unit`, `make backend-integration`, `make frontend-unit`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `make phase-ledger-drift`, `git diff --check` | No Sprint 2-owned blocker remains; full Phase 9 remains incomplete while later blocker rows remain, and broad browser aggregate status is still affected by outside-Phase-9 `E-4-04`. | Covers shared tabular-ingest planning, Timeline paste, Host/Identity entity-origin paste, fill-down, tags, conflict grouping, sorted/filtered anchoring, file-import separation, and generated-ledger traceability. |
 | [x] | 3. Notes and Indicators | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 3-owned blocker remains. This does not claim Phase 9 completion; later Phase 9 sprint rows remain separately owned. | Direct Sprint 3 evidence covers Notes as artifact-backed `note` rows, canonical Indicators with distinct observations and lifecycle history, workbook projection query, Notes linked creation, registry opening by canonical `view_schema_id`, and shared grid anchors for Notes/Indicators. |
-| [ ] | 4. Parties and text-plus-link flows | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect current party-link UI and direct-reference gaps. | Preserve text/ref independence and exact-match reuse. |
+| [x] | 4. Parties and text-plus-link flows | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 4-owned blocker remains. Caveat: `U-9-11` is requested by older planning text as backend-unit evidence, but current direct evidence is mapped and executed as backend-store because same-incident active-target validation depends on store state. | Direct Sprint 4 evidence covers incident-scoped Parties, exact reuse by normalized `primary_email` or `external_ref`, stable-ID-only direct refs, independent text/ref clears, same-surface party actions, and row context preservation. |
 | [ ] | 5. Assessments and timestamp contract | `make backend-store`, `make backend-unit`, `make browser-e2e-webserver-backed` | TODO: inspect append-only and timestamp-local-draft gaps. | Cover assessment history and timestamp validation. |
 | [ ] | 6. Task Requests and Decisions | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect task/decision lifecycle implementation status. | Keep bounded lifecycle and fail-closed contradiction handling. |
 | [ ] | 7. Coordination surfaces | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect coordination artifact create/query/edit gaps. | Cover `comm_log`, `handoff`, `status_review`, and `lesson`. |
@@ -108,7 +108,7 @@ Every authoritative Phase 9 row must have exactly one authoritative row owner in
 | `U-9-08` | `backend_store` | Coordination surfaces satisfy minimum create and projection-field behavior. |
 | `U-9-09` | conditional `backend_store` or `N/A` | Optional standardized surfaces behave correctly only when exposed. |
 | `U-9-10` | `backend_unit` | `timestamp_instant_v1` accepts, clears, and rejects exactly as owned. |
-| `U-9-11` | `backend_unit` | Direct refs accept stable IDs only and preserve text/ref independence. |
+| `U-9-11` | `backend_store` | Party direct refs accept stable IDs only, clear with `value=null`, and fail closed on non-same-incident or inactive targets. |
 | `U-9-12` | `backend_store` | Manual relationship collections reject client confidence and preserve authoritative `null`. |
 | `U-9-13` | `backend_unit` | Artifact-backed variant registry preserves Notes and coordination identities. |
 | `U-9-GRID-01` | `frontend_unit` | Keyboard navigation updates Cartulary anchors, not vendor selection alone. |
@@ -119,7 +119,7 @@ Every authoritative Phase 9 row must have exactly one authoritative row owner in
 | `E-9-01` | `browser_functional` | Required keyboard shortcuts work in the grid without module switching. |
 | `E-9-02` | `browser_functional` | 20x5 Timeline paste creates or updates rows, preserves identity/selection, and presents grouped conflict navigation. |
 | `E-9-03` | `browser_functional` | Notes tab supports in-grid creation and record linking. |
-| `E-9-04` | `browser_functional` | Party create/link keeps raw text and exposes pivots and queues. |
+| `E-9-04` | `browser_functional` | Party create/link/clear flows keep raw text and preserve same-surface row context. |
 | `E-9-05` | `browser_functional` | Assessment sequences remain distinguishable in history and filters. |
 | `E-9-06` | `browser_functional` | Task, Decision, and coordination surfaces stay workbook-native. |
 | `E-9-07` | conditional `browser_functional` or `N/A` | Optional standardized surfaces are covered when exposed. |
@@ -551,49 +551,56 @@ Files or areas to inspect:
 - `internal/modules/entities`
 - `internal/modules/evidence`
 - `internal/modules/workbook`
+- `internal/modules/revisions`
 - `internal/platform/viewschema`
 - `apps/web/src/WorkbookShell.tsx`
 - `apps/web/e2e`
-- TODO: exact direct-reference validation helper.
-- TODO: exact party-link inspector or same-surface command code.
+- `internal/modules/workbook/mutation_api.go` for direct-reference decode and `value=null` clear validation.
+- `internal/modules/workbook/mutation_store.go` for exact Party reuse and same-incident active-target validation.
+- `internal/modules/revisions/delete_restore_store.go` for active incoming Party-reference delete guards.
 
-Test-first sequence:
-1. Add backend store tests for Party create and exact-match reuse by normalized `primary_email` or `external_ref` only.
-2. Add backend unit tests for `same_incident_party_ref_v1` exact stable identifier validation and clear semantics.
-3. Add integration tests proving party-link helper fields update hidden `*_party_id` without overwriting preserved text.
-4. Add browser tests for create-from-text, link-existing, clear-link, clear-text, and clear-both flows where exposed.
+Evidence sequence:
+1. Backend store `U-9-05` evidence proves Party create, incident scoping, raw text preservation, and exact-match reuse by normalized `primary_email` or `external_ref` only.
+2. Direct-reference `U-9-11` evidence proves exact stable Party IDs, rejects non-ID inputs and non-direct clear shapes, accepts direct-write `value=null`, and rejects foreign, deleted, wrong-type, and deployment-user targets. This evidence currently runs in the backend-store layer rather than backend-unit because active target validation depends on persisted incident state.
+3. Backend integration `I-9-03` evidence proves hidden `*_party_id` fields update without overwriting requester, collector, source, audience, or attendee text.
+4. Browser-functional `E-9-04` evidence proves create-from-text, link-existing, clear-link, clear-text, and clear-both flows remain same-surface and preserve visible row context where exposed.
 
-Implementation tasks:
+Completed behavior:
 - Keep `party` as an incident-scoped first-class record, not a deployment user or global contact.
-- Implement or harden exact-match reuse for explicit party create/create-from-text flows.
+- Reuse exact active same-incident Parties only by normalized `primary_email`, or failing that, `external_ref`.
 - Preserve requester, collector, source, audience, and attendee text independently from party refs.
 - Use ordinary record patch direct writes with `value=null` for direct-reference clears.
-- Reject non-direct-write clear shapes, fuzzy IDs, labels, emails as refs, foreign incident parties, and deleted party targets.
-- Keep same-surface focus and scroll context after party actions.
+- Reject non-direct-write clear shapes, fuzzy IDs, labels, emails as refs, whitespace-padded IDs, arrays, objects, booleans, numbers, foreign incident parties, deleted party targets, wrong-type records, and deployment-user IDs.
+- Keep same-surface focus, scroll, and originating row context after party actions where the browser flow is implemented.
 
 Validation commands:
-- `make backend-unit`
-- `make backend-store`
-- `make backend-integration`
-- `make browser-e2e-webserver-backed`
-- `make phase-slice PHASE=phase9`
-- `make service-backed-slice PHASE=phase9`
-- `git diff --check`
+- `make backend-unit`: passed; retained root `.cartulary/test-results/20260518T165456Z-p2237222`.
+- `make backend-store`: passed; retained root `.cartulary/test-results/20260518T165511Z-p2238234`.
+- `make backend-integration`: passed; retained root `.cartulary/test-results/20260518T170032Z-p2248234`.
+- `make browser-e2e-webserver-backed`: passed; retained root `.cartulary/test-results/20260518T170607Z-p2259417`.
+- `make phase-slice PHASE=phase9`: passed; retained root `.cartulary/test-results/20260518T170722Z-p2266675`.
+- `make service-backed-slice PHASE=phase9`: passed; retained root `.cartulary/test-results/20260518T171258Z-p2279272`.
+- `git diff --check`: passed without retained harness root.
 
 Deliverables:
 - Direct authoritative evidence for `U-9-05`, `U-9-11`, `I-9-03`, and `E-9-04`.
-- TODO: exact artifact root for browser party-link evidence.
+- Targeted Sprint 4 evidence inside the Phase 9 wrapper run:
+  - Backend store Parties evidence: `.cartulary/test-results/20260518T170722Z-p2266675/backend-store/backend-store-phase9-parties-evidence`
+  - Backend integration Parties evidence: `.cartulary/test-results/20260518T170722Z-p2266675/backend-integration/backend-integration-phase9-parties-evidence`
+  - Browser Phase 9 authoritative selection: `.cartulary/test-results/20260518T170722Z-p2266675/browser-e2e-webserver-backed/browser-e2e-functional-phase9-authoritative`
 
 Risks:
 - Auto-creating or auto-linking parties from ordinary text entry.
 - Clearing source text when clearing `party_id`, or clearing `party_id` when clearing text.
 - Treating email or display name as a submitted direct-reference scalar.
 - Introducing party merge or global contact behavior.
+- Treating the `U-9-11` backend-store evidence layer as a backend-unit row without either splitting decoder-only unit coverage or updating row-layer expectations.
 
 Exit criteria:
 - Party text-plus-link semantics are directly evidenced.
 - Raw source text and direct party refs remain independently controlled.
 - Party references inherit incident authorization without record-specific ACLs.
+- Sprint 4 is complete for direct behavior evidence. This does not claim full Phase 9 completion.
 
 ## Sprint 5. Assessments and Timestamp Contract
 

@@ -1119,7 +1119,7 @@ A `comm_log` artifact MUST also be able to persist, at minimum, the following op
 - `audience_party_ids[]`,
 - `attendee_party_ids[]`.
 
-These supplemental party references MUST NOT replace required `audience` text.
+These supplemental party references MUST NOT replace required `audience` text. The base profile defines no separate `comm_log.attendee_text` source field; attendee participant structure is carried by `attendee_party_ids[]`.
 Profiles: base
 Verified by: AC-087, AC-088, AC-089, AC-231, AC-278, AC-281
 
@@ -2282,7 +2282,7 @@ Verified by: AC-231, AC-279
 **REQ-02-231**
 A `*_party_id` write MUST fail unless the referenced `party` row is active and belongs to the same incident as the referencing record. Deleting a `party` row that still has active incoming references MUST fail closed.
 Profiles: base
-Verified by: AC-231, AC-280
+Verified by: AC-231, AC-280, AC-318
 
 **REQ-02-232**
 The current profile MUST NOT standardize party-merge behavior or phone-number normalization as part of the base party model. Implementations MAY surface duplicate suggestions, but they MUST NOT auto-merge parties or treat phone-like text as a canonical dedupe key.

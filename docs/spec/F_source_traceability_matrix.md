@@ -956,7 +956,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-02-228 | Core 02 §19 Incident-scoped party model | base | AC-231, AC-278 |
 | REQ-02-229 | Core 02 §19 Incident-scoped party model | base | AC-231, AC-279 |
 | REQ-02-230 | Core 02 §19 Incident-scoped party model | base | AC-231, AC-279 |
-| REQ-02-231 | Core 02 §19 Incident-scoped party model | base | AC-231, AC-280 |
+| REQ-02-231 | Core 02 §19 Incident-scoped party model | base | AC-231, AC-280, AC-318 |
 | REQ-02-232 | Core 02 §19 Incident-scoped party model | base | AC-231, AC-279..AC-280 |
 | REQ-02-233 | Core 02 §10.4.1 `task_request` record type | base | AC-319 |
 | REQ-02-234 | Core 02 §14.1 Persistence realization status and deployment-local invariants | enterprise_authentication | AC-348..AC-351 |
@@ -1690,7 +1690,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-315 | REQ-01-059..REQ-01-060, REQ-01-328, REQ-01-336, REQ-01-516..REQ-01-517, REQ-01-519..REQ-01-520, REQ-03-272..REQ-03-274 |
 | AC-316 | REQ-01-061, REQ-01-328, REQ-01-336, REQ-01-517, REQ-01-519..REQ-01-520 |
 | AC-317 | REQ-01-328, REQ-01-336, REQ-01-517..REQ-01-520 |
-| AC-318 | REQ-01-328, REQ-01-336, REQ-01-502, REQ-02-017, REQ-02-021..REQ-02-022, REQ-03-272, REQ-03-274 |
+| AC-318 | REQ-01-328, REQ-01-336, REQ-01-502, REQ-02-017, REQ-02-021..REQ-02-022, REQ-02-231, REQ-03-272, REQ-03-274 |
 | AC-319 | REQ-01-336, REQ-01-517..REQ-01-520, REQ-02-233, REQ-03-273 |
 | AC-320 | REQ-04-066, REQ-04-077, REQ-04-079..REQ-04-081 |
 | AC-321 | REQ-01-234, REQ-01-238, REQ-01-243..REQ-01-245, REQ-04-079..REQ-04-080 |

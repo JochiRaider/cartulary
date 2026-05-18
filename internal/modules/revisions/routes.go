@@ -300,6 +300,14 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 	case errors.Is(err, ErrRecordAlreadyDeleted):
 		writeAPIError(w, r, recordAlreadyDeletedError())
 		return
+	case errors.Is(err, ErrRecordDeleteBlocked):
+		var blocked *RecordDeleteBlockedError
+		if errors.As(err, &blocked) {
+			writeAPIError(w, r, recordDeleteBlockedError(blocked.Details()))
+			return
+		}
+		writeAPIError(w, r, recordDeleteBlockedError(nil))
+		return
 	case errors.Is(err, ErrRecordNotDeleted):
 		writeAPIError(w, r, recordNotDeletedError())
 		return

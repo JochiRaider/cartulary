@@ -24,10 +24,6 @@ func TestPhase9_Sprint0Blocker_U_9_10(t *testing.T) {
 	t.Log(phase9Sprint0SentinelMessage)
 }
 
-func TestPhase9_Sprint0Blocker_U_9_11(t *testing.T) {
-	t.Log(phase9Sprint0SentinelMessage)
-}
-
 func TestPhase9_Sprint0Blocker_U_9_12(t *testing.T) {
 	t.Log(phase9Sprint0SentinelMessage)
 }
@@ -38,8 +34,4 @@ func TestPhase9_Sprint0Blocker_U_9_13(t *testing.T) {
 
 func TestPhase9_I_9_01_Sprint2ClipboardPasteIntegrationRowHasDirectEvidence(t *testing.T) {
 	t.Log("Phase 9 I-9-01 is replaced by direct clipboard paste integration tests in internal/modules/workbook/phase9_clipboard_paste_integration_test.go.")
-}
-
-func TestPhase9_Sprint0Blocker_I_9_03(t *testing.T) {
-	t.Log(phase9Sprint0SentinelMessage)
 }
