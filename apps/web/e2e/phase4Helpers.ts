@@ -5,6 +5,7 @@ import {
 import {
   gridSavedRowsSelector,
   gridShellTestId,
+  pendingQueueNoticeTestId,
   relationshipItemsTestId,
   rowInspectButtonTestId,
   timelineRowVersionTestId,
@@ -266,9 +267,6 @@ export async function addRelationshipTokenViaUI(
   const requestPayload = readRequestPayload(response);
   const envelope = await readTimelineMutation(response);
   options.onPatchRequest?.(requestPayload);
-  await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
-    String(envelope.data.row.row_version),
-  );
   const fieldKey =
     draftKey === "identityRefs" ? identityRefsFieldKey : hostRefsFieldKey;
   const item = requireItemByRawText(
@@ -280,7 +278,45 @@ export async function addRelationshipTokenViaUI(
       .getByTestId(relationshipItemsTestId(recordId, draftKey))
       .getByTestId(`chip-${sanitizeTestId(String(item.item_ref))}`),
   ).toBeVisible();
-  await waitForSaveState(page, "Saved");
+  await expect
+    .poll(
+      async () => ({
+        inputValue: await input.inputValue().catch((error: unknown) => {
+          return `<<failed to read input value: ${String(error)}>>`;
+        }),
+        pendingQueueNoticeCount: await page
+          .getByTestId(pendingQueueNoticeTestId())
+          .count(),
+        renderedRowVersion: await page
+          .getByTestId(timelineRowVersionTestId(recordId))
+          .textContent()
+          .catch((error: unknown) => {
+            return `<<failed to read row version: ${String(error)}>>`;
+          }),
+        saveState: await page
+          .getByTestId("save-state")
+          .textContent()
+          .catch((error: unknown) => {
+            return `<<failed to read save state: ${String(error)}>>`;
+          }),
+      }),
+      {
+        message: [
+          "relationship token commit did not converge",
+          `record_id=${recordId}`,
+          `draft_key=${draftKey}`,
+          `raw_text=${JSON.stringify(rawText)}`,
+          `request_payload=${JSON.stringify(requestPayload)}`,
+          `response_row_version=${envelope.data.row.row_version}`,
+        ].join("\n"),
+      },
+    )
+    .toEqual({
+      inputValue: "",
+      pendingQueueNoticeCount: 0,
+      renderedRowVersion: String(envelope.data.row.row_version),
+      saveState: "Saved",
+    });
   return envelope;
 }
 

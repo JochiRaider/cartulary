@@ -242,6 +242,10 @@ Every grid write MUST include:
 - `record_id`,
 - the client’s `base_row_version`,
 - changed fields only.
+
+For client-driven dependent writes to the same record, including autosave-originated collection actions, the client MUST derive `base_row_version` from the latest committed `row_version` it has accepted for that record from a prior successful mutation response or authoritative live row patch. If that latest committed version is not available at dispatch time, the dependent write MUST remain queued or the client MUST refresh before dispatching it. The client MUST NOT intentionally dispatch a dependent same-record write from an older rendered row snapshot when a newer committed row version is already known locally.
+
+For editable collection controls, an Enter or Tab commit and the blur event caused by that same keyboard commit are one logical collection commit. The client MUST NOT emit a second autosave mutation for the same control value solely because focus moved after the keyboard commit.
 Profiles: base
 Verified by: AC-009, AC-013, AC-047, AC-231
 
@@ -757,7 +761,7 @@ Replay MUST proceed in FIFO order.
 
 Replay MUST stop at the first non-retryable failure that requires analyst action. If that blocking failure is a same-field conflict, the blocked replay unit MUST leave the local pending queue, MUST enter the existing client-local same-field conflict queue keyed by `record_id:field_key`, and later queued units MUST remain queued behind it without being applied out of order. If the blocking failure is another terminal failure, later queued units MUST remain queued, save state MUST remain `Conflict`, and the blocking failure MUST be surfaced on the same workbook surface.
 
-Replayed writes MUST still satisfy ordinary `base_row_version`, authorization, and same-field conflict checks before they become authoritative incident state. No additional workbook tab, saved view, or inspector workflow is required for this credential-lifecycle behavior.
+Replayed writes MUST still satisfy ordinary `base_row_version`, authorization, and same-field conflict checks before they become authoritative incident state. A replayed row-patch unit MUST materialize its `base_row_version` from the latest committed row version known at dispatch time rather than from a stale version captured when the unit was admitted. No additional workbook tab, saved view, or inspector workflow is required for this credential-lifecycle behavior.
 Profiles: base
 Verified by: AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-376, AC-377, AC-378, AC-379, AC-380, AC-381, AC-382
 

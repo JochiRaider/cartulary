@@ -15,6 +15,7 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildRecordChangedPayload,
+  deferred,
   emitRecordChanged,
   extractTimelineJSONBody,
   successEnvelope,
@@ -865,6 +866,263 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
   });
 
+  it("commits sequential hostRefs edits with the latest returned row versions", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "reviewed",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-host-1",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            unresolvedItem({
+              itemRef: "mention-host-1",
+              entityType: "host",
+              rawText: "WS-023",
+            }),
+          ],
+        }),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-host-2",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 3,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            unresolvedItem({
+              itemRef: "mention-host-1",
+              entityType: "host",
+              rawText: "WS-023",
+            }),
+            unresolvedItem({
+              itemRef: "mention-host-2",
+              entityType: "host",
+              rawText: "WS-024",
+            }),
+          ],
+        }),
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    const firstInput = (await screen.findByTestId(
+      "row-record-1-hostRefs-input",
+    )) as HTMLInputElement;
+    fireEvent.change(firstInput, { target: { value: "WS-023" } });
+    fireEvent.keyDown(firstInput, { key: "Enter" });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+    });
+
+    const secondInput = screen.getByTestId(
+      "row-record-1-hostRefs-input",
+    ) as HTMLInputElement;
+    fireEvent.change(secondInput, { target: { value: "WS-024" } });
+    fireEvent.keyDown(secondInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "3",
+      );
+    });
+
+    expectHostRefAddRequest(fetchMock, 1, 1, "WS-023");
+    expectHostRefAddRequest(fetchMock, 2, 2, "WS-024");
+    expect(
+      screen.getByTestId("row-record-1-hostRefs-items").textContent,
+    ).toContain("WS-023");
+    expect(
+      screen.getByTestId("row-record-1-hostRefs-items").textContent,
+    ).toContain("WS-024");
+    expect(
+      document.querySelector('[data-testid^="auto-resolution-notice-"]'),
+    ).toBeNull();
+  });
+
+  it("treats Enter followed by blur as one hostRefs collection commit", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "reviewed",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-host-1",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            unresolvedItem({
+              itemRef: "mention-host-1",
+              entityType: "host",
+              rawText: "WS-023",
+            }),
+          ],
+        }),
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    const relationshipInput = (await screen.findByTestId(
+      "row-record-1-hostRefs-input",
+    )) as HTMLInputElement;
+    fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
+    fireEvent.keyDown(relationshipInput, { key: "Enter" });
+    fireEvent.blur(relationshipInput);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expectHostRefAddRequest(fetchMock, 1, 1, "WS-023");
+  });
+
+  it("dispatches a queued second hostRefs edit with the first response row version", async () => {
+    const firstPatch = deferred<Response>();
+    const secondPatch = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "reviewed",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(firstPatch.promise);
+    fetchMock.mockReturnValueOnce(secondPatch.promise);
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    const relationshipInput = (await screen.findByTestId(
+      "row-record-1-hostRefs-input",
+    )) as HTMLInputElement;
+    fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
+    fireEvent.keyDown(relationshipInput, { key: "Enter" });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+    });
+
+    fireEvent.change(relationshipInput, { target: { value: "WS-024" } });
+    fireEvent.keyDown(relationshipInput, { key: "Enter" });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    firstPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-host-1",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            unresolvedItem({
+              itemRef: "mention-host-1",
+              entityType: "host",
+              rawText: "WS-023",
+            }),
+          ],
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    expectHostRefAddRequest(fetchMock, 1, 1, "WS-023");
+    expectHostRefAddRequest(fetchMock, 2, 2, "WS-024");
+
+    secondPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-host-2",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 3,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            unresolvedItem({
+              itemRef: "mention-host-1",
+              entityType: "host",
+              rawText: "WS-023",
+            }),
+            unresolvedItem({
+              itemRef: "mention-host-2",
+              entityType: "host",
+              rawText: "WS-024",
+            }),
+          ],
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(
+        screen.getByTestId("row-record-1-hostRefs-items").textContent,
+      ).toContain("WS-024");
+    });
+  });
+
   it("renders a dismissed mention restore action after the dismiss flow completes", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -1226,6 +1484,32 @@ function unresolvedItem({
     display_text: rawText,
     raw_text: rawText,
   };
+}
+
+function expectHostRefAddRequest(
+  fetchMock: ReturnType<typeof vi.fn>,
+  index: number,
+  baseRowVersion: number,
+  rawText: string,
+) {
+  expect(extractTimelineJSONBody(fetchMock, index)).toMatchObject({
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: baseRowVersion,
+    changes: [
+      {
+        field_key: "timeline.host_refs",
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: [
+            {
+              op: "add_token",
+              raw_text: rawText,
+            },
+          ],
+        },
+      },
+    ],
+  });
 }
 
 function setTimelineGridScroll(top: number, left: number) {

@@ -262,6 +262,7 @@ type PasteConflictGroupState = {
 
 type PendingReplayKind = "create" | "patch";
 type PendingReplayStatus = "queued" | "in_flight";
+type PendingReplayPayloadIntent = Record<string, unknown>;
 
 type PendingReplayUnit = {
   id: string;
@@ -273,7 +274,7 @@ type PendingReplayUnit = {
   surface: TimelineScalarEditorSurface;
   method: "POST" | "PATCH";
   path: string;
-  payload: Record<string, unknown>;
+  payloadIntent: PendingReplayPayloadIntent;
   clientTxnId: string;
   mutationSignature: string;
   coalesceKey: string;
@@ -661,6 +662,7 @@ function FocusableWorkbookCell({
   readonly recordId: string;
 }) {
   return (
+    // biome-ignore lint/a11y: The grid adapter owns the gridcell role; this wrapper is only the focus/paste anchor inside that cell.
     <span
       data-testid={rowCellTestId(recordId, fieldKey)}
       onFocus={() => {
@@ -683,6 +685,7 @@ function FocusableWorkbookCell({
         }
       }}
       style={focusableCellStyle}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: The grid adapter owns cell semantics; this wrapper keeps keyboard focus anchored inside the rendered cell.
       tabIndex={0}
     >
       {children}
@@ -1585,7 +1588,7 @@ export function buildAssessmentCreatePayload(
   return payload;
 }
 
-function buildScalarPatchPayload(row: WorkbookRow, clientTxnId: string) {
+function buildScalarPatchIntent(row: WorkbookRow, clientTxnId: string) {
   const changes = Object.values(timelineScalarBindingIndex)
     .map((field) => {
       const current = normalizeValue(row.values[field.key]);
@@ -1604,32 +1607,29 @@ function buildScalarPatchPayload(row: WorkbookRow, clientTxnId: string) {
     )
     .sort((left, right) => left.field_key.localeCompare(right.field_key));
 
-  if (changes.length < 1 || row.rowVersion === null) {
+  if (changes.length < 1) {
     return null;
   }
 
   return {
     view_schema_id: timelineViewSchemaId,
-    base_row_version: row.rowVersion,
     client_txn_id: clientTxnId,
     changes,
   };
 }
 
-function buildCollectionPatchPayload(
-  row: WorkbookRow,
+function buildCollectionPatchIntent(
   fieldKey: CollectionFieldKey,
   draftValue: string,
   clientTxnId: string,
 ) {
   const actionPayload = buildCollectionActions(fieldKey, draftValue);
-  if (row.rowVersion === null || actionPayload === null) {
+  if (actionPayload === null) {
     return null;
   }
 
   return {
     view_schema_id: timelineViewSchemaId,
-    base_row_version: row.rowVersion,
     client_txn_id: clientTxnId,
     changes: [
       {
@@ -1687,17 +1687,34 @@ function buildAttachedEvidencePatchPayload(
   };
 }
 
-// Dedup queued autosaves by the logical mutation payload, not the per-request txn id.
+// Dedup queued autosaves by the logical mutation payload, not per-request metadata.
 function buildStableMutationSignature(payload: unknown): string {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return JSON.stringify(payload);
   }
 
-  const { client_txn_id: _clientTxnID, ...stablePayload } = payload as Record<
-    string,
-    unknown
-  >;
+  const {
+    client_txn_id: _clientTxnID,
+    base_row_version: _baseRowVersion,
+    ...stablePayload
+  } = payload as Record<string, unknown>;
   return JSON.stringify(stablePayload);
+}
+
+function materializePendingReplayPayload(
+  unit: PendingReplayUnit,
+  currentRow: WorkbookRow | undefined,
+) {
+  if (unit.kind === "create") {
+    return unit.payloadIntent;
+  }
+  if (currentRow?.rowVersion === null || currentRow?.rowVersion === undefined) {
+    return null;
+  }
+  return {
+    ...unit.payloadIntent,
+    base_row_version: currentRow.rowVersion,
+  };
 }
 
 export function clipboardTextLooksTabular(text: string): boolean {
@@ -2402,6 +2419,7 @@ export function TimelineWorkbook({
   const clientTxnRef = useRef(1);
   const pendingOpsRef = useRef(0);
   const pendingSignaturesRef = useRef(new Map<string, string>());
+  const collectionKeyboardCommitRef = useRef(new Map<string, string>());
   const pendingSocketTxnTimeoutsRef = useRef(new Map<string, number>());
   const saveQueueRef = useRef(Promise.resolve());
   const pendingQueueRef = useRef<PendingQueueRuntime>({
@@ -3737,9 +3755,9 @@ export function TimelineWorkbook({
         (unit.kind === "create" ||
           (unit.recordId !== null && lastUnit.recordId === unit.recordId));
       if (canCoalesce) {
-        lastUnit.payload = mergePendingPayload(
-          lastUnit.payload,
-          unit.payload,
+        lastUnit.payloadIntent = mergePendingPayload(
+          lastUnit.payloadIntent,
+          unit.payloadIntent,
           unit.kind,
         );
         lastUnit.rowSnapshot = unit.rowSnapshot;
@@ -3747,7 +3765,7 @@ export function TimelineWorkbook({
         lastUnit.focusKey = unit.focusKey;
         lastUnit.surface = unit.surface;
         lastUnit.mutationSignature = buildStableMutationSignature(
-          lastUnit.payload,
+          lastUnit.payloadIntent,
         );
         pendingSignaturesRef.current.set(
           lastUnit.rowKey,
@@ -3814,15 +3832,11 @@ export function TimelineWorkbook({
       unit.recordId === null
         ? rowsRef.current.find((row) => row.key === unit.rowKey)
         : rowsRef.current.find((row) => row.recordId === unit.recordId);
-    if (
-      unit.kind === "patch" &&
-      currentRow?.rowVersion !== null &&
-      currentRow?.rowVersion !== undefined
-    ) {
-      unit.payload = {
-        ...unit.payload,
-        base_row_version: currentRow.rowVersion,
-      };
+    const dispatchPayload = materializePendingReplayPayload(unit, currentRow);
+    if (dispatchPayload === null) {
+      publishPendingQueueState();
+      schedulePendingReplayRetry();
+      return;
     }
 
     unit.status = "in_flight";
@@ -3835,7 +3849,7 @@ export function TimelineWorkbook({
     try {
       result = await fetchJSON<TimelineMutationEnvelope>(unit.path, {
         method: unit.method,
-        body: JSON.stringify(unit.payload),
+        body: JSON.stringify(dispatchPayload),
       });
     } catch {
       resolvePendingSocketTxn(unit.clientTxnId);
@@ -4204,7 +4218,7 @@ export function TimelineWorkbook({
           ? buildCreatePayload(snapshot, clientTxnId, {
               allowZeroFieldCreate: options.allowZeroFieldCreate === true,
             })
-          : buildScalarPatchPayload(snapshot, clientTxnId);
+          : buildScalarPatchIntent(snapshot, clientTxnId);
       if (payload === null) {
         scalarDraftValuesRef.current.delete(focusKey);
         return;
@@ -4255,7 +4269,7 @@ export function TimelineWorkbook({
         surface: options.surface,
         method: snapshot.recordId === null ? "POST" : "PATCH",
         path: targetPath,
-        payload,
+        payloadIntent: payload,
         clientTxnId,
         mutationSignature,
         coalesceKey:
@@ -4288,15 +4302,31 @@ export function TimelineWorkbook({
       fieldKey: CollectionFieldKey,
       focusField: CollectionDraftKey,
       draftValueOverride?: string,
+      source: "keyboard" | "blur" = "blur",
     ) => {
-      const snapshot = rowsRef.current.find(
+      const focusKey = inputFocusKey(rowKey, focusField, "grid");
+      const rowSnapshot = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
       );
-      if (!snapshot) {
+      if (!rowSnapshot) {
         return;
       }
       const draftValue =
-        draftValueOverride ?? snapshot.collectionDrafts[focusField];
+        draftValueOverride ?? rowSnapshot.collectionDrafts[focusField];
+      const priorKeyboardCommitValue =
+        collectionKeyboardCommitRef.current.get(focusKey);
+      if (source === "blur") {
+        collectionKeyboardCommitRef.current.delete(focusKey);
+        if (priorKeyboardCommitValue === draftValue) {
+          return;
+        }
+      } else {
+        collectionKeyboardCommitRef.current.set(focusKey, draftValue);
+      }
+      const snapshot =
+        rowSnapshot.recordId === null
+          ? rowSnapshot
+          : (currentCommittedTimelineRow(rowSnapshot.recordId) ?? rowSnapshot);
       const collectionSnapshot =
         draftValueOverride === undefined
           ? snapshot
@@ -4312,12 +4342,7 @@ export function TimelineWorkbook({
       const payload =
         snapshot.recordId === null
           ? buildCreatePayload(effectiveSnapshot, clientTxnId)
-          : buildCollectionPatchPayload(
-              effectiveSnapshot,
-              fieldKey,
-              draftValue,
-              clientTxnId,
-            );
+          : buildCollectionPatchIntent(fieldKey, draftValue, clientTxnId);
       if (payload === null) {
         return;
       }
@@ -4366,7 +4391,7 @@ export function TimelineWorkbook({
         surface: "grid",
         method: snapshot.recordId === null ? "POST" : "PATCH",
         path: targetPath,
-        payload,
+        payloadIntent: payload,
         clientTxnId,
         mutationSignature,
         coalesceKey:
@@ -4386,6 +4411,7 @@ export function TimelineWorkbook({
     [
       apiBase,
       beginViewportContinuity,
+      currentCommittedTimelineRow,
       enqueuePendingReplayUnit,
       incidentId,
       nextClientTxnId,
@@ -5039,6 +5065,7 @@ export function TimelineWorkbook({
             fieldKey,
             draftKey,
             event.currentTarget.value,
+            "keyboard",
           );
         }
         navigateTimelineFocusAnchor(anchor, command.intent);
@@ -5099,6 +5126,7 @@ export function TimelineWorkbook({
           fieldKey,
           draftKey,
           event.currentTarget.value,
+          "keyboard",
         );
       }
     },
@@ -5763,6 +5791,15 @@ export function TimelineWorkbook({
             style={inputStyle}
             type="text"
             defaultValue={row.collectionDrafts[binding.draftKey]}
+            onChange={(event) => {
+              const focusKey = inputFocusKey(row.key, binding.draftKey, "grid");
+              if (
+                collectionKeyboardCommitRef.current.get(focusKey) !==
+                event.currentTarget.value
+              ) {
+                collectionKeyboardCommitRef.current.delete(focusKey);
+              }
+            }}
             onBlur={(event) => {
               queueCollectionSave(
                 row.key,
@@ -7211,70 +7248,77 @@ function EntityWorkbookSurface({
     selectedEntity && loserEntity
       ? buildMergePlan(selectedEntity, loserEntity)
       : null;
-  const entityAnchorColumns: readonly GridColumn<EntityRow>[] = [
-    {
-      fieldKey:
-        entityType === "host" ? "host.display_name" : "identity.display_name",
-      headerTestId: gridSortHeaderTestId(
-        surface,
-        entityType === "host" ? "host.display_name" : "identity.display_name",
-      ),
-      label:
-        contract.fieldMap[
-          entityType === "host" ? "host.display_name" : "identity.display_name"
-        ]?.label ?? "Name",
-      width: 240,
-      renderCell: () => null,
-      sortableFieldKey:
-        entityType === "host" ? "host.display_name" : "identity.display_name",
-    },
-    {
-      fieldKey: entityType === "host" ? "host.hostname" : "identity.upn",
-      headerTestId: gridSortHeaderTestId(
-        surface,
-        entityType === "host" ? "host.hostname" : "identity.upn",
-      ),
-      label:
-        contract.fieldMap[
-          entityType === "host" ? "host.hostname" : "identity.upn"
-        ]?.label ?? "Primary",
-      width: 260,
-      renderCell: () => null,
-      sortableFieldKey:
-        entityType === "host" ? "host.hostname" : "identity.upn",
-    },
-    {
-      fieldKey: entityType === "host" ? "host.aliases" : "identity.aliases",
-      label:
-        contract.fieldMap[
-          entityType === "host" ? "host.aliases" : "identity.aliases"
-        ]?.label ?? "Aliases",
-      width: 320,
-      renderCell: () => null,
-    },
-    {
-      fieldKey:
-        entityType === "host" ? "host.host_state" : "identity.identity_state",
-      headerTestId: gridSortHeaderTestId(
-        surface,
-        entityType === "host" ? "host.host_state" : "identity.identity_state",
-      ),
-      label:
-        contract.fieldMap[
-          entityType === "host" ? "host.host_state" : "identity.identity_state"
-        ]?.label ?? "State",
-      width: 140,
-      renderCell: () => null,
-      sortableFieldKey:
-        entityType === "host" ? "host.host_state" : "identity.identity_state",
-    },
-    {
-      fieldKey: "row_version",
-      label: "Version",
-      width: 96,
-      renderCell: () => null,
-    },
-  ];
+  const entityAnchorColumns = useMemo<readonly GridColumn<EntityRow>[]>(
+    () => [
+      {
+        fieldKey:
+          entityType === "host" ? "host.display_name" : "identity.display_name",
+        headerTestId: gridSortHeaderTestId(
+          surface,
+          entityType === "host" ? "host.display_name" : "identity.display_name",
+        ),
+        label:
+          contract.fieldMap[
+            entityType === "host"
+              ? "host.display_name"
+              : "identity.display_name"
+          ]?.label ?? "Name",
+        width: 240,
+        renderCell: () => null,
+        sortableFieldKey:
+          entityType === "host" ? "host.display_name" : "identity.display_name",
+      },
+      {
+        fieldKey: entityType === "host" ? "host.hostname" : "identity.upn",
+        headerTestId: gridSortHeaderTestId(
+          surface,
+          entityType === "host" ? "host.hostname" : "identity.upn",
+        ),
+        label:
+          contract.fieldMap[
+            entityType === "host" ? "host.hostname" : "identity.upn"
+          ]?.label ?? "Primary",
+        width: 260,
+        renderCell: () => null,
+        sortableFieldKey:
+          entityType === "host" ? "host.hostname" : "identity.upn",
+      },
+      {
+        fieldKey: entityType === "host" ? "host.aliases" : "identity.aliases",
+        label:
+          contract.fieldMap[
+            entityType === "host" ? "host.aliases" : "identity.aliases"
+          ]?.label ?? "Aliases",
+        width: 320,
+        renderCell: () => null,
+      },
+      {
+        fieldKey:
+          entityType === "host" ? "host.host_state" : "identity.identity_state",
+        headerTestId: gridSortHeaderTestId(
+          surface,
+          entityType === "host" ? "host.host_state" : "identity.identity_state",
+        ),
+        label:
+          contract.fieldMap[
+            entityType === "host"
+              ? "host.host_state"
+              : "identity.identity_state"
+          ]?.label ?? "State",
+        width: 140,
+        renderCell: () => null,
+        sortableFieldKey:
+          entityType === "host" ? "host.host_state" : "identity.identity_state",
+      },
+      {
+        fieldKey: "row_version",
+        label: "Version",
+        width: 96,
+        renderCell: () => null,
+      },
+    ],
+    [contract.fieldMap, entityType, surface],
+  );
   const entityGridRows: readonly GridRow<EntityRow>[] = rows.map((row) => ({
     key: row.recordId,
     recordId: row.recordId,
@@ -8741,9 +8785,8 @@ function GenericWorkbookSurface({
       setMutationError(parseMutationError(createResult.payload));
       return;
     }
-    const partyID = readEnvelope<ViewMutationEnvelope>(
-      createResult.payload,
-    ).data.row.record_id;
+    const partyID = readEnvelope<ViewMutationEnvelope>(createResult.payload)
+      .data.row.record_id;
     await submitPartyLinkPatch(
       [{ field_key: selectedPartyLinkPair.refFieldKey, value: partyID }],
       "party-link-created",
