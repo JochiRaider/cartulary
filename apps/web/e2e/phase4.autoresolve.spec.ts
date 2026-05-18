@@ -156,13 +156,22 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     "WS-023,",
     "WS-023 likely",
   ];
+  let expectedSuppressedBaseRowVersion = suppressedRow.row_version;
   for (const token of suppressedTokens) {
-    await addRelationshipTokenViaUI(
+    let patchBaseRowVersion: unknown;
+    const envelope = await addRelationshipTokenViaUI(
       page,
       suppressedRow.record_id,
       "hostRefs",
       token,
+      {
+        onPatchRequest: (payload) => {
+          patchBaseRowVersion = payload.base_row_version;
+        },
+      },
     );
+    expect(patchBaseRowVersion).toBe(expectedSuppressedBaseRowVersion);
+    expectedSuppressedBaseRowVersion = envelope.data.row.row_version;
     await expect(
       page.locator('[data-testid^="auto-resolution-notice-"]'),
     ).toHaveCount(0);

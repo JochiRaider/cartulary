@@ -351,6 +351,10 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 Authoritative phase-manifest rows MAY declare `claim_status` with exactly one of `implemented`, `blocked`, or `not_applicable`. Generated ledgers and phase-slice summaries MUST expose claim status separately from execution pass/fail status. A phase with any authoritative `blocked` row MUST report an incomplete aggregate claim status even when all selected harness work exits successfully.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
+**TH-HARNESS-REQ-108**
+Browser E2E helpers that perform a mutating UI action and then drive another action that depends on the committed result MUST wait for the server success response and for the rendered workbook projection to converge on the response's stable row identity before continuing. When the dependent action relies on optimistic concurrency, convergence MUST include the returned `row_version` rendered under the stable row identifier. A visible global save-state label such as `Saved` MAY be asserted after convergence, but it MUST NOT be the only completion predicate for a dependent mutation sequence.
+Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-021
+
 ### 5.1 Precedence
 
 | Precedence | Source                                 | Rule                                                                                                   |

@@ -5,7 +5,9 @@ import {
 import {
   gridSavedRowsSelector,
   gridShellTestId,
+  relationshipItemsTestId,
   rowInspectButtonTestId,
+  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
 
@@ -39,6 +41,10 @@ type TimelineMutationEnvelope = {
     change_set_id: string;
     row: ViewRow;
   };
+};
+
+type TimelinePatchRequestPayload = {
+  base_row_version?: unknown;
 };
 
 type MergeEnvelope = {
@@ -245,6 +251,9 @@ export async function addRelationshipTokenViaUI(
   recordId: string,
   draftKey: "hostRefs" | "identityRefs",
   rawText: string,
+  options: {
+    onPatchRequest?: (payload: TimelinePatchRequestPayload) => void;
+  } = {},
 ) {
   const inputTestId = `row-${recordId}-${draftKey}-input`;
   await ensureTimelineGridTargetVisible(page, inputTestId);
@@ -252,8 +261,26 @@ export async function addRelationshipTokenViaUI(
   const responsePromise = waitForTimelinePatch(page, recordId);
   await input.fill(rawText);
   await input.press("Enter");
+  const response = await responsePromise;
+  const requestPayload = readRequestPayload(response);
+  const envelope = await readTimelineMutation(response);
+  options.onPatchRequest?.(requestPayload);
+  await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
+    String(envelope.data.row.row_version),
+  );
+  const fieldKey =
+    draftKey === "identityRefs" ? identityRefsFieldKey : hostRefsFieldKey;
+  const item = requireItemByRawText(
+    collectionItems(envelope.data.row, fieldKey),
+    rawText,
+  );
+  await expect(
+    page
+      .getByTestId(relationshipItemsTestId(recordId, draftKey))
+      .getByTestId(`chip-${sanitizeTestId(String(item.item_ref))}`),
+  ).toBeVisible();
   await waitForSaveState(page, "Saved");
-  return readTimelineMutation(await responsePromise);
+  return envelope;
 }
 
 export async function openTimelineInspector(page: Page, recordId: string) {
@@ -280,8 +307,48 @@ export function waitForMergeResponse(page: Page, survivorRecordId: string) {
 }
 
 export async function readTimelineMutation(response: Response) {
-  expect(response.ok()).toBeTruthy();
+  if (!response.ok()) {
+    const request = response.request();
+    const responseBody = await response.text().catch((error: unknown) => {
+      return `<<failed to read response body: ${String(error)}>>`;
+    });
+    const requestBody = request.postData() ?? "";
+    expect(
+      response.ok(),
+      [
+        `timeline mutation failed with HTTP ${response.status()}`,
+        `method=${request.method()}`,
+        `url=${response.url()}`,
+        `request_body=${truncateDiagnostic(requestBody)}`,
+        `response_body=${truncateDiagnostic(responseBody)}`,
+      ].join("\n"),
+    ).toBeTruthy();
+  }
   return (await response.json()) as TimelineMutationEnvelope;
+}
+
+function readRequestPayload(response: Response): TimelinePatchRequestPayload {
+  const postData = response.request().postData();
+  if (!postData) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(postData) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed as TimelinePatchRequestPayload;
+  } catch {
+    return {};
+  }
+}
+
+function truncateDiagnostic(value: string) {
+  const limit = 4000;
+  if (value.length <= limit) {
+    return value;
+  }
+  return `${value.slice(0, limit)}...<truncated ${value.length - limit} chars>`;
 }
 
 export async function readMergeEnvelope(response: Response) {
