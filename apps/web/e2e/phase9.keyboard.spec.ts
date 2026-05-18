@@ -4,6 +4,7 @@ import { expect, test } from "./fixtures";
 import {
   createIncident,
   createViewRow,
+  queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
@@ -12,11 +13,19 @@ import {
   collectionActionsPayload,
   hostRefsFieldKey,
   hostsViewSchemaId,
+  identitiesViewSchemaId,
   notesViewSchemaId,
   taskRequestsViewSchemaId,
 } from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
+
+function stringCell(
+  row: { readonly cells?: Record<string, { readonly value?: unknown }> },
+  fieldKey: string,
+): string {
+  return String(row.cells?.[fieldKey]?.value ?? "");
+}
 
 test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without module switching", async ({
   page,
@@ -182,6 +191,29 @@ test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbo
     `hosts:${host.record_id}:host.hostname`,
   );
 
+  const identity = await createViewRow(page, incidentId, identitiesViewSchemaId, {
+    client_txn_id: uniqueTxn("e9grid01-identity"),
+    "identity.display_name": "Phase 9 identity anchor",
+    "identity.upn": "phase9.identity@example.test",
+  });
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      identitiesViewSchemaId,
+    )}`,
+  );
+  const identityName = page.getByTestId(
+    rowCellTestId(identity.record_id as string, "identity.display_name"),
+  );
+  await expect(identityName).toHaveText("Phase 9 identity anchor");
+  await identityName.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `identities:${identity.record_id}:identity.display_name`,
+  );
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
+    `identities:${identity.record_id}:`,
+  );
+
   const assessment = await createViewRow(
     page,
     incidentId,
@@ -264,4 +296,185 @@ test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbo
   await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
     `${notesViewSchemaId}:${note.record_id}:`,
   );
+});
+
+test("Phase 9 E-9-GRID-01 Host entity-origin clipboard paste reuses exact matches and creates stubs", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E9GRIDHOSTPASTE"),
+    "Phase 9 E-9-GRID-01 host paste",
+  );
+  const existing = await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e9grid-host-existing"),
+    "host.display_name": "Phase 9 reusable host",
+    "host.hostname": "phase9-host-reuse.example.test",
+  });
+  const postURLs: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST") {
+      postURLs.push(request.url());
+    }
+  });
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      hostsViewSchemaId,
+    )}`,
+  );
+  const displayName = page.getByTestId(
+    rowCellTestId(existing.record_id as string, "host.display_name"),
+  );
+  await expect(displayName).toHaveText("Phase 9 reusable host");
+  await displayName.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `hosts:${existing.record_id}:host.display_name`,
+  );
+
+  const pasteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .includes(
+          `/api/v1/incidents/${incidentId}/views/${hostsViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  await displayName.evaluate((element) => {
+    const data = new DataTransfer();
+    data.setData(
+      "text/plain",
+      [
+        "Phase 9 pasted host reuse\tphase9-host-reuse.example.test",
+        "Phase 9 pasted host create\tphase9-host-create.example.test",
+      ].join("\n"),
+    );
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: data,
+      }),
+    );
+  });
+  await expect((await pasteResponse).ok()).toBeTruthy();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `hosts:${existing.record_id}:host.display_name`,
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(existing.record_id as string, "host.display_name"),
+    ),
+  ).toHaveText("Phase 9 pasted host reuse");
+
+  const rows = await queryViewRows(page, incidentId, hostsViewSchemaId);
+  const reused = rows.find((row) => row.record_id === existing.record_id);
+  expect(stringCell(reused ?? {}, "host.display_name")).toBe(
+    "Phase 9 pasted host reuse",
+  );
+  const created = rows.find(
+    (row) =>
+      row.record_id !== existing.record_id &&
+      stringCell(row, "host.hostname") === "phase9-host-create.example.test",
+  );
+  expect(created).toBeTruthy();
+  if (created) {
+    await expect(
+      page.getByTestId(rowCellTestId(created.record_id, "host.display_name")),
+    ).toHaveText("Phase 9 pasted host create");
+  }
+  expect(postURLs.some((url) => url.includes("/imports"))).toBeFalsy();
+});
+
+test("Phase 9 E-9-GRID-01 Identity entity-origin clipboard paste reuses exact matches and creates stubs", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E9GRIDIDENTITYPASTE"),
+    "Phase 9 E-9-GRID-01 identity paste",
+  );
+  const existing = await createViewRow(page, incidentId, identitiesViewSchemaId, {
+    client_txn_id: uniqueTxn("e9grid-identity-existing"),
+    "identity.display_name": "Phase 9 reusable identity",
+    "identity.upn": "phase9.identity.reuse@example.test",
+  });
+  const postURLs: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST") {
+      postURLs.push(request.url());
+    }
+  });
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      identitiesViewSchemaId,
+    )}`,
+  );
+  const displayName = page.getByTestId(
+    rowCellTestId(existing.record_id as string, "identity.display_name"),
+  );
+  await expect(displayName).toHaveText("Phase 9 reusable identity");
+  await displayName.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `identities:${existing.record_id}:identity.display_name`,
+  );
+
+  const pasteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .includes(
+          `/api/v1/incidents/${incidentId}/views/${identitiesViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  await displayName.evaluate((element) => {
+    const data = new DataTransfer();
+    data.setData(
+      "text/plain",
+      [
+        "Phase 9 pasted identity reuse\tphase9.identity.reuse@example.test",
+        "Phase 9 pasted identity create\tphase9.identity.create@example.test",
+      ].join("\n"),
+    );
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: data,
+      }),
+    );
+  });
+  await expect((await pasteResponse).ok()).toBeTruthy();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `identities:${existing.record_id}:identity.display_name`,
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(existing.record_id as string, "identity.display_name"),
+    ),
+  ).toHaveText("Phase 9 pasted identity reuse");
+
+  const rows = await queryViewRows(page, incidentId, identitiesViewSchemaId);
+  const reused = rows.find((row) => row.record_id === existing.record_id);
+  expect(stringCell(reused ?? {}, "identity.display_name")).toBe(
+    "Phase 9 pasted identity reuse",
+  );
+  const created = rows.find(
+    (row) =>
+      row.record_id !== existing.record_id &&
+      stringCell(row, "identity.upn") ===
+        "phase9.identity.create@example.test",
+  );
+  expect(created).toBeTruthy();
+  if (created) {
+    await expect(
+      page.getByTestId(
+        rowCellTestId(created.record_id, "identity.display_name"),
+      ),
+    ).toHaveText("Phase 9 pasted identity create");
+  }
+  expect(postURLs.some((url) => url.includes("/imports"))).toBeFalsy();
 });

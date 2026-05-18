@@ -308,6 +308,39 @@ authoritative_summary="$(run_case authoritative authoritative-failure fail)"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.failed")" "1" "authoritative failure count"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.authoritative_failed")" "1" "authoritative authoritative failure count"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.unmapped_failed")" "0" "authoritative unmapped failure count"
+success_target_dir="${success_summary%/target-summary.json}"
+"${NODE:-node}" - "$success_target_dir" <<'EOF'
+const fs = require("node:fs");
+const path = require("node:path");
+const [targetDir] = process.argv.slice(2);
+const summaries = fs.readdirSync(targetDir, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => path.join(targetDir, entry.name, "phase-summary.json"))
+  .filter((summaryPath) => fs.existsSync(summaryPath))
+  .map((summaryPath) => JSON.parse(fs.readFileSync(summaryPath, "utf8")));
+const authoritativePhase9 = summaries.find((summary) =>
+  summary.label === "frontend-unit phase9 authoritative"
+);
+if (!authoritativePhase9) {
+  throw new Error("frontend-unit smoke must emit a phase9 authoritative summary");
+}
+const authoritativeIDs = new Set(
+  (authoritativePhase9.inventory ?? [])
+    .filter((entry) => entry.coverage === "authoritative")
+    .map((entry) => entry.id),
+);
+if (!authoritativeIDs.has("I-9-GRID-01")) {
+  throw new Error("phase9 authoritative Vitest summary must include I-9-GRID-01");
+}
+const residual = summaries.find((summary) => summary.label === "frontend-unit residual");
+if (!residual) {
+  throw new Error("frontend-unit smoke must emit a residual summary");
+}
+const residualIDs = new Set((residual.inventory ?? []).map((entry) => entry.id));
+if (residualIDs.has("I-9-GRID-01")) {
+  throw new Error("frontend-unit residual summary must exclude I-9-GRID-01");
+}
+EOF
 authoritative_phase_summary="${authoritative_summary%/target-summary.json}/frontend-unit-vitest/phase-summary.json"
 runner_json="$(json_field "$authoritative_phase_summary" "artifacts.runner_json")"
 stdout_log="$(json_field "$authoritative_phase_summary" "artifacts.stdout_log")"

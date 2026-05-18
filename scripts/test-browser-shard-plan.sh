@@ -165,7 +165,10 @@ cat >"$tmp_dir/manifests/tools/phase1_test_map.json" <<'JSON'
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/beta.spec.ts",
-      "title": "E-1-03 beta",
+      "titles": [
+        "E-1-03 beta primary",
+        "E-1-03 beta secondary"
+      ],
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "beta",
@@ -272,7 +275,7 @@ cat >"$tmp_dir/baseline.json" <<'JSON'
     },
     "E-1-03": {
       "file": "apps/web/e2e/beta.spec.ts",
-      "title": "E-1-03 beta",
+      "title": "E-1-03 beta primary",
       "weight_ms": 5000
     }
   }
@@ -289,8 +292,10 @@ assert_equals "$(json_field "$tmp_dir/plan.json" "shard_count")" "3" "shard coun
 assert_equals "$(json_field "$tmp_dir/plan.json" "entries.0.file")" "apps/web/e2e/alpha.spec.ts" "deterministic entry ordering"
 assert_equals "$(json_field "$tmp_dir/plan.json" "entries.3.weight_ms")" "7000" "missing baseline uses default weight"
 assert_equals "$(json_field "$tmp_dir/plan.json" "entries.4.file")" "apps/web/e2e/future.spec.ts" "numeric future phase discovery keeps deterministic files"
+assert_equals "$(json_field "$tmp_dir/plan.json" "entries.2.titles.1")" "E-1-03 beta secondary" "multi-title Playwright rows keep all executable scenarios"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.0.id")" "E-1-01" "largest same-file entry gets first stable shard"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.1.entries.0.id")" "E-1-02" "same-file entries can split across shards"
+assert_contains "$(json_field "$tmp_dir/plan.json" "shards.2.grep")" "E-1-03 beta secondary" "multi-title Playwright shard grep includes every row title"
 
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --phase phase2 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/phase2-plan.json"
@@ -327,7 +332,7 @@ future_count="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
     "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-count-all authoritative browser_functional
 )"
-assert_equals "$future_count" "5" "future phase browser row count discovery"
+assert_equals "$future_count" "6" "future phase browser title count discovery"
 
 browser_results="$tmp_dir/browser-results"
 timing_dir="$browser_results/browser-e2e-webserver-backed/browser-e2e-functional-authoritative"

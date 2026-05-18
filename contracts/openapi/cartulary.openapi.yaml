@@ -800,6 +800,88 @@
         }
       }
     },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste": {
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "pasteWorkbookClipboard",
+        "summary": "Apply an ephemeral tabular clipboard paste through the shared tabular-ingest mapping contract.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkbookClipboardPasteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Clipboard paste batch response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookBatchMutationEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Entity exact-match conflict, row-version conflict, or idempotency conflict. Paste-time same-field conflicts are returned as 200 batch result conflicts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations": {
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "applyWorkbookBulkMutation",
+        "summary": "Apply an explicit workbook bulk mutation batch such as fill-down or multi-row tag assignment.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkbookBulkMutationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bulk mutation batch response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookBatchMutationEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Same-field conflict batch, row-version conflict, or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/extensions": {
       "get": {
         "tags": [
@@ -4431,6 +4513,207 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/ViewMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "WorkbookClipboardPasteTarget": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "create"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "record"
+              },
+              "record_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "base_row_version": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "kind",
+              "record_id",
+              "base_row_version"
+            ]
+          }
+        ]
+      },
+      "WorkbookClipboardPasteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string",
+            "enum": [
+              "cartulary.view.timeline.v1",
+              "cartulary.view.hosts.v1",
+              "cartulary.view.identities.v1"
+            ]
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "clipboard_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "tsv",
+              "csv"
+            ]
+          },
+          "start_field_key": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "string"
+            }
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/WorkbookClipboardPasteTarget"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "client_txn_id",
+          "clipboard_text",
+          "start_field_key",
+          "columns",
+          "targets"
+        ]
+      },
+      "WorkbookBulkMutationTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "base_row_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "record_id",
+          "base_row_version"
+        ]
+      },
+      "WorkbookBulkMutationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "const": "cartulary.view.timeline.v1"
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fill_down_v1",
+              "multi_row_tag_assignment_v1"
+            ]
+          },
+          "field_key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "tag_name": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/WorkbookBulkMutationTarget"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "client_txn_id",
+          "kind",
+          "targets"
+        ]
+      },
+      "WorkbookBatchMutationData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewRow"
+            }
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "rows"
+        ]
+      },
+      "WorkbookBatchMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkbookBatchMutationData"
           },
           "meta": {
             "$ref": "#/components/schemas/EnvelopeMeta"

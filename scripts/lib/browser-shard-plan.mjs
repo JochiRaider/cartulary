@@ -7,6 +7,7 @@ import {
   collectEntries,
   loadManifest,
   phaseManifestNames,
+  playwrightEntryTitles,
 } from "./phase-manifest.mjs";
 import {
   durationDriftDescription,
@@ -138,11 +139,13 @@ function browserFunctionalEntries(root, { phase: phaseFilter = "" } = {}) {
           throw new Error(`duplicate browser functional manifest ID ${entry.id}`);
         }
         seenIDs.add(entry.id);
+        const titles = playwrightEntryTitles(entry);
         entries.push({
           id: entry.id,
           phase,
           file: normalizeManifestFile(entry.file),
-          title: entry.title,
+          title: titles[0],
+          titles,
         });
       }
     }
@@ -285,12 +288,13 @@ export function createPlan({ baselineFile, minShards = 1, maxShards, phase = "" 
         phases: [...shard.phases].sort((left, right) =>
           left.localeCompare(right, undefined, { numeric: true }),
         ),
-        grep: exactAlternationRegex(shardEntries.map((entry) => entry.title)),
+        grep: exactAlternationRegex(shardEntries.flatMap((entry) => entry.titles ?? [entry.title])),
         entries: shardEntries.map((entry) => ({
           id: entry.id,
           phase: entry.phase,
           file: entry.file,
           title: entry.title,
+          titles: entry.titles ?? [entry.title],
           weight_ms: entry.weight_ms,
         })),
       };

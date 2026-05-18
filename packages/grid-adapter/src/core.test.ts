@@ -6,6 +6,7 @@ import {
   type GridRow,
   navigateGridCellAnchor,
   resolveGridCellAnchor,
+  resolveGridPasteTargets,
 } from "./core";
 
 type HarnessRow = {
@@ -339,5 +340,101 @@ describe("grid Cartulary anchors", () => {
         selection: vendorSelection,
       }),
     ).toEqual({ recordId: "record-2", fieldKey: "state" });
+  });
+
+  it("targets sorted paste rows by stable visible record identities", () => {
+    const rows = [
+      gridRow("record-3", "closed"),
+      gridRow("record-1", "open"),
+      gridRow("record-2", "reviewed"),
+    ];
+    const presentationRows = buildGridPresentationRows({ rows });
+
+    expect(
+      resolveGridPasteTargets({
+        columns,
+        current: { recordId: "record-1", fieldKey: "summary" },
+        pastedColumnCount: 2,
+        pastedRowCount: 2,
+        presentationRows,
+      }),
+    ).toEqual({
+      columns: ["summary", "state"],
+      rowTargets: [
+        { kind: "record", recordId: "record-1" },
+        { kind: "record", recordId: "record-2" },
+      ],
+    });
+  });
+
+  it("maps filtered overflow to explicit create-row anchors", () => {
+    const rows = [gridRow("record-2", "reviewed")];
+    const presentationRows = buildGridPresentationRows({ rows });
+
+    expect(
+      resolveGridPasteTargets({
+        columns,
+        current: { recordId: "record-2", fieldKey: "state" },
+        pastedColumnCount: 2,
+        pastedRowCount: 3,
+        presentationRows,
+      }),
+    ).toEqual({
+      columns: ["state"],
+      rowTargets: [
+        { kind: "record", recordId: "record-2" },
+        { createIndex: 0, kind: "create" },
+        { createIndex: 1, kind: "create" },
+      ],
+    });
+  });
+
+  it("rejects group and presentation-only paste anchors", () => {
+    const rows = [
+      gridRow("record-1", "open"),
+      draftRow("draft-1", "rough"),
+      gridRow("record-2", "reviewed"),
+    ];
+    const groupedRows = buildGridPresentationRows({
+      getGroupLabel: (row) => row.state,
+      groupBy: "state",
+      rows,
+    });
+
+    expect(
+      resolveGridPasteTargets({
+        columns,
+        current: { recordId: "record-1", fieldKey: "summary" },
+        pastedColumnCount: 1,
+        pastedRowCount: 2,
+        presentationRows: groupedRows,
+      }),
+    ).toBeNull();
+    expect(
+      resolveGridPasteTargets({
+        allowCreateRows: false,
+        columns,
+        current: { recordId: "record-2", fieldKey: "summary" },
+        pastedColumnCount: 1,
+        pastedRowCount: 2,
+        presentationRows: groupedRows,
+      }),
+    ).toBeNull();
+  });
+
+  it("requires a Cartulary anchor instead of vendor coordinates alone", () => {
+    const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
+    const presentationRows = buildGridPresentationRows({ rows });
+    const vendorSelection = { rowIndex: 1, fieldKey: "state" };
+
+    expect(
+      resolveGridPasteTargets({
+        columns,
+        current: { recordId: "", fieldKey: vendorSelection.fieldKey },
+        pastedColumnCount: 1,
+        pastedRowCount: 1,
+        presentationRows,
+      }),
+    ).toBeNull();
   });
 });

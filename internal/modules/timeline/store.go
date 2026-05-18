@@ -133,6 +133,7 @@ type sourceRecord struct {
 	Summary            *string
 	Details            *string
 	SourceText         *string
+	RawCapture         map[string]any
 	CaptureState       string
 	RowVersion         int64
 	RecordedAt         time.Time
@@ -1552,6 +1553,7 @@ SELECT
     e.summary,
     e.details,
     e.source_text,
+    e.raw_capture,
     e.capture_state,
     r.row_version,
     e.recorded_at,
@@ -1572,6 +1574,7 @@ FOR UPDATE OF e, r
 `, recordID)
 
 	var record sourceRecord
+	var rawCapture []byte
 	if err := row.Scan(
 		&record.RecordID,
 		&record.IncidentID,
@@ -1579,6 +1582,7 @@ FOR UPDATE OF e, r
 		&record.Summary,
 		&record.Details,
 		&record.SourceText,
+		&rawCapture,
 		&record.CaptureState,
 		&record.RowVersion,
 		&record.RecordedAt,
@@ -1594,6 +1598,14 @@ FOR UPDATE OF e, r
 			return sourceRecord{}, ErrRecordNotFound
 		}
 		return sourceRecord{}, fmt.Errorf("load timeline record: %w", err)
+	}
+	if len(rawCapture) == 0 {
+		record.RawCapture = map[string]any{}
+	} else if err := json.Unmarshal(rawCapture, &record.RawCapture); err != nil {
+		return sourceRecord{}, fmt.Errorf("decode timeline raw capture: %w", err)
+	}
+	if record.RawCapture == nil {
+		record.RawCapture = map[string]any{}
 	}
 	return record, nil
 }
@@ -2190,6 +2202,7 @@ SELECT
 
 type mentionInsertOptions struct {
 	allowInteractiveAutoResolution bool
+	originKind                     string
 }
 
 func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, now time.Time) error {
@@ -2578,6 +2591,10 @@ func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil
 	}
+	originKind := options.originKind
+	if strings.TrimSpace(originKind) == "" {
+		originKind = "interactive_cell"
+	}
 	nextOrdinal, err := nextMentionOrdinalTx(ctx, tx, recordID, fieldKey)
 	if err != nil {
 		return err
@@ -2641,8 +2658,8 @@ INSERT INTO entity_mentions (
     resolved_at,
     resolution_method
 )
-VALUES ($1, $2, $3, 'interactive_cell', $4, $5, $6, $7, 1, $8, $9, $10, $11, $12, $13, $14)
-`, recordID, entityType, fieldKey, mentionOriginLocator(recordID, fieldKey, nextOrdinal), action.RawText, action.NormalizedText, resolutionStatus, nextOrdinal, actorUserID, now.UTC(), resolvedRecordID, resolvedByUserID, resolvedAt, resolutionMethod); err != nil {
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11, $12, $13, $14, $15)
+`, recordID, entityType, fieldKey, originKind, mentionOriginLocator(recordID, fieldKey, nextOrdinal), action.RawText, action.NormalizedText, resolutionStatus, nextOrdinal, actorUserID, now.UTC(), resolvedRecordID, resolvedByUserID, resolvedAt, resolutionMethod); err != nil {
 			return fmt.Errorf("insert entity mention: %w", err)
 		}
 		if resolvedRecordID != nil {
@@ -2785,7 +2802,8 @@ func hasMaterialChange(current sourceRecord, next sourceRecord) bool {
 	return !timePointersEqual(current.OccurredAt, next.OccurredAt) ||
 		!stringPointersEqual(current.Summary, next.Summary) ||
 		!stringPointersEqual(current.Details, next.Details) ||
-		!stringPointersEqual(current.SourceText, next.SourceText)
+		!stringPointersEqual(current.SourceText, next.SourceText) ||
+		!reflect.DeepEqual(current.RawCapture, next.RawCapture)
 }
 
 func isRecordLinkConflict(err error) bool {

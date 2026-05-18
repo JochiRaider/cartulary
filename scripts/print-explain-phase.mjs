@@ -71,6 +71,42 @@ function renderExecutionMap(lines, executionMap) {
   }
 }
 
+function claimStatusCounts(rows = []) {
+  const counts = {
+    implemented: 0,
+    blocked: 0,
+    not_applicable: 0,
+    unspecified: 0,
+  };
+  for (const row of rows) {
+    if (row.coverage !== "authoritative") {
+      continue;
+    }
+    const status = row.claim_status ?? "";
+    if (Object.hasOwn(counts, status)) {
+      counts[status] += 1;
+    } else {
+      counts.unspecified += 1;
+    }
+  }
+  return counts;
+}
+
+function aggregateClaimStatus(counts) {
+  if (counts.blocked > 0 || counts.unspecified > 0) {
+    return "incomplete";
+  }
+  if (counts.implemented > 0 || counts.not_applicable > 0) {
+    return "complete";
+  }
+  return "not_applicable";
+}
+
+function formatClaimStatus(phase) {
+  const counts = claimStatusCounts(phase.rows);
+  return `${aggregateClaimStatus(counts)} implemented=${counts.implemented} blocked=${counts.blocked} not_applicable=${counts.not_applicable} unspecified=${counts.unspecified}`;
+}
+
 function renderHuman(phase) {
   const lines = [
     `Cartulary phase guidance: ${phase.phase}`,
@@ -79,6 +115,7 @@ function renderHuman(phase) {
     `manifest: ${phase.manifest_path}`,
     `ledger: ${phase.ledger_path}`,
     `coverage: ${formatPhaseCoverage(phase)}`,
+    `claim status: ${formatClaimStatus(phase)}`,
     "",
     "execution dependencies:",
   ];

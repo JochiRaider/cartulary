@@ -42,6 +42,7 @@ const implementationTestingGuidePath = path.join(
 
 const validCoverage = new Set(["authoritative", "supplemental"]);
 const validGoSections = new Set(["unit", "integration", "e2e"]);
+const validClaimStatuses = new Set(["implemented", "blocked", "not_applicable"]);
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const validPhasePolicyExceptionTypes = new Set(["allowed_empty_go_manifest_selection"]);
 const phasePolicyExceptionKeys = new Set([
@@ -143,6 +144,31 @@ export function vitestEntryTitles(entry) {
     throw new Error(`manifest entry ${entry.id} is missing a non-empty title`);
   }
   return [entry.title];
+}
+
+export function playwrightEntryTitles(entry) {
+  if (entry.title !== undefined && entry.titles !== undefined) {
+    throw new Error(`manifest entry ${entry.id} must declare title or titles[], not both`);
+  }
+  if (entry.titles !== undefined) {
+    if (!Array.isArray(entry.titles) || entry.titles.length === 0) {
+      throw new Error(`manifest entry ${entry.id} must declare a non-empty titles[] array`);
+    }
+    for (const title of entry.titles) {
+      if (typeof title !== "string" || title.trim() === "") {
+        throw new Error(`manifest entry ${entry.id} has an invalid title in titles[]`);
+      }
+    }
+    return entry.titles;
+  }
+  if (typeof entry.title !== "string" || entry.title.trim() === "") {
+    throw new Error(`manifest entry ${entry.id} is missing a non-empty title`);
+  }
+  return [entry.title];
+}
+
+export function entryClaimStatus(entry) {
+  return entry.claim_status ?? "implemented";
 }
 
 function supportGoEntryLabel(entry) {
@@ -931,13 +957,13 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
           `manifest entry ${entry.id} has invalid execution_dependency ${entry.execution_dependency}`,
         );
       }
+      if (entry.claim_status !== undefined && !validClaimStatuses.has(entry.claim_status)) {
+        throw new Error(
+          `manifest entry ${entry.id} claim_status must be implemented|blocked|not_applicable`,
+        );
+      }
       if (entry.runner === "playwright") {
-        if (entry.titles !== undefined) {
-          throw new Error(`manifest entry ${entry.id} must declare title, not titles[]`);
-        }
-        if (typeof entry.title !== "string" || entry.title.trim() === "") {
-          throw new Error(`manifest entry ${entry.id} is missing a non-empty title`);
-        }
+        playwrightEntryTitles(entry);
         if (typeof entry.file !== "string" || !entry.file.startsWith("apps/web/e2e/")) {
           throw new Error(`manifest entry ${entry.id} must point at an apps/web/e2e file`);
         }
@@ -1133,7 +1159,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
         ? goEntrySymbols(entry)
         : entry.runner === "vitest"
           ? vitestEntryTitles(entry)
-          : [entry.title];
+          : playwrightEntryTitles(entry);
     for (const needle of needles) {
       if (!source.includes(needle)) {
         throw new Error(`manifest entry ${entry.id} not found in ${entry.file}: ${needle}`);
@@ -1459,7 +1485,6 @@ function selectVitestEntries(root, phase, coverage, executionDependency) {
   return selectManifestEntries(root, {
     phase,
     runner: "vitest",
-    section: "unit",
     coverage,
     executionDependency,
   });
@@ -1471,7 +1496,6 @@ function selectVitestPhases(root, coverage, executionDependency) {
       selectManifestEntries(root, {
         phase,
         runner: "vitest",
-        section: "unit",
         coverage,
         executionDependency,
       }).length > 0,
@@ -1816,21 +1840,21 @@ function main(argv) {
       if (entries.length === 0) {
         throw new Error(`no ${coverage} playwright tests found for ${phase}`);
       }
-      printLines([alternationRegex(entries.map((entry) => entry.title))]);
+      printLines([alternationRegex(entries.flatMap((entry) => playwrightEntryTitles(entry)))]);
       return;
     }
 
     case "playwright-count": {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
-      printLines([String(entries.length)]);
+      printLines([String(entries.flatMap((entry) => playwrightEntryTitles(entry)).length)]);
       return;
     }
 
     case "playwright-count-all": {
       const [coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntriesAll(root, coverage, executionDependency);
-      printLines([String(entries.length)]);
+      printLines([String(entries.flatMap((entry) => playwrightEntryTitles(entry)).length)]);
       return;
     }
 
@@ -1846,7 +1870,7 @@ function main(argv) {
 
     case "playwright-grep-many": {
       const entries = selectPlaywrightEntriesForSpecs(root, rest);
-      printLines([alternationRegex(entries.map((entry) => entry.title))]);
+      printLines([alternationRegex(entries.flatMap((entry) => playwrightEntryTitles(entry)))]);
       return;
     }
 
@@ -1881,6 +1905,15 @@ function main(argv) {
       if (entries.length === 0) {
         throw new Error(`no ${coverage} playwright tests found for ${phase}`);
       }
+      const selectedTests = entries.flatMap((entry) =>
+        playwrightEntryTitles(entry).map((title) => ({
+          id: entry.id,
+          file: normalizePlaywrightFile(entry.file),
+          title,
+          coverage: entry.coverage,
+          execution_dependency: entry.execution_dependency ?? "",
+        })),
+      );
       process.stdout.write(
         `${JSON.stringify(
           {
@@ -1888,14 +1921,8 @@ function main(argv) {
             phase,
             coverage,
             execution_dependency: executionDependency,
-            expected_count: entries.length,
-            selected_tests: entries.map((entry) => ({
-              id: entry.id,
-              file: normalizePlaywrightFile(entry.file),
-              title: entry.title,
-              coverage: entry.coverage,
-              execution_dependency: entry.execution_dependency ?? "",
-            })),
+            expected_count: selectedTests.length,
+            selected_tests: selectedTests,
           },
           null,
           2,
@@ -1907,7 +1934,7 @@ function main(argv) {
     case "playwright-verify-list": {
       const [phase, coverage, executionDependency = "", reportFile] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
-      const expectedTitles = entries.map((entry) => entry.title).sort();
+      const expectedTitles = entries.flatMap((entry) => playwrightEntryTitles(entry)).sort();
       verifyPlaywrightSpecSet(reportFile, expectedTitles);
       printLines([
         `listed playwright manifest tests: ${expectedTitles.length}`,
@@ -1919,7 +1946,7 @@ function main(argv) {
     case "playwright-verify-run": {
       const [phase, coverage, executionDependency = "", reportFile] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
-      const expectedTitles = entries.map((entry) => entry.title).sort();
+      const expectedTitles = entries.flatMap((entry) => playwrightEntryTitles(entry)).sort();
       const report = verifyPlaywrightSpecSet(reportFile, expectedTitles);
       const specs = flattenPlaywrightSuites(report.suites);
       const failed = [];

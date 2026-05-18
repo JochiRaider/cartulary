@@ -185,17 +185,21 @@ if (project === "functional") {
       if (functionalFiles.size > 0 && !functionalFiles.has(file)) {
         continue;
       }
-      if (!functionalGrep.test(entry.title)) {
+      const titles = Array.isArray(entry.titles) ? entry.titles : [entry.title];
+      const matchedTitles = titles.filter((title) => functionalGrep.test(title));
+      if (matchedTitles.length === 0) {
         continue;
       }
-      if (mode === "mismatch" && (entry.id === "E-2-02" || entry.id === "E-2-03")) {
-        continue;
+      for (const title of matchedTitles) {
+        if (mode === "mismatch" && (entry.id === "E-2-02" || entry.id === "E-2-03")) {
+          continue;
+        }
+        specs.push({
+          title,
+          file,
+          tests: [{ results: [fakeResult("passed")] }],
+        });
       }
-      specs.push({
-        title: entry.title,
-        file,
-        tests: [{ results: [fakeResult("passed")] }],
-      });
     }
   }
 }

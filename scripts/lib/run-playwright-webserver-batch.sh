@@ -207,7 +207,9 @@ const escapeRegex = (value) => value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 const titles = [];
 for (const shard of plan.shards ?? []) {
   for (const entry of shard.entries ?? []) {
-    titles.push(entry.title);
+    for (const title of entry.titles ?? [entry.title]) {
+      titles.push(title);
+    }
   }
 }
 process.stdout.write(`^(?:${titles.map(escapeRegex).join("|")})$`);

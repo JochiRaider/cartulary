@@ -1,8 +1,10 @@
 import {
   collectEntries,
   collectSupportGoEntries,
+  entryClaimStatus,
   loadManifest,
   phaseManifestNames,
+  playwrightEntryTitles,
   vitestEntryTitles,
 } from "./lib/phase-manifest.mjs";
 import { phaseRegistryEntry } from "./lib/phase-registry.mjs";
@@ -49,7 +51,12 @@ function renderEvidence(entry) {
       )
       .join(", ");
   }
-  return `\`${entry.file}::${entry.title}\``;
+  const titles = playwrightEntryTitles(entry);
+  return titles
+    .map((title, index) =>
+      index === 0 ? `\`${entry.file}::${title}\`` : `\`${title}\``,
+    )
+    .join(", ");
 }
 
 function renderExecution(entry) {
@@ -187,13 +194,13 @@ function renderSection(title, entries) {
   const lines = [
     `## ${title}`,
     "",
-    "| Row | Evidence | Execution | Claim | Out of scope |",
-    "| --- | --- | --- | --- | --- |",
+    "| Row | Claim status | Evidence | Execution | Claim | Out of scope |",
+    "| --- | --- | --- | --- | --- | --- |",
   ];
 
   for (const entry of entries) {
     lines.push(
-      `| \`${entry.id}\` | ${renderEvidence(entry)} | ${renderExecution(entry)} | ${entry.claim} | ${entry.out_of_scope} |`,
+      `| \`${entry.id}\` | \`${entryClaimStatus(entry)}\` | ${renderEvidence(entry)} | ${renderExecution(entry)} | ${entry.claim} | ${entry.out_of_scope} |`,
     );
   }
 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -45,11 +46,268 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 			return err
 		}
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query", service.handleQuery)
+		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste", service.handleClipboardPaste)
+		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations", service.handleBulkMutations)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleCreate)
 		mux.HandleFunc("PATCH /api/v1/records/{record_id}", service.handlePatch)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", service.handleConflictResolve)
 		return nil
 	}
+}
+
+func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
+	viewSchemaID := r.PathValue("view_schema_id")
+	incidentID, ok := pathUUID(w, r, "incident_id")
+	if !ok {
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeBulkMutationRequest(r.Body, viewSchemaID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	timelineRequest := timelineBulkClipboardRequest(request)
+	result, err := s.store.timelineStore.ClipboardPaste(
+		r.Context(),
+		principal.User,
+		incidentID,
+		timelineRequest,
+		BulkMutationRequestHash(request),
+		httpapi.RequestIDFromContext(r.Context()),
+		s.now(),
+	)
+	var (
+		entityConflict        *entities.ExactMatchConflictError
+		mentionTransitionErr  *entities.MentionTransitionError
+		mentionTargetErr      *entities.MentionTargetValidationError
+		timelineTransitionErr *timeline.IllegalTransitionError
+		rowConflict           *timeline.RowVersionConflictError
+	)
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, timeline.ErrRecordNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.As(err, &rowConflict):
+		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
+		return
+	case errors.Is(err, timeline.ErrRowVersionConflict):
+		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
+		return
+	case errors.As(err, &timelineTransitionErr):
+		details := map[string]any{
+			"from_status":     timelineTransitionErr.FromStatus,
+			"to_status":       timelineTransitionErr.ToStatus,
+			"violated_guards": append([]string{}, timelineTransitionErr.ViolatedGuards...),
+		}
+		if timelineTransitionErr.ReasonCode != "" {
+			details["reason_code"] = timelineTransitionErr.ReasonCode
+		}
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
+		return
+	case errors.As(err, &mentionTransitionErr):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
+		return
+	case errors.As(err, &entityConflict):
+		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
+		return
+	case errors.Is(err, entities.ErrEntityMentionNotFound), errors.Is(err, entities.ErrResolvedRecordNotFound), errors.As(err, &mentionTargetErr), errors.Is(err, entities.ErrInvalidMentionResolution):
+		writeAPIError(w, r, invalidMutationPayload("value", "invalid_value"))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if result.ChangeSetID != uuid.Nil && !result.Replayed {
+		for _, row := range result.Rows {
+			s.publishRecordChange(MutationResult{
+				Payload:          map[string]any{"row": row.Row},
+				IncidentID:       incidentID,
+				RecordID:         row.RecordID,
+				ChangeSetID:      result.ChangeSetID,
+				ClientTxnID:      result.ClientTxnID,
+				RowVersion:       row.RowVersion,
+				ViewSchemaID:     timeline.TimelineViewSchemaID,
+				ChangedFieldKeys: row.ChangedFieldKeys,
+			}, principal.User.ID)
+		}
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+}
+
+func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
+	viewSchemaID := r.PathValue("view_schema_id")
+	incidentID, ok := pathUUID(w, r, "incident_id")
+	if !ok {
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeAPIError(w, r, invalidMutationPayload("", "invalid_value"))
+		return
+	}
+	if viewSchemaID != timeline.TimelineViewSchemaID {
+		s.handleEntityClipboardPaste(w, r, principal, incidentID, viewSchemaID, body)
+		return
+	}
+	request, apiErr := timeline.DecodeTimelineClipboardPasteRequest(bytes.NewReader(body))
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, err := timeline.BuildClipboardPastePlan(request); err != nil {
+		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
+		return
+	}
+	result, err := s.store.timelineStore.ClipboardPaste(r.Context(), principal.User, incidentID, request, timeline.TimelineClipboardPasteRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	var (
+		entityConflict        *entities.ExactMatchConflictError
+		mentionTransitionErr  *entities.MentionTransitionError
+		mentionTargetErr      *entities.MentionTargetValidationError
+		timelineTransitionErr *timeline.IllegalTransitionError
+		rowConflict           *timeline.RowVersionConflictError
+	)
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, timeline.ErrRecordNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.As(err, &rowConflict):
+		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
+		return
+	case errors.Is(err, timeline.ErrRowVersionConflict):
+		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
+		return
+	case errors.As(err, &timelineTransitionErr):
+		details := map[string]any{
+			"from_status":     timelineTransitionErr.FromStatus,
+			"to_status":       timelineTransitionErr.ToStatus,
+			"violated_guards": append([]string{}, timelineTransitionErr.ViolatedGuards...),
+		}
+		if timelineTransitionErr.ReasonCode != "" {
+			details["reason_code"] = timelineTransitionErr.ReasonCode
+		}
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
+		return
+	case errors.As(err, &mentionTransitionErr):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
+		return
+	case errors.As(err, &entityConflict):
+		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
+		return
+	case errors.Is(err, entities.ErrEntityMentionNotFound), errors.Is(err, entities.ErrResolvedRecordNotFound), errors.As(err, &mentionTargetErr), errors.Is(err, entities.ErrInvalidMentionResolution):
+		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if result.ChangeSetID != uuid.Nil && !result.Replayed {
+		for _, row := range result.Rows {
+			s.publishRecordChange(MutationResult{
+				Payload:          map[string]any{"row": row.Row},
+				IncidentID:       incidentID,
+				RecordID:         row.RecordID,
+				ChangeSetID:      result.ChangeSetID,
+				ClientTxnID:      result.ClientTxnID,
+				RowVersion:       row.RowVersion,
+				ViewSchemaID:     timeline.TimelineViewSchemaID,
+				ChangedFieldKeys: row.ChangedFieldKeys,
+			}, principal.User.ID)
+		}
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+}
+
+func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, incidentID uuid.UUID, viewSchemaID string, body []byte) {
+	if viewSchemaID != entities.HostsViewSchemaID && viewSchemaID != entities.IdentitiesViewSchemaID {
+		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
+		return
+	}
+	request, apiErr := DecodeClipboardPasteRequest(bytes.NewReader(body), viewSchemaID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	plan, err := tabularingest.BuildBatchPlan(request.MappingRequest())
+	if err != nil {
+		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
+		return
+	}
+	result, err := s.store.entityStore.ClipboardPasteEntityRows(
+		r.Context(),
+		principal.User,
+		incidentID,
+		viewSchemaID,
+		plan,
+		entities.EntityClipboardPasteRequestHash(viewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns),
+		httpapi.RequestIDFromContext(r.Context()),
+		s.now(),
+	)
+	var entityConflict *entities.ExactMatchConflictError
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, entities.ErrInvalidCreateRequest):
+		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
+		return
+	case errors.As(err, &entityConflict):
+		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if result.ChangeSetID != uuid.Nil && !result.Replayed {
+		for _, row := range result.Rows {
+			s.publishRecordChange(MutationResult{
+				Payload:          map[string]any{"row": row.Row},
+				IncidentID:       incidentID,
+				RecordID:         row.RecordID,
+				ChangeSetID:      result.ChangeSetID,
+				ClientTxnID:      result.ClientTxnID,
+				RowVersion:       row.RowVersion,
+				ViewSchemaID:     viewSchemaID,
+				ChangedFieldKeys: row.ChangedFieldKeys,
+			}, principal.User.ID)
+		}
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
 func newService(deps httpapi.DependencySet) (*Service, error) {

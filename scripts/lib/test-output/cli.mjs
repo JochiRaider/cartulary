@@ -38,6 +38,7 @@ import {
   loadManifest,
   packageMatchesPattern,
   phaseManifestNames,
+  playwrightEntryTitles,
   selectManifestEntries,
   vitestEntryTitles,
 } from "../phase-manifest.mjs";
@@ -652,10 +653,12 @@ function loadManifestIndex() {
     }
     for (const entry of entries) {
       if (entry.runner === "playwright") {
-        index.manifestPlaywright.set(
-          `${normalizePath(entry.file)}::${entry.title}`,
-          { ...entry, phase },
-        );
+        for (const title of playwrightEntryTitles(entry)) {
+          index.manifestPlaywright.set(
+            `${normalizePath(entry.file)}::${title}`,
+            { ...entry, phase, title },
+          );
+        }
       }
       if (entry.coverage !== "authoritative") {
         continue;
@@ -681,10 +684,12 @@ function loadManifestIndex() {
         continue;
       }
       if (entry.runner === "playwright") {
-        index.authoritativePlaywright.set(
-          `${normalizePath(entry.file)}::${entry.title}`,
-          { ...entry, phase },
-        );
+        for (const title of playwrightEntryTitles(entry)) {
+          index.authoritativePlaywright.set(
+            `${normalizePath(entry.file)}::${title}`,
+            { ...entry, phase, title },
+          );
+        }
       }
     }
   }
@@ -4786,7 +4791,7 @@ function handleGoPhase({ manifestAware }) {
       verification.missingIDs.length > 0 ||
       verification.unexpectedIDs.length > 0
     ) {
-      status = "mismatch";
+      status = "fail";
       manifestMismatch = {
         missing_ids: verification.missingIDs,
         unexpected_ids: verification.unexpectedIDs,
@@ -4815,7 +4820,7 @@ function handleGoPhase({ manifestAware }) {
     return 0;
   }
 
-  if (status === "mismatch") {
+  if (manifestMismatch) {
     if (showPhaseDetailOutput(context)) {
       printBlock(`manifest mismatch: ${context.label}`, {
         missing_ids: renderList(manifestMismatch.missing_ids),
@@ -4956,7 +4961,9 @@ function evaluateFlatTitleManifest(
         .flatMap((entry) =>
           (entry.runner === "vitest"
             ? vitestEntryTitles(entry)
-            : [entry.title]
+            : entry.runner === "playwright"
+              ? playwrightEntryTitles(entry)
+              : [entry.title]
           ).map((title) => ({
             entry,
             title,
@@ -5029,7 +5036,7 @@ function finalizeManifestAwareRunnerPhase(
       verification.missingIDs.length > 0 ||
       verification.unexpectedIDs.length > 0
     ) {
-      status = "mismatch";
+      status = "fail";
       manifestMismatch = {
         missing_ids: verification.missingIDs,
         unexpected_ids: verification.unexpectedIDs,
@@ -5055,7 +5062,7 @@ function finalizeManifestAwareRunnerPhase(
   if (status === "pass") {
     return 0;
   }
-  if (status === "mismatch") {
+  if (manifestMismatch) {
     if (showPhaseDetailOutput(context)) {
       printBlock(`manifest mismatch: ${context.label}`, {
         missing_ids: renderList(manifestMismatch.missing_ids),
@@ -5481,7 +5488,6 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
 function selectVitestManifestEntries(phase, coverage, executionDependency) {
   return selectManifestEntries(repoRoot, {
     runner: "vitest",
-    section: "unit",
     phase,
     coverage,
     executionDependency,
@@ -5573,7 +5579,6 @@ function handleVitestPhase({ manifestAware }) {
   return finalizeManifestAwareRunnerPhase(context, {
     manifestAware,
     runner: "vitest",
-    section: "unit",
     summary,
     selectedSlicePassed,
     artifacts: {
@@ -5816,8 +5821,8 @@ function createPlaywrightSelection({ manifestAware }) {
   if (manifestAware && reportSlice) {
     const { phase, coverage, executionDependency } = readManifestScopeEnv();
     const selected = new Set(
-      selectPlaywrightManifestEntries(phase, coverage, executionDependency).map(
-        (entry) => `${entry.file}::${entry.title}`,
+      selectPlaywrightManifestEntries(phase, coverage, executionDependency).flatMap((entry) =>
+        playwrightEntryTitles(entry).map((title) => `${entry.file}::${title}`),
       ),
     );
     return {

@@ -90,6 +90,8 @@ if [[ -z "$output_file" ]]; then
 fi
 
 mkdir -p "$(dirname "$output_file")"
+repo_root="$(pwd)"
+exit_status=0
 
 case "${FAKE_VITEST_MODE:-success}" in
   success)
@@ -101,19 +103,19 @@ JSON
     cat >"$output_file" <<'JSON'
 {"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":1,"numPassedTests":0,"numFailedTests":1,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[{"ancestorTitles":[],"fullName":"raw failure","status":"failed","title":"raw failure","failureMessages":["AssertionError: expected 1 to be 2\n    at raw"],"meta":{},"tags":[]}],"status":"failed","message":"","name":"/home/askahn/code/cartulary/apps/web/src/raw-failure.test.ts"}]}
 JSON
-    exit 1
+    exit_status=1
     ;;
   package_failure)
     cat >"$output_file" <<'JSON'
 {"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":1,"numPassedTests":0,"numFailedTests":1,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[{"ancestorTitles":[],"fullName":"raw package failure","status":"failed","title":"raw package failure","failureMessages":["AssertionError: package failure\n    at package"],"meta":{},"tags":[]}],"status":"failed","message":"","name":"/home/askahn/code/cartulary/packages/test-utils/src/index.test.ts"}]}
 JSON
-    exit 1
+    exit_status=1
     ;;
   suite_load_failure)
     cat >"$output_file" <<'JSON'
 {"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":0,"numPassedTests":0,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[],"status":"failed","message":"ReferenceError: window is not defined","name":"/home/askahn/code/cartulary/apps/web/src/raw-suite-load.test.ts"}]}
 JSON
-    exit 1
+    exit_status=1
     ;;
   timeout)
     sleep 30
@@ -124,7 +126,10 @@ JSON
     ;;
 esac
 
+sed -i "s#/home/askahn/code/cartulary#${repo_root}#g" "$output_file"
+
 echo "JSON report written to $output_file"
+exit "$exit_status"
 EOF
 chmod +x "$fake_vitest"
 

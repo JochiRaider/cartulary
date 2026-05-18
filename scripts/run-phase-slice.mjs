@@ -296,6 +296,8 @@ function attachRuntime(plan, context, metadataDir) {
     summaryExtra: () => ({
       phase: plan.phase,
       mode: plan.mode,
+      phase_claim_status: plan.phase_claim_status,
+      claim_status_counts: plan.claim_status_counts,
       child_targets: plan.child_target_names,
       resource_limits: resourceMapToObject(resourceLimits),
     }),

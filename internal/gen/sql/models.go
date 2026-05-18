@@ -648,6 +648,7 @@ type TimelineEvent struct {
 	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
 	SupersededByUserID pgtype.UUID        `json:"superseded_by_user_id"`
 	SupersededAt       pgtype.Timestamptz `json:"superseded_at"`
+	RawCapture         []byte             `json:"raw_capture"`
 }
 
 type TimelineGridProjection struct {

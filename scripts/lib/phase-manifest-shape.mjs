@@ -14,6 +14,7 @@ import {
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
 const validCoverage = new Set(["authoritative", "supplemental"]);
 const validRunners = new Set(["go_test", "playwright", "vitest"]);
+const validClaimStatuses = new Set(["implemented", "blocked", "not_applicable"]);
 
 export const phaseTestMapSchemaID = "cartulary.phase_test_map.v1";
 
@@ -64,6 +65,7 @@ export const phaseManifestEntryKeys = new Set([
   "titles",
   "execution_dependency",
   "evidence_layer",
+  "claim_status",
   "claim",
   "out_of_scope",
   "execution_family",
@@ -166,6 +168,9 @@ export function validatePhaseManifestShape(manifest, label) {
         requireStringArray(entry.fixture_refs, `${entryLabel}.fixture_refs`, {
           nonEmpty: true,
         });
+      }
+      if (entry.claim_status !== undefined) {
+        requireEnum(entry.claim_status, `${entryLabel}.claim_status`, validClaimStatuses);
       }
       requireString(entry.evidence_layer, `${entryLabel}.evidence_layer`);
       if (entry.symbol !== undefined && entry.symbols !== undefined) {

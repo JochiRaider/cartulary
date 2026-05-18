@@ -121,6 +121,34 @@ export type NavigateGridCellAnchorProps<Row> = {
   readonly presentationRows: readonly GridPresentationRow<Row>[];
 };
 
+export type GridPasteCreateRowTarget = {
+  readonly createIndex: number;
+  readonly kind: "create";
+};
+
+export type GridPasteRecordRowTarget = {
+  readonly kind: "record";
+  readonly recordId: string;
+};
+
+export type GridPasteRowTarget =
+  | GridPasteCreateRowTarget
+  | GridPasteRecordRowTarget;
+
+export type ResolveGridPasteTargetsProps<Row> = {
+  readonly allowCreateRows?: boolean | undefined;
+  readonly columns: readonly GridColumn<Row>[];
+  readonly current: GridCellAnchor;
+  readonly pastedColumnCount: number;
+  readonly pastedRowCount: number;
+  readonly presentationRows: readonly GridPresentationRow<Row>[];
+};
+
+export type GridPasteTargetResolution = {
+  readonly columns: readonly string[];
+  readonly rowTargets: readonly GridPasteRowTarget[];
+};
+
 type BuildGridPresentationRowsProps<Row> = {
   readonly getGroupLabel?:
     | ((row: Row, fieldKey: string) => string | null | undefined)
@@ -341,6 +369,80 @@ export function navigateGridCellAnchor<Row>({
       rowIndex: target.rowIndex,
     },
   });
+}
+
+export function resolveGridPasteTargets<Row>({
+  allowCreateRows = true,
+  columns,
+  current,
+  pastedColumnCount,
+  pastedRowCount,
+  presentationRows,
+}: ResolveGridPasteTargetsProps<Row>): GridPasteTargetResolution | null {
+  if (
+    current.recordId.trim() === "" ||
+    current.fieldKey.trim() === "" ||
+    !Number.isInteger(pastedRowCount) ||
+    pastedRowCount < 1 ||
+    !Number.isInteger(pastedColumnCount) ||
+    pastedColumnCount < 1
+  ) {
+    return null;
+  }
+  const startColumnIndex = columns.findIndex(
+    (column) => column.fieldKey === current.fieldKey,
+  );
+  if (startColumnIndex < 0) {
+    return null;
+  }
+  const targetColumns = columns
+    .slice(startColumnIndex, startColumnIndex + pastedColumnCount)
+    .map((column) => column.fieldKey);
+  if (targetColumns.length === 0) {
+    return null;
+  }
+
+  const startRowIndex = presentationRows.findIndex(
+    (row) =>
+      row.kind === "data" &&
+      row.gridRow.recordId !== null &&
+      row.gridRow.recordId === current.recordId,
+  );
+  if (startRowIndex < 0) {
+    return null;
+  }
+
+  const rowTargets: GridPasteRowTarget[] = [];
+  let createIndex = 0;
+  for (let offset = 0; offset < pastedRowCount; offset += 1) {
+    const presentationRow = presentationRows[startRowIndex + offset];
+    if (presentationRow === undefined) {
+      if (!allowCreateRows) {
+        return null;
+      }
+      rowTargets.push({ createIndex, kind: "create" });
+      createIndex += 1;
+      continue;
+    }
+    if (presentationRow.kind !== "data") {
+      return null;
+    }
+    const recordId = presentationRow.gridRow.recordId;
+    if (recordId === null || recordId.trim() === "") {
+      if (!allowCreateRows) {
+        return null;
+      }
+      rowTargets.push({ createIndex, kind: "create" });
+      createIndex += 1;
+      continue;
+    }
+    rowTargets.push({ kind: "record", recordId });
+  }
+
+  return {
+    columns: targetColumns,
+    rowTargets,
+  };
 }
 
 function navigateGridCellCoordinates({

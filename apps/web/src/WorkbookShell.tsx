@@ -4,11 +4,13 @@ import {
   type GridCellAnchor,
   type GridColumn,
   type GridNavigationIntent,
+  type GridPasteRowTarget,
   type GridRow,
   GridTable,
   GridViewport,
   navigateGridCellAnchor,
   reconcileRecordRows,
+  resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
 import {
   cellPresenceMarkerTestId,
@@ -37,6 +39,7 @@ import {
   visibleFields,
 } from "@cartulary/view-contracts";
 import {
+  type ClipboardEvent as ReactClipboardEvent,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -221,6 +224,15 @@ type TimelineMutationEnvelope = {
   };
 };
 
+type TimelineClipboardPasteEnvelope = {
+  data: {
+    view_schema_id: string;
+    change_set_id?: string;
+    rows: TimelineApiRow[];
+    conflicts?: SameFieldConflictPayload[];
+  };
+};
+
 type SameFieldConflictPayload = {
   conflict_token: string;
   record_id: string;
@@ -242,6 +254,10 @@ type LocalConflictState = {
   focusKey: string;
   localValue: unknown;
   mergedDraft: string;
+};
+
+type PasteConflictGroupState = {
+  keys: string[];
 };
 
 type PendingReplayKind = "create" | "patch";
@@ -409,6 +425,14 @@ type ViewMutationEnvelope = {
     view_schema_id: string;
     change_set_id: string;
     row: EntityApiRow;
+  };
+};
+
+type EntityClipboardPasteEnvelope = {
+  data: {
+    view_schema_id: string;
+    change_set_id: string;
+    rows: EntityApiRow[];
   };
 };
 
@@ -624,11 +648,16 @@ function FocusableWorkbookCell({
   children,
   fieldKey,
   focus,
+  onPaste,
   recordId,
 }: {
   readonly children: ReactNode;
   readonly fieldKey: string;
   readonly focus: WorkbookGridFocusRuntime;
+  readonly onPaste?: (
+    event: ReactClipboardEvent<HTMLElement>,
+    anchor: { readonly fieldKey: string; readonly recordId: string },
+  ) => void;
   readonly recordId: string;
 }) {
   return (
@@ -637,6 +666,13 @@ function FocusableWorkbookCell({
       onFocus={() => {
         focus.update(recordId, fieldKey);
       }}
+      onPaste={
+        onPaste
+          ? (event) => {
+              onPaste(event, { fieldKey, recordId });
+            }
+          : undefined
+      }
       onKeyDown={(event) => {
         const command = mapWorkbookKeyboardCommand(event);
         if (command.preventDefault) {
@@ -1654,6 +1690,63 @@ function buildStableMutationSignature(payload: unknown): string {
   return JSON.stringify(stablePayload);
 }
 
+export function clipboardTextLooksTabular(text: string): boolean {
+  return text.includes("\n") || text.includes("\r") || text.includes("\t");
+}
+
+function clipboardGridDimensions(text: string): {
+  readonly columnCount: number;
+  readonly rowCount: number;
+} {
+  const rows = parseClipboardTableForDimensions(text);
+  const columnCount = rows.reduce((max, row) => Math.max(max, row.length), 1);
+  return {
+    columnCount,
+    rowCount: Math.max(1, rows.length),
+  };
+}
+
+function parseClipboardTableForDimensions(text: string): string[][] {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const trimmed = normalized.replace(/\n+$/, "");
+  if (trimmed === "") {
+    return [[""]];
+  }
+  const delimiter = trimmed.includes("\t") ? "\t" : ",";
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const char = trimmed[index];
+    if (char === '"') {
+      if (quoted && trimmed[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+      continue;
+    }
+    if (!quoted && char === delimiter) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+    if (!quoted && char === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+    cell += char;
+  }
+  row.push(cell);
+  rows.push(row);
+  return rows;
+}
+
 function readEnvelope<T>(payload: unknown): T {
   return payload as T;
 }
@@ -2131,6 +2224,7 @@ function TimelineScalarEditor({
     surface: TimelineScalarEditorSurface,
   ) => void;
   readonly onPasteCommit: (
+    event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
     rowKey: string,
     field: keyof RowValues,
     surface: TimelineScalarEditorSurface,
@@ -2186,8 +2280,10 @@ function TimelineScalarEditor({
   ) => {
     onKeyCommit(event, rowKey, field, surface);
   };
-  const handlePaste = () => {
-    onPasteCommit(rowKey, field, surface);
+  const handlePaste = (
+    event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    onPasteCommit(event, rowKey, field, surface);
   };
   const inputRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
     registerInput(rowKey, field, surface, element);
@@ -2255,6 +2351,8 @@ export function TimelineWorkbook({
   const [activeConflictKey, setActiveConflictKey] = useState<string | null>(
     null,
   );
+  const [pasteConflictGroup, setPasteConflictGroup] =
+    useState<PasteConflictGroupState | null>(null);
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
@@ -5008,10 +5106,147 @@ export function TimelineWorkbook({
 
   const handlePaste = useCallback(
     (
+      event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
       rowKey: string,
       focusField: keyof RowValues,
       surface: TimelineScalarEditorSurface,
     ) => {
+      const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+      const binding = Object.values(timelineScalarBindingIndex).find(
+        (candidate) => candidate.key === focusField,
+      );
+      const fieldKey = binding?.fieldKey ?? focusField;
+      if (
+        surface === "grid" &&
+        binding !== undefined &&
+        clipboardTextLooksTabular(clipboardText)
+      ) {
+        const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
+        if (anchor !== null) {
+          const dimensions = clipboardGridDimensions(clipboardText);
+          const presentationRows = buildGridPresentationRows({
+            getGroupLabel: (row, groupFieldKey) =>
+              timelineGroupLabel(row, groupFieldKey),
+            groupBy: queryState.groupBy,
+            rows: timelineAnchorRowsRef.current,
+          });
+          const targetResolution = resolveGridPasteTargets({
+            columns: timelineAnchorColumnsRef.current,
+            current: anchor,
+            pastedColumnCount: dimensions.columnCount,
+            pastedRowCount: dimensions.rowCount,
+            presentationRows,
+          });
+          if (targetResolution !== null) {
+            event.preventDefault();
+            const rowTargetPayload: Array<
+              | { readonly kind: "create" }
+              | {
+                  readonly base_row_version: number;
+                  readonly kind: "record";
+                  readonly record_id: string;
+                }
+            > = targetResolution.rowTargets.map(
+              (target: GridPasteRowTarget) => {
+                if (target.kind === "create") {
+                  return { kind: "create" };
+                }
+                const row = rowsRef.current.find(
+                  (candidate) => candidate.recordId === target.recordId,
+                );
+                return {
+                  kind: "record",
+                  record_id: target.recordId,
+                  base_row_version: row?.rowVersion ?? 0,
+                };
+              },
+            );
+            if (
+              rowTargetPayload.some((target) => {
+                if (target.kind !== "record") {
+                  return false;
+                }
+                return target.base_row_version < 1;
+              })
+            ) {
+              finishSave("Conflict");
+              return;
+            }
+            const clientTxnId = nextClientTxnId();
+            const viewportContinuityToken = beginViewportContinuity({
+              kind: "input",
+              focusKey: inputFocusKey(rowKey, focusField, surface),
+            });
+            beginSave();
+            saveQueueRef.current = saveQueueRef.current
+              .catch(() => undefined)
+              .then(async () => {
+                trackPendingSocketTxn(clientTxnId);
+                const result = await fetchJSON<TimelineClipboardPasteEnvelope>(
+                  apiPath(
+                    apiBase,
+                    `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+                  ),
+                  {
+                    method: "POST",
+                    body: JSON.stringify({
+                      view_schema_id: timelineViewSchemaId,
+                      client_txn_id: clientTxnId,
+                      clipboard_text: clipboardText,
+                      format: clipboardText.includes("\t") ? "tsv" : "csv",
+                      start_field_key: fieldKey,
+                      columns: targetResolution.columns,
+                      targets: rowTargetPayload,
+                    }),
+                  },
+                );
+                resolvePendingSocketTxn(clientTxnId);
+                if (!result.ok) {
+                  clearViewportContinuity(viewportContinuityToken);
+                  finishSave("Conflict");
+                  return;
+                }
+                const envelope = readEnvelope<TimelineClipboardPasteEnvelope>(
+                  result.payload,
+                );
+                const pasteConflictKeys: string[] = [];
+                for (const conflict of envelope.data.conflicts ?? []) {
+                  const conflictBinding = timelineScalarBindingForField(
+                    conflict.field_key,
+                  );
+                  const queueKey = `${conflict.record_id}:${conflict.field_key}`;
+                  pasteConflictKeys.push(queueKey);
+                  registerSameFieldConflict(
+                    conflict,
+                    inputFocusKey(
+                      conflict.record_id,
+                      conflictBinding?.key ?? focusField,
+                      "grid",
+                    ),
+                    "grid",
+                  );
+                }
+                if (pasteConflictKeys.length > 1) {
+                  setPasteConflictGroup({ keys: pasteConflictKeys });
+                  setActiveConflictKey(pasteConflictKeys[0]);
+                } else if (pasteConflictKeys.length === 0) {
+                  setPasteConflictGroup(null);
+                }
+                await loadRowsRef.current({
+                  showLoading: false,
+                  viewportContinuityToken,
+                });
+                restoreTimelineFocusAnchor(anchor);
+                finishSave(
+                  envelope.data.conflicts && envelope.data.conflicts.length > 0
+                    ? "Conflict"
+                    : "Saved",
+                );
+              });
+            return;
+          }
+        }
+      }
       window.setTimeout(() => {
         const editor = rowInputRefs.current.get(
           inputFocusKey(rowKey, focusField, surface),
@@ -5031,7 +5266,23 @@ export function TimelineWorkbook({
         );
       }, 0);
     },
-    [queueScalarSave, setScalarEditorDraftValue],
+    [
+      apiBase,
+      beginSave,
+      beginViewportContinuity,
+      clearViewportContinuity,
+      currentTimelineAnchorFor,
+      finishSave,
+      incidentId,
+      nextClientTxnId,
+      queryState.groupBy,
+      queueScalarSave,
+      registerSameFieldConflict,
+      resolvePendingSocketTxn,
+      restoreTimelineFocusAnchor,
+      setScalarEditorDraftValue,
+      trackPendingSocketTxn,
+    ],
   );
 
   const sendPresenceUpdate = useCallback(
@@ -6058,6 +6309,14 @@ export function TimelineWorkbook({
     activeConflictKey === null
       ? null
       : (conflictQueue[activeConflictKey] ?? null);
+  const activePasteConflictKeys =
+    pasteConflictGroup?.keys.filter((key) => conflictQueue[key]) ?? [];
+  const activePasteConflictIndex =
+    activeConflictKey === null
+      ? -1
+      : activePasteConflictKeys.indexOf(activeConflictKey);
+  const showPasteConflictNavigator =
+    activePasteConflictKeys.length > 1 && activePasteConflictIndex >= 0;
 
   useEffect(() => {
     if (activeConflict === null) {
@@ -6083,6 +6342,13 @@ export function TimelineWorkbook({
       setActiveConflictKey((current) =>
         current === conflict.key ? null : current,
       );
+      setPasteConflictGroup((current) => {
+        if (current === null || !current.keys.includes(conflict.key)) {
+          return current;
+        }
+        const keys = current.keys.filter((key) => key !== conflict.key);
+        return keys.length > 1 ? { keys } : null;
+      });
       restoreConflictFocus(conflict.focusKey);
       schedulePendingReplay();
     },
@@ -6430,6 +6696,84 @@ export function TimelineWorkbook({
                   saved value and your unsaved value.
                 </p>
               </div>
+              {showPasteConflictNavigator ? (
+                <nav
+                  aria-label="Paste conflict navigator"
+                  data-testid="paste-conflict-navigator"
+                  style={noticeCardStyle}
+                >
+                  <p data-testid="paste-conflict-position" style={bodyStyle}>
+                    {activePasteConflictIndex + 1} of{" "}
+                    {activePasteConflictKeys.length}
+                  </p>
+                  <div style={inlineButtonRowStyle}>
+                    <button
+                      data-testid="paste-conflict-previous"
+                      disabled={activePasteConflictIndex <= 0}
+                      onClick={() => {
+                        const previousKey =
+                          activePasteConflictKeys[
+                            activePasteConflictIndex - 1
+                          ];
+                        if (previousKey) {
+                          setActiveConflictKey(previousKey);
+                        }
+                      }}
+                      style={secondaryActionButtonStyle}
+                      type="button"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      data-testid="paste-conflict-next"
+                      disabled={
+                        activePasteConflictIndex >=
+                        activePasteConflictKeys.length - 1
+                      }
+                      onClick={() => {
+                        const nextKey =
+                          activePasteConflictKeys[
+                            activePasteConflictIndex + 1
+                          ];
+                        if (nextKey) {
+                          setActiveConflictKey(nextKey);
+                        }
+                      }}
+                      style={secondaryActionButtonStyle}
+                      type="button"
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <div style={inlineButtonRowStyle}>
+                    {activePasteConflictKeys.map((key, index) => {
+                      const queued = conflictQueue[key];
+                      if (!queued) {
+                        return null;
+                      }
+                      return (
+                        <button
+                          aria-current={
+                            key === activeConflictKey ? "true" : undefined
+                          }
+                          data-testid={`paste-conflict-item-${sanitizeTestId(key)}`}
+                          key={key}
+                          onClick={() => setActiveConflictKey(key)}
+                          style={
+                            key === activeConflictKey
+                              ? actionButtonStyle
+                              : secondaryActionButtonStyle
+                          }
+                          type="button"
+                        >
+                          {index + 1}.{" "}
+                          {timelineBindingLabel(queued.conflict.field_key)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </nav>
+              ) : null}
               <div style={conflictResolverGridStyle}>
                 <label style={labelStyle}>
                   Field key
@@ -6939,6 +7283,81 @@ function EntityWorkbookSurface({
     rows: entityGridRows,
     surface,
   });
+  const handleEntityPaste = useCallback(
+    async (
+      event: ReactClipboardEvent<HTMLElement>,
+      anchor: { readonly fieldKey: string; readonly recordId: string },
+    ) => {
+      const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+      if (!clipboardTextLooksTabular(clipboardText)) {
+        return;
+      }
+      const dimensions = clipboardGridDimensions(clipboardText);
+      const presentationRows = buildGridPresentationRows({
+        getGroupLabel: (row, fieldKey) => entityGroupLabel(row, fieldKey),
+        groupBy: queryState.groupBy,
+        rows: entityGridRows,
+      });
+      const targetResolution = resolveGridPasteTargets({
+        columns: entityAnchorColumns,
+        current: anchor,
+        pastedColumnCount: dimensions.columnCount,
+        pastedRowCount: dimensions.rowCount,
+        presentationRows,
+      });
+      if (targetResolution === null) {
+        return;
+      }
+
+      event.preventDefault();
+      setMergeMessage(null);
+      const result = await fetchJSON<EntityClipboardPasteEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/clipboard-paste`,
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            view_schema_id: contract.viewSchemaId,
+            client_txn_id: `${contract.viewSchemaId}-paste-${Date.now()}`,
+            clipboard_text: clipboardText,
+            format: clipboardText.includes("\t") ? "tsv" : "csv",
+            start_field_key: anchor.fieldKey,
+            columns: targetResolution.columns,
+            targets: targetResolution.rowTargets.map(() => ({
+              kind: "create",
+            })),
+          }),
+        },
+      );
+      if (!result.ok) {
+        setMergeMessage(parseErrorMessage(result.payload));
+        return;
+      }
+      const envelope = readEnvelope<EntityClipboardPasteEnvelope>(
+        result.payload,
+      );
+      const firstRow = envelope.data.rows[0];
+      await onRefreshEntities();
+      if (firstRow) {
+        setSelectedRecordId(firstRow.record_id);
+      }
+      setMergeMessage(
+        `Paste applied to ${envelope.data.rows.length} ${entityType === "host" ? "host" : "identity"} row${envelope.data.rows.length === 1 ? "" : "s"}.`,
+      );
+    },
+    [
+      apiBase,
+      contract.viewSchemaId,
+      entityAnchorColumns,
+      entityGridRows,
+      entityType,
+      incidentId,
+      onRefreshEntities,
+      queryState.groupBy,
+    ],
+  );
   const entityColumns: readonly GridColumn<EntityRow>[] =
     entityAnchorColumns.map((column) => ({
       ...column,
@@ -6946,6 +7365,7 @@ function EntityWorkbookSurface({
         <FocusableWorkbookCell
           fieldKey={column.fieldKey}
           focus={entityFocus}
+          onPaste={handleEntityPaste}
           recordId={row.recordId}
         >
           {entityCellContent(entityType, row, column.fieldKey)}

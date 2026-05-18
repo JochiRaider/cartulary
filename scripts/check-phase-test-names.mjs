@@ -8,6 +8,7 @@ import {
   goEntrySymbols,
   loadManifest,
   phaseManifestNames,
+  playwrightEntryTitles,
   vitestEntryTitles,
 } from "./lib/phase-manifest.mjs";
 
@@ -75,7 +76,7 @@ function entryEvidenceNames(entry) {
     return vitestEntryTitles(entry);
   }
   if (entry.runner === "playwright") {
-    return [entry.title];
+    return playwrightEntryTitles(entry);
   }
   return [];
 }

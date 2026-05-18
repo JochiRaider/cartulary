@@ -15,12 +15,13 @@ Authority model:
 - Generated files, generated ledgers, generated schedules, visual goldens, support-only tests, retained run artifacts, and previous phase plans are not behavior authorities.
 - `docs/domain.md` is a vocabulary and concept reference for terminology-sensitive work. It does not replace the owner specs.
 
-Current repo status after Sprint 0:
+Current repo status after Sprint 2 audit:
 - `tools/phase_registry.json` includes Phase 9 as `active`.
 - `tools/phase9_test_map.json` exists and represents every authoritative Phase 9 row exactly once.
 - `docs/testing/phase9_coverage_ledger.md` exists and is generated from the Phase 9 manifest.
-- Phase 9 is selectable only through explicit blocker sentinels. These sentinels intentionally fail when executed and are not behavior completion evidence.
-- No direct Phase 9 product behavior is claimed by this document or by Sprint 0.
+- Direct Sprint 1 and Sprint 2 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, and Host/Identity entity-origin paste.
+- Remaining later-sprint blocker sentinels intentionally prevent a full Phase 9 completion claim until replaced by direct behavior evidence or owner-cited `N/A` coverage where applicable.
+- The broad `browser-e2e-webserver-backed` aggregate still has an outside-Phase-9 `E-4-04` product assertion failure; Phase 9 browser-functional evidence passed when selected through the Phase 9 slice.
 
 ## Phase Objective
 
@@ -82,7 +83,7 @@ Carried-forward compatibility boundaries:
 | --- | --- | --- | --- | --- |
 | [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` | Harness setup is complete; current blocker sentinels remain only for rows not yet replaced by later sprint evidence. | Manifest, registry entry, generated ledger, generated schedule updates, support-only carryover guards, and Sprint 0 blocker boundaries are in place. |
 | [x] | 1. Keyboard and grid anchors | `make frontend-unit`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `git diff --check` | No Sprint 1-owned blocker remains; aggregate targets still fail on later Phase 9 blocker sentinels and one outside-Phase-9 browser regression. | Direct Sprint 1 evidence now covers keyboard command mapping, Cartulary grid anchors, live workbook shortcuts, and shared grid keyboard anchor semantics. |
-| [ ] | 2. Clipboard and bulk paste | `make backend-unit`, `make backend-integration`, `make frontend-unit` | TODO: inspect tabular ingest and paste mutation support. | Cover multi-cell paste, fill-down, tags, and sorted/filtered anchoring. |
+| [x] | 2. Clipboard and bulk paste | `make backend-unit`, `make backend-integration`, `make frontend-unit`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `make phase-ledger-drift`, `git diff --check` | No Sprint 2-owned blocker remains; full Phase 9 remains incomplete while later blocker rows remain, and broad browser aggregate status is still affected by outside-Phase-9 `E-4-04`. | Covers shared tabular-ingest planning, Timeline paste, Host/Identity entity-origin paste, fill-down, tags, conflict grouping, sorted/filtered anchoring, file-import separation, and generated-ledger traceability. |
 | [ ] | 3. Notes and Indicators | `make backend-store`, `make backend-integration` | TODO: inspect current Notes and Indicators create/query gaps. | Keep Notes artifact-backed and Indicators canonical. |
 | [ ] | 4. Parties and text-plus-link flows | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect current party-link UI and direct-reference gaps. | Preserve text/ref independence and exact-match reuse. |
 | [ ] | 5. Assessments and timestamp contract | `make backend-store`, `make backend-unit`, `make browser-e2e-webserver-backed` | TODO: inspect append-only and timestamp-local-draft gaps. | Cover assessment history and timestamp validation. |
@@ -116,14 +117,14 @@ Every authoritative Phase 9 row must have exactly one authoritative row owner in
 | `I-9-03` | `backend_integration` | Party-link helper fields update hidden links without overwriting text. |
 | `I-9-GRID-01` | `frontend_unit` | Sorted or filtered paste translates visual order to stable anchors. |
 | `E-9-01` | `browser_functional` | Required keyboard shortcuts work in the grid without module switching. |
-| `E-9-02` | `browser_functional` | 20x5 Timeline paste creates or updates rows and preserves identity/selection. |
+| `E-9-02` | `browser_functional` | 20x5 Timeline paste creates or updates rows, preserves identity/selection, and presents grouped conflict navigation. |
 | `E-9-03` | `browser_functional` | Notes tab supports in-grid creation and record linking. |
 | `E-9-04` | `browser_functional` | Party create/link keeps raw text and exposes pivots and queues. |
 | `E-9-05` | `browser_functional` | Assessment sequences remain distinguishable in history and filters. |
 | `E-9-06` | `browser_functional` | Task, Decision, and coordination surfaces stay workbook-native. |
 | `E-9-07` | conditional `browser_functional` or `N/A` | Optional standardized surfaces are covered when exposed. |
 | `E-9-08` | `browser_functional` | Registry exposes required identities; optional surfaces are additive. |
-| `E-9-GRID-01` | `browser_functional` | Grid semantics stay shared across required system views. |
+| `E-9-GRID-01` | `browser_functional` | Grid semantics stay shared across required system views, including Host/Identity entity-origin clipboard paste. |
 
 ## Global References
 
@@ -373,54 +374,103 @@ Relevant IDs: `U-9-02`, `I-9-01`, `I-9-GRID-01`, `E-9-02`, `E-9-GRID-01`; suppor
 
 Files or areas to inspect:
 - `internal/modules/workbook`
+- `internal/modules/imports/tabularingest`
+- `internal/modules/entities`
+- `internal/modules/timeline`
 - `internal/platform/viewquery`
 - `internal/modules/links`
 - `apps/web/src/WorkbookShell.tsx`
 - `apps/web/src/workbookQuery.ts`
 - `packages/grid-adapter/src`
-- TODO: exact tabular-ingest package or helper if one exists.
-- TODO: exact raw-capture storage shape currently implemented for pasted unknown columns.
+- `apps/web/e2e/phase9.sentinel.spec.ts`
+- `apps/web/e2e/phase9.keyboard.spec.ts`
+- Raw-capture provenance is persisted as structured clipboard/import source-column metadata owned by the shared ingest and Timeline persistence path.
 
 Test-first sequence:
-1. Add backend unit tests for the shared tabular-ingest contract and change-set grouping.
-2. Add backend integration tests for multi-row Timeline paste, ordered mutations, unknown-column preservation, and `mention_origin` versus `entity_origin`.
-3. Add frontend unit tests for sorted or filtered paste translating visual ranges to stable anchors.
-4. Add browser test for representative 20x5 paste creating or updating rows and preserving selection state.
-5. Add fill-down and multi-row tag assignment tests where the product exposes those commands.
+1. Backend unit tests cover the shared tabular-ingest contract, quoted/newline CSV, explicit single-row CSV parsing, change-set grouping, fill-down request shaping, and multi-row tag assignment request shaping.
+2. Backend integration tests cover multi-row Timeline paste, ordered mutations, unknown-column preservation, `mention_origin` versus `entity_origin`, Host/Identity exact-match reuse or stub creation, and bulk mutation batches.
+3. Frontend unit tests cover sorted or filtered paste translating visual ranges to stable anchors, group-row rejection, vendor-coordinate rejection, rendered paste dispatch, and comma-only scalar Ctrl+V behavior.
+4. Browser tests cover representative 20x5 Timeline paste, grouped conflict navigation, and Host/Identity entity-origin paste through the shared grid path.
+5. Manifest and ledger checks cover Playwright `titles[]` traceability and row-level `claim_status`.
 
 Implementation tasks:
 - Parse TSV/CSV clipboard payloads without treating file import as implemented.
 - Map known columns to stable `field_key` values.
 - Preserve unknown columns in the owner-defined raw-capture structure.
 - Apply entity binding according to active field `entity_binding_mode`.
+- Treat single-line comma-only default Ctrl+V as scalar text; explicit API CSV ingest remains supported.
 - Commit successful non-conflicting paste writes as one visible change set with ordered mutation entries.
 - Keep same-field conflicts outside the committed paste batch until explicit resolution.
 - Translate visible paste order through sorted or filtered result sets to stable `record_id` or create-row anchors.
 - Ensure grouped or presentation-only rows cannot become mutation targets.
+- Use the same frontend grid dispatcher for Timeline, Hosts, and Identities. Timeline sends record or create targets with row versions; Hosts and Identities send create-only targets and rely on backend `entity_origin` exact-match reuse.
 
 Validation commands:
 - `make backend-unit`
 - `make backend-integration`
 - `make frontend-unit`
 - `make browser-e2e-webserver-backed`
+- `make phase-ledgers`
+- `make phase-ledger-drift`
 - `make phase-slice PHASE=phase9`
 - `make service-backed-slice PHASE=phase9`
+- `make agent-finalize`
 - `git diff --check`
 
 Deliverables:
-- Direct authoritative evidence for `U-9-02`, `I-9-01`, `I-9-GRID-01`, and `E-9-02`.
+- Direct authoritative evidence for `U-9-02`, `I-9-01`, `I-9-GRID-01`, `E-9-02`, and `E-9-GRID-01`.
 - Updated manifest notes distinguishing clipboard paste from Import Extension Profile import.
-- TODO: exact artifact root for paste browser run.
+- Manifest rows with `claim_status`: Sprint 2 direct rows are `implemented`; remaining later rows stay `blocked`.
+- Playwright `titles[]` for multi-scenario browser rows, including Timeline conflict navigation and Host/Identity entity-origin paste.
+
+Sprint 2 validation record:
+- `make backend-unit`: passed.
+  - Artifact root: `.cartulary/test-results/20260518T002640Z-p673399`
+  - Sprint 2-owned status: `U-9-02` backend-unit evidence passed.
+- `make backend-integration`: passed.
+  - Artifact root: `.cartulary/test-results/20260518T002657Z-p675854`
+  - Sprint 2-owned status: `I-9-01` backend-integration evidence passed.
+- `make frontend-unit`: passed.
+  - Artifact root: `.cartulary/test-results/20260518T002640Z-p673441`
+  - Sprint 2-owned status: `I-9-GRID-01` frontend-unit evidence passed.
+- `make browser-e2e-webserver-backed`: failed overall on outside-Phase-9 `E-4-04`.
+  - Artifact root: `.cartulary/test-results/20260518T003227Z-p686779`
+  - Sprint 2-owned status: Phase 9 authoritative browser-functional evidence passed, including `E-9-02` and `E-9-GRID-01`.
+  - Failure ownership: outside Phase 9 / Phase 4 auto-resolve behavior, not Sprint 2.
+- `make phase-slice PHASE=phase9`: passed.
+  - Artifact root: `.cartulary/test-results/20260518T003349Z-p694667`
+  - Sprint 2-owned status: 5/5 selected work units passed, 43 tests, no failures.
+- `make service-backed-slice PHASE=phase9`: passed.
+  - Artifact root: `.cartulary/test-results/20260518T003918Z-p706604`
+  - Sprint 2-owned status: 3/3 selected work units passed, 25 tests, no failures.
+- `make phase-ledger-drift`: passed.
+  - Artifact root: `.cartulary/test-results/20260518T004647Z-p724344`
+  - Sprint 2-owned status: generated Phase 9 ledger reflects `tools/phase9_test_map.json`.
+- `git diff --check`: passed.
+- `git diff --cached --check`: passed as an extra hygiene check because the tree already had staged changes.
+- `make phase-ledgers` and `make agent-finalize`: not run during the audit because they can refresh generated maintenance artifacts, and the audit scope prohibited regeneration.
+
+Sprint 2 status:
+- Complete for row-level Sprint 2 claimability.
+- `U-9-02`, `I-9-01`, `I-9-GRID-01`, `E-9-02`, and relevant `E-9-GRID-01` evidence is direct, Phase 9-owned, and passing through the row-selected Phase 9 targets.
+- File-based CSV/XLSX import remains unclaimed and separate from clipboard paste.
+- Support-only tabular-ingest and Timeline helper tests remain support-only; prior Phase 4, Phase 6, and Phase 8 evidence remains support-only and cannot complete Sprint 2.
+- Traceability follow-up: direct Sprint 2 tests in files named `*.sentinel*` are valid through manifest titles, but the names are weaker than the current behavior they now contain.
+- Coverage follow-up: `U-9-02` unit evidence directly exercises `mention_origin`; `entity_origin` behavior is directly proven at integration and browser layers.
 
 Risks:
 - Collapsing paste into per-cell visible actions rather than one visible user action.
 - Retargeting paste writes by visible row index after sort/filter changes.
 - Losing unknown-column remnants.
 - Treating bulk edit as hidden macro execution.
+- Treating ordinary comma text as tabular paste and splitting analyst-entered scalar values.
+- Letting a green Phase 9 wrapper imply full Phase 9 completion while blocker rows remain.
 
 Exit criteria:
-- Clipboard and bulk edit evidence passes in direct Phase 9 rows.
+- Clipboard and bulk edit evidence passes in direct Sprint 2 Phase 9 rows.
 - Same-field conflict batching behavior is tested.
+- Host/Identity paste has browser-functional evidence under `E-9-GRID-01`.
+- Generated ledgers and phase-slice summaries expose incomplete Phase 9 claim status while blocked rows remain.
 - File-based import remains unclaimed.
 
 ## Sprint 3. Notes and Indicators

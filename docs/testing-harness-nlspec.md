@@ -339,6 +339,18 @@ Verified by: TH-HARNESS-AC-021
 Authoritative phase-manifest evidence names and titles MUST include the exact row identity they claim, using either the public hyphenated form such as `U-8-10` or the runner-safe underscore form such as `U_8_10`. This applies to `symbol`, every member of `symbols[]`, `title`, and every member of `titles[]` when those fields are used by an authoritative row. Supplemental and support-only evidence MAY omit authoritative row identity only when it does not claim authoritative coverage. Rendered ledgers, schedules, and other generated companions remain downstream of the manifest and MUST NOT become alternate traceability owners.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
+**TH-HARNESS-REQ-105**
+Vitest is an executable runner, not an evidence tier. Frontend-unit phase selection MUST select every phase-manifest row whose `runner` is `vitest`, whose `coverage` and `execution_dependency` match the selected slice, and whose phase matches the selected manifest. Selection, derived summaries, manifest-aware classification, and residual exclusion MUST NOT narrow Vitest rows to the manifest `unit` section. A Vitest row in `integration`, `e2e`, or a later evidence section remains selected by the same frontend-unit contract when its execution dependency is `frontend_unit`.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
+
+**TH-HARNESS-REQ-106**
+Playwright authoritative phase-manifest rows MAY declare either `title` or `titles[]`. When `titles[]` is used, each listed title is an authoritative executable scenario for the same row ID. Playwright selection, grep generation, list verification, run verification, manifest-aware accounting, browser shard planning, and ledger rendering MUST flatten those titles as independently required scenarios while retaining the row ID as the ownership unit.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
+
+**TH-HARNESS-REQ-107**
+Authoritative phase-manifest rows MAY declare `claim_status` with exactly one of `implemented`, `blocked`, or `not_applicable`. Generated ledgers and phase-slice summaries MUST expose claim status separately from execution pass/fail status. A phase with any authoritative `blocked` row MUST report an incomplete aggregate claim status even when all selected harness work exits successfully.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
+
 ### 5.1 Precedence
 
 | Precedence | Source                                 | Rule                                                                                                   |

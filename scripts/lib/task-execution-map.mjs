@@ -16,8 +16,10 @@ import {
 import {
   collectEntries,
   collectSupportGoEntries,
+  entryClaimStatus,
   loadManifest,
   phaseManifestNames,
+  playwrightEntryTitles,
   vitestEntryTitles,
 } from "./phase-manifest.mjs";
 import {
@@ -87,12 +89,18 @@ export function collectExecutionPhaseRows(root = repoRoot) {
         phase,
         section: entry.section,
         coverage: entry.coverage,
+        claim_status: entryClaimStatus(entry),
         runner: entry.runner,
         execution_dependency: entry.execution_dependency ?? "",
         target: targetForEntry(entry),
         file: entry.file ?? "",
         package: entry.package ?? "",
-        title: entry.runner === "vitest" ? vitestEntryTitles(entry).join(" | ") : entry.title ?? "",
+        title:
+          entry.runner === "vitest"
+            ? vitestEntryTitles(entry).join(" | ")
+            : entry.runner === "playwright"
+              ? playwrightEntryTitles(entry).join(" | ")
+              : entry.title ?? "",
         manifest_path: relToRepo(manifestPath, phaseManifestRoot(root)),
       });
     }

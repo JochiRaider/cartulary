@@ -41,6 +41,8 @@ export {
   type GridColumn,
   type GridNavigationIntent,
   type GridNavigationKey,
+  type GridPasteRowTarget,
+  type GridPasteTargetResolution,
   type GridRow,
   type GridSortDirection,
   type GridSortEntry,
@@ -49,6 +51,7 @@ export {
   navigateGridCellAnchor,
   reconcileRecordRows,
   resolveGridCellAnchor,
+  resolveGridPasteTargets,
 } from "./core";
 
 export const gridAdapterVendor = "react-data-grid";

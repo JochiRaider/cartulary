@@ -110,6 +110,37 @@ function serviceRequirementsForRows(rows) {
   return Array.from(requirements).sort(compareStrings);
 }
 
+function claimStatusCounts(rows) {
+  const counts = {
+    implemented: 0,
+    blocked: 0,
+    not_applicable: 0,
+    unspecified: 0,
+  };
+  for (const row of rows) {
+    if (row.coverage !== "authoritative") {
+      continue;
+    }
+    const status = row.claim_status ?? "";
+    if (Object.hasOwn(counts, status)) {
+      counts[status] += 1;
+    } else {
+      counts.unspecified += 1;
+    }
+  }
+  return counts;
+}
+
+function aggregateClaimStatus(counts) {
+  if (counts.blocked > 0 || counts.unspecified > 0) {
+    return "incomplete";
+  }
+  if (counts.implemented > 0 || counts.not_applicable > 0) {
+    return "complete";
+  }
+  return "not_applicable";
+}
+
 function rowGroups(rows) {
   const groups = new Map();
   for (const row of rows) {
@@ -439,6 +470,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
   const rows = phaseRows(phase, mode, root, taskSurfaceManifest);
   const target = mode === "service_backed" ? "service-backed-slice" : "phase-slice";
   const resourceLimits = planResourceLimits(rows, root);
+  const claimCounts = claimStatusCounts(rows);
   const plan = {
     schema_id: phaseSlicePlanSchemaID,
     root,
@@ -447,6 +479,8 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     mode,
     service_backed_only: mode === "service_backed",
     no_op: rows.length === 0,
+    phaseClaimStatus: aggregateClaimStatus(claimCounts),
+    claimStatusCounts: claimCounts,
     rows,
     row_groups: rowGroups(rows),
     child_targets: childTargetsForRows(rows, phase, mode, root, taskSurfaceManifest),
@@ -512,6 +546,8 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     mode: plan.mode,
     service_backed_only: plan.service_backed_only,
     no_op: plan.no_op,
+    phase_claim_status: plan.phaseClaimStatus,
+    claim_status_counts: plan.claimStatusCounts,
     row_groups: plan.row_groups,
     service_requirements: plan.service_requirements,
     child_targets: plan.child_targets,
@@ -538,6 +574,8 @@ export function printablePlan(plan) {
     phase: plan.phase,
     mode: plan.mode,
     no_op: plan.no_op,
+    phase_claim_status: plan.phase_claim_status,
+    claim_status_counts: plan.claim_status_counts,
     child_targets: plan.child_target_names,
     row_groups: plan.row_groups,
     service_requirements: plan.service_requirements,

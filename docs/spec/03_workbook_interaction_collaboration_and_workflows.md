@@ -557,12 +557,13 @@ During multi-cell paste:
 
 - non-conflicting cells MUST commit normally,
 - same-field conflicts MUST move into the same-field conflict queue,
+- conflict entries MUST be ordered by source row ordinal and then source column ordinal for the paste operation,
 - the UI MUST present one grouped same-surface conflict navigator for the paste operation rather than one blocking modal per conflicted cell. The implementation MAY realize this as a grouped conflict tray or another same-surface grouped navigator.
 Profiles: base
 Verified by: AC-040, AC-231
 
 **REQ-03-084**
-When a paste produces at least one same-field conflict, the committed non-conflicting portion of the paste MUST remain one visible `change_set`. Each later per-cell conflict resolution MUST create its own attributed `change_set`.
+When a paste produces at least one same-field conflict, the committed non-conflicting portion of the paste MUST remain one visible `change_set`. If a valid paste produces only same-field conflicts, the batch result MUST contain an empty `rows[]` and no `change_set_id`. Each later per-cell conflict resolution MUST create its own attributed `change_set`.
 Profiles: base
 Verified by: AC-040, AC-231
 
@@ -1124,6 +1125,8 @@ Pasting TSV or CSV into the timeline sheet MUST create or update multiple rows s
 Profiles: base, import
 Verified by: AC-003, AC-231, AC-232
 
+Default interactive Ctrl+V tabular dispatch MUST require an unambiguous tabular signal: tab, newline, carriage return, or a future explicit paste-as-table command. A single-line comma-only `text/plain` payload such as `Hello, world` MUST be treated as scalar text by default even though explicit API-level CSV ingest remains supported.
+
 **REQ-03-148**
 Known columns MUST map directly.
 Profiles: base
@@ -1138,6 +1141,8 @@ Verified by: AC-003, AC-231
 Host and identity text from pasted cells MUST follow the same `entity_binding_mode` contract as interactive edits.
 Profiles: base
 Verified by: AC-003, AC-231
+
+When the active workbook sheet is Hosts or Identities, tabular clipboard paste MUST use `entity_binding_mode='entity_origin'` through the shared tabular-ingest contract. The server remains responsible for exact-match reuse and stub creation for those entity-origin rows.
 
 **REQ-03-151**
 Successful non-conflicting writes from one paste action MUST appear as:
@@ -1728,6 +1733,13 @@ Verified by: AC-003, AC-040, AC-231
 Bulk edits are mutation batches. They MUST NOT rely on hidden macro semantics.
 Profiles: base
 Verified by: AC-003, AC-040, AC-231
+
+The current base-profile explicit bulk command vocabulary is:
+
+- `fill_down_v1`: copies one submitted source value for one writable non-collection field into explicit stable row targets identified by `record_id` and `base_row_version`;
+- `multi_row_tag_assignment_v1`: applies one submitted tag label to explicit stable Timeline row targets through the `timeline.tags` collection contract.
+
+Each command MUST commit as one attributable batch when all accepted target mutations commit, MUST record one visible `change_set` for the committed non-conflicting portion, and MUST reject presentation-only, group-row, vendor-coordinate, or row-index-only targets. Later expansion MAY add additional explicit command kinds, but MUST NOT reinterpret these command identifiers.
 
 ## 14. Sorting, filtering, and grouping
 

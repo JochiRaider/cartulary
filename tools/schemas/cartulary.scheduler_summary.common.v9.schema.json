@@ -91,6 +91,8 @@
     "slowest_running_observations": { "type": "array", "items": { "type": "object" } },
     "phase": { "type": "string" },
     "mode": { "type": "string" },
+    "phase_claim_status": { "enum": ["complete", "incomplete", "not_applicable"] },
+    "claim_status_counts": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
     "child_targets": { "type": "array", "items": { "type": "string" } },
     "started_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
     "service_sessions": { "type": "array", "items": { "$ref": "#/$defs/service_session" } },
