@@ -581,6 +581,244 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
   });
 
+  it("Phase 3 U-3-05 waits for a pending material autosave before supersede dispatch", async () => {
+    const pendingDetailsPatch = deferred<Response>();
+
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Alpha",
+            details: "Original details",
+            captureState: "reviewed",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Replacement",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(pendingDetailsPatch.promise);
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        record_id: "record-1",
+        incident_id: "incident-1",
+        row_version: 4,
+        capture_state: "superseded",
+        change_set_id: "change-set-supersede",
+        reason: "Superseded from workbook",
+        replacement_record_id: "record-2",
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 4,
+            summary: "Alpha",
+            details: "Material edit after review",
+            captureState: "superseded",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Replacement",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+
+    render(
+      <TimelineWorkbook
+        incidentId="incident-1"
+        currentIncidentRole="reviewer"
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("row-record-1-inspect"));
+    const detailsInput = (await screen.findByTestId(
+      "row-record-1-details-inspector",
+    )) as HTMLTextAreaElement;
+    await changeInputValue(detailsInput, "Material edit after review");
+    fireEvent.blur(detailsInput);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(extractTimelinePatchBody(fetchMock, 1)).toMatchObject({
+      base_row_version: 2,
+      changes: [
+        {
+          field_key: "timeline.details",
+          value: "Material edit after review",
+        },
+      ],
+    });
+
+    fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
+      target: { value: "record-2" },
+    });
+    fireEvent.click(await screen.findByTestId("row-record-1-supersede"));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    pendingDetailsPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-details",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 3,
+          summary: "Alpha",
+          details: "Material edit after review",
+          captureState: "enriched",
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+    });
+    expect(extractTimelineJSONBody(fetchMock, 2)).toMatchObject({
+      base_row_version: 3,
+      reason: "Superseded from workbook",
+      replacement_record_id: "record-2",
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-capture-state").textContent).toBe(
+        "superseded",
+      );
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "4",
+      );
+    });
+  });
+
+  it("Phase 3 U-3-05 keeps action result row versions ahead of stale projection reloads", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Replacement",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        record_id: "record-1",
+        incident_id: "incident-1",
+        row_version: 2,
+        capture_state: "reviewed",
+        change_set_id: "change-set-review",
+        reason: "Reviewed from workbook",
+        replacement_record_id: null,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Replacement",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        record_id: "record-1",
+        incident_id: "incident-1",
+        row_version: 3,
+        capture_state: "superseded",
+        change_set_id: "change-set-supersede",
+        reason: "Superseded from workbook",
+        replacement_record_id: "record-2",
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "superseded",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Replacement",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+
+    render(
+      <TimelineWorkbook
+        incidentId="incident-1"
+        currentIncidentRole="reviewer"
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("row-record-1-mark-reviewed"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
+      base_row_version: 1,
+    });
+
+    fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
+      target: { value: "record-2" },
+    });
+    fireEvent.click(await screen.findByTestId("row-record-1-supersede"));
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(4);
+    });
+    expect(extractTimelineJSONBody(fetchMock, 3)).toMatchObject({
+      base_row_version: 2,
+      replacement_record_id: "record-2",
+    });
+  });
+
   it("Phase 3 U-3-05 suppresses duplicate pending scalar saves that only differ by client_txn_id", async () => {
     const pendingPatch = deferred<Response>();
 

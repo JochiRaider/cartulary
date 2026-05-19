@@ -181,7 +181,17 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
   await reviewerPage
     .getByTestId(`row-${recordId}-replacement-id`)
     .fill(replacementId);
+  const supersedeRequest = reviewerPage.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request.url().endsWith(`/api/v1/records/${recordId}/supersede`),
+  );
   await reviewerPage.getByTestId(`row-${recordId}-supersede`).click();
+  const supersedeBody = (await supersedeRequest).postDataJSON() as Record<
+    string,
+    unknown
+  >;
+  expect(supersedeBody.base_row_version).toBe(3);
   await expect(
     reviewerPage.getByTestId(`row-${recordId}-capture-state`),
   ).toHaveText("superseded");
