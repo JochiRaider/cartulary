@@ -319,6 +319,19 @@ type TimelineActionEnvelope = {
   };
 };
 
+type DecisionSupersedeEnvelope = {
+  data: {
+    view_schema_id: string;
+    change_set_id: string;
+    target_record_id: string;
+    superseding_record_id: string;
+    target_row_version: number;
+    superseding_row_version: number;
+    target_status: string;
+    reason: string;
+  };
+};
+
 export type RecordHistoryRollbackAction =
   | "change_set"
   | "history_entry"
@@ -8218,6 +8231,18 @@ function GenericWorkbookSurface({
     useState<EvidencePreviewState | null>(null);
   const isEvidenceSurface = contract.viewSchemaId === evidenceViewSchemaId;
   const isNotesSurface = contract.viewSchemaId === notesViewSchemaId;
+  const isTaskRequestSurface =
+    contract.viewSchemaId === taskRequestsViewSchemaId;
+  const isDecisionSurface = contract.viewSchemaId === decisionsViewSchemaId;
+  const [taskLifecycleRecordId, setTaskLifecycleRecordId] = useState("");
+  const [taskLifecycleStatus, setTaskLifecycleStatus] = useState("blocked");
+  const [taskLifecycleBlockedReason, setTaskLifecycleBlockedReason] =
+    useState("");
+  const [decisionSupersedeTargetId, setDecisionSupersedeTargetId] =
+    useState("");
+  const [decisionSupersedeReplacementId, setDecisionSupersedeReplacementId] =
+    useState("");
+  const [decisionSupersedeReason, setDecisionSupersedeReason] = useState("");
   const partyLinkPairs = useMemo(
     () => partyLinkPairsForContract(contract),
     [contract],
@@ -8845,6 +8870,92 @@ function GenericWorkbookSurface({
     );
   };
 
+  const submitTaskLifecyclePatch = async () => {
+    const target = rows.find((row) => row.record_id === taskLifecycleRecordId);
+    if (!target) {
+      setMutationError("Select a task row.");
+      return;
+    }
+    const changes: Array<Record<string, unknown>> = [
+      { field_key: "task.status", value: taskLifecycleStatus },
+    ];
+    if (taskLifecycleStatus === "blocked") {
+      const reason = normalizeValue(taskLifecycleBlockedReason);
+      if (reason === "") {
+        setMutationError("Blocked tasks need a reason.");
+        return;
+      }
+      changes.push({ field_key: "task.blocked_reason", value: reason });
+    }
+    setMutationState("Syncing");
+    setMutationError(null);
+    const result = await fetchJSON<ViewMutationEnvelope>(
+      apiPath(apiBase, `/api/v1/records/${target.record_id}`),
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          view_schema_id: taskRequestsViewSchemaId,
+          base_row_version: target.row_version,
+          client_txn_id: `task-lifecycle-${Date.now()}`,
+          changes,
+        }),
+      },
+    );
+    if (!result.ok) {
+      setMutationState("Conflict");
+      setMutationError(parseMutationError(result.payload));
+      return;
+    }
+    setMutationState("Saved");
+    if (taskLifecycleStatus !== "blocked") {
+      setTaskLifecycleBlockedReason("");
+    }
+    await onRefresh();
+    await refreshReferenceOptions();
+  };
+
+  const submitDecisionSupersede = async () => {
+    const target = rows.find(
+      (row) => row.record_id === decisionSupersedeTargetId,
+    );
+    if (!target || decisionSupersedeReplacementId === "") {
+      setMutationError("Select target and superseding decisions.");
+      return;
+    }
+    if (target.record_id === decisionSupersedeReplacementId) {
+      setMutationError("Select a different superseding decision.");
+      return;
+    }
+    const reason = normalizeValue(decisionSupersedeReason);
+    if (reason === "") {
+      setMutationError("Reason is required.");
+      return;
+    }
+    setMutationState("Syncing");
+    setMutationError(null);
+    const result = await fetchJSON<DecisionSupersedeEnvelope>(
+      apiPath(apiBase, `/api/v1/records/${target.record_id}/supersede`),
+      {
+        method: "POST",
+        body: JSON.stringify({
+          base_row_version: target.row_version,
+          client_txn_id: `decision-supersede-${Date.now()}`,
+          replacement_record_id: decisionSupersedeReplacementId,
+          reason,
+        }),
+      },
+    );
+    if (!result.ok) {
+      setMutationState("Conflict");
+      setMutationError(parseMutationError(result.payload));
+      return;
+    }
+    setDecisionSupersedeReason("");
+    setMutationState("Saved");
+    await onRefresh();
+    await refreshReferenceOptions();
+  };
+
   return (
     <section style={workbookStyle}>
       <header style={headerStyle}>
@@ -9086,6 +9197,122 @@ function GenericWorkbookSurface({
                 }}
               >
                 Clear both
+              </button>
+            </div>
+          ) : null}
+
+          {isTaskRequestSurface && rows.length > 0 ? (
+            <div style={genericEditRowStyle}>
+              <select
+                aria-label="Task lifecycle row"
+                data-testid="task-lifecycle-target"
+                style={selectStyle}
+                value={taskLifecycleRecordId}
+                onChange={(event) => {
+                  setTaskLifecycleRecordId(event.target.value);
+                }}
+              >
+                <option value="">Task</option>
+                {rows.map((row) => (
+                  <option key={row.record_id} value={row.record_id}>
+                    {genericRowLabel(contract, row)}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Task lifecycle status"
+                data-testid="task-lifecycle-status"
+                style={selectStyle}
+                value={taskLifecycleStatus}
+                onChange={(event) => {
+                  setTaskLifecycleStatus(event.target.value);
+                }}
+              >
+                <option value="open">open</option>
+                <option value="in_progress">in_progress</option>
+                <option value="blocked">blocked</option>
+                <option value="done">done</option>
+                <option value="canceled">canceled</option>
+              </select>
+              <input
+                aria-label="Blocked reason"
+                data-testid="task-lifecycle-blocked-reason"
+                disabled={taskLifecycleStatus !== "blocked"}
+                style={inputStyle}
+                type="text"
+                value={taskLifecycleBlockedReason}
+                onChange={(event) => {
+                  setTaskLifecycleBlockedReason(event.target.value);
+                }}
+              />
+              <button
+                data-testid="task-lifecycle-submit"
+                disabled={mutationState === "Syncing"}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void submitTaskLifecyclePatch();
+                }}
+              >
+                Apply task status
+              </button>
+            </div>
+          ) : null}
+
+          {isDecisionSurface && rows.length > 1 ? (
+            <div style={genericEditRowStyle}>
+              <select
+                aria-label="Superseded decision"
+                data-testid="decision-supersede-target"
+                style={selectStyle}
+                value={decisionSupersedeTargetId}
+                onChange={(event) => {
+                  setDecisionSupersedeTargetId(event.target.value);
+                }}
+              >
+                <option value="">Target</option>
+                {rows.map((row) => (
+                  <option key={row.record_id} value={row.record_id}>
+                    {genericRowLabel(contract, row)}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Superseding decision"
+                data-testid="decision-supersede-replacement"
+                style={selectStyle}
+                value={decisionSupersedeReplacementId}
+                onChange={(event) => {
+                  setDecisionSupersedeReplacementId(event.target.value);
+                }}
+              >
+                <option value="">Superseding</option>
+                {referenceOptions.decisions.map((option) => (
+                  <option key={option.recordId} value={option.recordId}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                aria-label="Decision supersession reason"
+                data-testid="decision-supersede-reason"
+                style={inputStyle}
+                type="text"
+                value={decisionSupersedeReason}
+                onChange={(event) => {
+                  setDecisionSupersedeReason(event.target.value);
+                }}
+              />
+              <button
+                data-testid="decision-supersede-submit"
+                disabled={mutationState === "Syncing"}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void submitDecisionSupersede();
+                }}
+              >
+                Supersede decision
               </button>
             </div>
           ) : null}
@@ -9685,6 +9912,7 @@ function referenceOptionsForField(
       return options.evidence;
     case "task.linked_record_ids":
     case "decision.support_refs":
+    case "decision.affected_record_ids":
       return options.allRecords;
     default:
       return [];
@@ -9711,6 +9939,7 @@ function genericFieldUsesReferenceOptions(field: ViewFieldContract): boolean {
     case "lesson.evidence_refs":
     case "task.linked_record_ids":
     case "decision.support_refs":
+    case "decision.affected_record_ids":
       return true;
     default:
       return false;

@@ -53,6 +53,7 @@ type schemaDocument struct {
 	Title                     string                     `json:"title"`
 	SurfaceKind               string                     `json:"surface_kind"`
 	SourceRecordTypes         []string                   `json:"source_record_types"`
+	BaseProjection            string                     `json:"base_projection"`
 	TechnicalFields           []string                   `json:"technical_fields"`
 	RequiredReferencePackKeys []string                   `json:"required_reference_pack_keys"`
 	DefaultSort               []SortEntry                `json:"default_sort"`
@@ -77,6 +78,7 @@ type registryIndexEntry struct {
 type Schema struct {
 	ViewSchemaID           string
 	PermitsZeroFieldCreate bool
+	BaseProjection         string
 	defaultSort            []SortEntry
 	sortFields             []string
 	sortNullOrder          string
@@ -244,6 +246,7 @@ func loadRegistry() {
 			schemas[document.ViewSchemaID] = Schema{
 				ViewSchemaID:           document.ViewSchemaID,
 				PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
+				BaseProjection:         document.BaseProjection,
 				defaultSort:            append([]SortEntry(nil), document.DefaultSort...),
 				sortFields:             append([]string(nil), document.SortFields...),
 				sortNullOrder:          document.SortNullOrder,

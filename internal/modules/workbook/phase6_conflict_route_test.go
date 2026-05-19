@@ -319,11 +319,12 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 	})
 	lessonID := phase4test.MustUUID(t, lessonData["row"].(map[string]any)["record_id"].(string))
 	decisionData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.decisions.v1", map[string]any{
-		"client_txn_id":          "txn-phase6-u-6-04-decision-create",
-		"decision.summary":       "Contain endpoint",
-		"decision.decision_type": "containment",
-		"decision.rationale":     "Containment is required.",
-		"decision.support_refs":  collectionActions(addRecordRef(evidenceID)),
+		"client_txn_id":                "txn-phase6-u-6-04-decision-create",
+		"decision.summary":             "Contain endpoint",
+		"decision.decision_type":       "containment",
+		"decision.rationale":           "Containment is required.",
+		"decision.support_refs":        collectionActions(addRecordRef(evidenceID)),
+		"decision.affected_record_ids": collectionActions(addRecordRef(evidenceID)),
 	})
 	decisionRowID := phase4test.MustUUID(t, decisionData["row"].(map[string]any)["record_id"].(string))
 	taskData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.task_requests.v1", map[string]any{
@@ -358,6 +359,7 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 		"lesson.follow_up_task_ids":          lessonID,
 		"lesson.evidence_refs":               lessonID,
 		"decision.support_refs":              decisionRowID,
+		"decision.affected_record_ids":       decisionRowID,
 		"task.linked_record_ids":             taskRowID,
 	}
 	cases := phase6CollectionReviewCases()
@@ -511,6 +513,7 @@ func phase6CollectionReviewCases() map[string]phase6CollectionReviewCase {
 		"comm_log.audience_party_ids":        {viewSchemaID: "cartulary.view.comm_log.v1", fieldKey: "comm_log.audience_party_ids", expectedItemKind: "party_ref"},
 		"comm_log.attendee_party_ids":        {viewSchemaID: "cartulary.view.comm_log.v1", fieldKey: "comm_log.attendee_party_ids", expectedItemKind: "party_ref"},
 		"decision.support_refs":              {viewSchemaID: "cartulary.view.decisions.v1", fieldKey: "decision.support_refs", expectedItemKind: "record_ref"},
+		"decision.affected_record_ids":       {viewSchemaID: "cartulary.view.decisions.v1", fieldKey: "decision.affected_record_ids", expectedItemKind: "record_ref"},
 		"handoff.open_task_ids":              {viewSchemaID: "cartulary.view.handoff.v1", fieldKey: "handoff.open_task_ids", expectedItemKind: "record_ref"},
 		"handoff.open_decision_ids":          {viewSchemaID: "cartulary.view.handoff.v1", fieldKey: "handoff.open_decision_ids", expectedItemKind: "record_ref"},
 		"handoff.open_risk_refs":             {viewSchemaID: "cartulary.view.handoff.v1", fieldKey: "handoff.open_risk_refs", expectedItemKind: "risk_ref"},
@@ -537,6 +540,7 @@ func phase6BindCollectionActions(cases map[string]phase6CollectionReviewCase, id
 	bind("comm_log.audience_party_ids", addPartyRef(ids.SecondPartyID), addPartyRef(ids.ThirdPartyID))
 	bind("comm_log.attendee_party_ids", addPartyRef(ids.SecondPartyID), addPartyRef(ids.ThirdPartyID))
 	bind("decision.support_refs", addRecordRef(ids.SecondEvidenceID), addRecordRef(ids.ThirdEvidenceID))
+	bind("decision.affected_record_ids", addRecordRef(ids.SecondEvidenceID), addRecordRef(ids.ThirdEvidenceID))
 	bind("handoff.open_task_ids", addRecordRef(ids.SecondTaskID), addRecordRef(ids.ThirdTaskID))
 	bind("handoff.open_decision_ids", addRecordRef(ids.SecondDecisionID), addRecordRef(ids.ThirdDecisionID))
 	bind("handoff.open_risk_refs", addRiskRef("Server risk"), addRiskRef("Client risk"))

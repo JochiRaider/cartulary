@@ -6,6 +6,7 @@
   "source_record_types": [
     "decision"
   ],
+  "base_projection": "decision_grid_projection",
   "technical_fields": [
     "record_id",
     "row_version"
@@ -26,6 +27,7 @@
   "default_hidden_fields": [
     "record_id",
     "row_version",
+    "decision.affected_record_ids",
     "decision.is_superseded"
   ],
   "default_sort": [
@@ -234,6 +236,27 @@
       "writable": true,
       "read_model": "support_refs",
       "write_action": "decision support reference collection actions"
+    },
+    {
+      "field_key": "decision.affected_record_ids",
+      "label": "Affected Records",
+      "default_hidden": true,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "collection",
+      "write_kind": "action_payload",
+      "conflict_resolution_class": "collection_review",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "affected_record_ids",
+      "write_action": "decision affected record collection actions"
     },
     {
       "field_key": "decision.affected_record_count",

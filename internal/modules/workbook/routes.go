@@ -51,6 +51,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleCreate)
 		mux.HandleFunc("PATCH /api/v1/records/{record_id}", service.handlePatch)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/linked-notes", service.handleLinkedNoteCreate)
+		mux.HandleFunc("POST /api/v1/records/{record_id}/supersede", service.handleSupersede)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", service.handleConflictResolve)
 		return nil
 	}
@@ -519,6 +520,162 @@ func (s *Service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request)
 	}
 	result, err := s.store.CreateLinkedNote(r.Context(), principal.User, sourceRecordID, request, LinkedNoteCreateRequestHash(sourceRecordID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
+}
+
+func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
+	recordID, ok := pathUUID(w, r, "record_id")
+	if !ok {
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	target, err := s.store.RecordRouteTarget(r.Context(), recordID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if target.Deleted {
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := timeline.DecodeTimelineSupersedeRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	requestHash := timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID)
+	switch target.RecordType {
+	case "timeline_event":
+		s.handleTimelineSupersede(w, r, &principal, recordID, request, requestHash)
+	case "decision":
+		s.handleDecisionSupersede(w, r, &principal, recordID, request, requestHash)
+	default:
+		writeAPIError(w, r, &auth.APIError{
+			Status:  http.StatusConflict,
+			Code:    "illegal_transition",
+			Message: "illegal transition",
+			Details: map[string]any{
+				"reason_code":     "supersede_not_allowed",
+				"violated_guards": []string{"unsupported_record_type"},
+			},
+		})
+	}
+}
+
+func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, recordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte) {
+	result, err := s.store.timelineStore.Supersede(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	var (
+		rowConflict   *timeline.RowVersionConflictError
+		transitionErr *timeline.IllegalTransitionError
+	)
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, timeline.ErrRecordNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.As(err, &rowConflict):
+		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
+		return
+	case errors.Is(err, timeline.ErrRowVersionConflict):
+		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
+		return
+	case errors.As(err, &transitionErr):
+		details := map[string]any{
+			"from_status":     transitionErr.FromStatus,
+			"to_status":       transitionErr.ToStatus,
+			"violated_guards": append([]string{}, transitionErr.ViolatedGuards...),
+		}
+		if transitionErr.ReasonCode != "" {
+			details["reason_code"] = transitionErr.ReasonCode
+		}
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
+		return
+	case errors.Is(err, timeline.ErrIllegalTransition):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"reason_code": "supersede_not_allowed"}})
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if !result.Replayed {
+		s.publishRecordChange(MutationResult{
+			IncidentID:       result.IncidentID,
+			RecordID:         result.RecordID,
+			ChangeSetID:      result.ChangeSetID,
+			ClientTxnID:      result.ClientTxnID,
+			RowVersion:       result.RowVersion,
+			ViewSchemaID:     timeline.TimelineViewSchemaID,
+			ChangedFieldKeys: result.ChangedFieldKeys,
+		}, principal.User.ID)
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+}
+
+func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, recordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte) {
+	result, err := s.store.SupersedeDecision(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	var (
+		validationErr *MutationValidationError
+		lifecycleErr  *LifecycleValidationError
+		rowConflict   *RowVersionConflictError
+	)
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, pgx.ErrNoRows):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
+		return
+	case errors.As(err, &validationErr):
+		writeAPIError(w, r, invalidMutationPayload(validationErr.Field, validationErr.ReasonCode))
+		return
+	case errors.As(err, &lifecycleErr):
+		details := map[string]any{
+			"from_status":     lifecycleErr.FromStatus,
+			"to_status":       lifecycleErr.ToStatus,
+			"violated_guards": append([]string(nil), lifecycleErr.ViolatedGuards...),
+		}
+		if lifecycleErr.ReasonCode != "" {
+			details["reason_code"] = lifecycleErr.ReasonCode
+		}
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
+		return
+	case errors.As(err, &rowConflict):
+		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if !result.Replayed {
+		for _, change := range result.AdditionalRecordChanges {
+			s.publishRecordChange(change, principal.User.ID)
+		}
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
 func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) {

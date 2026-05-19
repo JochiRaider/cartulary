@@ -8,8 +8,8 @@ func TestPhase9_U_9_02_Sprint2ClipboardPasteUnitRowHasDirectEvidence(t *testing.
 	t.Log("Phase 9 U-9-02 is replaced by direct shared paste and bulk planning evidence in internal/modules/workbook/phase9_clipboard_paste_unit_test.go.")
 }
 
-func TestPhase9_Sprint0Blocker_U_9_07(t *testing.T) {
-	t.Log(phase9Sprint0SentinelMessage)
+func TestSupportPhase9Sprint6TaskDecisionBlockerReplaced(t *testing.T) {
+	t.Log("Phase 9 Sprint 6 Task Request and Decision rows are covered by direct store evidence in phase9_task_decisions_store_test.go.")
 }
 
 func TestPhase9_Sprint0Blocker_U_9_08(t *testing.T) {

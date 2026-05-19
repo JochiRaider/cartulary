@@ -19,6 +19,7 @@ import (
 const (
 	workbookCreateRouteKey          = "workbook.rows.create"
 	workbookPatchRouteKey           = "workbook.records.patch"
+	workbookSupersedeRouteKey       = "workbook.records.supersede"
 	workbookConflictResolveRouteKey = "workbook.records.conflicts.resolve"
 	workbookLinkedNoteRouteKey      = "workbook.records.linked_notes.create"
 	maxPatchChanges                 = 32
@@ -26,16 +27,17 @@ const (
 )
 
 type MutationResult struct {
-	Payload          map[string]any
-	StatusCode       int
-	Replayed         bool
-	IncidentID       uuid.UUID
-	RecordID         uuid.UUID
-	ChangeSetID      uuid.UUID
-	ClientTxnID      string
-	RowVersion       int64
-	ViewSchemaID     string
-	ChangedFieldKeys []string
+	Payload                 map[string]any
+	StatusCode              int
+	Replayed                bool
+	IncidentID              uuid.UUID
+	RecordID                uuid.UUID
+	ChangeSetID             uuid.UUID
+	ClientTxnID             string
+	RowVersion              int64
+	ViewSchemaID            string
+	ChangedFieldKeys        []string
+	AdditionalRecordChanges []MutationResult
 }
 
 type CreateRequest struct {
@@ -861,7 +863,7 @@ func isRecordRefCollection(fieldKey string) bool {
 		"handoff.open_task_ids", "handoff.open_decision_ids",
 		"status_review.blocked_task_ids", "status_review.pending_evidence_ids", "status_review.open_decision_ids",
 		"lesson.follow_up_task_ids", "lesson.evidence_refs",
-		"task.linked_record_ids", "decision.support_refs":
+		"task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids":
 		return true
 	default:
 		return false

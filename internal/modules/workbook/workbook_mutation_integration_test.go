@@ -676,6 +676,33 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 	partyRow := partyData["row"].(map[string]any)
 	partyID := phase4test.MustUUID(t, partyRow["record_id"].(string))
 
+	confidenceSupportRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.decisions.v1", uuid.Nil, map[string]any{
+		"client_txn_id":          "txn-workbook-decision-confidence-rejected",
+		"decision.summary":       "Invalid support confidence",
+		"decision.decision_type": "evidence",
+		"decision.rationale":     "Client confidence is not authoritative.",
+		"decision.support_refs": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 100},
+			},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, confidenceSupportRef, http.StatusBadRequest, "invalid_mutation_payload")
+	confidenceAffectedRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.decisions.v1", uuid.Nil, map[string]any{
+		"client_txn_id":          "txn-workbook-decision-affected-confidence-rejected",
+		"decision.summary":       "Invalid affected confidence",
+		"decision.decision_type": "evidence",
+		"decision.rationale":     "Client confidence is not authoritative.",
+		"decision.affected_record_ids": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 100},
+			},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, confidenceAffectedRef, http.StatusBadRequest, "invalid_mutation_payload")
+
 	beforeTaskFailure := countIncidentRecords(t, harness, incidentID)
 	invalidTask := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.task_requests.v1", uuid.Nil, map[string]any{
 		"client_txn_id":  "txn-workbook-task-invalid",
@@ -689,17 +716,20 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 	}
 
 	decisionData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.decisions.v1", map[string]any{
-		"client_txn_id":          "txn-workbook-decision-create",
-		"decision.summary":       "Contain endpoint",
-		"decision.decision_type": "containment",
-		"decision.rationale":     "Containment is required to preserve evidence.",
-		"decision.support_refs":  collectionActions(addRecordRef(supportID)),
+		"client_txn_id":                "txn-workbook-decision-create",
+		"decision.summary":             "Contain endpoint",
+		"decision.decision_type":       "containment",
+		"decision.rationale":           "Containment is required to preserve evidence.",
+		"decision.support_refs":        collectionActions(addRecordRef(supportID)),
+		"decision.affected_record_ids": collectionActions(addRecordRef(supportID), addRecordRef(supportID)),
 	})
 	decisionRow := decisionData["row"].(map[string]any)
 	decisionID := phase4test.MustUUID(t, decisionRow["record_id"].(string))
 	requireCellValue(t, decisionRow, "decision.status", "proposed")
 	requireCellValue(t, decisionRow, "decision.owner_user_id", adminUserID.String())
 	requireCollectionItemCount(t, decisionRow, "decision.support_refs", 1)
+	requireCollectionItemCount(t, decisionRow, "decision.affected_record_ids", 1)
+	requireCellValue(t, decisionRow, "decision.affected_record_count", float64(1))
 
 	supersededDecision := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.decisions.v1", uuid.Nil, map[string]any{
 		"client_txn_id":          "txn-workbook-decision-superseded",
@@ -709,6 +739,19 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 		"decision.status":        "superseded",
 	})
 	httptestx.RequireErrorEnvelope(t, supersededDecision, http.StatusConflict, "illegal_transition")
+
+	confidenceTaskRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.task_requests.v1", uuid.Nil, map[string]any{
+		"client_txn_id":  "txn-workbook-task-confidence-rejected",
+		"task.title":     "Invalid linked confidence",
+		"task.task_kind": "collection",
+		"task.linked_record_ids": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 100},
+			},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, confidenceTaskRef, http.StatusBadRequest, "invalid_mutation_payload")
 
 	taskData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", map[string]any{
 		"client_txn_id":             "txn-workbook-task-create",
@@ -727,6 +770,60 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 	requireCellValue(t, taskRow, "task.decision_record_id", decisionID.String())
 	requireCellValue(t, taskRow, "task.linked_record_count", float64(1))
 	requireCollectionItemCount(t, taskRow, "task.linked_record_ids", 1)
+
+	taskConfidencePatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", taskID, map[string]any{
+		"view_schema_id":   "cartulary.view.task_requests.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-workbook-task-confidence-patch-rejected",
+		"changes": []map[string]any{
+			{"field_key": "task.linked_record_ids", "action_payload": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{
+					{"op": "add_record_ref", "linked_record_id": noteID.String(), "confidence": 100},
+				},
+			}},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, taskConfidencePatch, http.StatusBadRequest, "invalid_mutation_payload")
+	if got := countActiveRecordLinks(t, harness, taskID, "task.linked_record_ids"); got != 1 {
+		t.Fatalf("task confidence patch changed active links: got %d want 1", got)
+	}
+
+	decisionSupportConfidencePatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", decisionID, map[string]any{
+		"view_schema_id":   "cartulary.view.decisions.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-workbook-decision-support-confidence-patch-rejected",
+		"changes": []map[string]any{
+			{"field_key": "decision.support_refs", "action_payload": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{
+					{"op": "add_record_ref", "linked_record_id": noteID.String(), "confidence": 100},
+				},
+			}},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, decisionSupportConfidencePatch, http.StatusBadRequest, "invalid_mutation_payload")
+	if got := countActiveRecordLinks(t, harness, decisionID, "decision.support_refs"); got != 1 {
+		t.Fatalf("decision support confidence patch changed active links: got %d want 1", got)
+	}
+
+	decisionAffectedConfidencePatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", decisionID, map[string]any{
+		"view_schema_id":   "cartulary.view.decisions.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-workbook-decision-affected-confidence-patch-rejected",
+		"changes": []map[string]any{
+			{"field_key": "decision.affected_record_ids", "action_payload": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{
+					{"op": "add_record_ref", "linked_record_id": noteID.String(), "confidence": 100},
+				},
+			}},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, decisionAffectedConfidencePatch, http.StatusBadRequest, "invalid_mutation_payload")
+	if got := countActiveRecordLinks(t, harness, decisionID, "decision.affected_record_ids"); got != 1 {
+		t.Fatalf("decision affected confidence patch changed active links: got %d want 1", got)
+	}
 
 	taskDone := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
@@ -958,6 +1055,21 @@ func countIncidentRecords(t testing.TB, harness *phase4test.ServerHarness, incid
 	return count
 }
 
+func countActiveRecordLinks(t testing.TB, harness *phase4test.ServerHarness, sourceID uuid.UUID, fieldKey string) int {
+	t.Helper()
+	var count int
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT count(*)
+  FROM record_links
+ WHERE src_record_id = $1
+   AND field_key = $2
+   AND deleted_at IS NULL
+`, sourceID, fieldKey).Scan(&count); err != nil {
+		t.Fatalf("count active record links: %v", err)
+	}
+	return count
+}
+
 func countViewRows(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, viewSchemaID string) int {
 	t.Helper()
 	resp := phase4test.DoJSON(
@@ -988,6 +1100,7 @@ func seedDecisionRecord(t testing.TB, harness *phase4test.ServerHarness, inciden
 INSERT INTO decisions (record_id, incident_id, summary, status, decision_type, decided_at)
 VALUES ($1, $2, $3, 'approved', 'containment', '2026-04-24T12:00:00Z')
 `, recordID, incidentID, summary)
+	seedDecisionProjection(t, harness, recordID)
 	return recordID
 }
 
@@ -999,6 +1112,7 @@ func seedTaskRecord(t testing.TB, harness *phase4test.ServerHarness, incidentID 
 INSERT INTO task_requests (record_id, incident_id, title, status, priority, updated_at)
 VALUES ($1, $2, $3, 'open', 'high', '2026-04-24T11:00:00Z')
 `, recordID, incidentID, title)
+	seedTaskRequestProjection(t, harness, recordID)
 	return recordID
 }
 

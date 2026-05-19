@@ -69,6 +69,87 @@ func TestWorkbookMutationDecoderRejectsCollectionReplacement(t *testing.T) {
 	}
 }
 
+func TestPhase9TaskDecisionRelationshipConfidenceRejected(t *testing.T) {
+	recordID := "11111111-2222-3333-4444-555555555555"
+	tests := []struct {
+		name         string
+		viewSchemaID string
+		fieldKey     string
+		createBody   string
+		patchBody    string
+	}{
+		{
+			name:         "task linked records",
+			viewSchemaID: TaskRequestsViewSchemaID,
+			fieldKey:     "task.linked_record_ids",
+			createBody: `{
+				"client_txn_id":"txn-task-confidence-create",
+				"task.title":"Collect logs",
+				"task.task_kind":"collection",
+				"task.linked_record_ids":{"kind":"collection_actions_v1","actions":[{"op":"add_record_ref","linked_record_id":"` + recordID + `","confidence":100}]}
+			}`,
+			patchBody: `{
+				"view_schema_id":"cartulary.view.task_requests.v1",
+				"base_row_version":1,
+				"client_txn_id":"txn-task-confidence-patch",
+				"changes":[{"field_key":"task.linked_record_ids","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"add_record_ref","linked_record_id":"` + recordID + `","confidence":100}]}}]
+			}`,
+		},
+		{
+			name:         "decision support refs",
+			viewSchemaID: DecisionsViewSchemaID,
+			fieldKey:     "decision.support_refs",
+			createBody: `{
+				"client_txn_id":"txn-decision-support-confidence-create",
+				"decision.summary":"Contain endpoint",
+				"decision.decision_type":"containment",
+				"decision.rationale":"Evidence supports containment.",
+				"decision.support_refs":{"kind":"collection_actions_v1","actions":[{"op":"add_record_ref","linked_record_id":"` + recordID + `","confidence":100}]}
+			}`,
+			patchBody: `{
+				"view_schema_id":"cartulary.view.decisions.v1",
+				"base_row_version":1,
+				"client_txn_id":"txn-decision-support-confidence-patch",
+				"changes":[{"field_key":"decision.support_refs","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"add_record_ref","linked_record_id":"` + recordID + `","confidence":100}]}}]
+			}`,
+		},
+		{
+			name:         "decision affected records",
+			viewSchemaID: DecisionsViewSchemaID,
+			fieldKey:     "decision.affected_record_ids",
+			createBody: `{
+				"client_txn_id":"txn-decision-affected-confidence-create",
+				"decision.summary":"Contain endpoint",
+				"decision.decision_type":"containment",
+				"decision.rationale":"Containment affects the endpoint.",
+				"decision.affected_record_ids":{"kind":"collection_actions_v1","actions":[{"op":"add_record_ref","linked_record_id":"` + recordID + `","confidence":100}]}
+			}`,
+			patchBody: `{
+				"view_schema_id":"cartulary.view.decisions.v1",
+				"base_row_version":1,
+				"client_txn_id":"txn-decision-affected-confidence-patch",
+				"changes":[{"field_key":"decision.affected_record_ids","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"add_record_ref","linked_record_id":"` + recordID + `","confidence":100}]}}]
+			}`,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name+" create", func(t *testing.T) {
+			if _, apiErr := DecodeCreateRequest(tc.viewSchemaID, strings.NewReader(tc.createBody)); apiErr == nil {
+				t.Fatalf("expected create confidence on %s to fail", tc.fieldKey)
+			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+				t.Fatalf("unexpected create error for %s: %#v", tc.fieldKey, apiErr)
+			}
+		})
+		t.Run(tc.name+" patch", func(t *testing.T) {
+			if _, apiErr := DecodePatchRequest(strings.NewReader(tc.patchBody)); apiErr == nil {
+				t.Fatalf("expected patch confidence on %s to fail", tc.fieldKey)
+			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+				t.Fatalf("unexpected patch error for %s: %#v", tc.fieldKey, apiErr)
+			}
+		})
+	}
+}
+
 func TestSupportPhase9_DirectPartyReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
 	stablePartyID := "11111111-2222-3333-4444-555555555555"
 	valid := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"evidence.collector_party_id","value":"` + stablePartyID + `"}]}`
@@ -109,6 +190,51 @@ func TestSupportPhase9_DirectPartyReferenceDecoderAcceptsOnlyExactStableIDs(t *t
 	}
 
 	actionPayloadClear := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"evidence.collector_party_id","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"remove_party_ref","item_ref":"party_ref:` + stablePartyID + `"}]}}]}`
+	if _, apiErr := DecodePatchRequest(strings.NewReader(actionPayloadClear)); apiErr == nil {
+		t.Fatalf("expected non-direct clear shape to fail")
+	}
+}
+
+func TestSupportPhase9_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
+	stableDecisionID := "11111111-2222-3333-4444-555555555555"
+	valid := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","value":"` + stableDecisionID + `"}]}`
+	request, apiErr := DecodePatchRequest(strings.NewReader(valid))
+	if apiErr != nil {
+		t.Fatalf("expected exact stable decision id to decode: %#v", apiErr)
+	}
+	if got := request.Changes[0].Value.UUID.String(); got != stableDecisionID {
+		t.Fatalf("unexpected decoded decision id: got %s want %s", got, stableDecisionID)
+	}
+
+	clear := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","value":null}]}`
+	request, apiErr = DecodePatchRequest(strings.NewReader(clear))
+	if apiErr != nil {
+		t.Fatalf("expected direct null clear to decode: %#v", apiErr)
+	}
+	if request.Changes[0].Value == nil || request.Changes[0].Value.Kind != "null" {
+		t.Fatalf("expected direct null clear value, got %#v", request.Changes[0].Value)
+	}
+
+	invalidValues := []string{
+		`" 11111111-2222-3333-4444-555555555555"`,
+		`"11111111-2222-3333-4444-555555555555 "`,
+		`"decision@example.test"`,
+		`"Contain endpoint"`,
+		`"decision:11111111-2222-3333-4444-555555555555"`,
+		`""`,
+		`[]`,
+		`{}`,
+		`true`,
+		`42`,
+	}
+	for _, rawValue := range invalidValues {
+		body := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","value":` + rawValue + `}]}`
+		if _, apiErr := DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
+			t.Fatalf("expected invalid direct decision ref %s to fail", rawValue)
+		}
+	}
+
+	actionPayloadClear := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"remove_record_ref","item_ref":"record_ref:` + stableDecisionID + `"}]}}]}`
 	if _, apiErr := DecodePatchRequest(strings.NewReader(actionPayloadClear)); apiErr == nil {
 		t.Fatalf("expected non-direct clear shape to fail")
 	}

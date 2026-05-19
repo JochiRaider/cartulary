@@ -46,6 +46,33 @@ func TestBaseRegistryPublicResources(t *testing.T) {
 	}
 }
 
+func TestPhase9TaskDecisionInternalProjectionBindings(t *testing.T) {
+	tests := []struct {
+		viewSchemaID   string
+		baseProjection string
+	}{
+		{viewSchemaID: "cartulary.view.decisions.v1", baseProjection: "decision_grid_projection"},
+		{viewSchemaID: "cartulary.view.task_requests.v1", baseProjection: "task_request_grid_projection"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.viewSchemaID, func(t *testing.T) {
+			schema, ok := Lookup(tc.viewSchemaID)
+			if !ok {
+				t.Fatalf("missing schema %s", tc.viewSchemaID)
+			}
+			if schema.BaseProjection != tc.baseProjection {
+				t.Fatalf("%s base projection: got %q want %q", tc.viewSchemaID, schema.BaseProjection, tc.baseProjection)
+			}
+
+			resource, ok := LookupPublicResource(tc.viewSchemaID)
+			if !ok {
+				t.Fatalf("missing public resource %s", tc.viewSchemaID)
+			}
+			requireNoInternalMembers(t, resource)
+		})
+	}
+}
+
 func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 	t.Helper()
 

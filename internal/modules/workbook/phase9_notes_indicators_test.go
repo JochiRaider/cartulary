@@ -183,6 +183,80 @@ func TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02(t *testing.T) 
 	}
 }
 
+func TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
+	harness := phase4storetest.StartStore(t, "phase9-i-9-02-tasks-decisions")
+	workbookStore := workbook.NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902-tasks-decisions@example.test", "I902 Tasks Decisions", "I902TasksDecisions1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-task-decision-incident", "IR-I902-TD", "Phase 9 I-9-02 tasks decisions")
+
+	supportID := mustCreateEvidenceForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-decision-support", "I-9-02 decision support")
+	affectedID := mustCreateEvidenceForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-decision-affected", "I-9-02 affected record")
+	decision, err := workbookStore.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.DecisionsViewSchemaID,
+		ClientTxnID:  "txn-phase9-i-9-02-decision",
+		Values: map[string]workbook.ValueChange{
+			"decision.summary":       textChange("Projection-backed decision"),
+			"decision.decision_type": textChange("containment"),
+			"decision.rationale":     textChange("Decision projection includes support and affected links."),
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"decision.support_refs":        {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}}},
+			"decision.affected_record_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &affectedID}}},
+		},
+	}, []byte("txn-phase9-i-9-02-decision"), "req-phase9-i-9-02-decision", time.Date(2026, 5, 17, 16, 15, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create projection decision: %v", err)
+	}
+
+	decisionQuery := mustQueryMeta(t, workbook.DecisionsViewSchemaID)
+	decisionQuery.Filters = []viewschema.Filter{{FieldKey: "decision.status", Op: "eq", Arg: map[string]any{"value": "proposed"}}}
+	decisionRows, err := workbookStore.QueryRows(context.Background(), incident.ID, workbook.DecisionsViewSchemaID, decisionQuery)
+	if err != nil {
+		t.Fatalf("query decisions through workbook projection: %v", err)
+	}
+	decisionRow := requireQueriedRow(t, decisionRows, decision.RecordID)
+	requireProjectedCollectionCount(t, decisionRow, "decision.support_refs", 1)
+	requireProjectedCollectionCount(t, decisionRow, "decision.affected_record_ids", 1)
+	requireProjectedNumericCell(t, decisionRow, "decision.affected_record_count", 1)
+
+	dueAt := time.Date(2026, 5, 20, 10, 30, 0, 0, time.UTC)
+	decisionID := decision.RecordID
+	task, err := workbookStore.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
+		ClientTxnID:  "txn-phase9-i-9-02-task",
+		Values: map[string]workbook.ValueChange{
+			"task.title":              textChange("Projection-backed task"),
+			"task.task_kind":          textChange("collection"),
+			"task.due_at":             {Kind: "timestamp", Timestamp: &dueAt},
+			"task.decision_record_id": {Kind: "uuid", UUID: &decisionID},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"task.linked_record_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}}},
+		},
+	}, []byte("txn-phase9-i-9-02-task"), "req-phase9-i-9-02-task", time.Date(2026, 5, 17, 16, 20, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create projection task: %v", err)
+	}
+
+	taskQuery := mustQueryMeta(t, workbook.TaskRequestsViewSchemaID)
+	taskQuery.Filters = []viewschema.Filter{
+		{FieldKey: "task.status", Op: "eq", Arg: map[string]any{"value": "open"}},
+		{FieldKey: "task.owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
+		{FieldKey: "task.due_at", Op: "range", Arg: map[string]any{"lte": dueAt.Format(time.RFC3339Nano)}},
+	}
+	taskRows, err := workbookStore.QueryRows(context.Background(), incident.ID, workbook.TaskRequestsViewSchemaID, taskQuery)
+	if err != nil {
+		t.Fatalf("query task requests through workbook projection: %v", err)
+	}
+	taskRow := requireQueriedRow(t, taskRows, task.RecordID)
+	cells := taskRow["cells"].(map[string]any)
+	if got := cells["task.decision_record_id"].(map[string]any)["value"]; got != decision.RecordID.String() {
+		t.Fatalf("expected projected task decision ref, got %#v", got)
+	}
+	requireProjectedCollectionCount(t, taskRow, "task.linked_record_ids", 1)
+	requireProjectedNumericCell(t, taskRow, "task.linked_record_count", 1)
+}
+
 func textChange(value string) workbook.ValueChange {
 	return workbook.ValueChange{Kind: "text", Text: &value}
 }
@@ -218,4 +292,48 @@ func requireScalarCount(t testing.TB, harness *phase4storetest.StoreHarness, que
 	if got != want {
 		t.Fatalf("unexpected count for %q: got %d want %d", query, got, want)
 	}
+}
+
+func requireProjectedCollectionCount(t testing.TB, row map[string]any, fieldKey string, want int) {
+	t.Helper()
+	value := row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"].(map[string]any)
+	if value["kind"] != "collection_value_v1" {
+		t.Fatalf("expected %s collection value, got %#v", fieldKey, value)
+	}
+	var got int
+	switch items := value["items"].(type) {
+	case []any:
+		got = len(items)
+	case []map[string]any:
+		got = len(items)
+	default:
+		t.Fatalf("unexpected %s items shape: %#v", fieldKey, value["items"])
+	}
+	if got != want {
+		t.Fatalf("unexpected %s item count: got %d want %d items=%#v", fieldKey, got, want, value["items"])
+	}
+}
+
+func requireProjectedNumericCell(t testing.TB, row map[string]any, fieldKey string, want int64) {
+	t.Helper()
+	got := row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"]
+	switch value := got.(type) {
+	case int:
+		if int64(value) == want {
+			return
+		}
+	case int32:
+		if int64(value) == want {
+			return
+		}
+	case int64:
+		if value == want {
+			return
+		}
+	case float64:
+		if int64(value) == want {
+			return
+		}
+	}
+	t.Fatalf("unexpected %s value: got %#v want %d", fieldKey, got, want)
 }

@@ -18,10 +18,12 @@ import {
 } from "./helpers";
 import {
   assessmentsViewSchemaId,
+  collectionItems,
   commLogViewSchemaId,
   createAssessmentViaUI,
-  evidenceViewSchemaId,
+  decisionsViewSchemaId,
   editGenericCell,
+  evidenceViewSchemaId,
   expectAssessmentGridOrder,
   hostsViewSchemaId,
   indicatorsViewSchemaId,
@@ -440,9 +442,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await assertEvidenceContextStable();
 
   rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
-  refreshedEvidence = rows.find(
-    (row) => row.record_id === evidence.record_id,
-  );
+  refreshedEvidence = rows.find((row) => row.record_id === evidence.record_id);
   expect(refreshedEvidence?.cells["evidence.collector_party_text"]?.value).toBe(
     typedCollectorText,
   );
@@ -807,7 +807,9 @@ test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", 
   await page
     .getByTestId("assessment-create-rationale")
     .fill("Invalid timestamp must remain a draft.");
-  await page.getByTestId("assessment-create-assessed-at").fill(invalidTimestamp);
+  await page
+    .getByTestId("assessment-create-assessed-at")
+    .fill(invalidTimestamp);
   const failedCreate = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
@@ -939,8 +941,301 @@ test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", 
   await expectAssessmentGridOrder(page, [createdCleared.record_id]);
 });
 
-test("Phase 9 E-9-06 Sprint 0 blocker sentinel", async () => {
-  expect(phase9Sprint0SentinelMessage).toContain("blocker sentinel");
+test("Phase 9 E-9-06 Task Request and Decision workbook workflows stay native", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E906"),
+    "Phase 9 E-9-06 Task and Decision workflows",
+  );
+  const support = await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("e906-support"),
+    "evidence.title": "E-9-06 supporting packet",
+  });
+  const targetDecision = await createViewRow(
+    page,
+    incidentId,
+    decisionsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e906-target-decision"),
+      "decision.summary": "E-9-06 target decision",
+      "decision.decision_type": "containment",
+      "decision.rationale": "Initial containment rationale.",
+      "decision.support_refs": {
+        kind: "collection_actions_v1",
+        actions: [
+          { op: "add_record_ref", linked_record_id: support.record_id },
+        ],
+      },
+    },
+  );
+  const supersedingDecision = await createViewRow(
+    page,
+    incidentId,
+    decisionsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e906-superseding-decision"),
+      "decision.summary": "E-9-06 superseding decision",
+      "decision.decision_type": "containment",
+      "decision.rationale": "Updated containment rationale.",
+      "decision.status": "approved",
+      "decision.support_refs": {
+        kind: "collection_actions_v1",
+        actions: [
+          { op: "add_record_ref", linked_record_id: support.record_id },
+        ],
+      },
+    },
+  );
+
+  await disableWorkbookSockets(page);
+  await openGenericSurface(
+    page,
+    incidentId,
+    decisionsViewSchemaId,
+    "Decisions",
+  );
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(decisionsViewSchemaId)}`),
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(decisionsViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId("decision-supersede-replacement")
+      .locator(`option[value="${supersedingDecision.record_id}"]`),
+  ).toHaveCount(1);
+  const supersedeResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(`/api/v1/records/${targetDecision.record_id}/supersede`),
+  );
+  await page
+    .getByTestId("decision-supersede-target")
+    .selectOption(targetDecision.record_id as string);
+  await page
+    .getByTestId("decision-supersede-replacement")
+    .selectOption(supersedingDecision.record_id as string);
+  await page
+    .getByTestId("decision-supersede-reason")
+    .fill("E-9-06 explicit supersession");
+  await page.getByTestId("decision-supersede-submit").click();
+  const supersedeEnvelope = await (await supersedeResponse).json();
+  expect(supersedeEnvelope.data.view_schema_id).toBe(decisionsViewSchemaId);
+  expect(supersedeEnvelope.data.target_record_id).toBe(
+    targetDecision.record_id,
+  );
+  expect(supersedeEnvelope.data.superseding_record_id).toBe(
+    supersedingDecision.record_id,
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  let decisionRows = await queryViewRows(
+    page,
+    incidentId,
+    decisionsViewSchemaId,
+  );
+  const refreshedTarget = decisionRows.find(
+    (row) => row.record_id === targetDecision.record_id,
+  );
+  const refreshedSuperseding = decisionRows.find(
+    (row) => row.record_id === supersedingDecision.record_id,
+  );
+  expect(refreshedTarget?.cells["decision.status"]?.value).toBe("superseded");
+  expect(refreshedTarget?.cells["decision.is_superseded"]?.value).toBe(true);
+  expect(
+    refreshedSuperseding?.cells["decision.supersedes_record_id"]?.value,
+  ).toBe(targetDecision.record_id);
+  if (!refreshedSuperseding) {
+    throw new Error("missing superseding decision row");
+  }
+  expect(
+    collectionItems(refreshedSuperseding, "decision.support_refs"),
+  ).toHaveLength(1);
+  await page
+    .getByTestId(`generic-edit-record-${decisionsViewSchemaId}`)
+    .selectOption(supersedingDecision.record_id as string);
+  await page
+    .getByTestId(`generic-edit-field-${decisionsViewSchemaId}`)
+    .selectOption("decision.affected_record_ids");
+  await waitForPhase9GenericOption(
+    page,
+    `generic-edit-value-${decisionsViewSchemaId}`,
+    support.record_id as string,
+  );
+  await page
+    .getByTestId(`generic-edit-value-${decisionsViewSchemaId}`)
+    .selectOption(support.record_id as string);
+  await page
+    .getByTestId(`generic-edit-submit-${decisionsViewSchemaId}`)
+    .click();
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  decisionRows = await queryViewRows(page, incidentId, decisionsViewSchemaId);
+  const affectedDecision = decisionRows.find(
+    (row) => row.record_id === supersedingDecision.record_id,
+  );
+  if (!affectedDecision) {
+    throw new Error("missing affected decision row");
+  }
+  expect(
+    collectionItems(affectedDecision, "decision.affected_record_ids"),
+  ).toHaveLength(1);
+  expect(affectedDecision.cells["decision.affected_record_count"]?.value).toBe(
+    1,
+  );
+
+  await openGenericSurface(
+    page,
+    incidentId,
+    taskRequestsViewSchemaId,
+    "Task Requests",
+  );
+  await expect(page).toHaveURL(
+    new RegExp(
+      `view_schema_id=${encodeURIComponent(taskRequestsViewSchemaId)}`,
+    ),
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
+  ).toBeVisible();
+  const dueAt = "2026-05-19T16:00:00Z";
+  await setPhase9GenericCreateField(page, "task.title", "E-9-06 workbook task");
+  await setPhase9GenericCreateField(page, "task.task_kind", "collection");
+  await setPhase9GenericCreateField(page, "task.workstream", "forensics");
+  await setPhase9GenericCreateField(page, "task.due_at", dueAt);
+  await setPhase9GenericCreateField(
+    page,
+    "task.external_ticket_ref",
+    "SOC-E906",
+  );
+  await waitForPhase9GenericOption(
+    page,
+    "generic-create-field-task.decision_record_id",
+    supersedingDecision.record_id as string,
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "task.decision_record_id",
+    supersedingDecision.record_id as string,
+  );
+  await waitForPhase9GenericOption(
+    page,
+    "generic-create-field-task.linked_record_ids",
+    support.record_id as string,
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "task.linked_record_ids",
+    support.record_id as string,
+  );
+  await page
+    .getByTestId(`generic-create-submit-${taskRequestsViewSchemaId}`)
+    .click();
+  const task = await waitForViewRowByCell(
+    page,
+    incidentId,
+    taskRequestsViewSchemaId,
+    "task.title",
+    "E-9-06 workbook task",
+  );
+  expect(task.cells["task.decision_record_id"]?.value).toBe(
+    supersedingDecision.record_id,
+  );
+  expect(task.cells["task.external_ticket_ref"]?.value).toBe("SOC-E906");
+  expect(Date.parse(task.cells["task.due_at"]?.value as string)).toBe(
+    Date.parse(dueAt),
+  );
+  expect(collectionItems(task, "task.linked_record_ids")).toHaveLength(1);
+
+  const lifecycleResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/api/v1/records/${task.record_id}`),
+  );
+  await page
+    .getByTestId("task-lifecycle-target")
+    .selectOption(task.record_id as string);
+  await page.getByTestId("task-lifecycle-status").selectOption("blocked");
+  await page
+    .getByTestId("task-lifecycle-blocked-reason")
+    .fill("Waiting on endpoint owner");
+  await page.getByTestId("task-lifecycle-submit").click();
+  await lifecycleResponse;
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  let taskRows = await queryViewRows(
+    page,
+    incidentId,
+    taskRequestsViewSchemaId,
+  );
+  let refreshedTask = taskRows.find((row) => row.record_id === task.record_id);
+  expect(refreshedTask?.cells["task.status"]?.value).toBe("blocked");
+  expect(refreshedTask?.cells["task.blocked_reason"]?.value).toBe(
+    "Waiting on endpoint owner",
+  );
+
+  await applyFilterChip(
+    page,
+    taskRequestsViewSchemaId,
+    "task.status",
+    "blocked",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(task.record_id, "task.status")),
+  ).toHaveText("blocked");
+  await applyFilterChip(
+    page,
+    taskRequestsViewSchemaId,
+    "task.owner_user_id",
+    String(refreshedTask?.cells["task.owner_user_id"]?.value),
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(task.record_id, "task.owner_user_id")),
+  ).not.toHaveText("None");
+
+  const clearRequestPromise = page.waitForRequest((request) => {
+    if (
+      request.method() !== "PATCH" ||
+      !request.url().endsWith(`/api/v1/records/${task.record_id}`)
+    ) {
+      return false;
+    }
+    const body = request.postDataJSON() as {
+      changes?: Array<{ field_key?: string; value?: unknown }>;
+    };
+    return (
+      body.changes?.some(
+        (change) => change.field_key === "task.decision_record_id",
+      ) ?? false
+    );
+  });
+  await editGenericCell(
+    page,
+    taskRequestsViewSchemaId,
+    task.record_id,
+    "task.decision_record_id",
+    "",
+  );
+  const clearRequest = await clearRequestPromise;
+  expect(clearRequest.postDataJSON()).toMatchObject({
+    view_schema_id: taskRequestsViewSchemaId,
+    changes: [{ field_key: "task.decision_record_id", value: null }],
+  });
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  taskRows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
+  refreshedTask = taskRows.find((row) => row.record_id === task.record_id);
+  expect(refreshedTask?.cells["task.decision_record_id"]?.value).toBeNull();
+  expect(refreshedTask?.cells["task.blocked_reason"]?.value).toBe(
+    "Waiting on endpoint owner",
+  );
+
+  decisionRows = await queryViewRows(page, incidentId, decisionsViewSchemaId);
+  expect(
+    decisionRows.find((row) => row.record_id === supersedingDecision.record_id)
+      ?.cells["decision.supersedes_record_id"]?.value,
+  ).toBe(targetDecision.record_id);
 });
 
 test("Phase 9 E-9-07 Sprint 0 blocker sentinel", async () => {
@@ -1052,6 +1347,30 @@ async function openGenericSurface(
     )}`,
   );
   await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+}
+
+async function setPhase9GenericCreateField(
+  page: Page,
+  fieldKey: string,
+  value: string | string[],
+) {
+  const input = page.getByTestId(`generic-create-field-${fieldKey}`);
+  const tagName = await input.evaluate((element) => element.tagName);
+  if (tagName === "SELECT") {
+    await input.selectOption(value);
+    return;
+  }
+  await input.fill(Array.isArray(value) ? value.join("\n") : value);
+}
+
+async function waitForPhase9GenericOption(
+  page: Page,
+  testId: string,
+  value: string,
+) {
+  await expect(
+    page.getByTestId(testId).locator(`option[value="${value}"]`),
+  ).toHaveCount(1);
 }
 
 async function setGenericGridScroll(page: Page, viewSchemaId: string) {

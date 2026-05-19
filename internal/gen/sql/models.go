@@ -153,6 +153,22 @@ type Decision struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DecisionGridProjection struct {
+	RecordID            pgtype.UUID        `json:"record_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	RowVersion          int64              `json:"row_version"`
+	Summary             pgtype.Text        `json:"summary"`
+	Status              string             `json:"status"`
+	OwnerUserID         pgtype.UUID        `json:"owner_user_id"`
+	DecisionType        pgtype.Text        `json:"decision_type"`
+	DecidedAt           pgtype.Timestamptz `json:"decided_at"`
+	Rationale           pgtype.Text        `json:"rationale"`
+	AffectedRecordCount int32              `json:"affected_record_count"`
+	SupersedesRecordID  pgtype.UUID        `json:"supersedes_record_id"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	IsSuperseded        bool               `json:"is_superseded"`
+}
+
 type DeploymentAdminAuditEvent struct {
 	ID           pgtype.UUID        `json:"id"`
 	ActorUserID  pgtype.UUID        `json:"actor_user_id"`
@@ -629,6 +645,29 @@ type TaskRequest struct {
 	DecisionRecordID   pgtype.UUID        `json:"decision_record_id"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TaskRequestGridProjection struct {
+	RecordID           pgtype.UUID        `json:"record_id"`
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	RowVersion         int64              `json:"row_version"`
+	Title              pgtype.Text        `json:"title"`
+	Status             string             `json:"status"`
+	OwnerUserID        pgtype.UUID        `json:"owner_user_id"`
+	Priority           pgtype.Text        `json:"priority"`
+	TaskKind           pgtype.Text        `json:"task_kind"`
+	Workstream         pgtype.Text        `json:"workstream"`
+	DueAt              pgtype.Timestamptz `json:"due_at"`
+	RequesterPartyText pgtype.Text        `json:"requester_party_text"`
+	RequesterPartyID   pgtype.UUID        `json:"requester_party_id"`
+	BlockedReason      pgtype.Text        `json:"blocked_reason"`
+	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
+	ExternalTicketRef  pgtype.Text        `json:"external_ticket_ref"`
+	ClosureSummary     pgtype.Text        `json:"closure_summary"`
+	DecisionRecordID   pgtype.UUID        `json:"decision_record_id"`
+	LinkedRecordCount  int32              `json:"linked_record_count"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	NoOwner            bool               `json:"no_owner"`
 }
 
 type TimelineEvent struct {

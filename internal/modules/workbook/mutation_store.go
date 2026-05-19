@@ -19,6 +19,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -105,6 +106,15 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 		}
 	}
 	if err := applyCollectionPayloadsTx(ctx, tx, incidentID, recordID, actor.ID, request.Collections, now.UTC()); err != nil {
+		return MutationResult{}, err
+	}
+	if request.ViewSchemaID == TaskRequestsViewSchemaID {
+		decisionID := nullableUUIDValue(request.Values, "task.decision_record_id")
+		if _, err := syncTaskDecisionReferenceTx(ctx, tx, incidentID, recordID, nullableUUIDPointer(decisionID), actor.ID, now.UTC()); err != nil {
+			return MutationResult{}, err
+		}
+	}
+	if err := s.refreshWorkbookProjectionTx(ctx, tx, request.ViewSchemaID, recordID); err != nil {
 		return MutationResult{}, err
 	}
 
@@ -528,6 +538,9 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 	if err := touchSourceRowTx(ctx, tx, request.ViewSchemaID, recordID, now.UTC()); err != nil {
 		return MutationResult{}, err
 	}
+	if err := s.refreshWorkbookProjectionTx(ctx, tx, request.ViewSchemaID, recordID); err != nil {
+		return MutationResult{}, err
+	}
 	afterRow, err := s.loadGenericRowTx(ctx, tx, request.ViewSchemaID, recordID)
 	if err != nil {
 		return MutationResult{}, err
@@ -670,6 +683,280 @@ func (s *Store) clearWorkbookConflict(ctx context.Context, actor authn.UserRecor
 	}, nil
 }
 
+func (s *Store) SupersedeDecision(ctx context.Context, actor authn.UserRecord, targetRecordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	if request.ReplacementRecordID == nil {
+		return MutationResult{}, mutationValidationError("replacement_record_id", "missing_required_field")
+	}
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    workbookSupersedeRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    targetRecordID.String(),
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
+			return MutationResult{}, authn.ErrClientTxnConflict
+		}
+		payload, err := decodeStoredResponse(existing.ResponseJSON)
+		if err != nil {
+			return MutationResult{}, fmt.Errorf("decode replayed decision supersede payload: %w", err)
+		}
+		return MutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: targetRecordID, ViewSchemaID: DecisionsViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
+	} else if !errors.Is(err, authn.ErrNotFound) {
+		return MutationResult{}, fmt.Errorf("query decision supersede idempotency: %w", err)
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return MutationResult{}, fmt.Errorf("begin decision supersede transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	targetMeta, err := loadRecordMetaForUpdateTx(ctx, tx, targetRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if targetMeta.RecordType != "decision" {
+		return MutationResult{}, pgx.ErrNoRows
+	}
+	if targetMeta.RowVersion != request.BaseRowVersion {
+		return MutationResult{}, &RowVersionConflictError{RecordID: targetRecordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: targetMeta.RowVersion}
+	}
+
+	sourceRecordID := *request.ReplacementRecordID
+	if sourceRecordID == targetRecordID {
+		return MutationResult{}, decisionSupersedeValidationError("superseding_decision_must_be_different")
+	}
+	sourceMeta, err := loadRecordMetaForUpdateTx(ctx, tx, sourceRecordID)
+	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
+		return MutationResult{}, decisionSupersedeValidationError("superseding_decision_must_be_active_same_incident_decision")
+	}
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if sourceMeta.RecordType != "decision" || sourceMeta.IncidentID != targetMeta.IncidentID {
+		return MutationResult{}, decisionSupersedeValidationError("superseding_decision_must_be_active_same_incident_decision")
+	}
+
+	targetState, err := loadDecisionMachineStateForUpdateTx(ctx, tx, targetRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	sourceState, err := loadDecisionMachineStateForUpdateTx(ctx, tx, sourceRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if err := validateDecisionMachineState(targetState); err != nil {
+		return MutationResult{}, err
+	}
+	if err := validateDecisionMachineState(sourceState); err != nil {
+		return MutationResult{}, err
+	}
+	if sourceState.Status != "approved" && sourceState.Status != "executed" {
+		return MutationResult{}, decisionSupersedeValidationError("superseding_decision_must_be_approved_or_executed")
+	}
+	if targetState.Status != "proposed" && targetState.Status != "approved" && targetState.Status != "executed" {
+		return MutationResult{}, decisionSupersedeValidationError("target_decision_must_be_proposed_approved_or_executed")
+	}
+	if targetState.IncomingSupersedes > 0 {
+		return MutationResult{}, decisionSupersedeValidationError("target_must_not_have_active_replacement")
+	}
+
+	if err := s.refreshWorkbookProjectionTx(ctx, tx, DecisionsViewSchemaID, targetRecordID); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.refreshWorkbookProjectionTx(ctx, tx, DecisionsViewSchemaID, sourceRecordID); err != nil {
+		return MutationResult{}, err
+	}
+	beforeTargetRow, err := s.loadGenericRowTx(ctx, tx, DecisionsViewSchemaID, targetRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	beforeSourceRow, err := s.loadGenericRowTx(ctx, tx, DecisionsViewSchemaID, sourceRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+
+	linkID, err := insertDecisionSupersedesLinkTx(ctx, tx, targetMeta.IncidentID, sourceRecordID, targetRecordID, actor.ID, now.UTC())
+	if err != nil {
+		if authn.IsUniqueViolation(err) {
+			return MutationResult{}, decisionSupersedeValidationError("target_must_not_have_active_replacement")
+		}
+		return MutationResult{}, err
+	}
+
+	sourceVersion, err := s.recordStore.AdvanceVersionTx(ctx, tx, sourceRecordID, actor.ID, now.UTC())
+	if err != nil {
+		return MutationResult{}, err
+	}
+	targetVersion, err := s.recordStore.AdvanceVersionTx(ctx, tx, targetRecordID, actor.ID, now.UTC())
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+UPDATE decisions
+   SET supersedes_record_id = $2,
+       updated_at = $3
+ WHERE record_id = $1
+`, sourceRecordID, targetRecordID, now.UTC()); err != nil {
+		return MutationResult{}, fmt.Errorf("update superseding decision: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+UPDATE decisions
+   SET status = CASE WHEN status IN ('proposed', 'approved') THEN 'superseded' ELSE status END,
+       updated_at = $2
+ WHERE record_id = $1
+`, targetRecordID, now.UTC()); err != nil {
+		return MutationResult{}, fmt.Errorf("update superseded decision: %w", err)
+	}
+	if err := s.refreshWorkbookProjectionTx(ctx, tx, DecisionsViewSchemaID, sourceRecordID); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.refreshWorkbookProjectionTx(ctx, tx, DecisionsViewSchemaID, targetRecordID); err != nil {
+		return MutationResult{}, err
+	}
+	afterSourceRow, err := s.loadGenericRowTx(ctx, tx, DecisionsViewSchemaID, sourceRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	afterTargetRow, err := s.loadGenericRowTx(ctx, tx, DecisionsViewSchemaID, targetRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	changeSetID, err := s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+		IncidentID:  targetMeta.IncidentID,
+		ActorUserID: actor.ID,
+		Source:      workbookSupersedeRouteKey,
+		Reason:      &request.Reason,
+		ClientTxnID: &request.ClientTxnID,
+		RequestID:   &requestID,
+		CreatedAt:   now.UTC(),
+	})
+	if err != nil {
+		return MutationResult{}, err
+	}
+	sourceBeforeVersionID := workbookVersionID(sourceRecordID, sourceMeta.RowVersion)
+	sourceAfterVersionID := workbookVersionID(sourceRecordID, sourceVersion)
+	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		ChangeSetID:     changeSetID,
+		SequenceNo:      1,
+		TargetKind:      "record",
+		TargetID:        sourceRecordID.String(),
+		OperationKind:   "patch",
+		BeforeVersionID: &sourceBeforeVersionID,
+		AfterVersionID:  &sourceAfterVersionID,
+		BeforeValue:     beforeSourceRow,
+		AfterValue:      afterSourceRow,
+	}); err != nil {
+		return MutationResult{}, err
+	}
+	targetBeforeVersionID := workbookVersionID(targetRecordID, targetMeta.RowVersion)
+	targetAfterVersionID := workbookVersionID(targetRecordID, targetVersion)
+	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		ChangeSetID:     changeSetID,
+		SequenceNo:      2,
+		TargetKind:      "record",
+		TargetID:        targetRecordID.String(),
+		OperationKind:   "patch",
+		BeforeVersionID: &targetBeforeVersionID,
+		AfterVersionID:  &targetAfterVersionID,
+		BeforeValue:     beforeTargetRow,
+		AfterValue:      afterTargetRow,
+	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		ChangeSetID:   changeSetID,
+		SequenceNo:    3,
+		TargetKind:    "record_link",
+		TargetID:      linkID.String(),
+		OperationKind: "create",
+		AfterValue: map[string]any{
+			"record_link_id": linkID.String(),
+			"incident_id":    targetMeta.IncidentID.String(),
+			"src_record_id":  sourceRecordID.String(),
+			"dst_record_id":  targetRecordID.String(),
+			"link_type":      "supersedes",
+		},
+	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		ChangeSetID: changeSetID,
+		RecordID:    sourceRecordID,
+		RowVersion:  sourceVersion,
+		BeforeValue: beforeSourceRow,
+		AfterValue:  afterSourceRow,
+	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		ChangeSetID: changeSetID,
+		RecordID:    targetRecordID,
+		RowVersion:  targetVersion,
+		BeforeValue: beforeTargetRow,
+		AfterValue:  afterTargetRow,
+	}); err != nil {
+		return MutationResult{}, err
+	}
+
+	targetStatus := decisionRowStatus(afterTargetRow)
+	payload := map[string]any{
+		"view_schema_id":          DecisionsViewSchemaID,
+		"change_set_id":           changeSetID.String(),
+		"target_record_id":        targetRecordID.String(),
+		"superseding_record_id":   sourceRecordID.String(),
+		"target_row_version":      targetVersion,
+		"superseding_row_version": sourceVersion,
+		"target_status":           targetStatus,
+		"reason":                  request.Reason,
+	}
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
+		if authn.IsUniqueViolation(err) {
+			return MutationResult{}, authn.ErrClientTxnConflict
+		}
+		return MutationResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return MutationResult{}, fmt.Errorf("commit decision supersede transaction: %w", err)
+	}
+
+	targetChange := MutationResult{
+		Payload:          map[string]any{"row": afterTargetRow},
+		StatusCode:       http.StatusOK,
+		IncidentID:       targetMeta.IncidentID,
+		RecordID:         targetRecordID,
+		ChangeSetID:      changeSetID,
+		ClientTxnID:      request.ClientTxnID,
+		RowVersion:       targetVersion,
+		ViewSchemaID:     DecisionsViewSchemaID,
+		ChangedFieldKeys: changedFieldKeys(beforeTargetRow, afterTargetRow),
+	}
+	sourceChange := MutationResult{
+		Payload:          map[string]any{"row": afterSourceRow},
+		StatusCode:       http.StatusOK,
+		IncidentID:       targetMeta.IncidentID,
+		RecordID:         sourceRecordID,
+		ChangeSetID:      changeSetID,
+		ClientTxnID:      request.ClientTxnID,
+		RowVersion:       sourceVersion,
+		ViewSchemaID:     DecisionsViewSchemaID,
+		ChangedFieldKeys: changedFieldKeys(beforeSourceRow, afterSourceRow),
+	}
+	return MutationResult{
+		Payload:                 payload,
+		StatusCode:              http.StatusOK,
+		IncidentID:              targetMeta.IncidentID,
+		RecordID:                targetRecordID,
+		ChangeSetID:             changeSetID,
+		ClientTxnID:             request.ClientTxnID,
+		RowVersion:              targetVersion,
+		ViewSchemaID:            DecisionsViewSchemaID,
+		ChangedFieldKeys:        targetChange.ChangedFieldKeys,
+		AdditionalRecordChanges: []MutationResult{targetChange, sourceChange},
+	}, nil
+}
+
 func (s *Store) RecordIncident(ctx context.Context, recordID uuid.UUID, viewSchemaID string) (uuid.UUID, error) {
 	var incidentID uuid.UUID
 	if viewSchemaID == "cartulary.view.timeline.v1" {
@@ -722,6 +1009,27 @@ SELECT incident_id
 `, recordID).Scan(&incidentID)
 		return incidentID, err
 	}
+}
+
+type recordRouteTarget struct {
+	IncidentID uuid.UUID
+	RecordType string
+	Deleted    bool
+}
+
+func (s *Store) RecordRouteTarget(ctx context.Context, recordID uuid.UUID) (recordRouteTarget, error) {
+	var target recordRouteTarget
+	var deletedAt sql.NullTime
+	err := s.pool.QueryRow(ctx, `
+SELECT incident_id, record_type, deleted_at
+  FROM records
+ WHERE record_id = $1
+`, recordID).Scan(&target.IncidentID, &target.RecordType, &deletedAt)
+	if err != nil {
+		return recordRouteTarget{}, err
+	}
+	target.Deleted = deletedAt.Valid
+	return target, nil
 }
 
 type recordMeta struct {
@@ -1303,15 +1611,20 @@ func applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID
 			return false, err
 		}
 	}
-	if request.ViewSchemaID == DecisionsViewSchemaID && touchesField(request.Changes, "decision.status") {
-		beforeDecisionStatus, err = loadDecisionStatusTx(ctx, tx, recordID)
-		if err != nil {
+	if request.ViewSchemaID == DecisionsViewSchemaID {
+		if err := validateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
 			return false, err
+		}
+		if touchesField(request.Changes, "decision.status") {
+			beforeDecisionStatus, err = loadDecisionStatusTx(ctx, tx, recordID)
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 	for _, change := range request.Changes {
 		if change.Value != nil {
-			applied, err := applyDirectChangeTx(ctx, tx, recordID, request.ViewSchemaID, change, now)
+			applied, err := applyDirectChangeTx(ctx, tx, incidentID, recordID, actorID, request.ViewSchemaID, change, now)
 			if err != nil {
 				return false, err
 			}
@@ -1341,11 +1654,14 @@ func applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID
 		if err := validateDecisionStatusTransition(beforeDecisionStatus, afterDecisionStatus); err != nil {
 			return false, err
 		}
+		if err := validateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
+			return false, err
+		}
 	}
 	return changed, nil
 }
 
-func applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, viewSchemaID string, change PatchChange, now time.Time) (bool, error) {
+func applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, change PatchChange, now time.Time) (bool, error) {
 	table, column := tableColumnForField(change.FieldKey)
 	if table == "" || column == "" {
 		return false, mutationValidationError(change.FieldKey, "unsupported_field_key")
@@ -1358,7 +1674,15 @@ func applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, vie
 	if err != nil {
 		return false, fmt.Errorf("apply direct change: %w", err)
 	}
-	return tag.RowsAffected() > 0, nil
+	scalarChanged := tag.RowsAffected() > 0
+	if change.FieldKey == "task.decision_record_id" {
+		linkChanged, err := syncTaskDecisionReferenceTx(ctx, tx, incidentID, recordID, change.Value.UUID, actorID, now)
+		if err != nil {
+			return false, err
+		}
+		return scalarChanged || linkChanged, nil
+	}
+	return scalarChanged, nil
 }
 
 func validateDirectFieldValue(change PatchChange) error {
@@ -1498,6 +1822,38 @@ DO NOTHING
 		return false, fmt.Errorf("upsert reference link: %w", err)
 	}
 	return tag.RowsAffected() > 0, nil
+}
+
+func syncTaskDecisionReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, taskID uuid.UUID, decisionID *uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
+	changed := false
+	args := []any{incidentID, taskID, actorID, now}
+	keepPredicate := ""
+	if decisionID != nil {
+		args = append(args, *decisionID)
+		keepPredicate = "AND dst_record_id <> $5"
+	}
+	tag, err := tx.Exec(ctx, `
+UPDATE record_links
+   SET deleted_at = $4,
+       deleted_by_user_id = $3
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND link_type = 'references_record'
+   AND field_key = 'task.decision_record_id'
+   AND deleted_at IS NULL
+   `+keepPredicate, args...)
+	if err != nil {
+		return false, fmt.Errorf("sync task decision link: %w", err)
+	}
+	changed = changed || tag.RowsAffected() > 0
+	if decisionID == nil {
+		return changed, nil
+	}
+	inserted, err := upsertReferenceLinkTx(ctx, tx, incidentID, taskID, *decisionID, "task.decision_record_id", actorID, now)
+	if err != nil {
+		return false, err
+	}
+	return changed || inserted, nil
 }
 
 func insertLinkedNoteReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, actorID uuid.UUID, now time.Time) error {
@@ -1662,6 +2018,17 @@ func touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recor
 		return fmt.Errorf("touch source row: %w", err)
 	}
 	return nil
+}
+
+func (s *Store) refreshWorkbookProjectionTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
+	switch viewSchemaID {
+	case TaskRequestsViewSchemaID:
+		return s.projectionStore.RefreshTaskRequestTx(ctx, tx, recordID)
+	case DecisionsViewSchemaID:
+		return s.projectionStore.RefreshDecisionTx(ctx, tx, recordID)
+	default:
+		return nil
+	}
 }
 
 func changedFieldKeys(before map[string]any, after map[string]any) []string {
@@ -2256,7 +2623,7 @@ func expectedTargetType(fieldKey string) string {
 		return "task_request"
 	case "status_review.pending_evidence_ids", "lesson.evidence_refs":
 		return "evidence"
-	case "task.linked_record_ids", "decision.support_refs":
+	case "task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids":
 		return ""
 	default:
 		return ""
@@ -2480,6 +2847,123 @@ func validateDecisionStatusTransition(from string, to string) error {
 	return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "illegal_status_transition", ViolatedGuards: []string{"decision.status"}}
 }
 
+type decisionMachineState struct {
+	RecordID             uuid.UUID
+	IncidentID           uuid.UUID
+	Status               string
+	OwnerUserID          sql.NullString
+	DecidedAt            sql.NullTime
+	IncomingSupersedes   int
+	OutgoingSupersedes   int
+	IncomingSupersederID sql.NullString
+	OutgoingTargetID     sql.NullString
+}
+
+func loadDecisionMachineStateForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (decisionMachineState, error) {
+	var state decisionMachineState
+	if err := tx.QueryRow(ctx, `
+SELECT record_id, incident_id, status, owner_user_id::text, decided_at
+  FROM decisions
+ WHERE record_id = $1
+ FOR UPDATE
+`, recordID).Scan(&state.RecordID, &state.IncidentID, &state.Status, &state.OwnerUserID, &state.DecidedAt); err != nil {
+		return decisionMachineState{}, err
+	}
+	if err := tx.QueryRow(ctx, `
+SELECT COUNT(*), MIN(src_record_id::text)
+  FROM record_links
+ WHERE incident_id = $1
+   AND dst_record_id = $2
+   AND link_type = 'supersedes'
+   AND deleted_at IS NULL
+`, state.IncidentID, recordID).Scan(&state.IncomingSupersedes, &state.IncomingSupersederID); err != nil {
+		return decisionMachineState{}, fmt.Errorf("load decision incoming supersedes: %w", err)
+	}
+	if err := tx.QueryRow(ctx, `
+SELECT COUNT(*), MIN(dst_record_id::text)
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND link_type = 'supersedes'
+   AND deleted_at IS NULL
+`, state.IncidentID, recordID).Scan(&state.OutgoingSupersedes, &state.OutgoingTargetID); err != nil {
+		return decisionMachineState{}, fmt.Errorf("load decision outgoing supersedes: %w", err)
+	}
+	return state, nil
+}
+
+func validateDecisionMachineConsistentTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	state, err := loadDecisionMachineStateForUpdateTx(ctx, tx, recordID)
+	if err != nil {
+		return err
+	}
+	return validateDecisionMachineState(state)
+}
+
+func validateDecisionMachineState(state decisionMachineState) error {
+	violated := []string{}
+	if !validDecisionStatus(state.Status) {
+		violated = append(violated, "decision_status_invalid")
+	}
+	if !state.OwnerUserID.Valid {
+		violated = append(violated, "decision_owner_required")
+	}
+	if !state.DecidedAt.Valid {
+		violated = append(violated, "decision_decided_at_required")
+	}
+	if state.IncomingSupersedes > 1 {
+		violated = append(violated, "decision_incoming_supersedes_ambiguous")
+	}
+	if state.OutgoingSupersedes > 1 {
+		violated = append(violated, "decision_outgoing_supersedes_ambiguous")
+	}
+	if state.Status == "superseded" && state.IncomingSupersedes != 1 {
+		violated = append(violated, "superseded_requires_incoming_supersedes")
+	}
+	if state.IncomingSupersedes == 1 && state.Status != "superseded" && state.Status != "executed" {
+		violated = append(violated, "incoming_supersedes_requires_superseded_or_executed")
+	}
+	if state.OutgoingSupersedes > 0 && state.Status != "approved" && state.Status != "executed" {
+		violated = append(violated, "superseding_decision_requires_approved_or_executed")
+	}
+	if len(violated) == 0 {
+		return nil
+	}
+	return &LifecycleValidationError{
+		ToStatus:       state.Status,
+		ReasonCode:     "inconsistent_decision_machine",
+		ViolatedGuards: violated,
+	}
+}
+
+func decisionSupersedeValidationError(guards ...string) error {
+	return &LifecycleValidationError{
+		ReasonCode:     "decision_supersede_not_allowed",
+		ViolatedGuards: append([]string(nil), guards...),
+	}
+}
+
+func insertDecisionSupersedesLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, actorID uuid.UUID, now time.Time) (uuid.UUID, error) {
+	var linkID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+INSERT INTO record_links (
+    incident_id, src_record_id, dst_record_id, link_type, field_key,
+    provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
+) VALUES ($1, $2, $3, 'supersedes', NULL, 'manual', NULL, $4, $4, $5, $5)
+RETURNING record_link_id
+`, incidentID, sourceID, targetID, actorID, now).Scan(&linkID); err != nil {
+		return uuid.Nil, fmt.Errorf("insert decision supersedes link: %w", err)
+	}
+	return linkID, nil
+}
+
+func decisionRowStatus(row map[string]any) string {
+	cells, _ := row["cells"].(map[string]any)
+	cell, _ := cells["decision.status"].(map[string]any)
+	status, _ := cell["value"].(string)
+	return status
+}
+
 func nullableStringFromAny(value any) sql.NullString {
 	if text, ok := value.(string); ok && text != "" {
 		return sql.NullString{String: text, Valid: true}
@@ -2500,6 +2984,15 @@ func nullableUUIDStringFromAny(value any) sql.NullString {
 		return sql.NullString{String: typed.String(), Valid: true}
 	default:
 		return sql.NullString{}
+	}
+}
+
+func nullableUUIDPointer(value any) *uuid.UUID {
+	switch typed := value.(type) {
+	case uuid.UUID:
+		return &typed
+	default:
+		return nil
 	}
 }
 

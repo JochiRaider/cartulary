@@ -36,7 +36,6 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 			return err
 		}
 		mux.HandleFunc("POST /api/v1/records/{record_id}/mark-reviewed", service.handleMarkReviewed)
-		mux.HandleFunc("POST /api/v1/records/{record_id}/supersede", service.handleSupersede)
 		return nil
 	}
 }

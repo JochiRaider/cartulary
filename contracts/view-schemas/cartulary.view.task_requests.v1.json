@@ -6,6 +6,7 @@
   "source_record_types": [
     "task_request"
   ],
+  "base_projection": "task_request_grid_projection",
   "technical_fields": [
     "record_id",
     "row_version"

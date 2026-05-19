@@ -18,6 +18,7 @@ var (
 		"title",
 		"surface_kind",
 		"source_record_types",
+		"base_projection",
 		"technical_fields",
 		"required_reference_pack_keys",
 		"default_visible_fields",
@@ -313,6 +314,11 @@ func validateViewSchemaShape(value any, relativePath string) error {
 	}
 	if _, err := requireEnumString(object, "sort_null_order", relativePath, "last"); err != nil {
 		return err
+	}
+	if _, ok := object["base_projection"]; ok {
+		if _, err := requiredString(object, "base_projection", relativePath); err != nil {
+			return err
+		}
 	}
 	inlineCreate, err := asObject(object["inline_create"], relativePath+".inline_create")
 	if err != nil {

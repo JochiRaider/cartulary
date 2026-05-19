@@ -11,6 +11,7 @@ import {
 import {
   assessmentsViewSchemaId,
   collectionActionsPayload,
+  decisionsViewSchemaId,
   hostRefsFieldKey,
   hostsViewSchemaId,
   identitiesViewSchemaId,
@@ -278,6 +279,40 @@ test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbo
   );
   await expect(
     page.getByTestId(rowCellTestId(task.record_id as string, "task.status")),
+  ).toBeFocused();
+
+  const decision = await createViewRow(
+    page,
+    incidentId,
+    decisionsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e9grid01-decision"),
+      "decision.summary": "Phase 9 decision anchor",
+      "decision.decision_type": "containment",
+      "decision.rationale": "Phase 9 decision grid anchor rationale",
+    },
+  );
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      decisionsViewSchemaId,
+    )}`,
+  );
+  const decisionSummary = page.getByTestId(
+    rowCellTestId(decision.record_id as string, "decision.summary"),
+  );
+  await expect(decisionSummary).toHaveText("Phase 9 decision anchor");
+  await decisionSummary.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${decisionsViewSchemaId}:${decision.record_id}:decision.summary`,
+  );
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${decisionsViewSchemaId}:${decision.record_id}:decision.status`,
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(decision.record_id as string, "decision.status"),
+    ),
   ).toBeFocused();
 
   const note = await createViewRow(page, incidentId, notesViewSchemaId, {

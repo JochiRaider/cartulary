@@ -21,7 +21,7 @@ import {
   timelineViewSchemaId,
   waitForTimelineWorkbookReady,
 } from "./timelineWorkbookTestSupport";
-import { TimelineWorkbook, clipboardTextLooksTabular } from "./WorkbookShell";
+import { clipboardTextLooksTabular, TimelineWorkbook } from "./WorkbookShell";
 
 type PasteHarnessRow = {
   readonly label: string;

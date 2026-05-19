@@ -393,6 +393,7 @@ SELECT a.record_id, a.incident_id, r.row_version, a.subject_record_id, a.subject
 INSERT INTO task_requests (record_id, incident_id, title, status, priority, updated_at)
 VALUES ($1, $2, 'Collect firewall logs', 'open', 'high', '2026-04-24T11:00:00Z')
 `, recordID, incidentID)
+				seedTaskRequestProjection(t, harness, recordID)
 			},
 			filter:    prefixFilter("task.status", "op"),
 			wantField: "task.title",
@@ -406,6 +407,7 @@ VALUES ($1, $2, 'Collect firewall logs', 'open', 'high', '2026-04-24T11:00:00Z')
 INSERT INTO decisions (record_id, incident_id, summary, status, decision_type, decided_at)
 VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12:00:00Z')
 `, recordID, incidentID)
+				seedDecisionProjection(t, harness, recordID)
 			},
 			filter:    prefixFilter("decision.status", "app"),
 			wantField: "decision.summary",
@@ -565,6 +567,133 @@ func execSeed(t testing.TB, harness *phase4test.ServerHarness, sql string, args 
 	if _, err := harness.DB.ExecContext(context.Background(), sql, args...); err != nil {
 		t.Fatalf("seed query failed: %v", err)
 	}
+}
+
+func seedTaskRequestProjection(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID) {
+	t.Helper()
+	execSeed(t, harness, `
+INSERT INTO task_request_grid_projection (
+    record_id,
+    incident_id,
+    row_version,
+    title,
+    status,
+    owner_user_id,
+    priority,
+    task_kind,
+    workstream,
+    due_at,
+    requester_party_text,
+    requester_party_id,
+    blocked_reason,
+    completed_at,
+    external_ticket_ref,
+    closure_summary,
+    decision_record_id,
+    linked_record_count,
+    updated_at,
+    no_owner
+)
+SELECT
+    t.record_id,
+    t.incident_id,
+    r.row_version,
+    t.title,
+    t.status,
+    t.owner_user_id,
+    t.priority,
+    t.task_kind,
+    t.workstream,
+    t.due_at,
+    t.requester_party_text,
+    t.requester_party_id,
+    t.blocked_reason,
+    t.completed_at,
+    t.external_ticket_ref,
+    t.closure_summary,
+    t.decision_record_id,
+    0,
+    t.updated_at,
+    t.owner_user_id IS NULL
+  FROM task_requests t
+  JOIN records r
+    ON r.incident_id = t.incident_id
+   AND r.record_id = t.record_id
+   AND r.deleted_at IS NULL
+ WHERE t.record_id = $1
+ON CONFLICT (record_id) DO UPDATE
+SET row_version = EXCLUDED.row_version,
+    title = EXCLUDED.title,
+    status = EXCLUDED.status,
+    owner_user_id = EXCLUDED.owner_user_id,
+    priority = EXCLUDED.priority,
+    task_kind = EXCLUDED.task_kind,
+    workstream = EXCLUDED.workstream,
+    due_at = EXCLUDED.due_at,
+    requester_party_text = EXCLUDED.requester_party_text,
+    requester_party_id = EXCLUDED.requester_party_id,
+    blocked_reason = EXCLUDED.blocked_reason,
+    completed_at = EXCLUDED.completed_at,
+    external_ticket_ref = EXCLUDED.external_ticket_ref,
+    closure_summary = EXCLUDED.closure_summary,
+    decision_record_id = EXCLUDED.decision_record_id,
+    linked_record_count = EXCLUDED.linked_record_count,
+    updated_at = EXCLUDED.updated_at,
+    no_owner = EXCLUDED.no_owner
+`, recordID)
+}
+
+func seedDecisionProjection(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID) {
+	t.Helper()
+	execSeed(t, harness, `
+INSERT INTO decision_grid_projection (
+    record_id,
+    incident_id,
+    row_version,
+    summary,
+    status,
+    owner_user_id,
+    decision_type,
+    decided_at,
+    rationale,
+    affected_record_count,
+    supersedes_record_id,
+    updated_at,
+    is_superseded
+)
+SELECT
+    d.record_id,
+    d.incident_id,
+    r.row_version,
+    d.summary,
+    d.status,
+    d.owner_user_id,
+    d.decision_type,
+    d.decided_at,
+    d.rationale,
+    0,
+    d.supersedes_record_id,
+    d.updated_at,
+    false
+  FROM decisions d
+  JOIN records r
+    ON r.incident_id = d.incident_id
+   AND r.record_id = d.record_id
+   AND r.deleted_at IS NULL
+ WHERE d.record_id = $1
+ON CONFLICT (record_id) DO UPDATE
+SET row_version = EXCLUDED.row_version,
+    summary = EXCLUDED.summary,
+    status = EXCLUDED.status,
+    owner_user_id = EXCLUDED.owner_user_id,
+    decision_type = EXCLUDED.decision_type,
+    decided_at = EXCLUDED.decided_at,
+    rationale = EXCLUDED.rationale,
+    affected_record_count = EXCLUDED.affected_record_count,
+    supersedes_record_id = EXCLUDED.supersedes_record_id,
+    updated_at = EXCLUDED.updated_at,
+    is_superseded = EXCLUDED.is_superseded
+`, recordID)
 }
 
 func eqFilter(fieldKey string, value any) map[string]any {
