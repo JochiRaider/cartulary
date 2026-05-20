@@ -9,16 +9,16 @@ created_at: 2026-05-19
 
 Status: `draft/proposed`.
 
-This NLSpec defines Cartulary's OpenTelemetry instrumentation subsystem. It is not adopted implementation-conformance authority until the Cartulary repository authority process adopts it. This revision preserves the authority boundary of the uploaded draft and hardens it against OpenTelemetry configuration, semantic-convention, privacy, and signal-shape drift.[^1]
+This NLSpec defines Cartulary's OpenTelemetry instrumentation subsystem. It is not adopted implementation-conformance authority until the Cartulary repository authority process adopts it. It revises the uploaded draft by preserving the draft authority boundary, retaining OpenTelemetry as the telemetry substrate, and closing gaps in source baselining, OpenTelemetry configuration containment, semantic-convention drift control, signal-shape determinism, privacy, exporter behavior, and conformance testing.[^1]
 
 **OTEL-REQ-001**
-This NLSpec governs only telemetry generation, telemetry configuration, telemetry export, log correlation, signal naming, attribute governance, privacy boundaries, telemetry runtime behavior, and instrumentation verification.
+This NLSpec governs only telemetry generation, telemetry configuration, telemetry export, log correlation, signal naming, attribute governance, resource identity, privacy boundaries, telemetry runtime behavior, and instrumentation verification.
 
 **OTEL-REQ-002**
-This NLSpec MUST NOT redefine product behavior owned by Cartulary Core 00 through Core 04. It MUST NOT redefine claim-bearing benchmark publication owned by Core 05. Runtime telemetry MAY support engineering diagnosis and operational SRE practice, but telemetry observations MUST NOT satisfy claim-bearing timed or fixture-sensitive publication unless the Core 05 benchmark-manifest and measurement-predicate requirements are also satisfied.[^2][^3]
+This NLSpec MUST NOT redefine product behavior owned by Cartulary Core 00 through Core 04. It MUST NOT redefine claim-bearing benchmark publication owned by Core 05. Runtime telemetry MAY support engineering diagnosis and operational SRE practice, but telemetry observations MUST NOT satisfy claim-bearing timed or fixture-sensitive publication unless Core 05 benchmark-manifest and measurement-predicate requirements are also satisfied.[^2][^3]
 
 **OTEL-REQ-003**
-When this NLSpec conflicts with Core 00 through Core 04 before adoption, the conflict is a draft defect in this NLSpec. When a later adopted version of this NLSpec conflicts with older non-normative appendices or guides, the adopted NLSpec governs only the telemetry subsystem.
+When this NLSpec conflicts with Core 00 through Core 04 before adoption, the conflict is a draft defect in this NLSpec. When a later adopted version of this NLSpec conflicts with non-normative appendices or guides, the adopted NLSpec governs only the telemetry subsystem.
 
 **OTEL-REQ-004**
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are normative inside this NLSpec. **MUST** and **MUST NOT** define conformance requirements. **SHOULD** and **SHOULD NOT** define strong defaults whose exceptions must remain compatible with all MUST-level requirements. **MAY** defines optional behavior whose omission semantics are explicit.
@@ -26,19 +26,19 @@ The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** ar
 ## 2. Purpose
 
 **OTEL-REQ-005**
-Cartulary MUST provide first-class observability because long-term support requires operators to diagnose availability, latency, error, queueing, persistence, evidence access, and collaboration failures without inspecting incident content, exposing stable incident identifiers, or weakening the workbook hot path.
+Cartulary MUST provide first-class observability because long-term support requires operators to diagnose availability, latency, error, queueing, persistence, evidence access, collaboration, and telemetry-pipeline failures without inspecting incident content, exposing stable incident identifiers, or weakening the workbook hot path.
 
 The instrumentation subsystem MUST make these operational questions answerable:
 
 | Question | Required signal support |
 | --- | --- |
-| Is the application deployable accepting and completing HTTP requests? | HTTP traces and bounded HTTP metrics. |
-| Are workbook queries, mutations, and projection updates healthy? | Workbook and projection spans plus duration, row-count, conflict, and result metrics. |
+| Is the application deployable accepting and completing HTTP requests? | HTTP server spans, bounded HTTP duration metrics, and low-cardinality status classification. |
+| Are workbook queries, mutations, and projection updates healthy? | Workbook spans plus duration, row-count, conflict, and result metrics. |
 | Are WebSocket subscriptions, presence updates, and live row updates healthy? | WebSocket active gauges, event counters, bounded operation spans, and low-cardinality close or drop classification. |
-| Are background jobs queued, running, canceled, failed, or completing? | Job enqueue and run spans, job active gauges, terminal duration metrics, and terminal-status attributes. |
-| Are Postgres or object-storage dependencies degraded? | Dependency spans, dependency duration metrics, and low-cardinality error classification. |
+| Are background jobs queued, running, canceled, failed, or completing? | Job enqueue and run spans, active gauges, terminal duration metrics, and terminal-status attributes. |
+| Are Postgres or object-storage dependencies degraded? | Dependency spans, dependency duration metrics, retry/drop counters, and low-cardinality error classification. |
 | Are telemetry exporters failing or dropping data? | Telemetry self-metrics and bounded local diagnostics. |
-| Can operators correlate local logs with traces without exposing secrets or incident content? | Trace correlation fields, LogRecord mapping, bounded body rules, and redaction-before-recording rules. |
+| Can operators correlate safe local logs with traces? | Trace correlation fields, OTel LogRecord mapping when enabled, bounded body rules, and redaction-before-recording rules. |
 
 ## 3. Non-goals
 
@@ -51,15 +51,16 @@ This NLSpec MUST NOT introduce any behavior in the following table:
 | A new case-data source of truth | Telemetry MUST NOT become authoritative incident state, audit state, history state, projection state, workflow state, evidence state, or benchmark evidence. |
 | A monitoring vendor dependency | The implementation MUST remain vendor-neutral and MUST NOT require Datadog, Grafana, Honeycomb, New Relic, Splunk, Elastic, Jaeger, Prometheus, or any other specific backend. |
 | A required OpenTelemetry Collector | A Collector MAY be an external receiver, but it is not a Cartulary deployable and is not required for Cartulary telemetry conformance. |
-| A public metrics dashboard contract | Dashboards, alerts, and runbooks MAY be derived later, but this NLSpec owns emitted telemetry, not dashboard layout. |
+| A public dashboard contract | Dashboards, alerts, and runbooks MAY be derived later, but this NLSpec owns emitted telemetry, not dashboard layout. |
 | Browser-to-third-party telemetry export | Browser code MUST NOT send telemetry directly to an external collector or vendor endpoint. |
 | Raw incident-content logging | Incident-authored values, evidence bytes, raw queries, note text, timeline details, filenames, credential material, and object-store keys MUST NOT be exported as telemetry attributes or logs. |
-| Environment-driven telemetry egress | OpenTelemetry SDK environment defaults MUST NOT override Cartulary's deployment configuration or enable export when Cartulary export is disabled. |
+| Environment-driven telemetry egress | OpenTelemetry SDK environment defaults MUST NOT override Cartulary deployment configuration or enable export when Cartulary export is disabled. |
 | Collector-side privacy enforcement | A Collector, backend, exporter, or vendor pipeline MUST NOT be required to make emitted telemetry privacy-conformant. |
+| OpenTelemetry completeness | Cartulary MUST NOT adopt every OpenTelemetry feature merely because the upstream specification supports it. |
 
-## 4. External standard baseline
+## 4. External standard baseline and source snapshot
 
-OpenTelemetry is the selected telemetry framework because it is the vendor-neutral project baseline for generating and exporting observability signals. OpenTelemetry clients separate API, SDK, semantic conventions, and contrib packages; ordinary instrumentation code must depend on API packages rather than SDK packages, while the application owner manages SDK installation and configuration.[^6][^7]
+OpenTelemetry is the selected telemetry framework because it is vendor-neutral and defines common API, SDK, signal, resource, semantic-convention, and OTLP concepts. OpenTelemetry clients separate API packages used by instrumentation from SDK packages managed by the application owner, and instrumentation authors must not directly reference SDK packages.[^6]
 
 ### 4.1 Baseline object
 
@@ -68,22 +69,52 @@ The initial external standard baseline MUST be the closed object in this table:
 
 | Field | Required value or rule |
 | --- | --- |
-| `otel_spec_version` | `1.56.0` until this NLSpec is revised. |
+| `otel_spec_version` | `1.56.0` until this NLSpec is revised.[^7] |
 | `otel_spec_source` | `https://opentelemetry.io/docs/specs/otel/`. |
+| `otel_spec_repo` | `https://github.com/open-telemetry/opentelemetry-specification`. |
+| `otel_spec_ref` | `main` for the observed draft baseline unless the repository pins a commit SHA at adoption time. |
+| `otel_spec_commit_sha` | `TODO: pin exact commit SHA during repository adoption`. A conformance implementation MUST NOT leave this value unresolved in the repo-control source snapshot. |
 | `otel_spec_observed_at` | `2026-05-20`. |
-| `semconv_version` | `1.41.0` until this NLSpec is revised. |
+| `semconv_version` | `1.41.0` until this NLSpec is revised.[^8] |
 | `semconv_source` | `https://opentelemetry.io/docs/specs/semconv/`. |
-| `semconv_model_source` | Semantic-convention YAML model files from the pinned semantic-conventions source, not prose-only extraction. |
+| `semconv_repo` | `https://github.com/open-telemetry/semantic-conventions`. |
+| `semconv_ref` | `main` for the observed draft baseline unless the repository pins a commit SHA at adoption time. |
+| `semconv_commit_sha` | `TODO: pin exact commit SHA during repository adoption`. A conformance implementation MUST NOT leave this value unresolved in the repo-control source snapshot. |
+| `semconv_model_source` | Semantic-convention YAML model files from the pinned semantic-conventions source, not prose-only extraction.[^6] |
+| `semconv_model_digest` | `TODO: compute deterministic aggregate SHA-256 over adopted semantic-convention model files during repository adoption`. |
 | `semconv_generated_constants_version` | Exact generated-constant package or code-generation source version used by the implementation. This value MUST be pinned in repo-control files before implementation adoption. |
-| `semconv_stability_policy` | The policy in §4.3 and the change classification in §4.4. |
+| `language_sdk_versions` | Exact OpenTelemetry API, SDK, exporter, and semantic-convention package versions used by the implementation. These values MUST be pinned in repo-control files. |
+| `document_status_by_path` | Required for every adopted source path in §4.2. |
 | `migration_note_required` | Derived from §4.4 rather than a single unconditional boolean. |
 
 **OTEL-REQ-008**
-The baseline versions above MUST be treated as an adoption lock, not as a claim that later OpenTelemetry releases are incompatible. A later adopted revision MAY rebaseline to newer OpenTelemetry or semantic-convention versions only after applying §4.4 and updating all affected signal registries, configuration rules, and acceptance criteria.
+The baseline versions above are adoption locks, not claims that later OpenTelemetry releases are incompatible. A later adopted revision MAY rebaseline to newer OpenTelemetry or semantic-convention versions only after applying §4.4 and updating all affected signal registries, configuration rules, and acceptance criteria.
 
-### 4.2 OpenTelemetry component boundary
+### 4.2 Source path registry
 
 **OTEL-REQ-009**
+The implementation MUST maintain a repo-control `otel_source_snapshot` artifact with the source paths in this table. The artifact MAY add paths only when an NLSpec revision assigns the added path to a source family and change classifier.
+
+| Source family | Required source path or page | Required use |
+| --- | --- | --- |
+| Specification overview | `specification/overview.md` | API/SDK/component boundary, signals, spans, links, Baggage, Resources, Collector, instrumentation-library terminology. |
+| SDK environment variables | `specification/configuration/sdk-environment-variables.md` | Environment hazard registry, default OTel propagators, sampler, exporter, resource, exemplar, declarative-config, and SDK-disabled behavior. |
+| Declarative configuration | `specification/configuration/*` | Non-adoption of `OTEL_CONFIG_FILE`, plugin providers, and declarative config as Cartulary runtime authority. |
+| Trace SDK | `specification/trace/sdk.md` | Sampler profile, TraceIdRatioBased compatibility, ProbabilitySampler non-adoption, parent-based semantics. |
+| Metrics API | `specification/metrics/api.md` | Instrument identity, name syntax, unit length, synchronous/asynchronous instrument families. |
+| Metrics SDK | `specification/metrics/sdk.md` | Views, temporality, cardinality overflow, exemplars, metric readers, shutdown/flush. |
+| Logs API | `specification/logs/api.md` | Log bridge, LogRecord emission parameters, exception input, EventName input. |
+| Logs data model | `specification/logs/data-model.md` | LogRecord top-level field mapping, severity mapping, Body, Attributes, EventName. |
+| Resource SDK | `specification/resource/sdk.md` | Resource immutability, resource merge rules, resource detectors, environment-derived resource attributes. |
+| Protocol exporter | `specification/protocol/exporter.md` | OTLP endpoint construction, per-signal endpoint precedence, compression, retry, User-Agent. |
+| Common concepts | `specification/common/README.md` | Attribute value shapes, AnyValue, attribute limits, uniqueness. |
+| Versioning and stability | `specification/versioning-and-stability.md` | Semantic-convention stability and shape-change classification. |
+| Semantic conventions model | `semantic-conventions/model/**` | Generated standard constants and standard allowlists. |
+| Semantic conventions docs | `semantic-conventions/docs/**` | Human-readable interpretation only. The model files are the source of generated constants. |
+
+### 4.3 OpenTelemetry component boundary
+
+**OTEL-REQ-010**
 Cartulary MUST use the component meanings in this table:
 
 | Term | Required Cartulary meaning |
@@ -94,57 +125,63 @@ Cartulary MUST use the component meanings in this table:
 | `Instrumentation scope` | The OTel `(name, version, schema_url, attributes)` identity used when obtaining tracers, meters, or loggers for a Cartulary instrumentation unit. |
 | `Exporter` | Server-side component that sends telemetry to the configured OTLP endpoint. Exporters are never configured by browser code. |
 | `Processor` | Server-side component that batches, bounds, drops, flushes, and forwards telemetry to exporters. |
+| `MetricReader` | Server-side metric collection/export boundary owned by telemetry bootstrap. It defines temporality and collection cadence. |
+| `Sampler` | Trace decision component owned by telemetry bootstrap and selected only through the sampler profile in §9.2. |
+| `Propagator` | Context injection/extraction component. Inbound remote extraction is disabled in this revision. |
 | `Collector` | Optional external receiver. It is not a Cartulary deployable and is not required for Cartulary telemetry conformance. |
 | `Semantic conventions` | OTel standard names and meanings for common telemetry concepts. They are adopted by stability policy and registry generation, not copied ad hoc. |
 
-**OTEL-REQ-010**
-Ordinary instrumentation units MUST obtain tracers, meters, and loggers only through API-facing provider accessors supplied by the telemetry bootstrap boundary. They MUST NOT import, construct, or configure SDK providers, exporters, processors, samplers, propagators, metric readers, log processors, declarative configuration, SDK autoconfiguration, or plugin-provider packages.
-
 **OTEL-REQ-011**
-The telemetry bootstrap boundary MAY import SDK packages only for provider setup, configuration validation, processor construction, exporter construction, metric-reader construction, sampler construction, shutdown, and bounded self-diagnostics. It MUST NOT make SDK construction or exporter configuration callable from ordinary instrumentation units.
-
-### 4.3 Semantic-convention stability policy
+Ordinary instrumentation units MUST obtain tracers, meters, and loggers only through API-facing provider accessors supplied by the telemetry bootstrap boundary. They MUST NOT import, construct, or configure SDK providers, exporters, processors, samplers, propagators, metric readers, log processors, declarative configuration, SDK autoconfiguration, resource detectors, or plugin-provider packages.
 
 **OTEL-REQ-012**
+The telemetry bootstrap boundary MAY import SDK packages only for provider setup, configuration validation, resource construction, sampler construction, processor construction, exporter construction, metric-reader construction, shutdown, and bounded self-diagnostics. It MUST NOT make SDK construction or exporter configuration callable from ordinary instrumentation units.
+
+### 4.4 Semantic-convention stability policy and change classification
+
+**OTEL-REQ-013**
 Cartulary MUST apply this semantic-convention adoption matrix:
 
 | OTel convention status | Cartulary default |
 | --- | --- |
-| Stable and applicable | Emit by default when it does not violate Cartulary privacy, cardinality, configuration, or deployment-boundary rules. |
-| Stable but privacy-conflicting | Do not emit the conflicting attribute. Record the omission in the signal-specific allowlist or non-adoption table that would otherwise own it. |
-| Development or experimental | Do not emit by default. Adoption requires an explicit NLSpec revision or an explicit opt-in configuration key defined by this NLSpec. |
+| Stable and applicable | Emit by default only when it does not violate Cartulary privacy, cardinality, configuration, or deployment-boundary rules. |
+| Stable but privacy-conflicting | Do not emit the conflicting attribute or telemetry element. Record the omission in the signal-specific non-adoption table. |
+| Development or experimental | Do not emit by default. Adoption requires an explicit NLSpec revision or a closed opt-in profile defined by this NLSpec. |
 | Deprecated | Do not emit unless a migration-compatibility profile explicitly requires it. |
 | Migration-period duplicated conventions | Do not duplicate by default. Duplication requires a bounded compatibility rule and an acceptance criterion proving both old and new forms are intentional. |
 | Unknown or unpinned | Do not emit. |
 
-**OTEL-REQ-013**
-Every emitted standard attribute and standard metric name MUST be generated or imported from the pinned semantic-convention model source, or MUST be explicitly listed as a standard attribute allowlist exception in the owning signal registry. Every emitted Cartulary custom attribute MUST be listed in §8.4.
-
-### 4.4 Telemetry shape change classification
-
 **OTEL-REQ-014**
-Every dependency update, semantic-convention update, SDK update, exporter update, instrumentation change, or signal-registry change MUST be classified by this table before it is accepted as conformant:
+Every emitted standard attribute and standard metric name MUST be generated or imported from the pinned semantic-convention model source, or MUST be explicitly listed as a standard attribute allowlist exception in the owning signal registry. Every emitted Cartulary custom attribute MUST be listed in §8.5.
+
+**OTEL-REQ-015**
+Cartulary is stricter than OpenTelemetry semantic-convention stability. Even when OpenTelemetry treats an additive standard attribute, metric, event, or signal element as compatible, Cartulary MUST classify it by §4.5 and MUST NOT silently widen emitted telemetry.
+
+### 4.5 Telemetry shape change classification
+
+**OTEL-REQ-016**
+Every dependency update, semantic-convention update, SDK update, exporter update, instrumentation change, resource change, metric-reader change, sampler-profile change, or signal-registry change MUST be classified by this table before it is accepted as conformant:
 
 | Change class | Definition | NLSpec revision required | Migration note required | Acceptance impact |
 | --- | --- | ---: | ---: | --- |
-| `registry_equivalent` | Same emitted spans, span names, span kinds, metrics, metric identities, resource attributes, log mappings, standard attributes, custom attributes, and forbidden-value exclusions for the same conformance corpus. | No, if dependency-only. | No. | Existing acceptance criteria must pass unchanged. |
+| `registry_equivalent` | Same emitted spans, span names, span kinds, span events, span links, metric identities, metric temporality, resource attributes, log mappings, instrumentation scopes, standard attributes, custom attributes, and forbidden-value exclusions for the same conformance corpus. | No, if dependency-only. | No. | Existing acceptance criteria must pass unchanged. |
 | `additive_non_breaking` | Adds a new emitted telemetry element or optional low-cardinality attribute without removing, renaming, retyping, or changing existing emitted telemetry. | Yes. | Yes. | Add criteria proving the addition is intentional and privacy-safe. |
 | `privacy_tightening` | Removes or suppresses telemetry to reduce disclosure, cardinality, unsafe correlation, or unbounded retention risk. | Yes. | Yes. | Add criteria proving the removed element is absent and required operational questions retain required coverage. |
-| `breaking_shape_change` | Removes, renames, retypes, changes requiredness, changes default emission, changes span parent/link topology, changes metric temporality or aggregation, changes resource identity, or changes log mapping. | Yes. | Yes. | Add or update criteria for old-shape absence and new-shape presence. |
+| `breaking_shape_change` | Removes, renames, retypes, changes requiredness, changes default emission, changes span parent/link topology, changes metric temporality or aggregation, changes resource identity, changes log mapping, or changes sampler profile. | Yes. | Yes. | Add or update criteria for old-shape absence and new-shape presence. |
 
-**OTEL-REQ-015**
+**OTEL-REQ-017**
 Dependency-only updates MAY occur without an NLSpec revision only when emitted telemetry remains `registry_equivalent` for the conformance corpus. A semantic-convention update, SDK update, generated-constant update, or `OTEL_SEMCONV_STABILITY_OPT_IN` setting MUST NOT become active if it causes any `additive_non_breaking`, `privacy_tightening`, or `breaking_shape_change` effect without this NLSpec being revised.
 
-## 5. Instrumentation ownership
+## 5. Instrumentation ownership and scopes
 
 The application deployable owns the browser-facing UI host, API surface, WebSocket hub, and background-job runners because Cartulary's base deployment is one web application deployable plus Postgres and S3-compatible object storage.[^4]
 
 ### 5.1 Subsystem boundary
 
-**OTEL-REQ-016**
+**OTEL-REQ-018**
 The instrumentation subsystem MUST be a logical internal boundary inside the modular monolith. It MUST NOT require a separate application deployable, sidecar, microservice, Collector, vendor backend, Prometheus server, or browser telemetry service.
 
-**OTEL-REQ-017**
+**OTEL-REQ-019**
 Instrumentation ownership MUST follow this table:
 
 | Runtime area | Instrumentation owner | Required coverage | Forbidden ownership leak |
@@ -152,15 +189,15 @@ Instrumentation ownership MUST follow this table:
 | HTTP API | Application server instrumentation | Server spans, request metrics, status/error classification. | Route handlers MUST NOT configure exporters or SDK providers. |
 | WebSocket subscription | Collaboration instrumentation | Connect, authorize, subscribe, close, event-send, replay, and overflow metrics. | WebSocket payload content MUST NOT become telemetry attributes. |
 | Background jobs | Jobs instrumentation | Enqueue, start, terminal state, cancellation, duration, active count, and error metrics. | Job IDs MUST NOT be emitted. |
-| Postgres access | Platform/Postgres instrumentation | Standard database client spans and duration metrics without SQL text or bind values. | Workbook modules MUST NOT directly emit raw database query text. |
-| Object storage | Platform/object-store instrumentation | Cartulary object-store dependency spans and byte/duration metrics without bucket names, keys, hashes, filenames, or handles. | Object-store implementation details MUST NOT leak into evidence telemetry. |
+| Postgres access | Platform/Postgres instrumentation | Standard database client spans and duration metrics without SQL text, bind values, table names, projection names, or connection endpoints. | Workbook modules MUST NOT directly emit raw database query text. |
+| Object storage | Platform/object-store instrumentation | Cartulary object-store dependency spans and byte/duration metrics without bucket names, keys, hashes, filenames, upload IDs, copy sources, or handles. | Object-store implementation details MUST NOT leak into evidence telemetry. |
 | Workbook query and mutation | Workbook/projection instrumentation | Query, create, patch, conflict, projection-maintenance, and refresh spans. | Projection table names and visible row positions MUST NOT become telemetry identity. |
 | Browser UI | Browser controller instrumentation | Local performance marks MAY exist. | Browser direct OTLP, vendor-native, or third-party telemetry export is forbidden. |
-| Telemetry bootstrap | Server-side telemetry boundary | SDK provider setup, processors, exporters, readers, shutdown, and self-diagnostics. | Ordinary instrumentation units MUST NOT configure SDK, exporter, processor, reader, sampler, propagator, or Collector behavior. |
+| Telemetry bootstrap | Server-side telemetry boundary | SDK provider setup, processors, exporters, metric readers, samplers, shutdown, and self-diagnostics. | Ordinary instrumentation units MUST NOT configure SDK, exporter, processor, reader, sampler, propagator, or Collector behavior. |
 
 ### 5.2 Instrumentation scopes
 
-**OTEL-REQ-018**
+**OTEL-REQ-020**
 Each tracer, meter, or logger MUST be created with one of the following instrumentation scopes. Scope version MUST be the Cartulary build version when known, else `0.0.0+unknown`. Schema URL MUST be `null` in this revision. Scope attributes MUST be empty in this revision.
 
 | Scope name | Owning instrumentation area | Allowed signals |
@@ -173,8 +210,16 @@ Each tracer, meter, or logger MUST be created with one of the following instrume
 | `cartulary.objectstore` | S3-compatible object storage abstraction | traces, metrics |
 | `cartulary.telemetry` | Telemetry self-metrics and bounded diagnostics | metrics, logs |
 
-**OTEL-REQ-019**
+**OTEL-REQ-021**
 No instrumentation unit may create an unregistered instrumentation scope. A future revision that adds scope attributes MUST define a closed attribute table with names, types, allowed values, cardinality bound, default, and forbidden-value tests.
+
+### 5.3 No-SDK instrumentation mode
+
+**OTEL-REQ-022**
+Ordinary instrumentation units MUST execute safely when no SDK provider is installed. In no-SDK mode, API calls MUST be no-op or API-default behavior, product behavior MUST remain unchanged, and instrumentation MUST NOT throw because exporters, processors, metric readers, log processors, samplers, or SDK providers are absent.
+
+**OTEL-REQ-023**
+When `telemetry.enabled=false`, the telemetry bootstrap boundary MUST install no exporters, no processors, no metric readers, no log bridge, no resource detectors, and no SDK autoconfiguration. It MAY install no-op API providers or leave API default providers in place only when ordinary instrumentation units remain safe.
 
 ## 6. Configuration contract
 
@@ -182,13 +227,13 @@ Telemetry configuration lives in the Cartulary deployment configuration surface.
 
 ### 6.1 Configuration keys
 
-**OTEL-REQ-020**
+**OTEL-REQ-024**
 The effective telemetry configuration MUST be the closed key set in this table. Unknown `telemetry.*` keys are invalid unless a later revision defines them.
 
 | Key | Type | Default | Bounds or values | Omitted behavior | Explicit `null` behavior | Required behavior |
 | --- | --- | --- | --- | --- | --- | --- |
-| `telemetry.enabled` | boolean | `true` | `true`, `false` | Use default. | Invalid. | When `false`, no OpenTelemetry providers, exporters, log bridges, or instrumentation hooks are installed except no-op placeholders needed for code safety. |
-| `telemetry.otel_env_passthrough` | boolean | `false` | `true`, `false` | Use default. | Invalid. | When `false`, OTel SDK environment variables, declarative config, and SDK autoconfig MUST NOT enable exporters, propagators, samplers, processors, endpoints, headers, config files, views, metric readers, or plugins. |
+| `telemetry.enabled` | boolean | `true` | `true`, `false` | Use default. | Invalid. | When `false`, no SDK providers, exporters, processors, metric readers, log bridges, resource detectors, or instrumentation hooks are installed except no-op placeholders needed for code safety. |
+| `telemetry.otel_env_passthrough` | boolean | `false` | exactly `false` in this revision | Use default. | Invalid. | OTel SDK environment variables, declarative config, and SDK autoconfig MUST NOT enable exporters, propagators, samplers, processors, endpoints, headers, config files, views, metric readers, resource detectors, or plugins. |
 | `telemetry.exporter.kind` | enum | `none` | `none`, `otlp_http`, `otlp_grpc` | Use default. | Invalid. | `none` disables network export. `otlp_http` and `otlp_grpc` require `telemetry.exporter.endpoint`. |
 | `telemetry.exporter.endpoint` | URL string or null | `null` | `http` or `https` URL with no userinfo, query, or fragment | Required when exporter kind is not `none`; otherwise default. | Valid only when exporter kind is `none`. | Cartulary MUST NOT rely on OpenTelemetry's default localhost OTLP endpoint. |
 | `telemetry.exporter.headers` | map of string to string | `{}` | Header keys non-empty ASCII token using letters, digits, `_`, `.`, or `-`; values non-empty strings | Use default. | Invalid. | Secret-bearing. MUST be server-side only and redacted everywhere. |
@@ -200,11 +245,13 @@ The effective telemetry configuration MUST be the closed key set in this table. 
 | `telemetry.exporter.retry.max_interval_ms` | integer | `5000` | `100..60000` | Use default. | Invalid. | Maximum retry interval. Must be greater than or equal to `initial_interval_ms`. |
 | `telemetry.exporter.retry.multiplier` | decimal | `2.0` | `1.0..5.0` | Use default. | Invalid. | Exponential retry multiplier. |
 | `telemetry.traces.enabled` | boolean | `true` | `true`, `false` | Use default. | Invalid. | Has effect only when `telemetry.enabled=true`. |
-| `telemetry.traces.sample_ratio` | decimal | `0.10` | `0.0..1.0` inclusive | Use default. | Invalid. | Uses parent-based trace-ID-ratio sampling over server-owned trace IDs. |
+| `telemetry.traces.sample_ratio` | decimal | `0.10` | `0.0..1.0` inclusive | Use default. | Invalid. | Selects the sampler profile by §9.2. |
+| `telemetry.traces.sampler_profile` | enum | `auto` | `auto`, `cartulary.sampler.always_on.v1`, `cartulary.sampler.always_off.v1`, `cartulary.sampler.traceidratio_compat.v1` | Use default. | Invalid. | `auto` derives from `sample_ratio`; non-auto must be consistent with `sample_ratio` by §9.2. |
 | `telemetry.traces.accept_remote_context` | boolean | `false` | exactly `false` in this revision | Use default. | Invalid. | Remote trace context is not trusted in this revision. |
 | `telemetry.metrics.enabled` | boolean | `true` | `true`, `false` | Use default. | Invalid. | Has effect only when `telemetry.enabled=true`. |
+| `telemetry.metrics.temporality_profile` | enum | `cartulary.metrics.temporality.cumulative.v1` | exactly `cartulary.metrics.temporality.cumulative.v1` | Use default. | Invalid. | MetricReader MUST export cumulative temporality for all registered current-profile instruments. |
 | `telemetry.metrics.exemplars.enabled` | boolean | `false` | exactly `false` in this revision | Use default. | Invalid. | Configure the SDK exemplar filter to `AlwaysOff` or equivalent. Exemplar emission is non-conformant in this revision. |
-| `telemetry.logs.bridge_enabled` | boolean | `false` | `true`, `false` | Use default. | Invalid. | When `false`, local structured logs MAY include trace correlation fields but MUST NOT be exported as OpenTelemetry logs. |
+| `telemetry.logs.bridge_enabled` | boolean | `false` | `true`, `false` | Use default. | Invalid. | When `false`, local structured logs MAY include trace correlation fields but MUST NOT be exported as OTel logs. |
 | `telemetry.logs.body_max_chars` | integer | `2048` | `0..8192` | Use default. | Invalid. | Maximum Unicode scalar values in exported OTel LogRecord `Body` after redaction. `0` exports an empty string body. |
 | `telemetry.processor.max_queue_size` | integer | `2048` | `1..65536` | Use default. | Invalid. | Queue bound for each enabled signal processor. |
 | `telemetry.processor.max_export_batch_size` | integer | `512` | `1..telemetry.processor.max_queue_size` | Use default. | Invalid. | Maximum batch size for each export attempt. |
@@ -219,68 +266,81 @@ The effective telemetry configuration MUST be the closed key set in this table. 
 | `telemetry.resource.service_name` | string | `cartulary.app` | `1..128` ASCII letters, digits, `.`, `_`, or `-` | Use default. | Invalid. | Maps to `service.name`. Startup MUST reject SDK-generated `unknown_service:*` effective identity. |
 | `telemetry.resource.service_namespace` | string | `cartulary` | `1..128` ASCII letters, digits, `.`, `_`, or `-` | Use default. | Invalid. | Maps to `service.namespace`. |
 | `telemetry.resource.service_version` | string | Build version, else `0.0.0+unknown` | `1..128` non-empty string | Use default. | Invalid. | Maps to `service.version`. |
-| `telemetry.resource.service_instance_id` | string or null | Generated UUID v4 per process start | Non-empty opaque string, maximum `128` Unicode scalar values | Generate default. | Generate default. | Maps to `service.instance.id`. Must satisfy §7. |
+| `telemetry.resource.service_instance_id` | string or null | Generated UUID v4 per process start | Non-empty opaque string, maximum `128` Unicode scalar values | Generate default. | Generate default. | Maps to `service.instance.id`; MUST satisfy §7. |
 | `telemetry.resource.deployment_environment_name` | string or null | `null` | `development`, `test`, `staging`, `production`, or custom non-empty token of maximum `128` ASCII letters, digits, `.`, `_`, or `-` | Omit attribute. | Omit attribute. | Maps to `deployment.environment.name` when present. |
-| `telemetry.attribute.incident_correlation` | enum | `none` | `none`, `hmac_64bit` | Use default. | Invalid. | `none` forbids incident correlation attributes. `hmac_64bit` is a narrowed opt-in under §8.5. |
+| `telemetry.attribute.incident_correlation` | enum | `none` | `none`, `hmac_64bit` | Use default. | Invalid. | `none` forbids incident correlation attributes. `hmac_64bit` is a narrowed opt-in under §8.6. |
 | `telemetry.attribute.hmac_secret_ref` | string or null | `null` | Server-side secret reference | Required only when incident correlation is `hmac_64bit`. | Valid only when incident correlation is `none`; otherwise invalid. | Secret value MUST NOT be exported. |
 
 ### 6.2 Configuration precedence
 
-**OTEL-REQ-021**
+**OTEL-REQ-025**
 Configuration precedence MUST be exactly this table:
 
 | Precedence | Source | Required behavior |
 | --- | --- | --- |
 | 1 | Cartulary deployment configuration | Authoritative for all telemetry behavior. |
 | 2 | Cartulary server-side environment bindings | MAY populate Cartulary deployment configuration keys only. Empty values are treated as omitted. |
-| 3 | OTel SDK environment variables | Ignored unless `telemetry.otel_env_passthrough=true`; even then constrained by §6.3. |
-| 4 | OTel declarative configuration and plugin providers | Not authoritative in this revision; constrained by §6.3. |
+| 3 | OTel SDK environment variables | Ignored in this revision because `telemetry.otel_env_passthrough` is fixed to `false`. |
+| 4 | OTel declarative configuration and plugin providers | Not authoritative in this revision. |
 | 5 | OTel SDK defaults | MAY apply only inside the effective Cartulary configuration envelope. MUST NOT enable export when Cartulary export is `none`. |
-| 6 | Browser state or browser environment | Never a telemetry exporter, processor, sampler, propagator, metric-reader, or header configuration source. |
+| 6 | Browser state or browser environment | Never a telemetry exporter, processor, sampler, propagator, metric-reader, header, or resource configuration source. |
 
 ### 6.3 OpenTelemetry external configuration containment
 
-OpenTelemetry supports programmatic, environment-variable, declarative, and other configuration mechanisms, and declarative configuration includes file-based SDK component configuration and custom plugin components.[^8][^9]
+OpenTelemetry defines environment-variable configuration and declarative configuration mechanisms that can alter SDK behavior, including SDK disablement, resource attributes, service name, propagators, samplers, processors, exporters, OTLP endpoints, metrics exemplars, metric export cadence, attribute limits, and file-based SDK component creation.[^9][^10]
 
-**OTEL-REQ-022**
+**OTEL-REQ-026**
 External OpenTelemetry configuration inputs MUST be contained by this matrix:
 
 | External input | Current-profile treatment | Allowed effect |
 | --- | --- | --- |
-| OTel SDK environment variables | Ignored unless `telemetry.otel_env_passthrough=true`. | May fill only otherwise omitted OTel-equivalent settings explicitly mapped by this NLSpec. |
-| `OTEL_CONFIG_FILE` | Ignored when `telemetry.otel_env_passthrough=false`; unsupported as an authority even when passthrough is true unless a future revision maps it. | No exporter, processor, reader, sampler, propagator, header, exemplar, view, or plugin creation. |
-| OTel declarative configuration file | Not an authoritative Cartulary configuration source. | None in current profile. |
-| OTel instrumentation ConfigProvider state | Not an authoritative Cartulary configuration source. | None unless a future revision defines a closed mapping. |
-| OTel plugin component provider | Forbidden as a runtime configuration authority. | None. |
+| OTel SDK environment variables | Ignored for behavior selection. | May appear only as redacted presence diagnostics. |
+| `OTEL_CONFIG_FILE` | Ignored for behavior selection. | No exporter, processor, reader, sampler, propagator, header, resource detector, exemplar, view, or plugin creation. |
+| `OTEL_EXPERIMENTAL_CONFIG_FILE` | Ignored for behavior selection. | None. |
+| OTel declarative configuration file | Not an authoritative Cartulary configuration source. | None. |
+| OTel instrumentation ConfigProvider state | Not an authoritative Cartulary configuration source. | None. |
+| OTel plugin component provider | Forbidden as runtime configuration authority. | None. |
 | `OTEL_SEMCONV_STABILITY_OPT_IN` | Ignored unless a future revision defines a semantic-convention migration profile. | No emitted-shape change. |
-| Per-signal OTLP endpoint env vars | Rejected or ignored according to effective config validation; never authoritative. | None in current profile. |
-| Per-signal OTLP protocol or header env vars | Rejected or ignored according to effective config validation; never authoritative. | None in current profile. |
+| Per-signal OTLP endpoint env vars | Ignored and never authoritative. | None. |
+| Per-signal OTLP protocol or header env vars | Ignored and never authoritative. | None. |
 | Browser state | Never an exporter or processor configuration source. | None. |
 
-**OTEL-REQ-023**
-When `telemetry.otel_env_passthrough=false`, the implementation MUST ignore the following environment variables for behavior selection. It MAY retain their presence only in redacted startup diagnostics that do not expose values.
+### 6.4 OpenTelemetry environment hazard registry
 
-| Environment variable family | Members |
-| --- | --- |
-| Exporter selection | `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`, `OTEL_LOGS_EXPORTER` |
-| Global OTLP | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_PROTOCOL` |
-| Per-signal OTLP endpoints | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`, `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` |
-| Per-signal OTLP protocols | `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`, `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`, `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` |
-| Per-signal OTLP headers | `OTEL_EXPORTER_OTLP_TRACES_HEADERS`, `OTEL_EXPORTER_OTLP_METRICS_HEADERS`, `OTEL_EXPORTER_OTLP_LOGS_HEADERS` |
-| Context and sampling | `OTEL_PROPAGATORS`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` |
-| Processors | `OTEL_BSP_*`, `OTEL_BLRP_*`, `OTEL_METRIC_EXPORT_INTERVAL` |
-| Declarative config | `OTEL_CONFIG_FILE` |
-| Semantic-convention migration | `OTEL_SEMCONV_STABILITY_OPT_IN` |
+**OTEL-REQ-027**
+The current profile MUST ignore the following environment variable families for behavior selection. The implementation MAY record only their presence in redacted startup diagnostics that do not expose values.
 
-**OTEL-REQ-024**
-When `telemetry.otel_env_passthrough=true`, OTel SDK environment variables MAY fill only otherwise omitted OTel-equivalent runtime settings. They MUST NOT override an explicit Cartulary configuration value. They MUST NOT permit unsupported exporters, unsupported protocols, remote-context acceptance, Baggage correlation, Prometheus scrape exposure, Zipkin export, Jaeger native export, vendor-native export, SQL commenter propagation, per-signal endpoints, per-signal headers, per-signal protocol divergence, OTel declarative configuration, SDK plugin providers, metric exemplars, unregistered metric views, or browser export.
+| Environment variable family | Members or pattern | Hazard contained |
+| --- | --- | --- |
+| SDK disablement | `OTEL_SDK_DISABLED` | Cannot disable Cartulary-selected providers or invert no-SDK tests. |
+| Resource environment merge | `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_SERVICE_NAME`, `OTEL_ENTITIES` | Cannot add host, process, incident, user, deployment, entity, or service attributes. |
+| SDK internal logging | `OTEL_LOG_LEVEL` | Cannot change product logs, operator diagnostics, or secret exposure. |
+| Propagators | `OTEL_PROPAGATORS` | Cannot enable Baggage, vendor propagators, or remote context propagation. |
+| Trace sampler | `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | Cannot override §9.2 sampler profile. |
+| Global attribute limits | `OTEL_ATTRIBUTE_COUNT_LIMIT`, `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` | Cannot be treated as privacy enforcement and cannot change Cartulary redaction-before-recording. |
+| Span limits | `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`, `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT`, `OTEL_SPAN_EVENT_COUNT_LIMIT`, `OTEL_SPAN_LINK_COUNT_LIMIT`, `OTEL_ATTRIBUTE_COUNT_LIMIT`, `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` | Cannot authorize extra attributes, events, or links, and cannot be used as privacy controls. |
+| LogRecord limits | `OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT`, `OTEL_LOGRECORD_ATTRIBUTE_VALUE_LENGTH_LIMIT` | Cannot authorize raw log fields or be used as log privacy controls. |
+| Batch span processor | `OTEL_BSP_*` | Cannot override Cartulary processor bounds, delay, timeout, or queue policy. |
+| Batch LogRecord processor | `OTEL_BLRP_*` | Cannot enable or alter log export outside Cartulary config. |
+| Exporter selection | `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`, `OTEL_LOGS_EXPORTER` | Cannot enable OTLP, stdout, zipkin, prometheus, vendor-native, or other export. |
+| Global OTLP | `OTEL_EXPORTER_OTLP_*` | Cannot set endpoint, headers, protocol, timeout, compression, certificates, mTLS, or per-signal behavior. |
+| Per-signal OTLP | `OTEL_EXPORTER_OTLP_TRACES_*`, `OTEL_EXPORTER_OTLP_METRICS_*`, `OTEL_EXPORTER_OTLP_LOGS_*` | Cannot create divergent per-signal endpoints, headers, protocol, or credentials. |
+| Non-OTLP exporters | `OTEL_EXPORTER_ZIPKIN_*`, `OTEL_EXPORTER_PROMETHEUS_*`, implementation-specific exporter env vars | Cannot enable unsupported exporters. |
+| Metrics exemplar | `OTEL_METRICS_EXEMPLAR_FILTER` | Cannot enable exemplars. |
+| Metrics periodic reader | `OTEL_METRIC_EXPORT_INTERVAL`, `OTEL_METRIC_EXPORT_TIMEOUT` | Cannot override metric export cadence or timeout. |
+| Declarative configuration | `OTEL_CONFIG_FILE`, `OTEL_EXPERIMENTAL_CONFIG_FILE` | Cannot instantiate SDK components from file configuration. |
+| Semantic-convention opt-in | `OTEL_SEMCONV_STABILITY_OPT_IN` | Cannot change emitted attribute names or duplicate conventions. |
+| Language-specific OTel env vars | `OTEL_{LANGUAGE}_{FEATURE}` | Ignored unless a future revision maps exact variables by name. |
 
-### 6.4 Configuration validation
+**OTEL-REQ-028**
+Any OTel SDK autoconfiguration package, declarative configuration package, resource detector package, exporter package, log bridge package, or plugin package that reads the environment before Cartulary configuration validation MUST be disabled, bypassed, or wrapped so it cannot create externally observable telemetry behavior outside this NLSpec.
 
-**OTEL-REQ-025**
+### 6.5 Configuration validation
+
+**OTEL-REQ-029**
 Invalid telemetry configuration MUST fail deployment-configuration validation before readiness with `error.code='invalid_deployment_config'` and `reason_code='invalid_telemetry_config'` or an equivalent deployment-config reason-code family if the repository owner has already defined a narrower code. Exporter endpoint network unavailability MUST NOT fail startup when the endpoint is syntactically valid.
 
-**OTEL-REQ-026**
+**OTEL-REQ-030**
 Configuration validation MUST enforce these cross-key rules:
 
 | Rule | Failure condition |
@@ -292,19 +352,23 @@ Configuration validation MUST enforce these cross-key rules:
 | Retry interval order | `retry.max_interval_ms < retry.initial_interval_ms`. |
 | HMAC secret | `incident_correlation='hmac_64bit'` and `hmac_secret_ref` is omitted, null, or empty. |
 | Remote-context attempt | Any configuration attempts to set `telemetry.traces.accept_remote_context=true`. |
+| Unsupported sampler | Any sampler profile outside §9.2, including `ProbabilitySampler`, `JaegerRemoteSampler`, or implementation-specific remote/adaptive samplers. |
 | Unsupported protocol | Any exporter protocol value other than `grpc` or `http/protobuf`. |
 | Per-signal endpoints | Any per-signal endpoint key appears in effective behavior. |
 | Per-signal protocol or header divergence | Any per-signal protocol or header key appears in effective behavior. |
 | Exemplar enablement | `telemetry.metrics.exemplars.enabled` is any value other than `false`. |
 | Log body bound | `telemetry.logs.body_max_chars` is outside `0..8192`. |
-| External OTel config authority | Any OTel declarative config, SDK autoconfig, plugin provider, or ConfigProvider state attempts to create or alter exporters, processors, propagators, samplers, metric readers, log processors, header capture, metric views, exemplars, or SDK plugin components outside declared `telemetry.*` keys. |
+| Environment passthrough | `telemetry.otel_env_passthrough=true`. |
+| External OTel config authority | Any OTel declarative config, SDK autoconfig, plugin provider, ConfigProvider state, or resource detector attempts to create or alter exporters, processors, propagators, samplers, metric readers, log processors, header capture, metric views, exemplars, resources, or SDK plugin components outside declared `telemetry.*` keys. |
 | Semantic-convention environment opt-in | `OTEL_SEMCONV_STABILITY_OPT_IN` would alter emitted telemetry shape in the current profile. |
 
-## 7. Resource attributes
+## 7. Resource identity and detector policy
 
-OpenTelemetry service semantic conventions define stable service identity attributes and recommend opaque service-instance identity because underlying host, pod, or machine identity can be confidential. `service.criticality` is Development-status and is not adopted in this profile.[^10]
+OpenTelemetry Resources are immutable entity descriptors associated with telemetry providers. SDKs may provide default resource attributes, merge environment-derived attributes, and support resource detector packages for process, host, container, service, cloud, and similar runtime facts.[^11]
 
-**OTEL-REQ-027**
+### 7.1 Resource attribute registry
+
+**OTEL-REQ-031**
 The instrumentation subsystem MUST attach the following resource attributes to all emitted traces, metrics, and exported logs:
 
 | Attribute | Requiredness | Value source | Export rule | Privacy rule |
@@ -312,43 +376,85 @@ The instrumentation subsystem MUST attach the following resource attributes to a
 | `service.name` | Required | `telemetry.resource.service_name` | Always export. | MUST NOT resolve to SDK-generated `unknown_service:*`. |
 | `service.namespace` | Required | `telemetry.resource.service_namespace` | Always export. | Default is `cartulary`. |
 | `service.version` | Required | `telemetry.resource.service_version` | Always export. | Omission is non-conformant after default resolution. |
-| `service.instance.id` | Required | configured value or generated UUID v4 | Always export. | MUST be opaque. |
+| `service.instance.id` | Required | Configured value or generated UUID v4 | Always export. | MUST be opaque and MUST NOT encode host, user, incident, process ID, container ID, filesystem path, or object-store identity. |
 | `deployment.environment.name` | Optional | `telemetry.resource.deployment_environment_name` | Export only when configured. | Descriptive only. MUST NOT drive tenancy, service identity, authorization, or incident identity. |
 | `telemetry.sdk.language` | SDK-required | SDK-provided | Do not override. | SDK value only. |
 | `telemetry.sdk.name` | SDK-required | SDK-provided | Do not override. | SDK value only. |
 | `telemetry.sdk.version` | SDK-required | SDK-provided | Do not override. | SDK value only. |
-| `cartulary.deployment.profile` | Required | Deployment profile | Always export. | Low-cardinality custom attribute. |
-| `cartulary.profile.claims` | Optional | Claimed profile IDs known at startup | Export as sorted comma-delimited profile tokens only when known at startup. | MUST NOT include incident, user, or customer identifiers. |
+| `cartulary.deployment.profile` | Required | Deployment profile | Always export. | Low-cardinality deployment profile token only. |
+| `cartulary.profile.claims` | Required | Sorted claimed profile IDs | Always export. | Profile identifiers only; no incident data. |
 
-**OTEL-REQ-028**
-`service.instance.id` MUST NOT be a hostname, pod name, container ID, IP address, MAC address, user identifier, incident identifier, customer name, filesystem path, object-store key, deployment root, or secret reference. The default generated value MUST be a canonical lowercase UUID v4 generated exactly once during telemetry bootstrap.
+**OTEL-REQ-032**
+No other resource attribute may be emitted in this revision unless an SDK requires a `telemetry.sdk.*` attribute by specification. If an SDK injects a default resource attribute outside this registry, bootstrap MUST remove it, overwrite the provider resource with the closed registry, or fail startup before provider activation.
 
-**OTEL-REQ-029**
-A generated default `service.instance.id` MUST remain stable for the lifetime of the application process. A new application process start with no configured `telemetry.resource.service_instance_id` MUST generate a different value with high probability. Conformance tests MAY assert difference across two controlled process starts.
+### 7.2 Resource detector and environment merge policy
 
-**OTEL-REQ-030**
-`service.criticality` MUST NOT be emitted in the current profile because it is Development-status and is not required to answer any operational question in §2.
+**OTEL-REQ-033**
+Cartulary MUST NOT enable host, process, OS, container, Kubernetes, cloud, FaaS, browser, device, telemetry entity, environment-variable, or vendor-specific resource detectors in the current profile.
 
-## 8. Attribute governance
+**OTEL-REQ-034**
+The resource MUST be constructed from the closed Cartulary registry in §7.1 only. `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_SERVICE_NAME`, `OTEL_ENTITIES`, SDK-provided process facts, detector-provided host facts, detector-provided container facts, and detector-provided cloud facts MUST NOT be merged into the effective resource.
+
+**OTEL-REQ-035**
+The following resource attributes are explicitly not adopted and MUST NOT be emitted:
+
+| Attribute family | Reason |
+| --- | --- |
+| `host.*` | Host identity and topology disclosure. |
+| `os.*` | Host and runtime environment disclosure. |
+| `process.*` | Process ID, executable path, command line, owner, and runtime disclosure. |
+| `container.*` | Container identity disclosure. |
+| `k8s.*` | Cluster, namespace, pod, workload, and node disclosure. |
+| `cloud.*` | Cloud provider, account, region, resource, and instance disclosure. |
+| `faas.*` | Deployment topology disclosure. |
+| `service.criticality` | Development-status semantic convention and potential incident-severity confusion. |
+| `enduser.*` | User identity is forbidden in telemetry. |
+| `session.*` | Session identity is forbidden in telemetry. |
+| `telemetry.distro.*` | Not adopted unless a future revision defines distribution identity. |
+
+## 8. Attribute governance, forbidden values, and value shapes
 
 ### 8.1 Attribute classes
 
-**OTEL-REQ-031**
-Telemetry attributes MUST follow this governance table:
+**OTEL-REQ-036**
+Every telemetry attribute MUST belong to exactly one class in this table:
 
-| Class | Required behavior |
+| Attribute class | Rule |
 | --- | --- |
-| Standard OTel stable attributes | MAY be emitted only when allowed by the active signal-specific registry. |
-| Standard OTel development attributes | MUST NOT be emitted unless a named opt-in key exists in this NLSpec. No such opt-in key exists in this revision. |
-| Standard OTel privacy-conflicting attributes | MUST NOT be emitted even if OTel defines them. |
-| Cartulary custom attributes | MUST use `cartulary.` and MUST appear in §8.4. |
+| OTel stable standard attributes | MAY be emitted only when allowed by the signal-specific allowlist and privacy rules. |
+| OTel development or experimental attributes | MUST NOT be emitted unless a future revision adopts them. |
+| OTel deprecated attributes | MUST NOT be emitted unless a migration profile requires them. |
+| OTel privacy-conflicting attributes | MUST NOT be emitted even if OTel defines them. |
+| Cartulary custom attributes | MUST use `cartulary.` and MUST appear in §8.5. |
 | Reserved namespace attributes | MUST NOT be created by Cartulary as custom attributes. |
 | Unknown custom attributes | MUST NOT be emitted. |
 | High-cardinality values | MUST NOT be emitted unless the exact attribute and bound are listed. |
 
-### 8.2 Reserved namespaces
+### 8.2 Attribute value-shape policy
 
-**OTEL-REQ-032**
+OpenTelemetry permits broad `AnyValue` shapes, including primitive values, arrays, byte arrays, maps, and empty values. Cartulary uses a narrower profile because telemetry values must be privacy-safe before SDK processor or exporter handoff.[^12]
+
+**OTEL-REQ-037**
+Cartulary telemetry attributes MUST use only the value shapes in this table:
+
+| Value shape | Default rule | Exception rule |
+| --- | --- | --- |
+| string scalar | Allowed only when the owning attribute registry row permits string. | String values must satisfy the registry cardinality and forbidden-value rules. |
+| integer scalar | Allowed only when the owning attribute registry row permits integer. | Numeric values must not encode identifiers, hashes, timestamps, row positions, byte offsets into evidence, or object sizes unless the metric or span registry explicitly owns that measurement. |
+| floating-point scalar | Allowed only for metric measurements and histogram values unless a registry row permits otherwise. | NaN and Infinity MUST NOT be emitted. |
+| boolean scalar | Allowed only when the owning registry row permits boolean. | Must not encode hidden presence of forbidden content unless the registry names the meaning. |
+| null | Means omission by default. | May be emitted only when the owning registry row explicitly says emitted null is observable. No current-profile registry row permits emitted null attributes. |
+| homogeneous array | Forbidden by default. | May be emitted only by a future revision with exact item type, maximum length, ordering, and forbidden-value tests. |
+| byte array | Forbidden. | No current-profile exception. |
+| map or nested object | Forbidden. | No current-profile exception. |
+| arbitrary JSON | Forbidden. | No current-profile exception. |
+
+**OTEL-REQ-038**
+SDK attribute count limits, attribute value length limits, log body truncation, exporter queue overflow, batch dropping, or Collector/backend filtering MUST NOT be treated as privacy enforcement. Redaction and omission MUST occur before recording.
+
+### 8.3 Reserved namespaces
+
+**OTEL-REQ-039**
 Cartulary custom attributes MUST NOT use any prefix in this table:
 
 | Prefix | Rule |
@@ -358,6 +464,9 @@ Cartulary custom attributes MUST NOT use any prefix in this table:
 | `telemetry.` | Reserved for OTel SDK resource attributes. |
 | `http.` | Reserved for OTel HTTP semantic conventions. |
 | `url.` | Reserved for OTel URL semantic conventions. |
+| `network.` | Reserved for OTel network semantic conventions. |
+| `server.` | Reserved for OTel server semantic conventions. |
+| `client.` | Reserved for OTel client semantic conventions. |
 | `db.` | Reserved for OTel DB semantic conventions. |
 | `aws.` | Reserved for OTel or AWS semantic conventions. |
 | `exception.` | Reserved for OTel exception semantic conventions. |
@@ -365,10 +474,10 @@ Cartulary custom attributes MUST NOT use any prefix in this table:
 | `user.` | Not used because user identity is forbidden in telemetry. |
 | `session.` | Not used because session identity is forbidden in telemetry. |
 
-### 8.3 Forbidden telemetry values and attributes
+### 8.4 Forbidden telemetry values and attributes
 
-**OTEL-REQ-033**
-The forbidden value family is closed by this table. The implementation MUST prevent these values from reaching spans, metrics, logs, events, exception fields, resource attributes, exporter headers, exporter artifacts, self-diagnostics, retained test artifacts, and any app-mediated future telemetry route.
+**OTEL-REQ-040**
+The forbidden value family is closed by this table. The implementation MUST prevent these values from reaching spans, metrics, logs, events, exception fields, resource attributes, exporter headers, exporter artifacts, self-diagnostics, retained telemetry artifacts, and any app-mediated future telemetry route.
 
 | Family | Forbidden examples |
 | --- | --- |
@@ -382,7 +491,7 @@ The forbidden value family is closed by this table. The implementation MUST prev
 | Exception detail | `exception.message`, `exception.stacktrace`, panic string, wrapped error detail when it includes any forbidden value. |
 | Baggage and trace-state detail | Inbound `baggage` values, inbound `tracestate` values, vendor trace-state values. |
 
-**OTEL-REQ-034**
+**OTEL-REQ-041**
 When a value belongs to a forbidden family, the implementation MUST do one of the following before recording telemetry:
 
 | Treatment | Required behavior |
@@ -391,23 +500,9 @@ When a value belongs to a forbidden family, the implementation MUST do one of th
 | Replace with closed class | Emit only a closed low-cardinality class such as `validation_error`, `permission_denied`, `timeout`, `queue_full`, or `redaction_rejected`. |
 | Drop item | Drop the telemetry item when safe omission cannot be proven. |
 
-### 8.3.1 Redaction-before-recording invariant
+### 8.5 Cartulary custom attribute registry
 
-**OTEL-REQ-035**
-Forbidden-value detection, redaction, omission, replacement, or rejection MUST occur before any telemetry item reaches an OTel span attribute setter, metric measurement, log bridge mapper, SDK processor, exporter queue, retained telemetry artifact, or self-diagnostic sink.
-
-**OTEL-REQ-036**
-A Collector, backend, exporter, vendor pipeline, or external scrubber MUST NOT be relied on to satisfy Cartulary privacy conformance. Cartulary telemetry must already be conformant before SDK processor or exporter handoff.
-
-**OTEL-REQ-037**
-When redaction cannot prove an item safe, the implementation MUST drop the telemetry item and increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='redaction_rejected'` when doing so does not recurse.
-
-**OTEL-REQ-038**
-The forbidden-value test corpus MUST include at least one representative value from every forbidden family in OTEL-REQ-033 and MUST exercise traces, metrics, logs, self-diagnostics, and retained telemetry artifacts.
-
-### 8.4 Cartulary custom attribute registry
-
-**OTEL-REQ-039**
+**OTEL-REQ-042**
 The current profile permits only the custom attributes in this registry:
 
 | Attribute | Type | Allowed values or source | Cardinality bound | Allowed signals |
@@ -430,662 +525,643 @@ The current profile permits only the custom attributes in this registry:
 | `cartulary.drop_reason` | string | `queue_full`, `redaction_rejected`, `exporter_permanent_discard`, `shutdown_timeout`, `recursion_guard`, `metric_overflow` | 6 | metrics, logs |
 | `cartulary.incident.hash64` | string | Optional HMAC-derived 16-character lowercase hex value | Incident count after opt-in approval | spans, metrics |
 
-**OTEL-REQ-040**
-Unknown `cartulary.*` attributes MUST NOT be emitted. Adding a new `cartulary.*` attribute is an `additive_non_breaking` change unless it changes requiredness, type, or emitted shape, in which case §4.4 decides the change class.
+**OTEL-REQ-043**
+Unknown `cartulary.*` attributes MUST NOT be emitted. Adding a new `cartulary.*` attribute is an `additive_non_breaking` change unless it changes requiredness, type, or emitted shape, in which case §4.5 decides the change class.
 
-### 8.5 Incident correlation opt-in
+### 8.6 Incident correlation opt-in
 
-**OTEL-REQ-041**
+**OTEL-REQ-044**
 The default `telemetry.attribute.incident_correlation='none'` MUST omit incident correlation attributes. In default configuration, no incident identifier, incident key, incident title, customer name, or incident-derived hash may appear in telemetry.
 
-**OTEL-REQ-042**
+**OTEL-REQ-045**
 When `telemetry.attribute.incident_correlation='hmac_64bit'`, the implementation MAY emit only `cartulary.incident.hash64`. The value MUST be the first 64 bits of `HMAC-SHA-256(secret, canonical_incident_id_bytes)`, encoded as exactly 16 lowercase hexadecimal characters. The secret value MUST be resolved server-side from `telemetry.attribute.hmac_secret_ref`, MUST NOT be exported, and MUST NOT be available to browser code.
 
-**OTEL-REQ-043**
+**OTEL-REQ-046**
 `cartulary.incident.hash64` is an operational grouping key, not a stable public incident identifier. It MUST NOT appear in product API responses, workbook rows, WebSocket payloads, evidence handles, export snapshots, benchmark manifests, or user-facing UI labels solely because telemetry correlation is enabled.
+
+### 8.7 Redaction-before-recording invariant
+
+**OTEL-REQ-047**
+Forbidden-value detection, redaction, omission, replacement, or rejection MUST occur before any telemetry item reaches an OTel span attribute setter, metric measurement, log bridge mapper, SDK processor, exporter queue, retained telemetry artifact, or self-diagnostic sink.
+
+**OTEL-REQ-048**
+A Collector, backend, exporter, vendor pipeline, or external scrubber MUST NOT be relied on to satisfy Cartulary privacy conformance. Cartulary telemetry must already be conformant before SDK processor or exporter handoff.
+
+**OTEL-REQ-049**
+When redaction cannot prove an item safe, the implementation MUST drop the telemetry item and increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='redaction_rejected'` when doing so does not recurse.
+
+**OTEL-REQ-050**
+The forbidden-value test corpus MUST include at least one representative value from every forbidden family in OTEL-REQ-040 and MUST exercise traces, metrics, logs, self-diagnostics, and retained telemetry artifacts.
 
 ## 9. Tracing contract
 
-OpenTelemetry spans carry operation name, timestamps, attributes, events, parent span identity, links to causally related spans, and SpanContext. OpenTelemetry links are the appropriate model for batch, async, or trusted-boundary relationships that do not have a single synchronous parent.[^14]
+OpenTelemetry spans carry operation name, timestamps, attributes, events, parent span identity, links to causally related spans, and SpanContext. OpenTelemetry links are the appropriate model for batch, async, or trusted-boundary relationships that do not have a single synchronous parent.[^6]
 
 ### 9.1 General span rules
 
-**OTEL-REQ-044**
+**OTEL-REQ-051**
 Span names MUST use route templates, module operations, or stable operation names. Span names MUST NOT include path IDs, incident IDs, record IDs, user-supplied strings, search text, filenames, object keys, SQL text, visible row values, saved-view IDs, job IDs, user IDs, or handle tokens.
 
-**OTEL-REQ-045**
+**OTEL-REQ-052**
 Span status and `error.type` MUST follow the signal-specific error rules. `cartulary.error_code` carries Cartulary public error-code tokens. The implementation MUST NOT overload `error.type` with Cartulary public error codes unless the value is also the low-cardinality OTel error class for that span.
 
-**OTEL-REQ-046**
+**OTEL-REQ-053**
 Exception recording MUST NOT emit `exception.message` or `exception.stacktrace` in the base telemetry profile. `exception.type` MAY be emitted only when it is a low-cardinality class name that does not include incident, user, record, object, path, SQL, or secret material.
 
-### 9.2 Required span families
+**OTEL-REQ-054**
+Span events are disabled by default for Cartulary custom spans. A future revision that permits span events MUST define the exact event names, attributes, cardinality, ordering, and forbidden-value tests.
 
-**OTEL-REQ-047**
-The implementation MUST provide the span families in this table when the corresponding operation executes and tracing is enabled:
+### 9.2 Sampler profile
 
-| Span family | Span name | SpanKind | Instrumentation scope | Parent rule | Link rule | Required standard attributes | Required Cartulary attributes | Forbidden attributes | Start predicate | End predicate | Error rule |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| HTTP server | `{http.request.method} {http.route}` when route is known; otherwise `{http.request.method}` | `SERVER` | `cartulary.httpapi` | Root; inbound remote context is ignored in this revision. | Forbidden. | `http.request.method`; `http.route` when known; `http.response.status_code` when sent; optional `url.scheme`. | `cartulary.route_family`, `cartulary.result`, optional `cartulary.error_code`. | `url.full`, `url.path`, `url.query`, concrete path-derived name, request headers, response headers, client IP attributes, server address attributes. | Request accepted by router. | Response body completion or route failure. | 4xx server responses are not errors solely because they are 4xx; 5xx sets error status unless a narrower owner rule says otherwise. |
-| Workbook query | `cartulary.workbook.query` | `INTERNAL` | `cartulary.workbook` | Current HTTP server span or job span. | Forbidden. | None. | `cartulary.view_schema_id`, `cartulary.result`, optional `cartulary.incident.hash64`. | Raw filters, search text, saved-view ID, incident ID, record ID. | Query validation begins. | Response rows serialized or query rejected. | Validation rejection uses `cartulary.result='rejected'`; runtime failure sets error status and low-cardinality `error.type`. |
-| Record mutation | `cartulary.record.mutate` | `INTERNAL` | `cartulary.workbook` | Current HTTP server span or job span. | Forbidden. | None. | `cartulary.view_schema_id`, `cartulary.record_type`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_code`, optional `cartulary.incident.hash64`. | Record ID, user ID, client transaction ID, submitted value, persisted value, conflict token. | Mutation validation begins. | Mutation commits, conflicts, rejects, fails, or is canceled. | Same-field conflict uses `cartulary.result='conflict'` and MUST NOT set OTel error status solely because conflict occurred. |
-| Projection maintenance | `cartulary.projection.maintenance` | `INTERNAL` | `cartulary.workbook` | Current mutation span, job span, or root for maintenance rebuild. | Optional when triggered by batch or replay operation. | None. | `cartulary.record_type`, `cartulary.operation`, `cartulary.result`. | Projection table names, record IDs, incident IDs. | Projection unit begins. | Projection unit completes or fails. | Runtime failure sets error status. |
-| WebSocket subscribe | `cartulary.websocket.subscribe` | `INTERNAL` | `cartulary.collaboration` | Current HTTP upgrade/request span when available; otherwise root. | Forbidden. | None. | `cartulary.result`, optional `cartulary.error_code`. | Connection ID, user ID, incident ID, record ID, field key. | Subscription authorization begins. | Subscription accepted, rejected, or closed during setup. | Auth or membership rejection uses `cartulary.result='rejected'`. |
-| WebSocket send | `cartulary.websocket.send` | `INTERNAL` | `cartulary.collaboration` | Current operation span when send is synchronous; otherwise current job span or root. | Optional when caused by async mutation fan-out. | None. | `cartulary.websocket.event_type`, `cartulary.result`. | Payload content, connection ID, user ID, incident ID, record ID, changed field values. | Event serialization begins. | Event sent, dropped, or failed. | Drop due to disconnected client is not an error unless implementation error caused the drop. |
-| Job enqueue | `cartulary.job.enqueue` | `PRODUCER` | `cartulary.jobs` | Current HTTP, mutation, or system-process span. | Forbidden. | None. | `cartulary.job_kind`, `cartulary.result`. | Job ID, incident ID, user ID, request payload. | Enqueue validation begins. | Job accepted, rejected, or fails to enqueue. | Enqueue rejection uses `cartulary.result='rejected'`; runtime failure sets error status. |
-| Job run | `cartulary.job.run` | `CONSUMER` | `cartulary.jobs` | Root. | Required when job was enqueued from a traced request or traced mutation; optional for scheduler-only maintenance. | None. | `cartulary.job_kind`, `cartulary.job_terminal_status` when terminal, `cartulary.result`, optional `cartulary.incident.hash64`. | Job ID, user ID, record ID, incident ID unless hashed opt-in applies. | Job leaves queued state. | Job reaches terminal state. | Terminal failed job sets error status only when failure is an implementation or dependency error; ordinary cancellation uses `cartulary.result='canceled'`. |
-| Object-store dependency | `cartulary.objectstore.operation` | `CLIENT` | `cartulary.objectstore` | Current HTTP, mutation, job, or evidence operation span. | Forbidden. | None. | `cartulary.module='objectstore'`, `cartulary.operation`, `cartulary.result`. | `aws.s3.*`, bucket, key, upload ID, copy source, part number, filename, hash, evidence handle, storage ref. | Object operation begins. | Object operation completes or fails. | Dependency failure sets error status and low-cardinality `error.type`. |
-| Postgres dependency | `postgresql {db.operation.name}` when operation name is known; otherwise `postgresql` | `CLIENT` | `cartulary.postgres` | Current HTTP, mutation, job, or projection span. | Forbidden. | `db.system.name='postgresql'`; `db.operation.name` when available; optional `db.query.summary` only from fixed low-cardinality labels. | `cartulary.module='postgres'`, `cartulary.result`. | `db.query.text`, `db.query.parameter.*`, SQL fragment, bind value, table name, projection name, saved-view query JSON, search text. | Database operation begins. | Database operation completes or fails. | Dependency failure sets error status and low-cardinality database error class. |
+OpenTelemetry marks `TraceIdRatioBased` as deprecated in favor of `ProbabilitySampler`, while `ProbabilitySampler` is currently Development-status and TraceIdRatioBased compatibility has algorithm warnings.[^13]
 
-**OTEL-REQ-048**
-The implementation MUST NOT emit `cartulary.postgres.operation` as the only database dependency span family. Postgres dependency telemetry MUST use the database-client contract in §9.5. Cartulary internal workbook spans MAY remain parents of those dependency spans.
+**OTEL-REQ-055**
+The current profile MUST use this sampler-profile table:
 
-### 9.3 HTTP server span details
+| `sample_ratio` | `sampler_profile='auto'` result | Required SDK construction | Notes |
+| --- | --- | --- | --- |
+| `0.0` | `cartulary.sampler.always_off.v1` | AlwaysOff or equivalent | Drops root spans while preserving safe no-op behavior. |
+| `1.0` | `cartulary.sampler.always_on.v1` | AlwaysOn or equivalent | Records and samples all root spans. |
+| `0.0 < ratio < 1.0` | `cartulary.sampler.traceidratio_compat.v1` | ParentBased with root TraceIdRatioBased-equivalent sampler; local-parent sampled -> AlwaysOn; local-parent not sampled -> AlwaysOff; remote parent branches unused because remote context is stripped | Bounded compatibility profile until a future revision adopts a ProbabilitySampler profile. |
 
-OpenTelemetry HTTP semantic conventions are stable, require low-cardinality route templates for `http.route`, and specify that server 4xx responses do not by themselves set span error status while 5xx responses generally do.[^11]
+**OTEL-REQ-056**
+An explicit `telemetry.traces.sampler_profile` MUST be consistent with `sample_ratio`:
 
-**OTEL-REQ-049**
-HTTP server spans MUST use the Cartulary route template as `http.route` when a matched route exists. They MUST NOT use concrete URL paths, raw route parameters, query strings, incident IDs, record IDs, saved-view IDs, object IDs, handle tokens, or search text in span names.
+| Explicit profile | Valid `sample_ratio` values | Invalid condition |
+| --- | --- | --- |
+| `cartulary.sampler.always_off.v1` | exactly `0.0` | Any other ratio. |
+| `cartulary.sampler.always_on.v1` | exactly `1.0` | Any other ratio. |
+| `cartulary.sampler.traceidratio_compat.v1` | `0.0 < ratio < 1.0` | `0.0` or `1.0`. |
 
-**OTEL-REQ-050**
-An exported HTTP server span MUST never be exported with a concrete path-derived name. If the route template is not known at span creation, the implementation MUST either create the span with `{http.request.method}` only and set the final name to `{http.request.method} {http.route}` before export when the route becomes known, or delay span creation until route selection is known. The implementation MUST NOT emit an intermediate span event, diagnostic, metric attribute, or log field containing the concrete path as a fallback.
+**OTEL-REQ-057**
+`ProbabilitySampler`, `ComposableProbability`, `CompositeSampler`, `JaegerRemoteSampler`, adaptive sampling, remote sampling, sampler plugin providers, and sampler environment variables are not adopted in this revision.
 
-**OTEL-REQ-051**
-Cartulary intentionally omits `url.path`, `url.query`, and `url.full` from HTTP server telemetry in this revision even when a generic OTel HTTP instrumentation would normally emit them. `http.route` is the only allowed path-like HTTP attribute. If no low-cardinality route template is available, `http.route` MUST be omitted rather than replaced by a URI path.
+**OTEL-REQ-058**
+Inbound remote parent sampling decisions MUST NOT control Cartulary root-span sampling. Because `telemetry.traces.accept_remote_context=false`, inbound `traceparent`, `tracestate`, Baggage, vendor headers, or sampled flags MUST be ignored before root span creation.
 
-**OTEL-REQ-052**
-HTTP server 4xx responses MUST NOT set span error status solely because the response is 4xx. HTTP server 5xx responses MUST set span error status unless a narrower owner rule proves the status code is not an implementation or dependency error. Intentional caller cancellation MUST NOT be classified as an error solely because the request ended early.
+**OTEL-REQ-059**
+Sampling tests MUST use a fixed corpus of server-owned trace IDs. For the traceidratio compatibility profile, the same trace ID and ratio MUST produce the same allow/drop decision within the selected SDK version. Cross-language equivalence is not claimed in this profile.
 
-### 9.4 HTTP standard attribute allowlist
+### 9.3 Required span families
 
-**OTEL-REQ-053**
-HTTP server spans MUST use this standard-attribute allowlist:
+**OTEL-REQ-060**
+The implementation MUST emit spans for the following families when tracing is enabled and the selected sampler records the span:
 
-| Attribute | Current-profile behavior |
+| Span family | Span name format | Required attributes | Forbidden attributes |
+| --- | --- | --- | --- |
+| HTTP server | `<HTTP_METHOD> <route_template>` | Stable OTel HTTP allowlist from §9.4 plus `cartulary.route_family`, `cartulary.result`. | Raw URL path, raw query, headers, request body, response body, user/session/incident IDs. |
+| Workbook query | `cartulary.workbook.query` | `cartulary.view_schema_id`, `cartulary.operation='query'`, `cartulary.result`. | Saved-view ID, filters, search text, row values, projection table name. |
+| Workbook mutation | `cartulary.workbook.mutation` | `cartulary.view_schema_id`, `cartulary.record_type`, `cartulary.operation`, `cartulary.result`. | Record ID, row version, client transaction ID, field values. |
+| Projection maintenance | `cartulary.workbook.projection` | `cartulary.view_schema_id`, `cartulary.operation`, `cartulary.result`. | Projection table name, SQL, row IDs. |
+| WebSocket lifecycle | `cartulary.collaboration.websocket` | `cartulary.operation`, `cartulary.result`. | Connection ID, user ID, incident ID, payload content. |
+| WebSocket event send | `cartulary.collaboration.event_send` | `cartulary.websocket.event_type`, `cartulary.result`. | Event payload, record ID, user ID, connection ID. |
+| Job enqueue | `cartulary.jobs.enqueue` | `cartulary.job_kind`, `cartulary.operation='enqueue'`, `cartulary.result`. | Job ID, incident ID, request body. |
+| Job run | `cartulary.jobs.run` | `cartulary.job_kind`, `cartulary.job_terminal_status`, `cartulary.result`. | Job ID, artifact path, incident ID, evidence ID. |
+| Postgres dependency | `cartulary.postgres.operation` | `db.system.name='postgresql'`, `cartulary.operation`, `cartulary.result`. | SQL text, query summary, bind values, table names, database name, server address, port. |
+| Object-store dependency | `cartulary.objectstore.operation` | `cartulary.operation`, `cartulary.result`. | Bucket, key, filename, object hash, upload ID, copy source, storage ref. |
+
+### 9.4 HTTP server standard attribute allowlist
+
+**OTEL-REQ-061**
+HTTP server spans MAY emit only the following standard attributes:
+
+| Attribute | Rule |
 | --- | --- |
-| `http.request.method` | Required. Unknown methods map to `_OTHER` according to OTel rules. |
-| `http.route` | Required when a low-cardinality matched route template is available. Omitted when unavailable. |
-| `http.response.status_code` | Required when a response status was sent. |
-| `url.scheme` | Optional if known without exposing untrusted headers. |
-| `url.path` | Forbidden. |
-| `url.query` | Forbidden. |
-| `url.full` | Forbidden. |
-| `http.request.header.*` | Forbidden. |
-| `http.response.header.*` | Forbidden. |
-| `client.address`, `network.peer.address`, `network.peer.port` | Forbidden. |
-| `server.address`, `server.port` | Forbidden in HTTP server spans in this revision. |
-| `error.type` | Allowed only as a low-cardinality OTel error class under §9.1 and §9.3. |
+| `http.request.method` | HTTP method token only. Unknown methods MUST be mapped according to adopted stable OTel HTTP rules without raw user values. |
+| `http.response.status_code` | Integer status code. |
+| `http.route` | Route template only, never concrete path. |
+| `url.scheme` | `http` or `https` only when derived from trusted server config. |
+| `network.protocol.name` | `http` when available. |
+| `network.protocol.version` | Protocol version only. |
+| `error.type` | Low-cardinality OTel-compatible error class only. |
+
+**OTEL-REQ-062**
+HTTP telemetry MUST NOT emit `url.full`, `url.path`, `url.query`, `user_agent.original`, `client.address`, `server.address`, `server.port`, `http.request.header.*`, `http.response.header.*`, cookies, authorization headers, or route parameters.
 
 ### 9.5 Database span details
 
-OpenTelemetry database semantic conventions are stable and define database spans, `db.query.text`, `db.query.summary`, `db.query.parameter.*`, and the well-known `db.system.name='postgresql'` value. Cartulary adopts only a privacy-bounded subset.[^12]
+**OTEL-REQ-063**
+Postgres spans MAY emit `db.system.name='postgresql'`. They MUST NOT emit `db.query.text`, `db.query.summary`, `db.response.status_code`, `db.namespace`, `db.collection.name`, SQL statement text, SQL parameters, table names, projection table names, index names, database address, database port, or connection string details.
 
-**OTEL-REQ-054**
-Postgres dependency telemetry MUST NOT emit raw SQL, sanitized SQL, parameterized SQL text, bind values, saved-view query JSON, filter payloads, source headers, table names, projection table names, index names, schema names, or user-authored search text. `db.query.summary` MAY be emitted only when generated from a fixed low-cardinality operation label, not from SQL text.
+**OTEL-REQ-064**
+Database errors MUST be classified into `cartulary.error_class` using a closed implementation registry. The current registry is:
 
-**OTEL-REQ-055**
-SQL commenter, database trace-context comments, or equivalent database-context propagation MUST be disabled in the current revision and MUST NOT be enabled by OTel environment variables.
-
-**OTEL-REQ-056**
-Postgres spans MUST use this standard-attribute allowlist:
-
-| Attribute | Required current-profile behavior |
+| Class | Meaning |
 | --- | --- |
-| `db.system.name` | Required with exact value `postgresql`. |
-| `db.operation.name` | Allowed only from a closed low-cardinality operation vocabulary defined by the signal registry. |
-| `db.query.summary` | Optional; allowed only from fixed low-cardinality labels that are not derived from SQL text, table names, projection names, filter values, or saved-view query JSON. |
-| `db.query.text` | Forbidden. |
-| `db.query.parameter.*` | Forbidden. |
-| `db.namespace` | Omitted in current profile unless a future revision privacy-reviews it. |
-| `db.collection.name` | Omitted in current profile. |
-| `server.address` | Omitted in current profile. |
-| `server.port` | Omitted in current profile. |
-| `network.peer.address`, `network.peer.port` | Omitted in current profile. |
-| Any table, projection, index, schema, or query-family name that identifies Cartulary storage realization | Forbidden. |
+| `dependency_unavailable` | Postgres unavailable or connection acquisition failed. |
+| `timeout` | Operation exceeded Cartulary timeout. |
+| `serialization_conflict` | Serializable or optimistic-concurrency conflict. |
+| `constraint_violation` | Expected data-integrity constraint failure after redaction. |
+| `internal_error` | Other safe non-detail class. |
 
 ### 9.6 Object-store non-adoption rule
 
-OpenTelemetry S3 semantic conventions are Development-status and include object-identifying attributes such as bucket, key, copy source, part number, and upload ID. Cartulary does not adopt those conventions in the base telemetry profile.[^13]
-
-**OTEL-REQ-057**
-Cartulary object-store telemetry MUST be a Cartulary dependency span and metric family over the object-storage abstraction. It MUST NOT be an AWS SDK span and MUST NOT be an S3 semantic-convention span, even when the configured object store is S3-compatible.
-
-**OTEL-REQ-058**
-Object-store operation telemetry MAY expose only the following values:
-
-| Value family | Allowed members |
-| --- | --- |
-| Operation identity | `cartulary.module='objectstore'`, `cartulary.operation`. |
-| Result identity | `cartulary.result`, optional low-cardinality `cartulary.error_class`. |
-| Measurements | Duration metric, byte-count metric when payload size is known. |
-
-**OTEL-REQ-059**
-Object-store operation telemetry MUST NOT emit `aws.s3.*`, bucket, key, upload ID, copy source, part number, filename, blob hash, evidence handle, preview handle, download handle, object-blob ID, evidence-record ID, storage ref, evidence title, object-store endpoint, or object-store credential material.
+**OTEL-REQ-065**
+Cartulary MUST NOT adopt S3 semantic conventions in the current profile because they expose object-store identity and are Development-status in the observed semantic conventions. Object-store spans and metrics MUST use only Cartulary custom attributes listed in §8.5 plus safe numeric measurements such as duration and byte count.
 
 ### 9.7 Trace causality and links
 
-**OTEL-REQ-060**
-Trace topology MUST follow this table:
+**OTEL-REQ-066**
+Span links MAY be emitted only for causal relationships that cross an async or batch boundary and do not expose product identifiers. Link attributes are forbidden in this revision. Linked SpanContexts MUST be server-owned contexts generated inside the same process or trusted deployment boundary.
 
-| Scenario | Required trace topology |
-| --- | --- |
-| HTTP request starts and completes synchronous workbook work | Child spans under the HTTP server span. |
-| HTTP request enqueues a background job | `cartulary.job.enqueue` is a child of the request or mutation span; `cartulary.job.run` is a root `CONSUMER` span linked to the enqueue span context when a linkable context exists. |
-| Background job starts from scheduler maintenance without a causal request | Job run span is a root span with only allowed system-process attribution attributes. |
-| WebSocket fan-out caused by a mutation | Do not create false synchronous parentage from the original HTTP mutation to every pushed event. Use links or compact send spans only when causality matters. |
-| Batch or replay operation processes multiple causal inputs | Use zero or more span links rather than a false single parent. |
-
-**OTEL-REQ-061**
-When an HTTP request or mutation enqueues a job and the job later executes asynchronously, `cartulary.job.run` MUST be a root `CONSUMER` span. It MUST include a link to the enqueue span context when the enqueue span was sampled or otherwise linkable. The link MUST be added at job-run span creation. The job-run span MUST NOT be parented under the original HTTP span after the request has returned.
-
-**OTEL-REQ-062**
-Batch or replay operations with multiple causal inputs MUST use zero or more links and MUST NOT invent a single parent solely for implementation convenience.
+**OTEL-REQ-067**
+The implementation MUST NOT use links to encode incident IDs, job IDs, record IDs, evidence IDs, user IDs, request bodies, or queue item IDs.
 
 ### 9.8 Inbound trace context and Baggage
 
-OpenTelemetry Baggage is intended to propagate observability key-value pairs and can be consumed as attributes or context for metrics, logs, and traces. Cartulary does not transfer Baggage into the base profile.[^14]
+**OTEL-REQ-068**
+Inbound `traceparent`, `tracestate`, Baggage, vendor trace headers, SQL commenter propagation, or other remote context carriers MUST NOT be extracted into active Cartulary telemetry context in this revision.
 
-**OTEL-REQ-063**
-Inbound remote trace context is not trusted in this revision. Browser requests and API requests MUST start server-owned root traces. No configuration, environment variable, request header, proxy header, or browser state may change that behavior in this revision.
-
-**OTEL-REQ-064**
-Incoming `traceparent`, `tracestate`, and `baggage` headers MUST NOT become Cartulary telemetry identity, incident correlation, sampling input, export-routing input, span attributes, metric attributes, log attributes, log bodies, self-diagnostics, or retained telemetry artifacts.
-
-**OTEL-REQ-065**
-Incoming `traceparent` and `tracestate` MAY be observed only enough to ignore them safely. They MUST NOT establish parentage in the current profile. Incoming `baggage` MUST be discarded before any instrumentation scope can consume it.
+**OTEL-REQ-069**
+Outbound propagation from Cartulary to Postgres, object storage, browser clients, or other dependencies MUST NOT inject trace context, Baggage, or SQL commenter fields unless a future revision defines an explicit trusted-boundary propagation profile.
 
 ## 10. Metrics contract
 
-OpenTelemetry metric instruments are identified by name, kind, description, and unit. Views allow the SDK to filter attributes and configure aggregation. OpenTelemetry metrics otherwise place minimal constraints on data and generally avoid validation or sanitization; Cartulary intentionally applies stricter pre-export privacy and cardinality controls.[^15]
+OpenTelemetry metric instruments have names, kinds, units, and descriptions. Instrument names are case-insensitive ASCII strings with syntax and length limits, and instrument units are case-sensitive ASCII strings with a maximum length of 63 characters.[^14]
 
-### 10.1 Metric naming rules
+### 10.1 Metric identity rules
 
-**OTEL-REQ-066**
-All custom metric names MUST start with `cartulary.` and MUST satisfy the following rules:
+**OTEL-REQ-070**
+Every metric instrument MUST be declared in §10.4 before use. The declaration owns name, instrument kind, unit, description, allowed attributes, view filtering, aggregation, and temporality.
 
-| Rule | Required behavior |
-| --- | --- |
-| Character grammar | Lowercase dotted names using ASCII letters, digits, and `_` inside name components. |
-| Unit handling | Metric names MUST NOT include unit suffixes when the unit metadata carries the unit. |
-| Duration | Duration histograms MUST end with `.duration` and use unit `s`. |
-| Count units | Curly-brace count units MUST use singular quantity annotations such as `{event}`, `{job}`, `{item}`, `{connection}`, `{row}`, or `{conflict}`. |
-| Active counts | Active-count metric names MUST use singular object names with `.active`. |
-| No `_total` suffix | Counter names MUST NOT use `_total`. |
-| Namespace collision | Custom metric names MUST NOT use reserved standard namespaces outside `cartulary.`. |
-| Stability | Runtime values MUST NOT appear in metric names. |
+**OTEL-REQ-071**
+Metric names MUST be lowercase ASCII, MUST satisfy OpenTelemetry instrument name syntax, MUST be no more than 255 characters, and MUST NOT collide after ASCII case-folding. A case-insensitive duplicate metric name is invalid even if the SDK would accept both.
+
+**OTEL-REQ-072**
+Metric units MUST be ASCII strings with maximum length 63. Duration metrics MUST use `s`. Byte metrics MUST use `By`. Count-like metrics MUST use `{request}`, `{operation}`, `{event}`, `{item}`, `{connection}`, `{job}`, or another exact unit declared in the registry.
+
+**OTEL-REQ-073**
+Metric descriptions are diagnostic text only. A description change is not a shape change unless it changes implementation behavior, but descriptions MUST NOT contain incident, deployment-host, or operator-specific values.
 
 ### 10.2 Histogram defaults
 
-**OTEL-REQ-067**
-The implementation MUST use these explicit histogram bucket boundaries unless a metric registry row declares a different closed bucket set:
-
-| Histogram family | Unit | Explicit bucket boundaries |
-| --- | --- | --- |
-| Duration | `s` | `0.005`, `0.010`, `0.025`, `0.050`, `0.100`, `0.250`, `0.500`, `1`, `2.5`, `5`, `10` |
-| Bytes | `By` | `1024`, `4096`, `16384`, `65536`, `262144`, `1048576`, `4194304`, `16777216`, `67108864`, `268435456` |
-| Rows | `{row}` | `1`, `10`, `50`, `100`, `500`, `1000`, `5000`, `10000`, `20000` |
-
-### 10.3 Required custom metric registry
-
-**OTEL-REQ-068**
-The implementation MUST emit the custom metrics in this table when the corresponding operation occurs and metrics are enabled:
-
-| Metric name | Instrument kind | Unit | Description | Value type | Aggregation | Temporality | Allowed attributes | Cardinality bound | Reset behavior | Lifecycle behavior | Required bucket boundaries |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `cartulary.workbook.query.duration` | Histogram | `s` | Duration of one workbook view query. | floating point | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.view_schema_id`, `cartulary.result` | `view_schema_id count * 7 results` | Process-local series reset on process restart. | Record one measurement per workbook query attempt. | Duration defaults. |
-| `cartulary.workbook.query.row_count` | Histogram | `{row}` | Rows serialized in one workbook query response. | integer | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.view_schema_id` | `view_schema_id count` | Process-local series reset on process restart. | Record one measurement per successful query response. | Rows defaults. |
-| `cartulary.record.mutation.duration` | Histogram | `s` | Duration of one row-create, patch, delete, restore, rollback, merge, attach, or conflict-resolution attempt. | floating point | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.view_schema_id`, `cartulary.record_type`, `cartulary.operation`, `cartulary.result` | `view_schema_id count * record_type count * operation count * 7 results` | Process-local series reset on process restart. | Record one measurement per mutation attempt. | Duration defaults. |
-| `cartulary.record.mutation.conflict` | Counter | `{conflict}` | Same-field conflict outcomes returned to clients. | integer | Sum | Cumulative | `cartulary.view_schema_id`, `cartulary.record_type` | `view_schema_id count * record_type count` | Counter restarts at zero on process restart. | Increment once per same-field conflict response. | N/A. |
-| `cartulary.projection.maintenance.duration` | Histogram | `s` | Duration of one projection-maintenance unit. | floating point | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.record_type`, `cartulary.result` | `record_type count * 7 results` | Process-local series reset on process restart. | Record one measurement per projection-maintenance unit. | Duration defaults. |
-| `cartulary.websocket.connection.active` | ObservableGauge | `{connection}` | Current accepted WebSocket incident subscriptions in the process. | integer | Last value | Gauge observation | none | 1 series | Observed as `0` after process start before accepted connections. | Callback observes current active accepted subscription set. Abnormal close removal MUST be reflected by the next observation. | N/A. |
-| `cartulary.websocket.event.sent` | Counter | `{event}` | Attempted server-to-client WebSocket events. | integer | Sum | Cumulative | `cartulary.websocket.event_type`, `cartulary.result` | `event_type count * 7 results` | Counter restarts at zero on process restart. | Increment once per attempted event send. | N/A. |
-| `cartulary.job.active` | ObservableGauge | `{job}` | Current active running jobs in the process. | integer | Last value | Gauge observation | `cartulary.job_kind` | `job_kind count` | Observed as `0` after process start before running jobs. | Callback observes current running-job registry. Terminal completion and cancellation MUST be reflected by the next observation. | N/A. |
-| `cartulary.job.duration` | Histogram | `s` | Duration of one terminal job run. | floating point | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.job_kind`, `cartulary.job_terminal_status` | `job_kind count * 4 terminal statuses` | Process-local series reset on process restart. | Record one measurement per terminal job. | Duration defaults. |
-| `cartulary.objectstore.operation.duration` | Histogram | `s` | Duration of one object-store operation. | floating point | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.operation`, `cartulary.result` | `operation count * 7 results` | Process-local series reset on process restart. | Record one measurement per object-store operation. | Duration defaults. |
-| `cartulary.objectstore.operation.bytes` | Histogram | `By` | Payload bytes for upload, download, preview-source fetch, or generated-output store operation. | integer | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.operation` | `operation count` | Process-local series reset on process restart. | Record one measurement when payload byte count is known. | Bytes defaults. |
-| `cartulary.postgres.operation.duration` | Histogram | `s` | Duration of one fixed-label Postgres operation or transaction. | floating point | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.result` | `7 results` | Process-local series reset on process restart. | Record one measurement per named database operation or transaction. | Duration defaults. |
-| `cartulary.telemetry.export.duration` | Histogram | `s` | Duration of one telemetry export attempt. | floating point | Explicit bucket histogram | Cumulative unless SDK/exporter requires translation | `cartulary.signal_kind`, `cartulary.telemetry.exporter_kind`, `cartulary.result` | `3 signal kinds * 3 exporter kinds * 7 results` | Process-local series reset on process restart. | Record one measurement per export attempt. This self-metric MUST NOT trigger recursive export telemetry. | Duration defaults. |
-| `cartulary.telemetry.item.dropped` | Counter | `{item}` | Telemetry items dropped locally before successful export. | integer | Sum | Cumulative | `cartulary.signal_kind`, `cartulary.drop_reason` | `3 signal kinds * 6 drop reasons` | Counter restarts at zero on process restart. | Increment once per item dropped for queue overflow, redaction rejection, exporter permanent discard, shutdown timeout, metric overflow, or recursion guard. | N/A. |
-
-### 10.4 Metric view and attribute-filter contract
-
-**OTEL-REQ-069**
-Every emitted metric, including standard OTel metrics, MUST have an explicit View or equivalent implementation-level filter. The View/filter MUST allow only attributes named in the owning metric registry row. The View/filter MUST reject, drop, or never construct all non-allowlisted attributes before export.
-
-**OTEL-REQ-070**
-Standard metrics MUST follow this table:
-
-| Metric source | Current-profile requirement |
-| --- | --- |
-| Required Cartulary custom metrics | Emit only registry-listed attributes. |
-| Standard HTTP metrics | MAY emit only if filtered to allowed stable low-cardinality attributes and no URL path, query, header, client address, server address, incident, user, record, session, or handle values. |
-| Standard database metrics | MAY emit only if filtered to allowed stable low-cardinality attributes and no SQL, parameter, table, projection, namespace, server address, or storage-realization values. |
-| Runtime or SDK metrics | MAY emit only if resource and metric attributes pass §8 and no high-cardinality process, host, path, incident, user, storage, thread, runtime root, or object-store identifiers appear. |
-| Unknown metric instruments | Disabled or dropped. |
-
-**OTEL-REQ-071**
-A standard metric with attributes that cannot be filtered safely MUST be disabled. A metric producer that cannot prove safe attribute filtering MUST NOT be enabled in the current profile.
-
-### 10.5 SDK metric cardinality overflow
-
-OpenTelemetry SDK cardinality limits can emit an `otel.metric.overflow=true` synthetic aggregation when unique attribute sets exceed the configured cardinality limit.[^15]
-
-**OTEL-REQ-072**
-The implementation MUST configure metric attributes, Views, and cardinality limits so the conformance corpus emits no `otel.metric.overflow` attribute.
-
-**OTEL-REQ-073**
-`otel.metric.overflow` is not a Cartulary custom attribute and MUST NOT be treated as a permitted application metric attribute in the current profile. If an SDK nevertheless emits an overflow point in the conformance corpus, conformance fails because it proves the metric registry or View filters are insufficient.
-
-### 10.6 Exemplar policy
-
-OpenTelemetry exemplars can carry trace and span linkage plus filtered measurement attributes, which makes them a possible privacy side channel in Cartulary unless separately specified.[^15]
-
 **OTEL-REQ-074**
-Metric exemplars are disabled in the current profile. `telemetry.metrics.exemplars.enabled=true` MUST fail configuration validation.
+Duration histogram metrics MUST use explicit bucket boundaries in seconds unless a metric registry row overrides them. The default duration boundaries are:
+
+| Bucket sequence |
+| --- |
+| `0.005`, `0.010`, `0.025`, `0.050`, `0.100`, `0.250`, `0.500`, `1.000`, `2.500`, `5.000`, `10.000`, `30.000` |
 
 **OTEL-REQ-075**
-A future revision that enables exemplars MUST apply the same forbidden-value, attribute allowlist, cardinality, and trace/span-correlation restrictions as ordinary metric points. Exemplar trace/span linkage MUST NOT become a backdoor for incident, user, evidence, record, session, connection, job, or handle identity.
+Byte histogram metrics MUST use explicit bucket boundaries in bytes unless a metric registry row overrides them. The default byte boundaries are:
+
+| Bucket sequence |
+| --- |
+| `1024`, `4096`, `16384`, `65536`, `262144`, `1048576`, `4194304`, `16777216`, `67108864`, `268435456` |
+
+### 10.3 Temporality and aggregation profile
+
+OpenTelemetry MetricReader selection controls aggregation temporality, and temporality affects whether successive collections emit cumulative or delta data points.[^15]
+
+**OTEL-REQ-076**
+The current profile MUST use `cartulary.metrics.temporality.cumulative.v1`:
+
+| Instrument kind | Aggregation temporality | Aggregation rule |
+| --- | --- | --- |
+| Counter | Cumulative | Monotonic sum. |
+| UpDownCounter | Cumulative | Non-monotonic sum. |
+| Histogram | Cumulative | Explicit bucket histogram unless registry row overrides. |
+| ObservableGauge | Cumulative-equivalent current observation | Last value for each collection. |
+
+**OTEL-REQ-077**
+A change from cumulative to delta temporality, a change to histogram aggregation, a change to bucket boundaries, or a change from sync to async instrument kind is a `breaking_shape_change` unless OpenTelemetry and Cartulary registry rules both classify it as equivalent for the specific metric.
+
+### 10.4 Required custom metric registry
+
+**OTEL-REQ-078**
+When metrics are enabled, the implementation MUST emit only the metric instruments in this registry:
+
+| Metric name | Instrument kind | Unit | Description | Allowed attributes |
+| --- | --- | --- | --- | --- |
+| `cartulary.http.server.request.duration` | Histogram | `s` | HTTP server request duration. | `http.request.method`, `http.response.status_code`, `http.route`, `cartulary.route_family`, `cartulary.result`, optional `cartulary.error_code`. |
+| `cartulary.workbook.query.duration` | Histogram | `s` | Workbook query duration. | `cartulary.view_schema_id`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_code`. |
+| `cartulary.workbook.mutation.duration` | Histogram | `s` | Workbook mutation duration. | `cartulary.view_schema_id`, `cartulary.record_type`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_code`. |
+| `cartulary.workbook.rows.returned` | Histogram | `{row}` | Rows returned by a workbook query. | `cartulary.view_schema_id`, `cartulary.result`. |
+| `cartulary.collaboration.connections.active` | ObservableGauge | `{connection}` | Active accepted WebSocket connections. | `cartulary.result` omitted; no per-connection labels. |
+| `cartulary.collaboration.events.sent` | Counter | `{event}` | WebSocket events sent. | `cartulary.websocket.event_type`, `cartulary.result`, optional `cartulary.drop_reason`. |
+| `cartulary.jobs.active` | ObservableGauge | `{job}` | Active background jobs by kind. | `cartulary.job_kind`. |
+| `cartulary.jobs.duration` | Histogram | `s` | Background job runtime duration. | `cartulary.job_kind`, `cartulary.job_terminal_status`, `cartulary.result`, optional `cartulary.error_code`. |
+| `cartulary.postgres.operation.duration` | Histogram | `s` | Postgres dependency operation duration. | `db.system.name`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_class`. |
+| `cartulary.objectstore.operation.duration` | Histogram | `s` | Object-store dependency operation duration. | `cartulary.operation`, `cartulary.result`, optional `cartulary.error_class`. |
+| `cartulary.objectstore.transfer.bytes` | Histogram | `By` | Safe object-store transfer size. | `cartulary.operation`, `cartulary.result`; no object labels. |
+| `cartulary.telemetry.export.failure` | Counter | `{failure}` | Telemetry export failures. | `cartulary.signal_kind`, `cartulary.telemetry.exporter_kind`, `cartulary.error_class`. |
+| `cartulary.telemetry.item.dropped` | Counter | `{item}` | Telemetry items dropped before or during export. | `cartulary.signal_kind`, `cartulary.drop_reason`. |
+| `cartulary.telemetry.queue.depth` | ObservableGauge | `{item}` | Current processor queue depth by signal. | `cartulary.signal_kind`. |
+
+**OTEL-REQ-079**
+Unknown metrics MUST NOT be emitted. Adding a metric, changing an instrument kind, changing a unit, changing allowed attributes, changing temporality, or changing aggregation MUST be classified under §4.5.
+
+### 10.5 Metric view and attribute-filter contract
+
+OpenTelemetry Views can customize aggregation and filter metric attributes, but attributes removed by View configuration may still appear on exemplars unless exemplars are disabled.[^15]
+
+**OTEL-REQ-080**
+Every metric MUST have an SDK view or equivalent implementation-owned filter that retains only the allowed attributes in §10.4. All other attributes MUST be dropped before SDK export.
+
+**OTEL-REQ-081**
+Metric attributes MUST NOT include `record_id`, `incident_id`, `job_id`, `user_id`, `session_id`, `connection_id`, object-store identifiers, DB table names, HTTP header names or values, route parameters, free-text search, or exception detail.
+
+### 10.6 SDK metric cardinality overflow
+
+OpenTelemetry SDKs can synthesize an `otel.metric.overflow=true` attribute when cardinality limits are exceeded.[^16]
+
+**OTEL-REQ-082**
+The conformance corpus MUST produce zero metric data points with `otel.metric.overflow=true`.
+
+**OTEL-REQ-083**
+If `otel.metric.overflow=true` appears in emitted telemetry, the implementation MUST increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='metric_overflow'` when doing so does not recurse, and the test must fail unless the specific corpus case was written to verify overflow handling.
+
+### 10.7 Exemplar policy
+
+OpenTelemetry exemplars may include trace/span identifiers and filtered attributes; the SDK supports `AlwaysOff` as an exemplar filter.[^17]
+
+**OTEL-REQ-084**
+Metric exemplars MUST be disabled in the current profile. The effective exemplar filter MUST be `AlwaysOff` or an equivalent implementation. Exported metric points MUST NOT contain exemplars, exemplar trace IDs, exemplar span IDs, or filtered exemplar attributes.
+
+**OTEL-REQ-085**
+`OTEL_METRICS_EXEMPLAR_FILTER` and any SDK default exemplar filter MUST NOT re-enable exemplars.
 
 ## 11. Logs and correlation
 
-OpenTelemetry logs define a data model with trace and span correlation, severity, body, resource, instrumentation scope, attributes, and optional event identity.[^16]
+OpenTelemetry LogRecords define top-level fields including timestamps, trace context fields, severity fields, Body, Resource, InstrumentationScope, Attributes, and EventName. The Logs API supports emitting LogRecords and may accept an exception object and EventName.[^18][^19]
 
 ### 11.1 Local structured-log fields
 
-**OTEL-REQ-076**
-Cartulary MUST use structured application logging as the primary local log substrate. OTel log export is a bridge. Enabling the bridge MUST NOT change local log content, product behavior, or log redaction outcomes.
+**OTEL-REQ-086**
+Local structured logs MAY include trace correlation fields only in the following safe forms:
 
-**OTEL-REQ-077**
-When a request, job, WebSocket event, object-store operation, or database operation runs under a sampled trace/span, local structured logs MUST include the available correlation fields in this table:
+| Field | Rule |
+| --- | --- |
+| `trace_id` | Current server-owned trace ID only. MUST NOT be derived from inbound remote context. |
+| `span_id` | Current server-owned span ID only. |
+| `trace_flags` | May include sampled flag only. |
+| `cartulary.module` | Registry value from §8.5. |
+| `cartulary.route_family` | Registry value from §8.5. |
+| `cartulary.operation` | Registry value from §8.5. |
+| `cartulary.result` | Registry value from §8.5. |
+| `cartulary.error_code` | Public error-code token only. |
+| `cartulary.error_class` | Closed low-cardinality class only. |
 
-| Local log field | Requiredness | Rule |
-| --- | --- | --- |
-| `trace_id` | Required when active span context is valid | Lowercase trace ID from active span context. |
-| `span_id` | Required when active span context is valid | Lowercase span ID from active span context. |
-| `trace_flags` | Optional when available | Lowercase two-character hex trace flags or equivalent stable string. |
-| `cartulary.module` | Required | Closed module value. |
-| `cartulary.result` | Required on terminal logs | Closed result value. |
-| `cartulary.error_code` | Required on public error logs | Public error-code token or `internal_error`. |
+**OTEL-REQ-087**
+Local structured logs MUST NOT use trace correlation as a reason to add user identity, session identity, incident identity, record identity, job identity, object identity, or raw request details.
 
 ### 11.2 OTel LogRecord mapping
 
-**OTEL-REQ-078**
+**OTEL-REQ-088**
+When `telemetry.logs.bridge_enabled=false`, the implementation MUST NOT export OTel logs. Local logs may remain local application diagnostics.
+
+**OTEL-REQ-089**
 When `telemetry.logs.bridge_enabled=true`, exported OTel LogRecords MUST use this mapping:
 
-| Local structured-log field | OTel LogRecord field | Required behavior |
-| --- | --- | --- |
-| active trace ID | `TraceId` | Present when the log is emitted under a valid active span context. |
-| active span ID | `SpanId` | Present only when `TraceId` is present. |
-| active trace flags | `TraceFlags` | Present when available from active context. |
-| local severity enum | `SeverityNumber`, `SeverityText` | Deterministic mapping in §11.3. |
-| redacted message | `Body` | String-only in the current profile. MUST NOT contain forbidden values. |
-| `cartulary.module` | `Attributes["cartulary.module"]` | Required. |
-| `cartulary.result` | `Attributes["cartulary.result"]` | Required on terminal logs. |
-| `cartulary.error_code` | `Attributes["cartulary.error_code"]` | Required on public error logs. |
-| instrumentation identity | `InstrumentationScope` | Same scope discipline as traces and metrics. |
-| resource identity | `Resource` | Same resource contract as §7. |
-| event name | `EventName` | Forbidden in the base profile unless a later revision adds a closed event-name registry. |
+| LogRecord field | Required mapping |
+| --- | --- |
+| `Timestamp` | Local log event timestamp when available. |
+| `ObservedTimestamp` | Time the bridge observes the log. |
+| `TraceId` | Current server-owned trace ID when present. |
+| `SpanId` | Current server-owned span ID when present. |
+| `TraceFlags` | Current server-owned trace flags when present. |
+| `SeverityNumber` | Mapping in §11.3. |
+| `SeverityText` | Local severity token after mapping; maximum 32 ASCII characters. |
+| `Body` | String only. Redacted before construction. Bounded by `telemetry.logs.body_max_chars`. |
+| `Resource` | Closed resource from §7. |
+| `InstrumentationScope` | Registered scope from §5.2. |
+| `Attributes` | Only attributes allowed by §8.5 and §11.1. |
+| `EventName` | MUST be omitted. |
 
-**OTEL-REQ-079**
-In the current profile, OTel LogRecord `Body` MUST be a string. The string MUST be redacted before LogRecord construction and truncated after redaction to `telemetry.logs.body_max_chars` Unicode scalar values. Truncation MUST NOT split a Unicode scalar value. If raw bytes reach the logging boundary, invalid UTF-8 input MUST be decoded with replacement before redaction and truncation.
+**OTEL-REQ-090**
+The log bridge MUST NOT pass raw exception objects to the OTel Logs API. Local application logs MAY carry internal exception objects, but the OTel bridge MUST map exceptions only to safe fields such as `cartulary.error_class` and, when allowed, low-cardinality `exception.type`.
 
-**OTEL-REQ-080**
-`EventName` MUST be absent from all exported LogRecords in the current profile. It MUST NOT be emitted as an empty string or null placeholder.
+**OTEL-REQ-091**
+The implementation MUST NOT emit `exception.message`, `exception.stacktrace`, exception cause chains, panic strings, SQL snippets, file paths, object keys, request bodies, or incident-authored text through LogRecord Body, Attributes, EventName, or span events.
+
+**OTEL-REQ-092**
+No log-event-to-span-event bridge may be installed in this revision. A LogRecord MUST NOT create a span event merely because it has an event-like name, error class, severity, or local logger event type.
 
 ### 11.3 Severity mapping
 
-**OTEL-REQ-081**
-Local severity MUST map to OTel log severity by this table:
-
-| Local severity | `SeverityText` | `SeverityNumber` |
-| --- | --- | --- |
-| `trace` | `TRACE` | `1` |
-| `debug` | `DEBUG` | `5` |
-| `info` | `INFO` | `9` |
-| `warn` | `WARN` | `13` |
-| `error` | `ERROR` | `17` |
-| `fatal` | `FATAL` | `21` |
-
-**OTEL-REQ-082**
-Logs MUST NOT include forbidden values from §8.3. When log bridge export is enabled, redaction MUST run before the log record reaches an OTel processor, exporter queue, retained exporter artifact, or diagnostic capture.
-
-## 12. Privacy and security invariants
-
-Core 04 requires authenticated mutation origin and audit fidelity, but telemetry does not replace that audit substrate. Core 04 also requires a project-local STRIDE threat model for the current architecture, deployment profiles, and high-risk workflows.[^19]
-
-**OTEL-REQ-083**
-Telemetry MUST be classified as operational engineering evidence only. It MUST NOT replace change sets, record revisions, administrative audit records, evidence custody events, snapshot manifests, release approvals, benchmark manifests, or claim-bearing measurement artifacts.
-
-**OTEL-REQ-084**
-The project-local STRIDE threat model MUST cover these telemetry-specific scopes before this NLSpec is treated as implemented:
-
-| STRIDE class | Telemetry-specific scope | Required control |
-| --- | --- | --- |
-| Spoofing | Inbound trace context, fake telemetry source identity | Remote trace context disabled by default; server-owned resource identity. |
-| Tampering | Exporter endpoint, telemetry headers, emitted attributes | Config validation, header redaction, closed attribute registry. |
-| Repudiation | Telemetry used as audit substitute | Telemetry cannot replace change sets, record revisions, or administrative audit records. |
-| Information disclosure | Incident content, credentials, object keys, user identities | Forbidden-value policy, browser-direct-export prohibition, no SQL text export, no object key export. |
-| Denial of service | Export queue growth, exporter timeouts, high-cardinality metrics | Queue bounds, export timeouts, attribute registry, cardinality controls, drop metrics. |
-| Elevation of privilege | Telemetry endpoint or headers exposed to browser | Server-side-only exporter configuration and no browser direct export. |
-| Recursion | Telemetry about telemetry producing more telemetry without bound | Recursion guard and no exporter self-spans. |
-
-**OTEL-REQ-085**
-Telemetry self-diagnostics MUST be bounded. The implementation MUST NOT produce unbounded logs, metrics, spans, or retained artifacts in response to exporter failure, processor overflow, redaction failure, or recursion guard activation.
-
-## 13. Exporter, processor, runtime, and shutdown behavior
-
-OTLP exporter configuration defines transport protocols, endpoints, per-signal endpoint overrides, headers, compression, timeouts, and retry behavior. OTLP/HTTP supports binary protobuf and JSON protobuf encodings, but Cartulary adopts only a bounded transport profile.[^17]
-
-### 13.0 Intentional divergence from OTel exporter defaults
-
-**OTEL-REQ-086**
-Cartulary MUST apply these intentional divergences from broader OTel exporter capability and defaults:
-
-| OTel exporter capability or default | Cartulary current-profile rule | Reason |
-| --- | --- | --- |
-| Default OTLP/HTTP endpoint `localhost:4318` | Not adopted. Default exporter is `none`. | Prevent implicit network egress. |
-| Default OTLP/gRPC endpoint `localhost:4317` | Not adopted. Endpoint required only when exporter kind is not `none`. | Prevent implicit network egress. |
-| Per-signal endpoints | Unsupported and rejected. | Avoid unreviewed signal-specific routing and privacy divergence. |
-| Per-signal protocols and headers | Unsupported and rejected. | Avoid unreviewed signal-specific behavior and secret handling. |
-| `http/json` OTLP | Unsupported and rejected. | Keep one bounded HTTP encoding profile. |
-| OTel header env vars | Not authoritative. | Prevent secret/header injection outside Cartulary config. |
-| Declarative config plugin components | Not authoritative. | Prevent unreviewed exporter, processor, reader, sampler, propagator, view, exemplar, or plugin construction. |
-| Collector-side scrubbing | Not a conformance control. | Cartulary must redact before SDK processor/exporter handoff. |
-
-### 13.1 Exporter contract
-
-**OTEL-REQ-087**
-Exporter behavior MUST follow this table:
-
-| Property | `none` | `otlp_http` | `otlp_grpc` |
-| --- | --- | --- | --- |
-| Network export | Disabled. | Enabled. | Enabled. |
-| Required endpoint | Must be `null` or omitted. | Required `http` or `https` URL. | Required `http` or `https` URL. |
-| Protocol | None. | `http/protobuf`. | `grpc`. |
-| `http/json` | Unsupported. | Unsupported. | Unsupported. |
-| Path construction | None. | Remove one trailing slash from base endpoint, then append `/v1/traces`, `/v1/metrics`, or `/v1/logs` for the signal. | Not applicable. |
-| Per-signal endpoint support | Not supported in current revision. | Reject per-signal endpoint keys. | Reject per-signal endpoint keys. |
-| Headers | None. | Server-side only; redacted everywhere. | Server-side only; redacted everywhere. |
-| Compression | None. | `none` or `gzip`. | `none` or `gzip`. |
-| Retry | None. | Bounded retry for transient errors. | Bounded retry for transient errors. |
-| Startup unreachable endpoint | No effect. | Must not fail startup. | Must not fail startup. |
-| Runtime failure | No effect. | Product behavior unchanged; self-metrics increment. | Product behavior unchanged; self-metrics increment. |
-
-**OTEL-REQ-088**
-For `otlp_http`, the configured endpoint MUST be treated as a base endpoint. It MUST NOT already be a per-signal endpoint ending in `/v1/traces`, `/v1/metrics`, or `/v1/logs`. Per-signal endpoint configuration is unsupported in this revision.
-
-### 13.2 Retry contract
-
-**OTEL-REQ-089**
-Transient exporter errors MAY be retried only while all of the following remain true:
-
-| Guard | Required behavior |
-| --- | --- |
-| Retry enabled | `telemetry.exporter.retry.enabled=true`. |
-| Elapsed bound | Elapsed retry time is less than or equal to `telemetry.exporter.retry.max_elapsed_ms`. |
-| Shutdown state | Process shutdown has not begun. |
-| Processor bound | Queue and batch limits remain enforced. |
-| Product isolation | Retrying export MUST NOT block product HTTP responses, WebSocket event delivery, mutation commit, evidence access, or job terminal transitions. |
-
-**OTEL-REQ-090**
-Retry delay MUST use exponential intervals starting at `telemetry.exporter.retry.initial_interval_ms`, multiplied by `telemetry.exporter.retry.multiplier`, and capped at `telemetry.exporter.retry.max_interval_ms`. Jitter MAY vary each retry delay within `50%..150%` of the computed capped interval. Tests MUST assert the configured bounds rather than exact jitter values.
-
-### 13.3 Processor overflow contract
-
-**OTEL-REQ-091**
-Processor behavior MUST follow this table:
-
-| Event | Required behavior |
-| --- | --- |
-| Processor queue accepts item | Record normally. |
-| Processor queue full | Drop the telemetry item being offered. Retain already queued items. Increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='queue_full'`. |
-| Redaction rejects item | Drop the item before enqueue. Increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='redaction_rejected'`. |
-| Metric overflow observed | Treat conformance corpus emission as a test failure; in production diagnostics increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='metric_overflow'` when safe and non-recursive. |
-| Exporter timeout | Mark export attempt as timed out. Product operation remains unchanged. |
-| Exporter transient error | Retry within configured retry bound. |
-| Exporter permanent error | Drop or retain only according to bounded processor behavior. Product operation remains unchanged. |
-| Malformed exporter response | Treat the export attempt as failed or dropped according to bounded exporter behavior. Product operation remains unchanged. |
-| Metric reader collection timeout | Product operation continues; bounded diagnostic MAY be emitted. |
-| Shutdown flush timeout | Stop waiting after `telemetry.shutdown.flush_timeout_ms`; process shutdown continues. |
-| Self-diagnostic emission | Must not recursively create unbounded telemetry about telemetry. |
-
-### 13.4 Error-handling matrix
-
-OpenTelemetry's error-handling guidance treats telemetry as non-essential relative to application behavior, allows fail-fast initialization for bad configuration, and requires runtime telemetry failures not to throw unhandled exceptions or alter application business behavior.[^18]
-
-**OTEL-REQ-092**
-Failure handling MUST follow this table:
-
-| Failure point | Required behavior |
-| --- | --- |
-| Invalid Cartulary telemetry configuration | Fail before readiness. |
-| OTel SDK invalid-use panic risk | Contain through bootstrap validation or test-only strict handling; production MUST NOT expose unhandled telemetry exceptions. |
-| Exporter endpoint unreachable at startup | Application starts. |
-| Runtime exporter failure | Product request, job, WebSocket, evidence access, and mutation continue. |
-| Malformed exporter response | Export attempt fails or is dropped according to bounded exporter behavior; product operation continues. |
-| Exporter TLS or connection failure | Product operation continues; bounded self-diagnostic or self-metric records the failure. |
-| SDK callback, processor, reader, or exporter runtime error | Must be contained so production product behavior does not fail due to telemetry runtime error. |
-| Processor queue overflow | Drop according to declared policy and increment drop metric. |
-| Redaction failure | Drop affected telemetry item. |
-| Log bridge export failure | Local logs remain intact; exported log item may be dropped. |
-| Metric reader collection timeout | Product operation continues; bounded diagnostic MAY be emitted. |
-| Shutdown flush timeout | Continue shutdown after timeout. |
-
-### 13.5 Startup and shutdown contract
-
 **OTEL-REQ-093**
-Startup behavior MUST satisfy these rules:
+Local severity mapping MUST be exactly this table:
 
-| Rule | Required behavior |
-| --- | --- |
-| Telemetry disabled | If `telemetry.enabled=false`, startup installs no-op telemetry providers and MUST NOT create exporters. |
-| Invalid config | Syntactically or semantically invalid telemetry config fails deployment configuration validation. |
-| Endpoint unreachable | A syntactically valid but unreachable endpoint does not fail startup. |
-| Initialization order | Telemetry initialization completes before HTTP listener, WebSocket listener, and background-job runner startup so startup diagnostics can be correlated after initialization. |
-| SDK env defaults | SDK defaults cannot enable export outside the Cartulary effective configuration envelope. |
+| Local severity | OTel `SeverityNumber` | OTel range | `SeverityText` |
+| --- | ---: | --- | --- |
+| `trace` | 1 | TRACE | `TRACE` |
+| `debug` | 5 | DEBUG | `DEBUG` |
+| `info` | 9 | INFO | `INFO` |
+| `warn` | 13 | WARN | `WARN` |
+| `error` | 17 | ERROR | `ERROR` |
+| `fatal` | 21 | FATAL | `FATAL` |
+| unknown or omitted | 9 | INFO | `INFO` |
 
 **OTEL-REQ-094**
-Shutdown behavior MUST satisfy these rules:
+A local severity string outside the closed table MUST map to unknown or omitted behavior. It MUST NOT be exported as arbitrary `SeverityText`.
 
-| Rule | Required behavior |
-| --- | --- |
-| Flush request | On graceful shutdown, the implementation requests trace, metric, and enabled log bridge flush. |
-| Timeout | Flush wait uses `telemetry.shutdown.flush_timeout_ms`. |
-| Product shutdown | Flush timeout MUST NOT prevent process shutdown after the timeout expires. |
-| Diagnostics | Shutdown records a bounded local diagnostic when telemetry flush times out. |
-| Drop metric | Items abandoned because of flush timeout increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='shutdown_timeout'` when self-diagnostics are enabled and the increment can occur without recursion. |
+## 12. Exporter, processor, runtime, and shutdown behavior
 
-### 13.6 Telemetry-about-telemetry recursion guard
+### 12.1 Intentional divergence from OTel exporter defaults
+
+OpenTelemetry OTLP exporters define default endpoints, per-signal endpoint precedence, OTLP/HTTP path construction, supported compression values, retry concepts, and User-Agent guidance. Cartulary intentionally uses stricter rules to avoid environment-driven egress and signal divergence.[^20]
 
 **OTEL-REQ-095**
-The implementation MUST NOT emit OpenTelemetry spans for telemetry export attempts. Telemetry export attempts MAY emit only the self-metrics in §10.3 and bounded local diagnostics. Those self-metrics MUST NOT themselves create additional telemetry export spans, span events, or recursive self-metrics.
-
-## 14. Browser telemetry boundary and non-transfer rules
-
-### 14.1 Browser boundary
+Cartulary MUST NOT rely on OTel exporter default endpoints. Network export occurs only when `telemetry.exporter.kind` is `otlp_http` or `otlp_grpc` and `telemetry.exporter.endpoint` is explicitly configured.
 
 **OTEL-REQ-096**
-Browser direct export is forbidden. Browser code MUST NOT contain direct OTLP, Prometheus, Zipkin, Jaeger native, vendor telemetry, or third-party telemetry endpoint configuration.
+Cartulary MUST NOT support per-signal endpoint, per-signal header, or per-signal protocol divergence in this revision. Trace, metric, and log export MUST use one configured endpoint family and one configured header map.
+
+### 12.2 OTLP endpoint normalization
 
 **OTEL-REQ-097**
-The browser MAY create local performance marks for workbook controller diagnostics, but those marks MUST remain local unless a later adopted revision defines an app-mediated client telemetry route.
+For `telemetry.exporter.kind='otlp_http'`, the implementation MUST construct signal URLs from the configured base endpoint by appending signal paths exactly as shown:
+
+| Configured endpoint | Trace URL | Metrics URL | Logs URL |
+| --- | --- | --- | --- |
+| `http://collector:4318` | `http://collector:4318/v1/traces` | `http://collector:4318/v1/metrics` | `http://collector:4318/v1/logs` |
+| `http://collector:4318/` | `http://collector:4318/v1/traces` | `http://collector:4318/v1/metrics` | `http://collector:4318/v1/logs` |
+| `http://collector:4318/otel` | `http://collector:4318/otel/v1/traces` | `http://collector:4318/otel/v1/metrics` | `http://collector:4318/otel/v1/logs` |
+| `http://collector:4318/otel/` | `http://collector:4318/otel/v1/traces` | `http://collector:4318/otel/v1/metrics` | `http://collector:4318/otel/v1/logs` |
 
 **OTEL-REQ-098**
-A future app-mediated browser telemetry route MUST define, at minimum:
-
-| Required future contract element |
-| --- |
-| Route path. |
-| Authentication context. |
-| CSRF behavior. |
-| Request schema. |
-| Batch size limits. |
-| Allowed event names. |
-| Allowed attributes. |
-| Redaction rules. |
-| Replay and idempotency behavior. |
-| Rejection errors. |
-| Sampling behavior. |
-| Whether events are emitted as OTel logs, spans, metrics, or local diagnostics. |
-
-### 14.2 Concepts not transferred into Cartulary
+For `telemetry.exporter.kind='otlp_grpc'`, the implementation MUST use the configured endpoint as the gRPC target. It MUST NOT derive per-signal gRPC endpoints from environment variables.
 
 **OTEL-REQ-099**
-The following OTel concepts or ecosystem patterns MUST NOT be transferred into the Cartulary base telemetry profile:
+OTLP/HTTP JSON export is unsupported in this revision. OTLP/HTTP MUST use `http/protobuf`. OTLP/gRPC MUST use protobuf over gRPC.
 
-| OTel concept or ecosystem pattern | Cartulary base-profile treatment |
+### 12.3 Header and User-Agent policy
+
+**OTEL-REQ-100**
+Exporter request headers MUST come only from `telemetry.exporter.headers` plus protocol-required safe headers. Headers MUST NOT be read from OTel environment variables, browser state, request headers, incident records, or user-controlled workbook values.
+
+**OTEL-REQ-101**
+Exporter headers and header values are secret-bearing unless proven otherwise. They MUST be redacted from logs, spans, metrics, diagnostics, retained artifacts, and test reports.
+
+**OTEL-REQ-102**
+Exporter `User-Agent` MAY identify the Cartulary application version, OpenTelemetry exporter language, and OpenTelemetry exporter version. It MUST NOT include incident identifiers, deployment hostnames, usernames, object-store identifiers, environment names, runtime roots, local paths, or arbitrary operator-provided text.
+
+**OTEL-REQ-103**
+The preferred User-Agent form is:
+
+| Segment | Required rule |
 | --- | --- |
-| Browser direct OTLP export | Forbidden. |
-| Browser vendor telemetry endpoint | Forbidden. |
-| Browser-configured exporter headers | Forbidden. |
-| Baggage for incident, user, party, evidence, saved-view, job, or record correlation | Forbidden. |
-| Inbound `traceparent` as trusted parentage | Ignored in current profile. |
-| Inbound `tracestate` as trusted identity | Ignored in current profile. |
-| OpenTelemetry Collector as required deployable | Forbidden as a conformance dependency. Optional external receiver only. |
-| Collector-side scrubbing as privacy conformance | Not sufficient. Redaction must happen before SDK/exporter handoff. |
-| Prometheus scrape endpoint | Deferred. Not part of this revision. |
-| SQL commenter or database context propagation | Forbidden by default and not configurable in this revision. |
-| OTel SDK environment autoconfiguration | Not authoritative. MUST NOT override Cartulary configuration. |
-| OTel declarative config as telemetry authority | Forbidden as an authority; only declared `telemetry.*` keys may affect behavior. |
-| OTel plugin providers as deployment-time behavior | Forbidden unless a future revision defines a closed plugin profile. |
-| Default localhost OTLP export | Not adopted. Default exporter remains `none`. |
-| Per-signal OTLP endpoints | Rejected in current profile. |
-| Per-signal OTLP protocols and headers | Rejected in current profile. |
-| OTLP `http/json` | Rejected in current profile. |
-| `OTEL_SEMCONV_STABILITY_OPT_IN` shape changes | Ignored unless a future revision defines the migration. |
-| AWS S3 semantic-convention attributes | Not adopted in the base telemetry profile. |
-| OTel metric-pipeline non-sanitization guidance as a privacy rule | Not adopted. Cartulary validates and redacts before recording because incident content and identifiers are forbidden. |
-| OTel exemplars | Disabled in current profile. |
-| `service.criticality` | Not emitted in current profile. |
+| `Cartulary/<service.version>` | Present when `service.version` is known; otherwise `Cartulary/0.0.0+unknown`. |
+| `OTel-OTLP-Exporter-<language>/<version>` | Present when the SDK/exporter exposes this identity. |
+| Additional product identifiers | Forbidden in this revision unless a future revision defines them. |
+
+### 12.4 Retry contract
+
+**OTEL-REQ-104**
+Exporter retries MUST be bounded by the configured retry keys in §6.1. Retries MUST NOT block HTTP responses, WebSocket sends, workbook writes, evidence access, or background-job state transitions beyond normal telemetry-recording overhead.
+
+**OTEL-REQ-105**
+Exporter retry behavior MUST follow this table:
+
+| Condition | Required behavior |
+| --- | --- |
+| Transient exporter failure and retry enabled | Retry until `max_elapsed_ms` or shutdown. |
+| Transient exporter failure and retry disabled | Drop according to processor overflow/drop rules and record self-diagnostic metric when non-recursive. |
+| Permanent exporter rejection | Drop item and increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='exporter_permanent_discard'` when non-recursive. |
+| Export timeout | Abort the attempt by `telemetry.processor.export_timeout_ms`. |
+| Export failure while `exporter.kind='none'` | Invalid state; no network exporter exists. |
+
+### 12.5 Processor overflow contract
+
+**OTEL-REQ-106**
+Each enabled signal processor MUST enforce `telemetry.processor.max_queue_size`. When the queue is full, the implementation MUST apply `drop_new`: retain already queued telemetry, drop the newly offered telemetry item, and increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='queue_full'` when non-recursive.
+
+**OTEL-REQ-107**
+Processor overflow MUST NOT block product operations waiting for telemetry queue capacity.
+
+### 12.6 Error-handling matrix
+
+OpenTelemetry error-handling guidance distinguishes initialization failures from runtime telemetry failures and states that telemetry should not significantly change application behavior.[^21]
+
+**OTEL-REQ-108**
+Telemetry errors MUST follow this table:
+
+| Error point | Product behavior | Telemetry behavior |
+| --- | --- | --- |
+| Invalid deployment telemetry config | Fail startup before readiness. | Emit only startup diagnostics permitted by Core 04 and this NLSpec. |
+| SDK provider construction failure after valid config | Fail startup before readiness. | Emit only local startup diagnostics. |
+| Exporter endpoint unavailable | Product remains available. | Export attempts fail, retry/drop according to §12.4. |
+| Processor queue full | Product remains available. | Drop new telemetry item and increment drop metric when non-recursive. |
+| Redaction cannot prove safety | Product remains available unless the product operation itself failed independently. | Drop telemetry item and increment drop metric when non-recursive. |
+| Log bridge mapping failure | Product remains available. | Drop the LogRecord and increment drop metric when non-recursive. |
+| Shutdown flush timeout | Continue shutdown after timeout. | Increment drop metric or local diagnostic if non-recursive and possible. |
+| Telemetry self-diagnostic error | Product remains available. | Suppress recursive telemetry. |
+
+### 12.7 Startup and shutdown contract
+
+**OTEL-REQ-109**
+Telemetry bootstrap MUST occur after deployment configuration validation and before readiness. Providers MUST NOT be activated until resource identity, sampler profile, processors, metric readers, exporters, log bridge, environment containment, and forbidden resource attributes have been validated.
+
+**OTEL-REQ-110**
+On graceful shutdown, the application MUST attempt to flush enabled telemetry for at most `telemetry.shutdown.flush_timeout_ms`. If the timeout expires, shutdown MUST continue. Telemetry loss during shutdown MUST NOT prevent process termination.
+
+**OTEL-REQ-111**
+Shutdown MUST call provider, processor, metric-reader, and exporter shutdown exactly once per active SDK provider instance. Repeated shutdown calls MUST be idempotent from the application perspective.
+
+### 12.8 Telemetry-about-telemetry recursion guard
+
+**OTEL-REQ-112**
+Telemetry self-diagnostics MUST NOT recursively produce unbounded telemetry. When self-diagnostic telemetry would cause telemetry about telemetry about telemetry, the implementation MUST drop the recursive item and, when possible without recursion, increment `cartulary.telemetry.item.dropped` with `cartulary.drop_reason='recursion_guard'`.
+
+## 13. Browser telemetry boundary and non-transfer rules
+
+### 13.1 Browser boundary
+
+**OTEL-REQ-113**
+Browser code MUST NOT initialize an OpenTelemetry SDK exporter, OTLP exporter, vendor SDK, remote log exporter, remote metrics exporter, remote traces exporter, session replay SDK, or third-party analytics client in the current profile.
+
+**OTEL-REQ-114**
+Browser code MAY create local performance marks or local diagnostic events only when all of the following are true:
+
+| Condition | Required behavior |
+| --- | --- |
+| Same-origin only | Marks stay in browser memory or are sent to the Cartulary application through an explicitly specified product diagnostic route in a future revision. |
+| No incident content | Marks contain no row values, field values, evidence values, query text, object keys, filenames, or identifiers. |
+| No direct export | Browser does not send marks to OTLP, vendor, Collector, or third-party endpoints. |
+| No persistence surprise | Marks do not persist across sessions unless a future revision defines the persistence contract. |
+
+**OTEL-REQ-115**
+No browser local-storage, session-storage, IndexedDB, Service Worker, cookie, DOM attribute, React prop, grid vendor coordinate, or URL parameter may configure telemetry exporters, headers, endpoints, samplers, processors, metric readers, resource attributes, or log bridges.
+
+### 13.2 Concepts not transferred into Cartulary
+
+**OTEL-REQ-116**
+The OpenTelemetry concepts in this table MUST NOT be transferred into current-profile Cartulary behavior:
+
+| OTel concept | Current-profile rule |
+| --- | --- |
+| Required Collector deployment | Forbidden as conformance requirement. Collector MAY be external receiver only. |
+| Collector-side privacy enforcement | Forbidden. Privacy must hold before SDK processor/exporter handoff. |
+| Baggage correlation | Forbidden. Baggage values MUST NOT become spans, metrics, logs, resource attributes, or local correlation keys. |
+| Environment-driven autoconfiguration | Forbidden. Cartulary deployment config remains authoritative. |
+| Default OTLP localhost export | Forbidden. Export must be explicit. |
+| Per-signal exporters/endpoints | Forbidden. Single exporter profile applies across enabled signals. |
+| Prometheus scrape endpoint | Not adopted in current profile. |
+| Zipkin or Jaeger-native export | Not adopted in current profile. |
+| Vendor-native exporters | Not adopted in current profile. |
+| SQL commenter propagation | Forbidden. |
+| Host/process/container/cloud resource detectors | Forbidden. |
+| S3 semantic conventions | Not adopted in current profile. |
+| Metric exemplars | Disabled in current profile. |
+| Log `EventName` | Omitted in current profile. |
+| Log-event-to-span-event bridge | Forbidden. |
+| ProbabilitySampler | Not adopted until a future revision defines a profile. |
+
+## 14. Golden telemetry corpus and drift verification
+
+### 14.1 Corpus contract
+
+**OTEL-REQ-117**
+The repository MUST maintain a golden telemetry conformance corpus for this NLSpec. The corpus MUST exercise at least:
+
+| Corpus area | Required coverage |
+| --- | --- |
+| No-SDK mode | Representative HTTP, workbook, job, Postgres, object-store, log-call, and WebSocket paths execute without SDK providers and without telemetry-induced errors. |
+| Hostile environment | Every environment family in §6.4 is set to a hostile value and does not alter effective telemetry behavior. |
+| HTTP route shape | Route-template spans and metrics appear without raw paths, query strings, headers, or IDs. |
+| Workbook query and mutation | Query, create, patch, conflict, projection update, and row-refresh telemetry appears with safe attributes only. |
+| WebSocket collaboration | Connect, authorize, subscribe, event-send, replay, close, overflow, and unauthorized subscribe paths. |
+| Background jobs | Enqueue, run success, cancellation, failure, timeout, and terminal-state metrics. |
+| Postgres dependency | Success, timeout, unavailable, serialization conflict, and constraint-violation classes. |
+| Object storage | Upload target, attach, preview/download handle issuance, object-store unavailable, transfer size, and forbidden object identifiers. |
+| Logs | Bridge disabled, bridge enabled, safe severity mapping, exception with forbidden values, omitted EventName, and no span-event bridge. |
+| Metrics | Instrument registry, case-insensitive duplicate rejection, temporality, attribute filters, no exemplars, and no `otel.metric.overflow`. |
+| Exporter | Export disabled, OTLP/HTTP path construction, OTLP/gRPC target construction, headers, User-Agent, retry, timeout, and shutdown. |
+| Redaction | Representative forbidden values from every family in §8.4 across spans, metrics, logs, self-diagnostics, retained artifacts, and exporter attempts. |
+
+### 14.2 Canonical telemetry-shape normalization
+
+**OTEL-REQ-118**
+Golden telemetry comparison MUST normalize volatile values before comparison and MUST NOT normalize away shape facts. The normalization table is:
+
+| Field family | Normalization rule |
+| --- | --- |
+| Timestamps and durations | Replace wall-clock timestamps with ordinal placeholders; retain metric duration buckets and numeric measurements needed for assertions. |
+| Trace IDs and span IDs | Replace with stable placeholders preserving parent/child/link topology. |
+| `service.instance.id` | Replace with placeholder after validating opacity and registry presence. |
+| Attribute order | Sort by attribute key. |
+| Resource records | Compare as sorted key/value maps after applying allowed placeholder normalization. |
+| Spans | Sort by deterministic corpus operation order, then span name, then normalized parent placeholder. |
+| Metrics | Sort by metric name, instrument kind, unit, temporality, data point attributes, and collection ordinal. |
+| Logs | Sort by deterministic corpus operation order, timestamp placeholder, severity, and normalized trace/span placeholder. |
+| Forbidden values | MUST NOT be normalized into safety. Any forbidden literal observed before normalization fails the test. |
+| Unknown fields | Unknown emitted telemetry fields fail unless the owning registry allows additive fields and §4.5 classifies the change. |
+
+### 14.3 Dependency update gate
+
+**OTEL-REQ-119**
+A dependency update to OTel API, SDK, exporter, semantic-convention constants, resource detector packages, log bridge packages, or instrumentation adapters MUST run the golden telemetry corpus and produce one of the §4.5 change classifications before merge.
+
+**OTEL-REQ-120**
+The update gate MUST compare span names, span kinds, span status policy, span events, links, metric identities, metric temporality, aggregation, log top-level fields, resource attributes, instrumentation-scope names, instrumentation-scope schema URLs, instrumentation-scope attributes, standard attributes, custom attributes, User-Agent, endpoint paths, and forbidden-value exclusions.
 
 ## 15. Verification and acceptance criteria
 
-### 15.1 Configuration and bootstrap criteria
+### 15.1 Configuration and source-baseline criteria
 
-- **OTEL-AC-001:** With all telemetry keys omitted, effective config resolves to `telemetry.enabled=true`, `telemetry.exporter.kind='none'`, tracing enabled, metrics enabled, log bridge disabled, exemplars disabled, and no network export.
-- **OTEL-AC-002:** With `telemetry.enabled=false`, no OTel SDK providers, exporters, metric readers, log processors, or log bridge are installed except no-op placeholders needed for code safety.
-- **OTEL-AC-003:** Invalid config combinations in OTEL-REQ-026 fail before readiness with the configured deployment-config error path.
-- **OTEL-AC-004:** A syntactically valid but unreachable OTLP endpoint does not fail startup.
-- **OTEL-AC-005:** With `telemetry.exporter.kind='none'`, no outbound telemetry occurs when global OTLP env vars, per-signal OTLP env vars, per-signal protocol/header vars, `OTEL_CONFIG_FILE`, and `OTEL_SEMCONV_STABILITY_OPT_IN` are set.
-- **OTEL-AC-006:** With `telemetry.otel_env_passthrough=true`, an explicit Cartulary config value wins over conflicting OTel environment variables.
-- **OTEL-AC-007:** OTel declarative config cannot create exporters, processors, propagators, samplers, metric readers, log processors, header capture, metric views, exemplars, or plugin components in the current profile.
+- **OTEL-AC-001:** The repo contains a complete `otel_source_snapshot` with exact spec repo, semantic-conventions repo, pinned refs or commit SHAs, source paths, document statuses, semantic-convention model digest, generated constants version, and SDK package versions.
+- **OTEL-AC-002:** Startup rejects unresolved source-snapshot TODO values in conformance mode.
+- **OTEL-AC-003:** Unknown `telemetry.*` keys fail deployment-config validation.
+- **OTEL-AC-004:** Invalid cross-key combinations in §6.5 fail before readiness.
+- **OTEL-AC-005:** With `telemetry.exporter.kind='none'`, no network exporter is created and no OTel default localhost endpoint is contacted.
+- **OTEL-AC-006:** With every §6.4 environment variable set to hostile values, export remains disabled when Cartulary export is disabled, resource attributes remain closed, propagators remain closed, exemplars remain disabled, and no declarative-config plugin or exporter becomes active.
 
-### 15.2 API, SDK, and instrumentation-scope criteria
+### 15.2 API, SDK, and instrumentation-boundary criteria
 
-- **OTEL-AC-008:** A static import-boundary test fails if any ordinary instrumentation module imports OTel SDK provider, exporter, processor, sampler, propagator, metric-reader, log-processor, declarative-config, or SDK-autoconfiguration packages.
-- **OTEL-AC-009:** Every tracer, meter, and logger uses a registered instrumentation scope name, the build-version fallback rule, `schema_url=null`, and no scope attributes in the current profile.
-- **OTEL-AC-010:** A dependency-only SDK update with registry-equivalent emitted telemetry passes existing acceptance criteria without requiring an NLSpec revision.
-- **OTEL-AC-011:** Any additive, privacy-tightening, or breaking telemetry-shape change requires a migration note and matching acceptance criteria.
+- **OTEL-AC-007:** Static dependency checks prove ordinary instrumentation units import only OTel API packages and telemetry bootstrap accessors, not SDK, exporter, processor, sampler, propagator, metric-reader, log-processor, resource-detector, or autoconfiguration packages.
+- **OTEL-AC-008:** A no-SDK runtime profile exercises representative HTTP, workbook, job, Postgres, object-store, log-call, and WebSocket paths without telemetry-induced errors.
+- **OTEL-AC-009:** Every tracer, meter, and logger uses a registered instrumentation scope with version, null schema URL, and empty scope attributes.
 
 ### 15.3 Resource and attribute criteria
 
-- **OTEL-AC-012:** Every exported signal contains the required resource attributes in §7 and contains no forbidden resource attributes.
-- **OTEL-AC-013:** `service.instance.id` is stable across multiple requests, jobs, metric collections, and log exports in one process and differs across two default-generated process starts.
-- **OTEL-AC-014:** `service.criticality` is absent from resource attributes.
-- **OTEL-AC-015:** The custom attribute registry is closed: every emitted `cartulary.*` attribute appears in §8.4 and has the declared type and allowed-value behavior.
-- **OTEL-AC-016:** The forbidden-value test injects representative credentials, incident text, evidence filenames, object keys, SQL bind values, user IDs, record IDs, incident IDs, client transaction IDs, handle tokens, Baggage values, and exporter headers, then verifies none appear in exported spans, metrics, logs, self-diagnostics, SDK processor inputs, exporter queues, or retained telemetry test artifacts.
-- **OTEL-AC-017:** A redaction failure drops the telemetry item, increments the drop metric when non-recursive, and does not fail the product operation.
-- **OTEL-AC-018:** A Collector, backend transform, or exporter-side scrubber is not required to pass forbidden-value criteria.
+- **OTEL-AC-010:** Exported telemetry contains only resource attributes listed in §7.1 plus SDK-required `telemetry.sdk.*` values.
+- **OTEL-AC-011:** With SDK resource detector packages present and `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_SERVICE_NAME`, and `OTEL_ENTITIES` set, exported telemetry contains no host, process, container, Kubernetes, cloud, entity, filesystem, or object-store resource attributes.
+- **OTEL-AC-012:** The forbidden-value corpus proves representative forbidden values are absent from spans, metrics, logs, resource attributes, self-diagnostics, retained telemetry artifacts, exporter requests, and User-Agent.
+- **OTEL-AC-013:** Unknown `cartulary.*` attributes are rejected or omitted before recording.
+- **OTEL-AC-014:** SDK truncation or attribute limits are not used as redaction controls; forbidden values fail before any SDK limit can truncate them.
 
 ### 15.4 Trace and span criteria
 
-- **OTEL-AC-019:** HTTP spans for routes containing concrete IDs are never exported with concrete path-derived names, `url.path`, `url.query`, raw route params, concrete IDs, logs, diagnostics, or retained artifacts.
-- **OTEL-AC-020:** A request to `/api/v1/records/{record_id}` with a concrete record ID exports only the route-template span name and `http.route`; the concrete path and query are absent from all spans, metrics, logs, self-diagnostics, and retained telemetry artifacts.
-- **OTEL-AC-021:** A route miss or unknown-route request uses a low-cardinality fallback span name and does not emit the raw path.
-- **OTEL-AC-022:** HTTP server 4xx responses leave span status unset unless a narrower owner rule marks a real implementation error; HTTP server 5xx responses set error status.
-- **OTEL-AC-023:** Postgres spans include `db.system.name='postgresql'` and omit SQL text, bind values, table names, projection table names, saved-view query JSON, search text, `db.namespace`, `db.collection.name`, `server.address`, and `server.port`.
-- **OTEL-AC-024:** Object-store telemetry is a Cartulary dependency span/metric family and never emits S3 semantic attributes or object-identifying values.
-- **OTEL-AC-025:** Upload, preview-source fetch, download-source fetch, generated-output write, and failed object-store operation tests prove no S3 semantic attributes, bucket names, object keys, upload IDs, copy sources, filenames, blob hashes, evidence handles, storage refs, or evidence titles are emitted.
-- **OTEL-AC-026:** Job execution spans created from asynchronous enqueue are root `CONSUMER` spans with enqueue links added at span creation and are not children of returned HTTP requests.
-- **OTEL-AC-027:** A batch or replay operation with two causal inputs uses links and no false single parent.
-- **OTEL-AC-028:** Requests carrying `traceparent`, `tracestate`, and `baggage` produce server-owned root traces, no Baggage-derived attributes, no Baggage-derived logs, and no sampling or routing change.
-- **OTEL-AC-029:** Exception recording exports `exception.type` only when safe and never exports `exception.message` or `exception.stacktrace`.
+- **OTEL-AC-015:** `sample_ratio=0.0`, `1.0`, and a fractional ratio each select the exact sampler profile defined in §9.2.
+- **OTEL-AC-016:** A fixed server-owned trace-ID corpus proves deterministic allow/drop behavior for the selected SDK version and fractional ratio.
+- **OTEL-AC-017:** Inbound `traceparent`, `tracestate`, Baggage, and vendor trace headers do not alter root-span sampling, trace IDs, span parentage, attributes, logs, or metrics.
+- **OTEL-AC-018:** HTTP spans emit route templates only and never concrete paths, route parameter values, query strings, headers, cookies, user agents, client IPs, or body content.
+- **OTEL-AC-019:** Postgres spans emit `db.system.name='postgresql'` and never emit SQL text, query summaries, bind values, table names, schema names, projection names, DB namespace, server address, or server port.
+- **OTEL-AC-020:** Object-store telemetry never emits S3 semantic attributes or object-identifying values.
 
 ### 15.5 Metrics criteria
 
-- **OTEL-AC-030:** Every custom metric has one registry entry defining exact instrument kind, unit, description, allowed attributes, aggregation, lifecycle behavior, cardinality bound, reset behavior, and bucket boundaries when applicable.
-- **OTEL-AC-031:** Active WebSocket and active job metrics return to zero on normal close, abnormal close, terminal job completion, cancellation, and process restart according to the declared reset semantics.
-- **OTEL-AC-032:** Histogram bucket-boundary tests prove workbook duration, DB duration, object-store duration, byte count, and row count measurements use the registered explicit buckets.
-- **OTEL-AC-033:** Every emitted metric has an effective View/filter matching its registry row; injected non-allowlisted attributes are absent.
-- **OTEL-AC-034:** Standard HTTP, database, runtime, and SDK metrics are disabled when their attributes cannot be filtered to the current-profile allowlist.
-- **OTEL-AC-035:** The conformance corpus emits no `otel.metric.overflow`.
-- **OTEL-AC-036:** No metric point contains exemplars when `telemetry.metrics.exemplars.enabled` is omitted or explicitly `false`.
-- **OTEL-AC-037:** Setting `telemetry.metrics.exemplars.enabled=true` fails deployment-configuration validation in this revision.
+- **OTEL-AC-021:** Every emitted metric matches §10.4 by case-insensitive name, instrument kind, unit, allowed attributes, aggregation, and temporality.
+- **OTEL-AC-022:** A case-insensitive duplicate metric name fails registry validation.
+- **OTEL-AC-023:** Metric views or equivalent filters remove every non-allowlisted attribute before export.
+- **OTEL-AC-024:** The conformance corpus emits no exemplars and ignores `OTEL_METRICS_EXEMPLAR_FILTER` attempts to enable exemplars.
+- **OTEL-AC-025:** The conformance corpus emits no `otel.metric.overflow=true` datapoint except an explicit overflow-negative test, and that negative test records `cartulary.drop_reason='metric_overflow'` when non-recursive.
+- **OTEL-AC-026:** Metric temporality is cumulative for every current-profile instrument.
 
 ### 15.6 Logs criteria
 
-- **OTEL-AC-038:** Local structured logs under an active span include `trace_id` and `span_id` when available.
-- **OTEL-AC-039:** When the OTel log bridge is enabled, exported LogRecords map trace ID, span ID, trace flags, severity, body, resource, instrumentation scope, and attributes according to the log mapping table.
-- **OTEL-AC-040:** Log bridge export emits string-only `Body`.
-- **OTEL-AC-041:** A long redacted message is truncated to the configured character bound after redaction without splitting a Unicode scalar value.
-- **OTEL-AC-042:** Invalid UTF-8 input is made safe before export.
-- **OTEL-AC-043:** `EventName` is absent from all exported LogRecords.
-- **OTEL-AC-044:** OTel log export emits no forbidden values in body, attributes, event name, exception fields, resource attributes, or retained telemetry artifacts.
+- **OTEL-AC-027:** With `telemetry.logs.bridge_enabled=false`, no OTel LogRecords are exported.
+- **OTEL-AC-028:** With log bridge enabled, LogRecords use only the top-level fields and mapping rules in §11.2.
+- **OTEL-AC-029:** A local log containing an exception whose message, stacktrace, cause, and wrapped text include incident-like strings, SQL-like strings, object-store-like strings, and filesystem paths exports none of those values.
+- **OTEL-AC-030:** The log bridge never passes raw exception objects into the OTel Logs API and never emits `EventName`.
+- **OTEL-AC-031:** No log-event-to-span-event bridge is installed; log records do not create span events.
 
 ### 15.7 Exporter, processor, runtime, and shutdown criteria
 
-- **OTEL-AC-045:** Exporter kind `none` creates no outbound OTLP request and no exporter instance capable of network egress.
-- **OTEL-AC-046:** OTLP HTTP export uses only `http/protobuf`; `http/json` configuration fails validation.
-- **OTEL-AC-047:** Per-signal endpoint, protocol, or header configuration is rejected or ignored according to §6.3 and cannot change routing or enable export.
-- **OTEL-AC-048:** Exporter outage, retry exhaustion, TLS failure, connection refusal, malformed remote responses, queue overflow, redaction rejection, metric reader collection timeout, and shutdown flush timeout do not fail workbook HTTP requests, WebSocket processing, evidence access decisions, or background jobs.
-- **OTEL-AC-049:** Shutdown attempts telemetry flush and exits after the configured flush timeout even when the exporter does not respond.
-- **OTEL-AC-050:** Telemetry export attempts do not create spans.
-- **OTEL-AC-051:** Telemetry export failure, queue overflow, redaction rejection, and flush timeout increment bounded self-metrics or bounded local diagnostics without recursive telemetry generation.
+- **OTEL-AC-032:** OTLP/HTTP exporter tests inspect actual request URLs and prove the exact path construction in §12.2 for traces, metrics, and logs.
+- **OTEL-AC-033:** OTLP/gRPC exporter tests prove one configured target and no per-signal endpoint divergence.
+- **OTEL-AC-034:** Exporter request headers contain only configured safe headers and protocol-required headers; secret header values are absent from logs, spans, metrics, diagnostics, and retained artifacts.
+- **OTEL-AC-035:** User-Agent includes only allowed Cartulary and exporter identity segments and contains no forbidden value families.
+- **OTEL-AC-036:** Exporter retry, permanent rejection, timeout, and disabled-export behavior match §12.4.
+- **OTEL-AC-037:** Processor queue overflow uses `drop_new`, does not block product work, and records drop metrics when non-recursive.
+- **OTEL-AC-038:** Shutdown flush respects `telemetry.shutdown.flush_timeout_ms` and continues process shutdown after timeout.
+- **OTEL-AC-039:** Telemetry self-diagnostics do not recurse unboundedly.
 
 ### 15.8 Browser and non-transfer criteria
 
-- **OTEL-AC-052:** Browser code contains no direct OTLP, Prometheus, Zipkin, Jaeger native, vendor telemetry, or third-party telemetry export endpoint configuration.
-- **OTEL-AC-053:** Browser local performance marks, if present, remain local and are not exported without a later app-mediated telemetry route contract.
-- **OTEL-AC-054:** Baggage is not used to propagate incident, record, user, party, evidence, saved-view, job, handle, or customer identifiers.
-- **OTEL-AC-055:** The Collector is not required for Cartulary telemetry conformance; a deployment with `telemetry.exporter.kind='none'` passes the default telemetry criteria without any Collector present.
-- **OTEL-AC-056:** A non-transfer audit test proves each row in §14.2 is enforced by configuration validation, static import checks, emitted telemetry assertions, retained-artifact assertions, or browser bundle inspection.
+- **OTEL-AC-040:** Browser bundles contain no OTLP exporter, vendor telemetry SDK, Collector client, session replay SDK, or third-party analytics initialization.
+- **OTEL-AC-041:** Browser state cannot configure telemetry exporters, headers, endpoints, samplers, processors, resource attributes, or log bridges.
+- **OTEL-AC-042:** Baggage correlation, SQL commenter propagation, Prometheus scrape export, Zipkin export, Jaeger-native export, vendor-native export, resource detectors, S3 semantic attributes, exemplars, LogRecord EventName, and log-event-to-span-event bridging are absent.
 
-### 15.9 Security and conformance criteria
+### 15.9 Golden-corpus and drift criteria
 
-- **OTEL-AC-057:** The project-local STRIDE threat model includes telemetry exporter credentials, telemetry retention, inbound trace context, SDK environment override risk, declarative configuration risk, telemetry queue denial-of-service, metric cardinality overflow, exemplar risk, and telemetry self-diagnostic recursion.
-- **OTEL-AC-058:** Telemetry emitted during functional tests is classified as operational engineering evidence only and is not used as claim-bearing benchmark evidence unless Core 05 publication requirements are separately satisfied.
-- **OTEL-AC-059:** The emitted telemetry conformance corpus can be validated without reading product databases, object-store evidence bytes, Collector-side transformed data, vendor dashboards, or backend query results.
-- **OTEL-AC-060:** Every emitted telemetry name, attribute, metric, span, log mapping, exporter setting, and processor setting has exactly one owner table in this NLSpec.
-- **OTEL-AC-061:** Acceptance evidence proves the default profile emits no raw incident content, no stable product identifiers, no SQL text, no DB parameters, no object keys, no filenames, no evidence handles, no Baggage values, no exporter headers, no exemplars, and no metric overflow attribute.
+- **OTEL-AC-043:** Golden telemetry normalization preserves shape facts while replacing only volatile identifiers and timestamps listed in §14.2.
+- **OTEL-AC-044:** Any OTel dependency, SDK, exporter, semantic-convention, generated-constant, resource-detector, log-bridge, or instrumentation-adapter update runs the golden corpus and records a §4.5 classification before merge.
+- **OTEL-AC-045:** A dependency-only update can be accepted without NLSpec revision only when the normalized corpus is `registry_equivalent`.
+- **OTEL-AC-046:** Any `additive_non_breaking`, `privacy_tightening`, or `breaking_shape_change` result requires NLSpec revision and updated acceptance criteria before adoption.
 
 ## 16. Open decisions
 
-**OTEL-REQ-100**
-Open decisions MUST use this disposition table:
+The following items are intentionally unresolved because the uploaded context does not provide adopted repository state. They MUST be closed during repository adoption before implementation conformance is claimed.
 
-| ID | Decision | Disposition |
+| Decision ID | Open item | Required closure |
 | --- | --- | --- |
-| `OTEL-DQ-001` | Adopted spec path | Open. Choose final repository path and adoption process. Suggested path remains `docs/cartulary-opentelemetry-instrumentation-nlspec.md`. |
-| `OTEL-DQ-002` | Exact Go OpenTelemetry SDK versions | Open. Pin exact module versions in repo-control files before implementation adoption. |
-| `OTEL-DQ-003` | Semantic-convention update policy | Closed by §4.1 through §4.4. Semantic-convention updates are spec revisions unless emitted telemetry remains `registry_equivalent`. |
-| `OTEL-DQ-004` | Browser telemetry | Deferred. Browser direct export remains forbidden; app-mediated telemetry requires a later route contract. |
-| `OTEL-DQ-005` | Prometheus compatibility | Deferred. Prometheus scrape support is not in this revision and MUST NOT be implied by OTel exporter lists. |
-| `OTEL-DQ-006` | Incident correlation | Narrowed. Default remains `none`; `hmac_64bit` requires production-specific approval through configuration, server-side secret, bounded attribute use, and the collision-risk posture in §8.5. |
-| `OTEL-DQ-007` | Operator dashboards and alerts | Closed as separate SRE/runbook scope. This NLSpec owns emitted telemetry, not dashboard artifacts. |
-| `OTEL-DQ-008` | Metric exemplars | Closed for this revision. Disabled and invalid if enabled. |
-| `OTEL-DQ-009` | OTel declarative config and plugin providers | Closed for this revision. Not authoritative and cannot create SDK behavior. |
-| `OTEL-DQ-010` | HTTP `url.path` adoption | Closed for this revision. Forbidden; `http.route` is the only path-like HTTP attribute. |
+| `OTEL-DQ-001` | Exact OTel spec repository commit SHA | Pin `otel_spec_commit_sha` in `otel_source_snapshot`. |
+| `OTEL-DQ-002` | Exact semantic-conventions repository commit SHA and model digest | Pin `semconv_commit_sha` and `semconv_model_digest`. |
+| `OTEL-DQ-003` | Exact language SDK package set | Pin API, SDK, exporter, logs, metrics, trace, semantic-convention constants, and any bridge package versions in repo-control files. |
+| `OTEL-DQ-004` | Error-class registry count for public error codes | Bind `cartulary.error_code` and `cartulary.error_class` to the adopted public error registry after repository adoption. |
+| `OTEL-DQ-005` | Golden corpus storage path | Choose repo-local path for normalized golden telemetry and retained raw captures. |
 
 ## 17. Completion standard
 
-This revision is complete only when all of the following are true:
+This NLSpec is complete for implementation when all of the following are true:
 
-- The existing authority model remains intact.
-- Every emitted telemetry name, attribute, metric, span, log mapping, exporter setting, and processor setting has one owner table in this NLSpec.
-- Every configurable telemetry value has a default, allowed values, bounds, omitted behavior, explicit-`null` behavior, and startup-validation behavior.
-- Every standard OTel semantic convention used by Cartulary is classified by stability and privacy safety.
-- Every Cartulary custom key is listed in the custom registry and passes the naming policy.
-- Every forbidden value family has tests covering traces, metrics, logs, events, exception fields, exporter artifacts, self-diagnostics, SDK processor inputs, exporter queues, and retained test artifacts.
-- OTel environment variables, declarative config, plugin providers, and semconv opt-ins cannot alter telemetry behavior outside declared `telemetry.*` keys.
-- No ordinary instrumentation unit can configure SDK providers, exporters, processors, samplers, propagators, metric readers, log processors, or declarative config.
-- HTTP spans never emit concrete paths, concrete IDs, raw query strings, headers, or path-derived names.
-- Postgres spans emit `db.system.name='postgresql'` and never emit SQL text, bind values, table names, projection names, DB namespace, collection name, server address, or server port.
-- Object-store telemetry never emits S3 semantic attributes or object-identifying values.
-- Every metric has an allowlisted View/filter; no `otel.metric.overflow` appears in the conformance corpus.
-- Exemplars are disabled.
-- LogRecord bodies are bounded, string-only, and redacted before construction.
-- Browser direct export, Collector requirement, Prometheus scrape export, SQL commenter propagation, Baggage correlation, AWS S3 attributes, OTel environment autoconfiguration, OTel declarative config authority, OTel plugin providers, raw HTTP URLs, raw SQL, raw DB parameters, object keys, filenames, and evidence handles are explicitly forbidden or explicitly deferred.
-- The acceptance criteria are binary and sufficient for an implementation agent to determine conformance without guessing.
+- The OpenTelemetry source snapshot is pinned by commit or immutable release reference and contains no unresolved TODO values.
+- Ordinary instrumentation units are API-only and SDK-independent.
+- No-SDK mode executes representative product paths without telemetry-induced errors.
+- Cartulary deployment configuration is the sole telemetry authority.
+- Hostile OTel environment variables cannot enable egress, alter resources, alter sampling, enable Baggage, enable exemplars, or load declarative config.
+- Resource attributes are closed and resource detectors are disabled.
+- Forbidden values are removed before recording, not by SDK limits or downstream scrubbing.
+- The sampler profile is explicit and inbound remote context cannot control Cartulary root spans.
+- HTTP, Postgres, object-store, workbook, collaboration, jobs, metrics, and logs emit only registered signal shapes.
+- Metrics have fixed identity, allowed attributes, cumulative temporality, and no exemplars.
+- Logs are disabled by default; when enabled they emit bounded, string-only, redacted LogRecords with no EventName and no raw exception object.
+- OTLP export requires explicit Cartulary configuration and uses deterministic endpoint, header, User-Agent, retry, timeout, and shutdown rules.
+- Browser direct export is absent.
+- Non-transferred OpenTelemetry concepts are explicitly forbidden or deferred.
+- Golden telemetry corpus comparison is required for OTel dependency and semantic-convention updates.
+- All acceptance criteria in §15 are binary and pass.
 
 ## Sources
 
@@ -1099,30 +1175,34 @@ This revision is complete only when all of the following are true:
 
 [^5]: `04_security_deployment_and_conformance.md`, Core 04 §6 and §12. Core 04 owns runtime roots and the operator-facing deployment configuration surface.
 
-[^6]: OpenTelemetry Specification page, `https://opentelemetry.io/docs/specs/otel/`, lines 122-123 as observed on 2026-05-20. The page identifies the current observed specification as `OpenTelemetry Specification 1.56.0`.
+[^6]: OpenTelemetry Specification Overview, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/overview.md`, observed 2026-05-20. Used for API/SDK separation, instrumentation-author SDK prohibition, semantic-convention model source, signal descriptions, spans, links, Baggage, resources, Collector, and instrumentation-library terminology.
 
-[^7]: OpenTelemetry Overview, `https://opentelemetry.io/docs/specs/otel/overview/`, lines 151-166 as observed on 2026-05-20. The page defines the API/SDK split, states that instrumentation authors must not directly reference SDK packages, and states that semantic-convention YAML files are the source of truth for generated constants.
+[^7]: OpenTelemetry Specification page, `https://opentelemetry.io/docs/specs/otel/`, observed 2026-05-20. The page identifies the observed specification as `OpenTelemetry Specification 1.56.0`.
 
-[^8]: OpenTelemetry Configuration, `https://opentelemetry.io/docs/specs/otel/configuration/`, lines 127-145 as observed on 2026-05-20. The page describes programmatic, environment-variable, and declarative configuration, including SDK component configuration, instrumentation configuration, custom plugin components, and file-based representation.
+[^8]: OpenTelemetry Semantic Conventions page, `https://opentelemetry.io/docs/specs/semconv/`, observed 2026-05-20. The page identifies the observed semantic-conventions version as `1.41.0` and describes semantic conventions as defining common attributes, span names, span kinds, metric instruments, units, names, types, meanings, and valid values.
 
-[^9]: OpenTelemetry Environment Variable Specification, `https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/`, lines 142-153 as observed on 2026-05-20. The page describes environment-variable configuration goals and implementation guidance.
+[^9]: OpenTelemetry Environment Variable Specification, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/configuration/sdk-environment-variables.md`, observed 2026-05-20. Used for SDK environment variables, SDK disablement, resource attributes, service name, propagators, sampler variables, exporter variables, exemplar filter, metric export cadence, and declarative config behavior.
 
-[^10]: OpenTelemetry Service attribute registry, `https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/`, lines 352-360 as observed on 2026-05-20. The page marks `service.criticality` Development, defines `service.instance.id`, and recommends opaque UUID-style service-instance identity because underlying identity can be confidential.
+[^10]: OpenTelemetry Environment Variable Specification, same source as [^9], observed 2026-05-20. Used specifically for `OTEL_CONFIG_FILE` precedence and the rule that other environment variables are ignored when declarative configuration is used.
 
-[^11]: OpenTelemetry HTTP span semantic conventions, `https://opentelemetry.io/docs/specs/semconv/http/http-spans/`, lines 356-390, 398-415, 632-648, and 689-690 as observed on 2026-05-20. The page identifies HTTP span conventions as stable, defines span naming around method and target, documents semconv migration opt-ins, specifies server 4xx and 5xx status handling, and defines low-cardinality `http.route` behavior.
+[^11]: OpenTelemetry Resource SDK Specification, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/resource/sdk.md`, observed 2026-05-20. Used for resource immutability, SDK-provided resource attributes, merge behavior, resource detectors, reserved detector names, and environment-derived resource attributes.
 
-[^12]: OpenTelemetry Database span semantic conventions, `https://opentelemetry.io/docs/specs/semconv/db/database-spans/`, lines 347-380, 419-453, 482-490, and 494-529 as observed on 2026-05-20. The page identifies database span conventions as stable, defines database span naming, query summary, query parameters, and the well-known `postgresql` `db.system.name` value.
+[^12]: OpenTelemetry Common Specification Concepts, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/common/README.md`, observed 2026-05-20. Used for AnyValue shapes, Attribute definition, Attribute Collections, attribute limits, and uniqueness rules.
 
-[^13]: OpenTelemetry AWS S3 semantic conventions, `https://opentelemetry.io/docs/specs/semconv/object-stores/s3/`, lines 336-359 and 364-392 as observed on 2026-05-20. The page marks S3 conventions Development and lists object-identifying attributes such as bucket, key, copy source, part number, and upload ID.
+[^13]: OpenTelemetry Trace SDK Specification, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/trace/sdk.md`, observed 2026-05-20. Used for TraceIdRatioBased deprecation, ProbabilitySampler status and algorithm, ParentBased sampler behavior, and sampler compatibility warnings.
 
-[^14]: OpenTelemetry Overview, `https://opentelemetry.io/docs/specs/otel/overview/`, lines 209-228 and 271-280 as observed on 2026-05-20. The page defines span state, span links, and Baggage consumption into metrics, logs, and traces.
+[^14]: OpenTelemetry Metrics API Specification, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/metrics/api.md`, observed 2026-05-20. Used for instrument identity, instrument name syntax, case-insensitive metric names, unit rules, and instrument families.
 
-[^15]: OpenTelemetry Overview and Metrics SDK, `https://opentelemetry.io/docs/specs/otel/overview/` and `https://opentelemetry.io/docs/specs/otel/metrics/sdk/`, lines 254-264, 263-325, 554-567, and 660-665 as observed on 2026-05-20. These pages describe metric instrument families, Views, attribute filtering, cardinality overflow, and exemplars.
+[^15]: OpenTelemetry Metrics SDK Specification, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/metrics/sdk.md`, observed 2026-05-20. Used for Views, attribute filtering, aggregation, MetricReader temporality, cardinality limits, and the note that filtered attributes may still appear on exemplars unless exemplars are disabled.
 
-[^16]: OpenTelemetry Logs Data Model, `https://opentelemetry.io/docs/specs/otel/logs/data-model/`, lines 147-181 as observed on 2026-05-20. The page defines the stable log data model and top-level LogRecord field families.
+[^16]: OpenTelemetry Metrics SDK Specification, same source as [^15], observed 2026-05-20. Used specifically for `otel.metric.overflow=true` cardinality overflow behavior.
 
-[^17]: OpenTelemetry Protocol Exporter and OTLP Specification, `https://opentelemetry.io/docs/specs/otel/protocol/exporter/` and `https://opentelemetry.io/docs/specs/otlp/`, lines 135-149 and 1011-1043 as observed on 2026-05-20. These pages define OTLP exporter endpoint configuration, per-signal endpoint precedence, default endpoints, OTLP/gRPC and OTLP/HTTP ports, and protobuf binary/JSON encodings.
+[^17]: OpenTelemetry Metrics SDK Specification, same source as [^15], observed 2026-05-20. Used specifically for exemplar filter behavior and `AlwaysOff`.
 
-[^18]: OpenTelemetry Error Handling, `https://opentelemetry.io/docs/specs/otel/error-handling/`, lines 127-136 as observed on 2026-05-20. The page states that telemetry should not significantly change application behavior, permits fail-fast initialization for bad configuration, and forbids unhandled runtime telemetry exceptions.
+[^18]: OpenTelemetry Logs Data Model, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/logs/data-model.md`, observed 2026-05-20. Used for LogRecord top-level field definitions, severity number ranges, Body, Resource, InstrumentationScope, Attributes, and EventName.
 
-[^19]: `04_security_deployment_and_conformance.md`, Core 04 §3-§4.5. Core 04 requires a project-local STRIDE threat model and defines relevant trust-boundary controls.
+[^19]: OpenTelemetry Logs API Specification, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/logs/api.md`, observed 2026-05-20. Used for LogRecord emission parameters, exception input, EventName input, and log bridge posture.
+
+[^20]: OpenTelemetry Protocol Exporter Specification, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/protocol/exporter.md`, observed 2026-05-20. Used for OTLP endpoint construction, per-signal endpoint precedence, default endpoint, supported compression, retry, and User-Agent guidance.
+
+[^21]: OpenTelemetry error-handling guidance in the OpenTelemetry specification repository, `https://raw.githubusercontent.com/open-telemetry/opentelemetry-specification/main/specification/error-handling.md`, observed 2026-05-20. Used for distinguishing startup configuration failures from runtime telemetry failures and for the principle that telemetry should not significantly change application behavior.
