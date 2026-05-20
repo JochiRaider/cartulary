@@ -2,12 +2,8 @@
 title: Cartulary OpenTelemetry Instrumentation NLSpec
 status: draft/proposed
 document_class: nlspec
-version: 0.2.0-draft
 created_at: 2026-05-19
-suggested_repository_path: docs/cartulary-opentelemetry-instrumentation-nlspec.md
 ---
-
-# Cartulary OpenTelemetry Instrumentation NLSpec
 
 ## 1. Status, scope, and authority
 
