@@ -1,4 +1,8 @@
-import { applyFilterChip, removeFilterChip } from "@cartulary/test-utils";
+import {
+  applyFilterChip,
+  removeFilterChip,
+  sortByHeader,
+} from "@cartulary/test-utils";
 import {
   conflictMarkerTestId,
   gridScrollportSelector,
@@ -1148,7 +1152,127 @@ test("Phase 9 E-9-06 Task Request and Decision workbook workflows stay native", 
   expect(Date.parse(task.cells["task.due_at"]?.value as string)).toBe(
     Date.parse(dueAt),
   );
+  expect(task.cells["task.priority"]?.value).toBe("normal");
   expect(collectionItems(task, "task.linked_record_ids")).toHaveLength(1);
+
+  await setPhase9GenericCreateField(
+    page,
+    "task.title",
+    "E-9-06 urgent queue task",
+  );
+  await setPhase9GenericCreateField(page, "task.task_kind", "follow_up");
+  await setPhase9GenericCreateField(page, "task.priority", "urgent");
+  await page
+    .getByTestId(`generic-create-submit-${taskRequestsViewSchemaId}`)
+    .click();
+  const urgentTask = await waitForViewRowByCell(
+    page,
+    incidentId,
+    taskRequestsViewSchemaId,
+    "task.title",
+    "E-9-06 urgent queue task",
+  );
+  expect(urgentTask.cells["task.priority"]?.value).toBe("urgent");
+
+  const priorityRequestPromise = page.waitForRequest((request) => {
+    if (
+      request.method() !== "PATCH" ||
+      !request.url().endsWith(`/api/v1/records/${task.record_id}`)
+    ) {
+      return false;
+    }
+    const body = request.postDataJSON() as {
+      changes?: Array<{ field_key?: string; value?: unknown }>;
+    };
+    return (
+      body.changes?.some(
+        (change) =>
+          change.field_key === "task.priority" && change.value === "high",
+      ) ?? false
+    );
+  });
+  await editGenericCell(
+    page,
+    taskRequestsViewSchemaId,
+    task.record_id,
+    "task.priority",
+    "high",
+  );
+  const priorityRequest = await priorityRequestPromise;
+  expect(priorityRequest.postDataJSON()).toMatchObject({
+    view_schema_id: taskRequestsViewSchemaId,
+    changes: [{ field_key: "task.priority", value: "high" }],
+  });
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expect(
+    page.getByTestId(rowCellTestId(task.record_id, "task.priority")),
+  ).toHaveText("high");
+
+  await applyFilterChip(
+    page,
+    taskRequestsViewSchemaId,
+    "task.priority",
+    "high",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(task.record_id, "task.priority")),
+  ).toHaveText("high");
+  await expect(
+    page.getByTestId(rowCellTestId(urgentTask.record_id, "task.priority")),
+  ).toHaveCount(0);
+  await removeFilterChip(page, taskRequestsViewSchemaId, "task.priority");
+  await expect(
+    page.getByTestId(rowCellTestId(urgentTask.record_id, "task.priority")),
+  ).toHaveText("urgent");
+
+  const priorityAscResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${taskRequestsViewSchemaId}/query`,
+        ),
+  );
+  await sortByHeader(page, taskRequestsViewSchemaId, "task.priority");
+  await priorityAscResponse;
+  const priorityDescRequestPromise = page.waitForRequest((request) => {
+    if (
+      request.method() !== "POST" ||
+      !request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${taskRequestsViewSchemaId}/query`,
+        )
+    ) {
+      return false;
+    }
+    const body = request.postDataJSON() as {
+      sort?: Array<{ direction?: string; field_key?: string }>;
+    };
+    return (
+      body.sort?.some(
+        (entry) =>
+          entry.field_key === "task.priority" &&
+          entry.direction === "desc",
+      ) ?? false
+    );
+  });
+  await sortByHeader(page, taskRequestsViewSchemaId, "task.priority");
+  const priorityDescRequest = await priorityDescRequestPromise;
+  const priorityDescBody = priorityDescRequest.postDataJSON() as {
+    sort?: Array<{ direction?: string; field_key?: string }>;
+  };
+  expect(priorityDescBody.sort).toContainEqual({
+    direction: "desc",
+    field_key: "task.priority",
+  });
+  await expect(
+    page
+      .getByTestId(gridShellTestId(taskRequestsViewSchemaId))
+      .locator('[role="row"][data-grid-record-id]:not([data-grid-record-id=""])')
+      .first(),
+  ).toHaveAttribute("data-grid-record-id", urgentTask.record_id);
 
   const lifecycleResponse = page.waitForResponse(
     (response) =>

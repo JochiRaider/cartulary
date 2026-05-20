@@ -1542,7 +1542,7 @@ func updateSourceFromRollbackSourceTx(ctx context.Context, tx pgx.Tx, recordType
 	case "task_request":
 		return updateGenericWorkbookSourceTx(ctx, tx, "task_requests", recordID, now, source, []string{"title", "status", "owner_user_id", "priority", "task_kind", "workstream", "due_at", "requester_party_text", "requester_party_id", "blocked_reason", "completed_at", "external_ticket_ref", "closure_summary", "decision_record_id", "updated_at"})
 	case "decision":
-		return updateGenericWorkbookSourceTx(ctx, tx, "decisions", recordID, now, source, []string{"summary", "status", "owner_user_id", "decision_type", "decided_at", "rationale", "supersedes_record_id", "updated_at"})
+		return updateGenericWorkbookSourceTx(ctx, tx, "decisions", recordID, now, source, []string{"summary", "status", "owner_user_id", "decision_type", "decided_at", "rationale", "updated_at"})
 	case "artifact":
 		return updateGenericWorkbookSourceTx(ctx, tx, "artifacts", recordID, now, source, []string{"title", "body", "timestamp_utc", "updated_at", "comm_id", "comm_type", "audience", "channel_or_meeting", "summary", "next_report_at", "privilege_tag", "handoff_id", "outgoing_owner_user_id", "incoming_owner_user_id", "current_state_summary", "next_checks", "acknowledged_at", "status_review_id", "review_owner_user_id", "active_risks_summary", "lesson_id", "owner_user_id", "closure_state", "created_by_user_id"})
 	case "assessment":
@@ -2807,13 +2807,12 @@ func rollbackSourceForRecordType(recordType string, value map[string]any) (map[s
 		}
 	case "decision":
 		mapping = map[string]string{
-			"decision.summary":              "summary",
-			"decision.status":               "status",
-			"decision.owner_user_id":        "owner_user_id",
-			"decision.decision_type":        "decision_type",
-			"decision.decided_at":           "decided_at",
-			"decision.rationale":            "rationale",
-			"decision.supersedes_record_id": "supersedes_record_id",
+			"decision.summary":       "summary",
+			"decision.status":        "status",
+			"decision.owner_user_id": "owner_user_id",
+			"decision.decision_type": "decision_type",
+			"decision.decided_at":    "decided_at",
+			"decision.rationale":     "rationale",
 		}
 	case "artifact":
 		mapping = map[string]string{

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -216,6 +217,108 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection(t *testing
 	requireSprint6Lifecycle(t, err)
 }
 
+func TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07(t *testing.T) {
+	ctx := context.Background()
+	harness := phase4storetest.StartStore(t, "phase9-sprint6-task-guard-failures")
+	store := workbook.NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint6-task-guards@example.test", "Sprint6 Task Guards", "Sprint6TaskGuards1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-task-guard-incident", "IR-S6-TASK-GUARDS", "Phase 9 Sprint 6 task guard failures")
+
+	beforeCreatedAt := sprint6Time(-time.Hour)
+	for _, tc := range []struct {
+		name   string
+		values map[string]workbook.ValueChange
+	}{
+		{
+			name: "blocked-without-reason-create",
+			values: map[string]workbook.ValueChange{
+				"task.title":     {Kind: "text", Text: stringPtrU911("Blocked without reason")},
+				"task.task_kind": {Kind: "text", Text: stringPtrU911("request")},
+				"task.status":    {Kind: "text", Text: stringPtrU911("blocked")},
+			},
+		},
+		{
+			name: "non-blocked-with-reason-create",
+			values: map[string]workbook.ValueChange{
+				"task.title":          {Kind: "text", Text: stringPtrU911("Open with blocked reason")},
+				"task.task_kind":      {Kind: "text", Text: stringPtrU911("request")},
+				"task.blocked_reason": {Kind: "text", Text: stringPtrU911("Reason is only legal while blocked")},
+			},
+		},
+		{
+			name: "non-done-with-completed-at-create",
+			values: map[string]workbook.ValueChange{
+				"task.title":        {Kind: "text", Text: stringPtrU911("Open with completion time")},
+				"task.task_kind":    {Kind: "text", Text: stringPtrU911("request")},
+				"task.completed_at": {Kind: "timestamp", Timestamp: &beforeCreatedAt},
+			},
+		},
+		{
+			name: "done-before-created-create",
+			values: map[string]workbook.ValueChange{
+				"task.title":        {Kind: "text", Text: stringPtrU911("Done before created")},
+				"task.task_kind":    {Kind: "text", Text: stringPtrU911("request")},
+				"task.status":       {Kind: "text", Text: stringPtrU911("done")},
+				"task.completed_at": {Kind: "timestamp", Timestamp: &beforeCreatedAt},
+			},
+		},
+	} {
+		beforeRecords := countSprint6Records(t, harness.DB, incident.ID)
+		_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+			ViewSchemaID: workbook.TaskRequestsViewSchemaID,
+			ClientTxnID:  "txn-phase9-sprint6-task-guard-" + tc.name,
+			Values:       tc.values,
+		}, []byte("txn-phase9-sprint6-task-guard-"+tc.name), "req-phase9-sprint6-task-guard-"+tc.name, sprint6Time(0))
+		requireSprint6Lifecycle(t, err)
+		if got := countSprint6Records(t, harness.DB, incident.ID); got != beforeRecords {
+			t.Fatalf("%s wrote partial records: got %d want %d", tc.name, got, beforeRecords)
+		}
+	}
+
+	for _, tc := range []struct {
+		name    string
+		changes []workbook.PatchChange
+	}{
+		{
+			name: "blocked-without-reason-patch",
+			changes: []workbook.PatchChange{
+				sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("blocked")}),
+			},
+		},
+		{
+			name: "non-blocked-with-reason-patch",
+			changes: []workbook.PatchChange{
+				sprint6ValueChange("task.blocked_reason", workbook.ValueChange{Kind: "text", Text: stringPtrU911("Reason is only legal while blocked")}),
+			},
+		},
+		{
+			name: "non-done-with-completed-at-patch",
+			changes: []workbook.PatchChange{
+				sprint6ValueChange("task.completed_at", workbook.ValueChange{Kind: "timestamp", Timestamp: &beforeCreatedAt}),
+			},
+		},
+		{
+			name: "done-before-created-patch",
+			changes: []workbook.PatchChange{
+				sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("done")}),
+				sprint6ValueChange("task.completed_at", workbook.ValueChange{Kind: "timestamp", Timestamp: &beforeCreatedAt}),
+			},
+		},
+	} {
+		task := mustCreateSprint6Task(t, store, actor, incident.ID, "txn-phase9-sprint6-task-guard-base-"+tc.name, map[string]workbook.ValueChange{
+			"task.title":     {Kind: "text", Text: stringPtrU911("Guard base " + tc.name)},
+			"task.task_kind": {Kind: "text", Text: stringPtrU911("request")},
+		}, nil)
+		before := sprint6TaskSnapshot(t, harness.DB, task.RecordID)
+		_, err := sprint6Patch(store, actor, task.RecordID, workbook.TaskRequestsViewSchemaID, before.RowVersion, "txn-phase9-sprint6-task-guard-"+tc.name, tc.changes...)
+		requireSprint6Lifecycle(t, err)
+		requireSprint6TaskSnapshot(t, sprint6TaskSnapshot(t, harness.DB, task.RecordID), before, tc.name)
+		if got := countSprint6ReferenceLinks(t, harness.DB, task.RecordID, "task.linked_record_ids"); got != 0 {
+			t.Fatalf("%s wrote partial task links: got %d want 0", tc.name, got)
+		}
+	}
+}
+
 func TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency(t *testing.T) {
 	ctx := context.Background()
 	harness := phase4storetest.StartStore(t, "phase9-sprint6-decisions")
@@ -402,9 +505,128 @@ INSERT INTO record_links (
 	}
 }
 
+func TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget(t *testing.T) {
+	ctx := context.Background()
+	harness := phase4storetest.StartStore(t, "phase9-sprint6-decision-supersede-inconsistent")
+	store := workbook.NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint6-decision-supersede-inconsistent@example.test", "Sprint6 Decision Supersede Inconsistent", "Sprint6DecisionSupersede1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-decision-supersede-inconsistent-incident", "IR-S6-DECISION-SUPERSEDE-INCONSISTENT", "Phase 9 Sprint 6 decision supersede inconsistent")
+
+	inconsistentSource := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-inconsistent-source", "proposed", "Inconsistent source")
+	sourceExistingTarget := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-inconsistent-source-existing-target", "proposed", "Existing target")
+	validTarget := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-source-fail-target", "proposed", "Source fail target")
+	insertSprint6SupersedesLink(t, harness.DB, incident.ID, inconsistentSource, sourceExistingTarget, actor.ID, sprint6Time(time.Hour))
+
+	sourceBefore := sprint6DecisionSnapshot(t, harness.DB, inconsistentSource)
+	sourceExistingTargetBefore := sprint6DecisionSnapshot(t, harness.DB, sourceExistingTarget)
+	validTargetBefore := sprint6DecisionSnapshot(t, harness.DB, validTarget)
+	sourceRequest := timeline.SupersedeRequest{
+		BaseRowVersion:      validTargetBefore.RowVersion,
+		ClientTxnID:         "txn-phase9-sprint6-decision-inconsistent-source-route",
+		Reason:              "Attempt explicit supersession with inconsistent source.",
+		ReplacementRecordID: &inconsistentSource,
+	}
+	_, err := store.SupersedeDecision(ctx, actor, validTarget, sourceRequest, timeline.TimelineActionRequestHash(sourceRequest.BaseRowVersion, sourceRequest.ClientTxnID, &sourceRequest.Reason, sourceRequest.ReplacementRecordID), "req-phase9-sprint6-decision-inconsistent-source-route", sprint6Time(2*time.Hour))
+	requireSprint6Lifecycle(t, err)
+	requireSprint6DecisionSnapshot(t, sprint6DecisionSnapshot(t, harness.DB, inconsistentSource), sourceBefore, "inconsistent source supersede")
+	requireSprint6DecisionSnapshot(t, sprint6DecisionSnapshot(t, harness.DB, sourceExistingTarget), sourceExistingTargetBefore, "inconsistent source existing target")
+	requireSprint6DecisionSnapshot(t, sprint6DecisionSnapshot(t, harness.DB, validTarget), validTargetBefore, "valid target rejected by inconsistent source")
+	if got := countSprint6SupersedesLinks(t, harness.DB, inconsistentSource, validTarget); got != 0 {
+		t.Fatalf("inconsistent source supersede wrote link to attempted target: got %d want 0", got)
+	}
+	if got := countSprint6ReferenceLinks(t, harness.DB, inconsistentSource, "decision.support_refs"); got != 0 {
+		t.Fatalf("inconsistent source supersede wrote support links: got %d want 0", got)
+	}
+	if got := countSprint6ReferenceLinks(t, harness.DB, validTarget, "decision.affected_record_ids"); got != 0 {
+		t.Fatalf("inconsistent source supersede wrote affected links: got %d want 0", got)
+	}
+
+	validSource := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-target-fail-source", "approved", "Valid source")
+	inconsistentTarget := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-inconsistent-target", "proposed", "Inconsistent target")
+	targetExistingSource := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-inconsistent-target-existing-source", "approved", "Existing superseding source")
+	insertSprint6SupersedesLink(t, harness.DB, incident.ID, targetExistingSource, inconsistentTarget, actor.ID, sprint6Time(3*time.Hour))
+
+	validSourceBefore := sprint6DecisionSnapshot(t, harness.DB, validSource)
+	inconsistentTargetBefore := sprint6DecisionSnapshot(t, harness.DB, inconsistentTarget)
+	targetExistingSourceBefore := sprint6DecisionSnapshot(t, harness.DB, targetExistingSource)
+	targetRequest := timeline.SupersedeRequest{
+		BaseRowVersion:      inconsistentTargetBefore.RowVersion,
+		ClientTxnID:         "txn-phase9-sprint6-decision-inconsistent-target-route",
+		Reason:              "Attempt explicit supersession against inconsistent target.",
+		ReplacementRecordID: &validSource,
+	}
+	_, err = store.SupersedeDecision(ctx, actor, inconsistentTarget, targetRequest, timeline.TimelineActionRequestHash(targetRequest.BaseRowVersion, targetRequest.ClientTxnID, &targetRequest.Reason, targetRequest.ReplacementRecordID), "req-phase9-sprint6-decision-inconsistent-target-route", sprint6Time(4*time.Hour))
+	requireSprint6Lifecycle(t, err)
+	requireSprint6DecisionSnapshot(t, sprint6DecisionSnapshot(t, harness.DB, validSource), validSourceBefore, "valid source rejected by inconsistent target")
+	requireSprint6DecisionSnapshot(t, sprint6DecisionSnapshot(t, harness.DB, inconsistentTarget), inconsistentTargetBefore, "inconsistent target supersede")
+	requireSprint6DecisionSnapshot(t, sprint6DecisionSnapshot(t, harness.DB, targetExistingSource), targetExistingSourceBefore, "inconsistent target existing source")
+	if got := countSprint6SupersedesLinks(t, harness.DB, validSource, inconsistentTarget); got != 0 {
+		t.Fatalf("inconsistent target supersede wrote attempted link: got %d want 0", got)
+	}
+	if got := countSprint6ReferenceLinks(t, harness.DB, validSource, "decision.support_refs"); got != 0 {
+		t.Fatalf("inconsistent target supersede wrote support links: got %d want 0", got)
+	}
+	if got := countSprint6ReferenceLinks(t, harness.DB, inconsistentTarget, "decision.affected_record_ids"); got != 0 {
+		t.Fatalf("inconsistent target supersede wrote affected links: got %d want 0", got)
+	}
+}
+
+func TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07(t *testing.T) {
+	harness := phase4storetest.StartStore(t, "phase9-sprint6-decision-terminal-matrix")
+	store := workbook.NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint6-decision-terminal@example.test", "Sprint6 Decision Terminal", "Sprint6DecisionTerminal1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-decision-terminal-incident", "IR-S6-DECISION-TERMINAL", "Phase 9 Sprint 6 decision terminal matrix")
+
+	for _, from := range []string{"rejected", "executed", "superseded"} {
+		for _, to := range []string{"proposed", "approved", "rejected", "executed", "superseded"} {
+			name := from + "-to-" + to
+			decisionID := mustCreateSprint6DecisionInTerminalState(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-terminal-base-"+name, from)
+			before := sprint6DecisionSnapshot(t, harness.DB, decisionID)
+			changes := []workbook.PatchChange{
+				sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911(to)}),
+			}
+			if from == to {
+				changes = append(changes, sprint6ValueChange("decision.rationale", workbook.ValueChange{Kind: "text", Text: stringPtrU911("Idempotent in-state terminal write remains ordinary scalar work.")}))
+			}
+			_, err := sprint6Patch(store, actor, decisionID, workbook.DecisionsViewSchemaID, before.RowVersion, "txn-phase9-sprint6-decision-terminal-"+name, changes...)
+			if from == to && from != "superseded" {
+				if err != nil {
+					t.Fatalf("%s should allow in-state terminal write, got %v", name, err)
+				}
+				after := sprint6DecisionSnapshot(t, harness.DB, decisionID)
+				if after.Status != from || after.Rationale != "Idempotent in-state terminal write remains ordinary scalar work." || after.RowVersion <= before.RowVersion {
+					t.Fatalf("%s unexpected in-state result: before=%#v after=%#v", name, before, after)
+				}
+				continue
+			}
+			requireSprint6Lifecycle(t, err)
+			requireSprint6DecisionSnapshot(t, sprint6DecisionSnapshot(t, harness.DB, decisionID), before, name)
+		}
+	}
+}
+
 func mustCreateSprint6Decision(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string) uuid.UUID {
 	t.Helper()
 	return mustCreateSprint6DecisionWithCollections(t, store, actor, incidentID, clientTxnID, status, summary, nil).RecordID
+}
+
+func mustCreateSprint6DecisionInTerminalState(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string) uuid.UUID {
+	t.Helper()
+	if status != "superseded" {
+		return mustCreateSprint6Decision(t, store, actor, incidentID, clientTxnID, status, "Terminal "+status)
+	}
+	target := mustCreateSprint6Decision(t, store, actor, incidentID, clientTxnID+"-target", "proposed", "Superseded target")
+	source := mustCreateSprint6Decision(t, store, actor, incidentID, clientTxnID+"-source", "approved", "Superseding source")
+	request := timeline.SupersedeRequest{
+		BaseRowVersion:      1,
+		ClientTxnID:         clientTxnID + "-supersede",
+		Reason:              "Create explicit superseded terminal state.",
+		ReplacementRecordID: &source,
+	}
+	if _, err := store.SupersedeDecision(context.Background(), actor, target, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-"+clientTxnID+"-supersede", sprint6Time(time.Hour)); err != nil {
+		t.Fatalf("create superseded decision %s: %v", clientTxnID, err)
+	}
+	return target
 }
 
 func mustCreateSprint6DecisionWithCollections(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string, collections map[string]workbook.CollectionActionPayload) workbook.MutationResult {
@@ -427,6 +649,95 @@ func mustCreateSprint6DecisionWithCollections(t testing.TB, store *workbook.Stor
 		t.Fatalf("create decision %s: %v", clientTxnID, err)
 	}
 	return result
+}
+
+type sprint6TaskState struct {
+	RowVersion    int64
+	Status        string
+	BlockedReason sql.NullString
+	CompletedAt   sql.NullTime
+	OwnerUserID   sql.NullString
+}
+
+func sprint6TaskSnapshot(t testing.TB, db interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, recordID uuid.UUID) sprint6TaskState {
+	t.Helper()
+	var state sprint6TaskState
+	if err := db.QueryRow(context.Background(), `
+SELECT r.row_version, t.status, t.blocked_reason, t.completed_at, t.owner_user_id::text
+  FROM task_requests t
+  JOIN records r
+    ON r.record_id = t.record_id
+ WHERE t.record_id = $1
+`, recordID).Scan(&state.RowVersion, &state.Status, &state.BlockedReason, &state.CompletedAt, &state.OwnerUserID); err != nil {
+		t.Fatalf("query task snapshot: %v", err)
+	}
+	return state
+}
+
+func requireSprint6TaskSnapshot(t testing.TB, got sprint6TaskState, want sprint6TaskState, context string) {
+	t.Helper()
+	if got.RowVersion != want.RowVersion ||
+		got.Status != want.Status ||
+		got.BlockedReason != want.BlockedReason ||
+		got.CompletedAt.Valid != want.CompletedAt.Valid ||
+		(got.CompletedAt.Valid && !got.CompletedAt.Time.Equal(want.CompletedAt.Time)) ||
+		got.OwnerUserID != want.OwnerUserID {
+		t.Fatalf("%s changed task snapshot: got %#v want %#v", context, got, want)
+	}
+}
+
+type sprint6DecisionState struct {
+	RowVersion         int64
+	Status             string
+	Rationale          string
+	IncomingSupersedes int
+	OutgoingSupersedes int
+}
+
+func sprint6DecisionSnapshot(t testing.TB, db interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, recordID uuid.UUID) sprint6DecisionState {
+	t.Helper()
+	var state sprint6DecisionState
+	if err := db.QueryRow(context.Background(), `
+SELECT r.row_version,
+       d.status,
+       d.rationale,
+       COALESCE(incoming.count, 0)::integer,
+       COALESCE(outgoing.count, 0)::integer
+  FROM decisions d
+  JOIN records r
+    ON r.record_id = d.record_id
+  LEFT JOIN (
+        SELECT dst_record_id, COUNT(*) AS count
+          FROM record_links
+         WHERE link_type = 'supersedes'
+           AND deleted_at IS NULL
+         GROUP BY dst_record_id
+  ) incoming
+    ON incoming.dst_record_id = d.record_id
+  LEFT JOIN (
+        SELECT src_record_id, COUNT(*) AS count
+          FROM record_links
+         WHERE link_type = 'supersedes'
+           AND deleted_at IS NULL
+         GROUP BY src_record_id
+  ) outgoing
+    ON outgoing.src_record_id = d.record_id
+ WHERE d.record_id = $1
+`, recordID).Scan(&state.RowVersion, &state.Status, &state.Rationale, &state.IncomingSupersedes, &state.OutgoingSupersedes); err != nil {
+		t.Fatalf("query decision snapshot: %v", err)
+	}
+	return state
+}
+
+func requireSprint6DecisionSnapshot(t testing.TB, got sprint6DecisionState, want sprint6DecisionState, context string) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("%s changed decision snapshot: got %#v want %#v", context, got, want)
+	}
 }
 
 func mustCreateSprint6Task(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, values map[string]workbook.ValueChange, collections map[string]workbook.CollectionActionPayload) workbook.MutationResult {
@@ -576,6 +887,20 @@ SELECT COUNT(*)
 		t.Fatalf("count supersedes links: %v", err)
 	}
 	return count
+}
+
+func insertSprint6SupersedesLink(t testing.TB, db interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, actorID uuid.UUID, now time.Time) {
+	t.Helper()
+	if _, err := db.Exec(context.Background(), `
+INSERT INTO record_links (
+    incident_id, src_record_id, dst_record_id, link_type, field_key,
+    provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
+) VALUES ($1, $2, $3, 'supersedes', NULL, 'manual', NULL, $4, $4, $5, $5)
+`, incidentID, sourceID, targetID, actorID, now); err != nil {
+		t.Fatalf("insert supersedes link %s -> %s: %v", sourceID, targetID, err)
+	}
 }
 
 func sprint6QueryOne(t testing.TB, store *workbook.Store, incidentID uuid.UUID, viewSchemaID string, fieldKey string, value any, recordID uuid.UUID) map[string]any {

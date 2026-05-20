@@ -240,6 +240,17 @@ func TestSupportPhase9_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs(t
 	}
 }
 
+func TestSupportPhase9_TaskOwnerNullClearRejectedAtDecoder(t *testing.T) {
+	clear := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.owner_user_id","value":null}]}`
+	if _, apiErr := DecodePatchRequest(strings.NewReader(clear)); apiErr == nil {
+		t.Fatalf("expected task owner null clear to fail")
+	} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+		t.Fatalf("unexpected task owner null clear error: %#v", apiErr)
+	} else if apiErr.Details["field"] != "task.owner_user_id" || apiErr.Details["reason_code"] != "field_not_nullable" {
+		t.Fatalf("unexpected task owner null clear details: %#v", apiErr.Details)
+	}
+}
+
 func TestWorkbookMutationRequestHashNormalization(t *testing.T) {
 	left, apiErr := DecodePatchRequest(strings.NewReader(`{"view_schema_id":"cartulary.view.comm_log.v1","base_row_version":1,"client_txn_id":"txn-left","changes":[{"field_key":"comm_log.summary","value":" Updated "},{"field_key":"comm_log.privilege_tag","value":"legal"}]}`))
 	if apiErr != nil {

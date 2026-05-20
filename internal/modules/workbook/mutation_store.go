@@ -795,10 +795,9 @@ func (s *Store) SupersedeDecision(ctx context.Context, actor authn.UserRecord, t
 	}
 	if _, err := tx.Exec(ctx, `
 UPDATE decisions
-   SET supersedes_record_id = $2,
-       updated_at = $3
+   SET updated_at = $2
  WHERE record_id = $1
-`, sourceRecordID, targetRecordID, now.UTC()); err != nil {
+`, sourceRecordID, now.UTC()); err != nil {
 		return MutationResult{}, fmt.Errorf("update superseding decision: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `

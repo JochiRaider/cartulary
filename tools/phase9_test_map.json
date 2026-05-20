@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase9",
-  "note": "Phase 9 ownership manifest for keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces when exposed, and remaining analyst-work workbook surfaces. Sprint 1 through Sprint 5 direct rows declare claim_status=implemented where complete; remaining Sprint 0 blocker sentinels declare claim_status=blocked and keep the aggregate Phase 9 claim incomplete.",
+  "note": "Phase 9 ownership manifest for keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces when exposed, and remaining analyst-work workbook surfaces. Sprint 1 through Sprint 6 direct rows declare claim_status=implemented where complete; remaining Sprint 0 blocker sentinels declare claim_status=blocked and keep the aggregate Phase 9 claim incomplete.",
   "ledger": {
     "title": "Phase 9 Coverage Ledger",
     "notes": [
@@ -16,10 +16,10 @@
     ],
     "authoritative_execution": [
       "`backend-unit` selects direct Sprint 2 shared tabular-ingest planning evidence for clipboard paste and direct Sprint 5 timestamp_instant_v1 evidence, while registry rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, direct Sprint 5 Assessment evidence, and blocker sentinels for Tasks and Decisions, coordination, optional standardized surfaces, and non-assessment manual relationship collection rows until real implementation evidence replaces them.",
+      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, direct Sprint 5 Assessment evidence, direct Sprint 6 Task and Decision evidence, and blocker sentinels for coordination and optional standardized surfaces until real implementation evidence replaces them.",
       "`backend-integration` selects direct Sprint 2 clipboard persistence, entity-origin paste, bulk-mutation evidence, and Sprint 5 Assessment projection-backed query evidence while later required surfaces remain covered by their own rows or blocker sentinels until real implementation evidence replaces them.",
       "`frontend-unit` selects direct Sprint 1 keyboard command/grid-anchor evidence plus Sprint 2 rendered paste-dispatch anchor evidence while later frontend Phase 9 rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, Sprint 5 assessment workflow evidence, and shared-grid browser evidence while later browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
+      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, Sprint 5 assessment workflow evidence, Sprint 6 Task and Decision workflow evidence, and shared-grid browser evidence while later browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
     ],
     "support_execution_extras": [
       "Phase 4 workbook generic, assessment, Party, Indicator, and coordination smoke evidence remains support-only substrate and cannot claim Phase 9 completion or satisfy Phase 9 row ownership by itself.",
@@ -229,11 +229,13 @@
       "file": "internal/modules/workbook/phase9_task_decisions_store_test.go",
       "symbols": [
         "TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection",
-        "TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency"
+        "TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07",
+        "TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency",
+        "TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07"
       ],
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
-      "claim": "Task Requests and Decisions persist as workbook-native rows with minimum create signals, guarded direct lifecycle transitions, task owner/queue/due/blocked/completion semantics, direct decision references mirrored through record_links, projection-backed Task Request filters, legal Decision direct transitions, support and affected-record collection writes with manual confidence=NULL links, explicit Decision supersession through record_links, idempotent replay, executed-target is_superseded projection behavior, and fail-closed inconsistent Decision machine state.",
+      "claim": "Task Requests and Decisions persist as workbook-native rows with minimum create signals, guarded direct lifecycle transitions, task owner/queue/due/blocked/completion semantics, direct decision references mirrored through record_links, projection-backed Task Request filters, legal Decision direct transitions, exhaustive terminal Decision direct-transition rejection, support and affected-record collection writes with manual confidence=NULL links, explicit Decision supersession through record_links, idempotent replay, executed-target is_superseded projection behavior, and fail-closed inconsistent Decision machine state.",
       "out_of_scope": "Coordination surfaces, optional standardized surfaces, import, reporting, and later Phase 9 Task/Decision browser refinements remain separate rows.",
       "execution_family": "backend-store-phase9-task-decisions",
       "execution_label": "backend-store phase9 task and decision evidence",
@@ -309,13 +311,13 @@
       "runner": "go_test",
       "package": "./internal/modules/assessments",
       "file": "internal/modules/assessments/phase9_assessment_contract_test.go",
-      "symbol": "TestPhase9_AssessmentSupportRefsRejectClientConfidence_U_9_12",
+      "symbol": "TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull",
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
-      "claim": "The Assessment support_refs collection-action payload rejects client-supplied confidence and manual supported_by links created or preserved through assessment.support_refs persist provenance='manual' with authoritative confidence=NULL.",
-      "out_of_scope": "Coordination and other non-assessment manual relationship collection confidence surfaces remain later Phase 9 work.",
+      "claim": "Assessment support_refs, Task linked_record_ids, Decision support_refs, and Decision affected_record_ids reject client-supplied confidence in collection-action payloads, and manual links created or preserved through those fields persist provenance='manual' with authoritative confidence=NULL.",
+      "out_of_scope": "Coordination artifact relationship collection confidence surfaces remain later Phase 9 work.",
       "execution_family": "backend-store-phase9-assessments",
-      "execution_label": "backend-store phase9 assessment support refs evidence",
+      "execution_label": "backend-store phase9 relationship confidence evidence",
       "claim_status": "implemented"
     },
     {
@@ -505,7 +507,7 @@
       "title": "Phase 9 E-9-06 Task Request and Decision workbook workflows stay native",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
-      "claim": "The browser workbook opens Task Requests and Decisions by canonical view_schema_id, creates and edits Task Request queue fields, due date, blocked reason, owner-filterable rows, linked records, and direct decision links through workbook-native controls, creates Decision support refs, patches Decision affected-record refs, executes explicit Decision supersession through the shared supersede route, and clears task.decision_record_id through the ordinary record PATCH body with value:null.",
+      "claim": "The browser workbook opens Task Requests and Decisions by canonical view_schema_id, creates and edits Task Request queue fields, priority, due date, blocked reason, owner-filterable rows, linked records, and direct decision links through workbook-native controls, proves priority filter and sort behavior through stable record anchors, creates Decision support refs, patches Decision affected-record refs, executes explicit Decision supersession through the shared supersede route, and clears task.decision_record_id through the ordinary record PATCH body with value:null.",
       "out_of_scope": "Coordination, optional standardized surface, import, and reporting browser workflows remain later Phase 9 rows.",
       "claim_status": "implemented"
     },

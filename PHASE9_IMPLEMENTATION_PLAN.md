@@ -15,11 +15,11 @@ Authority model:
 - Generated files, generated ledgers, generated schedules, visual goldens, support-only tests, retained run artifacts, and previous phase plans are not behavior authorities.
 - `docs/domain.md` is a vocabulary and concept reference for terminology-sensitive work. It does not replace the owner specs.
 
-Current repo status after Sprint 5 audit:
+Current repo status after Sprint 6 residual remediation:
 - `tools/phase_registry.json` includes Phase 9 as `active`.
 - `tools/phase9_test_map.json` exists and represents every authoritative Phase 9 row exactly once.
 - `docs/testing/phase9_coverage_ledger.md` exists and is generated from the Phase 9 manifest.
-- Direct Sprint 1 through Sprint 5 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, Host/Identity entity-origin paste, Notes, Indicators, Parties, party text-plus-link flows, append-only Compromise Assessments, the assessment portion of manual relationship confidence handling, timestamp scalar validation, assessment projection-backed reads, and browser-visible invalid timestamp draft handling where implemented.
+- Direct Sprint 1 through Sprint 6 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, Host/Identity entity-origin paste, Notes, Indicators, Parties, party text-plus-link flows, append-only Compromise Assessments, the assessment portion of manual relationship confidence handling, timestamp scalar validation, assessment projection-backed reads, browser-visible invalid timestamp draft handling where implemented, Task Requests, Decisions, task/decision relationship confidence handling, direct decision references, projection-backed Task/Decision workbook reads, and browser-visible Task/Decision workbook flows.
 - Remaining later-sprint blocker sentinels intentionally prevent a full Phase 9 completion claim until replaced by direct behavior evidence or owner-cited `N/A` coverage where applicable.
 - The broad `browser-e2e-webserver-backed` aggregate passed in the Sprint 5 audit. Phase 9 completion is still not claimed while later Phase 9 sprint rows remain separately owned.
 
@@ -87,7 +87,7 @@ Carried-forward compatibility boundaries:
 | [x] | 3. Notes and Indicators | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 3-owned blocker remains. This does not claim Phase 9 completion; later Phase 9 sprint rows remain separately owned. | Direct Sprint 3 evidence covers Notes as artifact-backed `note` rows, canonical Indicators with distinct observations and lifecycle history, workbook projection query, Notes linked creation, registry opening by canonical `view_schema_id`, and shared grid anchors for Notes/Indicators. |
 | [x] | 4. Parties and text-plus-link flows | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 4-owned blocker remains. Caveat: `U-9-11` is requested by older planning text as backend-unit evidence, but current direct evidence is mapped and executed as backend-store because same-incident active-target validation depends on store state. | Direct Sprint 4 evidence covers incident-scoped Parties, exact reuse by normalized `primary_email` or `external_ref`, stable-ID-only direct refs, independent text/ref clears, same-surface party actions, and row context preservation. |
 | [x] | 5. Assessments and timestamp contract | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 5-owned blocker remains. This does not claim Phase 9 completion; Task Request, Decision, coordination, optional standardized surface, and remaining non-assessment relationship rows remain later Phase 9 work. | Direct Sprint 5 evidence covers append-only Compromise Assessments, closed `assessment_state`, deterministic confidence bands, timestamp scalar validation and clearability, assessment support-ref confidence rejection, assessment projection reads, and browser-visible invalid timestamp draft behavior. |
-| [ ] | 6. Task Requests and Decisions | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect task/decision lifecycle implementation status. | Keep bounded lifecycle and fail-closed contradiction handling. |
+| [x] | 6. Task Requests and Decisions | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, focused `go test ./internal/modules/workbook -run 'Phase9Sprint6|Direct.*Decoder|Owner.*Null|Supersede.*Inconsistent'`, `make agent-finalize`, `git diff --check` | No Sprint 6-owned blocker remains. This does not claim Phase 9 completion; coordination, optional standardized surface, registry closure, and final gate rows remain later Phase 9 work. | Direct Sprint 6 evidence covers Task Request lifecycle and queue fields, Decision lifecycle and supersession, direct decision-reference set/clear, task/decision relationship confidence rejection, projection-backed workbook reads, browser-visible Task/Decision flows, explicit supersession fail-closed behavior for inconsistent source or target state, and wire-level owner null-clear rejection. |
 | [ ] | 7. Coordination surfaces | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect coordination artifact create/query/edit gaps. | Cover `comm_log`, `handoff`, `status_review`, and `lesson`. |
 | [ ] | 8. Optional surfaces and registry closure | `make backend-unit`, `make backend-store`, conditional browser evidence | TODO: determine whether optional standardized surfaces are exposed. | Mark optional surfaces as direct evidence or `N/A`. |
 | [ ] | 9. Final phase gate and handoff | public Phase 9 wrappers, drift checks, `make agent-finalize`, `make check`, `git diff --check` | TODO: record exact final artifact roots and non-Phase-9 blockers. | Replace placeholders or record blocker sentinels before exit. |
@@ -685,8 +685,10 @@ Files or areas to inspect:
 - `internal/platform/viewschema`
 - `apps/web/src/WorkbookShell.tsx`
 - `apps/web/e2e`
-- TODO: exact Task Request storage and lifecycle code if separated.
-- TODO: exact Decision storage and supersession code if separated.
+- Task Request storage, lifecycle, relationship, and projection behavior is realized through the shared workbook store and projection paths, including `internal/modules/workbook/mutation_store.go`, `internal/modules/workbook/store.go`, `internal/modules/projections/tasks_decisions.go`, and the Task Requests view schema contract.
+- Decision storage, lifecycle, relationship, explicit supersession, and projection behavior is realized through the shared workbook store and projection paths, including `internal/modules/workbook/mutation_store.go`, `internal/modules/workbook/routes.go`, `internal/modules/projections/tasks_decisions.go`, and the Decisions view schema contract.
+
+Completion status: complete for Sprint 6 as of the residual remediation update on 2026-05-20. The implementation already matched the owner specs; the remaining work was test-only evidence hardening for explicit supersession fail-closed behavior against inconsistent source or target state and for wire-level rejection of `task.owner_user_id` null clear. This status does not claim Phase 9 completion.
 
 Test-first sequence:
 1. Add backend store tests for task lifecycle guards, owner semantics, queue fields, and minimum create signal.
@@ -694,6 +696,17 @@ Test-first sequence:
 3. Add backend unit tests for `same_incident_decision_ref_v1` direct-reference semantics.
 4. Add backend store tests for task and decision collection fields rejecting client `confidence`.
 5. Add browser tests proving Task Requests and Decisions are workbook surfaces with queue, due-date, blocked-work, owner, support, and decision-link flows.
+
+Completed evidence:
+1. `internal/modules/workbook/phase9_task_decisions_store_test.go::TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection` proves Task Request minimum create, lifecycle, owner/default semantics, queue fields, due-date clear, blocked/done lifecycle side effects, direct decision-link set/clear, invalid decision targets, manual `record_links`, and projection-backed queue reads.
+2. `internal/modules/workbook/phase9_task_decisions_store_test.go::TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07` proves invalid Task Request lifecycle states fail closed without partial records, links, or row-version changes.
+3. `internal/modules/workbook/phase9_task_decisions_store_test.go::TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency` proves Decision minimum create, legal lifecycle transitions, terminal-state guards, support and affected refs, direct `superseded` rejection, explicit supersession, idempotent replay, executed-target supersession projection, and fail-closed inconsistent-machine behavior for ordinary grid mutations.
+4. `internal/modules/workbook/phase9_task_decisions_store_test.go::TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget` proves the explicit supersession action itself fails closed when either the source or target decision machine state is inconsistent, with no new supersession links, relationship links, or row-version changes.
+5. `internal/modules/workbook/phase9_task_decisions_store_test.go::TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07` proves terminal Decision transition behavior, including rejection of direct `superseded`.
+6. `internal/modules/workbook/mutation_api_test.go::TestSupportPhase9_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs` proves `same_incident_decision_ref_v1` accepts exact stable IDs, accepts direct `value=null` clear for `task.decision_record_id`, rejects non-ID inputs, and rejects collection-action clear shapes.
+7. `internal/modules/workbook/mutation_api_test.go::TestSupportPhase9_TaskOwnerNullClearRejectedAtDecoder` proves `task.owner_user_id` rejects wire-level `value=null` with `400 invalid_mutation_payload` and `reason_code='field_not_nullable'` before store execution.
+8. `internal/modules/workbook/mutation_api_test.go::TestPhase9TaskDecisionRelationshipConfidenceRejected` proves Task/Decision relationship collection payloads reject client-supplied `confidence`.
+9. Browser evidence in `apps/web/e2e/phase9.sentinel.spec.ts` covers native workbook flows for Decisions and Task Requests, including support refs, affected records, supersession, queue/priority, due date, blocked reason, owner filtering, and direct decision-link clear.
 
 Implementation tasks:
 - Implement or harden Task Request create, patch, lifecycle guard, owner, due-date, blocked-reason, completion, linked-record, and decision-link behavior.
@@ -714,18 +727,25 @@ Validation commands:
 
 Deliverables:
 - Direct authoritative evidence for `U-9-07`, decision-reference portions of `U-9-11`, task/decision portions of `U-9-12`, relevant `I-9-02` coverage, and Task/Decision portions of `E-9-06`.
-- TODO: exact artifact root for Task/Decision browser evidence.
+- Residual remediation evidence for explicit supersession fail-closed behavior and wire-level owner null-clear rejection.
+- Focused residual validation:
+  - `go test ./internal/modules/workbook -run 'Phase9Sprint6|Direct.*Decoder|Owner.*Null|Supersede.*Inconsistent'`: passed.
+  - `make agent-finalize`: passed with `generated=unchanged`; retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+  - Artifact root: `.cartulary/test-results/20260520T021445Z-p565332`.
 
 Risks:
 - Treating `approved` as a generalized row-edit approval gate.
 - Allowing `done -> canceled`, `canceled -> done`, direct `superseded`, or other illegal transitions.
 - Losing authoritative `record_links` representation behind convenience fields.
 - Collapsing Task Requests or Decisions into separate modules.
+- Allowing explicit supersession to bypass fail-closed inconsistent-machine validation.
+- Letting wire-level null clears reach store-level lifecycle guards for non-clearable owner fields.
 
 Exit criteria:
 - Task Request and Decision lifecycle evidence passes directly under Phase 9.
 - Queue, owner, blocked-work, due-date, support, and direct-reference semantics are covered.
 - No generalized workflow engine or Timeline approval field is introduced.
+- Residual Sprint 6 coverage gaps are closed by direct tests, and no specification or implementation behavior change is required.
 
 ## Sprint 7. Coordination Surfaces
 

@@ -140,17 +140,16 @@ type ChangeSetMutation struct {
 }
 
 type Decision struct {
-	RecordID           pgtype.UUID        `json:"record_id"`
-	IncidentID         pgtype.UUID        `json:"incident_id"`
-	Summary            pgtype.Text        `json:"summary"`
-	Status             string             `json:"status"`
-	OwnerUserID        pgtype.UUID        `json:"owner_user_id"`
-	DecisionType       pgtype.Text        `json:"decision_type"`
-	DecidedAt          pgtype.Timestamptz `json:"decided_at"`
-	Rationale          pgtype.Text        `json:"rationale"`
-	SupersedesRecordID pgtype.UUID        `json:"supersedes_record_id"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	RecordID     pgtype.UUID        `json:"record_id"`
+	IncidentID   pgtype.UUID        `json:"incident_id"`
+	Summary      pgtype.Text        `json:"summary"`
+	Status       string             `json:"status"`
+	OwnerUserID  pgtype.UUID        `json:"owner_user_id"`
+	DecisionType pgtype.Text        `json:"decision_type"`
+	DecidedAt    pgtype.Timestamptz `json:"decided_at"`
+	Rationale    pgtype.Text        `json:"rationale"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type DecisionGridProjection struct {

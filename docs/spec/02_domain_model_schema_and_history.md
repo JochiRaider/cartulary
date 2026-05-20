@@ -990,17 +990,17 @@ Profiles: base
 Verified by: AC-086, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231
 
 **REQ-02-112**
-A `decision` record MUST also be able to persist, at minimum, the following optional fields when present:
+A `decision` record and its Decision view MUST also support, at minimum, the following optional authored or projected fields when present:
 
 - `support_refs[]`,
 - `affected_record_ids[]`,
-- `supersedes_record_id`,
+- read-only projected `supersedes_record_id` derived from the authoritative supersession relation,
 - `review_class`.
 Profiles: base, snapshot_reporting
 Verified by: AC-086, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-233
 
 **REQ-02-113**
-If `affected_record_ids[]` or `supersedes_record_id` are persisted as denormalized convenience fields, authoritative cross-record association MUST still be representable through typed `record_links`.
+If `affected_record_ids[]` are persisted as denormalized convenience fields, authoritative cross-record association MUST still be representable through typed `record_links`. `supersedes_record_id` MUST NOT be persisted as authoritative Decision source state in the current profile; when exposed, it is only a read-only computed projection of the active typed `record_links` supersession relation.
 Profiles: base
 Verified by: AC-086, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231
 
@@ -1011,7 +1011,7 @@ The current profile defines `decision.status` as a normative lifecycle machine r
 Profiles: base
 Verified by: AC-086, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-314
 
-The authoritative machine condition is determined by persisted `status` together with the authoritative decision-to-decision `record_links` relation using `link_type='supersedes'`, `owner_user_id`, and `decided_at`. Any `supersedes_record_id` field remains a read-only computed or denormalized convenience projection. If these persisted inputs do not resolve to exactly one legal machine condition, the decision record is inconsistent. Ordinary Decision grid mutations, including direct status writes, non-status scalar writes, relationship collection writes, and ordinary explicit supersession actions, MUST fail closed while the decision record is inconsistent. Returning the decision record to a legal machine condition MUST require rollback or another explicit corrective action that restores exactly one legal machine condition.
+The authoritative machine condition is determined by persisted `status` together with the authoritative decision-to-decision `record_links` relation using `link_type='supersedes'`, `owner_user_id`, and `decided_at`. Any exposed `supersedes_record_id` field remains a read-only computed projection of that relation and MUST NOT be treated as Decision source state. If these persisted inputs do not resolve to exactly one legal machine condition, the decision record is inconsistent. Ordinary Decision grid mutations, including direct status writes, non-status scalar writes, relationship collection writes, and ordinary explicit supersession actions, MUST fail closed while the decision record is inconsistent. Returning the decision record to a legal machine condition MUST require rollback or another explicit corrective action that restores exactly one legal machine condition.
 
 The machine states mean:
 
@@ -1051,7 +1051,7 @@ The explicit supersession flow MUST satisfy all of the following:
 - the superseding decision and the target decision MUST be different records in the same incident,
 - the superseding decision MUST already have `status` `approved` or `executed`,
 - the target decision MAY have `status` `proposed`, `approved`, or `executed`,
-- the committed action MUST persist the authoritative supersession relation as a typed `record_links` row with `link_type='supersedes'` from the superseding decision to the target decision; any `supersedes_record_id` field MAY be refreshed only as a read-only computed or denormalized convenience projection,
+- the committed action MUST persist the authoritative supersession relation as a typed `record_links` row with `link_type='supersedes'` from the superseding decision to the target decision; the Decision view MUST derive any exposed `decision.supersedes_record_id` read-only field from that active relation,
 - if the target decision has `status` `proposed` or `approved`, the same committed action MUST set the target decision's persisted `status` to `superseded`,
 - if the target decision has `status` `executed`, the target decision MUST remain `executed`; the decision view MUST surface `decision.is_superseded=true` for that record, and the persisted `status` MUST NOT change away from `executed`.
 Profiles: base

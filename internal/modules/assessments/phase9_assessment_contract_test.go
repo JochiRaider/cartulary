@@ -200,10 +200,11 @@ func TestPhase9_AssessmentsAppendOnlyStatesAndBands_U_9_06(t *testing.T) {
 	requireQueriedRecordIDs(t, workbookStore, incident.ID, filterEq("assessment.assessment_state", "confirmed"), []uuid.UUID{created["confirmed"]})
 }
 
-func TestPhase9_AssessmentSupportRefsRejectClientConfidence_U_9_12(t *testing.T) {
+func TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull(t *testing.T) {
 	ctx := context.Background()
 	harness := phase4storetest.StartStore(t, "phase9-assessments-u-9-12")
 	assessmentStore := assessments.NewStore(harness.DB)
+	workbookStore := workbook.NewStore(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase9-u912@example.test", "Phase 9 U912", "Phase9U912Pass1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-12-incident", "IR-PHASE9-U-9-12", "Phase 9 U-9-12 assessment links")
 	hostID := uuid.New()
@@ -243,6 +244,130 @@ func TestPhase9_AssessmentSupportRefsRejectClientConfidence_U_9_12(t *testing.T)
 	if got := queryCount(t, harness, `SELECT COUNT(*) FROM record_links WHERE incident_id = $1 AND src_record_id = $2 AND link_type = 'supported_by' AND confidence IS NOT NULL`, incident.ID, result.RecordID); got != 0 {
 		t.Fatalf("expected no manual assessment support links with client confidence, got %d", got)
 	}
+
+	expectWorkbookDecodeCreateRejected(t, workbook.TaskRequestsViewSchemaID, map[string]any{
+		"client_txn_id":  "txn-phase9-u-9-12-task-confidence-create",
+		"task.title":     "Task confidence must be rejected",
+		"task.task_kind": "collection",
+		"task.linked_record_ids": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+			},
+		},
+	})
+	expectWorkbookDecodePatchRejected(t, map[string]any{
+		"view_schema_id":   workbook.TaskRequestsViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase9-u-9-12-task-confidence-patch",
+		"changes": []map[string]any{
+			{
+				"field_key": "task.linked_record_ids",
+				"action_payload": map[string]any{
+					"kind": "collection_actions_v1",
+					"actions": []map[string]any{
+						{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+					},
+				},
+			},
+		},
+	})
+	expectWorkbookDecodeCreateRejected(t, workbook.DecisionsViewSchemaID, map[string]any{
+		"client_txn_id":          "txn-phase9-u-9-12-decision-support-confidence-create",
+		"decision.summary":       "Decision confidence must be rejected",
+		"decision.decision_type": "containment",
+		"decision.rationale":     "Client confidence is not authoritative.",
+		"decision.support_refs": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+			},
+		},
+	})
+	expectWorkbookDecodePatchRejected(t, map[string]any{
+		"view_schema_id":   workbook.DecisionsViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase9-u-9-12-decision-support-confidence-patch",
+		"changes": []map[string]any{
+			{
+				"field_key": "decision.support_refs",
+				"action_payload": map[string]any{
+					"kind": "collection_actions_v1",
+					"actions": []map[string]any{
+						{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+					},
+				},
+			},
+		},
+	})
+	expectWorkbookDecodeCreateRejected(t, workbook.DecisionsViewSchemaID, map[string]any{
+		"client_txn_id":          "txn-phase9-u-9-12-decision-affected-confidence-create",
+		"decision.summary":       "Decision affected confidence must be rejected",
+		"decision.decision_type": "containment",
+		"decision.rationale":     "Client confidence is not authoritative.",
+		"decision.affected_record_ids": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+			},
+		},
+	})
+	expectWorkbookDecodePatchRejected(t, map[string]any{
+		"view_schema_id":   workbook.DecisionsViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase9-u-9-12-decision-affected-confidence-patch",
+		"changes": []map[string]any{
+			{
+				"field_key": "decision.affected_record_ids",
+				"action_payload": map[string]any{
+					"kind": "collection_actions_v1",
+					"actions": []map[string]any{
+						{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+					},
+				},
+			},
+		},
+	})
+
+	taskResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-task-null-confidence",
+		Values: map[string]workbook.ValueChange{
+			"task.title":     {Kind: "text", Text: textPtr("Task confidence remains null")},
+			"task.task_kind": {Kind: "text", Text: textPtr("collection")},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"task.linked_record_ids": {
+				Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
+			},
+		},
+	}, []byte("txn-phase9-u-9-12-task-null-confidence"), "req-phase9-u-9-12-task-null-confidence", time.Date(2026, 5, 17, 18, 30, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create task with manual link: %v", err)
+	}
+	decisionResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.DecisionsViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-decision-null-confidence",
+		Values: map[string]workbook.ValueChange{
+			"decision.summary":       {Kind: "text", Text: textPtr("Decision confidence remains null")},
+			"decision.decision_type": {Kind: "text", Text: textPtr("containment")},
+			"decision.rationale":     {Kind: "text", Text: textPtr("Manual relationship confidence remains null.")},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"decision.support_refs": {
+				Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
+			},
+			"decision.affected_record_ids": {
+				Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
+			},
+		},
+	}, []byte("txn-phase9-u-9-12-decision-null-confidence"), "req-phase9-u-9-12-decision-null-confidence", time.Date(2026, 5, 17, 18, 45, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create decision with manual links: %v", err)
+	}
+	requireManualLinkConfidenceNull(t, harness, incident.ID, taskResult.RecordID, supportID, "references_record")
+	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "supported_by")
+	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "references_record")
 }
 
 func validCreateRequest(subjectRef uuid.UUID, subjectType string, state string) assessments.CreateRequest {
@@ -315,12 +440,50 @@ func expectDecodeCreateRejected(t testing.TB, body map[string]any) {
 	}
 }
 
+func expectWorkbookDecodeCreateRejected(t testing.TB, viewSchemaID string, body map[string]any) {
+	t.Helper()
+	data, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal workbook create body: %v", err)
+	}
+	if _, apiErr := workbook.DecodeCreateRequest(viewSchemaID, strings.NewReader(string(data))); apiErr == nil {
+		t.Fatalf("expected workbook create body to be rejected: %#v", body)
+	} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+		t.Fatalf("unexpected workbook create error: %#v", apiErr)
+	}
+}
+
+func expectWorkbookDecodePatchRejected(t testing.TB, body map[string]any) {
+	t.Helper()
+	data, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal workbook patch body: %v", err)
+	}
+	if _, apiErr := workbook.DecodePatchRequest(strings.NewReader(string(data))); apiErr == nil {
+		t.Fatalf("expected workbook patch body to be rejected: %#v", body)
+	} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+		t.Fatalf("unexpected workbook patch error: %#v", apiErr)
+	}
+}
+
+func requireManualLinkConfidenceNull(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) {
+	t.Helper()
+	link := phase4storetest.LookupActiveLink(t, harness.DB, incidentID, sourceID, targetID, linkType)
+	if link.Provenance != "manual" || link.Confidence != nil {
+		t.Fatalf("manual %s link must preserve provenance=manual confidence=NULL, got %#v", linkType, link)
+	}
+}
+
 func uuidStrings(values []uuid.UUID) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
 		result = append(result, value.String())
 	}
 	return result
+}
+
+func textPtr(value string) *string {
+	return &value
 }
 
 func intPtr(value int) *int {

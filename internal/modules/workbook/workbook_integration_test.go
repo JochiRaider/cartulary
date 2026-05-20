@@ -672,14 +672,43 @@ SELECT
     d.decided_at,
     d.rationale,
     0,
-    d.supersedes_record_id,
+    supersedes.supersedes_record_id,
     d.updated_at,
-    false
+    COALESCE(incoming.is_superseded, false)
   FROM decisions d
   JOIN records r
     ON r.incident_id = d.incident_id
    AND r.record_id = d.record_id
    AND r.deleted_at IS NULL
+  LEFT JOIN LATERAL (
+        SELECT rl.dst_record_id AS supersedes_record_id
+          FROM record_links rl
+          JOIN records dst
+            ON dst.incident_id = rl.incident_id
+           AND dst.record_id = rl.dst_record_id
+           AND dst.record_type = 'decision'
+           AND dst.deleted_at IS NULL
+         WHERE rl.incident_id = d.incident_id
+           AND rl.src_record_id = d.record_id
+           AND rl.link_type = 'supersedes'
+           AND rl.deleted_at IS NULL
+         ORDER BY rl.created_at DESC, rl.record_link_id DESC
+         LIMIT 1
+  ) supersedes ON true
+  LEFT JOIN LATERAL (
+        SELECT true AS is_superseded
+          FROM record_links rl
+          JOIN records src
+            ON src.incident_id = rl.incident_id
+           AND src.record_id = rl.src_record_id
+           AND src.record_type = 'decision'
+           AND src.deleted_at IS NULL
+         WHERE rl.incident_id = d.incident_id
+           AND rl.dst_record_id = d.record_id
+           AND rl.link_type = 'supersedes'
+           AND rl.deleted_at IS NULL
+         LIMIT 1
+  ) incoming ON true
  WHERE d.record_id = $1
 ON CONFLICT (record_id) DO UPDATE
 SET row_version = EXCLUDED.row_version,
