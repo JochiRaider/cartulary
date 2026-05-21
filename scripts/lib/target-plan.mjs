@@ -12,6 +12,7 @@ import {
 import {
   collectEntries,
   collectSupportGoEntries,
+  entryIsExecutable,
   effectiveGoEntryPostgresFixtureBudget,
   effectiveGoEntryPostgresFixturePolicy,
   effectiveSupportGoEntryPostgresFixtureBudget,
@@ -183,6 +184,9 @@ export function collectTargetPlanRows(root = process.cwd()) {
     const { manifest } = loadManifest(root, phase);
     for (const entry of collectEntries(manifest)) {
       if (entry.runner !== "go_test") {
+        continue;
+      }
+      if (!entryIsExecutable(entry)) {
         continue;
       }
       const descriptor = config.dependencyTargets.get(entry.execution_dependency);

@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   collectEntries,
+  entryIsExecutable,
   loadManifest,
   phaseManifestNames,
   playwrightEntryTitles,
@@ -133,7 +134,8 @@ function browserFunctionalEntries(root, { phase: phaseFilter = "" } = {}) {
         entry.section === "e2e" &&
         entry.runner === "playwright" &&
         entry.coverage === "authoritative" &&
-        entry.execution_dependency === "browser_functional"
+        entry.execution_dependency === "browser_functional" &&
+        entryIsExecutable(entry)
       ) {
         if (seenIDs.has(entry.id)) {
           throw new Error(`duplicate browser functional manifest ID ${entry.id}`);

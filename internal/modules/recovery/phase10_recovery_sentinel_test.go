@@ -15,10 +15,6 @@ func TestPhase10_U_10_04_PublicRouteAbsenceDeploymentAdminBlocked(t *testing.T) 
 	phase10RecoveryBlocked(t)
 }
 
-func TestPhase10_U_10_05_BackupStorageRootBindingBlocked(t *testing.T) {
-	phase10RecoveryBlocked(t)
-}
-
 func TestPhase10_I_10_01_RealBackingStorageMetadataBlocked(t *testing.T) {
 	phase10RecoveryBlocked(t)
 }

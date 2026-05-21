@@ -16,16 +16,19 @@ Authority model:
 - Generated ledgers, generated schedules, support-only tests, visual goldens, and retained artifacts are not behavior authorities.
 - `docs/domain.md` is vocabulary and concept support only.
 
-Current repo status after Sprint 0 setup:
+Current repo status after Sprint 1:
 - Phase 5 through Phase 9 implementation plans are present.
-- Phase 10 is registered as `planned` in `tools/phase_registry.json`.
-- `tools/phase10_test_map.json` exists with every authoritative Phase 10 row marked `claim_status=blocked`.
-- `docs/testing/phase10_coverage_ledger.md` must be generated from the manifest and must not be hand-edited.
+- Phase 10 is registered as `active` in `tools/phase_registry.json`, but remains incomplete while operational recovery rows are still blocked.
+- `tools/phase10_test_map.json` covers every authoritative Phase 10 row. `U-10-05` and `E-10-04` are `claim_status=implemented`; the remaining operational recovery rows are explicit blocker sentinels.
+- `docs/testing/phase10_coverage_ledger.md` is generated from the manifest and must not be hand-edited.
 - `configs/dev/config.toml` declares `[roots.backup_storage]`.
-- Config validation already requires `roots.backup_storage` and validates filesystem-root overlap; Phase 10 still needs direct AC-403 evidence.
+- Config validation and real startup-process evidence directly prove the Sprint 1 AC-403 backup-root slice: `roots.backup_storage` is required, binding kinds are profile-limited, export and temporary-work roots cannot satisfy backup storage, and invalid backup-root configuration prevents effective readiness with backup-root-specific diagnostics.
 - No operational `backup_set`, `backup_attestation`, restore, or restore-verification implementation exists.
-- No public backup, restore, or restore-verification route family is currently registered. This remains support context only until direct Phase 10 evidence captures it.
-- TODO(Phase10-retained-root): replace with exact retained result root, run ID, run root, target, row ID, and artifact paths only after direct Phase 10 evidence exists.
+- No public backup, restore, or restore-verification route family is currently registered. This remains support context only until direct Phase 10 route-inventory evidence captures it.
+- Sprint 1 retained validation evidence:
+  - `make backend-unit`: run ID `20260521T225454Z-p3117177`, run root `.cartulary/test-results/20260521T225454Z-p3117177`, row `U-10-05`, phase summary `.cartulary/test-results/20260521T225454Z-p3117177/backend-unit/backend-unit-phase10-backup-root-config-evidence/phase-summary.json`.
+  - `make backend-process`: run ID `20260521T225502Z-p3118151`, run root `.cartulary/test-results/20260521T225502Z-p3118151`, row `E-10-04`, phase summary `.cartulary/test-results/20260521T225502Z-p3118151/backend-process/backend-process-phase10-backup-root-config-evidence/phase-summary.json`.
+  - `make phase-map-check`: run ID `20260521T230016Z-p3127691`, run root `.cartulary/test-results/20260521T230016Z-p3127691`, summary `.cartulary/test-results/20260521T230016Z-p3127691/phase-map-check/tool-run-summary.json`.
 
 ## Phase Objective
 
@@ -93,8 +96,8 @@ Generated boundary:
 
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
-| [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make explain-phase PHASE=phase10` | Phase 10 is planned, not executable, while blocker sentinels remain. |
-| [ ] | 1. Backup storage root and deployment configuration | `make backend-unit`, `make backend-process` | AC-403 needs direct Phase 10 evidence. |
+| [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make explain-phase PHASE=phase10` | Complete; remaining non-Sprint-1 rows keep explicit blocker sentinels. |
+| [x] | 1. Backup storage root and deployment configuration | `make backend-unit`, `make backend-process`, `make phase-map-check`, `git diff --check` | Complete for `U-10-05` and `E-10-04`; operational recovery rows remain blocked. |
 | [ ] | 2. Backup metadata and retention floors | `make backend-store`, `make migration-drift` | No backup schema exists. |
 | [ ] | 3. Restore readiness and coherent stores | `make backend-process`, `make service-backed-slice PHASE=phase10` | Restore orchestration absent. |
 | [ ] | 4. Fail-closed integrity handling | `make backend-process` | Integrity proof contract absent. |
@@ -180,6 +183,8 @@ Objective: prove `roots.backup_storage` is required, has only allowed bindings, 
 
 Rows: `U-10-05`, `E-10-04`.
 
+Status: complete for Sprint 1. Direct Phase 10 evidence now proves the AC-403 backup-storage configuration slice for `U-10-05` and `E-10-04`; this does not claim retained-backup metadata, restore orchestration, restore verification, operator control surfaces, route-inventory absence, or workbook recovery behavior.
+
 Files and areas:
 - `internal/platform/config`
 - `internal/app`
@@ -203,6 +208,12 @@ Validation commands:
 - `make phase-map-check`
 - `git diff --check`
 
+Latest retained validation:
+- `make backend-unit` passed with `U-10-05` direct evidence in `.cartulary/test-results/20260521T225454Z-p3117177/backend-unit/backend-unit-phase10-backup-root-config-evidence/phase-summary.json`.
+- `make backend-process` passed with `E-10-04` direct process-boundary evidence in `.cartulary/test-results/20260521T225502Z-p3118151/backend-process/backend-process-phase10-backup-root-config-evidence/phase-summary.json`.
+- `make phase-map-check` passed and verified the Phase 10 traceability map in `.cartulary/test-results/20260521T230016Z-p3127691/phase-map-check/tool-run-summary.json`.
+- `git diff --check` passed with no whitespace findings.
+
 Deliverables:
 - Direct AC-403 row evidence.
 - Updated manifest rows replacing blocker sentinels for `U-10-05` and `E-10-04`.
@@ -211,7 +222,7 @@ Risks:
 - Existing Phase 0 runtime-root evidence is support only and cannot satisfy Phase 10 rows.
 
 Exit criteria:
-- `roots.backup_storage` AC-403 behavior has direct Phase 10 evidence.
+- `roots.backup_storage` AC-403 behavior has direct Phase 10 evidence for Sprint 1.
 
 ## Sprint 2. Retained Backup Metadata And Retention Floors
 

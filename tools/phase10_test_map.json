@@ -1,20 +1,20 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase10",
-  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 0 keeps all rows blocked until direct evidence replaces the sentinels.",
+  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 1 replaces backup-storage binding rows with direct AC-403 evidence while remaining operational recovery rows stay blocked.",
   "ledger": {
     "title": "Phase 10 Coverage Ledger",
     "notes": [
-      "Phase 10 is planned, not active, while all authoritative rows are blocker sentinels.",
-      "Every authoritative Phase 10 guide row has exactly one blocked owner so traceability exists without claiming implementation.",
+      "Phase 10 is active but incomplete while operational recovery rows remain blocker sentinels.",
+      "Sprint 1 gives `U-10-05` and `E-10-04` direct backup-storage binding evidence without claiming backup or restore implementation.",
       "Operational backup and restore remain deployment-local recovery behavior and are distinct from the Incident Portability Extension Profile.",
       "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
     ],
     "authoritative_execution": [
-      "`backend-unit` will select direct configuration and route-inventory evidence once `U-10-04` and `U-10-05` are implemented.",
+      "`backend-unit` selects direct backup-storage configuration evidence for `U-10-05`; route-inventory evidence for `U-10-04` remains blocked.",
       "`backend-store` will select retained `backup_set` metadata and retention evidence once `U-10-01` is implemented.",
       "`backend-integration` will select real backing-storage metadata evidence once `I-10-01` is implemented.",
-      "`backend-process` will select restore, fail-closed, operator, route-inventory, and effective-config evidence once process-bound rows are implemented.",
+      "`backend-process` selects direct effective-config startup rejection evidence for `E-10-04`; restore, fail-closed, operator, and route-inventory rows remain blocked.",
       "`browser-e2e-webserver-backed` will select workbook recovery evidence once `E-10-02` is implemented."
     ],
     "support_execution_extras": [
@@ -28,9 +28,9 @@
     "shared_harness": [
       "| Harness | Phase 10 evidence |",
       "| --- | --- |",
-      "| Planned manifest ownership | `tools/phase10_test_map.json` records every authoritative guide row as blocked until direct evidence exists. |",
+      "| Active incomplete manifest ownership | `tools/phase10_test_map.json` records Sprint 1 direct evidence and remaining blocker sentinels. |",
       "| Generated ledger | `docs/testing/phase10_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
-      "| Schedule boundary | Phase 10 remains planned, so generated schedules must not treat Phase 10 rows as active executable evidence. |"
+      "| Schedule boundary | Generated schedules must execute implemented Sprint 1 evidence while blocker sentinels preserve incomplete Phase 10 status. |"
     ],
     "support_only": [
       "Earlier phase runtime-root and object-store evidence is support-only substrate.",
@@ -126,16 +126,16 @@
       "id": "U-10-05",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/modules/recovery",
-      "file": "internal/modules/recovery/phase10_recovery_sentinel_test.go",
-      "symbol": "TestPhase10_U_10_05_BackupStorageRootBindingBlocked",
+      "package": "./internal/platform/config",
+      "file": "internal/platform/config/config_phase10_test.go",
+      "symbol": "TestPhase10_BackupStorageRootBinding_U_10_05",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "backend_unit",
-      "claim_status": "blocked",
-      "claim": "roots.backup_storage must be a required persistent runtime root with allowed binding kinds and must remain distinct from export and temporary-work roots.",
-      "out_of_scope": "This sentinel does not replace direct Phase 10 configuration-contract evidence.",
-      "execution_family": "backend-unit-phase10-recovery",
-      "execution_label": "backend-unit phase10 recovery blocker"
+      "evidence_layer": "config_validation",
+      "claim_status": "implemented",
+      "claim": "roots.backup_storage is required for supported deployment profiles, accepts only profile-allowed binding kinds, and rejects export-output or temporary-work roots as backup storage.",
+      "out_of_scope": "Encrypted-storage conformance for incident-bearing backup artifacts remains later Phase 10 evidence.",
+      "execution_family": "backend-unit-phase10-config",
+      "execution_label": "backend-unit phase10 backup-root config evidence"
     }
   ],
   "integration": [
@@ -233,15 +233,15 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./cmd/server",
-      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
-      "symbol": "TestPhase10_E_10_04_EffectiveConfigBackupRootBlocked",
+      "file": "cmd/server/main_phase10_config_test.go",
+      "symbol": "TestPhase10_EffectiveConfigBackupRoot_E_10_04",
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
-      "claim_status": "blocked",
-      "claim": "Effective deployment configuration must require roots.backup_storage with allowed binding kinds and reject attempts to satisfy backup storage with export or temporary-work roots.",
-      "out_of_scope": "This sentinel does not provide effective startup rejection evidence.",
-      "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 recovery blocker"
+      "claim_status": "implemented",
+      "claim": "Effective deployment configuration fails the real server process before readiness when roots.backup_storage is missing, uses a profile-incompatible binding, or is satisfied by export or temporary-work roots.",
+      "out_of_scope": "This process evidence does not implement backup metadata, restore orchestration, restore verification, or operator controls.",
+      "execution_family": "backend-process-phase10-config",
+      "execution_label": "backend-process phase10 backup-root config evidence"
     }
   ]
 }

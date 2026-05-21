@@ -141,6 +141,10 @@ function aggregateClaimStatus(counts) {
   return "not_applicable";
 }
 
+function executableRows(rows) {
+  return rows.filter((row) => row.claim_status !== "blocked");
+}
+
 function rowGroups(rows) {
   const groups = new Map();
   for (const row of rows) {
@@ -468,8 +472,9 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     throw new Error(`invalid phase slice mode ${mode}`);
   }
   const rows = phaseRows(phase, mode, root, taskSurfaceManifest);
+  const runnableRows = executableRows(rows);
   const target = mode === "service_backed" ? "service-backed-slice" : "phase-slice";
-  const resourceLimits = planResourceLimits(rows, root);
+  const resourceLimits = planResourceLimits(runnableRows, root);
   const claimCounts = claimStatusCounts(rows);
   const plan = {
     schema_id: phaseSlicePlanSchemaID,
@@ -478,14 +483,14 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     phase,
     mode,
     service_backed_only: mode === "service_backed",
-    no_op: rows.length === 0,
+    no_op: runnableRows.length === 0,
     phaseClaimStatus: aggregateClaimStatus(claimCounts),
     claimStatusCounts: claimCounts,
     rows,
     row_groups: rowGroups(rows),
-    child_targets: childTargetsForRows(rows, phase, mode, root, taskSurfaceManifest),
+    child_targets: childTargetsForRows(runnableRows, phase, mode, root, taskSurfaceManifest),
     child_target_names: [],
-    service_requirements: serviceRequirementsForRows(rows),
+    service_requirements: serviceRequirementsForRows(runnableRows),
     resourceLimits,
     browserStages: new Set(),
     backendTargets: [],
@@ -498,7 +503,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
   );
 
   const rowsByTarget = new Map();
-  for (const row of rows) {
+  for (const row of runnableRows) {
     if (!rowsByTarget.has(row.target)) {
       rowsByTarget.set(row.target, []);
     }

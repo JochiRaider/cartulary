@@ -171,6 +171,10 @@ export function entryClaimStatus(entry) {
   return entry.claim_status ?? "implemented";
 }
 
+export function entryIsExecutable(entry) {
+  return entryClaimStatus(entry) !== "blocked";
+}
+
 function supportGoEntryLabel(entry) {
   return `support_go_target ${entry.target ?? "(missing target)"} ${entry.file ?? "(missing file)"}`;
 }
@@ -1255,6 +1259,7 @@ export function selectManifestEntries(root, {
   const { manifest } = loadManifest(root, phase);
   return collectEntries(manifest).filter(
     (entry) =>
+      entryIsExecutable(entry) &&
       (runner === "" || entry.runner === runner) &&
       (section === "" || entry.section === section) &&
       (coverage === "" || entry.coverage === coverage) &&

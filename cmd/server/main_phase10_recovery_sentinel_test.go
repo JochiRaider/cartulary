@@ -30,7 +30,3 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorInspectBlocked(t *testing.T) {
 func TestPhase10_E_10_03_PublicRouteInventoryAbsenceBlocked(t *testing.T) {
 	phase10ProcessBlocked(t)
 }
-
-func TestPhase10_E_10_04_EffectiveConfigBackupRootBlocked(t *testing.T) {
-	phase10ProcessBlocked(t)
-}

@@ -17,6 +17,7 @@ import {
 } from "./lib/execution-dependencies.mjs";
 import {
   collectEntries,
+  entryIsExecutable,
   loadManifest,
   phaseManifestNames,
 } from "./lib/phase-manifest.mjs";
@@ -570,7 +571,8 @@ function hasPlaywrightRows(coverage, executionDependency) {
         (entry) =>
           entry.runner === "playwright" &&
           entry.coverage === coverage &&
-          entry.execution_dependency === executionDependency,
+          entry.execution_dependency === executionDependency &&
+          entryIsExecutable(entry),
       )
     ) {
       return true;

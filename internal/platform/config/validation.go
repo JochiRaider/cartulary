@@ -89,7 +89,10 @@ func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic 
 		return diagnostics
 	}
 
-	return append(diagnostics, detectFilesystemRootOverlap(collectFilesystemRoots(*cfg))...)
+	roots := collectFilesystemRoots(*cfg)
+	diagnostics = append(diagnostics, detectBackupStorageRootSubstitution(roots)...)
+	diagnostics = append(diagnostics, detectFilesystemRootOverlap(roots)...)
+	return diagnostics
 }
 
 func validatePublicOrigin(application *ApplicationConfig, diagnostics *[]Diagnostic) {
@@ -140,7 +143,8 @@ func validateStartupFilesystemRoots(cfg *Config) []Diagnostic {
 		roots[i].Path = canonicalPath
 	}
 
-	diagnostics := detectFilesystemRootOverlap(roots)
+	diagnostics := detectBackupStorageRootSubstitution(roots)
+	diagnostics = append(diagnostics, detectFilesystemRootOverlap(roots)...)
 	if len(diagnostics) > 0 {
 		return diagnostics
 	}
@@ -373,6 +377,40 @@ func detectFilesystemRootOverlap(roots []filesystemRoot) []Diagnostic {
 
 	sortDiagnostics(diagnostics)
 	return diagnostics
+}
+
+func detectBackupStorageRootSubstitution(roots []filesystemRoot) []Diagnostic {
+	var backupRoot *filesystemRoot
+	for i := range roots {
+		if roots[i].ConfigPath == "roots.backup_storage.path" {
+			backupRoot = &roots[i]
+			break
+		}
+	}
+	if backupRoot == nil {
+		return nil
+	}
+
+	diagnostics := make([]Diagnostic, 0, 2)
+	for _, root := range roots {
+		switch root.ConfigPath {
+		case "roots.export_outputs.path", "roots.temporary_work.path":
+			if filesystemRootsOverlap(backupRoot.Path, root.Path) {
+				diagnostics = append(diagnostics, Diagnostic{
+					Path:       backupRoot.ConfigPath,
+					ReasonCode: "path_overlap",
+					Message:    fmt.Sprintf("backup storage root %q must remain distinct from %s", backupRoot.Path, strings.TrimSuffix(root.ConfigPath, ".path")),
+				})
+			}
+		}
+	}
+
+	sortDiagnostics(diagnostics)
+	return diagnostics
+}
+
+func filesystemRootsOverlap(left string, right string) bool {
+	return left == right || pathWithinRoot(left, right) || pathWithinRoot(right, left)
 }
 
 func collectFilesystemRoots(cfg Config) []filesystemRoot {

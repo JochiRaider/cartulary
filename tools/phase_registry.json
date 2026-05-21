@@ -104,7 +104,7 @@
     {
       "phase": "phase10",
       "order": 10,
-      "status": "planned",
+      "status": "active",
       "label": "Phase 10",
       "manifest_path": "tools/phase10_test_map.json",
       "ledger_path": "docs/testing/phase10_coverage_ledger.md",
