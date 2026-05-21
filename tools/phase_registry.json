@@ -100,6 +100,16 @@
       "ledger_path": "docs/testing/phase9_coverage_ledger.md",
       "scope": "keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces when exposed, and remaining analyst-work workbook surfaces.",
       "normative_owners": "Core 01 §7.4 and §19; Core 02 §10 and §19; Core 03 §2, §11, §13, and §16–§20; Core 04 §2."
+    },
+    {
+      "phase": "phase10",
+      "order": 10,
+      "status": "planned",
+      "label": "Phase 10",
+      "manifest_path": "tools/phase10_test_map.json",
+      "ledger_path": "docs/testing/phase10_coverage_ledger.md",
+      "scope": "Operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding.",
+      "normative_owners": "Core 01 §12.1–§12.2; Core 04 §2, §6, §9.14, and §12.3.3."
     }
   ]
 }

@@ -1,0 +1,247 @@
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase10",
+  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 0 keeps all rows blocked until direct evidence replaces the sentinels.",
+  "ledger": {
+    "title": "Phase 10 Coverage Ledger",
+    "notes": [
+      "Phase 10 is planned, not active, while all authoritative rows are blocker sentinels.",
+      "Every authoritative Phase 10 guide row has exactly one blocked owner so traceability exists without claiming implementation.",
+      "Operational backup and restore remain deployment-local recovery behavior and are distinct from the Incident Portability Extension Profile.",
+      "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
+    ],
+    "authoritative_execution": [
+      "`backend-unit` will select direct configuration and route-inventory evidence once `U-10-04` and `U-10-05` are implemented.",
+      "`backend-store` will select retained `backup_set` metadata and retention evidence once `U-10-01` is implemented.",
+      "`backend-integration` will select real backing-storage metadata evidence once `I-10-01` is implemented.",
+      "`backend-process` will select restore, fail-closed, operator, route-inventory, and effective-config evidence once process-bound rows are implemented.",
+      "`browser-e2e-webserver-backed` will select workbook recovery evidence once `E-10-02` is implemented."
+    ],
+    "support_execution_extras": [
+      "Existing runtime-root, object-store, projection, workbook, route, and browser evidence from earlier phases is support-only substrate and cannot satisfy Phase 10 rows."
+    ],
+    "sections": {
+      "unit": "Unit",
+      "integration": "Integration",
+      "e2e": "Browser E2E"
+    },
+    "shared_harness": [
+      "| Harness | Phase 10 evidence |",
+      "| --- | --- |",
+      "| Planned manifest ownership | `tools/phase10_test_map.json` records every authoritative guide row as blocked until direct evidence exists. |",
+      "| Generated ledger | `docs/testing/phase10_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
+      "| Schedule boundary | Phase 10 remains planned, so generated schedules must not treat Phase 10 rows as active executable evidence. |"
+    ],
+    "support_only": [
+      "Earlier phase runtime-root and object-store evidence is support-only substrate.",
+      "Existing projection rebuild tests are support-only substrate until Phase 10 restore readiness owns projection rebuild evidence.",
+      "Existing browser workbook query tests are support-only substrate until Phase 10 restore recovery evidence owns the row."
+    ]
+  },
+  "shared_harnesses": [],
+  "expected_ids": [
+    "U-10-01",
+    "U-10-02",
+    "U-10-03",
+    "U-10-04",
+    "U-10-05",
+    "I-10-01",
+    "I-10-02",
+    "I-10-03",
+    "E-10-01",
+    "E-10-02",
+    "E-10-03",
+    "E-10-04"
+  ],
+  "forbidden_id_files": [
+    "internal/platform/config/config_phase0_test.go",
+    "internal/platform/objectstore/objectstore_phase0_test.go",
+    "internal/platform/postgres/postgres_phase0_test.go",
+    "internal/modules/evidence/phase5_integration_test.go",
+    "apps/web/e2e/phase9.sentinel.spec.ts"
+  ],
+  "support_go_targets": [],
+  "unit": [
+    {
+      "id": "U-10-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/recovery",
+      "file": "internal/modules/recovery/phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_U_10_01_BackupSetMetadataRetentionBlocked",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "backend_store",
+      "claim_status": "blocked",
+      "claim": "Retained backup_set metadata, exact verification_state vocabulary, one coherent consistency_point_at, and latest-success plus 30-day retention floors require future direct persistent-state evidence.",
+      "out_of_scope": "This sentinel does not implement backup metadata, retention, restore anchors, or verification-state transitions.",
+      "execution_family": "backend-store-phase10-recovery",
+      "execution_label": "backend-store phase10 recovery blocker"
+    },
+    {
+      "id": "U-10-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_U_10_02_RestoreReadinessBlocked",
+      "execution_dependency": "backend_process",
+      "evidence_layer": "backend_process",
+      "claim_status": "blocked",
+      "claim": "Restore readiness requires exactly one retained backup_set, same-point Postgres and object-store restore, and projection rebuild before readiness; future process-bound evidence must replace this sentinel.",
+      "out_of_scope": "This sentinel does not implement restore orchestration or readiness gating.",
+      "execution_family": "backend-process-phase10-recovery",
+      "execution_label": "backend-process phase10 recovery blocker"
+    },
+    {
+      "id": "U-10-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_U_10_03_FailClosedRestoreVerificationBlocked",
+      "execution_dependency": "backend_process",
+      "evidence_layer": "backend_process",
+      "claim_status": "blocked",
+      "claim": "Restore must fail before readiness when required artifacts or integrity proof are missing, and restore verification must update state only according to isolated verification results.",
+      "out_of_scope": "This sentinel does not implement artifact proof checks or restore-verification state transitions.",
+      "execution_family": "backend-process-phase10-recovery",
+      "execution_label": "backend-process phase10 recovery blocker"
+    },
+    {
+      "id": "U-10-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/recovery",
+      "file": "internal/modules/recovery/phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_U_10_04_PublicRouteAbsenceDeploymentAdminBlocked",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "blocked",
+      "claim": "Public route inventories must expose no backup, restore, or restore-verification families, and any built-in operator control must be deployment-local and deployment_admin-gated.",
+      "out_of_scope": "This sentinel does not provide direct route inventory or deployment-admin control evidence.",
+      "execution_family": "backend-unit-phase10-recovery",
+      "execution_label": "backend-unit phase10 recovery blocker"
+    },
+    {
+      "id": "U-10-05",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/recovery",
+      "file": "internal/modules/recovery/phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_U_10_05_BackupStorageRootBindingBlocked",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "blocked",
+      "claim": "roots.backup_storage must be a required persistent runtime root with allowed binding kinds and must remain distinct from export and temporary-work roots.",
+      "out_of_scope": "This sentinel does not replace direct Phase 10 configuration-contract evidence.",
+      "execution_family": "backend-unit-phase10-recovery",
+      "execution_label": "backend-unit phase10 recovery blocker"
+    }
+  ],
+  "integration": [
+    {
+      "id": "I-10-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/recovery",
+      "file": "internal/modules/recovery/phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_I_10_01_RealBackingStorageMetadataBlocked",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "blocked",
+      "claim": "The most recent successful retained backup_set must expose required metadata, restore anchors, retention timestamps, and verification transitions against real backing storage.",
+      "out_of_scope": "This sentinel does not implement or verify real backup storage metadata.",
+      "execution_family": "backend-integration-phase10-recovery",
+      "execution_label": "backend-integration phase10 recovery blocker"
+    },
+    {
+      "id": "I-10-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_I_10_02_FreshEnvironmentRestoreWorkbookConsistencyBlocked",
+      "execution_dependency": "backend_process",
+      "evidence_layer": "backend_process",
+      "claim_status": "blocked",
+      "claim": "Restoring the latest successful retained backup_set into a fresh environment must rebuild projections, open an incident when data exists, execute a built-in workbook query, and preserve row, change-set, and blob consistency.",
+      "out_of_scope": "This sentinel does not perform fresh-environment restore or workbook recovery.",
+      "execution_family": "backend-process-phase10-recovery",
+      "execution_label": "backend-process phase10 recovery blocker"
+    },
+    {
+      "id": "I-10-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_I_10_03_MissingArtifactFailsBeforeReadinessBlocked",
+      "execution_dependency": "backend_process",
+      "evidence_layer": "backend_process",
+      "claim_status": "blocked",
+      "claim": "Selecting a retained backup_set missing a required artifact or integrity proof must fail before target readiness.",
+      "out_of_scope": "This sentinel does not create broken backup fixtures or readiness-failure evidence.",
+      "execution_family": "backend-process-phase10-recovery",
+      "execution_label": "backend-process phase10 recovery blocker"
+    }
+  ],
+  "e2e": [
+    {
+      "id": "E-10-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_E_10_01_DeploymentLocalOperatorInspectBlocked",
+      "execution_dependency": "backend_process",
+      "evidence_layer": "backend_process",
+      "claim_status": "blocked",
+      "claim": "A deployment-local operator must inspect the latest successful retained backup_set and see exact verification, retention, and verification timestamps.",
+      "out_of_scope": "This sentinel does not implement operator inspection.",
+      "execution_family": "backend-process-phase10-recovery",
+      "execution_label": "backend-process phase10 recovery blocker"
+    },
+    {
+      "id": "E-10-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase10.restore.spec.ts",
+      "title": "Phase 10 E-10-02 restore recovers workbook surface and executes a built-in workbook query",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser_functional",
+      "claim_status": "blocked",
+      "claim": "Restoring the latest successful retained backup_set into a fresh deployment must recover the workbook surface and execute at least one built-in workbook query successfully.",
+      "out_of_scope": "This sentinel does not run a browser-visible restore workflow."
+    },
+    {
+      "id": "E-10-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_E_10_03_PublicRouteInventoryAbsenceBlocked",
+      "execution_dependency": "backend_process",
+      "evidence_layer": "backend_process",
+      "claim_status": "blocked",
+      "claim": "Public HTTP and WebSocket route inventories must expose no backup, restore, or restore-verification families, and any built-in operator control must remain deployment-local and deployment_admin-gated.",
+      "out_of_scope": "This sentinel does not provide live route-inventory evidence.",
+      "execution_family": "backend-process-phase10-recovery",
+      "execution_label": "backend-process phase10 recovery blocker"
+    },
+    {
+      "id": "E-10-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "symbol": "TestPhase10_E_10_04_EffectiveConfigBackupRootBlocked",
+      "execution_dependency": "backend_process",
+      "evidence_layer": "backend_process",
+      "claim_status": "blocked",
+      "claim": "Effective deployment configuration must require roots.backup_storage with allowed binding kinds and reject attempts to satisfy backup storage with export or temporary-work roots.",
+      "out_of_scope": "This sentinel does not provide effective startup rejection evidence.",
+      "execution_family": "backend-process-phase10-recovery",
+      "execution_label": "backend-process phase10 recovery blocker"
+    }
+  ]
+}
