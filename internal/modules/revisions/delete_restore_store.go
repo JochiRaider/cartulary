@@ -17,6 +17,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 var (
@@ -493,22 +494,18 @@ func (a recordDeleteRestoreAdapter) viewSchemaID(ctx context.Context, tx pgx.Tx,
 	if err := tx.QueryRow(ctx, `SELECT artifact_type FROM artifacts WHERE record_id = $1`, recordID).Scan(&artifactType); err != nil {
 		return "", err
 	}
-	switch artifactType {
-	case "note":
-		return "cartulary.view.notes.v1", nil
-	case "comm_log":
-		return "cartulary.view.comm_log.v1", nil
-	case "handoff":
-		return "cartulary.view.handoff.v1", nil
-	case "status_review":
-		return "cartulary.view.status_review.v1", nil
-	case "lesson":
-		return "cartulary.view.lesson.v1", nil
-	case "finding":
-		return "cartulary.view.findings.v1", nil
-	default:
-		return "", fmt.Errorf("unsupported artifact type %q", artifactType)
+	variant, ok := viewschema.LookupArtifactVariantByArtifactType(artifactType)
+	if !ok {
+		switch artifactType {
+		case "investigative_query":
+			return "cartulary.view.investigative_queries.v1", nil
+		case "forensic_keyword":
+			return "cartulary.view.forensic_keywords.v1", nil
+		default:
+			return "", fmt.Errorf("unsupported artifact type %q", artifactType)
+		}
 	}
+	return variant.PublicSurfaceRef, nil
 }
 
 func rebuildDeleteRestoreProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {

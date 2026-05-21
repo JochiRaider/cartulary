@@ -167,8 +167,8 @@ The following table is a domain-facing copy of the current-profile standardized 
 | Status Review          | `cartulary.view.status_review.v1`         | `system_view`    | `artifact`          | `artifact_type='status_review'`                                                                                | required system view                   |
 | Lesson                 | `cartulary.view.lesson.v1`                | `system_view`    | `artifact`          | `artifact_type='lesson'`                                                                                       | required system view                   |
 | Findings               | `cartulary.view.findings.v1`              | `system_view`    | `artifact`          | `artifact_type='finding'`; subtype dimension `finding.kind`                                                    | standardized optional workbook surface |
-| Investigative Queries  | `cartulary.view.investigative_queries.v1` | `system_view`    | `artifact`          | implementation-declared structured investigative-query subtype; no current-profile fixed durable discriminator | standardized optional workbook surface |
-| Forensic Keywords      | `cartulary.view.forensic_keywords.v1`     | `system_view`    | `artifact`          | implementation-declared structured forensic-keyword subtype; no current-profile fixed durable discriminator    | standardized optional workbook surface |
+| Investigative Queries  | `cartulary.view.investigative_queries.v1` | `system_view`    | `artifact`          | `artifact_type='investigative_query'`; separately governed optional structured subtype | standardized optional workbook surface |
+| Forensic Keywords      | `cartulary.view.forensic_keywords.v1`     | `system_view`    | `artifact`          | `artifact_type='forensic_keyword'`; separately governed optional structured subtype    | standardized optional workbook surface |
 
 ### 9.1 Surface interpretation rules
 

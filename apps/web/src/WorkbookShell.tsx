@@ -86,6 +86,8 @@ const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
 const evidenceViewSchemaId = "cartulary.view.evidence.v1";
+const findingsViewSchemaId = "cartulary.view.findings.v1";
+const forensicKeywordsViewSchemaId = "cartulary.view.forensic_keywords.v1";
 const notesViewSchemaId = "cartulary.view.notes.v1";
 const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
 const taskRequestsViewSchemaId = "cartulary.view.task_requests.v1";
@@ -93,6 +95,8 @@ const decisionsViewSchemaId = "cartulary.view.decisions.v1";
 const partiesViewSchemaId = "cartulary.view.parties.v1";
 const commLogViewSchemaId = "cartulary.view.comm_log.v1";
 const handoffViewSchemaId = "cartulary.view.handoff.v1";
+const investigativeQueriesViewSchemaId =
+  "cartulary.view.investigative_queries.v1";
 const statusReviewViewSchemaId = "cartulary.view.status_review.v1";
 const lessonViewSchemaId = "cartulary.view.lesson.v1";
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -8439,6 +8443,9 @@ function GenericWorkbookSurface({
       decisionsViewSchemaId,
       evidenceViewSchemaId,
       notesViewSchemaId,
+      findingsViewSchemaId,
+      investigativeQueriesViewSchemaId,
+      forensicKeywordsViewSchemaId,
     ];
     const loaded = await Promise.all(
       targetViewSchemaIds.map(async (viewSchemaId) => {
@@ -8514,6 +8521,18 @@ function GenericWorkbookSurface({
       ...next.identities,
       ...next.evidence,
       ...next.notes,
+      ...genericReferenceOptionsFromRows(
+        findingsViewSchemaId,
+        rowsByView[findingsViewSchemaId] ?? [],
+      ),
+      ...genericReferenceOptionsFromRows(
+        investigativeQueriesViewSchemaId,
+        rowsByView[investigativeQueriesViewSchemaId] ?? [],
+      ),
+      ...genericReferenceOptionsFromRows(
+        forensicKeywordsViewSchemaId,
+        rowsByView[forensicKeywordsViewSchemaId] ?? [],
+      ),
       ...next.taskRequests,
       ...next.decisions,
       ...next.parties,
@@ -9699,6 +9718,36 @@ function GenericMutationControl({
     );
   }
 
+  if (field.readKind === "boolean") {
+    return (
+      <input
+        data-testid={testId}
+        id={id}
+        style={inputStyle}
+        type="checkbox"
+        checked={value === "true"}
+        onChange={(event) => {
+          onChange(event.target.checked ? "true" : "false");
+        }}
+      />
+    );
+  }
+
+  if (field.readKind === "number") {
+    return (
+      <input
+        data-testid={testId}
+        id={id}
+        style={inputStyle}
+        type="number"
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      />
+    );
+  }
+
   if (isMultilineGenericField(field)) {
     return (
       <textarea
@@ -9783,7 +9832,11 @@ export function buildGenericCreatePayload(
       }
       continue;
     }
-    payload[field.fieldKey] = value;
+    const payloadValue = genericDirectPayloadValue(field, value);
+    if (payloadValue === invalidGenericPayloadValue) {
+      return null;
+    }
+    payload[field.fieldKey] = payloadValue;
   }
   return Object.keys(payload).length > 1 ? payload : null;
 }
@@ -9807,10 +9860,42 @@ export function buildGenericPatchChange(
   if (value === "" && !field.clearable) {
     return null;
   }
+  const payloadValue =
+    value === "" && field.clearable
+      ? null
+      : genericDirectPayloadValue(field, value);
+  if (payloadValue === invalidGenericPayloadValue) {
+    return null;
+  }
   return {
     field_key: field.fieldKey,
-    value: value === "" && field.clearable ? null : value,
+    value: payloadValue,
   };
+}
+
+const invalidGenericPayloadValue = Symbol("invalid generic payload value");
+
+function genericDirectPayloadValue(
+  field: ViewFieldContract,
+  value: string,
+): string | number | boolean | typeof invalidGenericPayloadValue {
+  if (field.readKind === "number") {
+    if (!/^-?\d+$/u.test(value)) {
+      return invalidGenericPayloadValue;
+    }
+    const parsed = Number.parseInt(value, 10);
+    return Number.isSafeInteger(parsed) ? parsed : invalidGenericPayloadValue;
+  }
+  if (field.readKind === "boolean") {
+    if (value === "true") {
+      return true;
+    }
+    if (value === "false") {
+      return false;
+    }
+    return invalidGenericPayloadValue;
+  }
+  return value;
 }
 
 function buildGenericCollectionActions(
@@ -9894,6 +9979,16 @@ function workbookCreateMinimumSatisfied(
       return has("status_review.current_state_summary");
     case lessonViewSchemaId:
       return has("lesson.summary");
+    case findingsViewSchemaId:
+      return has("finding.statement");
+    case investigativeQueriesViewSchemaId:
+      return (
+        has("investigative_query.platform") &&
+        has("investigative_query.purpose") &&
+        has("investigative_query.query_text")
+      );
+    case forensicKeywordsViewSchemaId:
+      return has("forensic_keyword.pattern") && has("forensic_keyword.reason");
     default:
       return Object.values(draft).some((value) => normalizeValue(value) !== "");
   }
@@ -9919,6 +10014,12 @@ function genericCreateMinimumMessage(viewSchemaId: string): string {
       return "Current state summary is required.";
     case lessonViewSchemaId:
       return "Summary is required.";
+    case findingsViewSchemaId:
+      return "Statement is required.";
+    case investigativeQueriesViewSchemaId:
+      return "Platform, purpose, and query text are required.";
+    case forensicKeywordsViewSchemaId:
+      return "Pattern and reason are required.";
     default:
       return "At least one value is required.";
   }
@@ -9937,10 +10038,23 @@ function initialGenericCreateDraft(
       currentUserId &&
       (field.fieldKey === "task.owner_user_id" ||
         field.fieldKey === "decision.owner_user_id" ||
+        field.fieldKey === "finding.owner_user_id" ||
         field.fieldKey === "status_review.review_owner_user_id" ||
         field.fieldKey === "lesson.owner_user_id")
     ) {
       draft[field.fieldKey] = currentUserId;
+    }
+    if (field.fieldKey === "finding.kind") {
+      draft[field.fieldKey] = "finding";
+    }
+    if (field.fieldKey === "finding.state") {
+      draft[field.fieldKey] = "open";
+    }
+    if (field.fieldKey === "forensic_keyword.match_mode") {
+      draft[field.fieldKey] = "literal";
+    }
+    if (field.fieldKey === "forensic_keyword.case_sensitive") {
+      draft[field.fieldKey] = "false";
     }
   }
   return draft;
@@ -10034,6 +10148,10 @@ function genericRowLabel(contract: ViewContract, row: EntityApiRow): string {
     "handoff.current_state_summary",
     "status_review.current_state_summary",
     "lesson.summary",
+    "finding.statement",
+    "investigative_query.purpose",
+    "investigative_query.query_text",
+    "forensic_keyword.pattern",
   ];
   for (const fieldKey of preferredFieldKeys) {
     if (!contract.fieldMap[fieldKey]) {
@@ -10076,6 +10194,8 @@ function referenceOptionsForField(
     case "task.linked_record_ids":
     case "decision.support_refs":
     case "decision.affected_record_ids":
+    case "finding.supporting_refs":
+    case "finding.contradictory_refs":
       return options.allRecords;
     default:
       return [];
@@ -10103,6 +10223,8 @@ function genericFieldUsesReferenceOptions(field: ViewFieldContract): boolean {
     case "task.linked_record_ids":
     case "decision.support_refs":
     case "decision.affected_record_ids":
+    case "finding.supporting_refs":
+    case "finding.contradictory_refs":
       return true;
     default:
       return false;
@@ -11115,11 +11237,15 @@ const gridShellStyle = {
 };
 
 const focusableCellStyle = {
-  display: "inline-flex",
-  alignItems: "center",
+  display: "block",
+  lineHeight: "2rem",
   minHeight: "2rem",
   minWidth: "100%",
+  maxWidth: "100%",
   outlineOffset: "2px",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
 };
 
 const stateCellStyle = {

@@ -32,12 +32,7 @@ SELECT
     a.subject_type,
     a.assessment_state,
     a.confidence_score,
-    CASE
-        WHEN a.confidence_score IS NULL THEN 'unset'
-        WHEN a.confidence_score BETWEEN 0 AND 39 THEN 'low'
-        WHEN a.confidence_score BETWEEN 40 AND 69 THEN 'medium'
-        ELSE 'high'
-    END,
+    cartulary_confidence_band(a.confidence_score),
     a.rationale,
     a.assessor_user_id,
     a.assessed_at,
@@ -114,12 +109,7 @@ SELECT
     a.subject_type,
     a.assessment_state,
     a.confidence_score,
-    CASE
-        WHEN a.confidence_score IS NULL THEN 'unset'
-        WHEN a.confidence_score BETWEEN 0 AND 39 THEN 'low'
-        WHEN a.confidence_score BETWEEN 40 AND 69 THEN 'medium'
-        ELSE 'high'
-    END,
+    cartulary_confidence_band(a.confidence_score),
     a.rationale,
     a.assessor_user_id,
     a.assessed_at,

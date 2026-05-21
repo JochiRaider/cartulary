@@ -21,16 +21,19 @@ import (
 )
 
 const (
-	AssessmentsViewSchemaID  = "cartulary.view.assessments.v1"
-	CommLogViewSchemaID      = "cartulary.view.comm_log.v1"
-	DecisionsViewSchemaID    = "cartulary.view.decisions.v1"
-	EvidenceViewSchemaID     = "cartulary.view.evidence.v1"
-	HandoffViewSchemaID      = "cartulary.view.handoff.v1"
-	LessonViewSchemaID       = "cartulary.view.lesson.v1"
-	NotesViewSchemaID        = "cartulary.view.notes.v1"
-	PartiesViewSchemaID      = "cartulary.view.parties.v1"
-	StatusReviewViewSchemaID = "cartulary.view.status_review.v1"
-	TaskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
+	AssessmentsViewSchemaID          = "cartulary.view.assessments.v1"
+	CommLogViewSchemaID              = "cartulary.view.comm_log.v1"
+	DecisionsViewSchemaID            = "cartulary.view.decisions.v1"
+	EvidenceViewSchemaID             = "cartulary.view.evidence.v1"
+	FindingsViewSchemaID             = "cartulary.view.findings.v1"
+	ForensicKeywordsViewSchemaID     = "cartulary.view.forensic_keywords.v1"
+	HandoffViewSchemaID              = "cartulary.view.handoff.v1"
+	InvestigativeQueriesViewSchemaID = "cartulary.view.investigative_queries.v1"
+	LessonViewSchemaID               = "cartulary.view.lesson.v1"
+	NotesViewSchemaID                = "cartulary.view.notes.v1"
+	PartiesViewSchemaID              = "cartulary.view.parties.v1"
+	StatusReviewViewSchemaID         = "cartulary.view.status_review.v1"
+	TaskRequestsViewSchemaID         = "cartulary.view.task_requests.v1"
 )
 
 type Store struct {
@@ -237,6 +240,7 @@ func appendGenericFilter(builder *strings.Builder, args *[]any, definition gener
 		return appendEqualityFilter(builder, args, field, filter.Arg)
 	case "prefix":
 		value, _ := filter.Arg["value"].(string)
+		value = strings.ToLower(value)
 		builder.WriteString("\n   AND left(lower(coalesce((")
 		builder.WriteString(field.expr)
 		builder.WriteString(")::text, '')), char_length(")
@@ -291,7 +295,7 @@ func appendEqualityFilter(builder *strings.Builder, args *[]any, field genericFi
 		}
 		appendComparableExpr(builder, field)
 		builder.WriteString(" = ")
-		builder.WriteString(bindWithFieldCast(args, value, field))
+		builder.WriteString(bindWithFieldCast(args, comparableFilterValue(field, value), field))
 		return nil
 	}
 	values, _ := arg["values"].([]any)
@@ -302,10 +306,20 @@ func appendEqualityFilter(builder *strings.Builder, args *[]any, field genericFi
 		}
 		appendComparableExpr(builder, field)
 		builder.WriteString(" = ")
-		builder.WriteString(bindWithFieldCast(args, value, field))
+		builder.WriteString(bindWithFieldCast(args, comparableFilterValue(field, value), field))
 	}
 	builder.WriteString(")")
 	return nil
+}
+
+func comparableFilterValue(field genericField, value any) any {
+	if field.kind != fieldKindText {
+		return value
+	}
+	if text, ok := value.(string); ok {
+		return strings.ToLower(text)
+	}
+	return value
 }
 
 func appendRangeFilter(builder *strings.Builder, args *[]any, field genericField, arg map[string]any) error {
@@ -542,6 +556,36 @@ LEFT JOIN LATERAL (
 			{key: "evidence.edited_at", expr: "e.updated_at", kind: fieldKindTimestamp},
 		},
 	},
+	FindingsViewSchemaID: artifactSurface(FindingsViewSchemaID, "finding", []genericField{
+		{key: "finding.statement", expr: "p.finding_statement", kind: fieldKindText},
+		{key: "finding.kind", expr: "p.finding_kind", sortExpr: enumSortExpr("p.finding_kind", "finding", "hypothesis"), kind: fieldKindText},
+		{key: "finding.state", expr: "p.finding_state", sortExpr: enumSortExpr("p.finding_state", "open", "closed"), kind: fieldKindText},
+		{key: "finding.owner_user_id", expr: "p.finding_owner_user_id", kind: fieldKindText},
+		{key: "finding.confidence_score", expr: "p.finding_confidence_score", kind: fieldKindNumber},
+		{key: "finding.closed_at", expr: "p.finding_closed_at", kind: fieldKindTimestamp},
+		{key: "finding.updated_at", expr: "p.finding_updated_at", kind: fieldKindTimestamp},
+		{key: "finding.supporting_refs", expr: recordRefCollectionExprFor("p", "finding.supporting_refs", "supported_by"), kind: fieldKindCollection},
+		{key: "finding.contradictory_refs", expr: recordRefCollectionExprFor("p", "finding.contradictory_refs", "references_record"), kind: fieldKindCollection},
+		{key: "finding.confidence_band", expr: "p.finding_confidence_band", sortExpr: enumSortExpr("p.finding_confidence_band", "unset", "low", "medium", "high"), kind: fieldKindText},
+	}),
+	ForensicKeywordsViewSchemaID: artifactSurface(ForensicKeywordsViewSchemaID, "forensic_keyword", []genericField{
+		{key: "forensic_keyword.pattern", expr: "p.forensic_keyword_pattern", kind: fieldKindText},
+		{key: "forensic_keyword.reason", expr: "p.forensic_keyword_reason", kind: fieldKindText},
+		{key: "forensic_keyword.match_mode", expr: "p.forensic_keyword_match_mode", sortExpr: enumSortExpr("p.forensic_keyword_match_mode", "literal", "regex"), kind: fieldKindText},
+		{key: "forensic_keyword.case_sensitive", expr: "p.forensic_keyword_case_sensitive", kind: fieldKindBool},
+		{key: "forensic_keyword.created_at", expr: "p.forensic_keyword_created_at", kind: fieldKindTimestamp},
+		{key: "forensic_keyword.keyword_id", expr: "p.forensic_keyword_keyword_id", kind: fieldKindText},
+		{key: "forensic_keyword.created_day", expr: "p.forensic_keyword_created_day", kind: fieldKindDate},
+	}),
+	InvestigativeQueriesViewSchemaID: artifactSurface(InvestigativeQueriesViewSchemaID, "investigative_query", []genericField{
+		{key: "investigative_query.platform", expr: "p.investigative_query_platform", kind: fieldKindText},
+		{key: "investigative_query.purpose", expr: "p.investigative_query_purpose", kind: fieldKindText},
+		{key: "investigative_query.query_text", expr: "p.investigative_query_query_text", kind: fieldKindText},
+		{key: "investigative_query.created_by_user_id", expr: "p.investigative_query_created_by_user_id", kind: fieldKindText},
+		{key: "investigative_query.created_at", expr: "p.investigative_query_created_at", kind: fieldKindTimestamp},
+		{key: "investigative_query.query_id", expr: "p.investigative_query_query_id", kind: fieldKindText},
+		{key: "investigative_query.created_day", expr: "p.investigative_query_created_day", kind: fieldKindDate},
+	}),
 	DecisionsViewSchemaID: {
 		viewSchemaID: DecisionsViewSchemaID,
 		fromSQL:      "FROM decision_grid_projection p JOIN records r ON r.record_id = p.record_id",

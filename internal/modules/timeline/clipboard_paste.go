@@ -258,21 +258,6 @@ func (request ClipboardPasteRequest) routeKey() string {
 	return clipboardPasteRouteKey
 }
 
-func (request ClipboardPasteRequest) rawImportColumn(rowOrdinal int, columnOrdinal int, header *string, value string) ClipboardRawImportColumn {
-	var headerValue any
-	if header != nil {
-		headerValue = *header
-	}
-	return ClipboardRawImportColumn{
-		SourceKind:          "clipboard_paste",
-		PasteClientTxnID:    request.ClientTxnID,
-		SourceRowOrdinal:    rowOrdinal,
-		SourceColumnOrdinal: columnOrdinal,
-		SourceHeaderText:    headerValue,
-		RawValue:            value,
-	}
-}
-
 func ParseClipboardTable(text string, format string) ([][]string, error) {
 	return tabularingest.ParseTable(text, format)
 }

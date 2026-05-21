@@ -6,6 +6,8 @@ import {
 import {
   conflictMarkerTestId,
   gridFilterChipTestId,
+  gridGroupingSelectTestId,
+  gridGroupRowTestId,
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
@@ -14,6 +16,7 @@ import type { Page, Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
+  apiBase,
   createIncident,
   createViewRow,
   patchTimelineRecord,
@@ -32,6 +35,7 @@ import {
   expectAssessmentGridOrder,
   handoffViewSchemaId,
   hostsViewSchemaId,
+  identitiesViewSchemaId,
   indicatorsViewSchemaId,
   lessonViewSchemaId,
   notesViewSchemaId,
@@ -41,10 +45,32 @@ import {
   waitForViewRowByCell,
 } from "./phase4Helpers";
 
-const phase9Sprint0SentinelMessage =
-  "Phase 9 Sprint 0 blocker sentinel: this is not behavior completion evidence; replace this sentinel with real Phase 9 implementation evidence before claiming the row complete.";
-
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const requiredBaseViewSchemaIds = [
+  assessmentsViewSchemaId,
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId,
+  handoffViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  indicatorsViewSchemaId,
+  lessonViewSchemaId,
+  notesViewSchemaId,
+  partiesViewSchemaId,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
+  timelineViewSchemaId,
+] as const;
+const optionalStandardizedSurfaceIds = [
+  "cartulary.view.findings.v1",
+  "cartulary.view.forensic_keywords.v1",
+  "cartulary.view.investigative_queries.v1",
+] as const;
+const findingsViewSchemaId = "cartulary.view.findings.v1";
+const forensicKeywordsViewSchemaId = "cartulary.view.forensic_keywords.v1";
+const investigativeQueriesViewSchemaId =
+  "cartulary.view.investigative_queries.v1";
 
 async function disableWorkbookSockets(page: Page) {
   await page.addInitScript(() => {
@@ -1725,11 +1751,219 @@ test("Phase 9 E-9-06 coordination workbook workflows stay native", async ({
   ).toContainText("closed");
 });
 
-test("Phase 9 E-9-07 Sprint 0 blocker sentinel", async () => {
-  expect(phase9Sprint0SentinelMessage).toContain("blocker sentinel");
+test("Phase 9 E-9-07 optional standardized surfaces are workbook-native when exposed", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E907"),
+    "Phase 9 E-9-07 optional surfaces",
+  );
+  const supportingNote = await createViewRow(
+    page,
+    incidentId,
+    notesViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e907-note"),
+      "note.title": "E-9-07 supporting note",
+    },
+  );
+
+  await expectOptionalStandardizedSurfacesExposed(page);
+
+  await openGenericSurface(page, incidentId, findingsViewSchemaId, "Findings");
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(findingsViewSchemaId)}`),
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "finding.statement",
+    "Hypothesis: exfiltration used compressed archives",
+  );
+  await setPhase9GenericCreateField(page, "finding.kind", "hypothesis");
+  await setPhase9GenericCreateField(page, "finding.confidence_score", "72");
+  await page
+    .getByTestId(`generic-create-submit-${findingsViewSchemaId}`)
+    .click();
+  const finding = await waitForViewRowByCell(
+    page,
+    incidentId,
+    findingsViewSchemaId,
+    "finding.statement",
+    "Hypothesis: exfiltration used compressed archives",
+  );
+  await editPhase9GenericCell(
+    page,
+    findingsViewSchemaId,
+    finding.record_id,
+    "finding.state",
+    "closed",
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await editPhase9GenericCell(
+    page,
+    findingsViewSchemaId,
+    finding.record_id,
+    "finding.supporting_refs",
+    supportingNote.record_id as string,
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  const findingRows = await queryViewRows(
+    page,
+    incidentId,
+    findingsViewSchemaId,
+  );
+  const refreshedFinding = findingRows.find(
+    (row) => row.record_id === finding.record_id,
+  );
+  if (!refreshedFinding) {
+    throw new Error("missing refreshed finding");
+  }
+  expect(refreshedFinding.cells["finding.kind"]?.value).toBe("hypothesis");
+  expect(refreshedFinding.cells["finding.state"]?.value).toBe("closed");
+  expect(refreshedFinding.cells["finding.confidence_band"]?.value).toBe("high");
+  expect(typeof refreshedFinding.cells["finding.closed_at"]?.value).toBe(
+    "string",
+  );
+  expect(
+    collectionItems(refreshedFinding, "finding.supporting_refs"),
+  ).toHaveLength(1);
+  await applyFilterChip(
+    page,
+    findingsViewSchemaId,
+    "finding.confidence_band",
+    "high",
+  );
+  await expect(
+    page.getByTestId(
+      gridFilterChipTestId(findingsViewSchemaId, "finding.confidence_band"),
+    ),
+  ).toContainText("high");
+  await page
+    .getByTestId(gridGroupingSelectTestId(findingsViewSchemaId))
+    .selectOption("finding.kind");
+  await expect(
+    page.getByTestId(
+      gridGroupRowTestId(findingsViewSchemaId, "finding.kind", "hypothesis"),
+    ),
+  ).toBeVisible();
+
+  await openGenericSurface(
+    page,
+    incidentId,
+    investigativeQueriesViewSchemaId,
+    "Investigative Queries",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "investigative_query.platform",
+    "Kusto",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "investigative_query.purpose",
+    "Locate archive staging",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "investigative_query.query_text",
+    "DeviceFileEvents | where FileName endswith '.zip'",
+  );
+  await page
+    .getByTestId(`generic-create-submit-${investigativeQueriesViewSchemaId}`)
+    .click();
+  const investigativeQuery = await waitForViewRowByCell(
+    page,
+    incidentId,
+    investigativeQueriesViewSchemaId,
+    "investigative_query.purpose",
+    "Locate archive staging",
+  );
+  expect(
+    typeof investigativeQuery.cells["investigative_query.created_by_user_id"]
+      ?.value,
+  ).toBe("string");
+  await applyFilterChip(
+    page,
+    investigativeQueriesViewSchemaId,
+    "investigative_query.platform",
+    "Kusto",
+  );
+  await expect(
+    page.getByTestId(
+      gridFilterChipTestId(
+        investigativeQueriesViewSchemaId,
+        "investigative_query.platform",
+      ),
+    ),
+  ).toContainText("Kusto");
+
+  await openGenericSurface(
+    page,
+    incidentId,
+    forensicKeywordsViewSchemaId,
+    "Forensic Keywords",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "forensic_keyword.pattern",
+    "7z\\.exe",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "forensic_keyword.reason",
+    "Archive utility execution",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "forensic_keyword.match_mode",
+    "regex",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "forensic_keyword.case_sensitive",
+    "true",
+  );
+  await page
+    .getByTestId(`generic-create-submit-${forensicKeywordsViewSchemaId}`)
+    .click();
+  const forensicKeyword = await waitForViewRowByCell(
+    page,
+    incidentId,
+    forensicKeywordsViewSchemaId,
+    "forensic_keyword.pattern",
+    "7z\\.exe",
+  );
+  expect(forensicKeyword.cells["forensic_keyword.match_mode"]?.value).toBe(
+    "regex",
+  );
+  expect(forensicKeyword.cells["forensic_keyword.case_sensitive"]?.value).toBe(
+    true,
+  );
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId("system-view-selector")).toBeVisible();
+
+  const optionValues = await systemViewSelectorValues(page);
+  for (const viewSchemaId of optionalStandardizedSurfaceIds) {
+    expect(optionValues).toContain(viewSchemaId);
+  }
+  for (const viewSchemaId of [
+    assessmentsViewSchemaId,
+    commLogViewSchemaId,
+    decisionsViewSchemaId,
+    indicatorsViewSchemaId,
+    handoffViewSchemaId,
+    lessonViewSchemaId,
+    partiesViewSchemaId,
+    statusReviewViewSchemaId,
+    taskRequestsViewSchemaId,
+  ]) {
+    expect(optionValues).toContain(viewSchemaId);
+  }
 });
 
-test("Phase 9 E-9-08 Notes and Indicators open by canonical view schema IDs", async ({
+test("Phase 9 E-9-08 required registry identities stay canonical with optional additions", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -1737,9 +1971,17 @@ test("Phase 9 E-9-08 Notes and Indicators open by canonical view schema IDs", as
     uniqueIncidentKey("E908"),
     "Phase 9 E-9-08 registry identities",
   );
+  await expectOptionalStandardizedSurfacesExposed(page);
   await createViewRow(page, incidentId, notesViewSchemaId, {
     client_txn_id: uniqueTxn("e908-note"),
     "note.title": "Phase 9 registry note",
+  });
+  const commLog = await createViewRow(page, incidentId, commLogViewSchemaId, {
+    client_txn_id: uniqueTxn("e908-comm"),
+    "comm_log.comm_type": "briefing",
+    "comm_log.audience": "Phase 9 registry audience",
+    "comm_log.channel_or_meeting": "Bridge",
+    "comm_log.summary": "Phase 9 registry coordination",
   });
   const indicator = await createViewRow(
     page,
@@ -1780,7 +2022,68 @@ test("Phase 9 E-9-08 Notes and Indicators open by canonical view schema IDs", as
       rowCellTestId(indicator.record_id as string, "indicator.display_value"),
     ),
   ).toHaveText("203.0.113.92");
+
+  await page
+    .getByTestId("system-view-selector")
+    .selectOption(commLogViewSchemaId);
+  await expect(
+    page.getByTestId(gridShellTestId(commLogViewSchemaId)),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(commLogViewSchemaId)}`),
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(commLog.record_id as string, "comm_log.summary"),
+    ),
+  ).toHaveText("Phase 9 registry coordination");
+
+  const optionValues = await systemViewSelectorValues(page);
+  for (const viewSchemaId of optionalStandardizedSurfaceIds) {
+    expect(optionValues).toContain(viewSchemaId);
+  }
 });
+
+async function fetchPublicViewSchemaIds(page: Page) {
+  const response = await page.request.get(`${apiBase}/api/v1/view-schemas`);
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as {
+    data: { view_schemas: Array<{ view_schema_id: string }> };
+  };
+  return body.data.view_schemas.map((schema) => schema.view_schema_id);
+}
+
+async function expectOptionalStandardizedSurfacesExposed(page: Page) {
+  const ids = await fetchPublicViewSchemaIds(page);
+  expect(ids).toEqual(
+    [...requiredBaseViewSchemaIds, ...optionalStandardizedSurfaceIds].sort(),
+  );
+  for (const viewSchemaId of optionalStandardizedSurfaceIds) {
+    expect(ids).toContain(viewSchemaId);
+    const member = await page.request.get(
+      `${apiBase}/api/v1/view-schemas/${viewSchemaId}`,
+    );
+    expect(member.ok()).toBeTruthy();
+    const body = (await member.json()) as {
+      data: { view_schema_id: string; fields: Array<{ field_key: string }> };
+    };
+    expect(body.data.view_schema_id).toBe(viewSchemaId);
+    expect(body.data.fields.length).toBeGreaterThan(0);
+  }
+  const hypotheses = await page.request.get(
+    `${apiBase}/api/v1/view-schemas/cartulary.view.hypotheses.v1`,
+  );
+  expect(hypotheses.status()).toBe(404);
+}
+
+async function systemViewSelectorValues(page: Page) {
+  return page
+    .getByTestId("system-view-selector")
+    .locator("option")
+    .evaluateAll((options) =>
+      options.map((option) => (option as HTMLOptionElement).value),
+    );
+}
 
 function collectionDisplayTexts(value: unknown): string[] {
   if (!value || typeof value !== "object" || !("items" in value)) {
@@ -1843,6 +2146,15 @@ async function setPhase9GenericCreateField(
 ) {
   const input = page.getByTestId(`generic-create-field-${fieldKey}`);
   const tagName = await input.evaluate((element) => element.tagName);
+  const inputType = await input.getAttribute("type");
+  if (inputType === "checkbox") {
+    if (value === "true") {
+      await input.check();
+    } else {
+      await input.uncheck();
+    }
+    return;
+  }
   if (tagName === "SELECT") {
     await input.selectOption(value);
     return;
@@ -1865,6 +2177,16 @@ async function editPhase9GenericCell(
     .selectOption(fieldKey);
   const input = page.getByTestId(`generic-edit-value-${viewSchemaId}`);
   const tagName = await input.evaluate((element) => element.tagName);
+  const inputType = await input.getAttribute("type");
+  if (inputType === "checkbox") {
+    if (value === "true") {
+      await input.check();
+    } else {
+      await input.uncheck();
+    }
+    await page.getByTestId(`generic-edit-submit-${viewSchemaId}`).click();
+    return;
+  }
   if (tagName === "SELECT") {
     if (typeof value === "string") {
       await waitForPhase9GenericOption(

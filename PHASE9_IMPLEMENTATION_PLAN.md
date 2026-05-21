@@ -15,13 +15,13 @@ Authority model:
 - Generated files, generated ledgers, generated schedules, visual goldens, support-only tests, retained run artifacts, and previous phase plans are not behavior authorities.
 - `docs/domain.md` is a vocabulary and concept reference for terminology-sensitive work. It does not replace the owner specs.
 
-Current repo status after Sprint 6 residual remediation:
+Current repo status after Sprint 8 audit:
 - `tools/phase_registry.json` includes Phase 9 as `active`.
 - `tools/phase9_test_map.json` exists and represents every authoritative Phase 9 row exactly once.
 - `docs/testing/phase9_coverage_ledger.md` exists and is generated from the Phase 9 manifest.
-- Direct Sprint 1 through Sprint 6 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, Host/Identity entity-origin paste, Notes, Indicators, Parties, party text-plus-link flows, append-only Compromise Assessments, the assessment portion of manual relationship confidence handling, timestamp scalar validation, assessment projection-backed reads, browser-visible invalid timestamp draft handling where implemented, Task Requests, Decisions, task/decision relationship confidence handling, direct decision references, projection-backed Task/Decision workbook reads, and browser-visible Task/Decision workbook flows.
-- Remaining later-sprint blocker sentinels intentionally prevent a full Phase 9 completion claim until replaced by direct behavior evidence or owner-cited `N/A` coverage where applicable.
-- The broad `browser-e2e-webserver-backed` aggregate passed in the Sprint 5 audit. Phase 9 completion is still not claimed while later Phase 9 sprint rows remain separately owned.
+- Direct Sprint 1 through Sprint 8 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, Host/Identity entity-origin paste, Notes, Indicators, Parties, party text-plus-link flows, append-only Compromise Assessments, timestamp scalar validation, Task Requests, Decisions, required coordination surfaces, optional standardized surfaces, and registry closure.
+- Sprint 9 remains responsible for final public-wrapper validation, retained-run maintenance, `make check`, and handoff. This plan does not claim full Phase 9 completion.
+- The broad `browser-e2e-webserver-backed` aggregate passed in the Sprint 8 audit.
 
 ## Phase Objective
 
@@ -89,7 +89,7 @@ Carried-forward compatibility boundaries:
 | [x] | 5. Assessments and timestamp contract | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 5-owned blocker remains. This does not claim Phase 9 completion; Task Request, Decision, coordination, optional standardized surface, and remaining non-assessment relationship rows remain later Phase 9 work. | Direct Sprint 5 evidence covers append-only Compromise Assessments, closed `assessment_state`, deterministic confidence bands, timestamp scalar validation and clearability, assessment support-ref confidence rejection, assessment projection reads, and browser-visible invalid timestamp draft behavior. |
 | [x] | 6. Task Requests and Decisions | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, focused `go test ./internal/modules/workbook -run 'Phase9Sprint6|Direct.*Decoder|Owner.*Null|Supersede.*Inconsistent'`, `make agent-finalize`, `git diff --check` | No Sprint 6-owned blocker remains. This does not claim Phase 9 completion; coordination, optional standardized surface, registry closure, and final gate rows remain later Phase 9 work. | Direct Sprint 6 evidence covers Task Request lifecycle and queue fields, Decision lifecycle and supersession, direct decision-reference set/clear, task/decision relationship confidence rejection, projection-backed workbook reads, browser-visible Task/Decision flows, explicit supersession fail-closed behavior for inconsistent source or target state, and wire-level owner null-clear rejection. |
 | [x] | 7. Coordination surfaces | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 7-owned blocker remains. This does not claim Phase 9 completion; optional standardized surfaces, registry closure, and the final phase gate remain separately owned. | Direct Sprint 7 evidence covers `comm_log`, `handoff`, `status_review`, and `lesson` as workbook-native artifact-backed coordination surfaces with minimum create signals, projection-backed reads, collection/reference semantics, timestamp behavior, and browser-visible workbook workflows. |
-| [ ] | 8. Optional surfaces and registry closure | `make backend-unit`, `make backend-store`, conditional browser evidence | TODO: determine whether optional standardized surfaces are exposed. | Mark optional surfaces as direct evidence or `N/A`. |
+| [x] | 8. Optional surfaces and registry closure | `make backend-unit`, `make backend-store`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `make phase-ledger-drift`, `git diff --check` | No Sprint 8-owned blocker remains. This does not claim Phase 9 completion; Sprint 9 final gate and handoff remain separately owned. | Current build exposes all three optional standardized surfaces; direct evidence covers `U-9-09`, `U-9-13`, `E-9-07`, and `E-9-08`. |
 | [ ] | 9. Final phase gate and handoff | public Phase 9 wrappers, drift checks, `make agent-finalize`, `make check`, `git diff --check` | TODO: record exact final artifact roots and non-Phase-9 blockers. | Replace placeholders or record blocker sentinels before exit. |
 
 ## Evidence Layer Matrix
@@ -251,7 +251,7 @@ Deliverables:
   - `internal/modules/entities/phase9_sprint0_sentinel_test.go` covers `U-9-04` and `U-9-05`.
   - `internal/modules/assessments/phase9_sprint0_sentinel_test.go` covers `U-9-06`.
   - `apps/web/src/WorkbookShell.phase9.sentinel.test.tsx` initially covered `U-9-01`, `U-9-GRID-01`, and `I-9-GRID-01`; after Sprint 1 replacements, it remains the blocker owner for `I-9-GRID-01`.
-  - `apps/web/e2e/phase9.sentinel.spec.ts` initially covered `E-9-01` through `E-9-08` and `E-9-GRID-01`; after Sprint 1 replacements, it remains the blocker owner for `E-9-02` through `E-9-08`.
+  - `apps/web/e2e/phase9.sentinel.spec.ts` initially covered `E-9-01` through `E-9-08` and `E-9-GRID-01`; later sprints replaced those browser blocker claims with direct browser evidence. Use `tools/phase9_test_map.json` and `docs/testing/phase9_coverage_ledger.md` for current browser row ownership.
 
 Sprint 0 validation record:
 - `make phase-map-check`: initially failed because the new active Phase 9 ledger was missing.
@@ -817,40 +817,58 @@ Exit criteria:
 - Satisfied for Sprint 7 in the current checked-out state: all required coordination surfaces have direct Phase 9 evidence.
 - Satisfied for Sprint 7 in the current checked-out state: coordination create/query/edit behavior remains workbook-native and projection-backed.
 - Satisfied for Sprint 7 in the current checked-out state: collections, references, risk refs, and timestamp fields obey owner contracts.
-- This is not a full Phase 9 completion claim; Sprint 8 optional-surface and registry-closure rows plus Sprint 9 final gate remain separately owned.
+- This is not a full Phase 9 completion claim; Sprint 8 optional-surface and registry-closure rows are now directly evidenced, and Sprint 9 final gate remains separately owned.
 
 ## Sprint 8. Optional Surfaces and Registry Closure
 
-Objective: Close the artifact-backed variant registry and optional standardized surface handling without inventing or claiming omitted optional behavior.
+Objective: Close the artifact-backed variant registry and optional standardized surface handling without inventing omitted behavior or preserving stale 14-only discovery expectations.
 
 Relevant IDs: `U-9-09`, `U-9-13`, `E-9-07`, `E-9-08`; support context from `AC-285..AC-287` and `AC-410`.
 
-Files or areas to inspect:
+Status: audited and direct-evidence satisfied for Sprint 8 in the current checked-out state. The current build intentionally exposes seventeen standardized current-profile workbook surfaces: the fourteen required pack-independent surfaces plus the implemented standardized optional surfaces `cartulary.view.findings.v1`, `cartulary.view.investigative_queries.v1`, and `cartulary.view.forensic_keywords.v1`. `cartulary.view.hypotheses.v1`, `artifact_type='hypothesis'`, and first-class hypothesis records remain excluded; hypotheses remain represented through Findings with `finding.kind='hypothesis'`.
+
+Owner interpretation:
+- Core 01 Table 7.4-A and AC-411 define the current-profile workbook-surface identity map as seventeen rows.
+- Core 02 §10.4.4A closes the artifact-backed tagged-variant registry to `note`, `comm_log`, `handoff`, `status_review`, `lesson`, and `finding`.
+- Core 02 §10.4.6 states the current implementation exposes Findings, Investigative Queries, and Forensic Keywords as standardized optional workbook surfaces with no reference-pack activation requirement.
+- Core 03 preserves Notes, coordination surfaces, and optional standardized surfaces as workbook-native `view_schema` surfaces rather than separate modules.
+
+Implementation and evidence owners:
 - `contracts/view-schemas/index.json`
 - `contracts/view-schemas`
 - `internal/platform/viewschema`
-- `packages/view-contracts/src`
+- `internal/platform/viewschema/artifact_variants.go`
+- `internal/modules/viewschemas/viewschemas_integration_test.go`
+- `internal/modules/workbook/optional_surfaces_store_test.go`
 - `apps/web/src/WorkbookShell.tsx`
+- `apps/web/e2e/phase9.sentinel.spec.ts`
+- `docs/spec/04_security_deployment_and_conformance.md`
 - `docs/domain.md`
-- TODO: exact optional surface exposure mechanism.
-- TODO: exact artifact-backed variant registry implementation location.
 
-Test-first sequence:
-1. Add backend unit tests for artifact-backed variant registry closure: `note`, `comm_log`, `handoff`, `status_review`, `lesson`, and `finding`.
-2. Inspect whether Findings, Investigative Queries, or Forensic Keywords are exposed in the base build.
-3. If exposed, add backend store and browser tests for the exposed optional surface contracts.
-4. If omitted, add manifest/ledger notes marking relevant optional rows or ACs `N/A` with owner-section justification.
-5. Add browser evidence that required registry identities are exposed and optional surfaces are additive only.
+Direct evidence:
+- `U-9-13`: `internal/platform/viewschema/registry_test.go::TestPhase9_U_9_13_ArtifactVariantRegistryClosure`.
+- `U-9-09`: `internal/modules/workbook/optional_surfaces_store_test.go::TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior`, `TestPhase9_U_9_09_OptionalStandardizedSurfacesProjectionQueryBehavior`, and `TestPhase9_U_9_09_FindingsConfidenceBandBoundaries`.
+- `E-9-07`: `apps/web/e2e/phase9.sentinel.spec.ts::Phase 9 E-9-07 optional standardized surfaces are workbook-native when exposed`.
+- `E-9-08`: `apps/web/e2e/phase9.sentinel.spec.ts::Phase 9 E-9-08 required registry identities stay canonical with optional additions`.
 
-Implementation tasks:
+Remediation completed for Sprint 8 handoff:
+- Keep the 17-surface runtime and contract model; do not roll back optional standardized surfaces to satisfy stale 14-only expectations.
+- Clarify Core 04 AC-116 so it describes the fourteen required pack-independent floor, the three implemented standardized optional artifact-backed surfaces with `required_reference_pack_keys=[]`, and the continued exclusion of pack-dependent framework overlays.
+- Align `TestViewSchemasDiscoveryHTTP` with the current-profile standardized registry while preserving auth, public-resource-shape, paging, cursor-binding, singleton, and missing-schema checks.
+- Keep Findings on `artifact_type='finding'` plus `finding.kind`; reject a standalone hypothesis surface or durable `artifact_type='hypothesis'`.
+
+Behavioral constraints to preserve:
 - Preserve Notes as required built-in sheet `cartulary.view.notes.v1`.
 - Preserve required coordination identities as canonical workbook-native `view_schema` identities.
 - Prevent optional standardized surfaces from substituting for required base surfaces.
-- If Findings are exposed, enforce `artifact_type='finding'`, `finding.kind`, lifecycle state, confidence behavior, and support/contradiction refs.
-- If Investigative Queries are exposed, enforce declared structured subtype, minimum create signal, immutable `query_id`, and workbook-native behavior.
-- If Forensic Keywords are exposed, enforce declared structured subtype, minimum create signal, match-mode/case-sensitive behavior, and workbook-native behavior.
+- Findings enforce `artifact_type='finding'`, `finding.kind`, lifecycle state, confidence behavior, and support/contradiction refs.
+- Investigative Queries enforce declared structured subtype, minimum create signal, immutable `query_id`, and workbook-native behavior.
+- Forensic Keywords enforce declared structured subtype, minimum create signal, match-mode/case-sensitive behavior, and workbook-native behavior.
 
 Validation commands:
+- `make agent-finalize`
+- `go test ./internal/modules/viewschemas -run TestViewSchemasDiscoveryHTTP -count=1`
+- `make backend-integration`
 - `make backend-unit`
 - `make backend-store`
 - `make browser-e2e-webserver-backed`
@@ -859,21 +877,42 @@ Validation commands:
 - `make phase-ledger-drift`
 - `git diff --check`
 
-Deliverables:
-- Direct authoritative evidence for `U-9-13` and `E-9-08`.
-- Conditional direct evidence or explicit `N/A` handling for `U-9-09` and `E-9-07`.
-- TODO: exact optional-surface exposure decision and supporting owner-section citation.
+Latest Sprint 8 audit validation artifact roots:
+- `make backend-unit`: `.cartulary/test-results/20260521T170458Z-p2461060`
+- `make backend-store`: `.cartulary/test-results/20260521T170736Z-p2465651`
+- `make browser-e2e-webserver-backed`: `.cartulary/test-results/20260521T171304Z-p2477118`
+- `make phase-slice PHASE=phase9`: `.cartulary/test-results/20260521T171424Z-p2484709`
+- `make service-backed-slice PHASE=phase9`: `.cartulary/test-results/20260521T172011Z-p2498526`
+- `make phase-ledger-drift`: `.cartulary/test-results/20260521T172558Z-p2511845`
+- `git diff --check`: exit `0`
+
+Prior Sprint 8 remediation validation artifact roots:
+- `go test ./internal/modules/viewschemas -run TestViewSchemasDiscoveryHTTP -count=1`: pass; direct diagnostic, no retained root.
+- `make agent-finalize`: pass, generated unchanged, retained-run maintenance skipped because `RESULTS_DIR` was unset; retained root `.cartulary/test-results/20260521T161250Z-p2318798`.
+- `make backend-integration`: pass; retained root `.cartulary/test-results/20260521T161805Z-p2327271`.
+- `make backend-unit`: pass; retained root `.cartulary/test-results/20260521T162336Z-p2338370`.
+- `make backend-store`: pass; retained root `.cartulary/test-results/20260521T162344Z-p2339299`.
+- `make browser-e2e-webserver-backed`: pass; retained root `.cartulary/test-results/20260521T162908Z-p2350579`.
+- `make phase-slice PHASE=phase9`: pass; retained root `.cartulary/test-results/20260521T163035Z-p2358577`.
+- `make service-backed-slice PHASE=phase9`: pass; retained root `.cartulary/test-results/20260521T163625Z-p2372379`.
+- `make phase-ledger-drift`: pass; retained root `.cartulary/test-results/20260521T164215Z-p2385879`.
+- `make check`: pass; retained root `.cartulary/test-results/20260521T164230Z-p2386596`.
+- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260521T164230Z-p2386596`: fail at `browser-e2e-duration-baselines` because the retained `check` run had no observed browser entry timing for `E-9-GRID-01`; retained root `.cartulary/test-results/20260521T164932Z-p2432429`.
+- `make phase-schedule-drift`: pass after discarding the failed finalizer's partial unstaged duration/schedule delta; retained root `.cartulary/test-results/20260521T165151Z-p2438318`.
+- `git diff --check`: exit `0`.
 
 Risks:
-- Treating optional surfaces as required without product exposure.
-- Marking optional surfaces `N/A` without verifying current owner interpretation.
+- Reintroducing 14-only assertions in HTTP discovery or conformance text.
+- Coupling standardized optional workbook surfaces to reference-pack activation.
+- Marking exposed optional surfaces `N/A`.
 - Adding `cartulary.view.hypotheses.v1` or `artifact_type='hypothesis'` contrary to current-profile owner text.
 - Letting optional surfaces replace Notes or required coordination surfaces.
 
 Exit criteria:
-- Artifact-backed registry closure is directly evidenced.
-- Optional standardized surfaces are either directly covered or explicitly marked `N/A`.
-- Required base registry remains complete and canonical.
+- Satisfied after remediation validation: artifact-backed registry closure is directly evidenced.
+- Satisfied after remediation validation: optional standardized surfaces are directly covered as exposed workbook-native surfaces.
+- Satisfied after remediation validation: required base registry remains complete and canonical, with optional standardized surfaces additive only.
+- Remaining Phase 9 work is Sprint 9 final wrappers, final gate, retained-run maintenance, and handoff.
 
 ## Sprint 9. Browser Workflows, Public Wrappers, and Final Gate
 

@@ -34,8 +34,8 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
-	if len(rawSchemas) != 14 {
-		t.Fatalf("expected fourteen discovered view schemas, got %d", len(rawSchemas))
+	if len(rawSchemas) != 17 {
+		t.Fatalf("expected seventeen discovered view schemas, got %d", len(rawSchemas))
 	}
 
 	gotIDs := make([]string, 0, len(rawSchemas))
@@ -72,10 +72,13 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 		"cartulary.view.comm_log.v1",
 		"cartulary.view.decisions.v1",
 		"cartulary.view.evidence.v1",
+		"cartulary.view.findings.v1",
+		"cartulary.view.forensic_keywords.v1",
 		"cartulary.view.handoff.v1",
 		"cartulary.view.hosts.v1",
 		"cartulary.view.identities.v1",
 		"cartulary.view.indicators.v1",
+		"cartulary.view.investigative_queries.v1",
 		"cartulary.view.lesson.v1",
 		"cartulary.view.notes.v1",
 		"cartulary.view.parties.v1",

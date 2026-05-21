@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,6 +81,8 @@ type ValueChange struct {
 	Text      *string
 	Timestamp *time.Time
 	UUID      *uuid.UUID
+	Number    *int64
+	Bool      *bool
 }
 
 type CollectionActionPayload struct {
@@ -445,6 +448,20 @@ func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMe
 		}
 		return ValueChange{Kind: "uuid", UUID: &parsed}, parsed.String(), nil
 	}
+	if field.ReadKind == "number" {
+		parsed, ok := decodeIntegerValue(value)
+		if !ok {
+			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		return ValueChange{Kind: "number", Number: &parsed}, parsed, nil
+	}
+	if field.ReadKind == "boolean" {
+		parsed, ok := decodeBooleanValue(value)
+		if !ok {
+			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		return ValueChange{Kind: "bool", Bool: &parsed}, parsed, nil
+	}
 	var raw string
 	if err := json.Unmarshal(value, &raw); err != nil {
 		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
@@ -454,6 +471,41 @@ func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMe
 		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
 	}
 	return ValueChange{Kind: "text", Text: &normalized}, normalized, nil
+}
+
+func decodeIntegerValue(value json.RawMessage) (int64, bool) {
+	var rawNumber int64
+	if err := json.Unmarshal(value, &rawNumber); err == nil {
+		return rawNumber, true
+	}
+	var rawText string
+	if err := json.Unmarshal(value, &rawText); err != nil {
+		return 0, false
+	}
+	parsed, err := strconv.ParseInt(strings.TrimSpace(rawText), 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return parsed, true
+}
+
+func decodeBooleanValue(value json.RawMessage) (bool, bool) {
+	var rawBool bool
+	if err := json.Unmarshal(value, &rawBool); err == nil {
+		return rawBool, true
+	}
+	var rawText string
+	if err := json.Unmarshal(value, &rawText); err != nil {
+		return false, false
+	}
+	switch strings.TrimSpace(rawText) {
+	case "true":
+		return true, true
+	case "false":
+		return false, true
+	default:
+		return false, false
+	}
 }
 
 func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (CollectionActionPayload, *auth.APIError) {
@@ -792,6 +844,16 @@ func canonicalValue(value ValueChange) any {
 			return nil
 		}
 		return *value.Text
+	case "number":
+		if value.Number == nil {
+			return nil
+		}
+		return *value.Number
+	case "bool":
+		if value.Bool == nil {
+			return nil
+		}
+		return *value.Bool
 	default:
 		return nil
 	}
@@ -848,7 +910,8 @@ func hashRequestPayload(payload any) []byte {
 func isWorkbookMutationSurface(viewSchemaID string) bool {
 	switch viewSchemaID {
 	case EvidenceViewSchemaID, PartiesViewSchemaID, NotesViewSchemaID, TaskRequestsViewSchemaID, DecisionsViewSchemaID,
-		CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID:
+		CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID,
+		FindingsViewSchemaID, InvestigativeQueriesViewSchemaID, ForensicKeywordsViewSchemaID:
 		return true
 	default:
 		return false
@@ -865,7 +928,10 @@ func isReadOnlySystemField(fieldKey string) bool {
 		"evidence.blob_hash", "evidence.upload_state", "evidence.linked_record_count", "evidence.edited_at",
 		"note.linked_record_count", "note.updated_at", "note.created_by_user_id",
 		"task.linked_record_count", "task.updated_at", "task.no_owner",
-		"decision.affected_record_count", "decision.supersedes_record_id", "decision.updated_at", "decision.is_superseded":
+		"decision.affected_record_count", "decision.supersedes_record_id", "decision.updated_at", "decision.is_superseded",
+		"finding.closed_at", "finding.confidence_band", "finding.updated_at",
+		"investigative_query.query_id", "investigative_query.created_by_user_id", "investigative_query.created_at", "investigative_query.created_day",
+		"forensic_keyword.keyword_id", "forensic_keyword.created_at", "forensic_keyword.created_day":
 		return true
 	default:
 		return false
@@ -882,7 +948,8 @@ func isRecordRefCollection(fieldKey string) bool {
 		"handoff.open_task_ids", "handoff.open_decision_ids",
 		"status_review.blocked_task_ids", "status_review.pending_evidence_ids", "status_review.open_decision_ids",
 		"lesson.follow_up_task_ids", "lesson.evidence_refs",
-		"task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids":
+		"task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids",
+		"finding.supporting_refs", "finding.contradictory_refs":
 		return true
 	default:
 		return false

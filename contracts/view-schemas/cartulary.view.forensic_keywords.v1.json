@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "view_schema_id": "cartulary.view.forensic_keywords.v1",
+  "title": "Forensic Keywords",
+  "surface_kind": "system_view",
+  "source_record_types": [
+    "artifact"
+  ],
+  "base_projection": "artifact_grid_projection",
+  "canonical_source_filter": {
+    "kind": "artifact_type",
+    "field": "artifact_type",
+    "value": "forensic_keyword"
+  },
+  "technical_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "required_reference_pack_keys": [],
+  "default_visible_fields": [
+    "forensic_keyword.pattern",
+    "forensic_keyword.reason",
+    "forensic_keyword.match_mode",
+    "forensic_keyword.case_sensitive",
+    "forensic_keyword.created_at"
+  ],
+  "default_hidden_fields": [
+    "record_id",
+    "row_version",
+    "forensic_keyword.keyword_id",
+    "forensic_keyword.created_day"
+  ],
+  "default_sort": [
+    {
+      "field_key": "forensic_keyword.created_at",
+      "direction": "desc"
+    },
+    {
+      "field_key": "record_id",
+      "direction": "asc"
+    }
+  ],
+  "sort_fields": [
+    "forensic_keyword.pattern",
+    "forensic_keyword.reason",
+    "forensic_keyword.match_mode",
+    "forensic_keyword.case_sensitive",
+    "forensic_keyword.created_at",
+    "forensic_keyword.created_day"
+  ],
+  "sort_null_order": "last",
+  "filter_fields": [
+    "forensic_keyword.match_mode",
+    "forensic_keyword.case_sensitive",
+    "forensic_keyword.created_day"
+  ],
+  "synthetic_filter_predicates": [],
+  "grouping_fields": [
+    "forensic_keyword.match_mode",
+    "forensic_keyword.case_sensitive",
+    "forensic_keyword.created_day"
+  ],
+  "inline_create": {
+    "permits_zero_field_create": false
+  },
+  "fields": [
+    {
+      "field_key": "forensic_keyword.pattern",
+      "label": "Pattern",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "text_compare_merge",
+      "entity_binding_mode": null,
+      "string_contract_id": "single_line_title_v1",
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "pattern",
+      "write_target": "artifact_forensic_keywords.pattern"
+    },
+    {
+      "field_key": "forensic_keyword.reason",
+      "label": "Reason",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "text_compare_merge",
+      "entity_binding_mode": null,
+      "string_contract_id": "reason_note_v1",
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "reason",
+      "write_target": "artifact_forensic_keywords.reason"
+    },
+    {
+      "field_key": "forensic_keyword.match_mode",
+      "label": "Match Mode",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "prefix"
+      ],
+      "groupable": true,
+      "read_kind": "enum",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": [
+        "literal",
+        "regex"
+      ],
+      "writable": true,
+      "read_model": "match_mode",
+      "write_target": "artifact_forensic_keywords.match_mode"
+    },
+    {
+      "field_key": "forensic_keyword.case_sensitive",
+      "label": "Case Sensitive",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq"
+      ],
+      "groupable": true,
+      "read_kind": "boolean",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "case_sensitive",
+      "write_target": "artifact_forensic_keywords.case_sensitive"
+    },
+    {
+      "field_key": "forensic_keyword.created_at",
+      "label": "Created",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "timestamp",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "created_at"
+    },
+    {
+      "field_key": "forensic_keyword.keyword_id",
+      "label": "Keyword ID",
+      "default_hidden": true,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "keyword_id"
+    },
+    {
+      "field_key": "forensic_keyword.created_day",
+      "label": "Created Day",
+      "default_hidden": true,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "range"
+      ],
+      "groupable": true,
+      "read_kind": "date",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "created_day"
+    }
+  ]
+}

@@ -1,26 +1,26 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase9",
-  "note": "Phase 9 ownership manifest for keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces when exposed, and remaining analyst-work workbook surfaces. Sprint 1 through Sprint 7 direct rows declare claim_status=implemented where complete; remaining Sprint 0 blocker sentinels declare claim_status=blocked and keep the aggregate Phase 9 claim incomplete.",
+  "note": "Phase 9 ownership manifest for keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces, and remaining analyst-work workbook surfaces. Sprint 1 through Sprint 8 direct rows declare claim_status=implemented where complete. Sprint 9 owns the final Phase 9 gate and handoff.",
   "ledger": {
     "title": "Phase 9 Coverage Ledger",
     "notes": [
       "Sprint 0 activates Phase 9 as a selectable harness phase using explicit blocker sentinels; Sprint 1 replaces keyboard dispatch, grid-anchor, and keyboard browser rows with direct evidence.",
       "Every authoritative Phase 9 row has exactly one declared execution dependency from the approved evidence layers: backend_unit, backend_store, backend_integration, frontend_unit, or browser_functional.",
-      "Sprint 1 row-level evidence can be green while aggregate Phase 9 targets remain red from later-row blocker sentinels; that status does not complete broader Phase 9.",
-      "Remaining Sprint 0 sentinel tests for optional standardized and registry-closure work are explicit blocker evidence and must not be treated as implemented behavior.",
+      "Sprint 1 row-level evidence can be green while aggregate Phase 9 targets remain red from later-row blockers or pending final-gate work; that status does not complete broader Phase 9.",
+      "Sprint 8 closes artifact-backed variant registry evidence and exposes standardized Findings, Investigative Queries, and Forensic Keywords rows as additive workbook-native system views.",
       "Sprint 2 clipboard and bulk-edit evidence is split by ownership: shared ingest planning is backend-unit evidence, persistence/provenance is backend-integration evidence, rendered dispatch is frontend-unit evidence, and visible workbook behavior is browser-functional evidence.",
       "Timeline and tabular-ingest clipboard helper tests are support evidence only; the authoritative U-9-02 owner remains the workbook shared paste and bulk planning unit row.",
       "Clipboard paste evidence remains distinct from file-based CSV/XLSX import and Import Extension Profile evidence.",
       "Sprint 7 replaces the coordination-surface blocker with direct backend-store, backend-integration, and browser-functional evidence for Communications Log, Handoff, Status Review, and Lesson.",
-      "Optional standardized Findings, Investigative Queries, and Forensic Keywords rows remain blocker sentinels until later work records direct coverage for exposed surfaces or an owner-cited N/A interpretation."
+      "Sprint 8 optional standardized surface evidence applies while Findings, Investigative Queries, and Forensic Keywords remain exposed through base discovery and workbook selector exposure."
     ],
     "authoritative_execution": [
-      "`backend-unit` selects direct Sprint 2 shared tabular-ingest planning evidence for clipboard paste and direct Sprint 5 timestamp_instant_v1 evidence, while registry rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, direct Sprint 5 Assessment evidence, direct Sprint 6 Task and Decision evidence, direct Sprint 7 coordination evidence, and blocker sentinels for optional standardized surfaces until real implementation evidence replaces them.",
-      "`backend-integration` selects direct Sprint 2 clipboard persistence, entity-origin paste, bulk-mutation evidence, Sprint 5 Assessment projection-backed query evidence, Sprint 6 Task and Decision projection evidence, and Sprint 7 coordination projection evidence while later optional surfaces remain covered by their own rows or blocker sentinels until real implementation evidence replaces them.",
-      "`frontend-unit` selects direct Sprint 1 keyboard command/grid-anchor evidence plus Sprint 2 rendered paste-dispatch anchor evidence while later frontend Phase 9 rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, Sprint 5 assessment workflow evidence, Sprint 6 Task and Decision workflow evidence, Sprint 7 coordination workflow evidence, and shared-grid browser evidence while later optional browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
+      "`backend-unit` selects direct Sprint 2 shared tabular-ingest planning evidence for clipboard paste, direct Sprint 5 timestamp_instant_v1 evidence, and Sprint 8 artifact-backed variant registry closure evidence.",
+      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, direct Sprint 5 Assessment evidence, Sprint 6 Task and Decision evidence, direct Sprint 7 coordination evidence, and Sprint 8 optional standardized surface behavior evidence.",
+      "`backend-integration` selects direct Sprint 2 clipboard persistence, entity-origin paste, bulk-mutation evidence, Sprint 5 Assessment projection-backed query evidence, Sprint 6 Task and Decision projection evidence, and Sprint 7 coordination projection evidence.",
+      "`frontend-unit` selects direct Sprint 1 keyboard command/grid-anchor evidence plus Sprint 2 rendered paste-dispatch anchor evidence.",
+      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, Sprint 5 assessment workflow evidence, Sprint 6 Task and Decision workflow evidence, Sprint 7 coordination workflow evidence, Sprint 8 required registry identity evidence, Sprint 8 optional standardized surface workflow evidence, and shared-grid browser evidence."
     ],
       "support_execution_extras": [
         "Phase 4 workbook generic, assessment, Party, Indicator, and coordination smoke evidence remains support-only substrate and cannot claim Phase 9 completion or satisfy Phase 9 row ownership by itself.",
@@ -38,15 +38,15 @@
       "| Harness | Phase 9 evidence |",
       "| --- | --- |",
       "| Active manifest ownership | `tools/phase9_test_map.json` records every authoritative guide row and marks earlier phase carryover as non-owning support. |",
-      "| Blocker sentinel boundary | Sprint 0 sentinels are selectable only to prevent false completion claims; each sentinel remains blocker evidence until replaced by real Phase 9 behavior evidence. |",
+      "| Blocker sentinel boundary | Sprint 0 sentinels were selectable only to prevent false completion claims; replaced sentinels are no longer behavior evidence. |",
       "| Generated ledger | `docs/testing/phase9_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
-      "| Schedule boundary | Phase 9 is active because coherent selectable row symbols and titles exist, but any remaining sentinel blocks Phase 9 completion claims. |"
+      "| Schedule boundary | Phase 9 is active because coherent selectable row symbols and titles exist; Sprint 9 owns the final phase gate and handoff. |"
     ],
     "support_only": [
       "Existing Phase 4 backend, frontend, and browser evidence for Parties, Indicators, Assessments, coordination, and generic workbook routes remains previous-phase support only.",
       "Existing Phase 6 backend, frontend, and browser evidence for collaboration, conflict, presence, pending queue, and grid marker behavior remains previous-phase support only.",
       "Existing Phase 8 backend, frontend, and browser evidence for query controls, saved views, sorting, filtering, grouping, startup selection, and projection-backed query semantics remains previous-phase support only.",
-      "Phase 9 Sprint 0 sentinels are intentional blockers and are not implemented behavior."
+      "Replaced Phase 9 Sprint 0 sentinels are not implemented behavior and are no longer authoritative row evidence."
     ]
   },
   "shared_harnesses": [],
@@ -229,9 +229,10 @@
       "package": "./internal/modules/workbook",
       "file": "internal/modules/workbook/phase9_task_decisions_store_test.go",
       "symbols": [
-        "TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection",
+        "TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07",
         "TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07",
-        "TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency",
+        "TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07",
+        "TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget_U_9_07",
         "TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07"
       ],
       "execution_dependency": "backend_store",
@@ -281,15 +282,19 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_U_9_09",
+      "file": "internal/modules/workbook/optional_surfaces_store_test.go",
+      "symbols": [
+        "TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior",
+        "TestPhase9_U_9_09_OptionalStandardizedSurfacesProjectionQueryBehavior",
+        "TestPhase9_U_9_09_FindingsConfidenceBandBoundaries"
+      ],
       "execution_dependency": "backend_store",
-      "evidence_layer": "backend_store_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for optional standardized surfaces when exposed; this is not behavior completion evidence and does not pre-claim optional coverage.",
-      "out_of_scope": "Later Phase 9 work must replace this with direct optional-surface evidence or owner-cited N/A coverage.",
-      "execution_family": "backend-store-phase9-workbook-blockers",
-      "execution_label": "backend-store phase9 workbook blocker sentinels",
-      "claim_status": "blocked"
+      "evidence_layer": "backend_store",
+      "claim": "Findings, Investigative Queries, and Forensic Keywords are exposed as additive current-build workbook surfaces with the exact optional view_schema_id resources, artifact_grid_projection source filters, and owner-defined field sets; cartulary.view.hypotheses.v1 remains absent; workbook-native backend behavior creates rows only after declared minimum signals, applies defaults, rejects invalid writes without partial durable state, mutates Findings lifecycle and references through structured state, queries projection-backed filters/sorts/groups for all three surfaces, and derives finding.confidence_band at the Core 02 unset/low/medium/high boundaries.",
+      "out_of_scope": "Browser-visible workflow behavior remains owned by E-9-07, required registry identity behavior remains owned by E-9-08, and closed artifact-variant registry behavior remains owned by U-9-13.",
+      "execution_family": "backend-store-phase9-optional-surfaces",
+      "execution_label": "backend-store phase9 optional standardized surface evidence",
+      "claim_status": "implemented"
     },
     {
       "id": "U-9-10",
@@ -344,16 +349,16 @@
       "id": "U-9-13",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_U_9_13",
+      "package": "./internal/platform/viewschema",
+      "file": "internal/platform/viewschema/registry_test.go",
+      "symbol": "TestPhase9_U_9_13_ArtifactVariantRegistryClosure",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "backend_unit_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for artifact-backed variant registry closure; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing Notes and coordination registry closure is later Phase 9 work.",
-      "execution_family": "backend-unit-phase9-blockers",
-      "execution_label": "backend-unit phase9 blocker sentinels",
-      "claim_status": "blocked"
+      "evidence_layer": "backend_unit",
+      "claim": "The artifact-backed variant registry is closed to note, comm_log, handoff, status_review, lesson, and finding in canonical order; Notes remains the required built-in sheet, required coordination variants keep canonical workbook-native view_schema identities and artifact_type filters, finding remains optional/additive, and no hypothesis variant, artifact_type, or view_schema is exposed.",
+      "out_of_scope": "This registry evidence does not implement optional standardized workbook surfaces or claim direct Findings, Investigative Query, or Forensic Keyword behavior.",
+      "execution_family": "backend-unit-phase9-registry",
+      "execution_label": "backend-unit phase9 registry closure evidence",
+      "claim_status": "implemented"
     },
     {
       "id": "U-9-GRID-01",
@@ -540,23 +545,23 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
-      "title": "Phase 9 E-9-07 Sprint 0 blocker sentinel",
+      "title": "Phase 9 E-9-07 optional standardized surfaces are workbook-native when exposed",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser_functional_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for optional standardized surfaces when exposed; this is not behavior completion evidence and does not pre-claim optional coverage.",
-      "out_of_scope": "Later Phase 9 work must replace this with direct optional-surface browser evidence or owner-cited N/A coverage.",
-      "claim_status": "blocked"
+      "evidence_layer": "browser_functional",
+      "claim": "The browser-visible view-schema registry and workbook selector expose Findings, Investigative Queries, and Forensic Keywords as additive system views; the generic workbook UI creates rows with the owner-defined minimum fields, edits finding state and references with derived closed_at/confidence_band behavior, persists investigative query and forensic keyword defaults and typed fields, and exercises optional-surface filter and grouping controls while cartulary.view.hypotheses.v1 remains absent.",
+      "out_of_scope": "This browser row does not replace backend store evidence for transaction atomicity, idempotency, migration behavior, or artifact-variant registry closure.",
+      "claim_status": "implemented"
     },
     {
       "id": "E-9-08",
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
-      "title": "Phase 9 E-9-08 Notes and Indicators open by canonical view schema IDs",
+      "title": "Phase 9 E-9-08 required registry identities stay canonical with optional additions",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
-      "claim": "The Sprint 3 Notes and Indicators identities are discoverable and openable through canonical view_schema_id values in the workbook browser shell: cartulary.view.notes.v1 as a built-in tab and cartulary.view.indicators.v1 as a system view.",
-      "out_of_scope": "Later optional or not-yet-implemented Phase 9 surfaces remain unclaimed by this Notes and Indicators registry evidence.",
+      "claim": "Browser-visible registry discovery exposes the fourteen required base-profile view_schema_id values plus the three additive optional standardized IDs; the workbook opens required built-in and system-view identities by canonical view_schema_id, and optional standardized surfaces do not replace Notes, Indicators, or required coordination identities.",
+      "out_of_scope": "This registry exposure evidence does not claim import, reporting, or final Phase 9 gate completion.",
       "claim_status": "implemented"
     },
     {

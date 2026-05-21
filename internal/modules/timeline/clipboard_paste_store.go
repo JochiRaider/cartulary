@@ -498,9 +498,6 @@ func rawCaptureWithImportColumns(existing map[string]any, additions []ClipboardR
 		next[key] = value
 	}
 	if len(additions) == 0 {
-		if next == nil {
-			return map[string]any{}
-		}
 		return next
 	}
 	columns := make([]any, 0)

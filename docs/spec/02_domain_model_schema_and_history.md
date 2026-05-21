@@ -1263,6 +1263,8 @@ Verified by: AC-089, AC-231, AC-410
 
 The base profile does not require dedicated built-in sheets for findings, investigative queries, or forensic keywords.
 
+The current implementation exposes all three standardized optional workbook surfaces as contract-backed system views. Findings use the tagged artifact-variant discriminator `artifact_type='finding'` plus `finding.kind`; investigative queries and forensic keywords use the separate durable artifact discriminators `artifact_type='investigative_query'` and `artifact_type='forensic_keyword'`. Those two discriminators are optional-surface source filters only and MUST NOT be added to the closed tagged artifact-variant registry in §10.4.4A.
+
 **REQ-02-135**
 If the implementation exposes findings, investigative queries, or forensic keywords as workbook surfaces in the current profile, those surfaces MUST remain artifact-backed and their defining fields MUST be persisted as structured state rather than only in `custom_attrs`.
 Profiles: base

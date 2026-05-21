@@ -18,7 +18,7 @@ import (
 	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 
-func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection(t *testing.T) {
+func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *testing.T) {
 	ctx := context.Background()
 	harness := phase4storetest.StartStore(t, "phase9-sprint6-task-requests")
 	store := workbook.NewStore(harness.DB)
@@ -319,7 +319,7 @@ func TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07(t *testing.T) {
 	}
 }
 
-func TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency(t *testing.T) {
+func TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07(t *testing.T) {
 	ctx := context.Background()
 	harness := phase4storetest.StartStore(t, "phase9-sprint6-decisions")
 	store := workbook.NewStore(harness.DB)
@@ -505,7 +505,7 @@ INSERT INTO record_links (
 	}
 }
 
-func TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget(t *testing.T) {
+func TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget_U_9_07(t *testing.T) {
 	ctx := context.Background()
 	harness := phase4storetest.StartStore(t, "phase9-sprint6-decision-supersede-inconsistent")
 	store := workbook.NewStore(harness.DB)

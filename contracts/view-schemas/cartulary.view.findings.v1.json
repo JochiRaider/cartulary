@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "view_schema_id": "cartulary.view.findings.v1",
+  "title": "Findings",
+  "surface_kind": "system_view",
+  "source_record_types": [
+    "artifact"
+  ],
+  "base_projection": "artifact_grid_projection",
+  "canonical_source_filter": {
+    "kind": "artifact_type",
+    "field": "artifact_type",
+    "value": "finding"
+  },
+  "technical_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "required_reference_pack_keys": [],
+  "default_visible_fields": [
+    "finding.statement",
+    "finding.kind",
+    "finding.state",
+    "finding.owner_user_id",
+    "finding.confidence_score",
+    "finding.closed_at",
+    "finding.updated_at"
+  ],
+  "default_hidden_fields": [
+    "record_id",
+    "row_version",
+    "finding.supporting_refs",
+    "finding.contradictory_refs",
+    "finding.confidence_band"
+  ],
+  "default_sort": [
+    {
+      "field_key": "finding.updated_at",
+      "direction": "desc"
+    },
+    {
+      "field_key": "record_id",
+      "direction": "asc"
+    }
+  ],
+  "sort_fields": [
+    "finding.statement",
+    "finding.kind",
+    "finding.state",
+    "finding.owner_user_id",
+    "finding.confidence_score",
+    "finding.closed_at",
+    "finding.updated_at",
+    "finding.confidence_band"
+  ],
+  "sort_null_order": "last",
+  "filter_fields": [
+    "finding.kind",
+    "finding.state",
+    "finding.owner_user_id",
+    "finding.confidence_band",
+    "finding.closed_at"
+  ],
+  "synthetic_filter_predicates": [],
+  "grouping_fields": [
+    "finding.kind",
+    "finding.state",
+    "finding.owner_user_id",
+    "finding.confidence_band"
+  ],
+  "inline_create": {
+    "permits_zero_field_create": false
+  },
+  "fields": [
+    {
+      "field_key": "finding.statement",
+      "label": "Statement",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "text_compare_merge",
+      "entity_binding_mode": null,
+      "string_contract_id": "multiline_body_v1",
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "statement",
+      "write_target": "artifact_findings.statement"
+    },
+    {
+      "field_key": "finding.kind",
+      "label": "Kind",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "prefix"
+      ],
+      "groupable": true,
+      "read_kind": "enum",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": [
+        "finding",
+        "hypothesis"
+      ],
+      "writable": true,
+      "read_model": "kind",
+      "write_target": "artifact_findings.kind"
+    },
+    {
+      "field_key": "finding.state",
+      "label": "State",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "prefix"
+      ],
+      "groupable": true,
+      "read_kind": "enum",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": [
+        "open",
+        "closed"
+      ],
+      "writable": true,
+      "read_model": "state",
+      "write_target": "artifact_findings.state"
+    },
+    {
+      "field_key": "finding.owner_user_id",
+      "label": "Owner",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "prefix"
+      ],
+      "groupable": true,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "owner_user_id",
+      "write_target": "artifact_findings.owner_user_id"
+    },
+    {
+      "field_key": "finding.confidence_score",
+      "label": "Confidence Score",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "number",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": true,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "confidence_score",
+      "write_target": "artifact_findings.confidence_score"
+    },
+    {
+      "field_key": "finding.closed_at",
+      "label": "Closed",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "range"
+      ],
+      "groupable": false,
+      "read_kind": "timestamp",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "closed_at"
+    },
+    {
+      "field_key": "finding.updated_at",
+      "label": "Updated",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "timestamp",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "updated_at"
+    },
+    {
+      "field_key": "finding.supporting_refs",
+      "label": "Supporting References",
+      "default_hidden": true,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "collection",
+      "write_kind": "action_payload",
+      "conflict_resolution_class": "collection_review",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "supporting_refs",
+      "write_action": "finding supporting record reference collection actions"
+    },
+    {
+      "field_key": "finding.contradictory_refs",
+      "label": "Contradictory References",
+      "default_hidden": true,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "collection",
+      "write_kind": "action_payload",
+      "conflict_resolution_class": "collection_review",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "contradictory_refs",
+      "write_action": "finding contradictory record reference collection actions"
+    },
+    {
+      "field_key": "finding.confidence_band",
+      "label": "Confidence Band",
+      "default_hidden": true,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "prefix"
+      ],
+      "groupable": true,
+      "read_kind": "enum",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": [
+        "unset",
+        "low",
+        "medium",
+        "high"
+      ],
+      "writable": false,
+      "read_model": "confidence_band"
+    }
+  ]
+}

@@ -129,55 +129,6 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
-func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
-		return
-	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if _, apiErr := s.requireTimelineRole(r.Context(), recordID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, apiErr := DecodeTimelineSupersedeRequest(r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	result, err := s.store.Supersede(r.Context(), principal.User, recordID, request, TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), httpapi.RequestIDFromContext(r.Context()), s.now())
-	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, ErrRecordNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case errors.Is(err, ErrRowVersionConflict):
-		writeAPIError(w, r, rowVersionConflictError())
-		return
-	case errors.Is(err, ErrIllegalTransition):
-		writeAPIError(w, r, illegalTransitionError("supersede_not_allowed", err))
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-
-	if !result.Replayed {
-		s.publishRecordChange(result, principal.User.ID)
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
-}
-
 func (s *Service) handleRecordChangeSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)

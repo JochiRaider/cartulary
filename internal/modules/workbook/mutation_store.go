@@ -1151,6 +1151,34 @@ func validateCreateRequest(request CreateRequest) error {
 		if value, ok := request.Values["lesson.closure_state"]; ok && !validClosureState(derefText(value.Text)) {
 			return mutationValidationError("lesson.closure_state", "invalid_value")
 		}
+	case FindingsViewSchemaID:
+		if !hasTextValue(request.Values, "finding.statement") {
+			return mutationValidationError("finding.statement", "missing_required_field")
+		}
+		if value, ok := request.Values["finding.kind"]; ok && !validFindingKind(derefText(value.Text)) {
+			return mutationValidationError("finding.kind", "invalid_value")
+		}
+		if value, ok := request.Values["finding.state"]; ok && !validFindingState(derefText(value.Text)) {
+			return mutationValidationError("finding.state", "invalid_value")
+		}
+		if value, ok := request.Values["finding.confidence_score"]; ok && value.Number != nil && !validConfidenceScore(*value.Number) {
+			return mutationValidationError("finding.confidence_score", "invalid_value")
+		}
+	case InvestigativeQueriesViewSchemaID:
+		for _, field := range []string{"investigative_query.platform", "investigative_query.purpose", "investigative_query.query_text"} {
+			if !hasTextValue(request.Values, field) {
+				return mutationValidationError(field, "missing_required_field")
+			}
+		}
+	case ForensicKeywordsViewSchemaID:
+		for _, field := range []string{"forensic_keyword.pattern", "forensic_keyword.reason"} {
+			if !hasTextValue(request.Values, field) {
+				return mutationValidationError(field, "missing_required_field")
+			}
+		}
+		if value, ok := request.Values["forensic_keyword.match_mode"]; ok && !validForensicKeywordMatchMode(derefText(value.Text)) {
+			return mutationValidationError("forensic_keyword.match_mode", "invalid_value")
+		}
 	case TaskRequestsViewSchemaID:
 		if !hasTextValue(request.Values, "task.title") {
 			return mutationValidationError("task.title", "missing_required_field")
@@ -1386,6 +1414,100 @@ INSERT INTO artifacts (
 		lessonID, lessonOwner, closureState, actorID)
 	if err != nil {
 		return fmt.Errorf("insert artifact: %w", err)
+	}
+	switch request.ViewSchemaID {
+	case FindingsViewSchemaID:
+		if err := insertFindingTx(ctx, tx, recordID, incidentID, actorID, request, now); err != nil {
+			return err
+		}
+	case InvestigativeQueriesViewSchemaID:
+		if err := insertInvestigativeQueryTx(ctx, tx, recordID, incidentID, actorID, request, now); err != nil {
+			return err
+		}
+	case ForensicKeywordsViewSchemaID:
+		if err := insertForensicKeywordTx(ctx, tx, recordID, incidentID, request, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func insertFindingTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, request CreateRequest, now time.Time) error {
+	kind := nullableTextValue(request.Values, "finding.kind")
+	if kind == nil {
+		kind = "finding"
+	}
+	state := nullableTextValue(request.Values, "finding.state")
+	if state == nil {
+		state = "open"
+	}
+	owner := nullableUUIDValue(request.Values, "finding.owner_user_id")
+	if owner == nil {
+		owner = actorID
+	}
+	var closedAt any
+	if state == "closed" {
+		closedAt = now
+	}
+	_, err := tx.Exec(ctx, `
+INSERT INTO artifact_findings (
+    record_id, incident_id, kind, statement, state, confidence_score,
+    owner_user_id, closed_at, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $9
+)
+`, recordID, incidentID, kind, textValue(request.Values, "finding.statement"), state,
+		nullableNumberValue(request.Values, "finding.confidence_score"), owner, closedAt, now)
+	if err != nil {
+		return fmt.Errorf("insert finding subtype: %w", err)
+	}
+	return nil
+}
+
+func insertInvestigativeQueryTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, request CreateRequest, now time.Time) error {
+	_, err := tx.Exec(ctx, `
+INSERT INTO artifact_investigative_queries (
+    record_id, incident_id, query_id, platform, purpose, query_text,
+    created_by_user_id, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $8
+)
+`, recordID, incidentID, uuid.NewString(),
+		textValue(request.Values, "investigative_query.platform"),
+		textValue(request.Values, "investigative_query.purpose"),
+		textValue(request.Values, "investigative_query.query_text"),
+		actorID, now)
+	if err != nil {
+		return fmt.Errorf("insert investigative query subtype: %w", err)
+	}
+	return nil
+}
+
+func insertForensicKeywordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, request CreateRequest, now time.Time) error {
+	matchMode := nullableTextValue(request.Values, "forensic_keyword.match_mode")
+	if matchMode == nil {
+		matchMode = "literal"
+	}
+	caseSensitive := nullableBoolValue(request.Values, "forensic_keyword.case_sensitive")
+	if caseSensitive == nil {
+		caseSensitive = false
+	}
+	_, err := tx.Exec(ctx, `
+INSERT INTO artifact_forensic_keywords (
+    record_id, incident_id, keyword_id, pattern, reason, match_mode,
+    case_sensitive, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $8
+)
+`, recordID, incidentID, uuid.NewString(),
+		textValue(request.Values, "forensic_keyword.pattern"),
+		textValue(request.Values, "forensic_keyword.reason"),
+		matchMode, caseSensitive, now)
+	if err != nil {
+		return fmt.Errorf("insert forensic keyword subtype: %w", err)
 	}
 	return nil
 }
@@ -1662,6 +1784,13 @@ func applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID
 			return false, err
 		}
 	}
+	if request.ViewSchemaID == FindingsViewSchemaID && touchesField(request.Changes, "finding.state") {
+		applied, err := normalizeFindingLifecycleTx(ctx, tx, recordID, now)
+		if err != nil {
+			return false, err
+		}
+		changed = changed || applied
+	}
 	return changed, nil
 }
 
@@ -1690,7 +1819,13 @@ func applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, r
 }
 
 func validateDirectFieldValue(change PatchChange) error {
-	if change.Value == nil || change.Value.Text == nil {
+	if change.Value == nil {
+		return nil
+	}
+	if change.FieldKey == "finding.confidence_score" && change.Value.Number != nil && !validConfidenceScore(*change.Value.Number) {
+		return mutationValidationError(change.FieldKey, "invalid_value")
+	}
+	if change.Value.Text == nil {
 		return nil
 	}
 	value := *change.Value.Text
@@ -1727,8 +1862,44 @@ func validateDirectFieldValue(change PatchChange) error {
 		if !validClosureState(value) {
 			return mutationValidationError(change.FieldKey, "invalid_value")
 		}
+	case "finding.kind":
+		if !validFindingKind(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	case "finding.state":
+		if !validFindingState(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	case "forensic_keyword.match_mode":
+		if !validForensicKeywordMatchMode(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
 	}
 	return nil
+}
+
+func normalizeFindingLifecycleTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) (bool, error) {
+	tag, err := tx.Exec(ctx, `
+UPDATE artifact_findings
+   SET closed_at = CASE
+           WHEN state = 'closed' AND closed_at IS NULL THEN $2
+           WHEN state = 'open' AND closed_at IS NOT NULL THEN NULL
+           ELSE closed_at
+       END,
+       updated_at = CASE
+           WHEN (state = 'closed' AND closed_at IS NULL)
+             OR (state = 'open' AND closed_at IS NOT NULL)
+           THEN $2
+           ELSE updated_at
+       END
+ WHERE record_id = $1
+   AND ((state = 'closed' AND closed_at IS NULL)
+     OR (state = 'open' AND closed_at IS NOT NULL))
+`, recordID, now)
+	if err != nil {
+		return false, fmt.Errorf("normalize finding lifecycle: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
 }
 
 func applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]CollectionActionPayload, now time.Time) error {
@@ -2479,7 +2650,8 @@ func recordTypeForView(viewSchemaID string) string {
 		return "task_request"
 	case DecisionsViewSchemaID:
 		return "decision"
-	case NotesViewSchemaID, CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID:
+	case NotesViewSchemaID, CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID,
+		FindingsViewSchemaID, InvestigativeQueriesViewSchemaID, ForensicKeywordsViewSchemaID:
 		return "artifact"
 	default:
 		return ""
@@ -2515,6 +2687,12 @@ func artifactTypeForView(viewSchemaID string) string {
 		return artifactTypeForSurface(viewSchemaID, "")
 	case LessonViewSchemaID:
 		return artifactTypeForSurface(viewSchemaID, "")
+	case FindingsViewSchemaID:
+		return artifactTypeForSurface(viewSchemaID, "finding")
+	case InvestigativeQueriesViewSchemaID:
+		return artifactTypeForSurface(viewSchemaID, "investigative_query")
+	case ForensicKeywordsViewSchemaID:
+		return artifactTypeForSurface(viewSchemaID, "forensic_keyword")
 	default:
 		return ""
 	}
@@ -2538,6 +2716,12 @@ func tableColumnForField(fieldKey string) (string, string) {
 		return "artifacts", strings.TrimPrefix(fieldKey, "status_review.")
 	case strings.HasPrefix(fieldKey, "lesson."):
 		return "artifacts", strings.TrimPrefix(fieldKey, "lesson.")
+	case strings.HasPrefix(fieldKey, "finding."):
+		return "artifact_findings", strings.TrimPrefix(fieldKey, "finding.")
+	case strings.HasPrefix(fieldKey, "investigative_query."):
+		return "artifact_investigative_queries", strings.TrimPrefix(fieldKey, "investigative_query.")
+	case strings.HasPrefix(fieldKey, "forensic_keyword."):
+		return "artifact_forensic_keywords", strings.TrimPrefix(fieldKey, "forensic_keyword.")
 	case strings.HasPrefix(fieldKey, "task."):
 		return "task_requests", strings.TrimPrefix(fieldKey, "task.")
 	case strings.HasPrefix(fieldKey, "decision."):
@@ -2564,6 +2748,16 @@ func directDBValue(value ValueChange) any {
 			return nil
 		}
 		return *value.Text
+	case "number":
+		if value.Number == nil {
+			return nil
+		}
+		return *value.Number
+	case "bool":
+		if value.Bool == nil {
+			return nil
+		}
+		return *value.Bool
 	default:
 		return nil
 	}
@@ -2625,6 +2819,22 @@ func nullableTimestampValue(values map[string]ValueChange, field string) any {
 	return value.Timestamp.UTC()
 }
 
+func nullableNumberValue(values map[string]ValueChange, field string) any {
+	value, ok := values[field]
+	if !ok || value.Number == nil {
+		return nil
+	}
+	return *value.Number
+}
+
+func nullableBoolValue(values map[string]ValueChange, field string) any {
+	value, ok := values[field]
+	if !ok || value.Bool == nil {
+		return nil
+	}
+	return *value.Bool
+}
+
 func derefText(value *string) string {
 	if value == nil {
 		return ""
@@ -2640,7 +2850,8 @@ func expectedTargetType(fieldKey string) string {
 		return "task_request"
 	case "status_review.pending_evidence_ids", "lesson.evidence_refs":
 		return "evidence"
-	case "task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids":
+	case "task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids",
+		"finding.supporting_refs", "finding.contradictory_refs":
 		return ""
 	default:
 		return ""
@@ -2649,7 +2860,7 @@ func expectedTargetType(fieldKey string) string {
 
 func linkTypeForField(fieldKey string) string {
 	switch fieldKey {
-	case "decision.support_refs":
+	case "decision.support_refs", "finding.supporting_refs":
 		return "supported_by"
 	default:
 		return "references_record"
@@ -2685,6 +2896,22 @@ func validCommType(value string) bool {
 
 func validClosureState(value string) bool {
 	return value == "open" || value == "closed"
+}
+
+func validFindingKind(value string) bool {
+	return value == "finding" || value == "hypothesis"
+}
+
+func validFindingState(value string) bool {
+	return value == "open" || value == "closed"
+}
+
+func validForensicKeywordMatchMode(value string) bool {
+	return value == "literal" || value == "regex"
+}
+
+func validConfidenceScore(value int64) bool {
+	return value >= 0 && value <= 100
 }
 
 func validTaskKind(value string) bool {

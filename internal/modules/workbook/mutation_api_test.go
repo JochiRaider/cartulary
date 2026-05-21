@@ -179,7 +179,7 @@ func TestWorkbookMutationDecoderCollectionRemovalRequiresItemRef(t *testing.T) {
 	}
 }
 
-func TestPhase9TaskDecisionRelationshipConfidenceRejected(t *testing.T) {
+func TestSupportPhase9TaskDecisionRelationshipConfidenceRejected(t *testing.T) {
 	recordID := "11111111-2222-3333-4444-555555555555"
 	tests := []struct {
 		name         string

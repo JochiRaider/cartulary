@@ -3759,8 +3759,8 @@ Verified by: AC-411
 | Status Review | `cartulary.view.status_review.v1` | `system_view` | `["artifact"]` | `artifact_type='status_review'` | required system view | `[]` |
 | Lesson | `cartulary.view.lesson.v1` | `system_view` | `["artifact"]` | `artifact_type='lesson'` | required system view | `[]` |
 | Findings | `cartulary.view.findings.v1` | `system_view` | `["artifact"]` | `artifact_type='finding'`; subtype dimension `finding.kind` | standardized optional workbook surface | `[]` |
-| Investigative Queries | `cartulary.view.investigative_queries.v1` | `system_view` | `["artifact"]` | implementation-declared structured investigative-query subtype; no current-profile fixed durable discriminator | standardized optional workbook surface | `[]` |
-| Forensic Keywords | `cartulary.view.forensic_keywords.v1` | `system_view` | `["artifact"]` | implementation-declared structured forensic-keyword subtype; no current-profile fixed durable discriminator | standardized optional workbook surface | `[]` |
+| Investigative Queries | `cartulary.view.investigative_queries.v1` | `system_view` | `["artifact"]` | `artifact_type='investigative_query'`; separately governed optional structured subtype | standardized optional workbook surface | `[]` |
+| Forensic Keywords | `cartulary.view.forensic_keywords.v1` | `system_view` | `["artifact"]` | `artifact_type='forensic_keyword'`; separately governed optional structured subtype | standardized optional workbook surface | `[]` |
 
 **REQ-01-309**
 Each schema subsection below, together with the addenda in §19, is an exhaustive per-field registry for its `view_schema_id`, not an illustrative example. In particular, §7.4.2 through §7.4.4 close the base-profile interface contract for the built-in Hosts, Identities, and Evidence sheets, and §19 closes the Parties, coordination-artifact, and standardized optional artifact-backed surface contracts. Core 02 §10.4.4A MAY inventory the closed tagged-variant family for artifact-backed notes, coordination artifacts, and structured findings, but that registry is not a second owner for exhaustive field membership, create-time behavior, omitted-versus-`null` behavior, defaults, write targets or actions, or discovery metadata. These sections are also the sole authoritative source for populating public `view_schema_resource_v1`, `view_field_entry_v1`, and `synthetic_filter_predicates[]` discovery output. Implementations MUST NOT invent alternate base-profile or standardized optional writable `field_key` strings, write targets or actions, `conflict_resolution_class` assignments, `entity_binding_mode` values, or discovery metadata that conflicts with this registry. Surface `title` and field `label` values remain non-authoritative display hints only and MAY change without changing `view_schema_id` when field semantics do not change.
@@ -6692,7 +6692,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-285
 **REQ-01-508**
 - surface: standardized optional workbook surface for `cartulary.view.investigative_queries.v1`; when an implementation exposes this surface it MAY do so as a contract-backed system view or as an implementation-owned `scope='system'` saved view bound to this exact `view_schema_id`
 - source record types: artifact-backed structured investigative-query rows governed by Core 02 §10.4.6
-- base projection: `artifact_grid_projection` filtered to the implementation's declared structured investigative-query subtype
+- base projection: `artifact_grid_projection` filtered to exact `artifact_type='investigative_query'`
 - `default_visible_fields`: `investigative_query.platform`, `investigative_query.purpose`, `investigative_query.query_text`, `investigative_query.created_by_user_id`, `investigative_query.created_at`
 - `default_hidden_fields`: `record_id`, `row_version`, `investigative_query.query_id`, `investigative_query.created_day`
 - `default_sort`: `investigative_query.created_at desc`, `record_id asc`
@@ -6714,7 +6714,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-286
 **REQ-01-509**
 - surface: standardized optional workbook surface for `cartulary.view.forensic_keywords.v1`; when an implementation exposes this surface it MAY do so as a contract-backed system view or as an implementation-owned `scope='system'` saved view bound to this exact `view_schema_id`
 - source record types: artifact-backed structured forensic-keyword rows governed by Core 02 §10.4.6
-- base projection: `artifact_grid_projection` filtered to the implementation's declared structured forensic-keyword subtype
+- base projection: `artifact_grid_projection` filtered to exact `artifact_type='forensic_keyword'`
 - `default_visible_fields`: `forensic_keyword.pattern`, `forensic_keyword.reason`, `forensic_keyword.match_mode`, `forensic_keyword.case_sensitive`, `forensic_keyword.created_at`
 - `default_hidden_fields`: `record_id`, `row_version`, `forensic_keyword.keyword_id`, `forensic_keyword.created_day`
 - `default_sort`: `forensic_keyword.created_at desc`, `record_id asc`

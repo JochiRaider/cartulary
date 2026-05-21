@@ -21,10 +21,13 @@ func TestBaseRegistryPublicResources(t *testing.T) {
 		"cartulary.view.comm_log.v1",
 		"cartulary.view.decisions.v1",
 		"cartulary.view.evidence.v1",
+		"cartulary.view.findings.v1",
+		"cartulary.view.forensic_keywords.v1",
 		"cartulary.view.handoff.v1",
 		"cartulary.view.hosts.v1",
 		"cartulary.view.identities.v1",
 		"cartulary.view.indicators.v1",
+		"cartulary.view.investigative_queries.v1",
 		"cartulary.view.lesson.v1",
 		"cartulary.view.notes.v1",
 		"cartulary.view.parties.v1",
@@ -46,7 +49,7 @@ func TestBaseRegistryPublicResources(t *testing.T) {
 	}
 }
 
-func TestPhase9TaskDecisionInternalProjectionBindings(t *testing.T) {
+func TestSupportPhase9TaskDecisionInternalProjectionBindings(t *testing.T) {
 	tests := []struct {
 		viewSchemaID   string
 		baseProjection string
@@ -111,7 +114,7 @@ func TestSupportPhase9CoordinationInternalProjectionAndFilterBindings(t *testing
 	}
 }
 
-func TestPhase9HandoffAckStateExposesDeclaredEnumOrder(t *testing.T) {
+func TestSupportPhase9HandoffAckStateExposesDeclaredEnumOrder(t *testing.T) {
 	resource, ok := LookupPublicResource("cartulary.view.handoff.v1")
 	if !ok {
 		t.Fatal("missing handoff public resource")
@@ -130,6 +133,238 @@ func TestPhase9HandoffAckStateExposesDeclaredEnumOrder(t *testing.T) {
 		return
 	}
 	t.Fatal("handoff.ack_state field not exposed")
+}
+
+func TestSupportPhase9OptionalStandardizedSurfacesExposedAsAdditiveResources(t *testing.T) {
+	tests := []struct {
+		viewSchemaID string
+		artifactType string
+		wantFields   []string
+	}{
+		{
+			viewSchemaID: "cartulary.view.findings.v1",
+			artifactType: "finding",
+			wantFields: []string{
+				"finding.statement",
+				"finding.kind",
+				"finding.state",
+				"finding.owner_user_id",
+				"finding.confidence_score",
+				"finding.closed_at",
+				"finding.updated_at",
+				"finding.supporting_refs",
+				"finding.contradictory_refs",
+				"finding.confidence_band",
+			},
+		},
+		{
+			viewSchemaID: "cartulary.view.investigative_queries.v1",
+			artifactType: "investigative_query",
+			wantFields: []string{
+				"investigative_query.platform",
+				"investigative_query.purpose",
+				"investigative_query.query_text",
+				"investigative_query.created_by_user_id",
+				"investigative_query.created_at",
+				"investigative_query.query_id",
+				"investigative_query.created_day",
+			},
+		},
+		{
+			viewSchemaID: "cartulary.view.forensic_keywords.v1",
+			artifactType: "forensic_keyword",
+			wantFields: []string{
+				"forensic_keyword.pattern",
+				"forensic_keyword.reason",
+				"forensic_keyword.match_mode",
+				"forensic_keyword.case_sensitive",
+				"forensic_keyword.created_at",
+				"forensic_keyword.keyword_id",
+				"forensic_keyword.created_day",
+			},
+		},
+	}
+	resources := ListPublicResources()
+	if len(resources) != 17 {
+		t.Fatalf("current build discovery must expose fourteen required plus three optional surfaces, got %d", len(resources))
+	}
+	if _, ok := LookupPublicResource("cartulary.view.hypotheses.v1"); ok {
+		t.Fatal("cartulary.view.hypotheses.v1 must not be exposed")
+	}
+	for _, resource := range resources {
+		if strings.Contains(resource.ViewSchemaID, "hypothes") {
+			t.Fatalf("hypothesis surface must not be exposed in discovery: %s", resource.ViewSchemaID)
+		}
+	}
+	for _, tc := range tests {
+		t.Run(tc.viewSchemaID, func(t *testing.T) {
+			schema, ok := Lookup(tc.viewSchemaID)
+			if !ok {
+				t.Fatalf("missing optional schema %s", tc.viewSchemaID)
+			}
+			if schema.BaseProjection != "artifact_grid_projection" {
+				t.Fatalf("%s base projection: got %q", tc.viewSchemaID, schema.BaseProjection)
+			}
+			filter, ok := schema.CanonicalSourceFilter()
+			if !ok || filter != (CanonicalSourceFilter{Kind: "artifact_type", Field: "artifact_type", Value: tc.artifactType}) {
+				t.Fatalf("%s filter: got %#v ok=%v want artifact_type=%s", tc.viewSchemaID, filter, ok, tc.artifactType)
+			}
+			resource, ok := LookupPublicResource(tc.viewSchemaID)
+			if !ok {
+				t.Fatalf("missing public resource %s", tc.viewSchemaID)
+			}
+			gotFields := make([]string, 0, len(resource.Fields))
+			for _, field := range resource.Fields {
+				gotFields = append(gotFields, field.FieldKey)
+			}
+			if !reflect.DeepEqual(gotFields, tc.wantFields) {
+				t.Fatalf("%s fields:\ngot  %v\nwant %v", tc.viewSchemaID, gotFields, tc.wantFields)
+			}
+			requirePublicResourceShape(t, resource)
+			requireNoInternalMembers(t, resource)
+		})
+	}
+}
+
+func TestPhase9_U_9_13_ArtifactVariantRegistryClosure(t *testing.T) {
+	want := []ArtifactVariant{
+		{
+			ArtifactVariantID:         "note",
+			DurableDiscriminatorKind:  "artifact_type",
+			DurableDiscriminatorField: "artifact_type",
+			DurableDiscriminatorValue: "note",
+			PublicSurfaceRef:          "cartulary.view.notes.v1",
+			SurfaceStatus:             "required built-in sheet",
+			IdentifierField:           "record_id",
+			RequiredStructuredState:   []string{"title", "body"},
+			OptionalStructuredState:   []string{"tags via record_tags"},
+			LifecycleNotes:            "shared artifact lifecycle only; Notes-sheet create and add-linked-note create use the same underlying artifact shape",
+		},
+		{
+			ArtifactVariantID:         "comm_log",
+			DurableDiscriminatorKind:  "artifact_type",
+			DurableDiscriminatorField: "artifact_type",
+			DurableDiscriminatorValue: "comm_log",
+			PublicSurfaceRef:          "cartulary.view.comm_log.v1",
+			SurfaceStatus:             "required workbook-native coordination surface",
+			IdentifierField:           "comm_id",
+			RequiredStructuredState:   []string{"comm_id", "comm_type", "timestamp_utc", "audience", "channel_or_meeting", "summary"},
+			OptionalStructuredState:   []string{"decision_ids[]", "action_task_ids[]", "next_report_at", "privilege_tag", "audience_party_ids[]", "attendee_party_ids[]"},
+			LifecycleNotes:            "audience text remains required source-preserving text even when supplemental party refs are present",
+		},
+		{
+			ArtifactVariantID:         "handoff",
+			DurableDiscriminatorKind:  "artifact_type",
+			DurableDiscriminatorField: "artifact_type",
+			DurableDiscriminatorValue: "handoff",
+			PublicSurfaceRef:          "cartulary.view.handoff.v1",
+			SurfaceStatus:             "required workbook-native coordination surface",
+			IdentifierField:           "handoff_id",
+			RequiredStructuredState:   []string{"handoff_id", "timestamp_utc", "outgoing_owner_user_id", "incoming_owner_user_id", "current_state_summary"},
+			OptionalStructuredState:   []string{"open_task_ids[]", "open_decision_ids[]", "open_risk_refs[]", "next_checks", "acknowledged_at"},
+			LifecycleNotes:            "derived ack_state uses exact tokens pending|acknowledged; risk refs are child rows rather than first-class risk records",
+		},
+		{
+			ArtifactVariantID:         "status_review",
+			DurableDiscriminatorKind:  "artifact_type",
+			DurableDiscriminatorField: "artifact_type",
+			DurableDiscriminatorValue: "status_review",
+			PublicSurfaceRef:          "cartulary.view.status_review.v1",
+			SurfaceStatus:             "required workbook-native coordination surface",
+			IdentifierField:           "status_review_id",
+			RequiredStructuredState:   []string{"status_review_id", "timestamp_utc", "review_owner_user_id", "current_state_summary"},
+			OptionalStructuredState:   []string{"blocked_task_ids[]", "pending_evidence_ids[]", "open_decision_ids[]", "active_risks_summary", "next_report_at"},
+			LifecycleNotes:            "coordination artifact only; no separate subtype lifecycle machine beyond ordinary artifact lifecycle",
+		},
+		{
+			ArtifactVariantID:         "lesson",
+			DurableDiscriminatorKind:  "artifact_type",
+			DurableDiscriminatorField: "artifact_type",
+			DurableDiscriminatorValue: "lesson",
+			PublicSurfaceRef:          "cartulary.view.lesson.v1",
+			SurfaceStatus:             "required workbook-native coordination surface",
+			IdentifierField:           "lesson_id",
+			RequiredStructuredState:   []string{"lesson_id", "timestamp_utc", "summary", "owner_user_id"},
+			OptionalStructuredState:   []string{"follow_up_task_ids[]", "closure_state", "evidence_refs[]"},
+			LifecycleNotes:            "closure_state uses the exact closed vocabulary defined in Core 02 section 18; lessons remain artifact-backed and reuse shared history and links",
+		},
+		{
+			ArtifactVariantID:         "finding",
+			DurableDiscriminatorKind:  "artifact_type",
+			DurableDiscriminatorField: "artifact_type",
+			DurableDiscriminatorValue: "finding",
+			SubkindDimension:          "finding.kind",
+			PublicSurfaceRef:          "cartulary.view.findings.v1",
+			SurfaceStatus:             "standardized optional workbook surface",
+			IdentifierField:           "record_id",
+			RequiredStructuredState:   []string{"finding.kind", "statement", "state", "confidence_score", "owner_user_id"},
+			OptionalStructuredState:   []string{"closed_at", "supporting_refs[]", "contradictory_refs[]"},
+			LifecycleNotes:            "this is the only current-profile row that covers both findings and hypotheses; finding.kind is required structured state; finding.state uses the exact open|closed vocabulary defined in Core 02 section 18; closed_at is server-managed",
+		},
+	}
+	got := ListArtifactVariants()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected artifact variant registry:\ngot  %#v\nwant %#v", got, want)
+	}
+
+	requiredSurfaceKinds := map[string]string{
+		"cartulary.view.notes.v1":         "built_in_sheet",
+		"cartulary.view.comm_log.v1":      "system_view",
+		"cartulary.view.handoff.v1":       "system_view",
+		"cartulary.view.status_review.v1": "system_view",
+		"cartulary.view.lesson.v1":        "system_view",
+	}
+	requiredCoordinationSurfaces := map[string]string{
+		"cartulary.view.comm_log.v1":      "comm_log",
+		"cartulary.view.handoff.v1":       "handoff",
+		"cartulary.view.status_review.v1": "status_review",
+		"cartulary.view.lesson.v1":        "lesson",
+		"cartulary.view.findings.v1":      "finding",
+	}
+	for _, variant := range want {
+		byID, ok := LookupArtifactVariant(variant.ArtifactVariantID)
+		if !ok || !reflect.DeepEqual(byID, variant) {
+			t.Fatalf("lookup by variant id %s: got %#v ok=%v want %#v", variant.ArtifactVariantID, byID, ok, variant)
+		}
+		byArtifactType, ok := LookupArtifactVariantByArtifactType(variant.DurableDiscriminatorValue)
+		if !ok || !reflect.DeepEqual(byArtifactType, variant) {
+			t.Fatalf("lookup by artifact type %s: got %#v ok=%v want %#v", variant.DurableDiscriminatorValue, byArtifactType, ok, variant)
+		}
+		if wantKind, required := requiredSurfaceKinds[variant.PublicSurfaceRef]; required {
+			resource, ok := LookupPublicResource(variant.PublicSurfaceRef)
+			if !ok {
+				t.Fatalf("required artifact variant surface %s is not exposed", variant.PublicSurfaceRef)
+			}
+			if resource.SurfaceKind != wantKind {
+				t.Fatalf("%s surface kind: got %q want %q", variant.PublicSurfaceRef, resource.SurfaceKind, wantKind)
+			}
+		}
+		if wantArtifactType, required := requiredCoordinationSurfaces[variant.PublicSurfaceRef]; required {
+			schema, ok := Lookup(variant.PublicSurfaceRef)
+			if !ok {
+				t.Fatalf("missing schema for %s", variant.PublicSurfaceRef)
+			}
+			filter, ok := schema.CanonicalSourceFilter()
+			if !ok || filter != (CanonicalSourceFilter{Kind: "artifact_type", Field: "artifact_type", Value: wantArtifactType}) {
+				t.Fatalf("%s filter: got %#v ok=%v want artifact_type=%s", variant.PublicSurfaceRef, filter, ok, wantArtifactType)
+			}
+		}
+	}
+	if _, ok := LookupArtifactVariant("hypothesis"); ok {
+		t.Fatal("hypothesis must not be a separate artifact variant")
+	}
+	if _, ok := LookupArtifactVariantByArtifactType("hypothesis"); ok {
+		t.Fatal("artifact_type='hypothesis' must not be a supported variant discriminator")
+	}
+	if _, ok := LookupArtifactVariantByArtifactType("investigative_query"); ok {
+		t.Fatal("investigative_query must remain outside the closed artifact variant registry")
+	}
+	if _, ok := LookupArtifactVariantByArtifactType("forensic_keyword"); ok {
+		t.Fatal("forensic_keyword must remain outside the closed artifact variant registry")
+	}
+	if _, ok := LookupPublicResource("cartulary.view.hypotheses.v1"); ok {
+		t.Fatal("cartulary.view.hypotheses.v1 must not be exposed")
+	}
 }
 
 func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {

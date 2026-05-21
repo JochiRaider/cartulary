@@ -3,6 +3,7 @@ package viewschemas_test
 import (
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -27,12 +28,13 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			phase2test.WithCookies(sessionCookie),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-		if got := len(body["data"].(map[string]any)["view_schemas"].([]any)); got != 14 {
-			t.Fatalf("expected active non-admin user to see fourteen schemas, got %d", got)
+		wantIDs := currentProfileStandardizedViewSchemaIDs()
+		if got := len(body["data"].(map[string]any)["view_schemas"].([]any)); got != len(wantIDs) {
+			t.Fatalf("expected active non-admin user to see %d current-profile schemas, got %d", len(wantIDs), got)
 		}
 	})
 
-	t.Run("lists the exact Base registry with default terminal paging", func(t *testing.T) {
+	t.Run("lists the exact current-profile standardized registry with default terminal paging", func(t *testing.T) {
 		resp := phase2test.DoJSON(
 			t,
 			http.MethodGet,
@@ -43,30 +45,15 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		data := body["data"].(map[string]any)
 		items := data["view_schemas"].([]any)
-		if len(items) != 14 {
-			t.Fatalf("expected fourteen Base view schemas, got %d", len(items))
+		wantIDs := currentProfileStandardizedViewSchemaIDs()
+		if len(items) != len(wantIDs) {
+			t.Fatalf("expected %d current-profile view schemas, got %d", len(wantIDs), len(items))
 		}
 		gotIDs := make([]string, 0, len(items))
 		for _, item := range items {
 			resource := item.(map[string]any)
 			gotIDs = append(gotIDs, resource["view_schema_id"].(string))
 			requirePublicResource(t, resource)
-		}
-		wantIDs := []string{
-			"cartulary.view.assessments.v1",
-			"cartulary.view.comm_log.v1",
-			"cartulary.view.decisions.v1",
-			"cartulary.view.evidence.v1",
-			"cartulary.view.handoff.v1",
-			"cartulary.view.hosts.v1",
-			"cartulary.view.identities.v1",
-			"cartulary.view.indicators.v1",
-			"cartulary.view.lesson.v1",
-			"cartulary.view.notes.v1",
-			"cartulary.view.parties.v1",
-			"cartulary.view.status_review.v1",
-			"cartulary.view.task_requests.v1",
-			"cartulary.view.timeline.v1",
 		}
 		if !reflect.DeepEqual(gotIDs, wantIDs) {
 			t.Fatalf("unexpected view schema ids:\ngot  %v\nwant %v", gotIDs, wantIDs)
@@ -166,15 +153,51 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 	})
 
 	t.Run("returns a canonical missing-schema error", func(t *testing.T) {
-		resp := phase2test.DoJSON(
-			t,
-			http.MethodGet,
-			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.not_real.v1",
-			nil,
-			phase2test.WithCookies(login.SessionCookie),
-		)
-		httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "view_schema_not_found")
+		for _, viewSchemaID := range []string{
+			"cartulary.view.not_real.v1",
+			"cartulary.view.hypotheses.v1",
+		} {
+			resp := phase2test.DoJSON(
+				t,
+				http.MethodGet,
+				harness.Server.HTTP.URL+"/api/v1/view-schemas/"+viewSchemaID,
+				nil,
+				phase2test.WithCookies(login.SessionCookie),
+			)
+			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "view_schema_not_found")
+		}
 	})
+}
+
+var requiredPackIndependentViewSchemaIDs = []string{
+	"cartulary.view.assessments.v1",
+	"cartulary.view.comm_log.v1",
+	"cartulary.view.decisions.v1",
+	"cartulary.view.evidence.v1",
+	"cartulary.view.handoff.v1",
+	"cartulary.view.hosts.v1",
+	"cartulary.view.identities.v1",
+	"cartulary.view.indicators.v1",
+	"cartulary.view.lesson.v1",
+	"cartulary.view.notes.v1",
+	"cartulary.view.parties.v1",
+	"cartulary.view.status_review.v1",
+	"cartulary.view.task_requests.v1",
+	"cartulary.view.timeline.v1",
+}
+
+var implementedStandardizedOptionalViewSchemaIDs = []string{
+	"cartulary.view.findings.v1",
+	"cartulary.view.forensic_keywords.v1",
+	"cartulary.view.investigative_queries.v1",
+}
+
+func currentProfileStandardizedViewSchemaIDs() []string {
+	ids := make([]string, 0, len(requiredPackIndependentViewSchemaIDs)+len(implementedStandardizedOptionalViewSchemaIDs))
+	ids = append(ids, requiredPackIndependentViewSchemaIDs...)
+	ids = append(ids, implementedStandardizedOptionalViewSchemaIDs...)
+	slices.Sort(ids)
+	return ids
 }
 
 func requirePublicResource(t testing.TB, resource map[string]any) {
