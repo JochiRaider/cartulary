@@ -1183,6 +1183,11 @@ func validateCreateRequest(request CreateRequest) error {
 				return &LifecycleValidationError{ToStatus: status, ReasonCode: "superseded_direct_write", ViolatedGuards: []string{"decision.status"}}
 			}
 		}
+	default:
+		schema, ok := viewschema.Lookup(request.ViewSchemaID)
+		if ok && !schema.PermitsZeroFieldCreate && len(request.Values) == 0 && len(request.Collections) == 0 {
+			return mutationValidationError("payload", "missing_minimum_create_signal")
+		}
 	}
 	return nil
 }
@@ -1714,6 +1719,14 @@ func validateDirectFieldValue(change PatchChange) error {
 		if !validEvidenceLifecycleState(value) {
 			return mutationValidationError(change.FieldKey, "invalid_value")
 		}
+	case "comm_log.comm_type":
+		if !validCommType(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	case "lesson.closure_state":
+		if !validClosureState(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
 	}
 	return nil
 }
@@ -1998,12 +2011,12 @@ func recordTagItemRefParts(itemRef string) (uuid.UUID, uuid.UUID, error) {
 		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
 	}
 	recordID, err := uuid.Parse(parts[1])
-	if err != nil {
-		return uuid.UUID{}, uuid.UUID{}, err
+	if err != nil || recordID.String() != parts[1] {
+		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
 	}
 	tagID, err := uuid.Parse(parts[2])
-	if err != nil {
-		return uuid.UUID{}, uuid.UUID{}, err
+	if err != nil || tagID.String() != parts[2] {
+		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
 	}
 	return recordID, tagID, nil
 }
@@ -2493,15 +2506,15 @@ func sourceTableForView(viewSchemaID string) string {
 func artifactTypeForView(viewSchemaID string) string {
 	switch viewSchemaID {
 	case NotesViewSchemaID:
-		return "note"
+		return artifactTypeForSurface(viewSchemaID, "note")
 	case CommLogViewSchemaID:
-		return "comm_log"
+		return artifactTypeForSurface(viewSchemaID, "")
 	case HandoffViewSchemaID:
-		return "handoff"
+		return artifactTypeForSurface(viewSchemaID, "")
 	case StatusReviewViewSchemaID:
-		return "status_review"
+		return artifactTypeForSurface(viewSchemaID, "")
 	case LessonViewSchemaID:
-		return "lesson"
+		return artifactTypeForSurface(viewSchemaID, "")
 	default:
 		return ""
 	}
@@ -2560,7 +2573,12 @@ func uuidFromItemRef(itemRef string, prefix string) (uuid.UUID, error) {
 	if !strings.HasPrefix(itemRef, prefix) {
 		return uuid.UUID{}, fmt.Errorf("invalid item ref")
 	}
-	return uuid.Parse(strings.TrimPrefix(itemRef, prefix))
+	value := strings.TrimPrefix(itemRef, prefix)
+	parsed, err := uuid.Parse(value)
+	if err != nil || parsed.String() != value {
+		return uuid.UUID{}, fmt.Errorf("invalid item ref")
+	}
+	return parsed, nil
 }
 
 func hasTextValue(values map[string]ValueChange, field string) bool {

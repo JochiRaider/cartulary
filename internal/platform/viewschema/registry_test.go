@@ -73,6 +73,65 @@ func TestPhase9TaskDecisionInternalProjectionBindings(t *testing.T) {
 	}
 }
 
+func TestSupportPhase9CoordinationInternalProjectionAndFilterBindings(t *testing.T) {
+	tests := []struct {
+		viewSchemaID   string
+		artifactType   string
+		baseProjection string
+	}{
+		{viewSchemaID: "cartulary.view.comm_log.v1", artifactType: "comm_log", baseProjection: "artifact_grid_projection"},
+		{viewSchemaID: "cartulary.view.handoff.v1", artifactType: "handoff", baseProjection: "artifact_grid_projection"},
+		{viewSchemaID: "cartulary.view.lesson.v1", artifactType: "lesson", baseProjection: "artifact_grid_projection"},
+		{viewSchemaID: "cartulary.view.status_review.v1", artifactType: "status_review", baseProjection: "artifact_grid_projection"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.viewSchemaID, func(t *testing.T) {
+			schema, ok := Lookup(tc.viewSchemaID)
+			if !ok {
+				t.Fatalf("missing schema %s", tc.viewSchemaID)
+			}
+			if schema.BaseProjection != tc.baseProjection {
+				t.Fatalf("%s base projection: got %q want %q", tc.viewSchemaID, schema.BaseProjection, tc.baseProjection)
+			}
+			filter, ok := schema.CanonicalSourceFilter()
+			if !ok {
+				t.Fatalf("%s missing canonical source filter", tc.viewSchemaID)
+			}
+			want := CanonicalSourceFilter{Kind: "artifact_type", Field: "artifact_type", Value: tc.artifactType}
+			if filter != want {
+				t.Fatalf("%s canonical source filter: got %#v want %#v", tc.viewSchemaID, filter, want)
+			}
+
+			resource, ok := LookupPublicResource(tc.viewSchemaID)
+			if !ok {
+				t.Fatalf("missing public resource %s", tc.viewSchemaID)
+			}
+			requireNoInternalMembers(t, resource)
+		})
+	}
+}
+
+func TestPhase9HandoffAckStateExposesDeclaredEnumOrder(t *testing.T) {
+	resource, ok := LookupPublicResource("cartulary.view.handoff.v1")
+	if !ok {
+		t.Fatal("missing handoff public resource")
+	}
+	for _, field := range resource.Fields {
+		if field.FieldKey != "handoff.ack_state" {
+			continue
+		}
+		if field.ReadKind != "enum" {
+			t.Fatalf("handoff.ack_state read_kind: got %q want enum", field.ReadKind)
+		}
+		want := []string{"pending", "acknowledged"}
+		if !reflect.DeepEqual(field.EnumValues, want) {
+			t.Fatalf("handoff.ack_state enum values: got %#v want %#v", field.EnumValues, want)
+		}
+		return
+	}
+	t.Fatal("handoff.ack_state field not exposed")
+}
+
 func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 	t.Helper()
 
@@ -162,7 +221,7 @@ func requireNoInternalMembers(t testing.TB, resource ViewSchemaResource) {
 	if err != nil {
 		t.Fatalf("marshal resource: %v", err)
 	}
-	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "read_model", "create_writable", "writable"} {
+	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "create_writable", "writable"} {
 		if strings.Contains(string(payload), `"`+forbidden+`"`) {
 			t.Fatalf("%s public resource leaked %s: %s", resource.ViewSchemaID, forbidden, payload)
 		}

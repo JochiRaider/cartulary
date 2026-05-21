@@ -6,6 +6,12 @@
   "source_record_types": [
     "artifact"
   ],
+  "base_projection": "artifact_grid_projection",
+  "canonical_source_filter": {
+    "kind": "artifact_type",
+    "field": "artifact_type",
+    "value": "handoff"
+  },
   "technical_fields": [
     "record_id",
     "row_version"
@@ -318,7 +324,7 @@
         "prefix"
       ],
       "groupable": true,
-      "read_kind": "text",
+      "read_kind": "enum",
       "write_kind": "read_only",
       "conflict_resolution_class": null,
       "entity_binding_mode": null,
@@ -326,7 +332,10 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "pending",
+        "acknowledged"
+      ],
       "writable": false,
       "read_model": "ack_state"
     },

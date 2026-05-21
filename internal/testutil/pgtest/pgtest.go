@@ -48,6 +48,12 @@ const (
 	postgresResetTablesPackagesEnv   = "CARTULARY_POSTGRES_RESET_TABLES_PACKAGES"
 )
 
+const (
+	// PostgresFixturePolicyTemplateClone is the scheduler policy for tests that
+	// need committed per-test database clones instead of rollback transactions.
+	PostgresFixturePolicyTemplateClone = postgresFixturePolicyTemplateClone
+)
+
 func ContainerImage() string {
 	return postgresImage
 }
@@ -1354,6 +1360,22 @@ func resolvePostgresFixturePolicy(attribution fixtureAttribution) string {
 		return policy
 	}
 	return postgresFixturePolicyTemplateClone
+}
+
+// ExplicitPostgresFixturePolicyT returns the scheduler-assigned fixture policy
+// for the current test, or an empty string when no explicit assignment exists.
+func ExplicitPostgresFixturePolicyT(t testing.TB) string {
+	t.Helper()
+
+	attribution := fixtureAttributionFor(t, "pgtest")
+	topLevelTest := topLevelTestName(attribution.TestName)
+	if policy := lookupFixturePolicy(postgresFixturePolicyTestsEnv, topLevelTest); policy != "" {
+		return policy
+	}
+	if policy := lookupFixturePolicy(postgresFixturePolicyPackagesEnv, attribution.CallerPackage); policy != "" {
+		return policy
+	}
+	return normalizePostgresFixturePolicy(suiteservices.LookupEnvValue(nil, postgresFixturePolicyDefaultEnv))
 }
 
 func lookupFixturePolicy(envName string, key string) string {

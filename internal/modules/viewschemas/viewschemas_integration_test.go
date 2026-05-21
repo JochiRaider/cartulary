@@ -183,7 +183,7 @@ func requirePublicResource(t testing.TB, resource map[string]any) {
 	if !reflect.DeepEqual(resource["technical_fields"], []any{"record_id", "row_version"}) {
 		t.Fatalf("unexpected technical fields for %s: %#v", resource["view_schema_id"], resource["technical_fields"])
 	}
-	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "read_model", "create_writable", "writable"} {
+	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "create_writable", "writable"} {
 		if containsKey(resource, forbidden) {
 			t.Fatalf("public resource %s leaked %s: %#v", resource["view_schema_id"], forbidden, resource)
 		}

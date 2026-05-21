@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -196,6 +197,22 @@ func (f genericField) orderExpr() string {
 		return f.sortExpr
 	}
 	return f.expr
+}
+
+func enumSortExpr(expr string, values ...string) string {
+	var builder strings.Builder
+	builder.WriteString("CASE ")
+	builder.WriteString(expr)
+	for index, value := range values {
+		builder.WriteString(" WHEN '")
+		builder.WriteString(value)
+		builder.WriteString("' THEN ")
+		builder.WriteString(strconv.Itoa(index))
+	}
+	builder.WriteString(" ELSE ")
+	builder.WriteString(strconv.Itoa(len(values)))
+	builder.WriteString(" END")
+	return builder.String()
 }
 
 func appendGenericFilter(builder *strings.Builder, args *[]any, definition genericSurface, filter viewschema.Filter) error {
@@ -495,7 +512,7 @@ LEFT JOIN LATERAL (
 			{key: "assessment.subject_ref", expr: "a.subject_ref", kind: fieldKindText},
 			{key: "assessment.subject_type", expr: "a.subject_type", kind: fieldKindText},
 			{key: "assessment.assessment_state", expr: "a.assessment_state", kind: fieldKindText},
-			{key: "assessment.confidence_band", expr: "a.confidence_band", sortExpr: "CASE a.confidence_band WHEN 'unset' THEN 0 WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 ELSE 4 END", kind: fieldKindText},
+			{key: "assessment.confidence_band", expr: "a.confidence_band", sortExpr: enumSortExpr("a.confidence_band", "unset", "low", "medium", "high"), kind: fieldKindText},
 			{key: "assessment.confidence_score", expr: "a.confidence_score", kind: fieldKindNumber},
 			{key: "assessment.rationale", expr: "a.rationale", kind: fieldKindText},
 			{key: "assessment.assessor", expr: "a.assessor", kind: fieldKindText},
@@ -596,7 +613,7 @@ LEFT JOIN LATERAL (
 		{key: "note.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
 		{key: "note.created_by_user_id", expr: "p.created_by_user_id", kind: fieldKindText},
 	}),
-	CommLogViewSchemaID: artifactSurface(CommLogViewSchemaID, "comm_log", []genericField{
+	CommLogViewSchemaID: artifactSurface(CommLogViewSchemaID, "", []genericField{
 		{key: "comm_log.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
 		{key: "comm_log.comm_type", expr: "p.comm_type", kind: fieldKindText},
 		{key: "comm_log.audience", expr: "p.audience", kind: fieldKindText},
@@ -613,7 +630,7 @@ LEFT JOIN LATERAL (
 		{key: "comm_log.next_report_day", expr: "p.next_report_day", kind: fieldKindDate},
 		{key: "comm_log.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
 	}),
-	HandoffViewSchemaID: artifactSurface(HandoffViewSchemaID, "handoff", []genericField{
+	HandoffViewSchemaID: artifactSurface(HandoffViewSchemaID, "", []genericField{
 		{key: "handoff.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
 		{key: "handoff.outgoing_owner_user_id", expr: "p.outgoing_owner_user_id", kind: fieldKindText},
 		{key: "handoff.incoming_owner_user_id", expr: "p.incoming_owner_user_id", kind: fieldKindText},
@@ -625,10 +642,10 @@ LEFT JOIN LATERAL (
 		{key: "handoff.acknowledged_at", expr: "p.acknowledged_at", kind: fieldKindTimestamp},
 		{key: "handoff.handoff_id", expr: "p.handoff_id", kind: fieldKindText},
 		{key: "handoff.timestamp_day", expr: "p.timestamp_day", kind: fieldKindDate},
-		{key: "handoff.ack_state", expr: "p.ack_state", kind: fieldKindText},
+		{key: "handoff.ack_state", expr: "p.ack_state", sortExpr: enumSortExpr("p.ack_state", "pending", "acknowledged"), kind: fieldKindText},
 		{key: "handoff.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
 	}),
-	StatusReviewViewSchemaID: artifactSurface(StatusReviewViewSchemaID, "status_review", []genericField{
+	StatusReviewViewSchemaID: artifactSurface(StatusReviewViewSchemaID, "", []genericField{
 		{key: "status_review.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
 		{key: "status_review.review_owner_user_id", expr: "p.review_owner_user_id", kind: fieldKindText},
 		{key: "status_review.current_state_summary", expr: "p.current_state_summary", kind: fieldKindText},
@@ -642,7 +659,7 @@ LEFT JOIN LATERAL (
 		{key: "status_review.next_report_day", expr: "p.next_report_day", kind: fieldKindDate},
 		{key: "status_review.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
 	}),
-	LessonViewSchemaID: artifactSurface(LessonViewSchemaID, "lesson", []genericField{
+	LessonViewSchemaID: artifactSurface(LessonViewSchemaID, "", []genericField{
 		{key: "lesson.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
 		{key: "lesson.summary", expr: "p.summary", kind: fieldKindText},
 		{key: "lesson.owner_user_id", expr: "p.owner_user_id", kind: fieldKindText},
@@ -691,52 +708,6 @@ func tagCollectionExprFor(alias string) string {
        AND rt.deleted_at IS NULL)::text`
 }
 
-func linkCountExprFor(alias string, fieldKey string, linkType string) string {
-	return `(SELECT COUNT(*)::integer
-      FROM record_links rl
-      JOIN records dst
-        ON dst.incident_id = rl.incident_id
-       AND dst.record_id = rl.dst_record_id
-       AND dst.deleted_at IS NULL
-     WHERE rl.incident_id = ` + alias + `.incident_id
-       AND rl.src_record_id = ` + alias + `.record_id
-       AND rl.link_type = '` + linkType + `'
-       AND rl.field_key = '` + fieldKey + `'
-       AND rl.deleted_at IS NULL)`
-}
-
-func supersedesRecordIDExprFor(alias string) string {
-	return `(SELECT rl.dst_record_id
-      FROM record_links rl
-      JOIN records dst
-        ON dst.incident_id = rl.incident_id
-       AND dst.record_id = rl.dst_record_id
-       AND dst.record_type = 'decision'
-       AND dst.deleted_at IS NULL
-     WHERE rl.incident_id = ` + alias + `.incident_id
-       AND rl.src_record_id = ` + alias + `.record_id
-       AND rl.link_type = 'supersedes'
-       AND rl.deleted_at IS NULL
-     ORDER BY rl.created_at DESC, rl.record_link_id DESC
-     LIMIT 1)`
-}
-
-func isSupersededExprFor(alias string) string {
-	return `EXISTS (
-      SELECT 1
-        FROM record_links rl
-        JOIN records src
-          ON src.incident_id = rl.incident_id
-         AND src.record_id = rl.src_record_id
-         AND src.record_type = 'decision'
-         AND src.deleted_at IS NULL
-       WHERE rl.incident_id = ` + alias + `.incident_id
-         AND rl.dst_record_id = ` + alias + `.record_id
-         AND rl.link_type = 'supersedes'
-         AND rl.deleted_at IS NULL
-    )`
-}
-
 func partyRefCollectionExpr(fieldKey string) string {
 	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'item_ref', 'party_ref:' || party.record_id::text,
@@ -773,7 +744,8 @@ func riskRefCollectionExpr() string {
        AND hr.deleted_at IS NULL)::text`
 }
 
-func artifactSurface(viewSchemaID string, artifactType string, fields []genericField) genericSurface {
+func artifactSurface(viewSchemaID string, fallbackArtifactType string, fields []genericField) genericSurface {
+	artifactType := artifactTypeForSurface(viewSchemaID, fallbackArtifactType)
 	return genericSurface{
 		viewSchemaID: viewSchemaID,
 		fromSQL:      "FROM artifact_grid_projection p JOIN records r ON r.record_id = p.record_id",
@@ -782,4 +754,26 @@ func artifactSurface(viewSchemaID string, artifactType string, fields []genericF
 		whereSQL:     "p.artifact_type = '" + artifactType + "'",
 		fields:       fields,
 	}
+}
+
+func artifactTypeForSurface(viewSchemaID string, fallbackArtifactType string) string {
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if ok {
+		if filter, hasFilter := schema.CanonicalSourceFilter(); hasFilter {
+			if schema.BaseProjection != "artifact_grid_projection" {
+				panic(fmt.Sprintf("workbook artifact surface %s declares base_projection=%q", viewSchemaID, schema.BaseProjection))
+			}
+			if filter.Kind != "artifact_type" || filter.Field != "artifact_type" || filter.Value == "" {
+				panic(fmt.Sprintf("workbook artifact surface %s declares invalid canonical source filter %#v", viewSchemaID, filter))
+			}
+			if fallbackArtifactType != "" && fallbackArtifactType != filter.Value {
+				panic(fmt.Sprintf("workbook artifact surface %s fallback artifact_type=%q contradicts contract value %q", viewSchemaID, fallbackArtifactType, filter.Value))
+			}
+			return filter.Value
+		}
+	}
+	if fallbackArtifactType == "" {
+		panic(fmt.Sprintf("workbook artifact surface %s missing canonical artifact_type filter", viewSchemaID))
+	}
+	return fallbackArtifactType
 }

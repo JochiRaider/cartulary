@@ -329,6 +329,160 @@ func TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull(t 
 		},
 	})
 
+	for _, tc := range []struct {
+		name         string
+		viewSchemaID string
+		fieldKey     string
+		createBody   map[string]any
+		action       map[string]any
+	}{
+		{
+			name:         "comm-decision",
+			viewSchemaID: workbook.CommLogViewSchemaID,
+			fieldKey:     "comm_log.decision_ids",
+			createBody: map[string]any{
+				"comm_log.comm_type":          "briefing",
+				"comm_log.audience":           "leadership",
+				"comm_log.channel_or_meeting": "Bridge",
+				"comm_log.summary":            "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+		{
+			name:         "comm-action-task",
+			viewSchemaID: workbook.CommLogViewSchemaID,
+			fieldKey:     "comm_log.action_task_ids",
+			createBody: map[string]any{
+				"comm_log.comm_type":          "briefing",
+				"comm_log.audience":           "leadership",
+				"comm_log.channel_or_meeting": "Bridge",
+				"comm_log.summary":            "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+		{
+			name:         "comm-audience-party",
+			viewSchemaID: workbook.CommLogViewSchemaID,
+			fieldKey:     "comm_log.audience_party_ids",
+			createBody: map[string]any{
+				"comm_log.comm_type":          "briefing",
+				"comm_log.audience":           "leadership",
+				"comm_log.channel_or_meeting": "Bridge",
+				"comm_log.summary":            "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_party_ref", "party_id": hostID.String(), "confidence": 80},
+		},
+		{
+			name:         "comm-attendee-party",
+			viewSchemaID: workbook.CommLogViewSchemaID,
+			fieldKey:     "comm_log.attendee_party_ids",
+			createBody: map[string]any{
+				"comm_log.comm_type":          "briefing",
+				"comm_log.audience":           "leadership",
+				"comm_log.channel_or_meeting": "Bridge",
+				"comm_log.summary":            "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_party_ref", "party_id": hostID.String(), "confidence": 80},
+		},
+		{
+			name:         "handoff-task",
+			viewSchemaID: workbook.HandoffViewSchemaID,
+			fieldKey:     "handoff.open_task_ids",
+			createBody: map[string]any{
+				"handoff.incoming_owner_user_id": actor.ID.String(),
+				"handoff.current_state_summary":  "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+		{
+			name:         "handoff-decision",
+			viewSchemaID: workbook.HandoffViewSchemaID,
+			fieldKey:     "handoff.open_decision_ids",
+			createBody: map[string]any{
+				"handoff.incoming_owner_user_id": actor.ID.String(),
+				"handoff.current_state_summary":  "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+		{
+			name:         "handoff-risk",
+			viewSchemaID: workbook.HandoffViewSchemaID,
+			fieldKey:     "handoff.open_risk_refs",
+			createBody: map[string]any{
+				"handoff.incoming_owner_user_id": actor.ID.String(),
+				"handoff.current_state_summary":  "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_risk_ref", "risk_ref_text": "Non-authoritative risk confidence", "confidence": 80},
+		},
+		{
+			name:         "status-blocked-task",
+			viewSchemaID: workbook.StatusReviewViewSchemaID,
+			fieldKey:     "status_review.blocked_task_ids",
+			createBody: map[string]any{
+				"status_review.current_state_summary": "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+		{
+			name:         "status-pending-evidence",
+			viewSchemaID: workbook.StatusReviewViewSchemaID,
+			fieldKey:     "status_review.pending_evidence_ids",
+			createBody: map[string]any{
+				"status_review.current_state_summary": "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+		{
+			name:         "status-open-decision",
+			viewSchemaID: workbook.StatusReviewViewSchemaID,
+			fieldKey:     "status_review.open_decision_ids",
+			createBody: map[string]any{
+				"status_review.current_state_summary": "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+		{
+			name:         "lesson-follow-up-task",
+			viewSchemaID: workbook.LessonViewSchemaID,
+			fieldKey:     "lesson.follow_up_task_ids",
+			createBody: map[string]any{
+				"lesson.summary": "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+		{
+			name:         "lesson-evidence",
+			viewSchemaID: workbook.LessonViewSchemaID,
+			fieldKey:     "lesson.evidence_refs",
+			createBody: map[string]any{
+				"lesson.summary": "Coordination confidence must be rejected.",
+			},
+			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
+		},
+	} {
+		createBody := cloneU912Body(tc.createBody)
+		createBody["client_txn_id"] = "txn-phase9-u-9-12-" + tc.name + "-confidence-create"
+		createBody[tc.fieldKey] = map[string]any{
+			"kind":    "collection_actions_v1",
+			"actions": []map[string]any{tc.action},
+		}
+		expectWorkbookDecodeCreateRejected(t, tc.viewSchemaID, createBody)
+		expectWorkbookDecodePatchRejected(t, map[string]any{
+			"view_schema_id":   tc.viewSchemaID,
+			"base_row_version": 1,
+			"client_txn_id":    "txn-phase9-u-9-12-" + tc.name + "-confidence-patch",
+			"changes": []map[string]any{
+				{
+					"field_key": tc.fieldKey,
+					"action_payload": map[string]any{
+						"kind":    "collection_actions_v1",
+						"actions": []map[string]any{tc.action},
+					},
+				},
+			},
+		})
+	}
+
 	taskResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
 		ClientTxnID:  "txn-phase9-u-9-12-task-null-confidence",
@@ -368,6 +522,134 @@ func TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull(t 
 	requireManualLinkConfidenceNull(t, harness, incident.ID, taskResult.RecordID, supportID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "supported_by")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "references_record")
+
+	coordParty, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.PartiesViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-coord-party",
+		Values: map[string]workbook.ValueChange{
+			"party.display_name": {Kind: "text", Text: textPtr("Coordination party confidence remains null")},
+			"party.party_kind":   {Kind: "text", Text: textPtr("team")},
+		},
+	}, []byte("txn-phase9-u-9-12-coord-party"), "req-phase9-u-9-12-coord-party", time.Date(2026, 5, 17, 18, 50, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create coordination party target: %v", err)
+	}
+	coordTask, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-coord-task",
+		Values: map[string]workbook.ValueChange{
+			"task.title":     {Kind: "text", Text: textPtr("Coordination task confidence remains null")},
+			"task.task_kind": {Kind: "text", Text: textPtr("follow_up")},
+		},
+	}, []byte("txn-phase9-u-9-12-coord-task"), "req-phase9-u-9-12-coord-task", time.Date(2026, 5, 17, 18, 51, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create coordination task target: %v", err)
+	}
+	coordDecision, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.DecisionsViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-coord-decision",
+		Values: map[string]workbook.ValueChange{
+			"decision.summary":       {Kind: "text", Text: textPtr("Coordination decision confidence remains null")},
+			"decision.decision_type": {Kind: "text", Text: textPtr("containment")},
+			"decision.rationale":     {Kind: "text", Text: textPtr("Coordination manual relationship confidence remains null.")},
+		},
+	}, []byte("txn-phase9-u-9-12-coord-decision"), "req-phase9-u-9-12-coord-decision", time.Date(2026, 5, 17, 18, 52, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create coordination decision target: %v", err)
+	}
+	coordEvidence, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.EvidenceViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-coord-evidence",
+		Values: map[string]workbook.ValueChange{
+			"evidence.title": {Kind: "text", Text: textPtr("Coordination evidence confidence remains null")},
+		},
+	}, []byte("txn-phase9-u-9-12-coord-evidence"), "req-phase9-u-9-12-coord-evidence", time.Date(2026, 5, 17, 18, 53, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create coordination evidence target: %v", err)
+	}
+
+	commResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.CommLogViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-comm-null-confidence",
+		Values: map[string]workbook.ValueChange{
+			"comm_log.comm_type":          {Kind: "text", Text: textPtr("briefing")},
+			"comm_log.audience":           {Kind: "text", Text: textPtr("Coordination party")},
+			"comm_log.channel_or_meeting": {Kind: "text", Text: textPtr("Bridge")},
+			"comm_log.summary":            {Kind: "text", Text: textPtr("Manual confidence remains null.")},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"comm_log.decision_ids":       {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
+			"comm_log.action_task_ids":    {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
+			"comm_log.audience_party_ids": {Actions: []workbook.CollectionAction{{Op: "add_party_ref", PartyID: &coordParty.RecordID}}},
+		},
+	}, []byte("txn-phase9-u-9-12-comm-null-confidence"), "req-phase9-u-9-12-comm-null-confidence", time.Date(2026, 5, 17, 18, 54, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create comm log manual links: %v", err)
+	}
+	requireManualLinkConfidenceNull(t, harness, incident.ID, commResult.RecordID, coordDecision.RecordID, "references_record")
+	requireManualLinkConfidenceNull(t, harness, incident.ID, commResult.RecordID, coordTask.RecordID, "references_record")
+	requireManualLinkConfidenceNull(t, harness, incident.ID, commResult.RecordID, coordParty.RecordID, "references_record")
+
+	handoffResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.HandoffViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-handoff-null-confidence",
+		Values: map[string]workbook.ValueChange{
+			"handoff.incoming_owner_user_id": {Kind: "uuid", UUID: &actor.ID},
+			"handoff.current_state_summary":  {Kind: "text", Text: textPtr("Manual confidence remains null.")},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"handoff.open_task_ids":     {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
+			"handoff.open_decision_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
+			"handoff.open_risk_refs":    {Actions: []workbook.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Manual risk refs have no confidence", NormalizedText: "manual risk refs have no confidence"}}},
+		},
+	}, []byte("txn-phase9-u-9-12-handoff-null-confidence"), "req-phase9-u-9-12-handoff-null-confidence", time.Date(2026, 5, 17, 18, 55, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create handoff manual links: %v", err)
+	}
+	requireManualLinkConfidenceNull(t, harness, incident.ID, handoffResult.RecordID, coordTask.RecordID, "references_record")
+	requireManualLinkConfidenceNull(t, harness, incident.ID, handoffResult.RecordID, coordDecision.RecordID, "references_record")
+	if got := queryCount(t, harness, `SELECT COUNT(*) FROM record_links WHERE incident_id = $1 AND src_record_id = $2 AND field_key = 'handoff.open_risk_refs'`, incident.ID, handoffResult.RecordID); got != 0 {
+		t.Fatalf("risk refs must not persist as record links, got %d", got)
+	}
+	if got := queryCount(t, harness, `SELECT COUNT(*) FROM handoff_risk_refs WHERE incident_id = $1 AND handoff_record_id = $2 AND deleted_at IS NULL`, incident.ID, handoffResult.RecordID); got != 1 {
+		t.Fatalf("expected one handoff risk child row, got %d", got)
+	}
+
+	statusResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.StatusReviewViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-status-null-confidence",
+		Values: map[string]workbook.ValueChange{
+			"status_review.current_state_summary": {Kind: "text", Text: textPtr("Manual confidence remains null.")},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"status_review.blocked_task_ids":     {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
+			"status_review.pending_evidence_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
+			"status_review.open_decision_ids":    {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
+		},
+	}, []byte("txn-phase9-u-9-12-status-null-confidence"), "req-phase9-u-9-12-status-null-confidence", time.Date(2026, 5, 17, 18, 56, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create status review manual links: %v", err)
+	}
+	requireManualLinkConfidenceNull(t, harness, incident.ID, statusResult.RecordID, coordTask.RecordID, "references_record")
+	requireManualLinkConfidenceNull(t, harness, incident.ID, statusResult.RecordID, coordEvidence.RecordID, "references_record")
+	requireManualLinkConfidenceNull(t, harness, incident.ID, statusResult.RecordID, coordDecision.RecordID, "references_record")
+
+	lessonResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.LessonViewSchemaID,
+		ClientTxnID:  "txn-phase9-u-9-12-lesson-null-confidence",
+		Values: map[string]workbook.ValueChange{
+			"lesson.summary": {Kind: "text", Text: textPtr("Manual confidence remains null.")},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"lesson.follow_up_task_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
+			"lesson.evidence_refs":      {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
+		},
+	}, []byte("txn-phase9-u-9-12-lesson-null-confidence"), "req-phase9-u-9-12-lesson-null-confidence", time.Date(2026, 5, 17, 18, 57, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create lesson manual links: %v", err)
+	}
+	requireManualLinkConfidenceNull(t, harness, incident.ID, lessonResult.RecordID, coordTask.RecordID, "references_record")
+	requireManualLinkConfidenceNull(t, harness, incident.ID, lessonResult.RecordID, coordEvidence.RecordID, "references_record")
 }
 
 func validCreateRequest(subjectRef uuid.UUID, subjectType string, state string) assessments.CreateRequest {
@@ -472,6 +754,14 @@ func requireManualLinkConfidenceNull(t testing.TB, harness *phase4storetest.Stor
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("manual %s link must preserve provenance=manual confidence=NULL, got %#v", linkType, link)
 	}
+}
+
+func cloneU912Body(body map[string]any) map[string]any {
+	cloned := make(map[string]any, len(body)+2)
+	for key, value := range body {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func uuidStrings(values []uuid.UUID) []string {

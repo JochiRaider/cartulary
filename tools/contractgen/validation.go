@@ -19,6 +19,7 @@ var (
 		"surface_kind",
 		"source_record_types",
 		"base_projection",
+		"canonical_source_filter",
 		"technical_fields",
 		"required_reference_pack_keys",
 		"default_visible_fields",
@@ -55,16 +56,17 @@ var (
 		"write_action",
 		"create_writable",
 	)
-	viewSchemaIndexKeys      = stringSet("$schema", "registry_id", "note", "view_schemas")
-	viewSchemaIndexEntryKeys = stringSet("view_schema_id", "title", "surface_kind", "source_record_types", "artifact_path")
-	syntheticPredicateKeys   = stringSet("field_key", "label", "filter_ops")
-	errorRegistryKeys        = stringSet("$schema", "registry_id", "note", "errors", "reason_registries")
-	errorEntryKeys           = stringSet("code", "http_status", "summary")
-	reasonRegistryEntryKeys  = stringSet("error_code", "reason_codes")
-	reasonCodeEntryKeys      = stringSet("code", "summary")
-	extensionRegistryKeys    = stringSet("$schema", "registry_id", "note", "profiles")
-	extensionProfileKeys     = stringSet("profile_id", "route_families")
-	wsIndexKeys              = stringSet("$schema", "$id", "title", "description", "type", "additionalProperties", "properties", "required")
+	viewSchemaIndexKeys       = stringSet("$schema", "registry_id", "note", "view_schemas")
+	viewSchemaIndexEntryKeys  = stringSet("view_schema_id", "title", "surface_kind", "source_record_types", "artifact_path")
+	syntheticPredicateKeys    = stringSet("field_key", "label", "filter_ops")
+	canonicalSourceFilterKeys = stringSet("kind", "field", "value")
+	errorRegistryKeys         = stringSet("$schema", "registry_id", "note", "errors", "reason_registries")
+	errorEntryKeys            = stringSet("code", "http_status", "summary")
+	reasonRegistryEntryKeys   = stringSet("error_code", "reason_codes")
+	reasonCodeEntryKeys       = stringSet("code", "summary")
+	extensionRegistryKeys     = stringSet("$schema", "registry_id", "note", "profiles")
+	extensionProfileKeys      = stringSet("profile_id", "route_families")
+	wsIndexKeys               = stringSet("$schema", "$id", "title", "description", "type", "additionalProperties", "properties", "required")
 )
 
 func validateContractInput(familyDir, relativePath string, value any) error {
@@ -320,6 +322,11 @@ func validateViewSchemaShape(value any, relativePath string) error {
 			return err
 		}
 	}
+	if _, ok := object["canonical_source_filter"]; ok {
+		if err := validateCanonicalSourceFilter(object["canonical_source_filter"], relativePath+".canonical_source_filter"); err != nil {
+			return err
+		}
+	}
 	inlineCreate, err := asObject(object["inline_create"], relativePath+".inline_create")
 	if err != nil {
 		return err
@@ -423,6 +430,26 @@ func validateViewSchemaShape(value any, relativePath string) error {
 	return nil
 }
 
+func validateCanonicalSourceFilter(value any, label string) error {
+	object, err := asObject(value, label)
+	if err != nil {
+		return err
+	}
+	if err := requireAllowedKeys(object, canonicalSourceFilterKeys, label); err != nil {
+		return err
+	}
+	if _, err := requireEnumString(object, "kind", label, "artifact_type"); err != nil {
+		return err
+	}
+	if _, err := requireEnumString(object, "field", label, "artifact_type"); err != nil {
+		return err
+	}
+	if _, err := requiredString(object, "value", label); err != nil {
+		return err
+	}
+	return nil
+}
+
 func validateViewSchemaField(field map[string]any, label string) (string, error) {
 	if err := requireAllowedKeys(field, viewSchemaFieldKeys, label); err != nil {
 		return "", err
@@ -436,6 +463,7 @@ func validateViewSchemaField(field map[string]any, label string) (string, error)
 			return "", err
 		}
 	}
+	readKind, _ := field["read_kind"].(string)
 	for _, key := range []string{"default_hidden", "sortable", "groupable", "clearable", "writable"} {
 		if _, err := requiredBool(field, key, label); err != nil {
 			return "", err
@@ -466,6 +494,11 @@ func validateViewSchemaField(field map[string]any, label string) (string, error)
 		if _, err := stringArray(field["enum_values"], label+".enum_values", true); err != nil {
 			return "", err
 		}
+		if readKind != "enum" {
+			return "", fmt.Errorf("%s enum_values requires read_kind=enum", label)
+		}
+	} else if readKind == "enum" {
+		return "", fmt.Errorf("%s read_kind=enum requires enum_values", label)
 	}
 	if field["create_writable"] != nil {
 		if _, err := requiredBool(field, "create_writable", label); err != nil {

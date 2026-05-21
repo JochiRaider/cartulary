@@ -3591,8 +3591,8 @@ Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-127, AC-231
 
 **REQ-01-289**
-View behavior MUST bind to `view_schema_id`, not to the visible tab label, column header text, or any other display label. `title` and field `label` values exposed by discovery are non-authoritative display hints only. The public discovery resource MUST describe semantic workbook behavior and MUST NOT expose `base_projection`, storage-table names, internal write targets, or other storage-realization details.
-Repo-local owner contract artifacts MAY carry internal-only projection-binding metadata, including `base_projection`, when needed for conformance checks and generated implementation inputs. That metadata MUST remain outside `view_schema_resource_v1` and other runtime discovery payloads.
+View behavior MUST bind to `view_schema_id`, not to the visible tab label, column header text, or any other display label. `title` and field `label` values exposed by discovery are non-authoritative display hints only. The public discovery resource MUST describe semantic workbook behavior and MUST NOT expose `base_projection`, `canonical_source_filter`, storage-table names, internal write targets, or other storage-realization details.
+Repo-local owner contract artifacts MAY carry internal-only projection-binding metadata, including `base_projection` and `canonical_source_filter`, when needed for conformance checks and generated implementation inputs. `canonical_source_filter` MUST be an object with `kind`, `field`, and `value`; in the current profile, artifact-subtype workbook surfaces use `{ "kind": "artifact_type", "field": "artifact_type", "value": <artifact_type> }`. That metadata MUST remain outside `view_schema_resource_v1` and other runtime discovery payloads.
 Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-231
 

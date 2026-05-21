@@ -1,33 +1,34 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase9",
-  "note": "Phase 9 ownership manifest for keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces when exposed, and remaining analyst-work workbook surfaces. Sprint 1 through Sprint 6 direct rows declare claim_status=implemented where complete; remaining Sprint 0 blocker sentinels declare claim_status=blocked and keep the aggregate Phase 9 claim incomplete.",
+  "note": "Phase 9 ownership manifest for keyboard contract, clipboard and bulk-edit behaviors, Notes, Indicators, Parties, Assessments, Task Requests, Decisions, coordination surfaces, optional standardized surfaces when exposed, and remaining analyst-work workbook surfaces. Sprint 1 through Sprint 7 direct rows declare claim_status=implemented where complete; remaining Sprint 0 blocker sentinels declare claim_status=blocked and keep the aggregate Phase 9 claim incomplete.",
   "ledger": {
     "title": "Phase 9 Coverage Ledger",
     "notes": [
       "Sprint 0 activates Phase 9 as a selectable harness phase using explicit blocker sentinels; Sprint 1 replaces keyboard dispatch, grid-anchor, and keyboard browser rows with direct evidence.",
       "Every authoritative Phase 9 row has exactly one declared execution dependency from the approved evidence layers: backend_unit, backend_store, backend_integration, frontend_unit, or browser_functional.",
       "Sprint 1 row-level evidence can be green while aggregate Phase 9 targets remain red from later-row blocker sentinels; that status does not complete broader Phase 9.",
-      "Remaining Sprint 0 sentinel tests are explicit blocker evidence and must not be treated as implemented behavior.",
+      "Remaining Sprint 0 sentinel tests for optional standardized and registry-closure work are explicit blocker evidence and must not be treated as implemented behavior.",
       "Sprint 2 clipboard and bulk-edit evidence is split by ownership: shared ingest planning is backend-unit evidence, persistence/provenance is backend-integration evidence, rendered dispatch is frontend-unit evidence, and visible workbook behavior is browser-functional evidence.",
       "Timeline and tabular-ingest clipboard helper tests are support evidence only; the authoritative U-9-02 owner remains the workbook shared paste and bulk planning unit row.",
       "Clipboard paste evidence remains distinct from file-based CSV/XLSX import and Import Extension Profile evidence.",
+      "Sprint 7 replaces the coordination-surface blocker with direct backend-store, backend-integration, and browser-functional evidence for Communications Log, Handoff, Status Review, and Lesson.",
       "Optional standardized Findings, Investigative Queries, and Forensic Keywords rows remain blocker sentinels until later work records direct coverage for exposed surfaces or an owner-cited N/A interpretation."
     ],
     "authoritative_execution": [
       "`backend-unit` selects direct Sprint 2 shared tabular-ingest planning evidence for clipboard paste and direct Sprint 5 timestamp_instant_v1 evidence, while registry rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, direct Sprint 5 Assessment evidence, direct Sprint 6 Task and Decision evidence, and blocker sentinels for coordination and optional standardized surfaces until real implementation evidence replaces them.",
-      "`backend-integration` selects direct Sprint 2 clipboard persistence, entity-origin paste, bulk-mutation evidence, and Sprint 5 Assessment projection-backed query evidence while later required surfaces remain covered by their own rows or blocker sentinels until real implementation evidence replaces them.",
+      "`backend-store` selects direct Sprint 3 Notes and Indicators evidence, direct Sprint 4 Party exact-match and direct-reference evidence, direct Sprint 5 Assessment evidence, direct Sprint 6 Task and Decision evidence, direct Sprint 7 coordination evidence, and blocker sentinels for optional standardized surfaces until real implementation evidence replaces them.",
+      "`backend-integration` selects direct Sprint 2 clipboard persistence, entity-origin paste, bulk-mutation evidence, Sprint 5 Assessment projection-backed query evidence, Sprint 6 Task and Decision projection evidence, and Sprint 7 coordination projection evidence while later optional surfaces remain covered by their own rows or blocker sentinels until real implementation evidence replaces them.",
       "`frontend-unit` selects direct Sprint 1 keyboard command/grid-anchor evidence plus Sprint 2 rendered paste-dispatch anchor evidence while later frontend Phase 9 rows remain blocker sentinels until real implementation evidence replaces them.",
-      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, Sprint 5 assessment workflow evidence, Sprint 6 Task and Decision workflow evidence, and shared-grid browser evidence while later browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
+      "`browser-e2e-webserver-backed` selects direct Sprint 1 keyboard evidence, Sprint 2 visible clipboard paste evidence, Sprint 5 assessment workflow evidence, Sprint 6 Task and Decision workflow evidence, Sprint 7 coordination workflow evidence, and shared-grid browser evidence while later optional browser-functional workbook workflows remain blocker sentinels until real implementation evidence replaces them."
     ],
-    "support_execution_extras": [
-      "Phase 4 workbook generic, assessment, Party, Indicator, and coordination smoke evidence remains support-only substrate and cannot claim Phase 9 completion or satisfy Phase 9 row ownership by itself.",
-      "Phase 6 grid, collaboration, pending-queue, and conflict marker evidence remains support-only substrate and cannot claim Phase 9 keyboard, clipboard, or shared-grid completion.",
-      "Phase 8 query, saved-view, grouping, sorting, filtering, and startup evidence remains support-only substrate and cannot claim Phase 9 workbook behavior.",
-      "Phase 9 timeline clipboard and tabular-ingest helper tests remain support-only substrate and cannot claim U-9-02 by themselves.",
-      "Support-only carryover files are listed in forbidden_id_files so they cannot accidentally claim Phase 9 identifiers."
-    ],
+      "support_execution_extras": [
+        "Phase 4 workbook generic, assessment, Party, Indicator, and coordination smoke evidence remains support-only substrate and cannot claim Phase 9 completion or satisfy Phase 9 row ownership by itself.",
+        "Phase 6 grid, collaboration, pending-queue, and conflict marker evidence remains support-only substrate and cannot claim Phase 9 keyboard, clipboard, or shared-grid completion.",
+        "Phase 8 query, saved-view, grouping, sorting, filtering, and startup evidence remains support-only substrate and cannot claim Phase 9 workbook behavior.",
+        "Phase 9 timeline clipboard and tabular-ingest helper tests remain support-only substrate and cannot claim U-9-02 by themselves.",
+        "Support-only carryover files are listed in forbidden_id_files so they cannot accidentally claim Phase 9 identifiers."
+      ],
     "sections": {
       "unit": "Unit",
       "integration": "Integration",
@@ -246,15 +247,34 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/workbook",
-      "file": "internal/modules/workbook/phase9_sprint0_sentinel_test.go",
-      "symbol": "TestPhase9_Sprint0Blocker_U_9_08",
+      "file": "internal/modules/workbook/phase9_coordination_surfaces_test.go",
+      "symbols": [
+        "TestPhase9Sprint7_CoordinationMinimumDefaultsAndRejection_U_9_08",
+        "TestPhase9Sprint7_RejectedCoordinationCreateEmitsNoRecordChanged_U_9_08",
+        "TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08",
+        "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08",
+        "TestPhase9Sprint7_CoordinationSemanticFilters_U_9_08",
+        "TestPhase9Sprint7_CoordinationCollectionItemShapes_U_9_08",
+        "TestPhase9Sprint7_CoordinationDuplicateCoalescing_U_9_08",
+        "TestPhase9Sprint7_CoordinationCollectionsAndValidation_U_9_08",
+        "TestPhase9Sprint7_CoordinationDeclaredQueryFieldsAreMapped_U_9_08"
+      ],
       "execution_dependency": "backend_store",
-      "evidence_layer": "backend_store_blocker_sentinel",
-      "claim": "Sprint 0 blocker sentinel for coordination surfaces; this is not behavior completion evidence.",
-      "out_of_scope": "Implementing coordination surfaces is later Phase 9 work.",
-      "execution_family": "backend-store-phase9-workbook-blockers",
-      "execution_label": "backend-store phase9 workbook blocker sentinels",
-      "claim_status": "blocked"
+      "evidence_layer": "backend_store",
+      "claim": "Communications Log, Handoff, Status Review, and Lesson persist as workbook-native artifact rows with distinct artifact_type values, enforce minimum create signals before defaults, leave no partial durable state on store and route rejected creates, emit no record_changed event for rejected route creates, keep saved views additive to canonical view_schema_id surfaces, generate immutable subtype IDs, apply omitted defaults, derive handoff.ack_state from acknowledged_at, sort handoff.ack_state by the canonical pending-before-acknowledged token order, validate coordination record_ref, party_ref, and handoff-scoped risk_ref collection actions against same-incident active targets, preserve comm_log.audience text while supplemental party refs change, keep risk refs as scoped handoff child rows, prove exact collection item wire shapes and duplicate coalescing for every Sprint 7 coordination collection field, and query projection-backed sort, semantic filter, and group fields declared for all four coordination surfaces.",
+      "out_of_scope": "Optional standardized findings, investigative-query, and forensic-keyword surfaces remain later Phase 9 work.",
+      "execution_family": "backend-store-phase9-coordination",
+      "execution_label": "backend-store phase9 coordination evidence",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 9
+        }
+      },
+      "template_clone_reason": "Sprint 7 coordination evidence now includes authoritative route, websocket, and saved-view behavior that starts the real runtime harness and must share a committed per-test database fixture with the store-domain coordination assertions in this row.",
+      "claim_status": "implemented"
     },
     {
       "id": "U-9-09",
@@ -280,7 +300,7 @@
       "symbol": "TestPhase9_TimestampInstantPatchDecoder_U_9_10",
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
-      "claim": "timestamp_instant_v1 accepts RFC 3339 JSON strings with Z or numeric offsets, normalizes offset-equivalent values to one UTC instant for equality and idempotency hashing, clears only timestamp fields declared clearable=true, rejects explicit null for non-clearable fields, and fails closed for empty strings, whitespace-padded strings, timezone-less strings, date-only strings, numbers, booleans, arrays, and objects in workbook mutation and timestamp query operand decoding.",
+      "claim": "timestamp_instant_v1 accepts RFC 3339 JSON strings with Z or numeric offsets, normalizes offset-equivalent values to one UTC instant for equality and idempotency hashing, clears only timestamp fields declared clearable=true including coordination next-report and acknowledged-at fields, rejects explicit null for non-clearable coordination timestamp_utc fields, and fails closed for empty strings, whitespace-padded strings, timezone-less strings, date-only strings, numbers, booleans, arrays, and objects in workbook mutation and timestamp query operand decoding.",
       "out_of_scope": "Visible invalid timestamp draft preservation is claimed by E-9-05 rather than this backend-unit row.",
       "execution_family": "backend-unit-phase9-timestamps",
       "execution_label": "backend-unit phase9 timestamp evidence",
@@ -314,8 +334,8 @@
       "symbol": "TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull",
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
-      "claim": "Assessment support_refs, Task linked_record_ids, Decision support_refs, and Decision affected_record_ids reject client-supplied confidence in collection-action payloads, and manual links created or preserved through those fields persist provenance='manual' with authoritative confidence=NULL.",
-      "out_of_scope": "Coordination artifact relationship collection confidence surfaces remain later Phase 9 work.",
+      "claim": "Assessment support_refs, Task linked_record_ids, Decision support_refs, Decision affected_record_ids, and all coordination record_ref, party_ref, and risk_ref collection fields reject client-supplied confidence in collection-action payloads; manual record and party links created or preserved through those fields persist provenance='manual' with authoritative confidence=NULL, while handoff risk refs remain child rows without generic record-link confidence.",
+      "out_of_scope": "Optional standardized findings, investigative-query, and forensic-keyword relationship surfaces remain later Phase 9 work.",
       "execution_family": "backend-store-phase9-assessments",
       "execution_label": "backend-store phase9 relationship confidence evidence",
       "claim_status": "implemented"
@@ -382,7 +402,8 @@
       "symbols": [
         "TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02",
         "TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02",
-        "TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02"
+        "TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02",
+        "TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02"
       ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
@@ -391,11 +412,11 @@
       },
       "fixture_budget": {
         "postgres": {
-          "max_transactions": 3
+          "max_transactions": 4
         }
       },
-      "claim": "Required-surface persistence queries through workbook projections for Notes, Indicators, Assessments, Task Requests, and Decisions: Notes through artifact_grid_projection filtered to artifact_type='note', Indicators through indicator_grid_projection behind cartulary.view.indicators.v1, Assessments through assessment_grid_projection including projected confidence band and support-link count, Task Requests through task_request_grid_projection including queue filters and relationship counts, and Decisions through decision_grid_projection including support refs, affected refs, and affected-record counts.",
-      "out_of_scope": "Later required coordination artifact surfaces beyond Task Requests and Decisions remain covered by their own Phase 9 rows and blocker sentinels until implemented.",
+      "claim": "Required-surface persistence queries through workbook projections for Notes, Indicators, Assessments, Task Requests, Decisions, and coordination artifact surfaces: Notes through artifact_grid_projection filtered to artifact_type='note', Indicators through indicator_grid_projection, Assessments through assessment_grid_projection, Task Requests through task_request_grid_projection, Decisions through decision_grid_projection, and Communications Log, Handoff, Status Review, and Lesson through artifact_grid_projection filtered by each coordination artifact_type with structured collection fields.",
+      "out_of_scope": "Optional standardized findings, investigative-query, and forensic-keyword projection behavior remains later Phase 9 work.",
       "execution_family": "backend-integration-phase9-required-surfaces",
       "execution_label": "backend-integration phase9 required-surface projection evidence",
       "claim_status": "implemented"
@@ -410,7 +431,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
       "claim": "Party-link helper field writes update hidden same-incident Party references without overwriting preserved requester, collector, or source text; clear-link, clear-text, and clear-both semantics round-trip through full row refresh state; foreign, deleted, wrong-type, or deployment-user UUID targets fail closed for requester, collector, source, audience, and attendee party references; comm-log audience text is preserved when audience or attendee party refs are added or removed; and deleting a Party with active direct or collection incoming references fails closed.",
-      "out_of_scope": "Task/Decision workflow creation and coordination collection workflows remain later Phase 9 work.",
+      "out_of_scope": "Task/Decision workflow creation, broader coordination-surface lifecycle behavior, and optional standardized surfaces remain owned by their own Phase 9 rows.",
       "execution_family": "backend-integration-phase9-parties",
       "execution_label": "backend-integration phase9 parties evidence",
       "claim_status": "implemented"
@@ -496,7 +517,7 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
       "claim": "The browser workbook assessment workflow appends visible assessment history rows across unknown, suspected, confirmed, disproven, and cleared states; persists band-first confidence choices as unset, low, medium, and high; displays support-link count; filters assessment_state and confidence_band separately; and keeps an invalid assessed_at timestamp draft client-local without creating a persisted assessment row.",
-      "out_of_scope": "Task Request, Decision, coordination, optional standardized surface, import, and reporting browser workflows remain later Phase 9 work.",
+      "out_of_scope": "Task Request, Decision, coordination, optional standardized surface, import, and reporting browser workflows remain owned by their own Phase 9 rows.",
       "claim_status": "implemented"
     },
     {
@@ -504,12 +525,15 @@
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
-      "title": "Phase 9 E-9-06 Task Request and Decision workbook workflows stay native",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
-      "claim": "The browser workbook opens Task Requests and Decisions by canonical view_schema_id, creates and edits Task Request queue fields, priority, due date, blocked reason, owner-filterable rows, linked records, and direct decision links through workbook-native controls, proves priority filter and sort behavior through stable record anchors, creates Decision support refs, patches Decision affected-record refs, executes explicit Decision supersession through the shared supersede route, and clears task.decision_record_id through the ordinary record PATCH body with value:null.",
-      "out_of_scope": "Coordination, optional standardized surface, import, and reporting browser workflows remain later Phase 9 rows.",
-      "claim_status": "implemented"
+      "claim": "The browser workbook opens Task Requests, Decisions, Communications Log, Handoff, Status Review, and Lesson by canonical view_schema_id; creates and edits Task Request queue fields, priority, due date, blocked reason, owner-filterable rows, linked records, and direct decision links; creates Decision support refs, patches Decision affected-record refs, executes explicit Decision supersession, clears task.decision_record_id through the ordinary PATCH body, and creates Communications Log, Handoff, Status Review, and Lesson through workbook-native controls, including explicit Handoff incoming-owner input before submit, then edits and queries coordination fields for comm-log references, handoff next checks and risk refs, derived acknowledgment state, status-review blocked work, pending evidence, open decisions, next report filtering, and lesson follow-up/evidence closure.",
+      "out_of_scope": "Optional standardized surface, import, and reporting browser workflows remain later Phase 9 rows.",
+      "claim_status": "implemented",
+      "titles": [
+        "Phase 9 E-9-06 Task Request and Decision workbook workflows stay native",
+        "Phase 9 E-9-06 coordination workbook workflows stay native"
+      ]
     },
     {
       "id": "E-9-07",
@@ -542,8 +566,8 @@
       "file": "apps/web/e2e/phase9.keyboard.spec.ts",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
-      "claim": "Shared grid behavior remains stable across Timeline cells, Hosts and Identities entity-origin surfaces, renderer-family surfaces, the Assessments system view, required Task Requests, Decisions, and Notes generic surfaces, and the Indicators system view using stable record_id and field_key anchors; Host and Identity entity-origin clipboard paste uses the shared grid paste dispatcher and backend exact-match/stub contract without routing through file import.",
-      "out_of_scope": "Timeline paste remains owned by E-9-02; browser-level bulk-edit, presence, save-state, conflict-marker, and optional standardized surface behavior remain owned by later browser-functional evidence rows.",
+      "claim": "The E-9-GRID-01 browser evidence proves the explicitly visited shared-grid keyboard-anchor path keeps stable record_id and field_key anchors across Timeline, Hosts, Identities, Assessments, Task Requests, Decisions, Notes, Communications Log, Handoff, Status Review, Lesson, and Indicators; it also proves Host and Identity entity-origin clipboard paste uses the shared grid paste dispatcher and backend exact-match/stub contract without routing through file import.",
+      "out_of_scope": "This row does not claim a general certification for every renderer-family surface or every shared-grid behavior. Timeline paste remains owned by E-9-02; browser-level bulk-edit, presence, save-state, conflict-marker, and optional standardized surface behavior remain owned by later browser-functional evidence rows.",
       "claim_status": "implemented",
       "titles": [
         "Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbook cells",

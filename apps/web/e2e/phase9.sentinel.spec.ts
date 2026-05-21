@@ -5,6 +5,7 @@ import {
 } from "@cartulary/test-utils";
 import {
   conflictMarkerTestId,
+  gridFilterChipTestId,
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
@@ -29,10 +30,13 @@ import {
   editGenericCell,
   evidenceViewSchemaId,
   expectAssessmentGridOrder,
+  handoffViewSchemaId,
   hostsViewSchemaId,
   indicatorsViewSchemaId,
+  lessonViewSchemaId,
   notesViewSchemaId,
   partiesViewSchemaId,
+  statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   waitForViewRowByCell,
 } from "./phase4Helpers";
@@ -1253,8 +1257,7 @@ test("Phase 9 E-9-06 Task Request and Decision workbook workflows stay native", 
     return (
       body.sort?.some(
         (entry) =>
-          entry.field_key === "task.priority" &&
-          entry.direction === "desc",
+          entry.field_key === "task.priority" && entry.direction === "desc",
       ) ?? false
     );
   });
@@ -1270,7 +1273,9 @@ test("Phase 9 E-9-06 Task Request and Decision workbook workflows stay native", 
   await expect(
     page
       .getByTestId(gridShellTestId(taskRequestsViewSchemaId))
-      .locator('[role="row"][data-grid-record-id]:not([data-grid-record-id=""])')
+      .locator(
+        '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
+      )
       .first(),
   ).toHaveAttribute("data-grid-record-id", urgentTask.record_id);
 
@@ -1360,6 +1365,364 @@ test("Phase 9 E-9-06 Task Request and Decision workbook workflows stay native", 
     decisionRows.find((row) => row.record_id === supersedingDecision.record_id)
       ?.cells["decision.supersedes_record_id"]?.value,
   ).toBe(targetDecision.record_id);
+});
+
+test("Phase 9 E-9-06 coordination workbook workflows stay native", async ({
+  page,
+  workerAdmin,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E906COORD"),
+    "Phase 9 E-9-06 coordination workflows",
+  );
+  const party = await createViewRow(page, incidentId, partiesViewSchemaId, {
+    client_txn_id: uniqueTxn("e906coord-party"),
+    "party.display_name": "E-9-06 Coordination Lead",
+    "party.party_kind": "team",
+  });
+  const evidence = await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("e906coord-evidence"),
+    "evidence.title": "E-9-06 coordination evidence",
+  });
+  const decision = await createViewRow(
+    page,
+    incidentId,
+    decisionsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e906coord-decision"),
+      "decision.summary": "E-9-06 coordination decision",
+      "decision.decision_type": "containment",
+      "decision.rationale": "Coordination workflow decision.",
+    },
+  );
+  const task = await createViewRow(page, incidentId, taskRequestsViewSchemaId, {
+    client_txn_id: uniqueTxn("e906coord-task"),
+    "task.title": "E-9-06 coordination task",
+    "task.task_kind": "follow_up",
+  });
+
+  await disableWorkbookSockets(page);
+  await openGenericSurface(
+    page,
+    incidentId,
+    commLogViewSchemaId,
+    "Communications Log",
+  );
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(commLogViewSchemaId)}`),
+  );
+  await setPhase9GenericCreateField(page, "comm_log.comm_type", "briefing");
+  await setPhase9GenericCreateField(
+    page,
+    "comm_log.audience",
+    "E-9-06 coordination audience",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "comm_log.channel_or_meeting",
+    "Coordination bridge",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "comm_log.summary",
+    "E-9-06 coordination log",
+  );
+  await waitForPhase9GenericOption(
+    page,
+    "generic-create-field-comm_log.decision_ids",
+    decision.record_id as string,
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "comm_log.decision_ids",
+    decision.record_id as string,
+  );
+  await waitForPhase9GenericOption(
+    page,
+    "generic-create-field-comm_log.action_task_ids",
+    task.record_id as string,
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "comm_log.action_task_ids",
+    task.record_id as string,
+  );
+  await waitForPhase9GenericOption(
+    page,
+    "generic-create-field-comm_log.audience_party_ids",
+    party.record_id as string,
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "comm_log.audience_party_ids",
+    party.record_id as string,
+  );
+  await page
+    .getByTestId(`generic-create-submit-${commLogViewSchemaId}`)
+    .click();
+  const comm = await waitForViewRowByCell(
+    page,
+    incidentId,
+    commLogViewSchemaId,
+    "comm_log.summary",
+    "E-9-06 coordination log",
+  );
+  expect(comm.cells["comm_log.audience"]?.value).toBe(
+    "E-9-06 coordination audience",
+  );
+  expect(collectionItems(comm, "comm_log.decision_ids")).toHaveLength(1);
+  expect(collectionItems(comm, "comm_log.action_task_ids")).toHaveLength(1);
+  expect(collectionItems(comm, "comm_log.audience_party_ids")).toHaveLength(1);
+
+  await openGenericSurface(page, incidentId, handoffViewSchemaId, "Handoff");
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(handoffViewSchemaId)}`),
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "handoff.current_state_summary",
+    "E-9-06 handoff state",
+  );
+  await page
+    .getByTestId(`generic-create-submit-${handoffViewSchemaId}`)
+    .click();
+  await expect(page.getByTestId("generic-mutation-error")).toContainText(
+    "Incoming owner",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "handoff.incoming_owner_user_id",
+    workerAdmin.user_id,
+  );
+  await page
+    .getByTestId(`generic-create-submit-${handoffViewSchemaId}`)
+    .click();
+  const handoff = await waitForViewRowByCell(
+    page,
+    incidentId,
+    handoffViewSchemaId,
+    "handoff.current_state_summary",
+    "E-9-06 handoff state",
+  );
+  await editGenericCell(
+    page,
+    handoffViewSchemaId,
+    handoff.record_id,
+    "handoff.next_checks",
+    "Verify next checkpoint before shift change",
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await editGenericCell(
+    page,
+    handoffViewSchemaId,
+    handoff.record_id,
+    "handoff.open_risk_refs",
+    "Residual endpoint access risk",
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await editGenericCell(
+    page,
+    handoffViewSchemaId,
+    handoff.record_id,
+    "handoff.acknowledged_at",
+    "2026-05-26T14:00:00Z",
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  const handoffRows = await queryViewRows(
+    page,
+    incidentId,
+    handoffViewSchemaId,
+  );
+  const refreshedHandoff = handoffRows.find(
+    (row) => row.record_id === handoff.record_id,
+  );
+  expect(refreshedHandoff?.cells["handoff.next_checks"]?.value).toBe(
+    "Verify next checkpoint before shift change",
+  );
+  expect(refreshedHandoff?.cells["handoff.ack_state"]?.value).toBe(
+    "acknowledged",
+  );
+  if (!refreshedHandoff) {
+    throw new Error("missing refreshed handoff");
+  }
+  expect(
+    collectionItems(refreshedHandoff, "handoff.open_risk_refs"),
+  ).toHaveLength(1);
+  await applyFilterChip(
+    page,
+    handoffViewSchemaId,
+    "handoff.ack_state",
+    "acknowledged",
+  );
+  await expect(
+    page.getByTestId(
+      gridFilterChipTestId(handoffViewSchemaId, "handoff.ack_state"),
+    ),
+  ).toContainText("acknowledged");
+  await removeFilterChip(page, handoffViewSchemaId, "handoff.ack_state");
+
+  await openGenericSurface(
+    page,
+    incidentId,
+    statusReviewViewSchemaId,
+    "Status Review",
+  );
+  await setPhase9GenericCreateField(
+    page,
+    "status_review.current_state_summary",
+    "E-9-06 status review state",
+  );
+  await page
+    .getByTestId(`generic-create-submit-${statusReviewViewSchemaId}`)
+    .click();
+  const status = await waitForViewRowByCell(
+    page,
+    incidentId,
+    statusReviewViewSchemaId,
+    "status_review.current_state_summary",
+    "E-9-06 status review state",
+  );
+  await editPhase9GenericCell(
+    page,
+    statusReviewViewSchemaId,
+    status.record_id,
+    "status_review.blocked_task_ids",
+    task.record_id as string,
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await editPhase9GenericCell(
+    page,
+    statusReviewViewSchemaId,
+    status.record_id,
+    "status_review.pending_evidence_ids",
+    evidence.record_id as string,
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await editPhase9GenericCell(
+    page,
+    statusReviewViewSchemaId,
+    status.record_id,
+    "status_review.open_decision_ids",
+    decision.record_id as string,
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await editGenericCell(
+    page,
+    statusReviewViewSchemaId,
+    status.record_id,
+    "status_review.next_report_at",
+    "2026-05-27T15:30:00Z",
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  const statusRows = await queryViewRows(
+    page,
+    incidentId,
+    statusReviewViewSchemaId,
+  );
+  const refreshedStatus = statusRows.find(
+    (row) => row.record_id === status.record_id,
+  );
+  if (!refreshedStatus) {
+    throw new Error("missing refreshed status review");
+  }
+  expect(
+    collectionItems(refreshedStatus, "status_review.blocked_task_ids"),
+  ).toHaveLength(1);
+  expect(
+    collectionItems(refreshedStatus, "status_review.pending_evidence_ids"),
+  ).toHaveLength(1);
+  expect(
+    collectionItems(refreshedStatus, "status_review.open_decision_ids"),
+  ).toHaveLength(1);
+  expect(
+    Date.parse(
+      refreshedStatus.cells["status_review.next_report_at"]?.value as string,
+    ),
+  ).toBe(Date.parse("2026-05-27T15:30:00Z"));
+  await applyFilterChip(
+    page,
+    statusReviewViewSchemaId,
+    "status_review.next_report_day",
+    "2026-05-27",
+  );
+  await expect(
+    page.getByTestId(
+      gridFilterChipTestId(
+        statusReviewViewSchemaId,
+        "status_review.next_report_day",
+      ),
+    ),
+  ).toContainText("2026-05-27");
+  await removeFilterChip(
+    page,
+    statusReviewViewSchemaId,
+    "status_review.next_report_day",
+  );
+
+  await openGenericSurface(page, incidentId, lessonViewSchemaId, "Lesson");
+  await setPhase9GenericCreateField(
+    page,
+    "lesson.summary",
+    "E-9-06 lesson workflow",
+  );
+  await page.getByTestId(`generic-create-submit-${lessonViewSchemaId}`).click();
+  const lesson = await waitForViewRowByCell(
+    page,
+    incidentId,
+    lessonViewSchemaId,
+    "lesson.summary",
+    "E-9-06 lesson workflow",
+  );
+  await editPhase9GenericCell(
+    page,
+    lessonViewSchemaId,
+    lesson.record_id,
+    "lesson.follow_up_task_ids",
+    task.record_id as string,
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await editPhase9GenericCell(
+    page,
+    lessonViewSchemaId,
+    lesson.record_id,
+    "lesson.evidence_refs",
+    evidence.record_id as string,
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await editGenericCell(
+    page,
+    lessonViewSchemaId,
+    lesson.record_id,
+    "lesson.closure_state",
+    "closed",
+  );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  const lessonRows = await queryViewRows(page, incidentId, lessonViewSchemaId);
+  const refreshedLesson = lessonRows.find(
+    (row) => row.record_id === lesson.record_id,
+  );
+  if (!refreshedLesson) {
+    throw new Error("missing refreshed lesson");
+  }
+  expect(refreshedLesson.cells["lesson.closure_state"]?.value).toBe("closed");
+  expect(
+    collectionItems(refreshedLesson, "lesson.follow_up_task_ids"),
+  ).toHaveLength(1);
+  expect(collectionItems(refreshedLesson, "lesson.evidence_refs")).toHaveLength(
+    1,
+  );
+  await applyFilterChip(
+    page,
+    lessonViewSchemaId,
+    "lesson.closure_state",
+    "closed",
+  );
+  await expect(
+    page.getByTestId(
+      gridFilterChipTestId(lessonViewSchemaId, "lesson.closure_state"),
+    ),
+  ).toContainText("closed");
 });
 
 test("Phase 9 E-9-07 Sprint 0 blocker sentinel", async () => {
@@ -1485,6 +1848,36 @@ async function setPhase9GenericCreateField(
     return;
   }
   await input.fill(Array.isArray(value) ? value.join("\n") : value);
+}
+
+async function editPhase9GenericCell(
+  page: Page,
+  viewSchemaId: string,
+  recordId: string,
+  fieldKey: string,
+  value: string | string[],
+) {
+  await page
+    .getByTestId(`generic-edit-record-${viewSchemaId}`)
+    .selectOption(recordId);
+  await page
+    .getByTestId(`generic-edit-field-${viewSchemaId}`)
+    .selectOption(fieldKey);
+  const input = page.getByTestId(`generic-edit-value-${viewSchemaId}`);
+  const tagName = await input.evaluate((element) => element.tagName);
+  if (tagName === "SELECT") {
+    if (typeof value === "string") {
+      await waitForPhase9GenericOption(
+        page,
+        `generic-edit-value-${viewSchemaId}`,
+        value,
+      );
+    }
+    await input.selectOption(value);
+  } else {
+    await input.fill(Array.isArray(value) ? value.join("\n") : value);
+  }
+  await page.getByTestId(`generic-edit-submit-${viewSchemaId}`).click();
 }
 
 async function waitForPhase9GenericOption(

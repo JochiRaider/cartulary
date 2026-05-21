@@ -69,6 +69,116 @@ func TestWorkbookMutationDecoderRejectsCollectionReplacement(t *testing.T) {
 	}
 }
 
+func TestWorkbookMutationDecoderCollectionIDsAreExactLexicalTokens(t *testing.T) {
+	stableID := "11111111-2222-3333-4444-555555555555"
+	tests := []struct {
+		name         string
+		viewSchemaID string
+		fieldKey     string
+		action       string
+	}{
+		{
+			name:         "add record ref rejects leading whitespace",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.decision_ids",
+			action:       `{"op":"add_record_ref","linked_record_id":" ` + stableID + `"}`,
+		},
+		{
+			name:         "add record ref rejects trailing whitespace",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.decision_ids",
+			action:       `{"op":"add_record_ref","linked_record_id":"` + stableID + ` "}`,
+		},
+		{
+			name:         "add record ref rejects noncanonical casing",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.decision_ids",
+			action:       `{"op":"add_record_ref","linked_record_id":"11111111-2222-3333-4444-AAAAAAAAAAAA"}`,
+		},
+		{
+			name:         "remove record ref rejects padded item ref",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.decision_ids",
+			action:       `{"op":"remove_record_ref","item_ref":"record_ref:` + stableID + ` "}`,
+		},
+		{
+			name:         "remove record ref rejects noncanonical item ref suffix",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.decision_ids",
+			action:       `{"op":"remove_record_ref","item_ref":"record_ref:11111111-2222-3333-4444-AAAAAAAAAAAA"}`,
+		},
+		{
+			name:         "add party ref rejects padded party id",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.audience_party_ids",
+			action:       `{"op":"add_party_ref","party_id":"` + stableID + ` "}`,
+		},
+		{
+			name:         "remove party ref rejects padded item ref",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.audience_party_ids",
+			action:       `{"op":"remove_party_ref","item_ref":" party_ref:` + stableID + `"}`,
+		},
+		{
+			name:         "remove risk ref rejects padded item ref",
+			viewSchemaID: HandoffViewSchemaID,
+			fieldKey:     "handoff.open_risk_refs",
+			action:       `{"op":"remove_risk_ref","item_ref":"risk_ref:` + stableID + ` "}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"view_schema_id":"` + tc.viewSchemaID + `","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"` + tc.fieldKey + `","action_payload":{"kind":"collection_actions_v1","actions":[` + tc.action + `]}}]}`
+			if _, apiErr := DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
+				t.Fatalf("expected inexact identifier to fail for %s", tc.fieldKey)
+			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+				t.Fatalf("unexpected error for %s: %#v", tc.fieldKey, apiErr)
+			}
+		})
+	}
+}
+
+func TestWorkbookMutationDecoderCollectionRemovalRequiresItemRef(t *testing.T) {
+	stableID := "11111111-2222-3333-4444-555555555555"
+	tests := []struct {
+		name         string
+		viewSchemaID string
+		fieldKey     string
+		action       string
+	}{
+		{
+			name:         "record ref removal rejects linked record id",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.decision_ids",
+			action:       `{"op":"remove_record_ref","linked_record_id":"` + stableID + `"}`,
+		},
+		{
+			name:         "party ref removal rejects party id",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.audience_party_ids",
+			action:       `{"op":"remove_party_ref","party_id":"` + stableID + `"}`,
+		},
+		{
+			name:         "risk ref removal rejects risk ref id",
+			viewSchemaID: HandoffViewSchemaID,
+			fieldKey:     "handoff.open_risk_refs",
+			action:       `{"op":"remove_risk_ref","risk_ref_id":"` + stableID + `"}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"view_schema_id":"` + tc.viewSchemaID + `","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"` + tc.fieldKey + `","action_payload":{"kind":"collection_actions_v1","actions":[` + tc.action + `]}}]}`
+			if _, apiErr := DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
+				t.Fatalf("expected removal without item_ref to fail for %s", tc.fieldKey)
+			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+				t.Fatalf("unexpected error for %s: %#v", tc.fieldKey, apiErr)
+			}
+		})
+	}
+}
+
 func TestPhase9TaskDecisionRelationshipConfidenceRejected(t *testing.T) {
 	recordID := "11111111-2222-3333-4444-555555555555"
 	tests := []struct {

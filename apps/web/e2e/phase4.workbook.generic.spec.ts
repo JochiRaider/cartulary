@@ -26,6 +26,7 @@ import {
 
 test("E-4-06 creates and edits required workbook mutation surfaces through typed generic controls", async ({
   page,
+  workerAdmin,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -285,6 +286,11 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     page,
     "handoff.current_state_summary",
     "Browser handoff",
+  );
+  await setGenericCreateField(
+    page,
+    "handoff.incoming_owner_user_id",
+    workerAdmin.user_id,
   );
   await waitForGenericOption(
     page,

@@ -257,6 +257,106 @@ func TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02(t
 	requireProjectedNumericCell(t, taskRow, "task.linked_record_count", 1)
 }
 
+func TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
+	harness := phase4storetest.StartStore(t, "phase9-i-9-02-coordination")
+	workbookStore := workbook.NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902-coordination@example.test", "I902 Coordination", "I902Coordination1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-coordination-incident", "IR-I902-COORD", "Phase 9 I-9-02 coordination")
+
+	partyID := mustCreatePartyForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-party", "Projection coordination party")
+	taskID := mustCreateTaskForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-task", "Projection coordination task")
+	evidenceID := mustCreateEvidenceForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-evidence", "Projection coordination evidence")
+	decisionID := mustCreateSprint6Decision(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-decision", "approved", "Projection coordination decision")
+
+	nextReport := time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC)
+	comm := mustCreateSprint7Row(t, workbookStore, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-phase9-i-9-02-comm", map[string]workbook.ValueChange{
+		"comm_log.timestamp_utc":      sprint7Timestamp(time.Date(2026, 5, 21, 12, 0, 0, 0, time.UTC)),
+		"comm_log.comm_type":          textChange("briefing"),
+		"comm_log.audience":           textChange("Projection leadership"),
+		"comm_log.channel_or_meeting": textChange("Bridge"),
+		"comm_log.summary":            textChange("Projection-backed comm log"),
+		"comm_log.next_report_at":     sprint7Timestamp(nextReport),
+	}, map[string]workbook.CollectionActionPayload{
+		"comm_log.decision_ids":       {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &decisionID}}},
+		"comm_log.action_task_ids":    {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &taskID}}},
+		"comm_log.audience_party_ids": {Actions: []workbook.CollectionAction{{Op: "add_party_ref", PartyID: &partyID}}},
+	}, time.Date(2026, 5, 21, 12, 0, 0, 0, time.UTC))
+	commQuery := mustQueryMeta(t, workbook.CommLogViewSchemaID)
+	commQuery.Filters = []viewschema.Filter{
+		{FieldKey: "comm_log.comm_type", Op: "eq", Arg: map[string]any{"value": "briefing"}},
+		{FieldKey: "comm_log.next_report_day", Op: "eq", Arg: map[string]any{"value": "2026-05-24"}},
+	}
+	commRows, err := workbookStore.QueryRows(context.Background(), incident.ID, workbook.CommLogViewSchemaID, commQuery)
+	if err != nil {
+		t.Fatalf("query comm log projection: %v", err)
+	}
+	commRow := requireQueriedRow(t, commRows, comm.RecordID)
+	requireProjectedCollectionCount(t, commRow, "comm_log.decision_ids", 1)
+	requireProjectedCollectionCount(t, commRow, "comm_log.action_task_ids", 1)
+	requireProjectedCollectionCount(t, commRow, "comm_log.audience_party_ids", 1)
+
+	acknowledgedAt := time.Date(2026, 5, 22, 14, 0, 0, 0, time.UTC)
+	handoff := mustCreateSprint7Row(t, workbookStore, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-phase9-i-9-02-handoff", map[string]workbook.ValueChange{
+		"handoff.timestamp_utc":          sprint7Timestamp(time.Date(2026, 5, 22, 13, 0, 0, 0, time.UTC)),
+		"handoff.incoming_owner_user_id": sprint7UUID(actor.ID),
+		"handoff.current_state_summary":  textChange("Projection-backed handoff"),
+		"handoff.acknowledged_at":        sprint7Timestamp(acknowledgedAt),
+	}, map[string]workbook.CollectionActionPayload{
+		"handoff.open_task_ids":     {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &taskID}}},
+		"handoff.open_decision_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &decisionID}}},
+		"handoff.open_risk_refs":    {Actions: []workbook.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Projection-backed handoff risk", NormalizedText: "projection-backed handoff risk"}}},
+	}, time.Date(2026, 5, 22, 13, 0, 0, 0, time.UTC))
+	handoffQuery := mustQueryMeta(t, workbook.HandoffViewSchemaID)
+	handoffQuery.Filters = []viewschema.Filter{{FieldKey: "handoff.ack_state", Op: "eq", Arg: map[string]any{"value": "acknowledged"}}}
+	handoffRows, err := workbookStore.QueryRows(context.Background(), incident.ID, workbook.HandoffViewSchemaID, handoffQuery)
+	if err != nil {
+		t.Fatalf("query handoff projection: %v", err)
+	}
+	handoffRow := requireQueriedRow(t, handoffRows, handoff.RecordID)
+	requireProjectedCollectionCount(t, handoffRow, "handoff.open_task_ids", 1)
+	requireProjectedCollectionCount(t, handoffRow, "handoff.open_decision_ids", 1)
+	requireProjectedCollectionCount(t, handoffRow, "handoff.open_risk_refs", 1)
+
+	statusNextReport := time.Date(2026, 5, 25, 15, 0, 0, 0, time.UTC)
+	status := mustCreateSprint7Row(t, workbookStore, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-phase9-i-9-02-status", map[string]workbook.ValueChange{
+		"status_review.timestamp_utc":         sprint7Timestamp(time.Date(2026, 5, 23, 15, 0, 0, 0, time.UTC)),
+		"status_review.current_state_summary": textChange("Projection-backed status review"),
+		"status_review.next_report_at":        sprint7Timestamp(statusNextReport),
+	}, map[string]workbook.CollectionActionPayload{
+		"status_review.blocked_task_ids":     {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &taskID}}},
+		"status_review.pending_evidence_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &evidenceID}}},
+		"status_review.open_decision_ids":    {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &decisionID}}},
+	}, time.Date(2026, 5, 23, 15, 0, 0, 0, time.UTC))
+	statusQuery := mustQueryMeta(t, workbook.StatusReviewViewSchemaID)
+	statusQuery.Filters = []viewschema.Filter{{FieldKey: "status_review.next_report_day", Op: "eq", Arg: map[string]any{"value": "2026-05-25"}}}
+	statusRows, err := workbookStore.QueryRows(context.Background(), incident.ID, workbook.StatusReviewViewSchemaID, statusQuery)
+	if err != nil {
+		t.Fatalf("query status review projection: %v", err)
+	}
+	statusRow := requireQueriedRow(t, statusRows, status.RecordID)
+	requireProjectedCollectionCount(t, statusRow, "status_review.blocked_task_ids", 1)
+	requireProjectedCollectionCount(t, statusRow, "status_review.pending_evidence_ids", 1)
+	requireProjectedCollectionCount(t, statusRow, "status_review.open_decision_ids", 1)
+
+	lesson := mustCreateSprint7Row(t, workbookStore, actor, incident.ID, workbook.LessonViewSchemaID, "txn-phase9-i-9-02-lesson", map[string]workbook.ValueChange{
+		"lesson.timestamp_utc": sprint7Timestamp(time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC)),
+		"lesson.summary":       textChange("Projection-backed lesson"),
+		"lesson.closure_state": textChange("closed"),
+	}, map[string]workbook.CollectionActionPayload{
+		"lesson.follow_up_task_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &taskID}}},
+		"lesson.evidence_refs":      {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &evidenceID}}},
+	}, time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC))
+	lessonQuery := mustQueryMeta(t, workbook.LessonViewSchemaID)
+	lessonQuery.Filters = []viewschema.Filter{{FieldKey: "lesson.closure_state", Op: "eq", Arg: map[string]any{"value": "closed"}}}
+	lessonRows, err := workbookStore.QueryRows(context.Background(), incident.ID, workbook.LessonViewSchemaID, lessonQuery)
+	if err != nil {
+		t.Fatalf("query lesson projection: %v", err)
+	}
+	lessonRow := requireQueriedRow(t, lessonRows, lesson.RecordID)
+	requireProjectedCollectionCount(t, lessonRow, "lesson.follow_up_task_ids", 1)
+	requireProjectedCollectionCount(t, lessonRow, "lesson.evidence_refs", 1)
+}
+
 func textChange(value string) workbook.ValueChange {
 	return workbook.ValueChange{Kind: "text", Text: &value}
 }

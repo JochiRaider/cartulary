@@ -108,6 +108,104 @@ func TestValidateViewSchemaRejectsInvalidFieldReferences(t *testing.T) {
 	requireErrorContains(t, err, "sort_fields references unknown field missing_field")
 }
 
+func TestValidateViewSchemaRejectsMismatchedEnumMetadata(t *testing.T) {
+	t.Run("enum values require enum read kind", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		field := validViewField("name")
+		field["read_kind"] = "text"
+		field["enum_values"] = []any{"open", "closed"}
+		schema["fields"] = []any{field}
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "enum_values requires read_kind=enum")
+	})
+
+	t.Run("enum read kind requires values", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		field := validViewField("name")
+		field["read_kind"] = "enum"
+		field["enum_values"] = nil
+		schema["fields"] = []any{field}
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "read_kind=enum requires enum_values")
+	})
+}
+
+func TestValidateViewSchemaAcceptsCanonicalArtifactSourceFilter(t *testing.T) {
+	schema := validViewSchema("cartulary.view.test.v1")
+	schema["base_projection"] = "artifact_grid_projection"
+	schema["canonical_source_filter"] = map[string]any{
+		"kind":  "artifact_type",
+		"field": "artifact_type",
+		"value": "test_artifact",
+	}
+
+	if err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json"); err != nil {
+		t.Fatalf("expected canonical artifact source filter to validate: %v", err)
+	}
+}
+
+func TestValidateViewSchemaRejectsInvalidCanonicalSourceFilter(t *testing.T) {
+	tests := []struct {
+		name       string
+		filter     any
+		wantDetail string
+	}{
+		{
+			name:       "not object",
+			filter:     "artifact_type=test",
+			wantDetail: "canonical_source_filter must be an object",
+		},
+		{
+			name: "unknown key",
+			filter: map[string]any{
+				"kind":   "artifact_type",
+				"field":  "artifact_type",
+				"value":  "test_artifact",
+				"legacy": true,
+			},
+			wantDetail: "unknown key legacy",
+		},
+		{
+			name: "unsupported kind",
+			filter: map[string]any{
+				"kind":  "record_type",
+				"field": "artifact_type",
+				"value": "test_artifact",
+			},
+			wantDetail: "kind must be one of artifact_type",
+		},
+		{
+			name: "unsupported field",
+			filter: map[string]any{
+				"kind":  "artifact_type",
+				"field": "kind",
+				"value": "test_artifact",
+			},
+			wantDetail: "field must be one of artifact_type",
+		},
+		{
+			name: "missing value",
+			filter: map[string]any{
+				"kind":  "artifact_type",
+				"field": "artifact_type",
+			},
+			wantDetail: "value is required",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			schema := validViewSchema("cartulary.view.test.v1")
+			schema["canonical_source_filter"] = tc.filter
+
+			err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+			requireErrorContains(t, err, tc.wantDetail)
+		})
+	}
+}
+
 func validViewSchema(id string) map[string]any {
 	return map[string]any{
 		"$schema":                      contractDraft202012Schema,

@@ -6,6 +6,12 @@
   "source_record_types": [
     "artifact"
   ],
+  "base_projection": "artifact_grid_projection",
+  "canonical_source_filter": {
+    "kind": "artifact_type",
+    "field": "artifact_type",
+    "value": "comm_log"
+  },
   "technical_fields": [
     "record_id",
     "row_version"
@@ -105,7 +111,7 @@
         "prefix"
       ],
       "groupable": true,
-      "read_kind": "text",
+      "read_kind": "enum",
       "write_kind": "direct_value",
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": null,

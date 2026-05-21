@@ -6,6 +6,12 @@
   "source_record_types": [
     "artifact"
   ],
+  "base_projection": "artifact_grid_projection",
+  "canonical_source_filter": {
+    "kind": "artifact_type",
+    "field": "artifact_type",
+    "value": "status_review"
+  },
   "technical_fields": [
     "record_id",
     "row_version"

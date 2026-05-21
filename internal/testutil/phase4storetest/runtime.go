@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
@@ -35,6 +36,15 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
+	if pgtest.ExplicitPostgresFixturePolicyT(t) == pgtest.PostgresFixturePolicyTemplateClone {
+		testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
+		pool, err := pgxpool.New(context.Background(), testDB.DSN)
+		if err != nil {
+			t.Fatalf("open template-clone postgres pool: %v", err)
+		}
+		t.Cleanup(pool.Close)
+		return &StoreHarness{DB: pool}
+	}
 	return &StoreHarness{DB: postgresHarness.BeginRollbackDBT(t, prefix)}
 }
 

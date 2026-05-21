@@ -96,7 +96,7 @@
         "prefix"
       ],
       "groupable": false,
-      "read_kind": "text",
+      "read_kind": "enum",
       "write_kind": "direct_value",
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": null,

@@ -11,12 +11,16 @@ import {
 import {
   assessmentsViewSchemaId,
   collectionActionsPayload,
+  commLogViewSchemaId,
   decisionsViewSchemaId,
+  handoffViewSchemaId,
   hostRefsFieldKey,
   hostsViewSchemaId,
   identitiesViewSchemaId,
   indicatorsViewSchemaId,
+  lessonViewSchemaId,
   notesViewSchemaId,
+  statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
 } from "./phase4Helpers";
 
@@ -134,6 +138,7 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
 
 test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbook cells", async ({
   page,
+  workerAdmin,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -336,6 +341,118 @@ test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbo
   await page.keyboard.press("ArrowRight");
   await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
     `${notesViewSchemaId}:${note.record_id}:`,
+  );
+
+  const comm = await createViewRow(page, incidentId, commLogViewSchemaId, {
+    client_txn_id: uniqueTxn("e9grid01-comm"),
+    "comm_log.comm_type": "briefing",
+    "comm_log.audience": "Phase 9 grid audience",
+    "comm_log.channel_or_meeting": "Grid bridge",
+    "comm_log.summary": "Phase 9 comm log anchor",
+  });
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      commLogViewSchemaId,
+    )}`,
+  );
+  const commSummary = page.getByTestId(
+    rowCellTestId(comm.record_id as string, "comm_log.summary"),
+  );
+  await expect(commSummary).toHaveText("Phase 9 comm log anchor");
+  await commSummary.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${commLogViewSchemaId}:${comm.record_id}:comm_log.summary`,
+  );
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
+    `${commLogViewSchemaId}:${comm.record_id}:`,
+  );
+  await expect(page.getByTestId("workbook-focus-anchor")).not.toHaveText(
+    `${commLogViewSchemaId}:${comm.record_id}:comm_log.summary`,
+  );
+
+  const handoff = await createViewRow(page, incidentId, handoffViewSchemaId, {
+    client_txn_id: uniqueTxn("e9grid01-handoff"),
+    "handoff.incoming_owner_user_id": workerAdmin.user_id,
+    "handoff.current_state_summary": "Phase 9 handoff anchor",
+  });
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      handoffViewSchemaId,
+    )}`,
+  );
+  const handoffSummary = page.getByTestId(
+    rowCellTestId(handoff.record_id as string, "handoff.current_state_summary"),
+  );
+  await expect(handoffSummary).toHaveText("Phase 9 handoff anchor");
+  await handoffSummary.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${handoffViewSchemaId}:${handoff.record_id}:handoff.current_state_summary`,
+  );
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
+    `${handoffViewSchemaId}:${handoff.record_id}:`,
+  );
+  await expect(page.getByTestId("workbook-focus-anchor")).not.toHaveText(
+    `${handoffViewSchemaId}:${handoff.record_id}:handoff.current_state_summary`,
+  );
+
+  const statusReview = await createViewRow(
+    page,
+    incidentId,
+    statusReviewViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e9grid01-status"),
+      "status_review.current_state_summary": "Phase 9 status review anchor",
+    },
+  );
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      statusReviewViewSchemaId,
+    )}`,
+  );
+  const statusSummary = page.getByTestId(
+    rowCellTestId(
+      statusReview.record_id as string,
+      "status_review.current_state_summary",
+    ),
+  );
+  await expect(statusSummary).toHaveText("Phase 9 status review anchor");
+  await statusSummary.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${statusReviewViewSchemaId}:${statusReview.record_id}:status_review.current_state_summary`,
+  );
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
+    `${statusReviewViewSchemaId}:${statusReview.record_id}:`,
+  );
+  await expect(page.getByTestId("workbook-focus-anchor")).not.toHaveText(
+    `${statusReviewViewSchemaId}:${statusReview.record_id}:status_review.current_state_summary`,
+  );
+
+  const lesson = await createViewRow(page, incidentId, lessonViewSchemaId, {
+    client_txn_id: uniqueTxn("e9grid01-lesson"),
+    "lesson.summary": "Phase 9 lesson anchor",
+  });
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      lessonViewSchemaId,
+    )}`,
+  );
+  const lessonSummary = page.getByTestId(
+    rowCellTestId(lesson.record_id as string, "lesson.summary"),
+  );
+  await expect(lessonSummary).toHaveText("Phase 9 lesson anchor");
+  await lessonSummary.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${lessonViewSchemaId}:${lesson.record_id}:lesson.summary`,
+  );
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
+    `${lessonViewSchemaId}:${lesson.record_id}:`,
+  );
+  await expect(page.getByTestId("workbook-focus-anchor")).not.toHaveText(
+    `${lessonViewSchemaId}:${lesson.record_id}:lesson.summary`,
   );
 
   const indicator = await createViewRow(

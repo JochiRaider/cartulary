@@ -9935,8 +9935,7 @@ function initialGenericCreateDraft(
     }
     if (
       currentUserId &&
-      (field.fieldKey === "handoff.incoming_owner_user_id" ||
-        field.fieldKey === "task.owner_user_id" ||
+      (field.fieldKey === "task.owner_user_id" ||
         field.fieldKey === "decision.owner_user_id" ||
         field.fieldKey === "status_review.review_owner_user_id" ||
         field.fieldKey === "lesson.owner_user_id")

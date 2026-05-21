@@ -23,11 +23,31 @@ func TestPhase9_TimestampInstantPatchDecoder_U_9_10(t *testing.T) {
 		t.Fatalf("offset-equivalent timestamps must produce the same idempotency hash")
 	}
 
-	clearableNull := mustDecodePatch(t, TaskRequestsViewSchemaID, "task.due_at", nil)
-	if clearableNull.Changes[0].Value.Kind != "null" {
-		t.Fatalf("clearable timestamp null decoded as %#v", clearableNull.Changes[0].Value)
+	for _, tc := range []struct {
+		viewSchemaID string
+		fieldKey     string
+	}{
+		{TaskRequestsViewSchemaID, "task.due_at"},
+		{CommLogViewSchemaID, "comm_log.next_report_at"},
+		{HandoffViewSchemaID, "handoff.acknowledged_at"},
+		{StatusReviewViewSchemaID, "status_review.next_report_at"},
+	} {
+		clearableNull := mustDecodePatch(t, tc.viewSchemaID, tc.fieldKey, nil)
+		if clearableNull.Changes[0].Value.Kind != "null" {
+			t.Fatalf("clearable timestamp %s null decoded as %#v", tc.fieldKey, clearableNull.Changes[0].Value)
+		}
 	}
-	expectDecodePatchRejected(t, CommLogViewSchemaID, "comm_log.timestamp_utc", nil)
+	for _, tc := range []struct {
+		viewSchemaID string
+		fieldKey     string
+	}{
+		{CommLogViewSchemaID, "comm_log.timestamp_utc"},
+		{HandoffViewSchemaID, "handoff.timestamp_utc"},
+		{StatusReviewViewSchemaID, "status_review.timestamp_utc"},
+		{LessonViewSchemaID, "lesson.timestamp_utc"},
+	} {
+		expectDecodePatchRejected(t, tc.viewSchemaID, tc.fieldKey, nil)
+	}
 
 	for _, value := range []any{
 		"2026-04-24T12:00:00",

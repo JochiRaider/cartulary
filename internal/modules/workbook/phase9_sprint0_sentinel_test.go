@@ -12,8 +12,8 @@ func TestSupportPhase9Sprint6TaskDecisionBlockerReplaced(t *testing.T) {
 	t.Log("Phase 9 Sprint 6 Task Request and Decision rows are covered by direct store evidence in phase9_task_decisions_store_test.go.")
 }
 
-func TestPhase9_Sprint0Blocker_U_9_08(t *testing.T) {
-	t.Log(phase9Sprint0SentinelMessage)
+func TestSupportPhase9Sprint7CoordinationBlockerReplaced(t *testing.T) {
+	t.Log("Phase 9 Sprint 7 coordination rows are covered by direct store evidence in phase9_coordination_surfaces_test.go.")
 }
 
 func TestPhase9_Sprint0Blocker_U_9_09(t *testing.T) {

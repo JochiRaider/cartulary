@@ -48,12 +48,19 @@ type SyntheticFilterPredicate struct {
 	FilterOps []string `json:"filter_ops"`
 }
 
+type CanonicalSourceFilter struct {
+	Kind  string `json:"kind"`
+	Field string `json:"field"`
+	Value string `json:"value"`
+}
+
 type schemaDocument struct {
 	ViewSchemaID              string                     `json:"view_schema_id"`
 	Title                     string                     `json:"title"`
 	SurfaceKind               string                     `json:"surface_kind"`
 	SourceRecordTypes         []string                   `json:"source_record_types"`
 	BaseProjection            string                     `json:"base_projection"`
+	CanonicalSourceFilter     *CanonicalSourceFilter     `json:"canonical_source_filter"`
 	TechnicalFields           []string                   `json:"technical_fields"`
 	RequiredReferencePackKeys []string                   `json:"required_reference_pack_keys"`
 	DefaultSort               []SortEntry                `json:"default_sort"`
@@ -79,6 +86,7 @@ type Schema struct {
 	ViewSchemaID           string
 	PermitsZeroFieldCreate bool
 	BaseProjection         string
+	canonicalSourceFilter  *CanonicalSourceFilter
 	defaultSort            []SortEntry
 	sortFields             []string
 	sortNullOrder          string
@@ -153,6 +161,13 @@ func (s Schema) GroupingFields() []string {
 	cloned := make([]string, len(s.groupingFields))
 	copy(cloned, s.groupingFields)
 	return cloned
+}
+
+func (s Schema) CanonicalSourceFilter() (CanonicalSourceFilter, bool) {
+	if s.canonicalSourceFilter == nil {
+		return CanonicalSourceFilter{}, false
+	}
+	return *s.canonicalSourceFilter, true
 }
 
 var (
@@ -247,6 +262,7 @@ func loadRegistry() {
 				ViewSchemaID:           document.ViewSchemaID,
 				PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
 				BaseProjection:         document.BaseProjection,
+				canonicalSourceFilter:  cloneCanonicalSourceFilter(document.CanonicalSourceFilter),
 				defaultSort:            append([]SortEntry(nil), document.DefaultSort...),
 				sortFields:             append([]string(nil), document.SortFields...),
 				sortNullOrder:          document.SortNullOrder,
@@ -348,6 +364,14 @@ func cloneSortEntries(entries []SortEntry) []SortEntry {
 	cloned := make([]SortEntry, len(entries))
 	copy(cloned, entries)
 	return cloned
+}
+
+func cloneCanonicalSourceFilter(value *CanonicalSourceFilter) *CanonicalSourceFilter {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func cloneStrings(values []string) []string {

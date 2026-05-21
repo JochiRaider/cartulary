@@ -88,7 +88,7 @@ Carried-forward compatibility boundaries:
 | [x] | 4. Parties and text-plus-link flows | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 4-owned blocker remains. Caveat: `U-9-11` is requested by older planning text as backend-unit evidence, but current direct evidence is mapped and executed as backend-store because same-incident active-target validation depends on store state. | Direct Sprint 4 evidence covers incident-scoped Parties, exact reuse by normalized `primary_email` or `external_ref`, stable-ID-only direct refs, independent text/ref clears, same-surface party actions, and row context preservation. |
 | [x] | 5. Assessments and timestamp contract | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 5-owned blocker remains. This does not claim Phase 9 completion; Task Request, Decision, coordination, optional standardized surface, and remaining non-assessment relationship rows remain later Phase 9 work. | Direct Sprint 5 evidence covers append-only Compromise Assessments, closed `assessment_state`, deterministic confidence bands, timestamp scalar validation and clearability, assessment support-ref confidence rejection, assessment projection reads, and browser-visible invalid timestamp draft behavior. |
 | [x] | 6. Task Requests and Decisions | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, focused `go test ./internal/modules/workbook -run 'Phase9Sprint6|Direct.*Decoder|Owner.*Null|Supersede.*Inconsistent'`, `make agent-finalize`, `git diff --check` | No Sprint 6-owned blocker remains. This does not claim Phase 9 completion; coordination, optional standardized surface, registry closure, and final gate rows remain later Phase 9 work. | Direct Sprint 6 evidence covers Task Request lifecycle and queue fields, Decision lifecycle and supersession, direct decision-reference set/clear, task/decision relationship confidence rejection, projection-backed workbook reads, browser-visible Task/Decision flows, explicit supersession fail-closed behavior for inconsistent source or target state, and wire-level owner null-clear rejection. |
-| [ ] | 7. Coordination surfaces | `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed` | TODO: inspect coordination artifact create/query/edit gaps. | Cover `comm_log`, `handoff`, `status_review`, and `lesson`. |
+| [x] | 7. Coordination surfaces | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 7-owned blocker remains. This does not claim Phase 9 completion; optional standardized surfaces, registry closure, and the final phase gate remain separately owned. | Direct Sprint 7 evidence covers `comm_log`, `handoff`, `status_review`, and `lesson` as workbook-native artifact-backed coordination surfaces with minimum create signals, projection-backed reads, collection/reference semantics, timestamp behavior, and browser-visible workbook workflows. |
 | [ ] | 8. Optional surfaces and registry closure | `make backend-unit`, `make backend-store`, conditional browser evidence | TODO: determine whether optional standardized surfaces are exposed. | Mark optional surfaces as direct evidence or `N/A`. |
 | [ ] | 9. Final phase gate and handoff | public Phase 9 wrappers, drift checks, `make agent-finalize`, `make check`, `git diff --check` | TODO: record exact final artifact roots and non-Phase-9 blockers. | Replace placeholders or record blocker sentinels before exit. |
 
@@ -763,15 +763,15 @@ Files or areas to inspect:
 - `internal/platform/viewschema`
 - `apps/web/src/WorkbookShell.tsx`
 - `apps/web/e2e`
-- TODO: exact artifact-backed coordination storage code.
-- TODO: exact risk-ref child-row storage code for handoff if implemented separately.
+- Artifact-backed coordination storage code: `db/migrations/00007_phase4_workbook_surfaces.sql`, `db/migrations/00016_phase9_linked_notes_projection.sql`, `internal/modules/workbook/mutation_store.go`, and `internal/modules/workbook/store.go`.
+- Handoff risk-ref child-row storage code: `db/migrations/00007_phase4_workbook_surfaces.sql` table `handoff_risk_refs`, plus `internal/modules/workbook/mutation_store.go` risk-ref upsert/tombstone paths and `internal/modules/workbook/store.go` risk-ref projection expression.
 
 Test-first sequence:
-1. Add backend store tests for each coordination surface minimum create signal and omitted defaults.
-2. Add backend store tests for projection-backed sort/filter/group fields.
-3. Add backend store tests for coordination collection fields, `party_ref`, `record_ref`, and `risk_ref` validation.
-4. Add integration tests proving all four surfaces persist structured state and query through workbook projections.
-5. Add browser tests for queue, handoff, status review, lesson, blocked-work, next-check, and follow-up workflows where exposed.
+1. Backend store tests cover each coordination surface minimum create signal, omitted defaults, rejected-create no-state behavior, saved-view additivity, and immutable subtype IDs.
+2. Backend store tests cover projection-backed sort, semantic filter, grouping, declared query-field mapping, and canonical `handoff.ack_state` token ordering.
+3. Backend store tests cover coordination collection fields, `party_ref`, `record_ref`, `risk_ref` validation, item wire shapes, duplicate coalescing, removal by `item_ref`, and source-preserving `comm_log.audience`.
+4. Backend integration tests prove all four surfaces persist structured state and query through workbook projections.
+5. Browser tests cover Task/Decision and coordination workbook-native flows plus queue, handoff, status review, lesson, blocked-work, next-check, follow-up, and shared-grid behavior where exposed.
 
 Implementation tasks:
 - Keep coordination surfaces artifact-backed with distinct `artifact_type` values.
@@ -793,7 +793,19 @@ Validation commands:
 
 Deliverables:
 - Direct authoritative evidence for `U-9-08`, coordination portions of `U-9-10` and `U-9-12`, relevant `I-9-02` coverage, and coordination portions of `E-9-06` and `E-9-GRID-01`.
-- TODO: exact artifact root for coordination browser evidence.
+- Direct backend store evidence: `internal/modules/workbook/phase9_coordination_surfaces_test.go`.
+- Direct timestamp evidence: `internal/modules/workbook/phase9_timestamp_contract_test.go::TestPhase9_TimestampInstantPatchDecoder_U_9_10`.
+- Direct relationship-confidence evidence: `internal/modules/assessments/phase9_assessment_contract_test.go::TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull`.
+- Direct integration evidence: `internal/modules/workbook/phase9_notes_indicators_test.go::TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02`.
+- Direct browser evidence: `apps/web/e2e/phase9.sentinel.spec.ts::Phase 9 E-9-06 coordination workbook workflows stay native` and `apps/web/e2e/phase9.keyboard.spec.ts::Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbook cells`.
+- Latest audit validation artifact roots:
+  - `make backend-unit`: `.cartulary/test-results/20260521T012303Z-p627398`
+  - `make backend-store`: `.cartulary/test-results/20260521T012315Z-p628416`
+  - `make backend-integration`: `.cartulary/test-results/20260521T012838Z-p638605`
+  - `make browser-e2e-webserver-backed`: `.cartulary/test-results/20260521T013406Z-p649711`
+  - `make phase-slice PHASE=phase9`: `.cartulary/test-results/20260521T013525Z-p657289`
+  - `make service-backed-slice PHASE=phase9`: `.cartulary/test-results/20260521T014114Z-p671006`
+  - `git diff --check`: exit `0`
 
 Risks:
 - Promoting coordination artifacts to first-class record types contrary to owner text.
@@ -802,9 +814,10 @@ Risks:
 - Treating risk refs as generic `record_id` values.
 
 Exit criteria:
-- All required coordination surfaces have direct Phase 9 evidence.
-- Coordination create/query/edit behavior remains workbook-native.
-- Collections and timestamp fields obey owner contracts.
+- Satisfied for Sprint 7 in the current checked-out state: all required coordination surfaces have direct Phase 9 evidence.
+- Satisfied for Sprint 7 in the current checked-out state: coordination create/query/edit behavior remains workbook-native and projection-backed.
+- Satisfied for Sprint 7 in the current checked-out state: collections, references, risk refs, and timestamp fields obey owner contracts.
+- This is not a full Phase 9 completion claim; Sprint 8 optional-surface and registry-closure rows plus Sprint 9 final gate remain separately owned.
 
 ## Sprint 8. Optional Surfaces and Registry Closure
 
