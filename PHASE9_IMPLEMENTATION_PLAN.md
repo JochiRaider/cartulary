@@ -20,7 +20,8 @@ Current repo status after Sprint 8 audit:
 - `tools/phase9_test_map.json` exists and represents every authoritative Phase 9 row exactly once.
 - `docs/testing/phase9_coverage_ledger.md` exists and is generated from the Phase 9 manifest.
 - Direct Sprint 1 through Sprint 8 row evidence is present for keyboard/grid anchors, clipboard paste, bulk edit, stable paste-anchor translation, Timeline paste, Host/Identity entity-origin paste, Notes, Indicators, Parties, party text-plus-link flows, append-only Compromise Assessments, timestamp scalar validation, Task Requests, Decisions, required coordination surfaces, optional standardized surfaces, and registry closure.
-- Sprint 9 remains responsible for final public-wrapper validation, retained-run maintenance, `make check`, and handoff. This plan does not claim full Phase 9 completion.
+- Sprint 9 final public-wrapper validation, retained-run maintenance, `make check`, and handoff passed on 2026-05-21. Final retained roots and decisions are recorded in the Sprint 9 section.
+- No Phase 9 blocker sentinel or out-of-Phase-9 final-gate blocker remains recorded after the Sprint 9 final gate.
 - The broad `browser-e2e-webserver-backed` aggregate passed in the Sprint 8 audit.
 
 ## Phase Objective
@@ -90,7 +91,7 @@ Carried-forward compatibility boundaries:
 | [x] | 6. Task Requests and Decisions | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, focused `go test ./internal/modules/workbook -run 'Phase9Sprint6|Direct.*Decoder|Owner.*Null|Supersede.*Inconsistent'`, `make agent-finalize`, `git diff --check` | No Sprint 6-owned blocker remains. This does not claim Phase 9 completion; coordination, optional standardized surface, registry closure, and final gate rows remain later Phase 9 work. | Direct Sprint 6 evidence covers Task Request lifecycle and queue fields, Decision lifecycle and supersession, direct decision-reference set/clear, task/decision relationship confidence rejection, projection-backed workbook reads, browser-visible Task/Decision flows, explicit supersession fail-closed behavior for inconsistent source or target state, and wire-level owner null-clear rejection. |
 | [x] | 7. Coordination surfaces | `make backend-unit`, `make backend-store`, `make backend-integration`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `git diff --check` | No Sprint 7-owned blocker remains. This does not claim Phase 9 completion; optional standardized surfaces, registry closure, and the final phase gate remain separately owned. | Direct Sprint 7 evidence covers `comm_log`, `handoff`, `status_review`, and `lesson` as workbook-native artifact-backed coordination surfaces with minimum create signals, projection-backed reads, collection/reference semantics, timestamp behavior, and browser-visible workbook workflows. |
 | [x] | 8. Optional surfaces and registry closure | `make backend-unit`, `make backend-store`, `make browser-e2e-webserver-backed`, `make phase-slice PHASE=phase9`, `make service-backed-slice PHASE=phase9`, `make phase-ledger-drift`, `git diff --check` | No Sprint 8-owned blocker remains. This does not claim Phase 9 completion; Sprint 9 final gate and handoff remain separately owned. | Current build exposes all three optional standardized surfaces; direct evidence covers `U-9-09`, `U-9-13`, `E-9-07`, and `E-9-08`. |
-| [ ] | 9. Final phase gate and handoff | public Phase 9 wrappers, drift checks, `make agent-finalize`, `make check`, `git diff --check` | TODO: record exact final artifact roots and non-Phase-9 blockers. | Replace placeholders or record blocker sentinels before exit. |
+| [x] | 9. Final phase gate and handoff | public Phase 9 wrappers, drift checks, `make agent-finalize`, `make check`, `git diff --check` | No Sprint 9 blocker remains. | Final roots, generated-artifact status, optional-surface status, and Phase 10 follow-on notes are recorded below. |
 
 ## Evidence Layer Matrix
 
@@ -926,8 +927,8 @@ Files or areas to inspect:
 - `tools/scheduler_manifest.json`
 - `tools/execution_topology_render_index.json`
 - `apps/web/e2e`
-- TODO: exact retained run root for final successful Phase 9 wrappers.
-- TODO: exact retained run root for `make check`.
+- Final successful Phase 9 wrapper roots are recorded under "Final Sprint 9 validation evidence" below.
+- Final `make check` root is recorded under "Final Sprint 9 validation evidence" below.
 
 Test-first sequence:
 1. Remove or convert every placeholder row to direct evidence, or keep only explicit blocker sentinels that prevent false completion claims.
@@ -951,7 +952,7 @@ Validation commands:
 - `make phase-ledger-drift`
 - `make phase-schedule-drift`
 - `make generate-drift`
-- `make migration-drift`
+- `make migration-drift` if schema, migration, DB query, or migration-owned behavior changes.
 - `make phase-slice PHASE=phase9`
 - `make service-backed-slice PHASE=phase9`
 - `make browser-e2e-webserver-backed`
@@ -967,7 +968,37 @@ Deliverables:
 - Final generated schedules.
 - Final retained run roots for public Phase 9 wrappers and `make check`.
 - Handoff notes for Phase 10 and later extension-profile work.
-- TODO: exact non-Phase-9 blocker records if any final wrapper or gate fails.
+- Exact non-Phase-9 blocker records if any final wrapper or gate fails.
+
+Final Sprint 9 validation evidence, retained on 2026-05-21:
+- Phase row audit: `tools/phase9_test_map.json` has 27 expected IDs, 27 authoritative rows, 0 duplicate IDs, 0 non-implemented rows, and 2 support-only Go targets. Support-only targets remain non-owning through `support_go_targets` and `forbidden_id_files`.
+- `make phase-map-check`: passed; direct command emitted no retained harness root.
+- `make phase-test-name-check`: passed; direct command emitted no retained harness root.
+- `make phase-ledgers`: passed; retained root `.cartulary/test-results/20260521T201500Z-p2765649`; generated files changed: none.
+- `make phase-schedules`: passed; retained root `.cartulary/test-results/20260521T201503Z-p2765889`; generated files changed: none.
+- `make phase-ledger-drift`: passed; retained root `.cartulary/test-results/20260521T201509Z-p2766191`.
+- `make phase-schedule-drift`: passed; retained root `.cartulary/test-results/20260521T201512Z-p2766404`.
+- `make generate-drift`: passed; retained root `.cartulary/test-results/20260521T201516Z-p2766652`; codegen drift clean.
+- `make migration-drift`: not required in final Sprint 9 execution because Sprint 9 made no schema, migration, DB-query, or migration-owned behavior changes. Migration drift remains separate from codegen drift.
+- `make phase-slice PHASE=phase9`: passed; retained root `.cartulary/test-results/20260521T201527Z-p2767476`; 5/5 work units, 65 tests, 0 failed.
+- `make service-backed-slice PHASE=phase9`: passed; retained root `.cartulary/test-results/20260521T202116Z-p2781359`; 3/3 work units, 48 tests, 0 failed.
+- `make browser-e2e-webserver-backed`: passed; retained root `.cartulary/test-results/20260521T202704Z-p2794534`; 55 tests, 0 failed.
+- `make browser-e2e-visual`: not required as a standalone Sprint 9 validation because Sprint 9 changed only handoff documentation and did not change visual-golden-backed UI states. The final `make check` gate still ran its visual work unit as part of the aggregate.
+- `make test-fast`: passed; retained root `.cartulary/test-results/20260521T202829Z-p2802280`; 2/2 work units, 569 tests, 0 failed.
+- `make agent-finalize`: passed; retained root `.cartulary/test-results/20260521T203501Z-p2823548`; outcome `generated=unchanged`, `files=0`, retained-run maintenance skipped because `RESULTS_DIR` was unset.
+- `make check`: passed; retained root `.cartulary/test-results/20260521T203513Z-p2824720`; 114/114 work units, 638 tests, 0 failed.
+- `git diff --check`: passed; no retained harness root.
+
+Final Sprint 9 decisions:
+- Optional standardized surfaces are exposed and directly evidenced, not `N/A`: Findings, Investigative Queries, and Forensic Keywords are present as additive workbook-native system views; `cartulary.view.hypotheses.v1` remains absent. Owner basis: Core 01 sections 7.4 and 19, Core 02 section 10.4.6, and Core 03 sections 16.4 and 19.
+- All authoritative Phase 9 rows have direct passing evidence through the final public wrappers; no placeholder row or blocker sentinel remains required to prevent a false completion claim.
+- No generated ledger, generated schedule, codegen, lockfile, or generated source changes were produced by the canonical Sprint 9 commands.
+- No out-of-Phase-9 blocker was encountered in the final gate.
+
+Phase 10 and later handoff notes:
+- Claim-bearing timed or fixture-sensitive publication remains Core 05 work and is not claimed by Phase 9.
+- File-based CSV/XLSX import, snapshot/reporting, release publication, export redaction, and reference-pack overlays remain outside Phase 9 unless a later owner spec or phase plan activates them.
+- Future retained-run duration maintenance should be done with an explicit successful `RESULTS_DIR=<run root>` and recorded in that later phase or maintenance handoff; the Sprint 9 finalizer intentionally ran without a retained check root per the Sprint 9 sequence.
 
 Risks:
 - Treating a passing support-only test as authoritative completion.
@@ -982,6 +1013,8 @@ Exit criteria:
 - `make agent-finalize` is recorded.
 - `make check` passes or exact out-of-Phase-9 blockers are recorded.
 - `git diff --check` passes.
+
+Sprint 9 exit status: satisfied in the live repository on 2026-05-21. Phase 9 authoritative row evidence is direct and passing through the final public wrappers, support-only evidence was not counted as completion, generated and drift checks are clean, `make agent-finalize` is recorded, `make check` passed, and `git diff --check` passed.
 
 ## Phase Validation Criteria
 
