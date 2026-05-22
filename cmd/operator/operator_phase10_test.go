@@ -19,6 +19,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -139,6 +140,115 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata(t *t
 	}
 }
 
+func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-restore-source")
+	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-restore-target")
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
+	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
+
+	adminEmail := "phase10-e-10-01-restore-admin@example.test"
+	seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
+
+	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
+	if err != nil {
+		t.Fatalf("open source pgx pool: %v", err)
+	}
+	t.Cleanup(sourcePool.Close)
+	sourceObjectStore, err := objectstore.NewFilesystemStore(sourceConfig.objectRoot)
+	if err != nil {
+		t.Fatalf("open source object store: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = sourceObjectStore.Close()
+	})
+	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, sourcePool)
+	if err != nil {
+		t.Fatalf("capture source postgres artifact: %v", err)
+	}
+	objectArtifact, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, sourceObjectStore, "")
+	if err != nil {
+		t.Fatalf("capture source object artifact: %v", err)
+	}
+	backupStorage, err := recovery.NewFilesystemBackupStorage(sourceConfig.backupRoot)
+	if err != nil {
+		t.Fatalf("open source backup storage: %v", err)
+	}
+	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
+	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102101")
+	if _, err := recovery.NewCaptureService(recovery.NewStore(sourcePool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
+		BackupSetID:        backupSetID,
+		ConsistencyPointAt: asOf.Add(-time.Minute),
+		CreatedAt:          asOf.Add(-2 * time.Minute),
+		RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
+		PostgresArtifact: recovery.BackupArtifact{
+			Body:        postgresArtifact,
+			ContentType: "application/json",
+		},
+		ObjectStoreArtifact: recovery.BackupArtifact{
+			Body:        objectArtifact,
+			ContentType: "application/json",
+		},
+	}); err != nil {
+		t.Fatalf("capture restorable backup set: %v", err)
+	}
+
+	operatorBin := buildOperatorBinary(t)
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, nil,
+		"restore", "latest",
+		"-source-config", sourceConfig.path,
+		"-target-config", targetConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-confirm-backup-set-id", backupSetID.String(),
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if exitCode != 0 {
+		t.Fatalf("operator restore failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode restore JSON: %v\nstdout=%s", err, stdout)
+	}
+	if payload["schema_id"] != app.OperatorRestoreResultSchemaID || payload["backup_set_id"] != backupSetID.String() {
+		t.Fatalf("unexpected restore payload: %#v", payload)
+	}
+
+	targetSQL, err := sql.Open("pgx", targetDB.DSN)
+	if err != nil {
+		t.Fatalf("open target sql: %v", err)
+	}
+	defer targetSQL.Close()
+	var restoredAdminCount int
+	if err := targetSQL.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE email = $1 AND is_deployment_admin = true`, adminEmail).Scan(&restoredAdminCount); err != nil {
+		t.Fatalf("query restored deployment admin: %v", err)
+	}
+	if restoredAdminCount != 1 {
+		t.Fatalf("operator restore did not copy authoritative source rows, restored admin count=%d", restoredAdminCount)
+	}
+
+	_, sameConfigStderr, sameConfigExit := runOperatorBinary(t, operatorBin, nil,
+		"restore", "latest",
+		"-source-config", sourceConfig.path,
+		"-target-config", sourceConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-confirm-backup-set-id", backupSetID.String(),
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if sameConfigExit == 0 {
+		t.Fatal("operator restore with identical source and target configs unexpectedly succeeded")
+	}
+	if !strings.Contains(sameConfigStderr, "source-config and target-config must be different files") {
+		t.Fatalf("same-config restore did not fail with target preflight error: %s", sameConfigStderr)
+	}
+}
+
+type operatorExplicitConfigFixture struct {
+	path       string
+	objectRoot string
+	backupRoot string
+}
+
 func buildOperatorBinary(t testing.TB) string {
 	t.Helper()
 
@@ -199,6 +309,35 @@ func operatorProcessEnv(t testing.TB, databaseEnv map[string]string) map[string]
 	}
 	env["CARTULARY_CONFIG_FILE"] = configPath
 	return env
+}
+
+func operatorExplicitConfig(t testing.TB, dsn string) operatorExplicitConfigFixture {
+	t.Helper()
+
+	roots := configtest.SetupTempRoots(t)
+	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], dsn)
+	contents := string(fixtures.MustRead("config", "valid.toml"))
+	replacements := map[string]string{
+		"/var/lib/cartulary/postgres":         roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"],
+		"/var/lib/cartulary/object-store":     roots.Paths["CARTULARY__ROOTS__OBJECT_STORAGE__PATH"],
+		"/var/lib/cartulary/backups":          roots.Paths["CARTULARY__ROOTS__BACKUP_STORAGE__PATH"],
+		"/var/lib/cartulary/reference-packs":  roots.Paths["CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH"],
+		"/var/lib/cartulary/tmp":              roots.Paths["CARTULARY__ROOTS__TEMPORARY_WORK__PATH"],
+		"/var/lib/cartulary/exports":          roots.Paths["CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH"],
+		"/etc/cartulary/bootstrap-admin.json": fixtures.Path("bootstrap-admin", "canonical.json"),
+	}
+	for oldValue, newValue := range replacements {
+		contents = strings.ReplaceAll(contents, oldValue, newValue)
+	}
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(configPath, []byte(contents), 0o644); err != nil {
+		t.Fatalf("write explicit operator config: %v", err)
+	}
+	return operatorExplicitConfigFixture{
+		path:       configPath,
+		objectRoot: roots.Paths["CARTULARY__ROOTS__OBJECT_STORAGE__PATH"],
+		backupRoot: roots.Paths["CARTULARY__ROOTS__BACKUP_STORAGE__PATH"],
+	}
 }
 
 func seedOperatorUser(t testing.TB, dsn string, email string, deploymentAdmin bool, active bool) uuid.UUID {

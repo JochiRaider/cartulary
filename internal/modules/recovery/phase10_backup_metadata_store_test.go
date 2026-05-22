@@ -169,6 +169,107 @@ UPDATE backup_sets
 	}
 }
 
+func TestSupportPhase10_RestoreVerificationDueSelectionAndAtomicCompletion(t *testing.T) {
+	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-04-verification")
+	store := recovery.NewStore(db)
+	capture := newCaptureService(t, store)
+	ctx := context.Background()
+
+	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
+	createdAt := asOf.Add(-2 * time.Hour)
+	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100401")
+	backupSet, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+		BackupSetID:        backupSetID,
+		ConsistencyPointAt: asOf.Add(-time.Hour),
+		CreatedAt:          createdAt,
+		RetainedUntil:      createdAt.Add(31 * 24 * time.Hour),
+	}))
+	if err != nil {
+		t.Fatalf("capture backup set for restore verification due selection: %v", err)
+	}
+	basisA, err := recovery.RestoreVerificationBasisSHA256(map[string]string{
+		"backup_mechanism": "test.v1",
+		"source_root":      "root-a",
+	})
+	if err != nil {
+		t.Fatalf("basis A: %v", err)
+	}
+	basisB, err := recovery.RestoreVerificationBasisSHA256(map[string]string{
+		"backup_mechanism": "test.v1",
+		"source_root":      "root-b",
+	})
+	if err != nil {
+		t.Fatalf("basis B: %v", err)
+	}
+
+	due, err := store.ListBackupsDueForRestoreVerification(ctx, asOf, basisA)
+	if err != nil {
+		t.Fatalf("list initially due backups: %v", err)
+	}
+	if len(due) != 1 || due[0].BackupSetID != backupSetID {
+		t.Fatalf("never-verified backup must be due, got %#v", due)
+	}
+
+	completedAt := asOf.Add(-6 * 24 * time.Hour)
+	completed, run, err := store.RecordRestoreVerificationCompletion(ctx, recovery.CreateRestoreVerificationRunParams{
+		BackupSetID:             backupSet.BackupSetID,
+		StartedAt:               completedAt.Add(-2 * time.Minute),
+		CompletedAt:             completedAt,
+		VerificationState:       recovery.VerificationVerified,
+		VerificationBasisSHA256: basisA,
+		ConsistencyReport: recovery.RestoreConsistencyReport{
+			AuthoritativeRowsSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			AuthoritativeRowCount:   5,
+			ChangeSetsSHA256:        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			ChangeSetRowCount:       3,
+			BlobHashesSHA256:        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+			BlobCount:               1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("record restore verification completion: %v", err)
+	}
+	if completed.VerificationState != recovery.VerificationVerified ||
+		completed.LastVerifiedRestoreAt == nil ||
+		!completed.LastVerifiedRestoreAt.Equal(completedAt) ||
+		completed.LastVerificationBasisSHA256 != basisA {
+		t.Fatalf("restore verification completion did not atomically update backup set: %#v", completed)
+	}
+	if run.BackupSetID != backupSetID ||
+		run.VerificationState != recovery.VerificationVerified ||
+		run.VerificationBasisSHA256 != basisA ||
+		run.ConsistencyReport.BlobCount != 1 {
+		t.Fatalf("restore verification run history not persisted: %#v", run)
+	}
+
+	due, err = store.ListBackupsDueForRestoreVerification(ctx, asOf, basisA)
+	if err != nil {
+		t.Fatalf("list backups due after fresh verification: %v", err)
+	}
+	if len(due) != 0 {
+		t.Fatalf("fresh verification with same basis must not be due, got %#v", due)
+	}
+	due, err = store.ListBackupsDueForRestoreVerification(ctx, asOf, basisB)
+	if err != nil {
+		t.Fatalf("list backups due after basis change: %v", err)
+	}
+	if len(due) != 1 || due[0].BackupSetID != backupSetID {
+		t.Fatalf("basis change must make backup due, got %#v", due)
+	}
+
+	oldVerifiedAt := asOf.Add(-8 * 24 * time.Hour)
+	if _, err := store.UpdateVerificationState(ctx, backupSetID, recovery.VerificationVerified, &oldVerifiedAt, basisA); err != nil {
+		t.Fatalf("age verified state: %v", err)
+	}
+	due, err = store.ListBackupsDueForRestoreVerification(ctx, asOf, basisA)
+	if err != nil {
+		t.Fatalf("list backups due after stale verification: %v", err)
+	}
+	if len(due) != 1 || due[0].BackupSetID != backupSetID {
+		t.Fatalf("verification older than seven days must be due, got %#v", due)
+	}
+}
+
 func TestPhase10_U_10_01_LatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-latest")
 	store := recovery.NewStore(db)

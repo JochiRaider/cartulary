@@ -167,6 +167,12 @@ prepare_runtime_root() {
   export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
   export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
   export CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
+  export CARTULARY_WEB_E2E_DB="${E2E_DB}"
+  export CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:-localhost:9000}"
+  export CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:-minioadmin}"
+  export CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:-minioadmin}"
+  export CARTULARY_S3_OBJECT_PRIMARY_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE:-false}"
+  export CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:-cartulary}"
 }
 
 generate_test_route_token() {
@@ -859,6 +865,8 @@ browser_prepare_database() {
     # shellcheck disable=SC1090
     source "${TEST_SERVICES_ENV_FILE}"
     E2E_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}"
+    export CARTULARY_WEB_E2E_DB="${E2E_DB}"
+    export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}"
     return 0
   fi
 
@@ -876,6 +884,9 @@ browser_prepare_database() {
   GOCACHE=/tmp/cartulary-go-build \
   GOMODCACHE=/tmp/cartulary-go-mod \
     "${migrate_command[@]}" up
+
+  export CARTULARY_WEB_E2E_DB="${E2E_DB}"
+  export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}"
 }
 
 browser_wait_backend_ready() {

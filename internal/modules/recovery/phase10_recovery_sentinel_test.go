@@ -8,11 +8,6 @@ import (
 	"testing"
 )
 
-func phase10RecoveryBlocked(t *testing.T) {
-	t.Helper()
-	t.Skip("Phase 10 operational backup, restore, and restore-verification behavior is not implemented; blocker sentinel only")
-}
-
 func TestPhase10_U_10_04_PublicRouteAbsenceStaticInventory(t *testing.T) {
 	forbiddenFamilies := []string{
 		"/api/v1/backups",

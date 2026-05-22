@@ -16,19 +16,23 @@ Authority model:
 - Generated ledgers, generated schedules, support-only tests, visual goldens, and retained artifacts are not behavior authorities.
 - `docs/domain.md` is vocabulary and concept support only.
 
-Current repo status after Sprint 1:
-- Phase 5 through Phase 9 implementation plans are present.
-- Phase 10 is registered as `active` in `tools/phase_registry.json`, but remains incomplete while operational recovery rows are still blocked.
-- `tools/phase10_test_map.json` covers every authoritative Phase 10 row. `U-10-05` and `E-10-04` are `claim_status=implemented`; the remaining operational recovery rows are explicit blocker sentinels.
+Current repo status after Sprint 8 remediation:
+- Phase 10 is registered as `active` in `tools/phase_registry.json`; all product-evidence rows now have direct owners, generated traceability artifacts are refreshed, and the public wrappers plus broad gates pass.
+- `tools/phase10_test_map.json` covers every authoritative Phase 10 row. Generated ledgers and schedules are downstream artifacts and must be refreshed through the canonical generators after direct evidence changes.
 - `docs/testing/phase10_coverage_ledger.md` is generated from the manifest and must not be hand-edited.
 - `configs/dev/config.toml` declares `[roots.backup_storage]`.
-- Config validation and real startup-process evidence directly prove the Sprint 1 AC-403 backup-root slice: `roots.backup_storage` is required, binding kinds are profile-limited, export and temporary-work roots cannot satisfy backup storage, and invalid backup-root configuration prevents effective readiness with backup-root-specific diagnostics.
-- No operational `backup_set`, `backup_attestation`, restore, or restore-verification implementation exists.
-- No public backup, restore, or restore-verification route family is currently registered. This remains support context only until direct Phase 10 route-inventory evidence captures it.
-- Sprint 1 retained validation evidence:
-  - `make backend-unit`: run ID `20260521T225454Z-p3117177`, run root `.cartulary/test-results/20260521T225454Z-p3117177`, row `U-10-05`, phase summary `.cartulary/test-results/20260521T225454Z-p3117177/backend-unit/backend-unit-phase10-backup-root-config-evidence/phase-summary.json`.
-  - `make backend-process`: run ID `20260521T225502Z-p3118151`, run root `.cartulary/test-results/20260521T225502Z-p3118151`, row `E-10-04`, phase summary `.cartulary/test-results/20260521T225502Z-p3118151/backend-process/backend-process-phase10-backup-root-config-evidence/phase-summary.json`.
-  - `make phase-map-check`: run ID `20260521T230016Z-p3127691`, run root `.cartulary/test-results/20260521T230016Z-p3127691`, summary `.cartulary/test-results/20260521T230016Z-p3127691/phase-map-check/tool-run-summary.json`.
+- Config validation and real startup-process evidence directly prove the AC-403 backup-root slice: `roots.backup_storage` is required, binding kinds are profile-limited, export and temporary-work roots cannot satisfy backup storage, and invalid backup-root configuration prevents effective readiness with backup-root-specific diagnostics.
+- Artifact-backed `backup_sets`, restore anchors, integrity manifests, latest successful retained restore, projection-gated readiness, coherent Postgres/object restore, fail-closed missing/corrupt artifact behavior, restore-verification basis state, verification run history, deployment-local operator restore, and browser-visible workbook recovery evidence now exist in implementation.
+- The deployment-local operator surface remains `cmd/operator`; do not add public `/api/v1/backups*`, `/api/v1/restores*`, `/api/v1/restore-verifications*`, `/ws/v1/backups*`, `/ws/v1/restores*`, or `/ws/v1/restore-verifications*` route families.
+- Phase 10 supports latest successful retained `backup_set` restore only. Arbitrary operator timestamp PITR remains out of scope.
+- Manual restore targets must be fresh and separated from the source config, Postgres DSN, and object store. Manual restore does not mark the backup verified; restore verification updates `verification_state`.
+- Recent retained validation roots:
+  - `make generate`: run ID `20260522T155439Z-p341672`, run root `.cartulary/test-results/20260522T155439Z-p341672`.
+  - `make service-backed-slice PHASE=phase10`: run ID `20260522T174953Z-p556349`, run root `.cartulary/test-results/20260522T174953Z-p556349`.
+  - `make browser-e2e-webserver-backed`: run ID `20260522T175527Z-p568888`, run root `.cartulary/test-results/20260522T175527Z-p568888`.
+  - `make phase-slice PHASE=phase10`: run ID `20260522T184041Z-p792869`, run root `.cartulary/test-results/20260522T184041Z-p792869`.
+  - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260522T181916Z-p673614`: run ID `20260522T182901Z-p729173`, run root `.cartulary/test-results/20260522T182901Z-p729173`.
+  - `make check`: run ID `20260522T183121Z-p737753`, run root `.cartulary/test-results/20260522T183121Z-p737753`.
 
 ## Phase Objective
 
@@ -48,7 +52,7 @@ User-observable exit state:
 ## Implementation Scope
 
 In scope:
-- Phase 10 ownership manifest, generated coverage ledger, schedule-drift behavior, and explicit blocker sentinels until implementation rows exist.
+- Phase 10 ownership manifest, generated coverage ledger, schedule-drift behavior, and direct row evidence.
 - Persistent retained-backup metadata and restore anchors.
 - `verification_state` vocabulary, state transitions, verification timestamps, and retention floors.
 - Backup storage binding through `roots.backup_storage`.
@@ -99,12 +103,12 @@ Generated boundary:
 | [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make explain-phase PHASE=phase10` | Complete; remaining non-Sprint-1 rows keep explicit blocker sentinels. |
 | [x] | 1. Backup storage root and deployment configuration | `make backend-unit`, `make backend-process`, `make phase-map-check`, `git diff --check` | Complete for `U-10-05` and `E-10-04`; operational recovery rows remain blocked. |
 | [x] | 2. Backup metadata and retention floors | `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make deployable-shape`, `make migration-drift`, `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `git diff --check` | Artifact-backed capture evidence implemented for `U-10-01`, `I-10-01`, and `E-10-01`; direct public-route absence evidence for `U-10-04` and `E-10-03` was pulled forward. |
-| [ ] | 3. Restore readiness and coherent stores | `make backend-process`, `make service-backed-slice PHASE=phase10` | Restore orchestration absent. |
-| [ ] | 4. Fail-closed integrity handling | `make backend-process` | Integrity proof contract absent. |
-| [ ] | 5. Isolated restore verification | `make backend-process` | Verification cadence/state machine absent. |
-| [ ] | 6. Route absence and deployment-admin boundary | `make backend-unit`, `make backend-process` | Operator surface must remain deployment-local. |
-| [ ] | 7. Service-backed and workbook recovery evidence | `make backend-integration`, `make browser-e2e-webserver-backed` | Requires real backup/restore substrate. |
-| [ ] | 8. Final public wrappers, drift gates, finalizer, check, handoff | public Phase 10 wrappers, `make agent-finalize`, `make check` | TODO(Phase10-final-roots): record final retained roots. |
+| [x] | 3. Restore readiness and coherent stores | `make backend-process`, `make service-backed-slice PHASE=phase10` | Implemented for latest successful retained restore through process evidence and refreshed manifest/ledger evidence. |
+| [x] | 4. Fail-closed integrity handling | `make backend-process` | Missing/corrupt artifact fixtures now fail before readiness. |
+| [x] | 5. Isolated restore verification | `make backend-store`, `make backend-process` | Verification basis state and run history implemented; scheduled cadence automation can build on the due-selection service. |
+| [x] | 6. Route absence and deployment-admin boundary | `make backend-unit`, `make backend-process`, `make deployable-shape` | Public route families remain absent; operator restore is deployment-local and deployment-admin gated. |
+| [x] | 7. Service-backed and workbook recovery evidence | `make backend-integration`, `make browser-e2e-webserver-backed` | Browser `E-10-02` now captures/restores through an isolated browser restore helper, opens the restored workbook surface, and executes the built-in query through ordinary routes. |
+| [x] | 8. Final public wrappers, drift gates, finalizer, check, handoff | public Phase 10 wrappers, `make agent-finalize`, `make check` | Complete; retained validation roots are recorded above. |
 
 ## Evidence Layer Matrix
 
@@ -431,7 +435,7 @@ Exit criteria:
 
 ## Sprint 7. Service-Backed And Browser Workbook Recovery Evidence
 
-Objective: prove restored workbook usability from a fresh deployment.
+Objective: prove restored workbook usability through a browser-visible deployment surface.
 
 Rows: `E-10-02`, support for `I-10-02`.
 
@@ -442,14 +446,14 @@ Files and areas:
 - reset and isolation predicates
 
 Test-first sequence:
-1. Restore latest successful retained backup into a fresh deployment.
+1. Capture a retained backup in the browser harness and restore it through the production restore runner into a separately migrated target deployment.
 2. Open at least one incident when incident data exists.
 3. Execute at least one built-in workbook query.
 4. Prove row/change/blob consistency.
 5. Do not expose raw object-store access as browser evidence.
 
 Implementation tasks:
-- Add browser/process restore fixture with explicit isolated environment proof.
+- Add browser/process restore fixture with explicit harness-owned runtime proof and ordinary workbook assertions.
 - Keep workbook proof through ordinary product surfaces.
 
 Validation commands:
@@ -465,7 +469,7 @@ Risks:
 - Browser evidence must not depend on diagnostic object-store shortcuts.
 
 Exit criteria:
-- Restored workbook surface is usable after restore.
+- Restored workbook surface is usable after restore and the direct `E-10-02` Playwright row is implemented.
 
 ## Sprint 8. Final Public Wrappers, Drift Gates, Finalizer, Handoff
 
@@ -503,8 +507,9 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- TODO(Phase10-final-evidence): replace with exact retained roots or explicit blockers.
-- Updated manifest, ledger, schedules, and final handoff notes.
+- `tools/phase10_test_map.json`, generated Phase 10 ledger, and generated schedules refreshed through canonical commands.
+- Retained roots recorded in the summary section above for public wrappers, finalizer, and broad check.
+- No remaining Phase 10 blocker sentinel rows.
 
 Risks:
 - Outside-Phase-10 blockers must be recorded with exact target, artifact root, failing row/test, failure class, and out-of-scope rationale.

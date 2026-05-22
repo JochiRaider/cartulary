@@ -51,7 +51,8 @@ RETURNING
     postgres_restore_anchor_retained_until,
     object_store_restore_anchor_retained_until,
     verification_state,
-    last_verified_restore_at
+    last_verified_restore_at,
+    last_verification_basis_sha256
 `
 
 type CreateBackupSetParams struct {
@@ -115,6 +116,96 @@ func (q *Queries) CreateBackupSet(ctx context.Context, arg CreateBackupSetParams
 		&i.ObjectStoreRestoreAnchorRetainedUntil,
 		&i.VerificationState,
 		&i.LastVerifiedRestoreAt,
+		&i.LastVerificationBasisSha256,
+	)
+	return i, err
+}
+
+const createRestoreVerificationRun = `-- name: CreateRestoreVerificationRun :one
+INSERT INTO restore_verification_runs (
+    restore_verification_run_id,
+    backup_set_id,
+    started_at,
+    completed_at,
+    verification_state,
+    verification_basis_sha256,
+    failure_reason,
+    failure_message,
+    authoritative_rows_sha256,
+    authoritative_row_count,
+    change_sets_sha256,
+    change_set_row_count,
+    blob_hashes_sha256,
+    blob_count
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING
+    restore_verification_run_id,
+    backup_set_id,
+    started_at,
+    completed_at,
+    verification_state,
+    verification_basis_sha256,
+    failure_reason,
+    failure_message,
+    authoritative_rows_sha256,
+    authoritative_row_count,
+    change_sets_sha256,
+    change_set_row_count,
+    blob_hashes_sha256,
+    blob_count
+`
+
+type CreateRestoreVerificationRunParams struct {
+	RestoreVerificationRunID pgtype.UUID        `json:"restore_verification_run_id"`
+	BackupSetID              pgtype.UUID        `json:"backup_set_id"`
+	StartedAt                pgtype.Timestamptz `json:"started_at"`
+	CompletedAt              pgtype.Timestamptz `json:"completed_at"`
+	VerificationState        string             `json:"verification_state"`
+	VerificationBasisSha256  string             `json:"verification_basis_sha256"`
+	FailureReason            pgtype.Text        `json:"failure_reason"`
+	FailureMessage           pgtype.Text        `json:"failure_message"`
+	AuthoritativeRowsSha256  pgtype.Text        `json:"authoritative_rows_sha256"`
+	AuthoritativeRowCount    pgtype.Int4        `json:"authoritative_row_count"`
+	ChangeSetsSha256         pgtype.Text        `json:"change_sets_sha256"`
+	ChangeSetRowCount        pgtype.Int4        `json:"change_set_row_count"`
+	BlobHashesSha256         pgtype.Text        `json:"blob_hashes_sha256"`
+	BlobCount                pgtype.Int4        `json:"blob_count"`
+}
+
+func (q *Queries) CreateRestoreVerificationRun(ctx context.Context, arg CreateRestoreVerificationRunParams) (RestoreVerificationRun, error) {
+	row := q.db.QueryRow(ctx, createRestoreVerificationRun,
+		arg.RestoreVerificationRunID,
+		arg.BackupSetID,
+		arg.StartedAt,
+		arg.CompletedAt,
+		arg.VerificationState,
+		arg.VerificationBasisSha256,
+		arg.FailureReason,
+		arg.FailureMessage,
+		arg.AuthoritativeRowsSha256,
+		arg.AuthoritativeRowCount,
+		arg.ChangeSetsSha256,
+		arg.ChangeSetRowCount,
+		arg.BlobHashesSha256,
+		arg.BlobCount,
+	)
+	var i RestoreVerificationRun
+	err := row.Scan(
+		&i.RestoreVerificationRunID,
+		&i.BackupSetID,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.VerificationState,
+		&i.VerificationBasisSha256,
+		&i.FailureReason,
+		&i.FailureMessage,
+		&i.AuthoritativeRowsSha256,
+		&i.AuthoritativeRowCount,
+		&i.ChangeSetsSha256,
+		&i.ChangeSetRowCount,
+		&i.BlobHashesSha256,
+		&i.BlobCount,
 	)
 	return i, err
 }
@@ -139,7 +230,8 @@ SELECT
     postgres_restore_anchor_retained_until,
     object_store_restore_anchor_retained_until,
     verification_state,
-    last_verified_restore_at
+    last_verified_restore_at,
+    last_verification_basis_sha256
 FROM backup_sets
 WHERE backup_set_id = $1
 `
@@ -167,6 +259,7 @@ func (q *Queries) GetBackupSetByID(ctx context.Context, backupSetID pgtype.UUID)
 		&i.ObjectStoreRestoreAnchorRetainedUntil,
 		&i.VerificationState,
 		&i.LastVerifiedRestoreAt,
+		&i.LastVerificationBasisSha256,
 	)
 	return i, err
 }
@@ -191,7 +284,8 @@ SELECT
     postgres_restore_anchor_retained_until,
     object_store_restore_anchor_retained_until,
     verification_state,
-    last_verified_restore_at
+    last_verified_restore_at,
+    last_verification_basis_sha256
 FROM backup_sets
 WHERE retained_until >= $1
 ORDER BY consistency_point_at DESC, backup_set_id ASC
@@ -221,8 +315,87 @@ func (q *Queries) GetLatestSuccessfulRetainedBackupSet(ctx context.Context, reta
 		&i.ObjectStoreRestoreAnchorRetainedUntil,
 		&i.VerificationState,
 		&i.LastVerifiedRestoreAt,
+		&i.LastVerificationBasisSha256,
 	)
 	return i, err
+}
+
+const listBackupSetsDueForRestoreVerification = `-- name: ListBackupSetsDueForRestoreVerification :many
+SELECT
+    backup_set_id,
+    consistency_point_at,
+    postgres_restore_anchor,
+    object_store_restore_anchor,
+    postgres_artifact_key,
+    postgres_artifact_sha256,
+    postgres_artifact_size_bytes,
+    object_store_artifact_key,
+    object_store_artifact_sha256,
+    object_store_artifact_size_bytes,
+    integrity_manifest_key,
+    integrity_manifest_sha256,
+    integrity_manifest_size_bytes,
+    created_at,
+    retained_until,
+    postgres_restore_anchor_retained_until,
+    object_store_restore_anchor_retained_until,
+    verification_state,
+    last_verified_restore_at,
+    last_verification_basis_sha256
+FROM backup_sets
+WHERE retained_until >= $1
+  AND (
+      last_verified_restore_at IS NULL
+      OR last_verified_restore_at <= ($1::timestamptz - interval '7 days')
+      OR last_verification_basis_sha256 IS DISTINCT FROM $2
+  )
+ORDER BY consistency_point_at DESC, backup_set_id ASC
+`
+
+type ListBackupSetsDueForRestoreVerificationParams struct {
+	RetainedUntil               pgtype.Timestamptz `json:"retained_until"`
+	LastVerificationBasisSha256 pgtype.Text        `json:"last_verification_basis_sha256"`
+}
+
+func (q *Queries) ListBackupSetsDueForRestoreVerification(ctx context.Context, arg ListBackupSetsDueForRestoreVerificationParams) ([]BackupSet, error) {
+	rows, err := q.db.Query(ctx, listBackupSetsDueForRestoreVerification, arg.RetainedUntil, arg.LastVerificationBasisSha256)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BackupSet
+	for rows.Next() {
+		var i BackupSet
+		if err := rows.Scan(
+			&i.BackupSetID,
+			&i.ConsistencyPointAt,
+			&i.PostgresRestoreAnchor,
+			&i.ObjectStoreRestoreAnchor,
+			&i.PostgresArtifactKey,
+			&i.PostgresArtifactSha256,
+			&i.PostgresArtifactSizeBytes,
+			&i.ObjectStoreArtifactKey,
+			&i.ObjectStoreArtifactSha256,
+			&i.ObjectStoreArtifactSizeBytes,
+			&i.IntegrityManifestKey,
+			&i.IntegrityManifestSha256,
+			&i.IntegrityManifestSizeBytes,
+			&i.CreatedAt,
+			&i.RetainedUntil,
+			&i.PostgresRestoreAnchorRetainedUntil,
+			&i.ObjectStoreRestoreAnchorRetainedUntil,
+			&i.VerificationState,
+			&i.LastVerifiedRestoreAt,
+			&i.LastVerificationBasisSha256,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listSuccessfulRetainedBackupSets = `-- name: ListSuccessfulRetainedBackupSets :many
@@ -245,7 +418,8 @@ SELECT
     postgres_restore_anchor_retained_until,
     object_store_restore_anchor_retained_until,
     verification_state,
-    last_verified_restore_at
+    last_verified_restore_at,
+    last_verification_basis_sha256
 FROM backup_sets
 WHERE retained_until >= $1
 ORDER BY created_at ASC, backup_set_id ASC
@@ -280,6 +454,7 @@ func (q *Queries) ListSuccessfulRetainedBackupSets(ctx context.Context, retained
 			&i.ObjectStoreRestoreAnchorRetainedUntil,
 			&i.VerificationState,
 			&i.LastVerifiedRestoreAt,
+			&i.LastVerificationBasisSha256,
 		); err != nil {
 			return nil, err
 		}
@@ -295,7 +470,8 @@ const updateBackupSetVerificationState = `-- name: UpdateBackupSetVerificationSt
 UPDATE backup_sets
 SET
     verification_state = $2,
-    last_verified_restore_at = $3
+    last_verified_restore_at = $3,
+    last_verification_basis_sha256 = $4
 WHERE backup_set_id = $1
 RETURNING
     backup_set_id,
@@ -316,17 +492,24 @@ RETURNING
     postgres_restore_anchor_retained_until,
     object_store_restore_anchor_retained_until,
     verification_state,
-    last_verified_restore_at
+    last_verified_restore_at,
+    last_verification_basis_sha256
 `
 
 type UpdateBackupSetVerificationStateParams struct {
-	BackupSetID           pgtype.UUID        `json:"backup_set_id"`
-	VerificationState     string             `json:"verification_state"`
-	LastVerifiedRestoreAt pgtype.Timestamptz `json:"last_verified_restore_at"`
+	BackupSetID                 pgtype.UUID        `json:"backup_set_id"`
+	VerificationState           string             `json:"verification_state"`
+	LastVerifiedRestoreAt       pgtype.Timestamptz `json:"last_verified_restore_at"`
+	LastVerificationBasisSha256 pgtype.Text        `json:"last_verification_basis_sha256"`
 }
 
 func (q *Queries) UpdateBackupSetVerificationState(ctx context.Context, arg UpdateBackupSetVerificationStateParams) (BackupSet, error) {
-	row := q.db.QueryRow(ctx, updateBackupSetVerificationState, arg.BackupSetID, arg.VerificationState, arg.LastVerifiedRestoreAt)
+	row := q.db.QueryRow(ctx, updateBackupSetVerificationState,
+		arg.BackupSetID,
+		arg.VerificationState,
+		arg.LastVerifiedRestoreAt,
+		arg.LastVerificationBasisSha256,
+	)
 	var i BackupSet
 	err := row.Scan(
 		&i.BackupSetID,
@@ -348,6 +531,7 @@ func (q *Queries) UpdateBackupSetVerificationState(ctx context.Context, arg Upda
 		&i.ObjectStoreRestoreAnchorRetainedUntil,
 		&i.VerificationState,
 		&i.LastVerifiedRestoreAt,
+		&i.LastVerificationBasisSha256,
 	)
 	return i, err
 }

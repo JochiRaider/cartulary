@@ -2909,6 +2909,36 @@ function statusFromBooleans(values) {
   return values.every(Boolean) ? "pass" : "fail";
 }
 
+function rollupStatuses(values) {
+  if (values.length === 0) {
+    return "unknown";
+  }
+  if (values.some((value) => value === "fail")) {
+    return "fail";
+  }
+  if (values.every((value) => value === "pass")) {
+    return "pass";
+  }
+  return "unknown";
+}
+
+function normalizeServiceExtensionStatus(status) {
+  switch (status) {
+    case "pass":
+    case "succeeded":
+    case "skipped_no_lease":
+      return "pass";
+    case "fail":
+    case "failed":
+    case "startup_failed":
+    case "child_start_failed":
+    case "cleanup_failed":
+      return "fail";
+    default:
+      return "unknown";
+  }
+}
+
 function serviceSharedMetadata(runRunRoot) {
   const serviceRoot = path.join(runRunRoot, "_shared", "test-services");
   if (!existsSync(serviceRoot)) {
@@ -2929,13 +2959,14 @@ function serviceSharedMetadata(runRunRoot) {
         (name) => scope?.[name]?.startup?.final_status === "pass",
       );
       const cleanupStatus = scope?.cleanup?.status ?? "unknown";
+      const extensionStatus = normalizeServiceExtensionStatus(cleanupStatus);
       return {
         suite_id: suiteID,
         services: serviceNames,
         readiness_status: statusFromBooleans(startupStatuses),
         cleanup_status: cleanupStatus,
-        teardown_status: cleanupStatus === "succeeded" ? "pass" : cleanupStatus,
-        leak_status: cleanupStatus === "succeeded" ? "pass" : cleanupStatus,
+        teardown_status: extensionStatus,
+        leak_status: extensionStatus,
       };
     });
   if (suites.length === 0) {
@@ -2949,12 +2980,8 @@ function serviceSharedMetadata(runRunRoot) {
     readiness_status: statusFromBooleans(
       suites.map((suite) => suite.readiness_status === "pass"),
     ),
-    teardown_status: statusFromBooleans(
-      suites.map((suite) => suite.teardown_status === "pass"),
-    ),
-    leak_status: statusFromBooleans(
-      suites.map((suite) => suite.leak_status === "pass"),
-    ),
+    teardown_status: rollupStatuses(suites.map((suite) => suite.teardown_status)),
+    leak_status: rollupStatuses(suites.map((suite) => suite.leak_status)),
     suites,
   };
 }

@@ -237,7 +237,7 @@ cat >"$tmp_dir/manifests/tools/phase12_test_map.json" <<'JSON'
     "shared_harness": [],
     "support_only": []
   },
-  "expected_ids": ["E-12-01"],
+  "expected_ids": ["E-12-01", "E-12-GRID-01"],
   "support_go_targets": [],
   "unit": [],
   "integration": [],
@@ -251,6 +251,17 @@ cat >"$tmp_dir/manifests/tools/phase12_test_map.json" <<'JSON'
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "future",
+      "out_of_scope": "none"
+    },
+    {
+      "id": "E-12-GRID-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/zz-grid.spec.ts",
+      "title": "E-12-GRID-01 future phase named-grid functional browser row",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "future named row",
       "out_of_scope": "none"
     }
   ]
@@ -287,7 +298,7 @@ node_cmd="${NODE:-node}"
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/plan.json"
 
-assert_equals "$(json_field "$tmp_dir/plan.json" "entry_count")" "5" "entry count keeps duplicate-file manifest rows"
+assert_equals "$(json_field "$tmp_dir/plan.json" "entry_count")" "6" "entry count keeps duplicate-file manifest rows"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shard_count")" "3" "shard count respects max and target weight"
 assert_equals "$(json_field "$tmp_dir/plan.json" "entries.0.file")" "apps/web/e2e/alpha.spec.ts" "deterministic entry ordering"
 assert_equals "$(json_field "$tmp_dir/plan.json" "entries.3.weight_ms")" "7000" "missing baseline uses default weight"
@@ -295,7 +306,14 @@ assert_equals "$(json_field "$tmp_dir/plan.json" "entries.4.file")" "apps/web/e2
 assert_equals "$(json_field "$tmp_dir/plan.json" "entries.2.titles.1")" "E-1-03 beta secondary" "multi-title Playwright rows keep all executable scenarios"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.0.id")" "E-1-01" "largest same-file entry gets first stable shard"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.1.entries.0.id")" "E-1-02" "same-file entries can split across shards"
-assert_contains "$(json_field "$tmp_dir/plan.json" "shards.2.grep")" "E-1-03 beta secondary" "multi-title Playwright shard grep includes every row title"
+"$node_cmd" - "$tmp_dir/plan.json" <<'EOF'
+const fs = require("node:fs");
+const [planFile] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(planFile, "utf8"));
+if (!plan.shards.some((shard) => String(shard.grep).includes("E-1-03 beta secondary"))) {
+  throw new Error("multi-title Playwright shard grep must include every row title");
+}
+EOF
 
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --phase phase2 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/phase2-plan.json"
@@ -332,7 +350,7 @@ future_count="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
     "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-count-all authoritative browser_functional
 )"
-assert_equals "$future_count" "6" "future phase browser title count discovery"
+assert_equals "$future_count" "7" "future phase browser title count discovery"
 
 browser_results="$tmp_dir/browser-results"
 timing_dir="$browser_results/browser-e2e-webserver-backed/browser-e2e-functional-authoritative"
@@ -382,6 +400,13 @@ cat >"$timing_dir/playwright-timing.json" <<'JSON'
       "file": "apps/web/e2e/future.spec.ts",
       "title": "E-12-01 future phase functional browser row",
       "wall_duration_ms": 11000
+    },
+    {
+      "id": "E-12-GRID-01",
+      "phase": "phase12",
+      "file": "apps/web/e2e/zz-grid.spec.ts",
+      "title": "E-12-GRID-01 future phase named-grid functional browser row",
+      "wall_duration_ms": 12000
     }
   ]
 }
@@ -423,7 +448,7 @@ refresh_output="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
     "$node_cmd" "$PLANNER" update-baselines --baseline-file "$tmp_dir/browser-refresh-baseline.json" "$browser_results"
 )"
-assert_contains "$refresh_output" "updated 5 browser E2E entry duration baselines" "browser baseline refresh output"
+assert_contains "$refresh_output" "updated 6 browser E2E entry duration baselines" "browser baseline refresh output"
 "$node_cmd" - "$tmp_dir/browser-refresh-baseline.json" <<'EOF'
 const fs = require("node:fs");
 const [baselineFile] = process.argv.slice(2);
@@ -434,6 +459,7 @@ const expected = [
   "E-1-02",
   "E-1-03",
   "E-12-01",
+  "E-12-GRID-01",
   "E-2-01",
 ];
 if (JSON.stringify(entryKeys) !== JSON.stringify(expected)) {
@@ -471,7 +497,7 @@ make_refresh_output="$(
     "${MAKE:-make}" --no-print-directory -C "$ROOT_DIR" browser-e2e-duration-baselines 2>&1
 )"
 assert_contains "$make_refresh_output" "[RESULT] target=browser-e2e-duration-baselines status=pass" "make browser baseline refresh summary"
-assert_contains "$(tool_logs_from_result "$make_refresh_output")" "updated 5 browser E2E entry duration baselines" "make browser baseline refresh output"
+assert_contains "$(tool_logs_from_result "$make_refresh_output")" "updated 6 browser E2E entry duration baselines" "make browser baseline refresh output"
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" check-baseline-drift --baseline-file "$tmp_dir/browser-make-baseline.json" "$browser_results" >/dev/null
 

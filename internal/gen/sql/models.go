@@ -184,6 +184,7 @@ type BackupSet struct {
 	ObjectStoreRestoreAnchorRetainedUntil pgtype.Timestamptz `json:"object_store_restore_anchor_retained_until"`
 	VerificationState                     string             `json:"verification_state"`
 	LastVerifiedRestoreAt                 pgtype.Timestamptz `json:"last_verified_restore_at"`
+	LastVerificationBasisSha256           pgtype.Text        `json:"last_verification_basis_sha256"`
 }
 
 type BootstrapToken struct {
@@ -677,6 +678,23 @@ type RecordTag struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
 	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
+}
+
+type RestoreVerificationRun struct {
+	RestoreVerificationRunID pgtype.UUID        `json:"restore_verification_run_id"`
+	BackupSetID              pgtype.UUID        `json:"backup_set_id"`
+	StartedAt                pgtype.Timestamptz `json:"started_at"`
+	CompletedAt              pgtype.Timestamptz `json:"completed_at"`
+	VerificationState        string             `json:"verification_state"`
+	VerificationBasisSha256  string             `json:"verification_basis_sha256"`
+	FailureReason            pgtype.Text        `json:"failure_reason"`
+	FailureMessage           pgtype.Text        `json:"failure_message"`
+	AuthoritativeRowsSha256  pgtype.Text        `json:"authoritative_rows_sha256"`
+	AuthoritativeRowCount    pgtype.Int4        `json:"authoritative_row_count"`
+	ChangeSetsSha256         pgtype.Text        `json:"change_sets_sha256"`
+	ChangeSetRowCount        pgtype.Int4        `json:"change_set_row_count"`
+	BlobHashesSha256         pgtype.Text        `json:"blob_hashes_sha256"`
+	BlobCount                pgtype.Int4        `json:"blob_count"`
 }
 
 type RouteIdempotency struct {

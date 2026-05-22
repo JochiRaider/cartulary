@@ -27,9 +27,11 @@ const (
 var (
 	ErrBackupSetNotFound              = errors.New("recovery: backup set not found")
 	ErrNoSuccessfulRetainedBackup     = errors.New("recovery: no successful retained backup")
+	ErrAmbiguousBackupSelection       = errors.New("recovery: ambiguous latest successful retained backup selection")
 	ErrLatestSuccessfulBackupStale    = errors.New("recovery: latest successful retained backup is older than 24 hours")
 	ErrInvalidBackupMetadata          = errors.New("recovery: invalid backup metadata")
 	ErrInvalidVerificationState       = errors.New("recovery: invalid verification state")
+	ErrInvalidVerificationBasis       = errors.New("recovery: invalid verification basis")
 	ErrVerificationTimestampRequired  = errors.New("recovery: verification timestamp required")
 	ErrVerificationTimestampForbidden = errors.New("recovery: verification timestamp forbidden")
 	ErrRetentionFloor                 = errors.New("recovery: retention floor not satisfied")
@@ -61,6 +63,31 @@ type BackupSet struct {
 	ObjectStoreRestoreAnchorRetainedUntil time.Time
 	VerificationState                     VerificationState
 	LastVerifiedRestoreAt                 *time.Time
+	LastVerificationBasisSHA256           string
+}
+
+type RestoreVerificationRun struct {
+	RestoreVerificationRunID uuid.UUID
+	BackupSetID              uuid.UUID
+	StartedAt                time.Time
+	CompletedAt              time.Time
+	VerificationState        VerificationState
+	VerificationBasisSHA256  string
+	FailureReason            string
+	FailureMessage           string
+	ConsistencyReport        RestoreConsistencyReport
+}
+
+type CreateRestoreVerificationRunParams struct {
+	RestoreVerificationRunID uuid.UUID
+	BackupSetID              uuid.UUID
+	StartedAt                time.Time
+	CompletedAt              time.Time
+	VerificationState        VerificationState
+	VerificationBasisSHA256  string
+	FailureReason            string
+	FailureMessage           string
+	ConsistencyReport        RestoreConsistencyReport
 }
 
 type createBackupSetParams struct {
@@ -87,6 +114,19 @@ type LatestSuccessfulBackupStaleError struct {
 	BackupSet BackupSet
 	AsOf      time.Time
 	MaxAge    time.Duration
+}
+
+type AmbiguousBackupSelectionError struct {
+	ConsistencyPointAt time.Time
+	BackupSetIDs       []uuid.UUID
+}
+
+func (err *AmbiguousBackupSelectionError) Error() string {
+	return ErrAmbiguousBackupSelection.Error()
+}
+
+func (err *AmbiguousBackupSelectionError) Unwrap() error {
+	return ErrAmbiguousBackupSelection
 }
 
 func (err *LatestSuccessfulBackupStaleError) Error() string {
@@ -166,6 +206,48 @@ func (s *Store) LatestSuccessfulRetainedBackup(ctx context.Context, asOf time.Ti
 	return backupSet, nil
 }
 
+func (s *Store) RestoreCandidateBackup(ctx context.Context, asOf time.Time) (BackupSet, error) {
+	asOf = normalizeAsOf(asOf)
+	backupSets, err := s.ListSuccessfulRetainedBackups(ctx, asOf)
+	if err != nil {
+		return BackupSet{}, err
+	}
+	if len(backupSets) == 0 {
+		return BackupSet{}, ErrNoSuccessfulRetainedBackup
+	}
+	latestPoint := backupSets[0].ConsistencyPointAt
+	for _, backupSet := range backupSets[1:] {
+		if backupSet.ConsistencyPointAt.After(latestPoint) {
+			latestPoint = backupSet.ConsistencyPointAt
+		}
+	}
+	candidates := make([]BackupSet, 0, 1)
+	for _, backupSet := range backupSets {
+		if backupSet.ConsistencyPointAt.Equal(latestPoint) {
+			candidates = append(candidates, backupSet)
+		}
+	}
+	if len(candidates) != 1 {
+		ids := make([]uuid.UUID, 0, len(candidates))
+		for _, candidate := range candidates {
+			ids = append(ids, candidate.BackupSetID)
+		}
+		return BackupSet{}, &AmbiguousBackupSelectionError{
+			ConsistencyPointAt: latestPoint,
+			BackupSetIDs:       ids,
+		}
+	}
+	backupSet := candidates[0]
+	if backupSet.ConsistencyPointAt.Before(asOf.Add(-LatestSuccessfulBackupMaxAge)) {
+		return BackupSet{}, &LatestSuccessfulBackupStaleError{
+			BackupSet: backupSet,
+			AsOf:      asOf,
+			MaxAge:    LatestSuccessfulBackupMaxAge,
+		}
+	}
+	return backupSet, nil
+}
+
 func (s *Store) ListSuccessfulRetainedBackups(ctx context.Context, asOf time.Time) ([]BackupSet, error) {
 	rows, err := sqlc.New(s.pool).ListSuccessfulRetainedBackupSets(ctx, pgTimestamptz(normalizeAsOf(asOf)))
 	if err != nil {
@@ -182,14 +264,41 @@ func (s *Store) ListSuccessfulRetainedBackups(ctx context.Context, asOf time.Tim
 	return backupSets, nil
 }
 
-func (s *Store) UpdateVerificationState(ctx context.Context, backupSetID uuid.UUID, state VerificationState, lastVerifiedRestoreAt *time.Time) (BackupSet, error) {
-	if err := validateVerificationTransition(state, lastVerifiedRestoreAt); err != nil {
+func (s *Store) ListBackupsDueForRestoreVerification(ctx context.Context, asOf time.Time, verificationBasisSHA256 string) ([]BackupSet, error) {
+	if !validOptionalSHA256Hex(verificationBasisSHA256) {
+		return nil, ErrInvalidVerificationBasis
+	}
+	rows, err := sqlc.New(s.pool).ListBackupSetsDueForRestoreVerification(ctx, sqlc.ListBackupSetsDueForRestoreVerificationParams{
+		RetainedUntil:               pgTimestamptz(normalizeAsOf(asOf)),
+		LastVerificationBasisSha256: pgOptionalText(verificationBasisSHA256),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list backup sets due for restore verification: %w", err)
+	}
+	backupSets := make([]BackupSet, 0, len(rows))
+	for _, row := range rows {
+		backupSet, err := backupSetFromSQL(row)
+		if err != nil {
+			return nil, err
+		}
+		backupSets = append(backupSets, backupSet)
+	}
+	return backupSets, nil
+}
+
+func (s *Store) UpdateVerificationState(ctx context.Context, backupSetID uuid.UUID, state VerificationState, lastVerifiedRestoreAt *time.Time, verificationBasisSHA256 ...string) (BackupSet, error) {
+	basis := ""
+	if len(verificationBasisSHA256) > 0 {
+		basis = verificationBasisSHA256[0]
+	}
+	if err := validateVerificationTransition(state, lastVerifiedRestoreAt, basis); err != nil {
 		return BackupSet{}, err
 	}
 	row, err := sqlc.New(s.pool).UpdateBackupSetVerificationState(ctx, sqlc.UpdateBackupSetVerificationStateParams{
-		BackupSetID:           pgUUID(backupSetID),
-		VerificationState:     string(state),
-		LastVerifiedRestoreAt: pgOptionalTimestamptz(lastVerifiedRestoreAt),
+		BackupSetID:                 pgUUID(backupSetID),
+		VerificationState:           string(state),
+		LastVerifiedRestoreAt:       pgOptionalTimestamptz(lastVerifiedRestoreAt),
+		LastVerificationBasisSha256: pgOptionalText(basis),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return BackupSet{}, ErrBackupSetNotFound
@@ -198,6 +307,97 @@ func (s *Store) UpdateVerificationState(ctx context.Context, backupSetID uuid.UU
 		return BackupSet{}, fmt.Errorf("update backup verification state: %w", err)
 	}
 	return backupSetFromSQL(row)
+}
+
+func (s *Store) CreateRestoreVerificationRun(ctx context.Context, params CreateRestoreVerificationRunParams) (RestoreVerificationRun, error) {
+	normalized, err := normalizeRestoreVerificationRunParams(params)
+	if err != nil {
+		return RestoreVerificationRun{}, err
+	}
+	row, err := sqlc.New(s.pool).CreateRestoreVerificationRun(ctx, sqlc.CreateRestoreVerificationRunParams{
+		RestoreVerificationRunID: pgUUID(normalized.RestoreVerificationRunID),
+		BackupSetID:              pgUUID(normalized.BackupSetID),
+		StartedAt:                pgTimestamptz(normalized.StartedAt),
+		CompletedAt:              pgTimestamptz(normalized.CompletedAt),
+		VerificationState:        string(normalized.VerificationState),
+		VerificationBasisSha256:  normalized.VerificationBasisSHA256,
+		FailureReason:            pgOptionalText(normalized.FailureReason),
+		FailureMessage:           pgOptionalText(normalized.FailureMessage),
+		AuthoritativeRowsSha256:  pgOptionalText(normalized.ConsistencyReport.AuthoritativeRowsSHA256),
+		AuthoritativeRowCount:    pgOptionalInt4(normalized.ConsistencyReport.AuthoritativeRowCount),
+		ChangeSetsSha256:         pgOptionalText(normalized.ConsistencyReport.ChangeSetsSHA256),
+		ChangeSetRowCount:        pgOptionalInt4(normalized.ConsistencyReport.ChangeSetRowCount),
+		BlobHashesSha256:         pgOptionalText(normalized.ConsistencyReport.BlobHashesSHA256),
+		BlobCount:                pgOptionalInt4(normalized.ConsistencyReport.BlobCount),
+	})
+	if err != nil {
+		return RestoreVerificationRun{}, fmt.Errorf("create restore verification run: %w", err)
+	}
+	return restoreVerificationRunFromSQL(row)
+}
+
+func (s *Store) RecordRestoreVerificationCompletion(ctx context.Context, params CreateRestoreVerificationRunParams) (BackupSet, RestoreVerificationRun, error) {
+	normalized, err := normalizeRestoreVerificationRunParams(params)
+	if err != nil {
+		return BackupSet{}, RestoreVerificationRun{}, err
+	}
+	lastVerifiedAt := normalized.CompletedAt
+	if err := validateVerificationTransition(normalized.VerificationState, &lastVerifiedAt, normalized.VerificationBasisSHA256); err != nil {
+		return BackupSet{}, RestoreVerificationRun{}, err
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return BackupSet{}, RestoreVerificationRun{}, fmt.Errorf("begin restore verification completion: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	queries := sqlc.New(tx)
+	backupRow, err := queries.UpdateBackupSetVerificationState(ctx, sqlc.UpdateBackupSetVerificationStateParams{
+		BackupSetID:                 pgUUID(normalized.BackupSetID),
+		VerificationState:           string(normalized.VerificationState),
+		LastVerifiedRestoreAt:       pgTimestamptz(lastVerifiedAt),
+		LastVerificationBasisSha256: pgOptionalText(normalized.VerificationBasisSHA256),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return BackupSet{}, RestoreVerificationRun{}, ErrBackupSetNotFound
+	}
+	if err != nil {
+		return BackupSet{}, RestoreVerificationRun{}, fmt.Errorf("update backup verification state: %w", err)
+	}
+	runRow, err := queries.CreateRestoreVerificationRun(ctx, sqlc.CreateRestoreVerificationRunParams{
+		RestoreVerificationRunID: pgUUID(normalized.RestoreVerificationRunID),
+		BackupSetID:              pgUUID(normalized.BackupSetID),
+		StartedAt:                pgTimestamptz(normalized.StartedAt),
+		CompletedAt:              pgTimestamptz(normalized.CompletedAt),
+		VerificationState:        string(normalized.VerificationState),
+		VerificationBasisSha256:  normalized.VerificationBasisSHA256,
+		FailureReason:            pgOptionalText(normalized.FailureReason),
+		FailureMessage:           pgOptionalText(normalized.FailureMessage),
+		AuthoritativeRowsSha256:  pgOptionalText(normalized.ConsistencyReport.AuthoritativeRowsSHA256),
+		AuthoritativeRowCount:    pgOptionalInt4(normalized.ConsistencyReport.AuthoritativeRowCount),
+		ChangeSetsSha256:         pgOptionalText(normalized.ConsistencyReport.ChangeSetsSHA256),
+		ChangeSetRowCount:        pgOptionalInt4(normalized.ConsistencyReport.ChangeSetRowCount),
+		BlobHashesSha256:         pgOptionalText(normalized.ConsistencyReport.BlobHashesSHA256),
+		BlobCount:                pgOptionalInt4(normalized.ConsistencyReport.BlobCount),
+	})
+	if err != nil {
+		return BackupSet{}, RestoreVerificationRun{}, fmt.Errorf("create restore verification run: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return BackupSet{}, RestoreVerificationRun{}, fmt.Errorf("commit restore verification completion: %w", err)
+	}
+	backupSet, err := backupSetFromSQL(backupRow)
+	if err != nil {
+		return BackupSet{}, RestoreVerificationRun{}, err
+	}
+	run, err := restoreVerificationRunFromSQL(runRow)
+	if err != nil {
+		return BackupSet{}, RestoreVerificationRun{}, err
+	}
+	return backupSet, run, nil
 }
 
 func normalizeCreateBackupSetParams(params createBackupSetParams) (createBackupSetParams, error) {
@@ -274,9 +474,55 @@ func normalizeCreateBackupSetParams(params createBackupSetParams) (createBackupS
 	return params, nil
 }
 
-func validateVerificationTransition(state VerificationState, lastVerifiedRestoreAt *time.Time) error {
+func normalizeRestoreVerificationRunParams(params CreateRestoreVerificationRunParams) (CreateRestoreVerificationRunParams, error) {
+	if params.RestoreVerificationRunID == uuid.Nil {
+		params.RestoreVerificationRunID = uuid.New()
+	}
+	if params.BackupSetID == uuid.Nil {
+		return CreateRestoreVerificationRunParams{}, fmt.Errorf("%w: backup_set_id is required", ErrInvalidBackupMetadata)
+	}
+	if params.StartedAt.IsZero() {
+		return CreateRestoreVerificationRunParams{}, fmt.Errorf("%w: started_at is required", ErrInvalidBackupMetadata)
+	}
+	if params.CompletedAt.IsZero() {
+		return CreateRestoreVerificationRunParams{}, fmt.Errorf("%w: completed_at is required", ErrInvalidBackupMetadata)
+	}
+	params.StartedAt = params.StartedAt.UTC()
+	params.CompletedAt = params.CompletedAt.UTC()
+	if params.CompletedAt.Before(params.StartedAt) {
+		return CreateRestoreVerificationRunParams{}, fmt.Errorf("%w: completed_at before started_at", ErrInvalidBackupMetadata)
+	}
+	if !validVerificationState(params.VerificationState) || params.VerificationState == VerificationUnverified {
+		return CreateRestoreVerificationRunParams{}, ErrInvalidVerificationState
+	}
+	if !validSHA256Hex(params.VerificationBasisSHA256) {
+		return CreateRestoreVerificationRunParams{}, ErrInvalidVerificationBasis
+	}
+	if params.VerificationState == VerificationFailed {
+		if strings.TrimSpace(params.FailureReason) == "" || strings.TrimSpace(params.FailureMessage) == "" {
+			return CreateRestoreVerificationRunParams{}, fmt.Errorf("%w: failed restore verification requires redacted failure details", ErrInvalidBackupMetadata)
+		}
+		params.FailureReason = strings.TrimSpace(params.FailureReason)
+		params.FailureMessage = strings.TrimSpace(params.FailureMessage)
+		return params, nil
+	}
+	if strings.TrimSpace(params.FailureReason) != "" || strings.TrimSpace(params.FailureMessage) != "" {
+		return CreateRestoreVerificationRunParams{}, fmt.Errorf("%w: successful restore verification cannot include failure details", ErrInvalidBackupMetadata)
+	}
+	if params.ConsistencyReport.AuthoritativeRowsSHA256 == "" ||
+		params.ConsistencyReport.ChangeSetsSHA256 == "" ||
+		params.ConsistencyReport.BlobHashesSHA256 == "" {
+		return CreateRestoreVerificationRunParams{}, fmt.Errorf("%w: successful restore verification requires consistency hashes", ErrInvalidBackupMetadata)
+	}
+	return params, nil
+}
+
+func validateVerificationTransition(state VerificationState, lastVerifiedRestoreAt *time.Time, verificationBasisSHA256 string) error {
 	if !validVerificationState(state) {
 		return ErrInvalidVerificationState
+	}
+	if !validOptionalSHA256Hex(verificationBasisSHA256) {
+		return ErrInvalidVerificationBasis
 	}
 	if state == VerificationUnverified {
 		if lastVerifiedRestoreAt != nil {
@@ -311,6 +557,10 @@ func validSHA256Hex(value string) bool {
 		}
 	}
 	return true
+}
+
+func validOptionalSHA256Hex(value string) bool {
+	return strings.TrimSpace(value) == "" || validSHA256Hex(value)
 }
 
 func normalizeAsOf(asOf time.Time) time.Time {
@@ -369,6 +619,48 @@ func backupSetFromSQL(row sqlc.BackupSet) (BackupSet, error) {
 		ObjectStoreRestoreAnchorRetainedUntil: objectStoreAnchorRetainedUntil,
 		VerificationState:                     state,
 		LastVerifiedRestoreAt:                 optionalTimeFromPG(row.LastVerifiedRestoreAt),
+		LastVerificationBasisSHA256:           optionalTextFromPG(row.LastVerificationBasisSha256),
+	}, nil
+}
+
+func restoreVerificationRunFromSQL(row sqlc.RestoreVerificationRun) (RestoreVerificationRun, error) {
+	runID, err := uuidFromPG(row.RestoreVerificationRunID)
+	if err != nil {
+		return RestoreVerificationRun{}, fmt.Errorf("restore_verification_run_id: %w", err)
+	}
+	backupSetID, err := uuidFromPG(row.BackupSetID)
+	if err != nil {
+		return RestoreVerificationRun{}, fmt.Errorf("backup_set_id: %w", err)
+	}
+	startedAt, err := timeFromPG(row.StartedAt)
+	if err != nil {
+		return RestoreVerificationRun{}, fmt.Errorf("started_at: %w", err)
+	}
+	completedAt, err := timeFromPG(row.CompletedAt)
+	if err != nil {
+		return RestoreVerificationRun{}, fmt.Errorf("completed_at: %w", err)
+	}
+	state := VerificationState(row.VerificationState)
+	if !validVerificationState(state) || state == VerificationUnverified {
+		return RestoreVerificationRun{}, fmt.Errorf("%w: %s", ErrInvalidVerificationState, row.VerificationState)
+	}
+	return RestoreVerificationRun{
+		RestoreVerificationRunID: runID,
+		BackupSetID:              backupSetID,
+		StartedAt:                startedAt,
+		CompletedAt:              completedAt,
+		VerificationState:        state,
+		VerificationBasisSHA256:  row.VerificationBasisSha256,
+		FailureReason:            optionalTextFromPG(row.FailureReason),
+		FailureMessage:           optionalTextFromPG(row.FailureMessage),
+		ConsistencyReport: RestoreConsistencyReport{
+			AuthoritativeRowsSHA256: optionalTextFromPG(row.AuthoritativeRowsSha256),
+			AuthoritativeRowCount:   optionalInt4FromPG(row.AuthoritativeRowCount),
+			ChangeSetsSHA256:        optionalTextFromPG(row.ChangeSetsSha256),
+			ChangeSetRowCount:       optionalInt4FromPG(row.ChangeSetRowCount),
+			BlobHashesSHA256:        optionalTextFromPG(row.BlobHashesSha256),
+			BlobCount:               optionalInt4FromPG(row.BlobCount),
+		},
 	}, nil
 }
 
@@ -394,6 +686,21 @@ func pgOptionalTimestamptz(value *time.Time) pgtype.Timestamptz {
 	return pgTimestamptz(*value)
 }
 
+func pgOptionalText(value string) pgtype.Text {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: value, Valid: true}
+}
+
+func pgOptionalInt4(value int) pgtype.Int4 {
+	if value == 0 {
+		return pgtype.Int4{}
+	}
+	return pgtype.Int4{Int32: int32(value), Valid: true}
+}
+
 func timeFromPG(value pgtype.Timestamptz) (time.Time, error) {
 	if !value.Valid {
 		return time.Time{}, errors.New("missing timestamp")
@@ -407,4 +714,18 @@ func optionalTimeFromPG(value pgtype.Timestamptz) *time.Time {
 	}
 	parsed := value.Time.UTC()
 	return &parsed
+}
+
+func optionalTextFromPG(value pgtype.Text) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.String
+}
+
+func optionalInt4FromPG(value pgtype.Int4) int {
+	if !value.Valid {
+		return 0
+	}
+	return int(value.Int32)
 }

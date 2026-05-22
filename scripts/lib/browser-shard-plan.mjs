@@ -24,6 +24,7 @@ const baselineNote =
   "Advisory browser functional manifest-entry weights for duration-balanced Playwright sharding. Refresh with make browser-e2e-duration-baselines RESULTS_DIR=<dir>.";
 const defaultEntryWeightMs = 10000;
 const defaultShardTargetMs = 12000;
+const browserManifestIDPattern = /^E-[0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)*$/u;
 
 function usage() {
   process.stderr.write(
@@ -102,7 +103,7 @@ function readBaselineDocument(file, { allowMissing = true } = {}) {
     throw new Error(`${path.relative(repoRoot, file)} entries must be an object`);
   }
   for (const [id, entry] of Object.entries(rawEntries)) {
-    if (!/^E-[0-9]+-[0-9]+$/.test(id)) {
+    if (!browserManifestIDPattern.test(id)) {
       throw new Error(`${path.relative(repoRoot, file)} entries key ${id} must be an E-* manifest ID`);
     }
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -439,7 +440,7 @@ function collectObservedBrowserEntryDurations(resultsDir, { requirePassingPhaseS
       for (const entryTiming of timing.entries ?? []) {
         const id = String(entryTiming.id ?? "");
         const durationMs = observedDurationMs(entryTiming);
-        if (/^E-[0-9]+-[0-9]+$/.test(id) && durationMs > 0) {
+        if (browserManifestIDPattern.test(id) && durationMs > 0) {
           const currentObserved = observed.get(id);
           const normalized = {
             id,

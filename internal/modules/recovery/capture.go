@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"os"
 	"path"
@@ -26,8 +26,10 @@ import (
 )
 
 const (
-	BackupIntegrityManifestSchemaID = "cartulary.backup_integrity_manifest.v1"
-	backupStorageAnchorScheme       = "backup-storage://"
+	BackupIntegrityManifestSchemaID     = "cartulary.backup_integrity_manifest.v1"
+	PostgresSnapshotArtifactSchemaID    = "cartulary.postgres_snapshot_artifact.v1"
+	ObjectStoreSnapshotArtifactSchemaID = "cartulary.object_store_snapshot_artifact.v2"
+	backupStorageAnchorScheme           = "backup-storage://"
 )
 
 var (
@@ -97,6 +99,7 @@ type ObjectStoreSnapshotItem struct {
 	SizeBytes   int64  `json:"size_bytes"`
 	ContentType string `json:"content_type"`
 	SHA256      string `json:"sha256"`
+	BodyBase64  string `json:"body_base64"`
 }
 
 type PostgresSnapshotArtifact struct {
@@ -231,22 +234,26 @@ func (service *CaptureService) CaptureBackupSet(ctx context.Context, params Capt
 	} else {
 		params.CreatedAt = params.CreatedAt.UTC()
 	}
-	params.ConsistencyPointAt = params.ConsistencyPointAt.UTC()
+	params.CreatedAt = backupTimestamp(params.CreatedAt)
+	params.ConsistencyPointAt = backupTimestamp(params.ConsistencyPointAt.UTC())
 	if params.RetainedUntil.IsZero() {
 		params.RetainedUntil = params.CreatedAt.Add(MinimumRetentionDuration)
 	} else {
 		params.RetainedUntil = params.RetainedUntil.UTC()
 	}
+	params.RetainedUntil = backupTimestamp(params.RetainedUntil)
 	if params.PostgresRestoreAnchorRetainedUntil.IsZero() {
 		params.PostgresRestoreAnchorRetainedUntil = params.RetainedUntil
 	} else {
 		params.PostgresRestoreAnchorRetainedUntil = params.PostgresRestoreAnchorRetainedUntil.UTC()
 	}
+	params.PostgresRestoreAnchorRetainedUntil = backupTimestamp(params.PostgresRestoreAnchorRetainedUntil)
 	if params.ObjectStoreRestoreAnchorRetainedUntil.IsZero() {
 		params.ObjectStoreRestoreAnchorRetainedUntil = params.RetainedUntil
 	} else {
 		params.ObjectStoreRestoreAnchorRetainedUntil = params.ObjectStoreRestoreAnchorRetainedUntil.UTC()
 	}
+	params.ObjectStoreRestoreAnchorRetainedUntil = backupTimestamp(params.ObjectStoreRestoreAnchorRetainedUntil)
 
 	prefix := "backup_sets/" + params.BackupSetID.String()
 	postgresProof, err := service.storage.WriteArtifact(ctx, prefix+"/postgres-artifact.json", params.PostgresArtifact.Body, artifactContentType(params.PostgresArtifact))
@@ -303,6 +310,10 @@ func (service *CaptureService) CaptureBackupSet(ctx context.Context, params Capt
 	})
 }
 
+func backupTimestamp(value time.Time) time.Time {
+	return value.UTC().Truncate(time.Microsecond)
+}
+
 func CaptureObjectStoreSnapshotArtifact(ctx context.Context, store objectstore.Store, prefix string) ([]byte, error) {
 	if store == nil {
 		return nil, fmt.Errorf("%w: object store is required", ErrInvalidBackupArtifact)
@@ -320,23 +331,27 @@ func CaptureObjectStoreSnapshotArtifact(ctx context.Context, store objectstore.S
 		if err != nil {
 			return nil, fmt.Errorf("read object store snapshot object %s: %w", object.Key, err)
 		}
-		digest, err := hashReader(reader)
+		body, err := io.ReadAll(reader)
 		closeErr := reader.Close()
 		if err != nil {
-			return nil, fmt.Errorf("hash object store snapshot object %s: %w", object.Key, err)
+			return nil, fmt.Errorf("read object store snapshot object body %s: %w", object.Key, err)
 		}
 		if closeErr != nil {
 			return nil, fmt.Errorf("close object store snapshot object %s: %w", object.Key, closeErr)
+		}
+		if int64(len(body)) != info.Size {
+			return nil, fmt.Errorf("%w: object store snapshot size mismatch for %s", ErrInvalidBackupArtifact, object.Key)
 		}
 		items = append(items, ObjectStoreSnapshotItem{
 			Key:         info.Key,
 			SizeBytes:   info.Size,
 			ContentType: info.ContentType,
-			SHA256:      digest,
+			SHA256:      sha256Hex(body),
+			BodyBase64:  base64.StdEncoding.EncodeToString(body),
 		})
 	}
 	return json.Marshal(ObjectStoreSnapshotArtifact{
-		SchemaID: "cartulary.object_store_snapshot_artifact.v1",
+		SchemaID: ObjectStoreSnapshotArtifactSchemaID,
 		Objects:  items,
 	})
 }
@@ -361,6 +376,9 @@ ORDER BY table_name ASC
 		var tableName string
 		if err := rows.Scan(&tableName); err != nil {
 			return nil, fmt.Errorf("scan postgres catalog table: %w", err)
+		}
+		if !IsAuthoritativePostgresSnapshotTable(tableName) {
+			continue
 		}
 		identifier := pgx.Identifier{tableName}.Sanitize()
 		query := fmt.Sprintf(`
@@ -388,9 +406,28 @@ FROM (
 		return nil, fmt.Errorf("iterate postgres catalog tables: %w", err)
 	}
 	return json.Marshal(PostgresSnapshotArtifact{
-		SchemaID: "cartulary.postgres_snapshot_artifact.v1",
+		SchemaID: PostgresSnapshotArtifactSchemaID,
 		Tables:   tables,
 	})
+}
+
+func IsAuthoritativePostgresSnapshotTable(tableName string) bool {
+	normalized := strings.TrimSpace(strings.ToLower(tableName))
+	if normalized == "" || strings.HasSuffix(normalized, "_grid_projection") {
+		return false
+	}
+	switch normalized {
+	case "backup_sets",
+		"evidence_access_handles",
+		"goose_db_version",
+		"pending_totp_enrollments",
+		"restore_verification_runs",
+		"route_idempotency",
+		"user_sessions":
+		return false
+	default:
+		return true
+	}
 }
 
 func artifactContentType(artifact BackupArtifact) string {
@@ -418,18 +455,6 @@ func normalizeArtifactKey(key string) (string, error) {
 func sha256Hex(body []byte) string {
 	sum := sha256.Sum256(body)
 	return hex.EncodeToString(sum[:])
-}
-
-func hashReader(reader io.Reader) (string, error) {
-	digest := sha256.New()
-	if _, err := io.Copy(digest, reader); err != nil {
-		return "", err
-	}
-	return hashHex(digest), nil
-}
-
-func hashHex(digest hash.Hash) string {
-	return hex.EncodeToString(digest.Sum(nil))
 }
 
 func DecodeIntegrityManifest(body []byte) (BackupIntegrityManifest, error) {

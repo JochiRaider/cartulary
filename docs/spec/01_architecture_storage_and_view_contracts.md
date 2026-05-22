@@ -478,7 +478,7 @@ Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-
 Core 01 §17 and §20 are the primary owners for the public route inventory, request and response defaults, omitted-versus-`null` behavior, route-scoped idempotency, family-specific error registries, and durable terminal-state representation for those extension families.
 
 **REQ-01-570**
-The current profile defines no public `/api/v1/backups*`, `/api/v1/restores*`, or `/api/v1/restore-verifications*` route family and no corresponding `/ws/v1/*` family. Backup creation, restore execution, and restore verification remain deployment-local operator-facing concerns and MUST NOT be exposed as workbook-surface routes in the current profile.
+The current profile defines no public `/api/v1/backups*`, `/api/v1/restores*`, or `/api/v1/restore-verifications*` route family and no corresponding `/ws/v1/*` family. Backup creation, restore execution, and restore verification remain deployment-local operator-facing concerns and MUST NOT be exposed as workbook-surface routes in the current profile. The base restore surface MUST at minimum provide a deployment-local control that restores the latest successful retained `backup_set`; it MUST NOT require arbitrary operator-supplied timestamp point-in-time restore.
 Profiles: base
 Verified by: AC-402
 
@@ -5124,7 +5124,7 @@ Profiles: base
 Verified by: AC-399
 
 **REQ-01-578**
-A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, or `roots.backup_storage` binding. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'` and update `last_verified_restore_at`. A failed verification MUST set `verification_state='failed'` and update `last_verified_restore_at`.
+A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a non-secret verification-basis digest that is sufficient to detect those mechanism and root-binding changes. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
 Profiles: base
 Verified by: AC-401
 

@@ -191,7 +191,7 @@ Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-261
 
 **REQ-04-106**
-Any built-in backup, restore, or restore-verification control surface MUST remain deployment-local and operator-facing. In the base profile, such a surface MUST require `deployment_admin` and MUST NOT be incident-scoped.
+Any built-in backup, restore, or restore-verification control surface MUST remain deployment-local and operator-facing. In the base profile, such a surface MUST require `deployment_admin`, MUST NOT be incident-scoped, and MUST preflight destructive restore targets before mutation so source and target storage bindings are separated and the target is fresh.
 Profiles: base
 Verified by: AC-402
 
@@ -1595,9 +1595,9 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-571, REQ-01-575, REQ-01-423..REQ-01-424, REQ-01-577
 - **AC-400**: If the selected `backup_set` is missing a required Postgres artifact, required object-store artifact, or required checksum or integrity proof for the chosen backup mechanism, restore fails before the target environment becomes visible or ready.
   - Verifies: REQ-01-575..REQ-01-576
-- **AC-401**: Full restore verification runs in an isolated environment at least every 7 days and after a change to the backup mechanism, `roots.database_storage`, `roots.object_storage`, or `roots.backup_storage` binding; a successful verification sets `verification_state='verified'` with non-null `last_verified_restore_at`; a failed verification sets `verification_state='failed'` with non-null `last_verified_restore_at`; and a failed verification is never represented as verified or ready.
+- **AC-401**: Full restore verification runs in an isolated environment at least every 7 days and after a change to the backup mechanism, `roots.database_storage`, `roots.object_storage`, or `roots.backup_storage` binding; the implementation records or derives a non-secret verification-basis digest for those mechanism and root-binding inputs; a successful verification sets `verification_state='verified'` with non-null `last_verified_restore_at`; a failed verification sets `verification_state='failed'` with non-null `last_verified_restore_at`; and a failed verification is never represented as verified or ready.
   - Verifies: REQ-01-572, REQ-01-578
-- **AC-402**: The public route inventory under `/api/v1/` and `/ws/v1/` exposes no backup, restore, or restore-verification family; and any built-in operator-facing backup or restore control surface is deployment-local, requires `deployment_admin`, and is not incident-scoped.
+- **AC-402**: The public route inventory under `/api/v1/` and `/ws/v1/` exposes no backup, restore, or restore-verification family; and any built-in operator-facing backup or restore control surface is deployment-local, requires `deployment_admin`, is not incident-scoped, and rejects unsafe restore targets before mutation.
   - Verifies: REQ-01-570, REQ-04-106
 - **AC-403**: `roots.backup_storage` is present in the effective deployment configuration; the disconnected binding uses `binding_kind='filesystem_root'`; the on-prem or cloud binding uses only `filesystem_root` or `managed_service`; `/var/lib/cartulary/backups` is the canonical disconnected example path; `roots.export_outputs` and `roots.temporary_work` are not treated as authoritative backup roots; and backup artifacts or restore-verification extracts that carry incident data remain on encrypted storage.
   - Verifies: REQ-04-053, REQ-04-058, REQ-04-071..REQ-04-073, REQ-04-076, REQ-04-107..REQ-04-108

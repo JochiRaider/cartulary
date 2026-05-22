@@ -1,14 +1,17 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase10",
-  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 1 replaces backup-storage binding rows with direct AC-403 evidence. Sprint 2 replaces backup metadata, retention-floor, operator-inspection, and public-route absence rows with direct AC-398 and AC-402 evidence while remaining restore rows stay blocked.",
+  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 1 replaces backup-storage binding rows with direct AC-403 evidence. Sprint 2 replaces backup metadata, retention-floor, operator-inspection, and public-route absence rows with direct AC-398 and AC-402 evidence. Sprint 3 replaces restore readiness, fresh-environment coherent-store rows, fail-closed integrity, restore-verification state, deployment-local restore operator evidence, and browser-visible recovery evidence.",
   "ledger": {
     "title": "Phase 10 Coverage Ledger",
     "notes": [
-      "Phase 10 is active but incomplete while remaining restore rows stay blocker sentinels.",
+      "Phase 10 is active while final traceability refresh and retained-run handoff remain pending.",
       "Sprint 1 gives `U-10-05` and `E-10-04` direct backup-storage binding evidence without claiming backup or restore implementation.",
       "Sprint 2 gives `U-10-01`, `I-10-01`, and `E-10-01` direct artifact-backed backup metadata, retention-floor, latest-success, and deployment-local operator inspection evidence without claiming restore orchestration.",
       "Sprint 2 gives `U-10-04` and `E-10-03` direct public route-family absence evidence; operator authorization remains covered by `E-10-01`.",
+      "Sprint 3 gives `U-10-02` and `I-10-02` direct process-harness restore readiness, same-point store restore, projection rebuild, workbook query, and row/change/blob consistency evidence.",
+      "Sprint 4 remediation gives `U-10-03` and `I-10-03` direct broken-artifact fail-closed evidence and restore-verification state transition evidence.",
+      "Sprint 5 remediation gives `E-10-02` direct browser-visible workbook recovery evidence through an isolated browser restore helper and ordinary workbook UI/API surfaces.",
       "Operational backup and restore remain deployment-local recovery behavior and are distinct from the Incident Portability Extension Profile.",
       "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
     ],
@@ -16,8 +19,8 @@
       "`backend-unit` selects direct backup-storage configuration evidence for `U-10-05` and static public route-family absence evidence for `U-10-04`.",
       "`backend-store` selects artifact-backed retained `backup_set` metadata and retention evidence for `U-10-01`.",
       "`backend-integration` selects real Postgres, object-store, and backup-storage artifact evidence for `I-10-01`.",
-      "`backend-process` selects deployment-local operator inspection evidence for `E-10-01`, process public-route absence evidence for `E-10-03`, and direct effective-config startup rejection evidence for `E-10-04`; restore and fail-closed rows remain blocked.",
-      "`browser-e2e-webserver-backed` will select workbook recovery evidence once `E-10-02` is implemented."
+      "`backend-process` selects deployment-local operator inspection and restore evidence for `E-10-01`, process public-route absence evidence for `E-10-03`, direct restore readiness evidence for `U-10-02`, `U-10-03`, `I-10-02`, and `I-10-03`, and direct effective-config startup rejection evidence for `E-10-04`.",
+      "`browser-e2e-webserver-backed` selects direct browser-visible restored workbook evidence for `E-10-02`."
     ],
     "support_execution_extras": [
       "Existing runtime-root, object-store, projection, workbook, route, and browser evidence from earlier phases is support-only substrate and cannot satisfy Phase 10 rows."
@@ -30,14 +33,14 @@
     "shared_harness": [
       "| Harness | Phase 10 evidence |",
       "| --- | --- |",
-      "| Active incomplete manifest ownership | `tools/phase10_test_map.json` records Sprint 1 and Sprint 2 direct evidence plus remaining restore blocker sentinels. |",
+      "| Active manifest ownership | `tools/phase10_test_map.json` records Sprint 1 through browser-visible restore-remediation direct evidence. |",
       "| Generated ledger | `docs/testing/phase10_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
-      "| Schedule boundary | Generated schedules must execute implemented Sprint 1 and Sprint 2 evidence while blocker sentinels preserve incomplete Phase 10 status. |"
+      "| Schedule boundary | Generated schedules must execute implemented Sprint 1 through Sprint 5 evidence without blocker sentinels. |"
     ],
     "support_only": [
       "Earlier phase runtime-root and object-store evidence is support-only substrate.",
-      "Existing projection rebuild tests are support-only substrate until Phase 10 restore readiness owns projection rebuild evidence.",
-      "Existing browser workbook query tests are support-only substrate until Phase 10 restore recovery evidence owns the row."
+      "Existing projection rebuild tests remain support-only substrate except for `U-10-02` restore readiness evidence.",
+      "Existing browser workbook query tests remain support-only substrate outside the direct Phase 10 recovery workflow."
     ]
   },
   "shared_harnesses": [],
@@ -91,14 +94,14 @@
       "runner": "go_test",
       "package": "./cmd/server",
       "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
-      "symbol": "TestPhase10_U_10_02_RestoreReadinessBlocked",
+      "symbol": "TestPhase10_U_10_02_RestoreReadinessAndCoherentStoreOrder",
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
-      "claim_status": "blocked",
-      "claim": "Restore readiness requires exactly one retained backup_set, same-point Postgres and object-store restore, and projection rebuild before readiness; future process-bound evidence must replace this sentinel.",
-      "out_of_scope": "This sentinel does not implement restore orchestration or readiness gating.",
+      "claim_status": "implemented",
+      "claim": "Restore readiness selects the latest retained successful backup_set only when its latest consistency point is unambiguous, restores Postgres and object storage from that one backup set, rebuilds required projections, verifies authoritative row, change-set, and blob-hash coherence, and marks readiness only after those steps complete in deterministic order.",
+      "out_of_scope": "This evidence does not implement fail-closed missing/corrupt artifact behavior, restore-verification cadence, browser recovery, public route families, or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 recovery blocker"
+      "execution_label": "backend-process phase10 restore readiness evidence"
     },
     {
       "id": "U-10-03",
@@ -109,11 +112,11 @@
       "symbol": "TestPhase10_U_10_03_FailClosedRestoreVerificationBlocked",
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
-      "claim_status": "blocked",
-      "claim": "Restore must fail before readiness when required artifacts or integrity proof are missing, and restore verification must update state only according to isolated verification results.",
-      "out_of_scope": "This sentinel does not implement artifact proof checks or restore-verification state transitions.",
+      "claim_status": "implemented",
+      "claim": "Restore fails before readiness when required artifacts or integrity proof are missing or corrupt, and restore verification records verified or failed state only after isolated verification execution.",
+      "out_of_scope": "This evidence does not implement browser-visible restore recovery or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 recovery blocker"
+      "execution_label": "backend-process phase10 fail-closed restore evidence"
     },
     {
       "id": "U-10-04",
@@ -168,14 +171,14 @@
       "runner": "go_test",
       "package": "./cmd/server",
       "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
-      "symbol": "TestPhase10_I_10_02_FreshEnvironmentRestoreWorkbookConsistencyBlocked",
+      "symbol": "TestPhase10_I_10_02_FreshEnvironmentRestoreWorkbookConsistency",
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
-      "claim_status": "blocked",
-      "claim": "Restoring the latest successful retained backup_set into a fresh environment must rebuild projections, open an incident when data exists, execute a built-in workbook query, and preserve row, change-set, and blob consistency.",
-      "out_of_scope": "This sentinel does not perform fresh-environment restore or workbook recovery.",
+      "claim_status": "implemented",
+      "claim": "Restoring the latest successful retained backup_set into a fresh isolated environment rebuilds projections, starts the server ready only after restore completion, opens the restored incident through the process, executes the built-in timeline workbook query, and preserves authoritative rows, change sets, and blob hashes.",
+      "out_of_scope": "This evidence does not implement browser recovery, fail-closed missing/corrupt artifact behavior, restore-verification cadence, public route families, or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 recovery blocker"
+      "execution_label": "backend-process phase10 fresh restore evidence"
     },
     {
       "id": "I-10-03",
@@ -186,11 +189,11 @@
       "symbol": "TestPhase10_I_10_03_MissingArtifactFailsBeforeReadinessBlocked",
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Selecting a retained backup_set missing a required artifact or integrity proof must fail before target readiness.",
-      "out_of_scope": "This sentinel does not create broken backup fixtures or readiness-failure evidence.",
+      "out_of_scope": "This evidence does not implement browser-visible restore recovery or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 recovery blocker"
+      "execution_label": "backend-process phase10 missing-artifact restore evidence"
     }
   ],
   "e2e": [
@@ -200,12 +203,15 @@
       "runner": "go_test",
       "package": "./cmd/operator",
       "file": "cmd/operator/operator_phase10_test.go",
-      "symbol": "TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata",
+      "symbols": [
+        "TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata",
+        "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup"
+      ],
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
       "claim_status": "implemented",
-      "claim": "A deployment-local operator command exposes the latest successful retained backup_set metadata and artifact proof fields only to an active deployment_admin; inactive deployment admins, non-admins, and incident-admin-only users are rejected.",
-      "out_of_scope": "This evidence does not implement public route absence inventory for `E-10-03`, restore orchestration, or restore-verification cadence.",
+      "claim": "Deployment-local operator commands expose latest successful retained backup_set metadata and restore the latest retained backup only for an active deployment_admin; inactive deployment admins, non-admins, incident-admin-only users, and unsafe same-config restore targets are rejected.",
+      "out_of_scope": "This evidence does not implement browser-visible restore recovery or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-operator-inspection",
       "execution_label": "backend-process phase10 deployment-local operator inspection evidence"
     },
@@ -217,9 +223,9 @@
       "title": "Phase 10 E-10-02 restore recovers workbook surface and executes a built-in workbook query",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
-      "claim_status": "blocked",
-      "claim": "Restoring the latest successful retained backup_set into a fresh deployment must recover the workbook surface and execute at least one built-in workbook query successfully.",
-      "out_of_scope": "This sentinel does not run a browser-visible restore workflow."
+      "claim_status": "implemented",
+      "claim": "A harness-owned browser fixture captures a retained backup set from the source deployment, restores it into a separately migrated target deployment through the production restore runner, rebuilds projections, opens a restored incident through the target workbook UI, and executes a built-in workbook query through ordinary product routes.",
+      "out_of_scope": "This browser evidence does not expose public backup or restore route families and does not implement arbitrary timestamp restore."
     },
     {
       "id": "E-10-03",
