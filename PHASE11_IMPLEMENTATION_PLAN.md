@@ -83,7 +83,7 @@ Optional/profile-selected scope:
 - A selected extension profile may get its own implementation sprint, manifest rows, generated ledger, schedule coverage, and final claim gate.
 - A selected profile may be implemented and claimed while other Phase 11 profiles remain `not_started`.
 - TODO: Decide whether Phase 11 uses one manifest, one manifest per profile, or profile-selected manifests after inspecting current phase-map tooling constraints.
-- TODO: Decide whether profile-selected public wrappers are needed or whether existing `phase-slice PHASE=phase11` and `service-backed-slice PHASE=phase11` are sufficient once Phase 11 is registered.
+- TODO: Decide whether profile-selected public wrappers are needed or whether existing `phase-slice PHASE=phase11` and `service-backed-slice PHASE=phase11` are sufficient once Phase 11 is active with an adopted manifest.
 
 ## Owner Anchors
 
@@ -129,7 +129,7 @@ No current repository manifest defines authoritative `U-11-*`, `I-11-*`, or `E-1
 
 | Done | Sprint | Primary validation | Blockers | Follow-up notes |
 | --- | --- | --- | --- | --- |
-| [ ] | 0. Phase 11 ownership model, profile-selection policy, and harness setup | `make phase-map-check`, `make explain-phase PHASE=phase11`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` where supported | TODO | Establish whether Phase 11 uses one manifest, one manifest per profile, or profile-selected manifests. |
+| [x] | 0. Phase 11 ownership model, profile-selection policy, and harness setup | `make phase-map-check`, `make explain-phase PHASE=phase11`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` where supported | None for planned, non-claiming registration. | Phase 11 is registered as `planned`, has no active manifest yet, and remains non-executable until profile-selected rows are adopted. |
 | [ ] | 1. Common extension route parity and upload-envelope foundation | targeted backend unit/store/process targets plus public wrappers as available | TODO | Covers common route shape, envelope, idempotency, common job, error registry, and generated contract boundaries. |
 | [ ] | 2. Import Extension Profile | profile-selected targets | TODO | Covers import sessions, units, mapping, preview, apply, provenance, hostile workbook constraints. |
 | [ ] | 3. Snapshot and Reporting Extension Profile | profile-selected targets | TODO | Covers snapshots, releases, approval tuple, state machine, rendering, invalidation, redaction boundary. |
@@ -149,23 +149,35 @@ Relevant IDs:
 
 Files and areas:
 - `tools/phase_registry.json`
-- TODO: `tools/phase11_test_map.json` or profile-specific equivalent, if adopted.
-- TODO: `docs/testing/phase11_coverage_ledger.md` or profile-specific equivalent, if generated.
+- `tools/phase11_test_map.json` is the future shared Phase 11 manifest path declared by the planned registry entry. It is not adopted yet.
+- `docs/testing/phase11_coverage_ledger.md` is the future generated ledger path declared by the planned registry entry. It is not generated yet.
 - `scripts/check-phase-maps.sh`, `scripts/render-phase-ledgers.mjs`, `scripts/render-execution-topology-artifacts.mjs`, and `scripts/check-phase-test-names.mjs`.
 - `tools/task_surface_manifest.json` and `tools/execution_topology_manifest.json` only if future public wrappers or schedules require owner-input updates.
 
 Test-first sequence:
-1. Decide whether Phase 11 has one manifest, one manifest per profile, or profile-selected manifests.
+1. Phase 11 is registered now as `planned`, not `active`.
 2. Add only planning or blocker rows required by repository tooling; skipped or blocker rows must not be treated as product evidence.
 3. Keep each profile `not_started` until direct owner-aligned tests exist.
 4. Generate ledgers and schedules only through canonical commands if the manifest is adopted.
 5. Verify that unselected profiles remain unclaimed and continue to return reserved-family `extension_profile_not_claimed`.
 
 Implementation tasks:
-- Register Phase 11 only when the harness can select coherent non-claiming rows.
-- Encode profile-selection policy in manifest notes or equivalent owner inputs.
+- Register Phase 11 as a planned, non-executable phase before adopting manifest rows.
+- Encode profile-selection policy in this handoff until a shared Phase 11 manifest exists.
 - Keep aggregate ACs separate from direct behavior rows.
 - Mark every profile as independently claimable only after its own Definition of Done passes.
+
+Sprint 0 policy:
+- Phase 11 is registered now with `status: planned`.
+- Phase 11 does not use an active manifest yet. The current registry schema supports one manifest path per phase, so the future active policy is one shared `tools/phase11_test_map.json` with profile-selected row IDs such as `U-11-IMPORT-01` only when direct evidence exists or an intentional blocker sentinel is added.
+- Profile-specific manifests are not supported by the current registry schema because each phase entry has one `manifest_path` and the path must end in `phaseN_test_map.json`.
+- The current phase manifest row schema does not support `not_started`; row `claim_status` values are limited to `implemented`, `blocked`, and `not_applicable`. Until rows are adopted, profile status is recorded here.
+- Planning rows remain in this file only. Blocker rows may be added to the future shared manifest only when the blocker must participate in harness selection or generated ledgers.
+- Skipped rows are not claim evidence. The harness currently represents non-executable future work by leaving Phase 11 planned and without a manifest, not by adding skipped executable rows.
+- Claimable profile evidence must be direct, profile-selected, and non-aggregate. Aggregate ACs `AC-232..AC-236` remain profile claim gates and must not substitute for direct runtime behavior evidence.
+- Current profile statuses: Import `not_started`; Snapshot and Reporting `not_started`; Reference Pack `not_started`; Incident Portability `not_started`; Enterprise Authentication `not_started`. No profile is selected, blocked, implemented, or claimable in Sprint 0.
+- Valid current public wrapper: `make explain-phase PHASE=phase11` for planned-phase inspection. `make phase-slice PHASE=phase11` and `make service-backed-slice PHASE=phase11` are invalid while Phase 11 is planned and non-executable. Profile-selected public wrappers are not added in Sprint 0.
+- Expected invalid-command behavior while planned: executable slice commands for `phase11` should fail because the phase is not active. `make explain-phase PHASE=phase11` should pass and report planned status with no executable work.
 
 Validation commands:
 - `make phase-map-check`
@@ -176,12 +188,12 @@ Validation commands:
 - `git diff --check`
 
 Deliverables:
-- TODO: Phase 11 manifest policy.
-- TODO: Generated ledger and schedule status, if repository conventions require them.
-- Updated plan notes recording whether Phase 11 is unregistered, planned, or active.
+- Phase 11 manifest policy: planned registry entry now; future shared manifest only after direct evidence or intentional blocker rows exist.
+- Generated ledger and schedule status: no Phase 11 ledger or Phase 11 schedule rows are generated in Sprint 0 because no Phase 11 manifest is adopted. `make phase-schedules` refreshes only generated schedule metadata when `tools/phase_registry.json` changes.
+- Updated plan notes record Phase 11 as planned and non-claiming.
 
 Risks and assumptions:
-- Current `make explain-phase PHASE=phase11` failure is expected while Phase 11 is unregistered.
+- The previous `make explain-phase PHASE=phase11` unknown-phase failure was expected while Phase 11 was unregistered. After Sprint 0 registration, this command is expected to pass and report `status: planned`.
 - Generated ledgers and schedules are downstream artifacts and must not be hand-edited.
 - A broad Phase 11 manifest must not imply all five profiles are implemented.
 
@@ -225,8 +237,8 @@ Implementation tasks:
 Validation commands:
 - Targeted backend unit tests for upload envelopes and route parity.
 - Targeted backend store/process tests for idempotency and jobs.
-- `make phase-slice PHASE=phase11` once registered.
-- `make service-backed-slice PHASE=phase11` once registered and profile rows require services.
+- `make phase-slice PHASE=phase11` once active with an adopted manifest.
+- `make service-backed-slice PHASE=phase11` once active and profile rows require services.
 - `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, and `git diff --check` when owner inputs change.
 
 Deliverables:
@@ -604,6 +616,6 @@ Planning-task validation commands:
 - `git diff --check`
 
 Expected planning-task result:
-- `make explain-phase PHASE=phase11` may fail with `unknown phase phase11` while Phase 11 is not registered. Record that as planning input, not product failure.
-- If any command changes tracked files other than `PHASE11_IMPLEMENTATION_PLAN.md`, stop and report the changed files.
+- `make explain-phase PHASE=phase11` passes after Sprint 0 planned registration and reports no executable work. The previous `unknown phase phase11` result was expected only while Phase 11 was unregistered.
+- If any command changes tracked files outside `PHASE11_IMPLEMENTATION_PLAN.md`, `tools/phase_registry.json`, or generator-refreshed schedule metadata, stop and report the changed files.
 - Do not fabricate successful retained run roots.

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:82d4da290e1a6162baaa7cf8ac0abc1ac011e2889762e27736fe9d8c4a9d90f0",
+  "input_digest": "sha256:953ae428afe2162e1e6b3bf3a6912faeab6afa64f480c070c51a31355a35479b",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -312,7 +312,7 @@
     {
       "path": "tools/phase_registry.json",
       "role": "phase_registry",
-      "hash": "sha256:faaf974ad23094afcc66226c0206b6c2a7cade90d283ffd3a013cc2021e3a38b"
+      "hash": "sha256:624c87aa0a67a8ac4891eb069c9e1359b1ecc704363f153eb5db2036c1b48cb5"
     },
     {
       "path": "tools/phase0_test_map.json",
