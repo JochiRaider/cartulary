@@ -1,0 +1,103 @@
+.codex
+/temp/*.md
+.cache/
+.vscode/
+tmp/
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production / Build
+/build
+/dist
+/out
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc / Logs
+.DS_Store
+.eslintcache
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables (Secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE / Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with Litmus
+*.out
+
+# Dependency directories (remove the comment below if it's a non-Go-modules project)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+# Monorepo / workspace outputs
+node_modules/
+build/
+dist/
+out/
+coverage/
+.pnpm-store/
+pnpm-debug.log*
+
+# Frontend / E2E artifacts
+playwright-report/
+test-results/
+.vite/
+
+# Repo-local release verification artifacts
+/.cartulary/release-artifacts/
+
+# Go coverage artifacts
+*.coverprofile
+
+# Local dev config / secrets
+configs/dev/*.local.toml
+configs/dev/*.secrets.toml
+configs/dev/bootstrap-admin*.json
+!configs/dev/bootstrap-admin.json
+
+# Repo-local runtime roots and service data
+.local/
+server
+migrate
+!cmd/server/
+!cmd/server/*.go
+!cmd/migrate/
+!cmd/migrate/*.go
+!internal/platform/httpapi/webassets/
+!internal/platform/httpapi/webassets/dist/
+internal/platform/httpapi/webassets/dist/*
+!internal/platform/httpapi/webassets/dist/.keep
+operator
