@@ -1,25 +1,26 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase10",
-  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 1 replaces backup-storage binding rows with direct AC-403 evidence. Sprint 2 replaces backup metadata, retention-floor, operator-inspection, and public-route absence rows with direct AC-398 and AC-402 evidence. Sprint 3 replaces restore readiness, fresh-environment coherent-store rows, fail-closed integrity, restore-verification state, deployment-local restore operator evidence, and browser-visible recovery evidence.",
+  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 1 replaces backup-storage binding rows with direct AC-403 evidence. Sprint 2 replaces backup metadata, retention-floor, operator-inspection, and public-route absence rows with direct AC-398 and AC-402 evidence. Sprint 3 replaces restore readiness, fresh-environment coherent-store rows, fail-closed integrity, restore-verification state, deployment-local restore operator evidence, and browser-visible recovery evidence. Sprint 9 remediates AC-398 durable success classification, AC-401 due restore verification, and AC-403 encrypted backup storage.",
   "ledger": {
     "title": "Phase 10 Coverage Ledger",
     "notes": [
-      "Phase 10 is active while final traceability refresh and retained-run handoff remain pending.",
-      "Sprint 1 gives `U-10-05` and `E-10-04` direct backup-storage binding evidence without claiming backup or restore implementation.",
+      "Phase 10 is active with Sprint 9 remediation evidence for durable retained-backup classification, encrypted backup storage, and deployment-local due restore verification.",
+      "Sprint 1 gives backup-storage binding groundwork for `U-10-05` and direct effective-config evidence for `E-10-04`; Sprint 9 carries the encrypted-storage completion for `U-10-05`.",
       "Sprint 2 gives `U-10-01`, `I-10-01`, and `E-10-01` direct artifact-backed backup metadata, retention-floor, latest-success, and deployment-local operator inspection evidence without claiming restore orchestration.",
       "Sprint 2 gives `U-10-04` and `E-10-03` direct public route-family absence evidence; operator authorization remains covered by `E-10-01`.",
       "Sprint 3 gives `U-10-02` and `I-10-02` direct process-harness restore readiness, same-point store restore, projection rebuild, workbook query, and row/change/blob consistency evidence.",
       "Sprint 4 remediation gives `U-10-03` and `I-10-03` direct broken-artifact fail-closed evidence and restore-verification state transition evidence.",
       "Sprint 5 remediation gives `E-10-02` direct browser-visible workbook recovery evidence through an isolated browser restore helper and ordinary workbook UI/API surfaces.",
+      "Sprint 9 remediation gives `U-10-01`, `U-10-05`, `I-10-01`, and `E-10-01` direct evidence for durable artifact-backed classification, encrypted artifact envelopes, and the `operator restore-verify due` cadence runner.",
       "Operational backup and restore remain deployment-local recovery behavior and are distinct from the Incident Portability Extension Profile.",
       "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
     ],
     "authoritative_execution": [
-      "`backend-unit` selects direct backup-storage configuration evidence for `U-10-05` and static public route-family absence evidence for `U-10-04`.",
-      "`backend-store` selects artifact-backed retained `backup_set` metadata and retention evidence for `U-10-01`.",
-      "`backend-integration` selects real Postgres, object-store, and backup-storage artifact evidence for `I-10-01`.",
-      "`backend-process` selects deployment-local operator inspection and restore evidence for `E-10-01`, process public-route absence evidence for `E-10-03`, direct restore readiness evidence for `U-10-02`, `U-10-03`, `I-10-02`, and `I-10-03`, and direct effective-config startup rejection evidence for `E-10-04`.",
+      "`backend-unit` selects static public route-family absence evidence for `U-10-04` and support-only backup-root configuration regression coverage.",
+      "`backend-store` selects durable artifact-backed retained `backup_set` metadata, retention, and encrypted backup-storage boundary evidence for `U-10-01` and `U-10-05`.",
+      "`backend-integration` selects real Postgres, object-store, encrypted backup-storage artifact, raw-ciphertext, and durable latest-lookup evidence for `I-10-01`.",
+      "`backend-process` selects deployment-local operator inspection, restore, and due restore-verification evidence for `E-10-01`, process public-route absence evidence for `E-10-03`, direct restore readiness evidence for `U-10-02`, `U-10-03`, `I-10-02`, and `I-10-03`, and direct effective-config startup rejection evidence for `E-10-04`.",
       "`browser-e2e-webserver-backed` selects direct browser-visible restored workbook evidence for `E-10-02`."
     ],
     "support_execution_extras": [
@@ -33,9 +34,9 @@
     "shared_harness": [
       "| Harness | Phase 10 evidence |",
       "| --- | --- |",
-      "| Active manifest ownership | `tools/phase10_test_map.json` records Sprint 1 through browser-visible restore-remediation direct evidence. |",
+      "| Active manifest ownership | `tools/phase10_test_map.json` records Sprint 1 through Sprint 9 recovery-remediation direct evidence. |",
       "| Generated ledger | `docs/testing/phase10_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
-      "| Schedule boundary | Generated schedules must execute implemented Sprint 1 through Sprint 5 evidence without blocker sentinels. |"
+      "| Schedule boundary | Generated schedules must execute implemented Sprint 1 through Sprint 9 evidence without blocker sentinels. |"
     ],
     "support_only": [
       "Earlier phase runtime-root and object-store evidence is support-only substrate.",
@@ -65,7 +66,18 @@
     "internal/modules/evidence/phase5_integration_test.go",
     "apps/web/e2e/phase9.sentinel.spec.ts"
   ],
-  "support_go_targets": [],
+  "support_go_targets": [
+    {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/platform/config",
+      "file": "internal/platform/config/config_phase10_test.go",
+      "symbol": "TestSupportPhase10_BackupStorageRootBindingConfig",
+      "selection_pattern": "TestSupportPhase10_",
+      "execution_family": "backend-unit-phase10-config-support",
+      "execution_label": "backend-unit support phase10 backup-root config"
+    }
+  ],
   "unit": [
     {
       "id": "U-10-01",
@@ -77,14 +89,15 @@
         "TestPhase10_U_10_01_BackupMetadataShapeAndRetentionFloors",
         "TestPhase10_U_10_01_VerificationVocabularyAndTimestampRules",
         "TestPhase10_U_10_01_LatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor",
+        "TestPhase10_U_10_01_DurableCatalogSkipsMetadataWithMissingArtifacts",
         "TestPhase10_U_10_01_RetentionFloorRejectsShortMetadataAndArtifacts",
         "TestPhase10_U_10_01_CaptureRequiresArtifactProofs"
       ],
       "execution_dependency": "backend_store",
       "evidence_layer": "backend_store",
       "claim_status": "implemented",
-      "claim": "Durable backup_set creation requires artifact-backed capture with one declared consistency_point_at, stable backup_set_id, backup-storage restore anchors, Postgres and object-store artifact proofs, integrity-manifest proof, exact verification_state vocabulary, timestamp/nullability enforcement, latest-success 24-hour freshness, and 30-day metadata and artifact retention floors.",
-      "out_of_scope": "This evidence does not implement restore orchestration, projection rebuild readiness, isolated restore verification cadence, or arbitrary point-in-time restore.",
+      "claim": "Durable backup_set creation requires artifact-backed capture with one declared consistency_point_at, stable backup_set_id, backup-storage restore anchors, Postgres and object-store artifact proofs, integrity-manifest proof, exact verification_state vocabulary, timestamp/nullability enforcement, latest-success 24-hour freshness, required artifact durability plus redacted durability diagnostics before successful-retained classification, and 30-day metadata and artifact retention floors.",
+      "out_of_scope": "This evidence does not implement restore orchestration, projection rebuild readiness, restore-verification cadence execution, or arbitrary point-in-time restore.",
       "execution_family": "backend-store-phase10-backup-metadata",
       "execution_label": "backend-store phase10 backup metadata and retention evidence"
     },
@@ -113,8 +126,8 @@
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
       "claim_status": "implemented",
-      "claim": "Restore fails before readiness when required artifacts or integrity proof are missing or corrupt, and restore verification records verified or failed state only after isolated verification execution.",
-      "out_of_scope": "This evidence does not implement browser-visible restore recovery or arbitrary timestamp restore.",
+      "claim": "Selected-backup restore fails before readiness when required artifacts or integrity proof are missing or corrupt, and restore verification records verified or failed state only after isolated verification execution.",
+      "out_of_scope": "This evidence does not implement browser-visible restore recovery, deployment scheduling of the operator due runner, or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
       "execution_label": "backend-process phase10 fail-closed restore evidence"
     },
@@ -137,16 +150,19 @@
       "id": "U-10-05",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/platform/config",
-      "file": "internal/platform/config/config_phase10_test.go",
-      "symbol": "TestPhase10_BackupStorageRootBinding_U_10_05",
-      "execution_dependency": "backend_unit",
-      "evidence_layer": "config_validation",
+      "package": "./internal/modules/recovery",
+      "file": "internal/modules/recovery/phase10_backup_metadata_store_test.go",
+      "symbols": [
+        "TestPhase10_U_10_05_CaptureRequiresEncryptedBackupStorage",
+        "TestPhase10_U_10_05_EncryptedBackupStorageFailsClosedWithWrongKey"
+      ],
+      "execution_dependency": "backend_store",
+      "evidence_layer": "backend_store",
       "claim_status": "implemented",
-      "claim": "roots.backup_storage is required for supported deployment profiles, accepts only profile-allowed binding kinds, and rejects export-output or temporary-work roots as backup storage.",
-      "out_of_scope": "Encrypted-storage conformance for incident-bearing backup artifacts remains later Phase 10 evidence.",
-      "execution_family": "backend-unit-phase10-config",
-      "execution_label": "backend-unit phase10 backup-root config evidence"
+      "claim": "Incident-bearing backup capture requires an encrypted backup-storage adapter, encrypted artifact envelopes decrypt and verify with the configured recovery key, and wrong-key reads fail closed before proof validation can pass.",
+      "out_of_scope": "Effective backup-root configuration startup rejection is covered by `E-10-04`; managed-service backup storage remains unsupported until a later adapter proof contract exists.",
+      "execution_family": "backend-store-phase10-backup-metadata",
+      "execution_label": "backend-store phase10 encrypted backup-storage evidence"
     }
   ],
   "integration": [
@@ -160,7 +176,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
       "claim_status": "implemented",
-      "claim": "Real Postgres-backed runtime metadata persistence is reached only after capture writes and verifies Postgres row-snapshot, object-store snapshot, and integrity-manifest artifacts under `roots.backup_storage`; latest lookup exposes same-point restore anchors, default unverified/null verification state, artifact proofs, and AC-398 retention floors from a fresh store.",
+      "claim": "Real Postgres-backed runtime metadata persistence is reached only after capture writes encrypted Postgres row-snapshot, object-store snapshot, and integrity-manifest artifacts under `roots.backup_storage`; latest durable lookup exposes same-point restore anchors, default unverified/null verification state, artifact proofs, raw-ciphertext storage, and AC-398 retention floors from a fresh store.",
       "out_of_scope": "This evidence does not perform restore orchestration or prove workbook recovery.",
       "execution_family": "backend-integration-phase10-backup-metadata",
       "execution_label": "backend-integration phase10 backup metadata persistence evidence"
@@ -205,13 +221,14 @@
       "file": "cmd/operator/operator_phase10_test.go",
       "symbols": [
         "TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata",
-        "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup"
+        "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup",
+        "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner"
       ],
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
       "claim_status": "implemented",
-      "claim": "Deployment-local operator commands expose latest successful retained backup_set metadata and restore the latest retained backup only for an active deployment_admin; inactive deployment admins, non-admins, incident-admin-only users, and unsafe same-config restore targets are rejected.",
-      "out_of_scope": "This evidence does not implement browser-visible restore recovery or arbitrary timestamp restore.",
+      "claim": "Deployment-local operator commands expose latest durable successful retained backup_set metadata with redacted durability diagnostics, restore the latest durable retained backup, and run due restore verification only for an active deployment_admin; inactive deployment admins, non-admins, incident-admin-only users, unsafe same-config restore targets, and unmarked verification targets are rejected.",
+      "out_of_scope": "This evidence does not implement browser-visible restore recovery, public backup or restore APIs, or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-operator-inspection",
       "execution_label": "backend-process phase10 deployment-local operator inspection evidence"
     },
@@ -253,7 +270,7 @@
       "evidence_layer": "backend_process",
       "claim_status": "implemented",
       "claim": "Effective deployment configuration fails the real server process before readiness when roots.backup_storage is missing, uses a profile-incompatible binding, or is satisfied by export or temporary-work roots.",
-      "out_of_scope": "This process evidence does not implement backup metadata, restore orchestration, restore verification, or operator controls.",
+      "out_of_scope": "Encrypted incident-bearing artifact conformance is covered by `U-10-05` and `I-10-01`; this process evidence does not implement backup metadata, restore orchestration, restore verification, or operator controls.",
       "execution_family": "backend-process-phase10-config",
       "execution_label": "backend-process phase10 backup-root config evidence"
     }

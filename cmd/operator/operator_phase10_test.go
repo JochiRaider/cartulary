@@ -19,6 +19,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -48,10 +49,7 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata(t *t
 		t.Fatalf("open pgx pool for operator fixture: %v", err)
 	}
 	t.Cleanup(pool.Close)
-	backupStorage, err := recovery.NewFilesystemBackupStorage(env["CARTULARY__ROOTS__BACKUP_STORAGE__PATH"])
-	if err != nil {
-		t.Fatalf("create operator backup storage: %v", err)
-	}
+	backupStorage := newOperatorEncryptedBackupStorage(t, env["CARTULARY__ROOTS__BACKUP_STORAGE__PATH"])
 	if _, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage).CaptureBackupSet(context.Background(), recovery.CaptureBackupSetParams{
 		BackupSetID:        backupSetID,
 		ConsistencyPointAt: asOf.Add(-time.Hour),
@@ -171,10 +169,7 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T
 	if err != nil {
 		t.Fatalf("capture source object artifact: %v", err)
 	}
-	backupStorage, err := recovery.NewFilesystemBackupStorage(sourceConfig.backupRoot)
-	if err != nil {
-		t.Fatalf("open source backup storage: %v", err)
-	}
+	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102101")
 	if _, err := recovery.NewCaptureService(recovery.NewStore(sourcePool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
@@ -195,7 +190,7 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T
 	}
 
 	operatorBin := buildOperatorBinary(t)
-	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, nil,
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore", "latest",
 		"-source-config", sourceConfig.path,
 		"-target-config", targetConfig.path,
@@ -227,7 +222,7 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T
 		t.Fatalf("operator restore did not copy authoritative source rows, restored admin count=%d", restoredAdminCount)
 	}
 
-	_, sameConfigStderr, sameConfigExit := runOperatorBinary(t, operatorBin, nil,
+	_, sameConfigStderr, sameConfigExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore", "latest",
 		"-source-config", sourceConfig.path,
 		"-target-config", sourceConfig.path,
@@ -240,6 +235,162 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T
 	}
 	if !strings.Contains(sameConfigStderr, "source-config and target-config must be different files") {
 		t.Fatalf("same-config restore did not fail with target preflight error: %s", sameConfigStderr)
+	}
+}
+
+func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-due-source")
+	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-due-target")
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
+	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
+
+	adminEmail := "phase10-e-10-01-due-admin@example.test"
+	seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
+
+	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
+	if err != nil {
+		t.Fatalf("open source pgx pool: %v", err)
+	}
+	t.Cleanup(sourcePool.Close)
+	sourceObjectStore, err := objectstore.NewFilesystemStore(sourceConfig.objectRoot)
+	if err != nil {
+		t.Fatalf("open source object store: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = sourceObjectStore.Close()
+	})
+	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, sourcePool)
+	if err != nil {
+		t.Fatalf("capture source postgres artifact: %v", err)
+	}
+	objectArtifact, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, sourceObjectStore, "")
+	if err != nil {
+		t.Fatalf("capture source object artifact: %v", err)
+	}
+	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
+	sourceStore := recovery.NewStore(sourcePool)
+	capture := recovery.NewCaptureService(sourceStore, backupStorage)
+	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
+	sourceCfg := loadOperatorConfig(t, sourceConfig.path)
+	targetCfg := loadOperatorConfig(t, targetConfig.path)
+	basis := operatorRestoreVerificationBasis(t, sourceCfg)
+	otherBasis := strings.Repeat("f", 64)
+	dummyReport := recovery.RestoreConsistencyReport{
+		AuthoritativeRowsSHA256: strings.Repeat("a", 64),
+		AuthoritativeRowCount:   1,
+		ChangeSetsSHA256:        strings.Repeat("b", 64),
+		ChangeSetRowCount:       1,
+		BlobHashesSHA256:        strings.Repeat("c", 64),
+		BlobCount:               0,
+	}
+	captured := make([]recovery.BackupSet, 0, 4)
+	for index, backupSetID := range []uuid.UUID{
+		uuid.MustParse("00000000-0000-0000-0000-000000102201"),
+		uuid.MustParse("00000000-0000-0000-0000-000000102202"),
+		uuid.MustParse("00000000-0000-0000-0000-000000102203"),
+		uuid.MustParse("00000000-0000-0000-0000-000000102204"),
+	} {
+		backupSet, err := capture.CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
+			BackupSetID:        backupSetID,
+			ConsistencyPointAt: asOf.Add(-time.Duration(index+1) * time.Minute),
+			CreatedAt:          asOf.Add(-time.Duration(index+2) * time.Minute),
+			RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
+			PostgresArtifact:   recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
+			ObjectStoreArtifact: recovery.BackupArtifact{
+				Body:        objectArtifact,
+				ContentType: "application/json",
+			},
+		})
+		if err != nil {
+			t.Fatalf("capture due backup set %d: %v", index, err)
+		}
+		captured = append(captured, backupSet)
+	}
+	if _, _, err := sourceStore.RecordRestoreVerificationCompletion(ctx, recovery.CreateRestoreVerificationRunParams{
+		BackupSetID:             captured[1].BackupSetID,
+		StartedAt:               asOf.Add(-8*24*time.Hour - time.Minute),
+		CompletedAt:             asOf.Add(-8 * 24 * time.Hour),
+		VerificationState:       recovery.VerificationVerified,
+		VerificationBasisSHA256: basis,
+		ConsistencyReport:       dummyReport,
+	}); err != nil {
+		t.Fatalf("seed stale verification state: %v", err)
+	}
+	if _, _, err := sourceStore.RecordRestoreVerificationCompletion(ctx, recovery.CreateRestoreVerificationRunParams{
+		BackupSetID:             captured[2].BackupSetID,
+		StartedAt:               asOf.Add(-time.Hour - time.Minute),
+		CompletedAt:             asOf.Add(-time.Hour),
+		VerificationState:       recovery.VerificationVerified,
+		VerificationBasisSHA256: otherBasis,
+		ConsistencyReport:       dummyReport,
+	}); err != nil {
+		t.Fatalf("seed basis-changed verification state: %v", err)
+	}
+	if _, _, err := sourceStore.RecordRestoreVerificationCompletion(ctx, recovery.CreateRestoreVerificationRunParams{
+		BackupSetID:             captured[3].BackupSetID,
+		StartedAt:               asOf.Add(-30 * time.Minute),
+		CompletedAt:             asOf.Add(-29 * time.Minute),
+		VerificationState:       recovery.VerificationVerified,
+		VerificationBasisSHA256: basis,
+		ConsistencyReport:       dummyReport,
+	}); err != nil {
+		t.Fatalf("seed fresh verification state: %v", err)
+	}
+	operatorBin := buildOperatorBinary(t)
+	_, unsafeStderr, unsafeExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "due",
+		"-source-config", sourceConfig.path,
+		"-target-config", targetConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if unsafeExit == 0 {
+		t.Fatalf("restore-verify due without target marker unexpectedly succeeded")
+	}
+	if !strings.Contains(unsafeStderr, "target marker") {
+		t.Fatalf("unsafe restore-verification target failure did not mention marker: %s", unsafeStderr)
+	}
+
+	writeRestoreVerificationTargetMarker(t, targetCfg)
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "due",
+		"-source-config", sourceConfig.path,
+		"-target-config", targetConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if exitCode != 0 {
+		t.Fatalf("operator restore-verify due failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode due runner JSON: %v\nstdout=%s", err, stdout)
+	}
+	if payload["schema_id"] != app.OperatorRestoreVerificationDueSchemaID ||
+		int(payload["due_count"].(float64)) != 3 ||
+		int(payload["verified_count"].(float64)) != 3 ||
+		int(payload["failed_count"].(float64)) != 0 {
+		t.Fatalf("unexpected due runner payload: %#v", payload)
+	}
+
+	secondStdout, secondStderr, secondExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "due",
+		"-source-config", sourceConfig.path,
+		"-target-config", targetConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if secondExit != 0 {
+		t.Fatalf("second operator restore-verify due failed: exit=%d stdout=%s stderr=%s", secondExit, secondStdout, secondStderr)
+	}
+	var secondPayload map[string]any
+	if err := json.Unmarshal([]byte(secondStdout), &secondPayload); err != nil {
+		t.Fatalf("decode second due runner JSON: %v\nstdout=%s", err, secondStdout)
+	}
+	if int(secondPayload["due_count"].(float64)) != 0 {
+		t.Fatalf("fresh same-basis due runner should skip all backups, got %#v", secondPayload)
 	}
 }
 
@@ -308,6 +459,7 @@ func operatorProcessEnv(t testing.TB, databaseEnv map[string]string) map[string]
 		t.Fatalf("write operator config fixture: %v", err)
 	}
 	env["CARTULARY_CONFIG_FILE"] = configPath
+	env[recovery.RecoveryMasterKeyEnv] = operatorRecoveryMasterKey
 	return env
 }
 
@@ -338,6 +490,78 @@ func operatorExplicitConfig(t testing.TB, dsn string) operatorExplicitConfigFixt
 		objectRoot: roots.Paths["CARTULARY__ROOTS__OBJECT_STORAGE__PATH"],
 		backupRoot: roots.Paths["CARTULARY__ROOTS__BACKUP_STORAGE__PATH"],
 	}
+}
+
+func loadOperatorConfig(t testing.TB, path string) config.Config {
+	t.Helper()
+	cfg, err := config.LoadWithOptions(config.LoadOptions{Path: path})
+	if err != nil {
+		t.Fatalf("load operator config %s: %v", path, err)
+	}
+	return cfg
+}
+
+func operatorRestoreVerificationBasis(t testing.TB, cfg config.Config) string {
+	t.Helper()
+	basis, err := recovery.RestoreVerificationBasisSHA256(map[string]string{
+		"backup_mechanism":         "cartulary.phase10.filesystem_snapshot.v1",
+		"database_storage_binding": operatorRootBindingBasis(cfg.Roots.DatabaseStorage),
+		"object_storage_binding":   operatorRootBindingBasis(cfg.Roots.ObjectStorage),
+		"backup_storage_binding":   operatorRootBindingBasis(cfg.Roots.BackupStorage),
+	})
+	if err != nil {
+		t.Fatalf("compute restore verification basis: %v", err)
+	}
+	return basis
+}
+
+func operatorRootBindingBasis(binding config.RootBinding) string {
+	switch binding.BindingKind {
+	case "filesystem_root":
+		return "filesystem_root:" + filepath.Clean(binding.Path)
+	case "managed_service":
+		return "managed_service:" + strings.TrimSpace(binding.ServiceRef)
+	default:
+		return strings.TrimSpace(binding.BindingKind)
+	}
+}
+
+func writeRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
+	t.Helper()
+	markerPath, err := app.RestoreVerificationTargetMarkerPath(cfg)
+	if err != nil {
+		t.Fatalf("resolve restore verification target marker path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(markerPath), 0o700); err != nil {
+		t.Fatalf("create restore verification target marker directory: %v", err)
+	}
+	body := []byte(`{"schema_id":"` + app.RestoreVerificationTargetMarkerSchemaID + `","purpose":"restore_verification_target"}`)
+	if err := os.WriteFile(markerPath, body, 0o600); err != nil {
+		t.Fatalf("write restore verification target marker: %v", err)
+	}
+}
+
+const operatorRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
+func operatorRecoveryEnv() map[string]string {
+	return map[string]string{recovery.RecoveryMasterKeyEnv: operatorRecoveryMasterKey}
+}
+
+func newOperatorEncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
+	t.Helper()
+	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	if err != nil {
+		t.Fatalf("create operator backup storage: %v", err)
+	}
+	key, err := recovery.ParseRecoveryEncryptionKey(operatorRecoveryMasterKey)
+	if err != nil {
+		t.Fatalf("parse operator recovery key: %v", err)
+	}
+	storage, err := recovery.NewEncryptedBackupStorage(rawStorage, key)
+	if err != nil {
+		t.Fatalf("create encrypted operator backup storage: %v", err)
+	}
+	return storage
 }
 
 func seedOperatorUser(t testing.TB, dsn string, email string, deploymentAdmin bool, active bool) uuid.UUID {

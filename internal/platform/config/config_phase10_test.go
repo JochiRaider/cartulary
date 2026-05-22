@@ -2,7 +2,7 @@ package config
 
 import "testing"
 
-func TestPhase10_BackupStorageRootBinding_U_10_05(t *testing.T) {
+func TestSupportPhase10_BackupStorageRootBindingConfig(t *testing.T) {
 	t.Run("requires backup storage for every supported deployment profile", func(t *testing.T) {
 		for _, profile := range phase10SupportedDeploymentProfiles() {
 			t.Run(profile, func(t *testing.T) {

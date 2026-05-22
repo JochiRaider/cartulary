@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -23,10 +24,13 @@ import (
 )
 
 const (
-	BackupMetadataInspectionSchemaID          = "cartulary.operator.backup_metadata.v1"
-	OperatorRestoreResultSchemaID             = "cartulary.operator.restore_result.v1"
-	OperatorRestoreVerificationSchemaID       = "cartulary.operator.restore_verification_result.v1"
-	phase10RestoreMinimumSchemaVersion  int64 = 22
+	BackupMetadataInspectionSchemaID              = "cartulary.operator.backup_metadata.v1"
+	OperatorRestoreResultSchemaID                 = "cartulary.operator.restore_result.v1"
+	OperatorRestoreVerificationSchemaID           = "cartulary.operator.restore_verification_result.v1"
+	OperatorRestoreVerificationDueSchemaID        = "cartulary.operator.restore_verification_due_result.v1"
+	RestoreVerificationTargetMarkerSchemaID       = "cartulary.restore_verification_target.v1"
+	phase10RestoreMinimumSchemaVersion      int64 = 22
+	restoreVerificationAdvisoryLockKey      int64 = 401010
 )
 
 type operatorPostgresPool interface {
@@ -56,27 +60,34 @@ type operatorCLIResult struct {
 }
 
 type BackupMetadataInspection struct {
-	SchemaID                              string     `json:"schema_id"`
-	BackupSetID                           string     `json:"backup_set_id"`
-	ConsistencyPointAt                    time.Time  `json:"consistency_point_at"`
-	PostgresRestoreAnchor                 string     `json:"postgres_restore_anchor"`
-	ObjectStoreRestoreAnchor              string     `json:"object_store_restore_anchor"`
-	PostgresArtifactKey                   string     `json:"postgres_artifact_key"`
-	PostgresArtifactSHA256                string     `json:"postgres_artifact_sha256"`
-	PostgresArtifactSizeBytes             int64      `json:"postgres_artifact_size_bytes"`
-	ObjectStoreArtifactKey                string     `json:"object_store_artifact_key"`
-	ObjectStoreArtifactSHA256             string     `json:"object_store_artifact_sha256"`
-	ObjectStoreArtifactSizeBytes          int64      `json:"object_store_artifact_size_bytes"`
-	IntegrityManifestKey                  string     `json:"integrity_manifest_key"`
-	IntegrityManifestSHA256               string     `json:"integrity_manifest_sha256"`
-	IntegrityManifestSizeBytes            int64      `json:"integrity_manifest_size_bytes"`
-	CreatedAt                             time.Time  `json:"created_at"`
-	RetainedUntil                         time.Time  `json:"retained_until"`
-	PostgresRestoreAnchorRetainedUntil    time.Time  `json:"postgres_restore_anchor_retained_until"`
-	ObjectStoreRestoreAnchorRetainedUntil time.Time  `json:"object_store_restore_anchor_retained_until"`
-	VerificationState                     string     `json:"verification_state"`
-	LastVerifiedRestoreAt                 *time.Time `json:"last_verified_restore_at"`
-	LastVerificationBasisSHA256           string     `json:"last_verification_basis_sha256,omitempty"`
+	SchemaID                              string                       `json:"schema_id"`
+	BackupSetID                           string                       `json:"backup_set_id"`
+	ConsistencyPointAt                    time.Time                    `json:"consistency_point_at"`
+	PostgresRestoreAnchor                 string                       `json:"postgres_restore_anchor"`
+	ObjectStoreRestoreAnchor              string                       `json:"object_store_restore_anchor"`
+	PostgresArtifactKey                   string                       `json:"postgres_artifact_key"`
+	PostgresArtifactSHA256                string                       `json:"postgres_artifact_sha256"`
+	PostgresArtifactSizeBytes             int64                        `json:"postgres_artifact_size_bytes"`
+	ObjectStoreArtifactKey                string                       `json:"object_store_artifact_key"`
+	ObjectStoreArtifactSHA256             string                       `json:"object_store_artifact_sha256"`
+	ObjectStoreArtifactSizeBytes          int64                        `json:"object_store_artifact_size_bytes"`
+	IntegrityManifestKey                  string                       `json:"integrity_manifest_key"`
+	IntegrityManifestSHA256               string                       `json:"integrity_manifest_sha256"`
+	IntegrityManifestSizeBytes            int64                        `json:"integrity_manifest_size_bytes"`
+	CreatedAt                             time.Time                    `json:"created_at"`
+	RetainedUntil                         time.Time                    `json:"retained_until"`
+	PostgresRestoreAnchorRetainedUntil    time.Time                    `json:"postgres_restore_anchor_retained_until"`
+	ObjectStoreRestoreAnchorRetainedUntil time.Time                    `json:"object_store_restore_anchor_retained_until"`
+	VerificationState                     string                       `json:"verification_state"`
+	LastVerifiedRestoreAt                 *time.Time                   `json:"last_verified_restore_at"`
+	LastVerificationBasisSHA256           string                       `json:"last_verification_basis_sha256,omitempty"`
+	DurabilityDiagnostics                 []BackupDurabilityDiagnostic `json:"durability_diagnostics,omitempty"`
+}
+
+type BackupDurabilityDiagnostic struct {
+	BackupSetID        string    `json:"backup_set_id"`
+	ConsistencyPointAt time.Time `json:"consistency_point_at"`
+	Code               string    `json:"code"`
 }
 
 type OperatorRestoreResult struct {
@@ -95,6 +106,24 @@ type OperatorRestoreVerificationResult struct {
 	VerificationBasisSHA256  string                            `json:"verification_basis_sha256"`
 	CompletedAt              time.Time                         `json:"completed_at"`
 	ConsistencyReport        recovery.RestoreConsistencyReport `json:"consistency_report"`
+}
+
+type OperatorRestoreVerificationDueResult struct {
+	SchemaID                string                               `json:"schema_id"`
+	VerificationBasisSHA256 string                               `json:"verification_basis_sha256"`
+	AsOf                    time.Time                            `json:"as_of"`
+	DueCount                int                                  `json:"due_count"`
+	VerifiedCount           int                                  `json:"verified_count"`
+	FailedCount             int                                  `json:"failed_count"`
+	Results                 []OperatorRestoreVerificationDueItem `json:"results"`
+}
+
+type OperatorRestoreVerificationDueItem struct {
+	BackupSetID              string     `json:"backup_set_id"`
+	RestoreVerificationRunID string     `json:"restore_verification_run_id,omitempty"`
+	VerificationState        string     `json:"verification_state"`
+	CompletedAt              *time.Time `json:"completed_at,omitempty"`
+	FailureReason            string     `json:"failure_reason,omitempty"`
 }
 
 func RunOperatorCLIContext(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
@@ -123,7 +152,9 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 		setupObjectStore: func(ctx context.Context, cfg config.Config) (objectstore.Store, error) {
 			return objectstore.Setup(ctx, cfg)
 		},
-		newBackupStorage: recovery.NewBackupStorageFromConfig,
+		newBackupStorage: func(cfg config.Config) (recovery.BackupStorage, error) {
+			return recovery.NewBackupStorageFromConfig(cfg)
+		},
 		now: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -151,6 +182,8 @@ func (runner operatorRunner) run(ctx context.Context, parsed operatorCLIResult) 
 		return runner.runRestoreLatest(ctx, parsed)
 	case "restore-verify latest":
 		return runner.runRestoreVerifyLatest(ctx, parsed)
+	case "restore-verify due":
+		return runner.runRestoreVerifyDue(ctx, parsed)
 	default:
 		return fmt.Errorf("unsupported operator command %q", parsed.command)
 	}
@@ -176,11 +209,15 @@ func (runner operatorRunner) runBackupMetadataLatest(ctx context.Context, parsed
 	if asOf.IsZero() {
 		asOf = runner.now()
 	}
-	backupSet, err := recovery.NewStore(pool).LatestSuccessfulRetainedBackup(ctx, asOf)
+	backupStorage, err := runner.newBackupStorage(cfg)
+	if err != nil {
+		return fmt.Errorf("open backup storage: %w", err)
+	}
+	selection, err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage).RestoreCandidateBackupSelection(ctx, asOf)
 	if err != nil {
 		return err
 	}
-	payload := backupMetadataInspectionFromStore(backupSet)
+	payload := backupMetadataInspectionFromSelection(selection)
 	encoder := json.NewEncoder(runner.stdout)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(payload); err != nil {
@@ -207,7 +244,7 @@ func (runner operatorRunner) runRestoreLatest(ctx context.Context, parsed operat
 		asOf = runner.now()
 	}
 	sourceStore := recovery.NewStore(sourcePool)
-	backupSet, err := sourceStore.RestoreCandidateBackup(ctx, asOf)
+	backupSet, err := recovery.NewBackupCatalog(sourceStore, backupStorage).RestoreCandidateBackup(ctx, asOf)
 	if err != nil {
 		return err
 	}
@@ -288,6 +325,95 @@ func (runner operatorRunner) runRestoreVerifyLatest(ctx context.Context, parsed 
 	return runner.encodeJSON(payload)
 }
 
+func (runner operatorRunner) runRestoreVerifyDue(ctx context.Context, parsed operatorCLIResult) error {
+	sourceCfg, targetCfg, sourcePool, targetPool, sourceObjectStore, targetObjectStore, backupStorage, err := runner.openRestoreRuntime(ctx, parsed)
+	if err != nil {
+		return err
+	}
+	defer sourcePool.Close()
+	defer targetPool.Close()
+	defer func() { _ = sourceObjectStore.Close() }()
+	defer func() { _ = targetObjectStore.Close() }()
+
+	if err := authorizeDeploymentAdmin(ctx, sourcePool, parsed.email); err != nil {
+		return err
+	}
+	asOf := parsed.asOf
+	if asOf.IsZero() {
+		asOf = runner.now()
+	}
+	if err := runner.preflightRestoreVerificationTarget(ctx, parsed.sourceConfigPath, parsed.targetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
+		return err
+	}
+	locked, err := tryRestoreVerificationAdvisoryLock(ctx, sourcePool)
+	if err != nil {
+		return err
+	}
+	if !locked {
+		return errors.New("restore verification due runner is already active")
+	}
+	defer func() {
+		_ = unlockRestoreVerificationAdvisoryLock(context.Background(), sourcePool)
+	}()
+
+	basis, err := restoreVerificationBasisForConfig(sourceCfg)
+	if err != nil {
+		return err
+	}
+	sourceStore := recovery.NewStore(sourcePool)
+	catalog := recovery.NewBackupCatalog(sourceStore, backupStorage)
+	due, err := catalog.ListBackupsDueForRestoreVerification(ctx, asOf, basis)
+	if err != nil {
+		return err
+	}
+	verify := recovery.NewRestoreVerificationService(sourceStore, recovery.NewRestoreRunner(sourceStore, backupStorage))
+	summary := OperatorRestoreVerificationDueResult{
+		SchemaID:                OperatorRestoreVerificationDueSchemaID,
+		VerificationBasisSHA256: basis,
+		AsOf:                    asOf.UTC(),
+		DueCount:                len(due),
+		Results:                 make([]OperatorRestoreVerificationDueItem, 0, len(due)),
+	}
+	for _, backupSet := range due {
+		result, verifyErr := verify.VerifyBackupSet(ctx, recovery.RestoreVerificationTarget{
+			RestoreTarget: recovery.RestoreTarget{
+				Postgres:    targetPool,
+				ObjectStore: targetObjectStore,
+				Projections: projections.NewStore(targetPool),
+			},
+			Probe: RestoreVerificationWorkbookProbe{Postgres: targetPool},
+		}, backupSet, basis)
+		item := OperatorRestoreVerificationDueItem{
+			BackupSetID:       backupSet.BackupSetID.String(),
+			VerificationState: string(recovery.VerificationFailed),
+		}
+		if result.Run.RestoreVerificationRunID != uuid.Nil {
+			item.RestoreVerificationRunID = result.Run.RestoreVerificationRunID.String()
+			item.VerificationState = string(result.Run.VerificationState)
+			completedAt := result.Run.CompletedAt
+			item.CompletedAt = &completedAt
+			item.FailureReason = result.Run.FailureReason
+		}
+		if verifyErr != nil {
+			summary.FailedCount++
+			if item.FailureReason == "" {
+				item.FailureReason = "restore_verification_failed"
+			}
+			summary.Results = append(summary.Results, item)
+			continue
+		}
+		summary.VerifiedCount++
+		summary.Results = append(summary.Results, item)
+	}
+	if err := runner.encodeJSON(summary); err != nil {
+		return err
+	}
+	if summary.FailedCount > 0 {
+		return fmt.Errorf("restore verification due runner recorded %d failed verification(s)", summary.FailedCount)
+	}
+	return nil
+}
+
 func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 	if len(args) < 2 {
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
@@ -300,6 +426,8 @@ func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 		return parseRestoreLatestArgs(args[2:], stderr)
 	case "restore-verify latest":
 		return parseRestoreVerifyLatestArgs(args[2:], stderr)
+	case "restore-verify due":
+		return parseRestoreVerifyDueArgs(args[2:], stderr)
 	default:
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
 		return operatorCLIResult{stop: true, exitCode: 2}
@@ -396,6 +524,15 @@ func parseRestoreVerifyLatestArgs(args []string, stderr io.Writer) operatorCLIRe
 	}
 }
 
+func parseRestoreVerifyDueArgs(args []string, stderr io.Writer) operatorCLIResult {
+	result := parseRestoreVerifyLatestArgs(args, stderr)
+	if result.stop {
+		return result
+	}
+	result.command = "restore-verify due"
+	return result
+}
+
 func parseOperatorCommonFlags(stderr io.Writer, emailRaw string, asOfRaw string) (string, time.Time, bool) {
 	normalizedEmail := strings.TrimSpace(emailRaw)
 	if normalizedEmail == "" {
@@ -448,7 +585,20 @@ func operatorUsage() string {
 		"  operator backup-metadata latest -deployment-admin-email <email> [-source-config <path>] [-as-of <RFC3339>]",
 		"  operator restore latest -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> [-as-of <RFC3339>]",
 		"  operator restore-verify latest -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
+		"  operator restore-verify due -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
 	}, "\n")
+}
+
+func backupMetadataInspectionFromSelection(selection recovery.BackupCatalogSelection) BackupMetadataInspection {
+	payload := backupMetadataInspectionFromStore(selection.BackupSet)
+	for _, diagnostic := range selection.DurabilityDiagnostics {
+		payload.DurabilityDiagnostics = append(payload.DurabilityDiagnostics, BackupDurabilityDiagnostic{
+			BackupSetID:        diagnostic.BackupSetID.String(),
+			ConsistencyPointAt: diagnostic.ConsistencyPointAt,
+			Code:               diagnostic.Code,
+		})
+	}
+	return payload
 }
 
 func backupMetadataInspectionFromStore(backupSet recovery.BackupSet) BackupMetadataInspection {
@@ -570,6 +720,98 @@ SELECT
 	}
 	if len(objects) != 0 {
 		return fmt.Errorf("restore target preflight failed: target object store is not empty (%d objects)", len(objects))
+	}
+	return nil
+}
+
+func (runner operatorRunner) preflightRestoreVerificationTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceCfg config.Config, targetCfg config.Config, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
+	if sameConfigPath(sourceConfigPath, targetConfigPath) {
+		return errors.New("restore verification target preflight failed: source-config and target-config must be different files")
+	}
+	sourcePostgres, err := postgres.ResolveSettings(sourceCfg, nil)
+	if err != nil {
+		return fmt.Errorf("resolve source postgres settings: %w", err)
+	}
+	targetPostgres, err := postgres.ResolveSettings(targetCfg, nil)
+	if err != nil {
+		return fmt.Errorf("resolve target postgres settings: %w", err)
+	}
+	if strings.TrimSpace(sourcePostgres.DSN) == strings.TrimSpace(targetPostgres.DSN) {
+		return errors.New("restore verification target preflight failed: source and target postgres DSNs must differ")
+	}
+	sourceObject, err := objectstore.ResolveSettings(sourceCfg, nil)
+	if err != nil {
+		return fmt.Errorf("resolve source object-store settings: %w", err)
+	}
+	targetObject, err := objectstore.ResolveSettings(targetCfg, nil)
+	if err != nil {
+		return fmt.Errorf("resolve target object-store settings: %w", err)
+	}
+	if objectStoreBindingID(sourceObject) == objectStoreBindingID(targetObject) {
+		return errors.New("restore verification target preflight failed: source and target object stores must differ")
+	}
+	if err := requireRestoreVerificationTargetMarker(targetCfg); err != nil {
+		return err
+	}
+	var schemaVersion int64
+	if err := targetPool.QueryRow(ctx, `SELECT COALESCE(MAX(version_id), 0)::bigint FROM goose_db_version WHERE is_applied = true`).Scan(&schemaVersion); err != nil {
+		return fmt.Errorf("restore verification target preflight failed: inspect target schema version: %w", err)
+	}
+	if schemaVersion < phase10RestoreMinimumSchemaVersion {
+		return fmt.Errorf("restore verification target preflight failed: target schema version %d is below required %d", schemaVersion, phase10RestoreMinimumSchemaVersion)
+	}
+	if _, err := targetObjectStore.ListObjects(ctx, ""); err != nil {
+		return fmt.Errorf("restore verification target preflight failed: inspect target object store: %w", err)
+	}
+	return nil
+}
+
+func RestoreVerificationTargetMarkerPath(cfg config.Config) (string, error) {
+	if cfg.Roots.BackupStorage.BindingKind != "filesystem_root" {
+		return "", errors.New("restore verification target marker requires filesystem backup storage")
+	}
+	if strings.TrimSpace(cfg.Roots.BackupStorage.Path) == "" {
+		return "", errors.New("restore verification target marker requires roots.backup_storage.path")
+	}
+	return filepath.Join(cfg.Roots.BackupStorage.Path, "restore-verification-target.json"), nil
+}
+
+func requireRestoreVerificationTargetMarker(cfg config.Config) error {
+	markerPath, err := RestoreVerificationTargetMarkerPath(cfg)
+	if err != nil {
+		return fmt.Errorf("restore verification target preflight failed: %w", err)
+	}
+	body, err := os.ReadFile(markerPath) // #nosec G304 -- marker path is derived from validated target backup storage root.
+	if err != nil {
+		return fmt.Errorf("restore verification target preflight failed: read target marker: %w", err)
+	}
+	var marker struct {
+		SchemaID string `json:"schema_id"`
+		Purpose  string `json:"purpose"`
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(body)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&marker); err != nil {
+		return fmt.Errorf("restore verification target preflight failed: decode target marker: %w", err)
+	}
+	if marker.SchemaID != RestoreVerificationTargetMarkerSchemaID || marker.Purpose != "restore_verification_target" {
+		return errors.New("restore verification target preflight failed: target marker is not a restore-verification target")
+	}
+	return nil
+}
+
+func tryRestoreVerificationAdvisoryLock(ctx context.Context, pool postgres.DB) (bool, error) {
+	var locked bool
+	if err := pool.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, restoreVerificationAdvisoryLockKey).Scan(&locked); err != nil {
+		return false, fmt.Errorf("acquire restore verification advisory lock: %w", err)
+	}
+	return locked, nil
+}
+
+func unlockRestoreVerificationAdvisoryLock(ctx context.Context, pool postgres.DB) error {
+	var unlocked bool
+	if err := pool.QueryRow(ctx, `SELECT pg_advisory_unlock($1)`, restoreVerificationAdvisoryLockKey).Scan(&unlocked); err != nil {
+		return fmt.Errorf("release restore verification advisory lock: %w", err)
 	}
 	return nil
 }

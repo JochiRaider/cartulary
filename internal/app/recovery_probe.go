@@ -2,9 +2,11 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -28,6 +30,9 @@ FROM incidents
 ORDER BY created_at ASC, id ASC
 LIMIT 1
 `).Scan(&incidentID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
 		return fmt.Errorf("restore verification workbook probe incident lookup: %w", err)
 	}
 	schema, ok := viewschema.Lookup(timeline.TimelineViewSchemaID)

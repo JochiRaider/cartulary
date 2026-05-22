@@ -3,6 +3,8 @@ package recovery_test
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,7 +18,9 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 	harness := phase4test.StartServer(t, "phase10-i-10-01-metadata")
 	store := recovery.NewStore(harness.Server.Runtime.Postgres)
 	ctx := context.Background()
-	backupStorage, err := recovery.NewBackupStorageFromConfig(harness.Server.Runtime.Config)
+	backupStorage, err := recovery.NewBackupStorageFromConfig(harness.Server.Runtime.Config, map[string]string{
+		recovery.RecoveryMasterKeyEnv: phase10RecoveryMasterKey,
+	})
 	if err != nil {
 		t.Fatalf("create backup storage from runtime config: %v", err)
 	}
@@ -94,6 +98,14 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 		reloaded.ObjectStoreRestoreAnchor != latestCreated.ObjectStoreRestoreAnchor ||
 		reloaded.IntegrityManifestSHA256 != latestCreated.IntegrityManifestSHA256 {
 		t.Fatalf("committed metadata did not persist stable identity, point, and anchors:\ncreated=%#v\nreloaded=%#v", latestCreated, reloaded)
+	}
+	rawPostgresArtifact := filepath.Join(harness.Server.Runtime.Config.Roots.BackupStorage.Path, filepath.FromSlash(reloaded.PostgresArtifactKey))
+	rawBody, err := os.ReadFile(rawPostgresArtifact)
+	if err != nil {
+		t.Fatalf("read raw encrypted postgres artifact: %v", err)
+	}
+	if bytes.Contains(rawBody, []byte("phase10-i-10-01")) {
+		t.Fatalf("raw backup storage artifact contains incident marker plaintext: %s", rawBody)
 	}
 	requireArtifactProof(t, reloaded)
 	reloadedPostgresArtifact := requireStoredArtifactProof(t, backupStorage, recovery.BackupArtifactProof{

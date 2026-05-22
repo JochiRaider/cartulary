@@ -16,16 +16,18 @@ Authority model:
 - Generated ledgers, generated schedules, support-only tests, visual goldens, and retained artifacts are not behavior authorities.
 - `docs/domain.md` is vocabulary and concept support only.
 
-Current repo status after Sprint 8 remediation:
+Current repo status after Sprint 9 remediation:
 - Phase 10 is registered as `active` in `tools/phase_registry.json`; all product-evidence rows now have direct owners, generated traceability artifacts are refreshed, and the public wrappers plus broad gates pass.
 - `tools/phase10_test_map.json` covers every authoritative Phase 10 row. Generated ledgers and schedules are downstream artifacts and must be refreshed through the canonical generators after direct evidence changes.
 - `docs/testing/phase10_coverage_ledger.md` is generated from the manifest and must not be hand-edited.
 - `configs/dev/config.toml` declares `[roots.backup_storage]`.
 - Config validation and real startup-process evidence directly prove the AC-403 backup-root slice: `roots.backup_storage` is required, binding kinds are profile-limited, export and temporary-work roots cannot satisfy backup storage, and invalid backup-root configuration prevents effective readiness with backup-root-specific diagnostics.
-- Artifact-backed `backup_sets`, restore anchors, integrity manifests, latest successful retained restore, projection-gated readiness, coherent Postgres/object restore, fail-closed missing/corrupt artifact behavior, restore-verification basis state, verification run history, deployment-local operator restore, and browser-visible workbook recovery evidence now exist in implementation.
+- Artifact-backed `backup_sets`, restore anchors, encrypted integrity manifests/artifacts, durable latest-success classification, latest successful retained restore, projection-gated readiness, coherent Postgres/object restore, fail-closed missing/corrupt artifact behavior, restore-verification basis state, verification run history, deployment-local operator restore, due restore-verification runner, and browser-visible workbook recovery evidence now exist in implementation.
 - The deployment-local operator surface remains `cmd/operator`; do not add public `/api/v1/backups*`, `/api/v1/restores*`, `/api/v1/restore-verifications*`, `/ws/v1/backups*`, `/ws/v1/restores*`, or `/ws/v1/restore-verifications*` route families.
 - Phase 10 supports latest successful retained `backup_set` restore only. Arbitrary operator timestamp PITR remains out of scope.
 - Manual restore targets must be fresh and separated from the source config, Postgres DSN, and object store. Manual restore does not mark the backup verified; restore verification updates `verification_state`.
+- Configured filesystem backup storage uses authenticated encrypted artifact envelopes and requires `CARTULARY_RECOVERY_MASTER_KEY`; raw unencrypted Phase 10 artifacts are nonconformant and should be recreated rather than migrated.
+- `operator restore-verify due` is the deployment-local cadence runner for retained backups due by seven-day age or verification-basis change. It requires a marked isolated restore-verification target and a source-side advisory lock.
 - Recent retained validation roots:
   - `make generate`: run ID `20260522T155439Z-p341672`, run root `.cartulary/test-results/20260522T155439Z-p341672`.
   - `make service-backed-slice PHASE=phase10`: run ID `20260522T174953Z-p556349`, run root `.cartulary/test-results/20260522T174953Z-p556349`.
@@ -109,6 +111,7 @@ Generated boundary:
 | [x] | 6. Route absence and deployment-admin boundary | `make backend-unit`, `make backend-process`, `make deployable-shape` | Public route families remain absent; operator restore is deployment-local and deployment-admin gated. |
 | [x] | 7. Service-backed and workbook recovery evidence | `make backend-integration`, `make browser-e2e-webserver-backed` | Browser `E-10-02` now captures/restores through an isolated browser restore helper, opens the restored workbook surface, and executes the built-in query through ordinary routes. |
 | [x] | 8. Final public wrappers, drift gates, finalizer, check, handoff | public Phase 10 wrappers, `make agent-finalize`, `make check` | Complete; retained validation roots are recorded above. |
+| [x] | 9. Recovery remediation | targeted recovery/operator/server tests, generated drift gates | Encrypted backup storage, durable latest-success classification, and due restore-verification runner close the AC-398, AC-401, and AC-403 gaps identified after Sprint 8. |
 
 ## Evidence Layer Matrix
 
@@ -116,15 +119,15 @@ Every authoritative Phase 10 row must have exactly one authoritative owner in `t
 
 | Row | Evidence layer | Claim intent |
 | --- | --- | --- |
-| `U-10-01` | `backend_store` | Metadata, vocabulary, anchors, and retention floors require persistent state. |
+| `U-10-01` | `backend_store` | Metadata, vocabulary, anchors, durable artifact classification, redacted durability diagnostics, and retention floors require persistent state plus backup-storage proof checks. |
 | `U-10-02` | `backend_process` | Restore readiness needs real Postgres/object-store orchestration and readiness gating. |
-| `U-10-03` | `backend_process` | Missing artifacts/proofs and verification transitions must fail before target readiness. |
+| `U-10-03` | `backend_process` | Missing artifacts/proofs and due verification transitions must fail before target readiness or false verified state. |
 | `U-10-04` | `backend_unit` | Public route inventory absence and deployment-local guard registration can be tested without services. |
-| `U-10-05` | `backend_unit` | Deployment configuration binding and root separation are config-contract checks. |
-| `I-10-01` | `backend_integration` | Real backing-storage metadata and verification transitions. |
+| `U-10-05` | `backend_store` | Encrypted backup-storage enforcement requires the recovery storage contract; backup-root configuration binding remains paired support evidence and direct `E-10-04` process evidence. |
+| `I-10-01` | `backend_integration` | Real backing-storage metadata, encrypted artifact storage, durable latest lookup, and verification transitions. |
 | `I-10-02` | `backend_process` | Fresh environment restore, projection rebuild, incident open, workbook query, and consistency proof. |
 | `I-10-03` | `backend_process` | Broken retained backup must fail before readiness in an isolated environment. |
-| `E-10-01` | `backend_process` | Deployment-local operator inspection without public API exposure. |
+| `E-10-01` | `backend_process` | Deployment-local operator inspection with redacted durability diagnostics, restore, and due verification without public API exposure. |
 | `E-10-02` | `browser_functional` | Restored workbook surface and built-in workbook query through the real web stack. |
 | `E-10-03` | `backend_process` | Public HTTP/WebSocket inventory from a running deployment. |
 | `E-10-04` | `backend_process` | Effective deployment configuration rejects invalid backup-root binding. |

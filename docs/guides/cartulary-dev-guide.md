@@ -1219,7 +1219,8 @@ Operational backup baseline:
 - a successful `backup_set` includes restoreable Postgres state, restoreable object-store state for that same point, and a durable attestation record that includes at minimum `backup_set_id`, `consistency_point_at`, `postgres_restore_anchor`, `object_store_restore_anchor`, `created_at`, `retained_until`, `verification_state`, and `last_verified_restore_at`,
 - `verification_state` uses exactly `unverified`, `verified`, or `failed`, and `last_verified_restore_at` MAY be `null` only while `verification_state='unverified'`,
 - at least one successful retained `backup_set` MUST have `consistency_point_at` no older than 24 hours,
-- each successful `backup_set` plus its restoreable artifacts MUST be retained for at least 30 days.
+- each successful `backup_set` plus its restoreable artifacts MUST be retained for at least 30 days,
+- latest-success inspection must verify the required artifact set and integrity manifest in backup storage before treating a metadata row as successful.
 
 Restore and restore-verification baseline:
 
@@ -1227,9 +1228,10 @@ Restore and restore-verification baseline:
 - restore order remains Postgres, object storage, then projection rebuild,
 - missing required Postgres or object-store artifacts, or missing required checksum or integrity proof for the chosen backup mechanism, fails restore before the environment is exposed as ready,
 - full restore verification runs in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, or `roots.backup_storage` binding,
+- the deployment-local `operator restore-verify due` command is the implementation-owned cadence runner for backups due by age or verification-basis change; manual `operator restore-verify latest` remains a one-shot control,
 - a successful verification sets `verification_state='verified'` and updates `last_verified_restore_at`; a failed verification sets `verification_state='failed'` and updates `last_verified_restore_at`.
 
-For flyaway or disconnected deployments, backup artifacts and restore-verification extracts that carry incident data MUST remain on encrypted storage. `roots.backup_storage` is the authoritative deployment-local root for those artifacts. `roots.export_outputs` and `roots.temporary_work` are not substitute backup roots.
+For flyaway or disconnected deployments, backup artifacts and restore-verification extracts that carry incident data MUST remain on encrypted storage. The current filesystem-backed backup-storage implementation uses authenticated application-level encrypted artifact envelopes under `roots.backup_storage` and requires `CARTULARY_RECOVERY_MASTER_KEY`; raw unencrypted Phase 10 backup artifacts are nonconformant and should be recreated rather than migrated. `roots.backup_storage` is the authoritative deployment-local root for those artifacts. `roots.export_outputs` and `roots.temporary_work` are not substitute backup roots.
 
 Failure-mode baseline:
 

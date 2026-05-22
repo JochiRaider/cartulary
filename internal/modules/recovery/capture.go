@@ -76,17 +76,18 @@ type BackupArtifactProof struct {
 }
 
 type BackupIntegrityManifest struct {
-	SchemaID                              string              `json:"schema_id"`
-	BackupSetID                           string              `json:"backup_set_id"`
-	ConsistencyPointAt                    time.Time           `json:"consistency_point_at"`
-	CreatedAt                             time.Time           `json:"created_at"`
-	RetainedUntil                         time.Time           `json:"retained_until"`
-	PostgresRestoreAnchor                 string              `json:"postgres_restore_anchor"`
-	ObjectStoreRestoreAnchor              string              `json:"object_store_restore_anchor"`
-	PostgresRestoreAnchorRetainedUntil    time.Time           `json:"postgres_restore_anchor_retained_until"`
-	ObjectStoreRestoreAnchorRetainedUntil time.Time           `json:"object_store_restore_anchor_retained_until"`
-	PostgresArtifact                      BackupArtifactProof `json:"postgres_artifact"`
-	ObjectStoreArtifact                   BackupArtifactProof `json:"object_store_artifact"`
+	SchemaID                              string                       `json:"schema_id"`
+	BackupSetID                           string                       `json:"backup_set_id"`
+	ConsistencyPointAt                    time.Time                    `json:"consistency_point_at"`
+	CreatedAt                             time.Time                    `json:"created_at"`
+	RetainedUntil                         time.Time                    `json:"retained_until"`
+	StorageEncryption                     BackupStorageEncryptionProof `json:"storage_encryption"`
+	PostgresRestoreAnchor                 string                       `json:"postgres_restore_anchor"`
+	ObjectStoreRestoreAnchor              string                       `json:"object_store_restore_anchor"`
+	PostgresRestoreAnchorRetainedUntil    time.Time                    `json:"postgres_restore_anchor_retained_until"`
+	ObjectStoreRestoreAnchorRetainedUntil time.Time                    `json:"object_store_restore_anchor_retained_until"`
+	PostgresArtifact                      BackupArtifactProof          `json:"postgres_artifact"`
+	ObjectStoreArtifact                   BackupArtifactProof          `json:"object_store_artifact"`
 }
 
 type ObjectStoreSnapshotArtifact struct {
@@ -123,15 +124,25 @@ func NewCaptureService(store *Store, storage BackupStorage) *CaptureService {
 	}
 }
 
-func NewBackupStorageFromConfig(cfg config.Config) (BackupStorage, error) {
+func NewBackupStorageFromConfig(cfg config.Config, env ...map[string]string) (BackupStorage, error) {
+	var envMap map[string]string
+	if len(env) > 0 {
+		envMap = env[0]
+	}
+	var raw BackupStorage
 	switch cfg.Roots.BackupStorage.BindingKind {
 	case "filesystem_root":
-		return NewFilesystemBackupStorage(cfg.Roots.BackupStorage.Path)
+		storage, err := NewFilesystemBackupStorage(cfg.Roots.BackupStorage.Path)
+		if err != nil {
+			return nil, err
+		}
+		raw = storage
 	case "managed_service":
 		return nil, fmt.Errorf("%w: managed_service backup storage capture is not implemented", ErrUnsupportedBackupRoot)
 	default:
 		return nil, fmt.Errorf("%w: roots.backup_storage.binding_kind must be configured", ErrUnsupportedBackupRoot)
 	}
+	return NewEncryptedBackupStorageFromEnv(raw, envMap)
 }
 
 func NewFilesystemBackupStorage(root string) (*FilesystemBackupStorage, error) {
@@ -226,6 +237,10 @@ func (service *CaptureService) CaptureBackupSet(ctx context.Context, params Capt
 	if service == nil || service.store == nil || service.storage == nil {
 		return BackupSet{}, fmt.Errorf("%w: capture service requires store and backup storage", ErrInvalidBackupMetadata)
 	}
+	storageEncryption, err := backupStorageEncryptionProof(service.storage)
+	if err != nil {
+		return BackupSet{}, err
+	}
 	if params.BackupSetID == uuid.Nil {
 		params.BackupSetID = uuid.New()
 	}
@@ -273,6 +288,7 @@ func (service *CaptureService) CaptureBackupSet(ctx context.Context, params Capt
 		ConsistencyPointAt:                    params.ConsistencyPointAt,
 		CreatedAt:                             params.CreatedAt,
 		RetainedUntil:                         params.RetainedUntil,
+		StorageEncryption:                     storageEncryption,
 		PostgresRestoreAnchor:                 postgresAnchor,
 		ObjectStoreRestoreAnchor:              objectAnchor,
 		PostgresRestoreAnchorRetainedUntil:    params.PostgresRestoreAnchorRetainedUntil,

@@ -90,15 +90,25 @@ func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx co
 		asOf = service.now()
 	}
 	asOf = asOf.UTC()
-	startedAt := service.now().UTC()
-	backupSet, err := service.store.RestoreCandidateBackup(ctx, asOf)
+	backupSet, err := NewBackupCatalog(service.store, service.runner.storage).RestoreCandidateBackup(ctx, asOf)
 	if err != nil {
 		return RestoreVerificationResult{}, err
 	}
+	return service.VerifyBackupSet(ctx, target, backupSet, verificationBasisSHA256)
+}
+
+func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, target RestoreVerificationTarget, backupSet BackupSet, verificationBasisSHA256 string) (RestoreVerificationResult, error) {
+	if service == nil || service.store == nil || service.runner == nil {
+		return RestoreVerificationResult{}, fmt.Errorf("%w: restore verification requires store and runner", ErrInvalidBackupMetadata)
+	}
+	if !validSHA256Hex(verificationBasisSHA256) {
+		return RestoreVerificationResult{}, ErrInvalidVerificationBasis
+	}
+	startedAt := service.now().UTC()
 
 	restoreTarget := target.RestoreTarget
 	restoreTarget.Readiness = nil
-	restoreResult, restoreErr := service.runner.RestoreLatestSuccessfulRetained(ctx, restoreTarget, asOf)
+	restoreResult, restoreErr := service.runner.RestoreBackupSet(ctx, restoreTarget, backupSet)
 	if restoreErr == nil && target.Probe != nil {
 		restoreErr = target.Probe.ProbeRestoredBackup(ctx, restoreResult)
 	}

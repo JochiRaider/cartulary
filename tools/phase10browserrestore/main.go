@@ -34,6 +34,7 @@ import (
 )
 
 const readySchemaID = "cartulary.phase10.browser_restore_target.v1"
+const phase10BrowserRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
 type readyPayload struct {
 	SchemaID            string                            `json:"schema_id"`
@@ -145,9 +146,9 @@ func run() error {
 	if err := os.RemoveAll(backupRoot); err != nil {
 		return fmt.Errorf("reset backup root: %w", err)
 	}
-	backupStorage, err := recovery.NewFilesystemBackupStorage(backupRoot)
+	backupStorage, err := encryptedBackupStorage(backupRoot)
 	if err != nil {
-		return fmt.Errorf("open backup storage: %w", err)
+		return fmt.Errorf("open encrypted backup storage: %w", err)
 	}
 
 	sourceStore := recovery.NewStore(sourcePool)
@@ -310,6 +311,18 @@ func startRuntimeServer(handler http.Handler) (*http.Server, string, error) {
 		}
 	}()
 	return server, "http://" + listener.Addr().String(), nil
+}
+
+func encryptedBackupStorage(root string) (recovery.BackupStorage, error) {
+	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	if err != nil {
+		return nil, err
+	}
+	key, err := recovery.ParseRecoveryEncryptionKey(phase10BrowserRecoveryMasterKey)
+	if err != nil {
+		return nil, err
+	}
+	return recovery.NewEncryptedBackupStorage(rawStorage, key)
 }
 
 func seedDeploymentAdmin(ctx context.Context, pool *pgxpool.Pool, email string, password string) error {

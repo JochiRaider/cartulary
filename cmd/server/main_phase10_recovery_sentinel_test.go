@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -156,13 +158,13 @@ func TestPhase10_U_10_03_FailClosedRestoreVerificationBlocked(t *testing.T) {
 			target := preparePhase10RestoreTarget(t, fmt.Sprintf("phase10-u-10-03-target-%02d", index))
 			gate := &phase10RestoreReadinessGate{}
 			recorder := &phase10RestoreStepRecorder{}
-			_, err := recovery.NewRestoreRunner(fixture.SourceStore, tc.storage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+			_, err := recovery.NewRestoreRunner(fixture.SourceStore, tc.storage).RestoreBackupSet(ctx, recovery.RestoreTarget{
 				Postgres:    target.Postgres,
 				ObjectStore: target.ObjectStore,
 				Projections: projections.NewStore(target.Postgres),
 				Readiness:   gate,
 				Observer:    recorder,
-			}, fixture.AsOf)
+			}, backupSet)
 			if err == nil {
 				t.Fatalf("tampered backup %q unexpectedly restored", tc.name)
 			}
@@ -276,13 +278,13 @@ func TestPhase10_I_10_03_MissingArtifactFailsBeforeReadinessBlocked(t *testing.T
 	_, err = recovery.NewRestoreRunner(fixture.SourceStore, phase10TamperedBackupStorage{
 		Inner:   fixture.BackupStorage,
 		Missing: map[string]bool{backupSet.ObjectStoreArtifactKey: true},
-	}).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+	}).RestoreBackupSet(ctx, recovery.RestoreTarget{
 		Postgres:    target.Postgres,
 		ObjectStore: target.ObjectStore,
 		Projections: projections.NewStore(target.Postgres),
 		Readiness:   gate,
 		Observer:    recorder,
-	}, fixture.AsOf)
+	}, backupSet)
 	if err == nil {
 		t.Fatal("restore with missing object artifact unexpectedly succeeded")
 	}
@@ -474,10 +476,8 @@ func capturePhase10RestoreSource(t testing.TB, prefix string) phase10SourceBacku
 		t.Fatalf("object-store restore artifact does not include restorable object bodies")
 	}
 
-	backupStorage, err := recovery.NewFilesystemBackupStorage(t.TempDir())
-	if err != nil {
-		t.Fatalf("create backup storage: %v", err)
-	}
+	backupRoot := t.TempDir()
+	backupStorage := phase10EncryptedBackupStorage(t, backupRoot)
 	capture := recovery.NewCaptureService(recovery.NewStore(sourcePool), backupStorage)
 	asOf := time.Now().UTC().Truncate(time.Second)
 	olderCreatedAt := asOf.Add(-10 * time.Minute)
@@ -516,6 +516,13 @@ func capturePhase10RestoreSource(t testing.TB, prefix string) phase10SourceBacku
 	})); err != nil {
 		t.Fatalf("capture latest retained backup set: %v", err)
 	}
+	rawPostgresArtifact, err := os.ReadFile(filepath.Join(backupRoot, filepath.FromSlash("backup_sets/"+latestBackupSetID.String()+"/postgres-artifact.json")))
+	if err != nil {
+		t.Fatalf("read raw encrypted process backup artifact: %v", err)
+	}
+	if bytes.Contains(rawPostgresArtifact, []byte("restore source timeline")) {
+		t.Fatalf("raw process backup artifact contains plaintext incident data: %s", rawPostgresArtifact)
+	}
 
 	return phase10SourceBackupFixture{
 		SourceStore:        recovery.NewStore(sourcePool),
@@ -527,6 +534,25 @@ func capturePhase10RestoreSource(t testing.TB, prefix string) phase10SourceBacku
 		TimelineRecordID:   timelineRecordID,
 		AdminTOTPSecret:    adminSecret,
 	}
+}
+
+const phase10RecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
+func phase10EncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
+	t.Helper()
+	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	if err != nil {
+		t.Fatalf("create backup storage: %v", err)
+	}
+	key, err := recovery.ParseRecoveryEncryptionKey(phase10RecoveryMasterKey)
+	if err != nil {
+		t.Fatalf("parse recovery encryption key: %v", err)
+	}
+	storage, err := recovery.NewEncryptedBackupStorage(rawStorage, key)
+	if err != nil {
+		t.Fatalf("create encrypted backup storage: %v", err)
+	}
+	return storage
 }
 
 func preparePhase10RestoreTarget(t testing.TB, prefix string) phase10RestoreTargetFixture {

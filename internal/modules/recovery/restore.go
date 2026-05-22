@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -101,9 +102,28 @@ func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context
 	if asOf.IsZero() {
 		asOf = runner.now()
 	}
-	backupSet, err := runner.store.RestoreCandidateBackup(ctx, asOf)
+	backupSet, err := NewBackupCatalog(runner.store, runner.storage).RestoreCandidateBackup(ctx, asOf)
 	if err != nil {
 		return RestoreResult{}, err
+	}
+	return runner.RestoreBackupSet(ctx, target, backupSet)
+}
+
+func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target RestoreTarget, backupSet BackupSet) (RestoreResult, error) {
+	if runner == nil || runner.store == nil || runner.storage == nil {
+		return RestoreResult{}, fmt.Errorf("%w: restore runner requires store and backup storage", ErrInvalidBackupMetadata)
+	}
+	if backupSet.BackupSetID == uuid.Nil {
+		return RestoreResult{}, ErrBackupSetNotFound
+	}
+	if target.Postgres == nil {
+		return RestoreResult{}, fmt.Errorf("%w: restore target postgres is required", ErrInvalidBackupArtifact)
+	}
+	if target.ObjectStore == nil {
+		return RestoreResult{}, fmt.Errorf("%w: restore target object store is required", ErrInvalidBackupArtifact)
+	}
+	if target.Projections == nil {
+		return RestoreResult{}, fmt.Errorf("%w: restore projection rebuilder is required", ErrInvalidBackupArtifact)
 	}
 	artifacts, err := runner.loadSelectedRestoreArtifacts(ctx, backupSet)
 	if err != nil {
@@ -186,6 +206,11 @@ func (runner *RestoreRunner) loadSelectedRestoreArtifacts(ctx context.Context, b
 func validateSelectedRestoreManifest(backupSet BackupSet, manifest BackupIntegrityManifest) error {
 	if manifest.SchemaID != BackupIntegrityManifestSchemaID {
 		return fmt.Errorf("%w: unsupported integrity manifest schema %q", ErrInvalidBackupArtifact, manifest.SchemaID)
+	}
+	if manifest.StorageEncryption.Mode != BackupStorageEncryptionModeAESGCM ||
+		manifest.StorageEncryption.EnvelopeSchemaID != BackupArtifactEnvelopeSchemaID ||
+		!validSHA256Hex(manifest.StorageEncryption.KeyFingerprintSHA256) {
+		return fmt.Errorf("%w: integrity manifest does not prove encrypted backup storage", ErrInvalidBackupArtifact)
 	}
 	if manifest.BackupSetID != backupSet.BackupSetID.String() {
 		return fmt.Errorf("%w: manifest backup_set_id does not match selected backup", ErrInvalidBackupArtifact)

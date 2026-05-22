@@ -3,6 +3,7 @@ package recovery_test
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -330,6 +331,54 @@ func TestPhase10_U_10_01_LatestSuccessfulRetainedBackupRequiresTwentyFourHourFlo
 	}
 }
 
+func TestPhase10_U_10_01_DurableCatalogSkipsMetadataWithMissingArtifacts(t *testing.T) {
+	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-durable-catalog")
+	store := recovery.NewStore(db)
+	backupStorage := newEncryptedBackupStorage(t, t.TempDir())
+	capture := recovery.NewCaptureService(store, backupStorage)
+	ctx := context.Background()
+
+	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
+	older, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100111"),
+		ConsistencyPointAt: asOf.Add(-2 * time.Hour),
+		CreatedAt:          asOf.Add(-3 * time.Hour),
+		RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
+	}))
+	if err != nil {
+		t.Fatalf("capture older durable backup: %v", err)
+	}
+	newer, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100112"),
+		ConsistencyPointAt: asOf.Add(-time.Hour),
+		CreatedAt:          asOf.Add(-90 * time.Minute),
+		RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
+	}))
+	if err != nil {
+		t.Fatalf("capture newer durable backup: %v", err)
+	}
+
+	catalog := recovery.NewBackupCatalog(store, tamperedBackupStorage{
+		Inner:   backupStorage,
+		Missing: map[string]bool{newer.IntegrityManifestKey: true},
+	})
+	selection, err := catalog.RestoreCandidateBackupSelection(ctx, asOf)
+	if err != nil {
+		t.Fatalf("select latest durable backup: %v", err)
+	}
+	selected := selection.BackupSet
+	if selected.BackupSetID != older.BackupSetID {
+		t.Fatalf("catalog selected %s want older durable %s", selected.BackupSetID, older.BackupSetID)
+	}
+	if len(selection.DurabilityDiagnostics) != 1 {
+		t.Fatalf("durability diagnostics count got %d want 1: %#v", len(selection.DurabilityDiagnostics), selection.DurabilityDiagnostics)
+	}
+	diagnostic := selection.DurabilityDiagnostics[0]
+	if diagnostic.BackupSetID != newer.BackupSetID || diagnostic.Code != "artifact_missing" {
+		t.Fatalf("unexpected redacted durability diagnostic: %#v", diagnostic)
+	}
+}
+
 func TestPhase10_U_10_01_RetentionFloorRejectsShortMetadataAndArtifacts(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-retention")
 	store := recovery.NewStore(db)
@@ -393,6 +442,26 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
 `, validBackupSetInsertArgs(uuid.MustParse("00000000-0000-0000-0000-000000100108"), createdAt, createdAt.Add(30*24*time.Hour), createdAt.Add(29*24*time.Hour), createdAt.Add(30*24*time.Hour))...)
 }
 
+type tamperedBackupStorage struct {
+	Inner        recovery.BackupStorage
+	Missing      map[string]bool
+	Replacements map[string][]byte
+}
+
+func (storage tamperedBackupStorage) WriteArtifact(ctx context.Context, key string, body []byte, contentType string) (recovery.BackupArtifactProof, error) {
+	return storage.Inner.WriteArtifact(ctx, key, body, contentType)
+}
+
+func (storage tamperedBackupStorage) ReadArtifact(ctx context.Context, key string) ([]byte, error) {
+	if storage.Missing[key] {
+		return nil, os.ErrNotExist
+	}
+	if replacement, ok := storage.Replacements[key]; ok {
+		return replacement, nil
+	}
+	return storage.Inner.ReadArtifact(ctx, key)
+}
+
 func TestPhase10_U_10_01_CaptureRequiresArtifactProofs(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-01-artifacts")
 	store := recovery.NewStore(db)
@@ -411,13 +480,73 @@ func TestPhase10_U_10_01_CaptureRequiresArtifactProofs(t *testing.T) {
 	}
 }
 
+func TestPhase10_U_10_05_CaptureRequiresEncryptedBackupStorage(t *testing.T) {
+	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-05-encrypted-storage")
+	store := recovery.NewStore(db)
+	rawStorage, err := recovery.NewFilesystemBackupStorage(t.TempDir())
+	if err != nil {
+		t.Fatalf("create raw backup storage: %v", err)
+	}
+	capture := recovery.NewCaptureService(store, rawStorage)
+	createdAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
+	if _, err := capture.CaptureBackupSet(context.Background(), captureParams(recovery.CaptureBackupSetParams{
+		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100110"),
+		ConsistencyPointAt: createdAt.Add(-time.Hour),
+		CreatedAt:          createdAt,
+		RetainedUntil:      createdAt.Add(30 * 24 * time.Hour),
+	})); !errors.Is(err, recovery.ErrEncryptedBackupStorage) {
+		t.Fatalf("unencrypted backup storage error got %v want %v", err, recovery.ErrEncryptedBackupStorage)
+	}
+}
+
+func TestPhase10_U_10_05_EncryptedBackupStorageFailsClosedWithWrongKey(t *testing.T) {
+	root := t.TempDir()
+	storage := newEncryptedBackupStorage(t, root)
+	ctx := context.Background()
+	proof, err := storage.WriteArtifact(ctx, "backup_sets/wrong-key/proof.json", []byte(`{"marker":"secret incident data"}`), "application/json")
+	if err != nil {
+		t.Fatalf("write encrypted artifact: %v", err)
+	}
+	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	if err != nil {
+		t.Fatalf("open raw storage: %v", err)
+	}
+	wrongKey, err := recovery.ParseRecoveryEncryptionKey("YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODk=")
+	if err != nil {
+		t.Fatalf("parse wrong key: %v", err)
+	}
+	wrongStorage, err := recovery.NewEncryptedBackupStorage(rawStorage, wrongKey)
+	if err != nil {
+		t.Fatalf("create wrong-key storage: %v", err)
+	}
+	if _, err := recovery.VerifyArtifactProof(ctx, wrongStorage, proof); !errors.Is(err, recovery.ErrInvalidBackupArtifact) {
+		t.Fatalf("wrong-key artifact proof error got %v want %v", err, recovery.ErrInvalidBackupArtifact)
+	}
+}
+
 func newCaptureService(t *testing.T, store *recovery.Store) *recovery.CaptureService {
 	t.Helper()
-	storage, err := recovery.NewFilesystemBackupStorage(t.TempDir())
+	storage := newEncryptedBackupStorage(t, t.TempDir())
+	return recovery.NewCaptureService(store, storage)
+}
+
+const phase10RecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
+func newEncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
+	t.Helper()
+	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
 	if err != nil {
 		t.Fatalf("create backup storage fixture: %v", err)
 	}
-	return recovery.NewCaptureService(store, storage)
+	key, err := recovery.ParseRecoveryEncryptionKey(phase10RecoveryMasterKey)
+	if err != nil {
+		t.Fatalf("parse recovery encryption key: %v", err)
+	}
+	storage, err := recovery.NewEncryptedBackupStorage(rawStorage, key)
+	if err != nil {
+		t.Fatalf("create encrypted backup storage fixture: %v", err)
+	}
+	return storage
 }
 
 func captureParams(params recovery.CaptureBackupSetParams) recovery.CaptureBackupSetParams {
