@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:cbae0f9216faad8f4553c66ecad41321ae581cd826e7792162beb4ab45f72c38",
+  "input_digest": "sha256:f8db998fc029417fd08a122b4aa9eec5a9a3dbc227bd1ba187155d8d843321dc",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -297,12 +297,12 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:32bceb485cf3380160f5f8f8f047dd15a55eab338228eb32a83f8ca95fc7c399"
+      "hash": "sha256:4e2329c3bb5eef81340a3534bb64b52f6a9b8600d2e7671920f3a277ad46d1b1"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:8f6fb5bd0a6147297b2167c6c8477506904422f9b03e90ad238d554959922643"
+      "hash": "sha256:f47539442d5c2c1c9c09eb7452e455523f06be973fd9ac9b8759871c0e1b1560"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
@@ -327,7 +327,7 @@
     {
       "path": "tools/phase10_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:44de368e84fef4301dc3773568cfafe6bc5d93ed885f536a7b51ed8accf98bde"
+      "hash": "sha256:1d80d2e0192defbb254cbed28847d822d679f43139c2185fa622a5bbffd6402d"
     },
     {
       "path": "tools/phase2_test_map.json",
@@ -382,8 +382,8 @@
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:61ebf634dd669e95129a55c84cf467a967e48db786a13ebabcef4c3834e77f8f",
-    "tools/scheduler_manifest.json": "sha256:260eff4235a1fe4f06f9ec39d1700bedcbd031efa5a5cba0032639100e5cddc8",
-    "tools/task_surface_manifest.json": "sha256:23c948a27552c757bb6483c15666bac31bfecb1203a7f5abf9b1dc9b5954c0a2",
-    "tools/task_surface.generated.mk": "sha256:acc4c045d386cead29161ddead147f04fd493046ef6372982d40b9de262a20d3"
+    "tools/scheduler_manifest.json": "sha256:219bf88aaefec6508a7fcd0b31a9c179317af46674ca86f931cf50a23ff8de34",
+    "tools/task_surface_manifest.json": "sha256:1b9c1db35dc965035edd36780389433234ab8b93f0e4a48106acf0186cf803aa",
+    "tools/task_surface.generated.mk": "sha256:a535a4017108302a17af328c755fddee94d422783cb0f2e16cae884a217c4e8a"
   }
 }

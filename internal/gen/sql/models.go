@@ -164,6 +164,28 @@ type AssessmentGridProjection struct {
 	SupportingLinkCount int32              `json:"supporting_link_count"`
 }
 
+type BackupSet struct {
+	BackupSetID                           pgtype.UUID        `json:"backup_set_id"`
+	ConsistencyPointAt                    pgtype.Timestamptz `json:"consistency_point_at"`
+	PostgresRestoreAnchor                 string             `json:"postgres_restore_anchor"`
+	ObjectStoreRestoreAnchor              string             `json:"object_store_restore_anchor"`
+	PostgresArtifactKey                   string             `json:"postgres_artifact_key"`
+	PostgresArtifactSha256                string             `json:"postgres_artifact_sha256"`
+	PostgresArtifactSizeBytes             int64              `json:"postgres_artifact_size_bytes"`
+	ObjectStoreArtifactKey                string             `json:"object_store_artifact_key"`
+	ObjectStoreArtifactSha256             string             `json:"object_store_artifact_sha256"`
+	ObjectStoreArtifactSizeBytes          int64              `json:"object_store_artifact_size_bytes"`
+	IntegrityManifestKey                  string             `json:"integrity_manifest_key"`
+	IntegrityManifestSha256               string             `json:"integrity_manifest_sha256"`
+	IntegrityManifestSizeBytes            int64              `json:"integrity_manifest_size_bytes"`
+	CreatedAt                             pgtype.Timestamptz `json:"created_at"`
+	RetainedUntil                         pgtype.Timestamptz `json:"retained_until"`
+	PostgresRestoreAnchorRetainedUntil    pgtype.Timestamptz `json:"postgres_restore_anchor_retained_until"`
+	ObjectStoreRestoreAnchorRetainedUntil pgtype.Timestamptz `json:"object_store_restore_anchor_retained_until"`
+	VerificationState                     string             `json:"verification_state"`
+	LastVerifiedRestoreAt                 pgtype.Timestamptz `json:"last_verified_restore_at"`
+}
+
 type BootstrapToken struct {
 	ID               pgtype.UUID        `json:"id"`
 	UserID           pgtype.UUID        `json:"user_id"`

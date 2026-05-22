@@ -368,7 +368,7 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 35, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 36, "check schedule must render the current check work-unit set");
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -402,6 +402,7 @@ assert.deepEqual(
     ["check-frontend-install", 49400],
     ["build-server", 40000],
     ["build-migrate", 39000],
+    ["build-operator", 38800],
     ["test-service-images", 38000],
     ["check-service-backed", 30000],
     ["migration-drift", 27000],

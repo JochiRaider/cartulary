@@ -589,7 +589,7 @@
           },
           {
             "target": "build",
-            "description": "build backend binaries with embedded web assets"
+            "description": "build backend and operator binaries with embedded web assets"
           },
           {
             "target": "build-server",
@@ -598,6 +598,10 @@
           {
             "target": "build-migrate",
             "description": "build the migration binary"
+          },
+          {
+            "target": "build-operator",
+            "description": "build the deployment-local operator binary"
           },
           {
             "target": "build-web",
@@ -1102,7 +1106,8 @@
       "deployable-shape": {
         "prerequisites": [
           "build-server",
-          "build-migrate"
+          "build-migrate",
+          "build-operator"
         ],
         "type": "phase_command",
         "mode": "run_phase",
@@ -2009,7 +2014,8 @@
       "build": {
         "prerequisites": [
           "build-server",
-          "build-migrate"
+          "build-migrate",
+          "build-operator"
         ],
         "type": "alias"
       },
@@ -2023,6 +2029,13 @@
       "build-migrate": {
         "prerequisites": [
           "$(MIGRATE_BIN)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "build-operator": {
+        "prerequisites": [
+          "$(OPERATOR_BIN)"
         ],
         "type": "alias",
         "test_target": "self"
@@ -3270,7 +3283,8 @@
           "order": 1000,
           "needs": [
             "build-server",
-            "build-migrate"
+            "build-migrate",
+            "build-operator"
           ]
         },
         "target_class": "internal_helper",
@@ -6943,6 +6957,72 @@
           "summary_schema": "cartulary.tool_run_summary.v3"
         },
         "command_id": "cartulary.harness.command.build_migrate.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check",
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "builds",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          },
+          {
+            "class": "build_outputs",
+            "owner_section": "Section 8",
+            "output_roots": [
+              "dist",
+              "bin",
+              "apps/web/dist"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "build-operator",
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_go_binary",
+          "priority_band": "build_readiness",
+          "order": 1200,
+          "needs": [
+            "toolchain-drift"
+          ]
+        },
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
+        },
+        "command_id": "cartulary.harness.command.build_operator.v1",
         "semantic_behaviors": [
           {
             "behavior": "evidence_normalization",

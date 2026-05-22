@@ -35,6 +35,7 @@
   "placeholder_dirs": [
     "apps/web",
     "cmd/migrate",
+    "cmd/operator",
     "cmd/server",
     "internal/app",
     "internal/modules",

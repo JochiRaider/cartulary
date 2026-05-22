@@ -337,6 +337,7 @@ case "${1:-}" in
   list)
     cat <<'PACKAGES'
 github.com/JochiRaider/cartulary/cmd/server
+github.com/JochiRaider/cartulary/cmd/operator
 github.com/JochiRaider/cartulary/internal/gen/contracts
 github.com/JochiRaider/cartulary/internal/gen/sql
 github.com/JochiRaider/cartulary/internal/modules/auth
@@ -362,6 +363,7 @@ GO="$fake_go" \
 
 vet_args="$(cat "$vet_args_log")"
 assert_contains "$vet_args" "github.com/JochiRaider/cartulary/cmd/server" "go vet authored cmd package"
+assert_contains "$vet_args" "github.com/JochiRaider/cartulary/cmd/operator" "go vet authored operator cmd package"
 assert_contains "$vet_args" "github.com/JochiRaider/cartulary/internal/modules/auth" "go vet authored module package"
 assert_not_contains "$vet_args" "github.com/JochiRaider/cartulary/internal/gen/contracts" "go vet generated contracts exclusion"
 assert_not_contains "$vet_args" "github.com/JochiRaider/cartulary/internal/gen/sql" "go vet generated sql exclusion"

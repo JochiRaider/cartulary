@@ -3,6 +3,7 @@
 import {
   collectEntries,
   collectSupportGoEntries,
+  entryIsExecutable,
   goEntrySymbols,
   loadManifest,
   phaseManifestNames,
@@ -78,6 +79,9 @@ function validateTargetPlanCoverage(root, rows) {
   const { authoritativeRows, supportRows } = collectManifestGoRows(root);
 
   for (const entry of authoritativeRows) {
+    if (!entryIsExecutable(entry)) {
+      continue;
+    }
     const matches = rows.filter(
       (row) =>
         row.canonical_authoritative === true &&

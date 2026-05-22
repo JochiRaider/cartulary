@@ -456,6 +456,7 @@ for scheduled_target in \
   check-frontend-install \
   build-server \
   build-migrate \
+  build-operator \
   test-service-images \
   check-service-backed \
   migration-drift \
@@ -537,6 +538,7 @@ assertCheckMetadata("shell-lint-toolchain", "setup_cpu_io");
 assertCheckMetadata("check-frontend-install", "setup_cpu_io");
 assertCheckMetadata("build-server", "build_readiness_server");
 assertCheckMetadata("build-migrate", "build_readiness_go_binary");
+assertCheckMetadata("build-operator", "build_readiness_go_binary");
 assertCheckMetadata("test-service-images", "build_readiness_service_images");
 assertCheckMetadata("check-service-backed", "service_session_start");
 assertCheckMetadata("migration-drift", "post_build_migration_scratch_postgres");
@@ -594,6 +596,7 @@ const assertClaims = (target, expectedClaims) => {
 };
 assertClaims("build-server", { host_cpu: 2, host_io: 2 });
 assertClaims("build-migrate", { host_cpu: 1, host_io: 1 });
+assertClaims("build-operator", { host_cpu: 1, host_io: 1 });
 assertClaims("test-service-images", { host_cpu: 1, host_io: 2 });
 const service = (schedule.work_units ?? []).find((entry) => entry.kind === "service_session" && entry.target === "check-service-backed");
 if (!service) {
@@ -632,10 +635,11 @@ for scheduled_target in codegen-toolchain go-lint-toolchain govulncheck-toolchai
 done
 assert_check_needs build-server "check-frontend-install"
 assert_check_needs build-migrate "toolchain-drift"
+assert_check_needs build-operator "toolchain-drift"
 assert_check_needs test-service-images "toolchain-drift"
 assert_check_needs check-service-backed "test-service-images"
 assert_check_needs migration-drift "build-migrate"
-assert_check_needs deployable-shape "build-server,build-migrate"
+assert_check_needs deployable-shape "build-server,build-migrate,build-operator"
 for scheduled_target in \
   backend-unit \
   check-harness-smoke \

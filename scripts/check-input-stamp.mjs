@@ -22,7 +22,7 @@ const profiles = {
     env: ["SHELLCHECK_BIN", "SHELLCHECK_VERSION", "LINT_SHELL_STRICT"],
   },
   migration_drift: {
-    prefixes: ["cmd/migrate/", "db/migrations/", "internal/app/", "internal/platform/", "scripts/"],
+    prefixes: ["cmd/migrate/", "cmd/operator/", "db/migrations/", "internal/app/", "internal/platform/", "scripts/"],
     suffixes: [".go", ".sql", ".sh"],
     files: [
       "Makefile",

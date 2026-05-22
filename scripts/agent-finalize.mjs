@@ -54,6 +54,7 @@ const deniedTargets = new Set([
   "build",
   "build-server",
   "build-migrate",
+  "build-operator",
   "build-web",
   "clean",
   "distclean",

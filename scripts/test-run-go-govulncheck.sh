@@ -62,7 +62,9 @@ printf '%s\n' "$@" >"${FAKE_GO_LIST_ARGS_LOG:?}"
 for pattern in "$@"; do
   case "$pattern" in
     ./cmd/... | github.com/JochiRaider/cartulary/cmd/...)
-      printf '%s\n' github.com/JochiRaider/cartulary/cmd/server
+      printf '%s\n' \
+        github.com/JochiRaider/cartulary/cmd/operator \
+        github.com/JochiRaider/cartulary/cmd/server
       ;;
     ./internal/... | github.com/JochiRaider/cartulary/internal/...)
       printf '%s\n' \
@@ -128,6 +130,7 @@ assert_contains "$args" "file://$scratch/vulndb" "govulncheck DB value"
 assert_contains "$args" "-test" "govulncheck test flag"
 assert_contains "$args" "-json" "govulncheck passthrough flag"
 assert_contains "$args" "github.com/JochiRaider/cartulary/cmd/server" "govulncheck cmd package"
+assert_contains "$args" "github.com/JochiRaider/cartulary/cmd/operator" "govulncheck operator cmd package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/internal/app" "govulncheck internal authored package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/internal/modules/auth" "govulncheck module package"
 assert_contains "$args" "github.com/JochiRaider/cartulary/db/migrations" "govulncheck db package"

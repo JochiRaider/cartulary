@@ -104,6 +104,7 @@ EOF
   mkdir -p \
     "${dest}/apps/web" \
     "${dest}/cmd/migrate" \
+    "${dest}/cmd/operator" \
     "${dest}/cmd/server" \
     "${dest}/contracts" \
     "${dest}/db/migrations" \
@@ -120,6 +121,7 @@ EOF
   for root in \
     apps/web \
     cmd/migrate \
+    cmd/operator \
     cmd/server \
     contracts \
     db/migrations \

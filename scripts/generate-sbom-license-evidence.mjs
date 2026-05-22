@@ -794,6 +794,7 @@ function collectGoEvidence(ctx) {
     "{{if and (not .Standard) .Module}}{{.Module.Path}}@{{.Module.Version}}{{end}}",
     "./cmd/server",
     "./cmd/migrate",
+    "./cmd/operator",
   ], { env: goReadOnlyEnv() });
   const test = runCommand(ctx, "go list test deps", go, [
     "list",
@@ -807,6 +808,7 @@ function collectGoEvidence(ctx) {
   for (const [name, main] of [
     ["server", "cmd/server"],
     ["migrate", "cmd/migrate"],
+    ["operator", "cmd/operator"],
   ]) {
     runCommand(
       ctx,
@@ -1014,7 +1016,7 @@ function main() {
         "go.mod",
         "go.sum",
         "go list -m -json all",
-        goEvidence.runtimeSet.has(key) ? "go list -deps ./cmd/server ./cmd/migrate" : null,
+        goEvidence.runtimeSet.has(key) ? "go list -deps ./cmd/server ./cmd/migrate ./cmd/operator" : null,
         goEvidence.testSet.has(key) ? "go list -deps -test ./..." : null,
         "go mod graph",
       ].filter(Boolean),

@@ -72,6 +72,7 @@ const schedulerReadinessTargets = new Set([
   "check-frontend-install",
   "build-server",
   "build-migrate",
+  "build-operator",
   "test-service-images",
 ]);
 

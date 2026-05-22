@@ -98,7 +98,7 @@ Generated boundary:
 | --- | --- | --- | --- |
 | [x] | 0. Ownership manifest and harness setup | `make phase-map-check`, `make explain-phase PHASE=phase10` | Complete; remaining non-Sprint-1 rows keep explicit blocker sentinels. |
 | [x] | 1. Backup storage root and deployment configuration | `make backend-unit`, `make backend-process`, `make phase-map-check`, `git diff --check` | Complete for `U-10-05` and `E-10-04`; operational recovery rows remain blocked. |
-| [ ] | 2. Backup metadata and retention floors | `make backend-store`, `make migration-drift` | No backup schema exists. |
+| [x] | 2. Backup metadata and retention floors | `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make deployable-shape`, `make migration-drift`, `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `git diff --check` | Artifact-backed capture evidence implemented for `U-10-01`, `I-10-01`, and `E-10-01`; direct public-route absence evidence for `U-10-04` and `E-10-03` was pulled forward. |
 | [ ] | 3. Restore readiness and coherent stores | `make backend-process`, `make service-backed-slice PHASE=phase10` | Restore orchestration absent. |
 | [ ] | 4. Fail-closed integrity handling | `make backend-process` | Integrity proof contract absent. |
 | [ ] | 5. Isolated restore verification | `make backend-process` | Verification cadence/state machine absent. |
@@ -226,9 +226,9 @@ Exit criteria:
 
 ## Sprint 2. Retained Backup Metadata And Retention Floors
 
-Objective: create and inspect durable backup metadata without exposing public backup routes.
+Objective: create and inspect durable artifact-backed backup metadata without exposing public backup routes.
 
-Rows: `U-10-01`, `I-10-01`, `E-10-01`.
+Rows: `U-10-01`, `I-10-01`, `E-10-01`. This sprint also pulls forward direct public-route absence evidence for `U-10-04` and `E-10-03` so `E-10-01` remains focused on deployment-local operator inspection rather than route-inventory claims.
 
 Files and areas:
 - `db/migrations`
@@ -239,34 +239,45 @@ Files and areas:
 - runtime assembly and deployment-admin patterns
 
 Test-first sequence:
-1. Assert `backup_set`/`backup_attestation` fields and restore anchors.
-2. Assert exact `verification_state` vocabulary.
-3. Assert null rule for `last_verified_restore_at`.
-4. Assert latest-success no older than 24 hours.
-5. Assert each successful backup has `retained_until >= created_at + 30 days`.
+1. Assert a production successful `backup_set` can be created only through artifact-backed capture.
+2. Assert `backup_set` integrity-manifest fields, Postgres/object-store artifact proofs, and restore anchors.
+3. Assert exact `verification_state` vocabulary.
+4. Assert null rule for `last_verified_restore_at`.
+5. Assert latest-success no older than 24 hours.
+6. Assert each successful backup has `retained_until >= created_at + 30 days`.
+7. Assert public HTTP and WebSocket route families remain absent in static inventory and a running server.
 
 Implementation tasks:
-- Add backup attestation schema and store.
+- Add artifact-backed backup integrity manifest schema and store.
+- Add a recovery capture service that validates Postgres and object-store artifact proofs before inserting a successful retained `backup_set`.
 - Add latest successful retained backup lookup.
 - Add retention-floor enforcement.
 - Add deployment-local operator inspection path that is not a public backup route family.
+- Make `cmd/operator` a first-class operational tooling binary through `build-operator` and deployable-shape validation.
 
 Validation commands:
+- `make backend-unit`
 - `make backend-store`
 - `make backend-integration`
+- `make backend-process`
+- `make deployable-shape`
 - `make migration-drift`
 - `make generate-drift`
+- `make phase-ledger-drift`
+- `make phase-schedule-drift`
 - `git diff --check`
 
 Deliverables:
-- Metadata and retention evidence for AC-398.
+- Artifact-backed metadata and retention evidence for AC-398.
+- Static and process route-inventory absence evidence for AC-402.
 - Updated manifest rows replacing relevant blockers.
 
 Risks:
-- Do not treat a metadata row as successful unless both Postgres and object-store anchors plus attestation are durable for the same point.
+- Do not treat a metadata row as successful unless both Postgres and object-store artifacts, checksums, anchors, integrity manifest, and retention floors are durable for the same point.
 
 Exit criteria:
-- Latest successful retained backup metadata is inspectable without public backup routes.
+- Latest successful retained backup metadata is inspectable through the deployment-local operator binary.
+- Public `/api/v1/backups*`, `/api/v1/restores*`, `/api/v1/restore-verifications*`, `/ws/v1/backups*`, `/ws/v1/restores*`, and `/ws/v1/restore-verifications*` families remain absent.
 
 ## Sprint 3. Restore Readiness And Coherent Stores
 
