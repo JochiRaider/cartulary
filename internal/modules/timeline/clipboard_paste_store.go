@@ -69,7 +69,7 @@ func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 			}
 			applied = append(applied, row)
 		case "record":
-			row, rowConflicts, err := s.applyClipboardPastePatchTx(ctx, tx, actor, target.RecordID, target.BaseRowVersion, requestHash, rowPlan, request.sourceKind(), now.UTC())
+			row, rowConflicts, err := s.applyClipboardPastePatchTx(ctx, tx, actor, incidentID, target.RecordID, target.BaseRowVersion, requestHash, rowPlan, request.sourceKind(), now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
@@ -295,9 +295,19 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, 'rough', 1, $4, $4, $3, $3)
 	}, nil
 }
 
-func (s *Store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, []map[string]any, error) {
-	current, err := loadSourceRecordTx(ctx, tx, recordID)
+func ensureClipboardPasteRecordIncident(current sourceRecord, incidentID uuid.UUID) error {
+	if current.IncidentID != incidentID {
+		return ErrRecordNotFound
+	}
+	return nil
+}
+
+func (s *Store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, []map[string]any, error) {
+	current, err := loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID)
 	if err != nil {
+		return clipboardAppliedRow{}, nil, err
+	}
+	if err := ensureClipboardPasteRecordIncident(current, incidentID); err != nil {
 		return clipboardAppliedRow{}, nil, err
 	}
 	if current.RowVersion < baseRowVersion {
@@ -401,8 +411,12 @@ UPDATE timeline_events
        reviewed_at = $11,
        reviewed_by_user_id = $12
  WHERE record_id = $1
+   AND incident_id = $13
 RETURNING recorded_at
-`, recordID, next.OccurredAt, next.Summary, next.Details, next.SourceText, rawCaptureJSON, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID).Scan(&next.RecordedAt); err != nil {
+`, recordID, next.OccurredAt, next.Summary, next.Details, next.SourceText, rawCaptureJSON, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID, incidentID).Scan(&next.RecordedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return clipboardAppliedRow{}, nil, ErrRecordNotFound
+		}
 		return clipboardAppliedRow{}, nil, fmt.Errorf("update timeline clipboard paste record: %w", err)
 	}
 	afterProjected := projectRecord(next, nil)

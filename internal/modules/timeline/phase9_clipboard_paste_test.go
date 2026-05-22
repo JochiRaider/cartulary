@@ -1,8 +1,11 @@
 package timeline
 
 import (
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
@@ -77,5 +80,21 @@ func TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding(t *testi
 	}
 	if rawCapture["kept"] != "value" {
 		t.Fatalf("raw capture did not preserve existing structure: %#v", rawCapture)
+	}
+}
+
+func TestSupportPhase9_ClipboardPasteRejectsCrossIncidentRecordTarget(t *testing.T) {
+	authorizedIncidentID := uuid.New()
+	otherIncidentID := uuid.New()
+	current := sourceRecord{
+		RecordID:   uuid.New(),
+		IncidentID: otherIncidentID,
+	}
+
+	if err := ensureClipboardPasteRecordIncident(current, authorizedIncidentID); !errors.Is(err, ErrRecordNotFound) {
+		t.Fatalf("cross-incident paste target must be hidden as not found, got %v", err)
+	}
+	if err := ensureClipboardPasteRecordIncident(current, otherIncidentID); err != nil {
+		t.Fatalf("same-incident paste target should be accepted: %v", err)
 	}
 }

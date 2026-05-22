@@ -782,7 +782,34 @@ The exhaustive public help surface is grouped by operator workflow rather than i
 
 Repo-control helper targets MAY expose narrower frontend or browser slices. When present, `make frontend-unit`, `make browser-e2e-support`, and `make browser-e2e-visual` SHOULD remain stable helper targets under the same root task surface. `make browser-e2e-visual` is the dedicated Playwright screenshot suite and belongs in the reset-bounded browser batch rather than the functional group.
 
-### 7.2 Verification tiers
+### 7.2 Security remediation diagnostics
+
+When auditing deployments that may have accepted Timeline clipboard-paste or explicit bulk-mutation batches before same-incident batch target validation was enforced, operators can look for change sets whose recorded incident differs from the incident of a mutated Timeline target:
+
+```sql
+SELECT
+    cs.change_set_id,
+    cs.incident_id AS change_set_incident_id,
+    csm.target_id AS record_id,
+    r.incident_id AS record_incident_id,
+    cs.source,
+    cs.actor_user_id,
+    cs.client_txn_id,
+    cs.created_at
+FROM change_sets cs
+JOIN change_set_mutations csm
+  ON csm.change_set_id = cs.change_set_id
+JOIN records r
+  ON r.record_id::text = csm.target_id
+WHERE cs.source IN ('timeline.clipboard_paste', 'workbook.bulk_mutations')
+  AND csm.target_kind = 'timeline_record'
+  AND r.incident_id <> cs.incident_id
+ORDER BY cs.created_at DESC, cs.change_set_id, csm.sequence_no;
+```
+
+This diagnostic is read-only. Any returned rows need incident-owner review before rollback or corrective edits; the repository does not define an automatic rewrite for historical cross-incident mutations.
+
+### 7.3 Verification tiers
 
 | Verification tier      | Required checks                                                                                                                                                         | Blocking condition                                 |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |

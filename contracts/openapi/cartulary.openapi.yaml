@@ -4557,7 +4557,8 @@
               },
               "record_id": {
                 "type": "string",
-                "format": "uuid"
+                "format": "uuid",
+                "description": "Active record in the path incident for the addressed workbook view. Foreign-incident, deleted, wrong-view, or wrong-type records fail before row-version evaluation."
               },
               "base_row_version": {
                 "type": "integer",
@@ -4635,7 +4636,8 @@
         "properties": {
           "record_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Active Timeline record in the path incident. Foreign-incident, deleted, wrong-view, or wrong-type records fail before row-version evaluation."
           },
           "base_row_version": {
             "type": "integer",

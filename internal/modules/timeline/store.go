@@ -1610,6 +1610,74 @@ FOR UPDATE OF e, r
 	return record, nil
 }
 
+func loadSourceRecordForIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (sourceRecord, error) {
+	row := tx.QueryRow(ctx, `
+SELECT
+    e.record_id,
+    e.incident_id,
+    e.occurred_at,
+    e.summary,
+    e.details,
+    e.source_text,
+    e.raw_capture,
+    e.capture_state,
+    r.row_version,
+    e.recorded_at,
+    e.edited_at,
+    r.created_by_user_id,
+    r.updated_by_user_id,
+    e.reviewed_by_user_id,
+    e.reviewed_at,
+    e.superseded_by_user_id,
+    e.superseded_at
+FROM timeline_events e
+JOIN records r
+  ON r.record_id = e.record_id
+ AND r.incident_id = e.incident_id
+ AND r.record_type = 'timeline_event'
+ AND r.deleted_at IS NULL
+WHERE e.record_id = $1
+  AND e.incident_id = $2
+FOR UPDATE OF e, r
+`, recordID, incidentID)
+
+	var record sourceRecord
+	var rawCapture []byte
+	if err := row.Scan(
+		&record.RecordID,
+		&record.IncidentID,
+		&record.OccurredAt,
+		&record.Summary,
+		&record.Details,
+		&record.SourceText,
+		&rawCapture,
+		&record.CaptureState,
+		&record.RowVersion,
+		&record.RecordedAt,
+		&record.EditedAt,
+		&record.CreatedByUserID,
+		&record.UpdatedByUserID,
+		&record.ReviewedByUserID,
+		&record.ReviewedAt,
+		&record.SupersededByUserID,
+		&record.SupersededAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return sourceRecord{}, ErrRecordNotFound
+		}
+		return sourceRecord{}, fmt.Errorf("load timeline record for incident: %w", err)
+	}
+	if len(rawCapture) == 0 {
+		record.RawCapture = map[string]any{}
+	} else if err := json.Unmarshal(rawCapture, &record.RawCapture); err != nil {
+		return sourceRecord{}, fmt.Errorf("decode timeline raw capture: %w", err)
+	}
+	if record.RawCapture == nil {
+		record.RawCapture = map[string]any{}
+	}
+	return record, nil
+}
+
 func projectRecord(record sourceRecord, replacementRecordID *uuid.UUID) projectedRecord {
 	sortTS := record.RecordedAt.UTC()
 	if record.OccurredAt != nil {

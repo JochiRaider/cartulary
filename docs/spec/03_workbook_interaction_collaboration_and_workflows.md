@@ -1131,6 +1131,8 @@ Verified by: AC-003, AC-231, AC-232
 
 Default interactive Ctrl+V tabular dispatch MUST require an unambiguous tabular signal: tab, newline, carriage return, or a future explicit paste-as-table command. A single-line comma-only `text/plain` payload such as `Hello, world` MUST be treated as scalar text by default even though explicit API-level CSV ingest remains supported.
 
+When clipboard paste updates existing rows through `record` targets, every target MUST belong to the addressed incident and the active addressed workbook surface. Target ownership and visibility MUST be validated before any row-version comparison, conflict construction, batch commit, or response row serialization. A paste containing a missing, foreign-incident, wrong-surface, wrong-type, or deleted record target MUST fail closed as one rejected batch rather than partially committing other targets.
+
 **REQ-03-148**
 Known columns MUST map directly.
 Profiles: base
@@ -1743,7 +1745,7 @@ The current base-profile explicit bulk command vocabulary is:
 - `fill_down_v1`: copies one submitted source value for one writable non-collection field into explicit stable row targets identified by `record_id` and `base_row_version`;
 - `multi_row_tag_assignment_v1`: applies one submitted tag label to explicit stable Timeline row targets through the `timeline.tags` collection contract.
 
-Each command MUST commit as one attributable batch when all accepted target mutations commit, MUST record one visible `change_set` for the committed non-conflicting portion, and MUST reject presentation-only, group-row, vendor-coordinate, or row-index-only targets. Later expansion MAY add additional explicit command kinds, but MUST NOT reinterpret these command identifiers.
+Each command MUST commit as one attributable batch when all accepted target mutations commit, MUST record one visible `change_set` for the committed non-conflicting portion, and MUST reject presentation-only, group-row, vendor-coordinate, row-index-only, missing, deleted, wrong-surface, wrong-type, or foreign-incident targets. Bulk target ownership and visibility MUST be validated before row-version comparison, conflict construction, batch commit, or response row serialization. Later expansion MAY add additional explicit command kinds, but MUST NOT reinterpret these command identifiers.
 
 ## 14. Sorting, filtering, and grouping
 

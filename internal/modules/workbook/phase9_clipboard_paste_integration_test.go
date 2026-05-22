@@ -2,6 +2,7 @@ package workbook_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -255,6 +256,90 @@ func TestPhase9_I_9_01_BulkMutationsPersistOneVisibleBatch(t *testing.T) {
 	requireRecordTag(t, harness, secondID, "bulk-tag")
 }
 
+func TestPhase9_I_9_01_ClipboardPasteAndBulkRejectCrossIncidentTargets(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase9-i-9-01-cross-incident-batch-targets")
+	adminLogin, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incidentA := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase9-i-9-01-cross-incident-a",
+		"incident_key":  "IR-PHASE9-I901-XA",
+		"title":         "Phase 9 cross incident A",
+	})
+	incidentAID := phase4test.MustUUID(t, incidentA["incident_id"].(string))
+	incidentB := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase9-i-9-01-cross-incident-b",
+		"incident_key":  "IR-PHASE9-I901-XB",
+		"title":         "Phase 9 cross incident B",
+	})
+	incidentBID := phase4test.MustUUID(t, incidentB["incident_id"].(string))
+
+	local := requireWorkbookCreate(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
+		"client_txn_id":    "txn-phase9-i-9-01-cross-local",
+		"timeline.summary": "Local batch target",
+	})
+	localID := phase4test.MustUUID(t, local["row"].(map[string]any)["record_id"].(string))
+	foreign := requireWorkbookCreate(t, harness, adminLogin, incidentBID, timeline.TimelineViewSchemaID, map[string]any{
+		"client_txn_id":    "txn-phase9-i-9-01-cross-foreign",
+		"timeline.summary": "Foreign batch target",
+	})
+	foreignID := phase4test.MustUUID(t, foreign["row"].(map[string]any)["record_id"].(string))
+
+	for _, baseRowVersion := range []int{1, 99} {
+		txnID := "txn-phase9-i-9-01-cross-paste"
+		if baseRowVersion > 1 {
+			txnID = "txn-phase9-i-9-01-cross-paste-future-version"
+		}
+		body := requireClipboardPaste(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
+			"view_schema_id":  timeline.TimelineViewSchemaID,
+			"client_txn_id":   txnID,
+			"clipboard_text":  "Should not create\nShould not disclose",
+			"format":          "tsv",
+			"start_field_key": "timeline.summary",
+			"columns":         []string{"timeline.summary"},
+			"targets": []map[string]any{
+				{"kind": "create"},
+				{"kind": "record", "record_id": foreignID.String(), "base_row_version": baseRowVersion},
+			},
+		}, http.StatusNotFound)
+		requireNoVersionOracle(t, body)
+		requireNoTimelineSummary(t, harness, incidentAID, "Should not create")
+		requireTimelineSummaryAndVersion(t, harness, foreignID, "Foreign batch target", 1)
+		requireNoChangeSetForClientTxn(t, harness, txnID)
+	}
+
+	fillBody := requireBulkMutationStatus(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
+		"view_schema_id": timeline.TimelineViewSchemaID,
+		"client_txn_id":  "txn-phase9-i-9-01-cross-fill-down",
+		"kind":           "fill_down_v1",
+		"field_key":      "timeline.source_text",
+		"value":          "Should not fill",
+		"targets": []map[string]any{
+			{"record_id": localID.String(), "base_row_version": 1},
+			{"record_id": foreignID.String(), "base_row_version": 1},
+		},
+	}, http.StatusNotFound)
+	requireNoVersionOracle(t, fillBody)
+	requireTimelineSummaryAndVersion(t, harness, localID, "Local batch target", 1)
+	requireTimelineSummaryAndVersion(t, harness, foreignID, "Foreign batch target", 1)
+	requireNoTimelineSourceText(t, harness, localID)
+	requireNoTimelineSourceText(t, harness, foreignID)
+	requireNoChangeSetForClientTxn(t, harness, "txn-phase9-i-9-01-cross-fill-down")
+
+	tagBody := requireBulkMutationStatus(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
+		"view_schema_id": timeline.TimelineViewSchemaID,
+		"client_txn_id":  "txn-phase9-i-9-01-cross-tag",
+		"kind":           "multi_row_tag_assignment_v1",
+		"tag_name":       "should-not-tag",
+		"targets": []map[string]any{
+			{"record_id": localID.String(), "base_row_version": 1},
+			{"record_id": foreignID.String(), "base_row_version": 1},
+		},
+	}, http.StatusNotFound)
+	requireNoVersionOracle(t, tagBody)
+	requireNoRecordTag(t, harness, localID.String(), "should-not-tag")
+	requireNoRecordTag(t, harness, foreignID.String(), "should-not-tag")
+	requireNoChangeSetForClientTxn(t, harness, "txn-phase9-i-9-01-cross-tag")
+}
+
 func requireClipboardPaste(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
 	resp := phase4test.DoJSON(
@@ -276,6 +361,11 @@ func requireClipboardPaste(t testing.TB, harness *phase4test.ServerHarness, logi
 
 func requireBulkMutation(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
+	return requireBulkMutationStatus(t, harness, login, incidentID, viewSchemaID, body, http.StatusOK)
+}
+
+func requireBulkMutationStatus(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
+	t.Helper()
 	resp := phase4test.DoJSON(
 		t,
 		http.MethodPost,
@@ -284,7 +374,13 @@ func requireBulkMutation(t testing.TB, harness *phase4test.ServerHarness, login 
 		phase4test.WithCookies(login.SessionCookie, login.CSRFCookie),
 		phase4test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	if wantStatus == http.StatusOK {
+		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	}
+	if resp.StatusCode != wantStatus {
+		t.Fatalf("bulk mutation status: got %d want %d body=%#v", resp.StatusCode, wantStatus, httptestx.ReadJSONBody(t, resp))
+	}
+	return httptestx.ReadJSONBody(t, resp)
 }
 
 func requireChangeSetSource(t testing.TB, harness *phase4test.ServerHarness, changeSetID string, wantSource string, wantTxnID string) {
@@ -435,6 +531,84 @@ SELECT COUNT(*)
    AND deleted_at IS NULL
 `, recordID, tagName); count != 1 {
 		t.Fatalf("expected one active tag %q for %s, got %d", tagName, recordID, count)
+	}
+}
+
+func requireNoRecordTag(t testing.TB, harness *phase4test.ServerHarness, recordID string, tagName string) {
+	t.Helper()
+	if count := phase4test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_tags
+ WHERE record_id::text = $1
+   AND tag_name = $2
+   AND deleted_at IS NULL
+`, recordID, tagName); count != 0 {
+		t.Fatalf("expected no active tag %q for %s, got %d", tagName, recordID, count)
+	}
+}
+
+func requireNoVersionOracle(t testing.TB, body map[string]any) {
+	t.Helper()
+	errorValue, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error envelope, got %#v", body)
+	}
+	if errorValue["code"] != "incident_not_found" {
+		t.Fatalf("unexpected cross-incident error code: got %v want incident_not_found in %#v", errorValue["code"], body)
+	}
+	details := httptestx.RequireErrorDetails(t, body)
+	for _, key := range []string{"record_id", "base_row_version", "current_row_version", "conflicts", "rows"} {
+		if _, ok := details[key]; ok {
+			t.Fatalf("cross-incident target error leaked %s in details: %#v", key, details)
+		}
+	}
+}
+
+func requireTimelineSummaryAndVersion(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID, wantSummary string, wantVersion int64) {
+	t.Helper()
+	var summary string
+	var rowVersion int64
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT e.summary, r.row_version
+  FROM timeline_events e
+  JOIN records r
+    ON r.record_id = e.record_id
+ WHERE e.record_id = $1
+`, recordID).Scan(&summary, &rowVersion); err != nil {
+		t.Fatalf("query timeline summary/version: %v", err)
+	}
+	if summary != wantSummary || rowVersion != wantVersion {
+		t.Fatalf("timeline record %s changed: got summary=%q version=%d want summary=%q version=%d", recordID, summary, rowVersion, wantSummary, wantVersion)
+	}
+}
+
+func requireNoTimelineSummary(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, summary string) {
+	t.Helper()
+	if count := phase4test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM timeline_events
+ WHERE incident_id = $1
+   AND summary = $2
+`, incidentID, summary); count != 0 {
+		t.Fatalf("expected no timeline row summary %q in incident %s, got %d", summary, incidentID, count)
+	}
+}
+
+func requireNoTimelineSourceText(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID) {
+	t.Helper()
+	var sourceText sql.NullString
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT source_text FROM timeline_events WHERE record_id = $1`, recordID).Scan(&sourceText); err != nil {
+		t.Fatalf("query timeline source_text: %v", err)
+	}
+	if sourceText.Valid {
+		t.Fatalf("expected no source_text for %s, got %q", recordID, sourceText.String)
+	}
+}
+
+func requireNoChangeSetForClientTxn(t testing.TB, harness *phase4test.ServerHarness, clientTxnID string) {
+	t.Helper()
+	if count := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE client_txn_id = $1`, clientTxnID); count != 0 {
+		t.Fatalf("expected no change_set for %s, got %d", clientTxnID, count)
 	}
 }
 
