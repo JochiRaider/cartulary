@@ -156,6 +156,10 @@
           "description": "run backend process evidence"
         },
         {
+          "target": "otel-conformance",
+          "description": "run OpenTelemetry source, boundary, and golden-path conformance checks"
+        },
+        {
           "target": "frontend-typecheck",
           "description": "run TypeScript type checking"
         },
@@ -610,6 +614,19 @@
         "$(GO_CACHE_DIR)",
         "$(GO_MOD_CACHE_DIR)"
       ]
+    },
+    "otel-conformance": {
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "type": "phase_command",
+      "mode": "run_phase",
+      "phase_label": "otel-conformance",
+      "command": [
+        "$(NODE_BIN)",
+        "./scripts/check-otel-conformance.mjs"
+      ],
+      "success_summary": true
     },
     "bootstrap-node-runtime": {
       "prerequisites": [
@@ -3830,6 +3847,82 @@
             "runtime roots"
           ],
           "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ]
+    },
+    {
+      "name": "otel-conformance",
+      "backing_scripts": [
+        "scripts/check-otel-conformance.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.otel_conformance_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.otel_conformance.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "check",
+        "ci"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "backend_frontend_leaf_tests",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "harness_owned",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "fixture resources",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        },
+        {
+          "class": "runtime_reset",
+          "owner_section": "Section 12",
+          "predicates_section": "Section 12"
         }
       ]
     },

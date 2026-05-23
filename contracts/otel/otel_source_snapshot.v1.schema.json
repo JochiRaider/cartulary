@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.otel_source_snapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "otel_spec_version",
+    "otel_spec_ref",
+    "otel_spec_commit_sha",
+    "semconv_version",
+    "semconv_ref",
+    "semconv_commit_sha",
+    "semconv_model_digest_algorithm",
+    "semconv_model_digest",
+    "semconv_generated_constants",
+    "language_sdk_versions",
+    "source_paths",
+    "created_at",
+    "created_by_tool"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.otel_source_snapshot.v1" },
+    "otel_spec_version": { "const": "1.57.0" },
+    "otel_spec_ref": { "const": "v1.57.0" },
+    "otel_spec_commit_sha": {
+      "const": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    "semconv_version": { "const": "1.41.0" },
+    "semconv_ref": { "const": "v1.41.0" },
+    "semconv_commit_sha": {
+      "const": "e018fe6f91862f5ed63c082f87697cddac596784"
+    },
+    "semconv_model_digest_algorithm": { "const": "semconv_model_digest_v1" },
+    "semconv_model_digest": {
+      "const": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632"
+    },
+    "semconv_generated_constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_kind",
+        "generator_name",
+        "generator_version",
+        "generator_source_ref",
+        "generator_source_sha",
+        "input_model_digest",
+        "output_package_or_path"
+      ],
+      "properties": {
+        "source_kind": { "const": "repo_codegen" },
+        "generator_name": { "type": "string", "minLength": 1 },
+        "generator_version": { "type": "string", "minLength": 1 },
+        "generator_source_ref": { "type": "string", "minLength": 1 },
+        "generator_source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "input_model_digest": {
+          "const": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632"
+        },
+        "output_package_or_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "language_sdk_versions": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "package_family",
+              "status",
+              "language",
+              "package_path",
+              "version",
+              "module_or_lockfile_source"
+            ],
+            "properties": {
+              "package_family": { "type": "string", "minLength": 1 },
+              "status": { "const": "present" },
+              "language": { "type": "string", "minLength": 1 },
+              "package_path": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 },
+              "module_or_lockfile_source": { "type": "string", "minLength": 1 },
+              "generated_constants_binding": {
+                "const": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["package_family", "status", "absence_source"],
+            "properties": {
+              "package_family": { "type": "string", "minLength": 1 },
+              "status": { "const": "absent" },
+              "absence_source": { "type": "string", "minLength": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "package_family",
+              "status",
+              "language",
+              "package_path",
+              "version",
+              "module_or_lockfile_source",
+              "fixture_scope"
+            ],
+            "properties": {
+              "package_family": { "type": "string", "minLength": 1 },
+              "status": { "const": "hostile_fixture_only" },
+              "language": { "type": "string", "minLength": 1 },
+              "package_path": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 },
+              "module_or_lockfile_source": { "type": "string", "minLength": 1 },
+              "fixture_scope": { "type": "string", "minLength": 1 }
+            }
+          }
+        ]
+      }
+    },
+    "source_paths": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "path", "status", "source_commit_sha"],
+        "properties": {
+          "family": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "status": { "const": "adopted" },
+          "source_commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+        }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "created_by_tool": { "const": "cartulary.otel_source_snapshot.v1" }
+  }
+}

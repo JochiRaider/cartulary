@@ -80,6 +80,10 @@ const validArtifactPolicies = new Set([
   "service_logs_and_summary",
   "tool_run_summary",
 ]);
+const validSummarySchemas = new Set([
+  "cartulary.tool_run_summary.v3",
+  "cartulary.otel_conformance_summary.v1",
+]);
 const validRawStreamPolicies = new Set([
   "explicit_detail_only",
   "failure_or_verbose",
@@ -765,12 +769,9 @@ function validateOutputPolicy(errors, entry) {
       `${entry.name}.output_policy.artifact_policy=none is only allowed for help/investigation, interactive, machine-stdout, or destructive targets`,
     );
   }
-  if (
-    policy.summary_schema !== null &&
-    policy.summary_schema !== "cartulary.tool_run_summary.v3"
-  ) {
+  if (policy.summary_schema !== null && !validSummarySchemas.has(policy.summary_schema)) {
     errors.push(
-      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v3 or null`,
+      `${entry.name}.output_policy.summary_schema must be a registered summary schema or null`,
     );
   }
   if (policy.artifact_policy === "none" && policy.summary_schema !== null) {
@@ -778,12 +779,9 @@ function validateOutputPolicy(errors, entry) {
       `${entry.name}.output_policy.summary_schema must be null when artifact_policy is none`,
     );
   }
-  if (
-    policy.artifact_policy !== "none" &&
-    policy.summary_schema !== "cartulary.tool_run_summary.v3"
-  ) {
+  if (policy.artifact_policy !== "none" && !validSummarySchemas.has(policy.summary_schema)) {
     errors.push(
-      `${entry.name}.output_policy.summary_schema must be cartulary.tool_run_summary.v3 when artifact_policy is ${policy.artifact_policy}`,
+      `${entry.name}.output_policy.summary_schema must be a registered summary schema when artifact_policy is ${policy.artifact_policy}`,
     );
   }
   validateBudget(

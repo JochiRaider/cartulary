@@ -1,0 +1,217 @@
+{
+  "schema_id": "cartulary.otel_source_snapshot.v1",
+  "otel_spec_version": "1.57.0",
+  "otel_spec_ref": "v1.57.0",
+  "otel_spec_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88",
+  "semconv_version": "1.41.0",
+  "semconv_ref": "v1.41.0",
+  "semconv_commit_sha": "e018fe6f91862f5ed63c082f87697cddac596784",
+  "semconv_model_digest_algorithm": "semconv_model_digest_v1",
+  "semconv_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
+  "semconv_generated_constants": {
+    "source_kind": "repo_codegen",
+    "generator_name": "cartulary-otel-conformance-contract",
+    "generator_version": "1.0.0",
+    "generator_source_ref": "scripts/check-otel-conformance.mjs",
+    "generator_source_sha": "93c972673b2bcd84ef2f32aef1ede25020ced208",
+    "input_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
+    "output_package_or_path": "contracts/otel/semantic_conventions_constants.v1.json"
+  },
+  "language_sdk_versions": [
+    {
+      "package_family": "API",
+      "status": "present",
+      "language": "go",
+      "package_path": "go.opentelemetry.io/otel",
+      "version": "v1.41.0",
+      "module_or_lockfile_source": "go.mod"
+    },
+    {
+      "package_family": "API",
+      "status": "present",
+      "language": "go",
+      "package_path": "go.opentelemetry.io/otel/metric",
+      "version": "v1.41.0",
+      "module_or_lockfile_source": "go.mod"
+    },
+    {
+      "package_family": "API",
+      "status": "present",
+      "language": "go",
+      "package_path": "go.opentelemetry.io/otel/trace",
+      "version": "v1.41.0",
+      "module_or_lockfile_source": "go.mod"
+    },
+    {
+      "package_family": "SDK",
+      "status": "absent",
+      "absence_source": "go.mod"
+    },
+    {
+      "package_family": "Trace SDK",
+      "status": "absent",
+      "absence_source": "go.mod"
+    },
+    {
+      "package_family": "Metrics SDK",
+      "status": "absent",
+      "absence_source": "go.mod"
+    },
+    {
+      "package_family": "Logs SDK or bridge",
+      "status": "absent",
+      "absence_source": "go.mod"
+    },
+    {
+      "package_family": "OTLP HTTP exporters",
+      "status": "absent",
+      "absence_source": "go.mod"
+    },
+    {
+      "package_family": "OTLP gRPC exporters",
+      "status": "absent",
+      "absence_source": "go.mod"
+    },
+    {
+      "package_family": "Semantic-convention constants",
+      "status": "present",
+      "language": "contract",
+      "package_path": "contracts/otel/semantic_conventions_constants.v1.json",
+      "version": "cartulary.otel.semconv.constants.v1",
+      "module_or_lockfile_source": "contracts/otel/semantic_conventions_constants.v1.json",
+      "generated_constants_binding": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632"
+    },
+    {
+      "package_family": "Instrumentation adapters",
+      "status": "absent",
+      "absence_source": "authored source import scan"
+    },
+    {
+      "package_family": "Resource-detector packages",
+      "status": "absent",
+      "absence_source": "authored source import scan"
+    },
+    {
+      "package_family": "Autoconfiguration or declarative-config packages",
+      "status": "absent",
+      "absence_source": "authored source import scan"
+    },
+    {
+      "package_family": "Browser-side OTel packages",
+      "status": "absent",
+      "absence_source": "frontend package manifests and browser bundle boundary"
+    }
+  ],
+  "source_paths": [
+    {
+      "family": "Specification overview",
+      "path": "specification/overview.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Configuration overview",
+      "path": "specification/configuration/README.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Configuration data model",
+      "path": "specification/configuration/data-model.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Configuration API",
+      "path": "specification/configuration/api.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Configuration SDK",
+      "path": "specification/configuration/sdk.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Common configuration parsing",
+      "path": "specification/configuration/common.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "SDK environment variables",
+      "path": "specification/configuration/sdk-environment-variables.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Trace SDK",
+      "path": "specification/trace/sdk.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Metrics API",
+      "path": "specification/metrics/api.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Metrics SDK",
+      "path": "specification/metrics/sdk.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Logs API",
+      "path": "specification/logs/api.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Logs data model",
+      "path": "specification/logs/data-model.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Resource SDK",
+      "path": "specification/resource/sdk.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Protocol exporter",
+      "path": "specification/protocol/exporter.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Common concepts",
+      "path": "specification/common/README.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Versioning and stability",
+      "path": "specification/versioning-and-stability.md",
+      "status": "adopted",
+      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
+    },
+    {
+      "family": "Semantic conventions model",
+      "path": "semantic-conventions/model/**",
+      "status": "adopted",
+      "source_commit_sha": "e018fe6f91862f5ed63c082f87697cddac596784"
+    },
+    {
+      "family": "Semantic conventions docs",
+      "path": "semantic-conventions/docs/**",
+      "status": "adopted",
+      "source_commit_sha": "e018fe6f91862f5ed63c082f87697cddac596784"
+    }
+  ],
+  "created_at": "2026-05-23T00:00:00Z",
+  "created_by_tool": "cartulary.otel_source_snapshot.v1"
+}

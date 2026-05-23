@@ -1,0 +1,12 @@
+{
+  "schema_id": "cartulary.otel_semantic_conventions_constants.v1",
+  "semconv_ref": "v1.41.0",
+  "semconv_commit_sha": "e018fe6f91862f5ed63c082f87697cddac596784",
+  "semconv_model_digest_algorithm": "semconv_model_digest_v1",
+  "semconv_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
+  "constant_families": [
+    "standard_attribute_names",
+    "standard_metric_names"
+  ],
+  "generation_status": "repo_control_contract_seed"
+}

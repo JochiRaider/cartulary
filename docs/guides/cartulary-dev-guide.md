@@ -161,6 +161,14 @@ Standard-library responsibilities include:
 
 The baseline MUST NOT introduce a Go web framework or ORM unless the repository intentionally changes the stack baseline. No `Gin`, `Echo`, `Chi`, `Fiber`, `GORM`, or `ent` dependency is part of the current implementation baseline.
 
+#### 2.1.1 OpenTelemetry dependency boundary
+
+This subsection applies only when an OpenTelemetry NLSpec is adopted. Exact OTel package paths and versions MUST be pinned in `go.mod`, `go.sum`, frontend package manifests, workspace manifests, and lockfiles as applicable. This guide does not own the emitted telemetry shape contract.
+
+Ordinary instrumentation units MUST import only OpenTelemetry API packages and telemetry bootstrap accessors. SDK, exporter, processor, sampler, metric-reader, log-processor, resource, declarative-config, autoconfiguration, and plugin-provider package imports belong only to the telemetry bootstrap boundary or hostile-fixture tests.
+
+Browser packages MUST NOT include OpenTelemetry exporters, vendor telemetry SDKs, Collector clients, session replay SDKs, or third-party analytics initialization in the current profile. The adopted OpenTelemetry NLSpec owns telemetry generation, emitted shape, package-family closure, browser non-export, and conformance validation.
+
 ### 2.2 Backend dev-only tools
 
 These tools do not ship in the compiled application binary.

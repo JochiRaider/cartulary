@@ -386,7 +386,12 @@ The threat model MUST be updated before any release that adds or materially chan
 - a credential-bearing integration,
 - a deployment profile,
 - an object-storage access pattern,
-- a backup or restore mechanism.
+- a backup or restore mechanism,
+- telemetry exporter or receiver configuration,
+- telemetry exporter headers or secret references,
+- telemetry retained artifacts or diagnostics,
+- telemetry redaction or attribute-governance rules,
+- browser diagnostics or browser telemetry-boundary behavior.
 Profiles: base
 Verified by: AC-048, AC-231
 
@@ -397,12 +402,12 @@ Verified by: AC-048, AC-231
 
 | STRIDE class | Minimum project-specific scope | Required control direction |
 | --- | --- | --- |
-| Spoofing | analyst sessions, provider-backed identities, explicit system-process actors, object-store upload/download capabilities | authenticated sessions, stable internal user mapping, explicit system actors, short-lived operation-scoped object access |
-| Tampering | incident records, revisions, object blobs, backup artifacts, restore-verification extracts, reference packs, snapshots, exports | row-versioned writes, immutable change sets, blob hashes, fail-closed integrity verification, immutable published snapshots |
-| Repudiation | edits, imports, rollbacks, pack activation, export generation, evidence lifecycle actions | attributed append-only history with actor, timestamp, source, and reversible mutation detail |
-| Information disclosure | evidence blobs, backup artifacts, restore-verification extracts, exports, previews, secrets, portable runtime roots | incident-scoped authorization, secret isolation, untrusted-content rendering rules, self-contained outputs, encrypted flyaway storage |
-| Denial of service | oversized evidence, archive bombs, pathological imports, expensive report or preview jobs | size and decompression limits, background-job isolation, cancellation, bounded hot-path retrieval |
-| Elevation of privilege | user-controlled record or blob identifiers, destructive operations, job-worker storage access | server-side authorization derived from object ownership, role gates for destructive actions, least-privilege worker credentials |
+| Spoofing | analyst sessions, provider-backed identities, explicit system-process actors, object-store upload/download capabilities, telemetry exporter endpoint identity, same-origin browser diagnostics | authenticated sessions, stable internal user mapping, explicit system actors, short-lived operation-scoped object access, explicit configured telemetry endpoints only, no environment-driven telemetry egress, no browser direct export |
+| Tampering | incident records, revisions, object blobs, backup artifacts, restore-verification extracts, reference packs, snapshots, exports, telemetry config, generated telemetry constants, telemetry source snapshot, golden telemetry corpus, retained telemetry artifacts | row-versioned writes, immutable change sets, blob hashes, fail-closed integrity verification, immutable published snapshots, source-snapshot validation, generated-constant drift checks, artifact integrity checks |
+| Repudiation | edits, imports, rollbacks, pack activation, export generation, evidence lifecycle actions, telemetry config changes, exporter failures | attributed append-only history with actor, timestamp, source, and reversible mutation detail, attributed deployment-config changes, retained telemetry conformance summaries |
+| Information disclosure | evidence blobs, backup artifacts, restore-verification extracts, exports, previews, secrets, portable runtime roots, exporter headers, incident-derived telemetry, local diagnostics, raw telemetry captures | incident-scoped authorization, secret isolation, untrusted-content rendering rules, self-contained outputs, encrypted flyaway storage, redaction before recording, forbidden-value tests, secret redaction, raw capture retention outside committed source |
+| Denial of service | oversized evidence, archive bombs, pathological imports, expensive report or preview jobs, exporter retry loops, processor queues, telemetry self-diagnostics | size and decompression limits, background-job isolation, cancellation, bounded hot-path retrieval, bounded telemetry queues, retry cutoff, non-blocking hot path, recursion guard |
+| Elevation of privilege | user-controlled record or blob identifiers, destructive operations, job-worker storage access, telemetry test hooks, browser telemetry configuration, environment autoconfiguration | server-side authorization derived from object ownership, role gates for destructive actions, least-privilege worker credentials, no runtime deterministic telemetry test hook, no browser telemetry config, environment containment |
 
 ### 4.5 Focused MITRE CWE constraints
 
@@ -983,7 +988,7 @@ These criteria provide direct runtime-family verification for substantive base-p
 
 ### 9.7 Additional Base Profile criteria for threat model and focused weakness controls
 
-- **AC-048**: The implementation maintains a STRIDE threat model for the current release that covers, at minimum, authenticated sessions, incident records and revisions, evidence blobs and previews, reference packs and import bundles, generated snapshots and exports, and portable runtime roots, and each entry maps the threat to at least one control and one verification hook.
+- **AC-048**: The implementation maintains a STRIDE threat model for the current release that covers, at minimum, authenticated sessions, incident records and revisions, evidence blobs and previews, reference packs and import bundles, generated snapshots and exports, and portable runtime roots. When an adopted telemetry subsystem is present, the threat model also covers telemetry exporter endpoints, telemetry headers and secrets, telemetry source snapshots, generated telemetry constants, local diagnostics, retained telemetry artifacts, redaction-before-recording, browser non-export, and telemetry runtime-failure invariance. Each entry maps the threat to at least one control and one verification hook.
   - Verifies: REQ-04-049..REQ-04-051
 - **AC-049**: Rendering notes, markdown, evidence metadata, filenames, tags, and other incident-authored text in the browser UI or generated HTML does not execute script, inline event handlers, `javascript:` URLs, or remote asset fetches sourced from incident data.
   - Verifies: REQ-04-052..REQ-04-053
@@ -1519,16 +1524,16 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 
 ### 9.12 Additional Base Profile criteria for deployment configuration contract
 
-- **AC-294**: With no selector override, the deployment loads `/etc/cartulary/config.toml`; when `CARTULARY_CONFIG_FILE` is set to an alternate absolute path, that file is selected instead; after file load, `CARTULARY__ROOTS__BACKUP_STORAGE__PATH=/srv/cartulary/backups` overrides `roots.backup_storage.path`; and an unknown file key or unknown `CARTULARY__...` overlay key fails closed with `invalid_deployment_config`.
-  - Verifies: REQ-01-455, REQ-04-058, REQ-04-066..REQ-04-071, REQ-04-077, REQ-04-110
+- **AC-294**: With no selector override, the deployment loads `/etc/cartulary/config.toml`; when `CARTULARY_CONFIG_FILE` is set to an alternate absolute path, that file is selected instead; after file load, `CARTULARY__ROOTS__BACKUP_STORAGE__PATH=/srv/cartulary/backups` overrides `roots.backup_storage.path`; an unknown file key or unknown `CARTULARY__...` overlay key fails closed with `invalid_deployment_config`; and adopted subsystem keys are accepted only inside namespaces adopted by an adopted subsystem NLSpec.
+  - Verifies: REQ-01-455, REQ-04-058, REQ-04-066..REQ-04-071, REQ-04-077, REQ-04-110, REQ-04-111
 - **AC-295**: Required runtime-root keys are present and use the standardized binding model; `deployment_profile='disconnected'` rejects `binding_kind='managed_service'` for `roots.database_storage`, `roots.object_storage`, or `roots.backup_storage`; `roots.reference_pack_storage`, `roots.temporary_work`, and `roots.export_outputs` reject any binding kind other than `filesystem_root`; and `roots.backup_storage` accepts only `filesystem_root` in `disconnected` and only `filesystem_root` or `managed_service` in `on_prem` or `cloud`.
   - Verifies: REQ-01-455, REQ-04-058, REQ-04-069, REQ-04-071..REQ-04-073, REQ-04-077
 - **AC-296**: Relative paths, `~`, shell-variable forms, empty strings, NUL, lexical `.` or `..`, overlapping configured filesystem roots after canonicalization, non-writable filesystem roots, and effective writes or extracts that escape a configured root all fail closed with `invalid_deployment_config` and the appropriate `reason_code`.
   - Verifies: REQ-01-456, REQ-04-059, REQ-04-074..REQ-04-075, REQ-04-077
 - **AC-297**: The canonical disconnected example using `/var/lib/cartulary/postgres`, `/var/lib/cartulary/object-store`, `/var/lib/cartulary/backups`, `/var/lib/cartulary/reference-packs`, `/var/lib/cartulary/tmp`, and `/var/lib/cartulary/exports` validates as a correct disconnected deployment configuration; omission of any required runtime-root key remains invalid at runtime and is not satisfied by hidden defaults.
   - Verifies: REQ-01-455, REQ-04-058, REQ-04-067, REQ-04-069, REQ-04-071..REQ-04-076
-- **AC-298**: Invalid deployment configuration prevents HTTP listeners, WebSocket listeners, and background-job runners from starting; startup fails non-zero; and the surfaced error family is `invalid_deployment_config` with per-item `path`, `reason_code`, and `message`.
-  - Verifies: REQ-04-066, REQ-04-077..REQ-04-078, REQ-04-110
+- **AC-298**: Invalid deployment configuration prevents HTTP listeners, WebSocket listeners, and background-job runners from starting; startup fails non-zero; and the surfaced error family is `invalid_deployment_config` with per-item `path`, `reason_code`, and `message`. When an adopted OpenTelemetry NLSpec is active, invalid `telemetry.*` configuration surfaces `reason_code='invalid_telemetry_config'`; before adoption, `telemetry.*` keys are unknown keys.
+  - Verifies: REQ-04-066, REQ-04-077..REQ-04-078, REQ-04-110, REQ-04-111
 
 - **AC-343**: On a fresh deployment with zero active deployment admins, no bootstrap-completion marker, `bootstrap.first_admin_manifest_path` set to a valid manifest path, and a valid `cartulary.bootstrap_admin.v1` manifest at that path, startup succeeds and listeners become available only after bootstrap completes; exactly one local user is created with `is_deployment_admin=true`, `is_active=true`, and `mfa_required=true`; no incident membership is created; and the same commit persists one deployment-local bootstrap-completion marker plus one deployment-local administrative audit event. A later valid password login for that user returns `401 error.code='mfa_setup_required'` until TOTP setup completes.
   - Verifies: REQ-01-121, REQ-01-530..REQ-01-536, REQ-02-007..REQ-02-008, REQ-02-202, REQ-02-246, REQ-04-028, REQ-04-038, REQ-04-087..REQ-04-090
@@ -1630,6 +1635,13 @@ The smallest useful deployment is intentionally not the absolute minimum number 
 
 **REQ-04-066**
 This section owns the operator-facing deployment configuration surface for application public origin, runtime roots, resource limits, and startup validation.
+Profiles: base
+Verified by: AC-294, AC-298, AC-320
+
+**REQ-04-111**
+Core 04 owns the deployment-configuration artifact, discovery, environment-overlay grammar, unknown-key rejection, validation error envelope, and fail-closed startup behavior. An adopted Cartulary subsystem NLSpec MAY add one closed top-level deployment-configuration namespace only when that NLSpec defines exact keys, types, defaults, bounds, omitted behavior, explicit-`null` behavior, validation errors, secret and redaction handling, cross-key rules, and startup failure behavior for that namespace.
+
+Before adoption, a proposed subsystem NLSpec does not alter the accepted deployment-configuration schema. Unknown keys outside Core 04 keys and adopted subsystem namespaces remain invalid. Environment overlays for adopted subsystem namespaces MUST use the Core 04 `CARTULARY__` overlay grammar and MUST remain subject to unknown-key rejection. Implementation-support guides, drafts, examples, and appendices MUST NOT widen the deployment-configuration schema.
 Profiles: base
 Verified by: AC-294, AC-298, AC-320
 
@@ -1831,7 +1843,10 @@ Deployment-configuration validation failures MUST surface the top-level error co
 - `bootstrap_recovery_not_supported`,
 - `bootstrap_persist_failed`,
 - `value_below_minimum`,
-- `value_above_maximum`.
+- `value_above_maximum`,
+- `invalid_telemetry_config`.
+
+`invalid_telemetry_config` is valid only when an adopted OpenTelemetry NLSpec is active. It MUST be used only for syntactically invalid adopted `telemetry.*` keys, invalid explicit `null`, invalid enum values, invalid cross-key combinations, unsafe telemetry header declarations, invalid endpoint values, and forbidden environment-passthrough attempts. These failures still surface under top-level `error.code='invalid_deployment_config'`.
 Profiles: base
 Verified by: AC-294, AC-295, AC-296, AC-298, AC-320
 

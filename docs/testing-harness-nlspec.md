@@ -220,6 +220,7 @@ Every command below inherits the matching family defaults. `Default inclusion se
 | `backend-store` | `cartulary.harness.command.backend_store.v1` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  |
 | `backend-integration` | `cartulary.harness.command.backend_integration.v1` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  |
 | `backend-process` | `cartulary.harness.command.backend_process.v1` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  |
+| `otel-conformance` | `cartulary.harness.command.otel_conformance.v1` | `backend_frontend_leaf_tests` | `check`, `ci` | `summary_with_artifacts` | `cartulary.otel_conformance_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Validates source snapshot, generated constants evidence, emitted telemetry goldens, browser non-export, retained raw capture policy, and telemetry security boundaries. |
 | `target-plan` | `cartulary.harness.command.target_plan.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
 | `target-plan-json` | `cartulary.harness.command.target_plan_json.v1` | `help_discovery` | `helper_only` | `machine_stdout_json` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
 | `fixture-report` | `cartulary.harness.command.fixture_report.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
@@ -474,6 +475,8 @@ run_root = normalize_result_root(CARTULARY_TEST_RESULTS_DIR) / normalize_run_id(
 ```
 Verified by: TH-HARNESS-AC-003, TH-HARNESS-AC-015
 
+Retained raw telemetry captures from `otel-conformance` MUST be target-owned retained artifacts below the normalized run root. They MUST NOT be written below committed golden directories such as `internal/testutil/golden/otel/`.
+
 ### 6.1 Result Root Normalization
 
 ```text
@@ -611,6 +614,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
 | `cartulary.agent_finalize_summary.v2`           | `tools/schemas/cartulary.agent_finalize_summary.v2.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
 | `cartulary.frontend_accessibility_summary.v1`   | `tools/schemas/cartulary.frontend_accessibility_summary.v1.schema.json`   | present           | Browser accessibility target | Before `browser-e2e-a11y` success.    |
+| `cartulary.otel_conformance_summary.v1`         | `tools/schemas/cartulary.otel_conformance_summary.v1.schema.json`         | present           | OpenTelemetry conformance target | Before `otel-conformance` success. |
 
 Adoption and continued conformance for `cartulary.testing_harness.current.v1` require live repository verification of every row whose `Status` is `present`. Each declared attachment path MUST exist, parse as a JSON schema, reject unknown top-level fields unless the schema declares an explicit extension container, and validate at least one positive fixture and one negative fixture. If any declared path is missing or malformed, the repository MUST either add the attachment and validation fixture or change the row status to `future_attachment`.
 

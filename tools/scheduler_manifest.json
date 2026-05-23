@@ -51,6 +51,12 @@
           "summary_targets": [
             "check-harness-smoke"
           ]
+        },
+        {
+          "name": "otel-conformance",
+          "summary_targets": [
+            "otel-conformance"
+          ]
         }
       ],
       "work_units": [
@@ -5362,6 +5368,26 @@
           "command": {
             "type": "make_target",
             "target": "frontend-import-boundary-check"
+          }
+        },
+        {
+          "target": "otel-conformance",
+          "priority": 12940,
+          "weight_ms": 10000,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "produces_summary_targets": [
+            "otel-conformance"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu",
+          "command": {
+            "type": "make_target",
+            "target": "otel-conformance"
           }
         },
         {

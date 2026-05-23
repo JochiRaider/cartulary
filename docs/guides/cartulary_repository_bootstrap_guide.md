@@ -73,14 +73,16 @@ mkdir -p \
   internal/modules/projections internal/modules/reference_data internal/modules/reporting internal/modules/collaboration \
   internal/gen/contracts internal/gen/sql \
   db/migrations db/queries \
-  contracts/openapi contracts/ws contracts/view-schemas contracts/errors \
+  contracts/openapi contracts/ws contracts/view-schemas contracts/errors contracts/otel \
   apps/web packages/ui packages/grid-adapter packages/protocol-ts/src/generated packages/view-contracts packages/ui-contracts packages/test-utils \
   scripts tools docs configs/dev internal/testutil/configtest internal/testutil/pgtest \
   internal/testutil/s3test internal/testutil/httptestx internal/testutil/wstest \
-  internal/testutil/fixtures internal/testutil/golden
+  internal/testutil/fixtures internal/testutil/golden internal/testutil/golden/otel
 ```
 
 Do not try to finalize dependency versions in the guide itself. Pin them in the repo-control files once chosen, because those files become the source of exact toolchain truth for the repository.[^15]
+
+When an adopted OpenTelemetry NLSpec is active, exact OTel package versions, generated constants provenance, and source snapshot values remain repo-control facts; this guide only reserves the directory and artifact locations.
 
 ## 5. Step 2: lay down the baseline monorepo tree
 

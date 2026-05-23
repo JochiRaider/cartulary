@@ -1,15 +1,15 @@
 ---
 title: Cartulary OpenTelemetry Instrumentation NLSpec
-status: draft/proposed
+status: adopted/current
 document_class: nlspec
 created_at: 2026-05-19
 ---
 
 ## 1. Status, scope, and authority
 
-Status: `draft/proposed`.
+Status: `adopted/current`.
 
-This NLSpec defines Cartulary's OpenTelemetry instrumentation subsystem. It is not adopted implementation-conformance authority until the Cartulary repository authority process adopts it. It revises the uploaded draft by preserving the draft authority boundary, retaining OpenTelemetry as the telemetry substrate, and closing gaps in source baselining, OpenTelemetry configuration containment, semantic-convention drift control, signal-shape determinism, privacy, exporter behavior, and conformance testing.
+This NLSpec defines Cartulary's OpenTelemetry instrumentation subsystem. It is adopted implementation-conformance authority for the telemetry subsystem only. It retains OpenTelemetry as the telemetry substrate and closes source baselining, OpenTelemetry configuration containment, semantic-convention drift control, signal-shape determinism, privacy, exporter behavior, and conformance testing.
 
 **OTEL-REQ-001**
 This NLSpec governs only telemetry generation, telemetry configuration, telemetry export, log correlation, signal naming, attribute governance, resource identity, privacy boundaries, telemetry runtime behavior, and instrumentation verification.
@@ -18,7 +18,7 @@ This NLSpec governs only telemetry generation, telemetry configuration, telemetr
 This NLSpec MUST NOT redefine product behavior owned by Cartulary Core 00 through Core 04. It MUST NOT redefine claim-bearing benchmark publication owned by Core 05. Runtime telemetry MAY support engineering diagnosis and operational SRE practice, but telemetry observations MUST NOT satisfy claim-bearing timed or fixture-sensitive publication unless Core 05 benchmark-manifest and measurement-predicate requirements are also satisfied.
 
 **OTEL-REQ-003**
-When this NLSpec conflicts with Core 00 through Core 04 before adoption, the conflict is a draft defect in this NLSpec. When a later adopted version of this NLSpec conflicts with non-normative appendices or guides, the adopted NLSpec governs only the telemetry subsystem.
+When this NLSpec conflicts with Core 00 through Core 04 outside the telemetry subsystem, the conflict is a defect in this NLSpec. When this NLSpec conflicts with non-normative appendices or guides, this NLSpec governs only the telemetry subsystem.
 
 **OTEL-REQ-004**
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are normative inside this NLSpec. **MUST** and **MUST NOT** define conformance requirements. **SHOULD** and **SHOULD NOT** define strong defaults whose exceptions must remain compatible with all MUST-level requirements. **MAY** defines optional behavior whose omission semantics are explicit.
@@ -81,11 +81,88 @@ The external standard baseline for this NLSpec MUST be the closed object in this
 | `semconv_ref` | `v1.41.0`. `main` is forbidden in conformance snapshots. |
 | `semconv_commit_sha` | `e018fe6f91862f5ed63c082f87697cddac596784`. |
 | `semconv_model_source` | Semantic-convention YAML model files from the pinned semantic-conventions source, not prose-only extraction. |
-| `semconv_model_digest` | Deterministic aggregate SHA-256 over the adopted semantic-convention model files. The repo-control snapshot MUST contain a concrete lowercase 64-character hex digest before conformance adoption. |
-| `semconv_generated_constants_version` | Exact generated-constant package or code-generation source version used by the implementation. This value MUST be pinned in repo-control files before implementation adoption. |
-| `language_sdk_versions` | Exact OpenTelemetry API, SDK, exporter, logs, metrics, trace, semantic-convention constants, bridge, and instrumentation adapter package versions used by the implementation. These values MUST be pinned in repo-control files. |
+| `semconv_model_digest` | `3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632`, computed by `semconv_model_digest_v1` in §4.1.1. |
+| `semconv_generated_constants` | Generated constants provenance object defined in §4.1.3. |
+| `language_sdk_versions` | Exhaustive package-family table defined in §4.1.4. Exact package paths and versions are repo-control facts. |
 | `document_status_by_path` | Required for every adopted source path in §4.2. |
-| `migration_note_required` | `true` for this revision because the draft baseline moved from the prior observed 1.56.0 source posture to the 1.57.0 source baseline. For later revisions, derive from §4.5. |
+| `migration_note_required` | `true` for this revision because the baseline moved from the prior observed 1.56.0 source posture to the 1.57.0 source baseline. For later revisions, derive from §4.5. |
+
+#### 4.1.1 Semantic-convention model digest
+
+**OTEL-REQ-137**
+`semconv_model_digest_v1` is the only valid semantic-convention model digest algorithm for this revision. It MUST use the pinned semantic-conventions source identified by `semconv_ref='v1.41.0'` and `semconv_commit_sha='e018fe6f91862f5ed63c082f87697cddac596784'`.
+
+The input tree is the semantic-conventions repository model root. In the pinned upstream repository this root is `model/`; in Cartulary source-family notation the corresponding registry path is `semantic-conventions/model/**`. The digest input MUST include every regular file under that model root.
+
+`semconv_model_digest_v1` MUST reject symlinks, directory entries as digest records, duplicate normalized paths, unreadable files, paths outside the model root, absolute paths, path traversal, and platform-specific path separators. Each digest path MUST be a POSIX path relative to the model root with no leading `./`.
+
+Files MUST be ordered by bytewise ascending UTF-8 normalized path. The hash input MUST be:
+
+```text
+cartulary.semconv_model_digest_v1 NUL
+for each file:
+  normalized_path_bytes NUL decimal_byte_length NUL raw_file_bytes NUL
+```
+
+The output MUST be lowercase 64-character SHA-256 hexadecimal. The adopted digest for this revision is `3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632`.
+
+#### 4.1.2 Repo-control source snapshot object
+
+**OTEL-REQ-138**
+The repo-control `otel_source_snapshot` object MUST contain exactly the top-level fields in this table. Unknown top-level keys are invalid unless a later adopted NLSpec revision declares them.
+
+| Field | Required rule |
+| --- | --- |
+| `schema_id` | Exactly `cartulary.otel_source_snapshot.v1`. |
+| `otel_spec_version` | Exact value from §4.1. |
+| `otel_spec_ref` | Exact value from §4.1; `main` is invalid. |
+| `otel_spec_commit_sha` | Full 40-character lowercase SHA. |
+| `semconv_version` | Exact value from §4.1. |
+| `semconv_ref` | Exact value from §4.1; `main` is invalid. |
+| `semconv_commit_sha` | Full 40-character lowercase SHA. |
+| `semconv_model_digest_algorithm` | Exactly `semconv_model_digest_v1`. |
+| `semconv_model_digest` | Concrete lowercase 64-character hex digest from §4.1.1. |
+| `semconv_generated_constants` | Object defined in §4.1.3. |
+| `language_sdk_versions` | Array defined in §4.1.4. |
+| `source_paths` | One row for each §4.2 path with `family`, `path`, `status`, and `source_commit_sha`. |
+| `created_at` | RFC3339 timestamp generated by repo-control tooling. |
+| `created_by_tool` | Stable tool identifier, not a human name. |
+
+#### 4.1.3 Generated constants provenance
+
+**OTEL-REQ-139**
+`semconv_generated_constants` MUST use one of the allowed source kinds in this table.
+
+| `source_kind` | Required fields | Rule |
+| --- | --- | --- |
+| `repo_codegen` | `generator_name`, `generator_version`, `generator_source_ref`, `generator_source_sha`, `input_model_digest`, `output_package_or_path` | `input_model_digest` MUST equal `semconv_model_digest`. |
+| `upstream_package` | `package_path`, `package_version`, `package_checksum_source`, `input_model_digest_or_equivalence_proof` | The equivalence proof MUST bind the package constants to the pinned semantic-convention model digest. |
+
+Ordinary instrumentation code MUST NOT use ad hoc string literals for emitted standard attributes or metric names when a generated or pinned constant exists. Generated-constants drift is a conformance failure unless the normalized golden corpus proves `registry_equivalent` under §4.5.
+
+#### 4.1.4 Language SDK package set
+
+**OTEL-REQ-140**
+`language_sdk_versions` MUST be an exhaustive package-family table for every OpenTelemetry package family that can affect emitted telemetry shape or runtime behavior.
+
+Each row MUST declare `package_family` and `status`. Rows with `status='present'` MUST include the required snapshot fields in the table below. Rows with `status='absent'` MUST identify the package family and the repo-control source that proves absence. Rows with `status='hostile_fixture_only'` MUST include the present-package fields plus `fixture_scope`, and runtime import or initialization outside that fixture scope is non-conformant.
+
+| Package family | Required if used? | Required snapshot fields |
+| --- | ---: | --- |
+| API | Yes | `language`, `package_path`, `version`, `module_or_lockfile_source`. |
+| SDK | Yes when SDK providers are installed | Same as above. |
+| Trace SDK | Yes when traces enabled | Same as above. |
+| Metrics SDK | Yes when metrics enabled | Same as above. |
+| Logs SDK or bridge | Yes when log bridge implemented | Same as above. |
+| OTLP HTTP exporters | Yes when `otlp_http` supported | Same as above. |
+| OTLP gRPC exporters | Yes when `otlp_grpc` supported | Same as above. |
+| Semantic-convention constants | Yes | Same as above plus generated-constants binding. |
+| Instrumentation adapters | Yes if imported | Same as above. |
+| Resource-detector packages | Must be absent unless a future revision adopts them | If present, validation fails in this revision. |
+| Autoconfiguration or declarative-config packages | Must be absent unless wrapped as a hostile-fixture test dependency | Runtime use fails conformance. |
+| Browser-side OTel packages | Must be absent in the current profile | Any browser exporter, vendor SDK, Collector client, or session replay package fails browser-boundary validation. |
+
+The package-family table MUST make the no-browser-export rule in §13.1 statically checkable against browser bundles and frontend package manifests.
 
 **OTEL-REQ-008**
 The baseline versions above are adoption locks, not claims that later OpenTelemetry or semantic-convention releases are incompatible. A later adopted revision MAY rebaseline to newer OpenTelemetry or semantic-convention versions only after applying §4.5 and updating all affected source paths, signal registries, configuration rules, non-transfer rules, golden-corpus expectations, and acceptance criteria.
@@ -98,8 +175,15 @@ A repo-control `otel_source_snapshot` is invalid for conformance if any of the f
 | `otel_spec_ref` or `semconv_ref` equals `main` | Conformance mode fails before tests are treated as evidence. |
 | Any pinned commit SHA is omitted, shortened, malformed, or not 40 lowercase hexadecimal characters | Conformance mode fails before provider bootstrap tests. |
 | `semconv_model_digest` is omitted, a placeholder, malformed, or not 64 lowercase hexadecimal characters | Conformance mode fails before generated-constant or emitted-shape tests. |
-| `language_sdk_versions` omits any OTel package family used by runtime or generated constants | Conformance mode fails before emitted-shape tests. |
+| `schema_id` is missing or not exactly `cartulary.otel_source_snapshot.v1` | Conformance mode fails before source-baseline tests. |
+| `semconv_model_digest_algorithm` is missing or not exactly `semconv_model_digest_v1` | Conformance mode fails before generated-constant or emitted-shape tests. |
+| `semconv_generated_constants` is missing, malformed, inconsistent with §4.1.3, or bound to a different model digest | Conformance mode fails before emitted-shape tests. |
+| `language_sdk_versions` omits any required package family, package path, version, language, lockfile or module source, or semantic-convention constants binding | Conformance mode fails before emitted-shape tests. |
+| Resource-detector, runtime autoconfiguration, runtime declarative-config, browser exporter, vendor telemetry SDK, Collector client, session replay, or browser analytics initialization packages are present outside allowed hostile-fixture scope | Conformance mode fails before runtime tests. |
 | The snapshot records a source path not assigned by §4.2 or a later revision | The snapshot fails source-baseline validation unless the later revision assigns the path. |
+| Any §4.2 source path is missing, duplicated, or lacks a status row | The snapshot fails source-baseline validation. |
+| Any source path row has an unknown status or a source commit SHA different from the owning source family commit | The snapshot fails source-baseline validation. |
+| Any top-level value is a placeholder such as `TODO`, `TBD`, `unknown`, an empty string, or a shortened SHA | Conformance mode fails before tests are treated as evidence. |
 
 ### 4.2 Source path registry
 
@@ -599,6 +683,49 @@ The current profile permits only the custom attributes in this registry:
 **OTEL-REQ-043**
 Unknown `cartulary.*` attributes MUST NOT be emitted. Adding a new `cartulary.*` attribute is an `additive_non_breaking` change unless it changes requiredness, type, or emitted shape, in which case §4.5 decides the change class.
 
+#### 8.5.1 Error code and error class registry
+
+**OTEL-REQ-141**
+`cartulary.error_code` MUST be either:
+
+- one public `error.code` token from Core 01 §3.3.6.1, or
+- `internal_error` only when no public API error code exists because the product did not expose a public error.
+
+Core 01 §3.3.6.1 remains the canonical public error-code registry. This NLSpec consumes that registry only for low-cardinality telemetry classification. Runtime inference from prefixes, transport status, retry hints, route family, or string matching is forbidden.
+
+**OTEL-REQ-142**
+Every Core 01 §3.3.6.1 public `error.code` token MUST map to exactly one `cartulary.error_class` using this table.
+
+| `cartulary.error_class` | Public `error_code` values |
+| --- | --- |
+| `request_invalid` | `invalid_view_query`, `invalid_pagination_request`, `invalid_mutation_payload`, `invalid_evidence_handle_request`, `invalid_blob_create_request`, `invalid_incident_create`, `invalid_incident_patch`, `invalid_rollback_request`, `invalid_auth_request`, `invalid_enterprise_auth_request`, `invalid_import_request`, `invalid_snapshot_request`, `invalid_release_request`, `invalid_reference_pack_request`, `invalid_incident_bundle_request` |
+| `authentication` | `invalid_credentials`, `mfa_required`, `mfa_setup_required`, `credential_bootstrap_rejected`, `invalid_current_password`, `invalid_second_factor`, `totp_setup_not_pending`, `enterprise_auth_transaction_rejected`, `provider_response_rejected`, `provider_identity_rejected` |
+| `capability_unavailable` | `extension_profile_not_claimed`, `auth_provider_not_found`, `auth_provider_disabled` |
+| `concurrency_conflict` | `client_txn_conflict`, `row_version_conflict`, `incident_key_conflict`, `incident_version_conflict`, `same_field_conflict`, `user_version_conflict`, `membership_version_conflict`, `auth_binding_conflict` |
+| `lifecycle_conflict` | `job_cancel_rejected`, `illegal_transition`, `record_deleted_use_restore`, `record_already_deleted`, `record_delete_blocked`, `record_not_deleted`, `record_locked`, `rollback_precondition_failed`, `last_deployment_admin`, `user_inactive`, `membership_exists_use_patch`, `last_incident_admin`, `merge_precondition_failed`, `import_state_conflict`, `import_apply_blocked`, `release_state_conflict`, `release_approval_rejected`, `reference_pack_state_conflict`, `reference_pack_activation_rejected` |
+| `not_found` | `entity_mention_not_found`, `resolved_record_not_found`, `rollback_target_not_found`, `evidence_record_not_found`, `handle_not_found_or_revoked`, `job_not_found`, `auth_binding_not_found`, `user_not_found`, `membership_not_found`, `import_session_not_found`, `import_unit_not_found`, `snapshot_not_found`, `release_not_found`, `reference_pack_not_found`, `incident_bundle_not_found` |
+| `expired_or_consumed` | `handle_expired`, `handle_consumed` |
+| `policy_rejected` | `blob_create_rejected`, `evidence_attach_rejected`, `import_source_unsupported`, `import_source_rejected`, `release_render_failed`, `reference_pack_verification_failed`, `incident_bundle_export_rejected`, `incident_bundle_import_rejected` |
+| `dependency_unavailable` | `evidence_access_unavailable` |
+
+**OTEL-REQ-143**
+The complete `cartulary.error_class` registry additionally includes the following dependency and runtime classes.
+
+| Additional `cartulary.error_class` | Scope |
+| --- | --- |
+| `timeout` | Dependency or exporter timeout. |
+| `serialization_conflict` | Database serialization conflict. |
+| `constraint_violation` | Safe data-integrity constraint class after redaction. |
+| `exporter_transient` | Retryable exporter transport/status class. |
+| `exporter_permanent` | Non-retryable exporter rejection class. |
+| `redaction_rejected` | Telemetry item dropped because safety could not be proven. |
+| `queue_full` | Telemetry processor overflow class when class is needed rather than `cartulary.drop_reason`. |
+| `shutdown_timeout` | Telemetry flush exceeded shutdown budget. |
+| `recursion_guard` | Telemetry-about-telemetry recursion prevented. |
+| `internal_error` | Safe non-detail class for internal failures. |
+
+Adding, removing, or renaming a Core 01 public `error.code` token without updating this mapping is conformance drift. Adding a second independent `cartulary.error_class` registry anywhere in this NLSpec is forbidden.
+
 ### 8.6 Incident correlation opt-in
 
 **OTEL-REQ-044**
@@ -728,15 +855,7 @@ HTTP telemetry MUST NOT emit `url.full`, `url.path`, `url.query`, `user_agent.or
 Postgres spans MAY emit `db.system.name='postgresql'`. They MUST NOT emit `db.query.text`, `db.query.summary`, `db.response.status_code`, `db.namespace`, `db.collection.name`, SQL statement text, SQL parameters, table names, projection table names, index names, database address, database port, or connection string details.
 
 **OTEL-REQ-064**
-Database errors MUST be classified into `cartulary.error_class` using a closed implementation registry. The current registry is:
-
-| Class | Meaning |
-| --- | --- |
-| `dependency_unavailable` | Postgres unavailable or connection acquisition failed. |
-| `timeout` | Operation exceeded Cartulary timeout. |
-| `serialization_conflict` | Serializable or optimistic-concurrency conflict. |
-| `constraint_violation` | Expected data-integrity constraint failure after redaction. |
-| `internal_error` | Other safe non-detail class. |
+Database errors MUST be classified into `cartulary.error_class` using the global registry in §8.5.1. Database instrumentation MAY use only `dependency_unavailable`, `timeout`, `serialization_conflict`, `constraint_violation`, and `internal_error` unless a later adopted revision adds a database-specific class to the global registry.
 
 ### 9.6 Object-store non-adoption rule
 
@@ -1039,13 +1158,15 @@ Exporter retry behavior MUST follow this deterministic envelope:
 | Retry attempt index | First retry after the initial failed attempt uses `retry_attempt_index=1`. |
 | Base interval | `base_interval_ms = min(max_interval_ms, initial_interval_ms * multiplier^(retry_attempt_index - 1))`. |
 | Jitter mode | Full jitter. Runtime delay is sampled uniformly from integer milliseconds in `[0, base_interval_ms]`. |
-| Randomness source | Runtime uses a process CSPRNG or equivalent strong random source. Conformance tests assert delay bounds and terminal behavior rather than exact values unless the implementation exposes a deterministic test RNG. |
+| Randomness source | Runtime uses a process CSPRNG or equivalent strong random source. Conformance tests assert delay bounds and terminal behavior rather than exact runtime samples. |
 | Max elapsed cutoff | The implementation MUST NOT start a retry if `elapsed_since_first_failed_attempt_start + sampled_delay_ms > max_elapsed_ms`. |
 | `max_elapsed_ms=0` | Disables retries even when retry is enabled. |
 | Shutdown | After shutdown begins, no new retry loop may be started. A retry already in progress may finish only within the shutdown flush timeout. |
 | Permanent rejection | No retry; drop and record `exporter_permanent_discard` when non-recursive. |
 | Timeout | Each attempt aborts at `telemetry.processor.export_timeout_ms`; timeout is classified as transient only when the transport or status family is transient. |
 | Disabled export | No network exporter exists when `telemetry.exporter.kind='none'`; any export attempt in this state is an implementation defect. |
+
+No product configuration key, browser state, public route, or production-visible test hook may inject deterministic runtime retry randomness. Unit tests MAY exercise a pure retry-planner helper with supplied sample values, but that helper MUST NOT be a runtime configuration surface.
 
 **OTEL-REQ-135**
 The retry loop MUST use the transient-versus-permanent classification exposed by the selected OTLP transport. It MUST treat retryable OTLP/gRPC status codes and retryable OTLP/HTTP status codes as transient, and it MUST treat permanent rejections as terminal. The implementation MUST NOT retry merely because a product operation failed independently of export.
@@ -1149,7 +1270,21 @@ The OpenTelemetry concepts in this table MUST NOT be transferred into current-pr
 ### 14.1 Corpus contract
 
 **OTEL-REQ-117**
-The repository MUST maintain a golden telemetry conformance corpus for this NLSpec. The corpus MUST exercise at least:
+The repository MUST maintain a golden telemetry conformance corpus for this NLSpec.
+
+The corpus artifact paths are fixed by this table:
+
+| Artifact family | Required path or location |
+| --- | --- |
+| Committed normalized golden telemetry | `internal/testutil/golden/otel/` |
+| Committed source-snapshot fixture | `internal/testutil/golden/otel/source-snapshot/` |
+| Committed emitted-shape fixtures | `internal/testutil/golden/otel/signals/` |
+| Retained raw captures | Target-owned retained artifact directory under the harness run root, not committed source. |
+| Retained normalized comparison summary | Target-owned retained artifact directory under the harness run root. |
+
+Raw captures MUST NOT be written under committed golden directories. Harness-owned run-root identity and cleanup behavior are owned by `docs/testing-harness-nlspec.md` §6.
+
+The corpus MUST exercise at least:
 
 | Corpus area | Required coverage |
 | --- | --- |
@@ -1202,8 +1337,8 @@ The update gate MUST compare span names, span kinds, span status policy, span ev
 
 ### 15.1 Configuration and source-baseline criteria
 
-- **OTEL-AC-001:** The repo contains a complete `otel_source_snapshot` with immutable OTel spec ref `v1.57.0`, full OTel spec commit SHA, semantic-conventions ref `v1.41.0`, full semantic-conventions commit SHA, exact source paths from §4.2, document statuses, semantic-convention model digest, generated constants version, and SDK package versions.
-- **OTEL-AC-002:** Conformance mode fails on `main`, unresolved source-snapshot TODO values, short-only commit SHA, missing source path, missing document status, missing model digest, or missing SDK package version.
+- **OTEL-AC-001:** The repo contains a complete `otel_source_snapshot` with `schema_id='cartulary.otel_source_snapshot.v1'`, immutable OTel spec ref `v1.57.0`, full OTel spec commit SHA, semantic-conventions ref `v1.41.0`, full semantic-conventions commit SHA, exact source paths from §4.2, document statuses, `semconv_model_digest_algorithm='semconv_model_digest_v1'`, semantic-convention model digest `3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632`, generated constants provenance, and exhaustive SDK package-family rows.
+- **OTEL-AC-002:** Conformance mode fails on `main`, unresolved source-snapshot placeholder values, short-only commit SHA, missing source path, duplicated source path, unknown source path, missing document status, missing model digest, missing generated constants provenance, missing SDK package family, or prohibited browser/runtime OTel package family.
 - **OTEL-AC-003:** Unknown `telemetry.*` keys fail deployment-config validation.
 - **OTEL-AC-004:** Invalid cross-key combinations in §6.5 fail before readiness.
 - **OTEL-AC-004A:** Cartulary server-side environment parser fixtures cover omitted, empty, valid, invalid, and explicit `"null"` cases for every parser family in §6.2.1; invalid cases fail before readiness and expose no secret values.
@@ -1258,7 +1393,7 @@ The update gate MUST compare span names, span kinds, span status policy, span ev
 - **OTEL-AC-033:** OTLP/gRPC exporter tests prove one configured target and no per-signal endpoint divergence.
 - **OTEL-AC-034:** Exporter request headers contain only configured safe headers and protocol-required headers; secret header values are absent from logs, spans, metrics, diagnostics, and retained artifacts.
 - **OTEL-AC-035:** User-Agent includes only allowed Cartulary and exporter identity segments and contains no forbidden value families.
-- **OTEL-AC-036:** Exporter retry tests assert full-jitter retry bounds, max-elapsed cutoff, disabled retry behavior, `max_elapsed_ms=0`, permanent rejection behavior, timeout behavior, shutdown interaction, and no product hot-path blocking.
+- **OTEL-AC-036:** Exporter retry tests assert full-jitter retry bounds, max-elapsed cutoff, disabled retry behavior, `max_elapsed_ms=0`, permanent rejection behavior, timeout behavior, shutdown interaction, no production-visible deterministic runtime RNG hook, and no product hot-path blocking.
 - **OTEL-AC-037:** Processor queue overflow uses `drop_new`, does not block product work, and records drop metrics when non-recursive.
 - **OTEL-AC-038:** Shutdown flush respects `telemetry.shutdown.flush_timeout_ms` and continues process shutdown after timeout.
 - **OTEL-AC-039:** Telemetry self-diagnostics do not recurse unboundedly.
@@ -1277,20 +1412,20 @@ The update gate MUST compare span names, span kinds, span status policy, span ev
 - **OTEL-AC-045:** A dependency-only update can be accepted without NLSpec revision only when the normalized corpus is `registry_equivalent`.
 - **OTEL-AC-046:** Any `additive_non_breaking`, `privacy_tightening`, or `breaking_shape_change` result requires NLSpec revision and updated acceptance criteria before adoption. Sampler migration, Resource schema-url adoption, View-renaming change, Prometheus exporter adoption, or any non-registry-equivalent change is non-conformant without such revision.
 
-## 16. Open decisions
+## 16. Resolved adoption decisions
 
-The following items are intentionally unresolved because the uploaded context does not provide adopted repository state. They MUST be closed during repository adoption before implementation conformance is claimed.
+The following adoption decisions are resolved for this revision. A later revision that reopens any row MUST keep this NLSpec non-adopted until the replacement owner section is complete.
 
-| Decision ID | Open item | Required closure |
+| Decision ID | Closure status | Closure owner |
 | --- | --- | --- |
-| `OTEL-DQ-001` | Deterministic semantic-convention model digest | Compute and pin `semconv_model_digest` over the adopted `v1.41.0` model files. |
-| `OTEL-DQ-002` | Exact generated-constant source and package set | Pin generated-constant package or generator source versions in repo-control files. |
-| `OTEL-DQ-003` | Exact language SDK package set | Pin API, SDK, exporter, logs, metrics, trace, semantic-convention constants, bridge, and instrumentation-adapter package versions in repo-control files. |
-| `OTEL-DQ-004` | Error-class registry count for public error codes | Bind `cartulary.error_code` and `cartulary.error_class` to the adopted public error registry after repository adoption. |
-| `OTEL-DQ-005` | Golden corpus storage path | Choose repo-local path for normalized golden telemetry and retained raw captures. |
-| `OTEL-DQ-006` | Deterministic test RNG hook for retry jitter | Decide whether conformance tests assert only jitter bounds or use an injected deterministic RNG for exact retry-delay expectations. |
+| `OTEL-DQ-001` | resolved | §4.1.1 and concrete `otel_source_snapshot.semconv_model_digest`. |
+| `OTEL-DQ-002` | resolved | §4.1.3 and repo-control generated constants evidence. |
+| `OTEL-DQ-003` | resolved | §4.1.4 and repo-control dependency manifests. |
+| `OTEL-DQ-004` | resolved | §8.5.1 public-code/class mapping. |
+| `OTEL-DQ-005` | resolved | §14.1 committed and retained corpus paths. |
+| `OTEL-DQ-006` | resolved | §12.4 bounds-only runtime retry-jitter conformance. |
 
-The OTel specification baseline and semantic-convention release baseline are not open decisions in this revision; they are pinned in §4.1. A later rebaseline requires §4.5 classification and §15 acceptance updates.
+The OTel specification baseline and semantic-convention release baseline are not reopenable implementation choices in this revision; they are pinned in §4.1. A later rebaseline requires §4.5 classification and §15 acceptance updates.
 
 ## 17. Completion standard
 
@@ -1299,7 +1434,7 @@ This NLSpec is complete for implementation when all of the following are true:
 - The OpenTelemetry source snapshot is pinned to `v1.57.0` and full commit SHA `d4a91bddb53b4c308df3e40171a60059183efd88`.
 - The semantic-conventions source snapshot is pinned to `v1.41.0` and full commit SHA `e018fe6f91862f5ed63c082f87697cddac596784`.
 - Configuration source paths are exact, not wildcarded.
-- The semantic-convention model digest, generated constants version, and language SDK package versions are pinned in repo-control files.
+- The semantic-convention model digest, generated constants provenance, and language SDK package-family rows are pinned in repo-control files.
 - OpenTelemetry `Core packages` terminology cannot be confused with Cartulary Core 00 through Core 05.
 - Ordinary instrumentation units are API-only and SDK-independent.
 - No-SDK mode executes representative product paths without telemetry-induced errors.
@@ -1323,3 +1458,9 @@ This NLSpec is complete for implementation when all of the following are true:
 - Non-transferred OpenTelemetry concepts are explicitly forbidden or deferred.
 - Golden telemetry corpus comparison is required for OTel dependency, SDK, exporter, semantic-convention, generated-constant, sampler, metric-view, and retry-behavior updates.
 - All acceptance criteria in §15 are binary and pass.
+- No `TODO`, `TBD`, placeholder digest, placeholder package version, placeholder generated constants source, shortened SHA, `main` ref, or unresolved adoption-decision row remains in the adopted source snapshot.
+- `otel_source_snapshot` validates before conformance tests are accepted, and the snapshot is byte-stable for identical inputs.
+- Static dependency checks prove API-only ordinary instrumentation and SDK/exporter-only bootstrap import boundaries.
+- Browser bundle checks prove no browser SDK, exporter, vendor telemetry package, Collector client, session replay package, analytics initialization path, or telemetry configuration path.
+- Committed normalized goldens and retained raw captures follow §14.1 paths.
+- Every acceptance criterion in §15 is executable by a named harness target or explicitly mapped to a repo-control validation tool.
