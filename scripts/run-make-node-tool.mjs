@@ -153,6 +153,14 @@ async function runWrapped(target, invocation) {
   const stderrFile = quietLikeOutput()
     ? writeIfNonEmpty(stderrLog, child.stderr ?? "")
     : null;
+  const outputText = `${child.stdout ?? ""}\n${child.stderr ?? ""}`;
+  const plannedPhaseNonExecutable =
+    status !== 0 && /phase phase[0-9]+ is planned and is not executable/.test(outputText);
+  const fallbackFailureClass = plannedPhaseNonExecutable ? "config" : "harness";
+  const fallbackFailureReason = plannedPhaseNonExecutable ? "usage_error" : "unknown_failure";
+  const fallbackFailureHeadline = plannedPhaseNonExecutable
+    ? `${target} requested a planned non-executable phase`
+    : `${target} failed`;
   const runRoot = relToCwd(runRootAbs);
   const summaryFile = toolSummaryPath(targetRootAbs);
   const summaryRel = relToCwd(summaryFile);
@@ -171,8 +179,8 @@ async function runWrapped(target, invocation) {
     runRoot,
     summaryArtifacts: [artifactRef("tool_run_summary", summaryRel)],
     counts: {},
-    failureClass: status === 0 ? null : "harness",
-    failureReason: status === 0 ? null : "unknown_failure",
+    failureClass: status === 0 ? null : fallbackFailureClass,
+    failureReason: status === 0 ? null : fallbackFailureReason,
     failures:
       status === 0
         ? []
@@ -180,9 +188,9 @@ async function runWrapped(target, invocation) {
             {
               target,
               label: target,
-              failure_class: "harness",
-              failure_reason: "unknown_failure",
-              headline: `${target} failed`,
+              failure_class: fallbackFailureClass,
+              failure_reason: fallbackFailureReason,
+              headline: fallbackFailureHeadline,
               artifact: stderrFile ? relToCwd(stderrFile) : "",
             },
           ],

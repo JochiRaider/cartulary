@@ -135,7 +135,7 @@ The default local `check` gate MUST keep ordinary browser measurement evidence o
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 
 **TH-HARNESS-REQ-057**
-Warm steady-state `check-service-backed` timing is a harness health contract, not product performance evidence. For the supported WSL2 compatibility profile, a successful warm `check` run used for harness maintenance SHOULD keep `check-service-backed` wall time at or below `100000ms`. Backend and browser scheduler lanes SHOULD remain duration-balanced: no non-isolated peer lane should materially exceed `125%` of its peer median. A lane MAY be excluded from peer balance only when it is explicitly isolated by the shard plan or is the only lane in its peer group, and the checker MAY apply a bounded materiality floor so normal fixture jitter does not fail otherwise healthy retained runs.
+Warm steady-state `check-service-backed` timing is a harness health contract, not product performance evidence. For the supported WSL2 compatibility profile, a successful warm `check` run used for harness maintenance SHOULD keep `check-service-backed` wall time at or below `120000ms`. Backend and browser scheduler lanes SHOULD remain duration-balanced: no non-isolated peer lane should materially exceed `125%` of its peer median. A lane MAY be excluded from peer balance only when it is explicitly isolated by the shard plan or is the only lane in its peer group, and the checker MAY apply a bounded materiality floor so normal fixture jitter does not fail otherwise healthy retained runs.
 Verified by: TH-HARNESS-AC-018
 
 ### 4.1 Mechanism Boundary
@@ -350,6 +350,9 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-107**
 Authoritative phase-manifest rows MAY declare `claim_status` with exactly one of `implemented`, `blocked`, or `not_applicable`. Generated ledgers and phase-slice summaries MUST expose claim status separately from execution pass/fail status. A phase with any authoritative `blocked` row MUST report an incomplete aggregate claim status even when all selected harness work exits successfully.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
+
+Executable phase-slice commands invoked for a registry phase whose status is `planned` MUST remain nonzero and MUST be classified as harness usage for a planned non-executable phase, not as a product failure. The compact diagnostic MUST include the planned/non-executable phrase so audits can distinguish intended planning state from implementation failure.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-108**

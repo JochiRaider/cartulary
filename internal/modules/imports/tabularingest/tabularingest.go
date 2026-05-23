@@ -63,6 +63,10 @@ type Dimensions struct {
 }
 
 func ParseTable(text string, format string) ([][]string, error) {
+	return ParseTableWithMaxColumns(text, format, MaxClipboardCols)
+}
+
+func ParseTableWithMaxColumns(text string, format string, maxColumns int) ([][]string, error) {
 	normalized := strings.TrimRight(text, "\r\n")
 	if normalized == "" {
 		return nil, fmt.Errorf("empty tabular payload")
@@ -79,9 +83,11 @@ func ParseTable(text string, format string) ([][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse tabular payload: %w", err)
 	}
-	for _, row := range rows {
-		if len(row) > MaxClipboardCols {
-			return nil, fmt.Errorf("tabular column count exceeded")
+	if maxColumns > 0 {
+		for _, row := range rows {
+			if len(row) > maxColumns {
+				return nil, fmt.Errorf("tabular column count exceeded")
+			}
 		}
 	}
 	return rows, nil

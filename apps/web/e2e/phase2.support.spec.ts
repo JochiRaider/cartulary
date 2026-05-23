@@ -134,7 +134,7 @@ test("supports zero-membership extension discovery and singleton pagination reje
   expect(extensionsBody.data.extensions).toEqual(
     extensionRegistry().map((profile) => ({
       profile_id: profile.profile_id,
-      claimed: false,
+      claimed: profile.profile_id === "import",
       route_families: profile.route_families,
     })),
   );
@@ -174,14 +174,14 @@ test("supports reserved-family dispatch precedence probes while ordinary base an
   expect(readyResponse.ok()).toBeTruthy();
   expect(await readyResponse.text()).toContain("ready");
 
-  const importProfile = extensionProfile("import");
-  const importRouteFamily = routeFamily(importProfile);
+  const referenceProfile = extensionProfile("reference_pack");
+  const referenceRouteFamily = routeFamily(referenceProfile);
   await expectAPIError(
-    await page.request.get(`${apiBase}${importRouteFamily}`),
+    await page.request.get(`${apiBase}${referenceRouteFamily}`),
     "extension_profile_not_claimed",
     {
-      profile_id: importProfile.profile_id,
-      route_family: importRouteFamily,
+      profile_id: referenceProfile.profile_id,
+      route_family: referenceRouteFamily,
     },
   );
 

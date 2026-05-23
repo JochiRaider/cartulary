@@ -649,7 +649,7 @@ func TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutL
 		if _, ok := item["route_families"]; !ok {
 			t.Fatalf("missing route_families in extension item %d: %#v", index, item)
 		}
-		if item["profile_id"] != want.ProfileID || item["claimed"] != false {
+		if item["profile_id"] != want.ProfileID || item["claimed"] != (want.ProfileID == "import") {
 			t.Fatalf("unexpected extension item %d: %#v", index, item)
 		}
 		if gotFamilies := phase2OrderedRouteFamilies(t, item["route_families"]); strings.Join(gotFamilies, ",") != strings.Join(want.RouteFamilies, ",") {
@@ -681,13 +681,13 @@ func TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePath
 	_, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	phase2test.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)
 	userSession, _ := phase2test.LoginLocalUser(t, harness.Server, "reserved-user@example.test", "ReservedUser1!")
-	importProfile := phase2ExtensionContract(t, "import")
+	referenceProfile := phase2ExtensionContract(t, "reference_pack")
 	enterpriseProfile := phase2ExtensionContract(t, "enterprise_authentication")
 
-	rootReserved := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+importProfile.RouteFamilies[0], nil, phase2test.WithCookies(userSession))
+	rootReserved := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+referenceProfile.RouteFamilies[0], nil, phase2test.WithCookies(userSession))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
-	if rootDetails["profile_id"] != importProfile.ProfileID || rootDetails["route_family"] != importProfile.RouteFamilies[0] {
+	if rootDetails["profile_id"] != referenceProfile.ProfileID || rootDetails["route_family"] != referenceProfile.RouteFamilies[0] {
 		t.Fatalf("unexpected reserved root dispatch details: %#v", rootDetails)
 	}
 

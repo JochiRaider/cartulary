@@ -13,7 +13,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -92,15 +94,17 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, err
 	}
 
-	runtime.Jobs = newJobsManager()
-	hub := newWSHub()
-	runtime.WSHub = hub
-
-	httpOptions := options.HTTP
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	runtime.Jobs = newJobsManager()
+	hub := newWSHub()
+	runtime.WSHub = hub
+	runtime.Jobs.Configure(runtime.Postgres, now)
+	runtime.Jobs.ConfigureProgressHub(hub)
+
+	httpOptions := options.HTTP
 	keys, err := authn.LoadMasterKeys(options.Env)
 	if err != nil {
 		runtime.Close()
@@ -108,7 +112,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	cursorCodec := pagination.NewCodec(cursorKey[:])
-	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisions.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
+	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisions.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:      normalizedCfg,
 		Env:         options.Env,

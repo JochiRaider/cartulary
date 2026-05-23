@@ -447,6 +447,50 @@ type IdentityGridProjection struct {
 	EditedAt         pgtype.Timestamptz `json:"edited_at"`
 }
 
+type ImportSession struct {
+	ImportSessionID         pgtype.UUID        `json:"import_session_id"`
+	IncidentID              pgtype.UUID        `json:"incident_id"`
+	CreatedByUserID         pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID             string             `json:"client_txn_id"`
+	AssistantProfile        string             `json:"assistant_profile"`
+	SourceFileKind          string             `json:"source_file_kind"`
+	OriginalFilename        string             `json:"original_filename"`
+	SourceContentSha256     string             `json:"source_content_sha256"`
+	SourceMediaType         string             `json:"source_media_type"`
+	SourceByteSize          int64              `json:"source_byte_size"`
+	ParserProfileID         string             `json:"parser_profile_id"`
+	ParserVersion           string             `json:"parser_version"`
+	SessionStatus           string             `json:"session_status"`
+	DiscoveryJobID          pgtype.UUID        `json:"discovery_job_id"`
+	ApplyJobID              pgtype.UUID        `json:"apply_job_id"`
+	SelectedUnitIds         []pgtype.UUID      `json:"selected_unit_ids"`
+	BlockingDiagnosticsJson []byte             `json:"blocking_diagnostics_json"`
+	NonblockingWarningCodes []string           `json:"nonblocking_warning_codes"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ImportUnit struct {
+	ImportUnitID        pgtype.UUID        `json:"import_unit_id"`
+	ImportSessionID     pgtype.UUID        `json:"import_session_id"`
+	UnitStatus          string             `json:"unit_status"`
+	LocatorKind         string             `json:"locator_kind"`
+	Locator             string             `json:"locator"`
+	SourceRectA1        string             `json:"source_rect_a1"`
+	HeaderRowRef        int32              `json:"header_row_ref"`
+	DataStartRowRef     int32              `json:"data_start_row_ref"`
+	InferredRowCount    int32              `json:"inferred_row_count"`
+	InferredColumnCount int32              `json:"inferred_column_count"`
+	WarningCodes        []string           `json:"warning_codes"`
+	MappingFingerprint  pgtype.Text        `json:"mapping_fingerprint"`
+	ApprovedMappingJson []byte             `json:"approved_mapping_json"`
+	ColumnsJson         []byte             `json:"columns_json"`
+	SourceRowsJson      []byte             `json:"source_rows_json"`
+	PreviewRowsJson     []byte             `json:"preview_rows_json"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Incident struct {
 	ID                     pgtype.UUID        `json:"id"`
 	IncidentKey            string             `json:"incident_key"`
@@ -562,6 +606,25 @@ type IndicatorStateInterval struct {
 	RowVersion               int64              `json:"row_version"`
 	CreatedByUserID          pgtype.UUID        `json:"created_by_user_id"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
+type Job struct {
+	JobID             pgtype.UUID        `json:"job_id"`
+	ScopeKind         string             `json:"scope_kind"`
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	Status            string             `json:"status"`
+	Cancelable        bool               `json:"cancelable"`
+	SubmittedByUserID pgtype.UUID        `json:"submitted_by_user_id"`
+	SubmittedAt       pgtype.Timestamptz `json:"submitted_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ProgressCompleted int32              `json:"progress_completed"`
+	ProgressTotal     pgtype.Int4        `json:"progress_total"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	FinishedAt        pgtype.Timestamptz `json:"finished_at"`
+	RetainedUntil     pgtype.Timestamptz `json:"retained_until"`
+	ResultSummaryJson []byte             `json:"result_summary_json"`
+	ErrorSummaryJson  []byte             `json:"error_summary_json"`
+	Message           pgtype.Text        `json:"message"`
 }
 
 type ObjectBlob struct {

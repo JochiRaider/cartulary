@@ -81,7 +81,7 @@ func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 		t.Fatalf("NewHandler(): %v", err)
 	}
 
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/import-sessions", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/reference-packs", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
@@ -103,5 +103,55 @@ func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 	}
 	if errorPayload["code"] != "extension_profile_not_claimed" {
 		t.Fatalf("unexpected reserved-route code: %#v", errorPayload)
+	}
+}
+
+func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewHandler()
+	if err != nil {
+		t.Fatalf("NewHandler(): %v", err)
+	}
+
+	for _, profile := range CurrentExtensionProfiles() {
+		if profile.Claimed {
+			continue
+		}
+		for _, routeFamily := range profile.RouteFamilies {
+			path := strings.ReplaceAll(routeFamily, "{user_id}", "11111111-1111-1111-1111-111111111111")
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+
+			response := recorder.Result()
+			body, err := io.ReadAll(response.Body)
+			_ = response.Body.Close()
+			if err != nil {
+				t.Fatalf("read reserved-route response for %s: %v", path, err)
+			}
+			if response.StatusCode != http.StatusNotFound {
+				t.Fatalf("reserved root %s returned status %d body %q", path, response.StatusCode, string(body))
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(body, &payload); err != nil {
+				t.Fatalf("decode reserved-route payload for %s: %v body=%q", path, err, string(body))
+			}
+			errorPayload, ok := payload["error"].(map[string]any)
+			if !ok {
+				t.Fatalf("missing error payload for %s: %#v", path, payload)
+			}
+			if errorPayload["code"] != "extension_profile_not_claimed" {
+				t.Fatalf("reserved root %s returned unexpected error: %#v", path, errorPayload)
+			}
+			details, ok := errorPayload["details"].(map[string]any)
+			if !ok {
+				t.Fatalf("missing reserved-route details for %s: %#v", path, errorPayload)
+			}
+			if details["profile_id"] != profile.ProfileID || details["route_family"] != routeFamily {
+				t.Fatalf("unexpected reserved-route details for %s: %#v", path, details)
+			}
+		}
 	}
 }

@@ -64,6 +64,16 @@
       "summary": "The client_txn_id was replayed with a different request payload."
     },
     {
+      "code": "job_cancel_rejected",
+      "http_status": 409,
+      "summary": "A visible job exists, but the current job state does not accept cancellation."
+    },
+    {
+      "code": "job_not_found",
+      "http_status": 404,
+      "summary": "No current visible job resource exists for the supplied job_id."
+    },
+    {
       "code": "user_version_conflict",
       "http_status": 409,
       "summary": "The requested deployment-user mutation used a stale base_user_version."
@@ -259,6 +269,41 @@
       "summary": "The single-use evidence download handle was already consumed by a prior successful redeem."
     },
     {
+      "code": "invalid_import_request",
+      "http_status": 400,
+      "summary": "The import request body or upload metadata failed route-owned validation."
+    },
+    {
+      "code": "import_session_not_found",
+      "http_status": 404,
+      "summary": "No visible current import session exists for the supplied import_session_id."
+    },
+    {
+      "code": "import_unit_not_found",
+      "http_status": 404,
+      "summary": "No visible current import unit exists within the addressed import session."
+    },
+    {
+      "code": "import_state_conflict",
+      "http_status": 409,
+      "summary": "The addressed import session or unit state does not allow the requested action."
+    },
+    {
+      "code": "import_source_unsupported",
+      "http_status": 409,
+      "summary": "The uploaded import source cannot be parsed or is outside the current import source support boundary."
+    },
+    {
+      "code": "import_source_rejected",
+      "http_status": 413,
+      "summary": "The uploaded import source breached a configured size or bounded-ingest limit."
+    },
+    {
+      "code": "import_apply_blocked",
+      "http_status": 409,
+      "summary": "The import apply request cannot start because selected units are not currently applicable."
+    },
+    {
       "code": "extension_profile_not_claimed",
       "http_status": 404,
       "summary": "The requested reserved extension-family route belongs to an unclaimed deployment extension profile."
@@ -270,6 +315,200 @@
     }
   ],
   "reason_registries": [
+    {
+      "error_code": "job_cancel_rejected",
+      "reason_codes": [
+        {
+          "code": "already_cancel_requested",
+          "summary": "Cancellation was already requested for the job."
+        },
+        {
+          "code": "already_terminal",
+          "summary": "The job is already in a terminal state."
+        },
+        {
+          "code": "not_cancelable",
+          "summary": "The current non-terminal job phase is not cancelable."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_import_request",
+      "reason_codes": [
+        {
+          "code": "unsupported_upload_envelope",
+          "summary": "The request is not a supported multipart upload envelope."
+        },
+        {
+          "code": "missing_required_part",
+          "summary": "The upload envelope is missing a required part."
+        },
+        {
+          "code": "duplicate_part",
+          "summary": "The upload envelope repeated a required part."
+        },
+        {
+          "code": "unexpected_part",
+          "summary": "The upload envelope includes a part outside the route contract."
+        },
+        {
+          "code": "invalid_part_content_type",
+          "summary": "A multipart part uses a content type outside the route allowlist."
+        },
+        {
+          "code": "invalid_metadata_encoding",
+          "summary": "The metadata part is not valid UTF-8 JSON without a byte-order mark."
+        },
+        {
+          "code": "malformed_metadata_json",
+          "summary": "The metadata part is not a single valid JSON object with unique member names."
+        },
+        {
+          "code": "request_not_object",
+          "summary": "The request body or metadata is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required import request field is absent."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a non-nullable import field."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the import contract."
+        },
+        {
+          "code": "invalid_row_reference",
+          "summary": "The request uses an invalid import row reference."
+        },
+        {
+          "code": "invalid_selected_unit_ids",
+          "summary": "The selected_unit_ids member is malformed or references invalid units."
+        },
+        {
+          "code": "unsupported_assistant_profile",
+          "summary": "The supplied assistant_profile is outside the current import profile."
+        },
+        {
+          "code": "invalid_source_columns",
+          "summary": "The source_columns mapping does not match the discovered source columns."
+        },
+        {
+          "code": "invalid_unknown_column_policy",
+          "summary": "The unknown_column_policy token is outside the current import profile."
+        },
+        {
+          "code": "invalid_transform",
+          "summary": "One source-column transform is outside the current import profile."
+        },
+        {
+          "code": "invalid_empty_value_policy",
+          "summary": "One source-column empty_value_policy is outside the current import profile."
+        },
+        {
+          "code": "duplicate_target_field",
+          "summary": "The mapping targets the same non-null field more than once."
+        },
+        {
+          "code": "invalid_value",
+          "summary": "An import metadata field value has the wrong scalar shape."
+        }
+      ]
+    },
+    {
+      "error_code": "import_state_conflict",
+      "reason_codes": [
+        {
+          "code": "session_applying",
+          "summary": "The import session is already applying."
+        },
+        {
+          "code": "session_terminal",
+          "summary": "The import session is already terminal."
+        },
+        {
+          "code": "unit_applying",
+          "summary": "The import unit is already applying."
+        },
+        {
+          "code": "unit_terminal",
+          "summary": "The import unit is already terminal."
+        }
+      ]
+    },
+    {
+      "error_code": "import_source_unsupported",
+      "reason_codes": [
+        {
+          "code": "encrypted_or_unparseable_workbook",
+          "summary": "The uploaded workbook or CSV source cannot be parsed safely."
+        },
+        {
+          "code": "unsupported_named_range",
+          "summary": "The workbook named range is outside the current import support boundary."
+        },
+        {
+          "code": "formula_cached_value_missing",
+          "summary": "A workbook formula lacks the cached value required for inert preview."
+        }
+      ]
+    },
+    {
+      "error_code": "import_source_rejected",
+      "reason_codes": [
+        {
+          "code": "csv_source_too_large",
+          "summary": "The CSV source exceeds limits.imports.max_csv_source_bytes."
+        },
+        {
+          "code": "xlsx_source_too_large",
+          "summary": "The XLSX source exceeds limits.imports.max_xlsx_source_bytes."
+        },
+        {
+          "code": "import_rows_exceeded",
+          "summary": "The import source exceeds limits.imports.max_rows."
+        },
+        {
+          "code": "import_columns_exceeded",
+          "summary": "The import source exceeds limits.imports.max_columns."
+        },
+        {
+          "code": "import_cells_exceeded",
+          "summary": "The import source exceeds limits.imports.max_cells."
+        },
+        {
+          "code": "archive_extracted_bytes_exceeded",
+          "summary": "The archive extracted-byte total exceeds the configured limit."
+        },
+        {
+          "code": "archive_compression_ratio_exceeded",
+          "summary": "The archive compression ratio exceeds the configured limit."
+        },
+        {
+          "code": "archive_member_count_exceeded",
+          "summary": "The archive member count exceeds the configured limit."
+        }
+      ]
+    },
+    {
+      "error_code": "import_apply_blocked",
+      "reason_codes": [
+        {
+          "code": "overlapping_units",
+          "summary": "The selected import units overlap in a way this profile cannot apply."
+        },
+        {
+          "code": "duplicate_apply_blocked",
+          "summary": "The import session has already been applied or is blocked as duplicate work."
+        },
+        {
+          "code": "unit_not_ready",
+          "summary": "One selected import unit is not ready to apply."
+        }
+      ]
+    },
     {
       "error_code": "invalid_blob_create_request",
       "reason_codes": [

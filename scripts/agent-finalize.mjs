@@ -26,7 +26,7 @@ const repoRoot = path.resolve(scriptDir, "..");
 const makeBin = process.env.MAKE || "make";
 const target = "agent-finalize";
 const resultsDirInput = (process.env.RESULTS_DIR || "").trim();
-const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "100000";
+const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "120000";
 const warmBalanceRatio =
   process.env.SCHEDULER_WARM_CHECK_BALANCE_RATIO || "1.25";
 

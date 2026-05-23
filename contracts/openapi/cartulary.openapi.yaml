@@ -882,6 +882,609 @@
         }
       }
     },
+    "/api/v1/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "operationId": "getJob",
+        "summary": "Fetch one current visible background job resource by identifier.",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current job resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}/cancel": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "operationId": "cancelJob",
+        "summary": "Request cancellation of one current visible cancelable background job with route-scoped idempotency.",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobCancelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current job resource after cancel request or idempotent replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Job is not cancelable or the idempotency key conflicts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "createImportSession",
+        "summary": "Upload one bounded CSV or XLSX source and start Import discovery.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSessionUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Discovery job accepted or replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid import request or upload envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Unsupported import source or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Import source exceeds configured limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "getImportSession",
+        "summary": "Read one visible Import session.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Import session resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Import session is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/units": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "listImportUnits",
+        "summary": "List Import units for one visible Import session.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Import unit list with common paging metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUnitsEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Import session is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "getImportUnit",
+        "summary": "Read one Import unit.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Import unit resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUnitEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Import session or unit is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "getImportUnitPreview",
+        "summary": "Read the first bounded preview rows for one Import unit.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Import preview resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPreviewEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Import session or unit is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping": {
+      "put": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "putImportUnitMapping",
+        "summary": "Approve an exhaustive deterministic mapping for one Import unit.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUnitMappingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mapped Import unit resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUnitEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid mapping request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Import state conflict or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "selectImportUnit",
+        "summary": "Select one mapped Import unit for apply.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUnitActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import session selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUnitActionEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "skipImportUnit",
+        "summary": "Skip one Import unit and remove it from apply selection.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUnitSkipRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import session selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUnitActionEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/apply": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "applyImportSession",
+        "summary": "Apply selected ready Import units through a background job.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSessionApplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Apply job accepted or replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid apply request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Apply is blocked, state conflicts, or idempotency conflicts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/extensions": {
       "get": {
         "tags": [
@@ -2039,6 +2642,861 @@
           "limit",
           "next_cursor",
           "has_more"
+        ]
+      },
+      "JobCancelRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "JobEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/JobResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "JobResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scope_kind": {
+            "type": "string",
+            "enum": [
+              "deployment",
+              "incident"
+            ]
+          },
+          "incident_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "submitted_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "canceled"
+            ]
+          },
+          "cancelable": {
+            "type": "boolean"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/JobProgress"
+          },
+          "result_summary": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/JobResultSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_summary": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "job_id",
+          "scope_kind",
+          "incident_id",
+          "submitted_by_user_id",
+          "status",
+          "cancelable",
+          "progress",
+          "result_summary",
+          "error_summary",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "updated_at"
+        ]
+      },
+      "JobProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "completed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "completed",
+          "total",
+          "message"
+        ]
+      },
+      "JobResultSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "resource_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobResourceRef"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "resource_refs"
+        ]
+      },
+      "JobResourceRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "route"
+        ]
+      },
+      "ImportSessionUploadRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ImportSessionCreateMetadata"
+          },
+          "file": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "required": [
+          "metadata",
+          "file"
+        ]
+      },
+      "ImportSessionCreateMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "assistant_profile": {
+            "type": "string",
+            "enum": [
+              "phase2_workbook_import_v1"
+            ]
+          }
+        },
+        "required": [
+          "incident_id",
+          "client_txn_id"
+        ]
+      },
+      "ImportSessionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ImportSession"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ImportUnitsEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "import_units": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ImportUnit"
+                }
+              }
+            },
+            "required": [
+              "import_units"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ImportUnitEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ImportUnit"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ImportPreviewEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ImportPreview"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ImportUnitActionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "import_session_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "session_status": {
+                "type": "string"
+              },
+              "selected_unit_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "unit": {
+                "$ref": "#/components/schemas/ImportUnit"
+              }
+            },
+            "required": [
+              "import_session_id",
+              "session_status",
+              "selected_unit_ids",
+              "unit"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ImportSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "import_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source_file_kind": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "xlsx"
+            ]
+          },
+          "original_filename": {
+            "type": "string"
+          },
+          "source_content_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "parser_profile_id": {
+            "type": "string"
+          },
+          "parser_version": {
+            "type": "string"
+          },
+          "assistant_profile": {
+            "type": "string"
+          },
+          "session_status": {
+            "type": "string",
+            "enum": [
+              "uploaded",
+              "discovering",
+              "discovered",
+              "ready_to_apply",
+              "applying",
+              "applied",
+              "partially_applied",
+              "failed",
+              "canceled"
+            ]
+          },
+          "selected_unit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "blocking_diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "nonblocking_warning_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "import_session_id",
+          "incident_id",
+          "created_by_user_id",
+          "created_at",
+          "source_file_kind",
+          "original_filename",
+          "source_content_sha256",
+          "parser_profile_id",
+          "parser_version",
+          "assistant_profile",
+          "session_status",
+          "selected_unit_ids",
+          "blocking_diagnostics",
+          "nonblocking_warning_codes"
+        ]
+      },
+      "ImportUnit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "import_unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "import_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "locator_kind": {
+            "type": "string",
+            "enum": [
+              "csv_file",
+              "xlsx_used_range",
+              "xlsx_table",
+              "xlsx_named_range",
+              "xlsx_region"
+            ]
+          },
+          "locator": {
+            "type": "string"
+          },
+          "source_rect_a1": {
+            "type": "string"
+          },
+          "header_row_ref": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "data_start_row_ref": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "inferred_row_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "inferred_column_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "warning_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unit_status": {
+            "type": "string",
+            "enum": [
+              "discovered",
+              "mapped",
+              "ready",
+              "skipped",
+              "applying",
+              "applied",
+              "failed"
+            ]
+          },
+          "mapping_fingerprint": {
+            "type": "string"
+          },
+          "approved_mapping": {
+            "$ref": "#/components/schemas/ApprovedImportMapping"
+          }
+        },
+        "required": [
+          "import_unit_id",
+          "import_session_id",
+          "locator_kind",
+          "locator",
+          "source_rect_a1",
+          "header_row_ref",
+          "data_start_row_ref",
+          "inferred_row_count",
+          "inferred_column_count",
+          "warning_codes",
+          "unit_status"
+        ]
+      },
+      "ApprovedImportMapping": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target_view_schema_id": {
+            "type": "string"
+          },
+          "unknown_column_policy": {
+            "type": "string",
+            "enum": [
+              "preserve_raw_capture",
+              "reject_unknown_columns"
+            ]
+          },
+          "source_columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportSourceColumnMapping"
+            }
+          }
+        },
+        "required": [
+          "target_view_schema_id",
+          "unknown_column_policy",
+          "source_columns"
+        ]
+      },
+      "ImportSourceColumnMapping": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_column_ordinal": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source_header_text": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "field_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entity_binding_mode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transform_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transform_options": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "empty_value_policy": {
+            "type": "string",
+            "enum": [
+              "omit_field",
+              "set_null",
+              "set_empty_string"
+            ]
+          }
+        },
+        "required": [
+          "source_column_ordinal",
+          "source_header_text",
+          "field_key",
+          "entity_binding_mode",
+          "transform_id",
+          "transform_options",
+          "empty_value_policy"
+        ]
+      },
+      "ImportPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "import_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "import_unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "locator_kind": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "source_rect_a1": {
+            "type": "string"
+          },
+          "header_row_ref": {
+            "type": "integer"
+          },
+          "data_start_row_ref": {
+            "type": "integer"
+          },
+          "inferred_row_count": {
+            "type": "integer"
+          },
+          "inferred_column_count": {
+            "type": "integer"
+          },
+          "warning_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unit_status": {
+            "type": "string"
+          },
+          "mapping_fingerprint": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportPreviewColumn"
+            }
+          },
+          "preview_rows": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/ImportPreviewRow"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "import_session_id",
+          "import_unit_id",
+          "locator_kind",
+          "locator",
+          "source_rect_a1",
+          "header_row_ref",
+          "data_start_row_ref",
+          "inferred_row_count",
+          "inferred_column_count",
+          "warning_codes",
+          "unit_status",
+          "columns",
+          "preview_rows",
+          "truncated"
+        ]
+      },
+      "ImportPreviewColumn": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_column_ordinal": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source_header_text": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "source_column_ordinal",
+          "source_header_text"
+        ]
+      },
+      "ImportPreviewRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_row_ref": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportPreviewCell"
+            }
+          }
+        },
+        "required": [
+          "source_row_ref",
+          "cells"
+        ]
+      },
+      "ImportPreviewCell": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_column_ordinal": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "display_text": {
+            "type": "string"
+          },
+          "cell_kind": {
+            "type": "string",
+            "enum": [
+              "blank",
+              "string",
+              "number",
+              "boolean",
+              "datetime",
+              "formula_cached",
+              "error_literal"
+            ]
+          }
+        },
+        "required": [
+          "source_column_ordinal",
+          "display_text",
+          "cell_kind"
+        ]
+      },
+      "ImportUnitMappingRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "target_view_schema_id": {
+            "type": "string"
+          },
+          "header_row_ref": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "data_start_row_ref": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unknown_column_policy": {
+            "type": "string"
+          },
+          "source_columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportSourceColumnMapping"
+            }
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "target_view_schema_id",
+          "header_row_ref",
+          "data_start_row_ref",
+          "unknown_column_policy",
+          "source_columns"
+        ]
+      },
+      "ImportUnitActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "ImportUnitSkipRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "ImportSessionApplyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "selected_unit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "client_txn_id"
         ]
       },
       "ErrorEnvelope": {

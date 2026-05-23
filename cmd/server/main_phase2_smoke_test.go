@@ -271,11 +271,11 @@ func TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke(t 
 		t.Fatalf("unexpected extensions payload: %#v", extensionsBody)
 	}
 
-	rootReserved := phase1DoJSON(t, server, http.MethodGet, "/api/v1/import-sessions", nil, withCookies(userLogin.sessionCookie))
+	rootReserved := phase1DoJSON(t, server, http.MethodGet, "/api/v1/reference-packs", nil, withCookies(userLogin.sessionCookie))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
-	if rootDetails["profile_id"] != "import" {
-		t.Fatalf("unexpected import reserved dispatch details: %#v", rootDetails)
+	if rootDetails["profile_id"] != "reference_pack" {
+		t.Fatalf("unexpected reference-pack reserved dispatch details: %#v", rootDetails)
 	}
 
 	nestedReserved := phase1DoJSON(t, server, http.MethodGet, "/api/v1/users/"+userID+"/auth-bindings", nil, withCookies(userLogin.sessionCookie))

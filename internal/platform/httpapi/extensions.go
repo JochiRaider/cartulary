@@ -32,7 +32,7 @@ var (
 		},
 		{
 			ProfileID: "import",
-			Claimed:   false,
+			Claimed:   true,
 			RouteFamilies: []string{
 				"/api/v1/import-sessions",
 			},
@@ -66,6 +66,17 @@ func CurrentExtensionProfiles() []ExtensionProfile {
 	extensionProfilesMu.RLock()
 	defer extensionProfilesMu.RUnlock()
 	return cloneExtensionProfiles(currentProfileExtensions)
+}
+
+func ExtensionProfileClaimed(profileID string) bool {
+	extensionProfilesMu.RLock()
+	defer extensionProfilesMu.RUnlock()
+	for _, profile := range currentProfileExtensions {
+		if profile.ProfileID == profileID {
+			return profile.Claimed
+		}
+	}
+	return false
 }
 
 func MatchReservedExtensionFamily(path string) (ReservedExtensionMatch, bool) {

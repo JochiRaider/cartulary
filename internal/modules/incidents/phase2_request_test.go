@@ -397,7 +397,7 @@ func TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape(t *te
 		if len(got) != 3 {
 			t.Fatalf("extension resource must expose only profile_id, claimed, and route_families: %#v", got)
 		}
-		if got["profile_id"] != want.ProfileID || got["claimed"] != false {
+		if got["profile_id"] != want.ProfileID || got["claimed"] != httpapi.ExtensionProfileClaimed(want.ProfileID) {
 			t.Fatalf("unexpected extension resource at index %d: %#v", index, got)
 		}
 		if families := toStrings(t, got["route_families"]); !equalStringSlices(families, want.RouteFamilies) {

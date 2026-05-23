@@ -5636,7 +5636,7 @@ Verified by: AC-265, AC-269, AC-272, AC-276, AC-307, AC-310
 | --- | --- |
 | Media type | Only `multipart/form-data` with required `boundary` |
 | Required parts | Exactly one `metadata` part and exactly one `file` part; part order is non-semantic |
-| `metadata` part | `Content-Disposition: form-data; name="metadata"`; `Content-Type` is `application/json` or `application/json; charset=utf-8`; UTF-8 and BOM-free; parses as exactly one JSON object; duplicate JSON member names are rejected |
+| `metadata` part | `Content-Disposition: form-data; name="metadata"`; `Content-Type` is `application/json` or `application/json; charset=utf-8`; UTF-8 and BOM-free; parses as exactly one JSON value; syntactically valid non-object JSON fails through the family `request_not_object` reason; malformed JSON and duplicate JSON member names fail through `malformed_metadata_json` |
 | `file` part | `Content-Disposition: form-data; name="file"`; exactly one uploaded payload; advisory filename has no semantic effect |
 | Media-type allowlist for `file` part | Route-local and byte-validation remains authoritative; a missing or unsupported file `Content-Type` fails with the family `invalid_part_content_type` reason |
 | Early-fail behavior | Missing required part, duplicate part, unexpected part, nested multipart, malformed metadata JSON, or invalid metadata encoding fail before durable resource creation, idempotency commit, or job creation |
@@ -5896,7 +5896,8 @@ The import route family MUST use only `invalid_import_request`, `import_session_
 - `invalid_unknown_column_policy`,
 - `invalid_transform`,
 - `invalid_empty_value_policy`,
-- `duplicate_target_field`.
+- `duplicate_target_field`,
+- `invalid_value`.
 
 `import_state_conflict` MUST use only:
 

@@ -1,0 +1,130 @@
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase11",
+  "note": "Phase 11 manifest for the selected Import Extension Profile and shared common-job substrate. Import is the only selected extension profile; Snapshot and Reporting, Reference Pack, Incident Portability, and Enterprise Authentication remain reserved and unclaimed.",
+  "ledger": {
+    "title": "Phase 11 Coverage Ledger",
+    "notes": [
+      "Phase 11 is active only for the selected Import Extension Profile and the common job substrate required by selected extension routes.",
+      "Import evidence covers upload-envelope early failure, CSV and XLSX discovery, session and unit reads, preview, deterministic mapping approval, select, apply, terminal job summaries, durable state separation, and request-time authorization for common jobs.",
+      "Snapshot and Reporting, Reference Pack, Incident Portability, and Enterprise Authentication remain unselected and unclaimed; reserved-family behavior continues to be their only default runtime exposure.",
+      "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
+    ],
+    "authoritative_execution": [
+      "`backend-integration` selects request-time authorization re-derivation for incident-scoped and deployment-scoped common jobs.",
+      "`backend-integration` selects Import upload-envelope no-durable-state behavior, CSV mapping/select/apply, and XLSX used-range discovery evidence."
+    ],
+    "support_execution_extras": [
+      "Upload-envelope helper unit tests and lower-level durable job manager tests remain support-only substrate outside the direct Phase 11 rows.",
+      "Reserved-family extension discovery tests remain support-only evidence for unselected profiles."
+    ],
+    "sections": {
+      "unit": "Unit",
+      "integration": "Integration",
+      "e2e": "Browser E2E"
+    },
+    "shared_harness": [
+      "| Harness | Phase 11 evidence |",
+      "| --- | --- |",
+      "| Active manifest ownership | `tools/phase11_test_map.json` records selected Import and common-job evidence only. |",
+      "| Generated ledger | `docs/testing/phase11_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
+      "| Schedule boundary | Generated schedules must execute implemented Import/common-job evidence without implying claims for unselected extension profiles. |"
+    ],
+    "support_only": [
+      "Helper substrate alone does not claim an extension profile.",
+      "OpenAPI and generated contract artifacts are derived evidence and do not replace direct route tests.",
+      "Unselected extension family roots must continue to return `extension_profile_not_claimed`."
+    ]
+  },
+  "shared_harnesses": [],
+  "expected_ids": [
+    "U-11-JOBS-01",
+    "U-11-JOBS-02",
+    "I-11-IMPORT-01",
+    "I-11-IMPORT-02",
+    "I-11-IMPORT-03"
+  ],
+  "forbidden_id_files": [],
+  "support_go_targets": [],
+  "unit": [
+    {
+      "id": "U-11-JOBS-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/jobapi",
+      "file": "internal/modules/jobapi/routes_integration_test.go",
+      "symbol": "TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident-scoped common job read and cancel authorization is re-derived at request time from current incident membership and role, including denied cancel for a non-admin member and hidden job access after membership revocation.",
+      "out_of_scope": "This evidence does not claim Snapshot and Reporting, Reference Pack, Incident Portability, or Enterprise Authentication route behavior.",
+      "execution_family": "backend-integration-phase11-jobs-incident-auth",
+      "execution_label": "backend-integration phase11 incident job authorization"
+    },
+    {
+      "id": "U-11-JOBS-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/jobapi",
+      "file": "internal/modules/jobapi/routes_integration_test.go",
+      "symbol": "TestPhase11_U_11_JOBS_02_DeploymentJobAuthorizationReDerivedAtRequestTime",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Deployment-scoped common job reads and cancel requests are authorized from current deployment-admin or submitter state, while unrelated non-admin callers cannot observe or cancel the job.",
+      "out_of_scope": "This evidence does not claim any unselected extension profile route family.",
+      "execution_family": "backend-integration-phase11-jobs-deployment-auth",
+      "execution_label": "backend-integration phase11 deployment job authorization"
+    }
+  ],
+  "integration": [
+    {
+      "id": "I-11-IMPORT-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/imports",
+      "file": "internal/modules/imports/imports_integration_test.go",
+      "symbol": "TestPhase11_I_11_IMPORT_01_UploadMetadataNonObjectCreatesNoDurableRows",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Import upload metadata that is syntactically valid but not a JSON object fails with `invalid_import_request` and `reason_code=request_not_object` before durable sessions, units, jobs, or idempotency rows are created.",
+      "out_of_scope": "This evidence does not cover successful discovery, mapping, or apply.",
+      "execution_family": "backend-integration-phase11-import-upload-envelope",
+      "execution_label": "backend-integration phase11 import upload envelope"
+    },
+    {
+      "id": "I-11-IMPORT-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/imports",
+      "file": "internal/modules/imports/imports_integration_test.go",
+      "symbol": "TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "CSV Import discovery, exhaustive mapping approval, deterministic mapping fingerprint exposure, selection, apply job completion, Timeline row creation, and duplicate-apply blocking operate through the selected Import route family.",
+      "out_of_scope": "This evidence does not claim XLSX discovery or unselected extension profiles.",
+      "execution_family": "backend-integration-phase11-import-csv-apply",
+      "execution_label": "backend-integration phase11 import CSV apply"
+    },
+    {
+      "id": "I-11-IMPORT-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/imports",
+      "file": "internal/modules/imports/imports_integration_test.go",
+      "symbol": "TestPhase11_I_11_IMPORT_03_XLSXDiscoveryUsesBoundedUsedRange",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "XLSX Import discovery accepts a bounded OpenXML workbook, records XLSX provenance, creates an `xlsx_used_range` unit, and exposes source headers plus preview rows without applying incident state.",
+      "out_of_scope": "This evidence does not claim table, named-range, or manual-region XLSX locators beyond the selected used-range discovery behavior.",
+      "execution_family": "backend-integration-phase11-import-xlsx-discovery",
+      "execution_label": "backend-integration phase11 import XLSX discovery"
+    }
+  ],
+  "e2e": [],
+  "visual": []
+}
