@@ -1,7 +1,7 @@
 # Cartulary Frontend Implementation and Testing Guide
 
 | Field | Value |
-|---|---|
+| --- | --- |
 | Status | Derived frontend implementation-planning guide. This guide is executable planning and verification support only; it is not a product-behavior authority. |
 | Authoritative sources | Core 00 through Core 04 under `docs/spec/` remain implementation-conformance authority. Core 05 governs only claim-bearing timed or fixture-sensitive publication. |
 | Traceability source | Exact owner `REQ-*` and `AC-*` identifiers from Core 01 through Core 04, with Core 05 cited only for publication-boundary separation. |
@@ -72,7 +72,7 @@ Core 05 does not expand frontend conformance. It applies when visual, timing, be
 Frontend rows use guide-local IDs that must not collide with existing backend/base implementation rows:
 
 | Prefix | Layer |
-|---|---|
+| --- | --- |
 | `FE-U-P<phase>-NN` | Frontend unit test |
 | `FE-I-P<phase>-NN` | Frontend integration test |
 | `FE-B-P<phase>-NN` | Browser component or browser integration test |
@@ -84,12 +84,12 @@ Frontend rows use guide-local IDs that must not collide with existing backend/ba
 Every phase row must use this table shape:
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 
 Allowed evidence classes are:
 
 | Evidence class | Meaning |
-|---|---|
+| --- | --- |
 | `product_conformance` | The row verifies behavior owned by Core 00 through Core 04 or by a future adopted NLSpec. |
 | `design_direction` | The row verifies UI/UX guide or `docs/design.md` direction only. It must not count as product conformance. |
 | `implementation_support` | The row verifies tooling, package boundaries, harnesses, generated artifacts, selectors, visual maintenance, or other implementation support. |
@@ -101,7 +101,7 @@ Allowed evidence classes are:
 Frontend phase maps MUST preserve Core ownership separately from design and support ownership. A row object in `tools/frontend_phase_maps/fe_p*_test_map.json` MUST include `core_req_ids[]`, `core_ac_ids[]`, and `support_or_design_ac_ids[]`.
 
 | Evidence class | `core_req_ids[]` | `core_ac_ids[]` | `support_or_design_ac_ids[]` | Completion rule |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `product_conformance` | non-empty | non-empty | optional | Counts only when Core 00 through Core 04 or an adopted NLSpec owns the behavior. |
 | `design_direction` | empty | empty | non-empty | Readiness evidence only; MUST NOT be represented as product conformance. |
 | `implementation_support` | empty | empty | non-empty | Support evidence only; MUST NOT be represented as product conformance. |
@@ -115,7 +115,7 @@ Frontend phase maps MUST preserve Core ownership separately from design and supp
 The following support criteria are repository-readiness criteria. They do not define product behavior.
 
 | ID | Criterion |
-|---|---|
+| --- | --- |
 | `FE-SUPPORT-AC-001` | `/apps/web` MUST NOT import `react-data-grid` directly; runtime grid use MUST pass through `/packages/grid-adapter`. |
 | `FE-SUPPORT-AC-002` | The RDG stylesheet MUST be owned by `/packages/grid-adapter` and imported exactly once before workbook-grid rendering. |
 | `FE-SUPPORT-AC-003` | Mutation-capable grid row identity MUST be asserted through `record_id`; presentation rows MUST NOT emit mutation events. |
@@ -173,7 +173,7 @@ The target MUST retain exactly one normalized accessibility evidence artifact na
 `cartulary.frontend_accessibility_summary.v1` MUST include these arrays:
 
 | Field | Required content |
-|---|---|
+| --- | --- |
 | `phase_rows[]` | Every frontend phase row claimed by the target, including row ID, phase ID, evidence class, claim status, and target mapping. |
 | `scenarios[]` | Executed browser scenario titles and row mappings. |
 | `keyboard_matrix[]` | Keyboard reachability, focus visibility, entry/exit, focus restoration, and `Esc` priority checks. |
@@ -193,7 +193,7 @@ Current repository targets for support evidence: `make browser-e2e-measurement`,
 The following targets were found in the repository task surface and may be referenced by rows in this guide:
 
 | Target | Use in this guide |
-|---|---|
+| --- | --- |
 | `make frontend-typecheck` | TypeScript type checking and generated type consumption. |
 | `make frontend-unit` | Frontend unit and integration-style package tests. |
 | `make frontend-import-boundary-check` | Direct import boundary enforcement, including `/apps/web` direct RDG import prohibition. |
@@ -225,7 +225,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.0 Phase FE-P0: Contract/Codegen Baseline And Package Boundaries
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | Generated protocol facade, view-contract adapters, selector/test-id builders, import-boundary checks, generated drift, and package ownership. |
 | Primary owner sections | Core 00 Section 1; Core 01 Sections 3.3.1, 3.3.4, 7.4, 8.5; development guide Section 6; implementation guide Sections 7, 14, 15. |
 | Frontend package or app surfaces | `/packages/protocol-ts`, `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/grid-adapter`, `/packages/test-utils`, `/packages/ui`, `/apps/web`. |
@@ -235,7 +235,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Workbook shell behavior, data mutation UX, browser visual acceptance, accessibility acceptance, and product claim publication. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P0-01 | Unit | Verify generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code. | Core 01 Sections 3.3.1, 7.4; development guide Sections 6.2, 6.6 | `REQ-01-019`, `REQ-01-020`, `REQ-01-022`, `REQ-01-034`, `REQ-01-307`..`REQ-01-311` | `AC-124`, `AC-125`, `AC-127`, `AC-184`, `AC-185`, `AC-231`, `AC-300`..`AC-303`, `AC-366`..`AC-368` | `make frontend-typecheck`; `make frontend-unit` | `product_conformance` |
 | FE-U-P0-02 | Unit | Verify view-schema adapters key editable and queryable fields by `field_key`, not labels, indexes, or visible column order. | Core 01 Section 3.3.4; Core 03 Sections 4.1, 4.8 | `REQ-01-034`, `REQ-01-035`, `REQ-01-036`, `REQ-03-223`..`REQ-03-235` | `AC-124`, `AC-127`, `AC-184`, `AC-185`, `AC-231`, `AC-238`..`AC-243`, `AC-360`, `AC-363`, `AC-364`, `AC-366`..`AC-368`, `AC-372`..`AC-375` | `make frontend-unit` | `product_conformance` |
 | FE-U-P0-03 | Unit | Verify stable selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels. | Core 01 Section 7.4; Core 02 Section 5.3; development guide Section 6.4 | `REQ-01-307`..`REQ-01-311`, `REQ-02-222`, `REQ-02-223` | `AC-076`..`AC-084`, `AC-116`..`AC-122`, `AC-137`..`AC-145`, `AC-231`, `AC-252`, `AC-253`, `AC-277`, `AC-284`..`AC-287`, `AC-300`..`AC-303` | `make frontend-unit` | `product_conformance` |
@@ -246,7 +246,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.1 Phase FE-P1: App Shell And Session Bootstrap
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | `/apps/web` app bootstrap, server-managed session state, login/MFA/admin/incidents entry points, public error envelopes, and initial incident selection through `/api/v1/`. |
 | Primary owner sections | Core 01 Sections 2.2, 3.3.1, 3.3.2; Core 04 Sections 2, 3, 5; development guide Section 6.1. |
 | Frontend package or app surfaces | `/apps/web`, `/packages/protocol-ts`, `/packages/ui-contracts`, `/packages/test-utils`. |
@@ -256,7 +256,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Workbook shell layout, grid interaction, mutation replay, live collaboration, visual fixture matrix, and claim publication. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P1-01 | Unit | Verify app bootstrap state distinguishes unauthenticated, MFA-required, authenticated, forbidden, revoked, loading, and public error-envelope states. | Core 01 Sections 3.3.1, 3.3.2; Core 04 Sections 2, 3 | `REQ-01-023`..`REQ-01-031`, `REQ-01-522`..`REQ-01-526`, `REQ-04-001`..`REQ-04-017`, `REQ-04-083`, `REQ-04-084` | `AC-123`, `AC-130`, `AC-156`..`AC-163`, `AC-231`, `AC-334`..`AC-342` | `make frontend-unit` | `product_conformance` |
 | FE-I-P1-01 | Integration | Verify API client requests stay under `/api/v1/`, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors. | Core 01 Section 3.3.1; Core 04 Sections 2, 5 | `REQ-01-019`..`REQ-01-022`, `REQ-04-052`, `REQ-04-053`, `REQ-04-109` | `AC-124`..`AC-131`, `AC-135`, `AC-136`, `AC-219`, `AC-220`, `AC-231`, `AC-232`, `AC-234`, `AC-298` | `make frontend-unit` | `product_conformance` |
 | FE-E-P1-01 | E2E | Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior. | Core 01 Sections 3.3.1, 3.3.2; Core 04 Sections 2, 3 | `REQ-01-023`..`REQ-01-031`, `REQ-04-001`..`REQ-04-017`, `REQ-04-021`..`REQ-04-030`, `REQ-04-085`, `REQ-04-094`, `REQ-04-105`, `REQ-04-106` | `AC-123`, `AC-130`, `AC-149`, `AC-156`..`AC-163`, `AC-178`..`AC-180`, `AC-231`, `AC-254`, `AC-255`, `AC-257`, `AC-260`, `AC-261`, `AC-334`..`AC-342`, `AC-352`, `AC-370`, `AC-371`, `AC-402` | `make browser-e2e-webserver-backed` | `product_conformance` |
@@ -266,7 +266,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.2 Phase FE-P2: Workbook Shell And Startup Surface
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | One continuous workbook shell, built-in tabs, `System views`, current system-view title, saved-view selector, view bar, primary grid surface slot, inspector regions, status strip, presence summary slot, startup fallback, and focus behavior for the `System views` switcher. |
 | Primary owner sections | Core 03 Sections 1, 2, 3, 4.1; Core 01 Section 3.3.5.2; UI/UX guide Sections 5, 6, 7, 8, 9, 10; development guide Section 6.1. |
 | Frontend package or app surfaces | `/apps/web`, `/packages/ui-contracts`, `/packages/test-utils`, `/packages/ui` where reusable presentational components exist. |
@@ -276,7 +276,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | RDG adapter internals, inline edit, row mutation replay, evidence handle redemption, and same-field conflict resolver implementation. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P2-01 | Unit | Verify startup-surface resolution order: explicit launch surface, user preference, incident default, Timeline fallback, with invalid pointers clearing and falling through. | Core 03 Section 3; Core 01 Section 3.3.5.2 | `REQ-03-027`..`REQ-03-032`, `REQ-01-138`..`REQ-01-151` | `AC-146`..`AC-153`, `AC-231`, `AC-233` | `make frontend-unit` | `product_conformance` |
 | FE-U-P2-02 | Unit | Verify built-in tabs and required system-view groups are registered by stable surface IDs, not visible labels. | Core 03 Sections 2.1, 2.2; Core 01 Sections 7.4, 8.5 | `REQ-03-004`..`REQ-03-011`, `REQ-01-296`..`REQ-01-302`, `REQ-01-499`..`REQ-01-506` | `AC-078`, `AC-085`..`AC-090`, `AC-112`, `AC-116`..`AC-122`, `AC-231`, `AC-277`, `AC-281`..`AC-284`, `AC-300`..`AC-303`, `AC-318`, `AC-410`, `AC-411` | `make frontend-unit` | `product_conformance` |
 | FE-B-P2-01 | Browser integration | Verify continuous workbook shell composition: top bar, tab bar, `System views`, view bar, grid slot, inspector tabs, and status strip slots stay in one shell. | Core 03 Sections 1 and 2; UI/UX guide Sections 5, 6, 8, 9 | `REQ-03-001`..`REQ-03-011` | `AC-001`, `AC-002`, `AC-005`, `AC-043`, `AC-078`, `AC-085`..`AC-090`, `AC-112`, `AC-116`, `AC-121`, `AC-122`, `AC-231`, `AC-410`, `AC-411`; `R2-AC-017`..`R2-AC-026` | `make browser-e2e-webserver-backed` | `product_conformance` |
@@ -288,7 +288,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.3 Phase FE-P3: Grid Adapter And View-Schema Rendering
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | `/packages/grid-adapter` RDG containment, stylesheet ownership, `record_id` row identity, `field_key` cells, renderer/editor registry, sort/paste/fill/focus translation, group/tree/presentation rows, sparse patches, lifecycle cleanup, and imperative API containment. |
 | Primary owner sections | Core 01 Section 3.3.4; Core 03 Sections 4.1, 4.8, 4.13; development guide Sections 6.3, 6.7, 6.8, 6.9, 6.10; implementation guide Sections 14.7, 14.8, 14.9A; R09 research as rationale only. |
 | Frontend package or app surfaces | `/packages/grid-adapter`, `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/test-utils`, `/apps/web` adapter consumption. |
@@ -298,7 +298,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Timeline-specific mutation semantics, pending replay, same-field resolver UI, evidence handle redemption, and saved-view persistence. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P3-01 | Unit | Fail before mutation-capable rendering when data rows have missing or duplicate `record_id`; verify group/loading/spacer/presentation rows cannot emit write events. | Core 01 Section 3.3.4; Core 03 Sections 4.1, 4.8; development guide Sections 6.3 and 6.9 | `REQ-01-034`, `REQ-01-037`, `REQ-03-033`..`REQ-03-035`, `REQ-03-217`..`REQ-03-235` | `AC-009`, `AC-013`, `AC-014`, `AC-024`..`AC-026`, `AC-043`, `AC-047`, `AC-124`, `AC-184`, `AC-185`, `AC-231`, `AC-360`, `AC-363`, `AC-364` | `make frontend-unit` | `product_conformance` |
 | FE-U-P3-02 | Unit | Translate vendor row/column coordinates to `record_id + field_key` for edit, copy, paste, drag fill, selection, focus, and anchor assertions. | Core 01 Section 3.3.4; Core 03 Sections 4.1 and 4.13; development guide Sections 6.3 and 6.9 | `REQ-01-034`, `REQ-01-035`, `REQ-01-058`, `REQ-03-217`..`REQ-03-222`, `REQ-03-263`..`REQ-03-265` | `AC-003`, `AC-005`, `AC-009`, `AC-040`, `AC-043`, `AC-124`..`AC-127`, `AC-184`, `AC-185`, `AC-231`, `AC-354`, `AC-394`..`AC-396` | `make frontend-unit` | `product_conformance` |
 | FE-U-P3-03 | Unit | Verify editability derives from explicit editor adapters and contract writeability; `editable=true` alone never enters edit mode. | Core 01 Sections 3.3.4 and 7.4; Core 03 Section 4.1; development guide Sections 6.3 and 6.7 | `REQ-01-034`, `REQ-01-057`..`REQ-01-070`, `REQ-03-217`..`REQ-03-222` | `AC-003`, `AC-005`, `AC-040`, `AC-043`, `AC-124`..`AC-127`, `AC-181`..`AC-183`, `AC-188`..`AC-190`, `AC-200`..`AC-218`, `AC-221`..`AC-225`, `AC-231`, `AC-299`, `AC-354`, `AC-394`..`AC-396` | `make frontend-unit` | `product_conformance` |
@@ -312,7 +312,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.4 Phase FE-P4: Timeline Hot Path And Sync Engine
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | Timeline query, rough row creation, inline edit, paste, save state, pending queue, replay behavior, and public mutation route use. |
 | Primary owner sections | Core 01 Sections 3.3.4, 3.3.6; Core 02 Sections 2.3, 5.2; Core 03 Sections 4.1, 4.2, 4.7, 4.9; development guide Section 6.1. |
 | Frontend package or app surfaces | `/apps/web` sync engine and controllers, `/packages/grid-adapter`, `/packages/view-contracts`, `/packages/protocol-ts`, `/packages/test-utils`. |
@@ -322,7 +322,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Entity mention resolution, evidence handles, WebSocket live updates, same-field conflict resolver, saved-view persistence. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P4-01 | Unit | Verify sync-engine pending queue orders creates, patches, paste batches, retries, success, validation failures, and replay by stable mutation identifiers. | Core 01 Section 3.3.6; Core 03 Sections 4.1, 4.7 | `REQ-01-057`..`REQ-01-070`, `REQ-03-217`..`REQ-03-222`, `REQ-03-236`..`REQ-03-241` | `AC-003`, `AC-005`, `AC-040`, `AC-043`, `AC-119`, `AC-120`, `AC-124`..`AC-127`, `AC-181`..`AC-183`, `AC-188`..`AC-193`, `AC-200`..`AC-218`, `AC-221`..`AC-225`, `AC-231`, `AC-299`, `AC-354`, `AC-394`..`AC-396` | `make frontend-unit` | `product_conformance` |
 | FE-U-P4-02 | Unit | Verify save-state presentation derives one primary label and one same-surface secondary message from pending, saved, failed, and conflict states. | Core 03 Sections 4.1 and 4.4; UI/UX guide Sections 8 and 10 | `REQ-03-033`..`REQ-03-040`, `REQ-03-077`..`REQ-03-084` | `AC-009`, `AC-013`, `AC-040`, `AC-041`, `AC-047`, `AC-126`, `AC-163`, `AC-231`, `AC-381`; `R2-AC-023`..`R2-AC-026`, `R2-AC-045`..`R2-AC-050` | `make frontend-unit` | `product_conformance` |
 | FE-I-P4-01 | Integration | Verify Timeline query response rows render full `view_row_v1` cells and preserve row identity through create, patch, validation error, and refresh. | Core 01 Sections 3.3.4 and 3.3.6; Core 03 Section 4.7 | `REQ-01-034`..`REQ-01-036`, `REQ-01-057`..`REQ-01-070`, `REQ-03-236`..`REQ-03-241` | `AC-119`, `AC-120`, `AC-124`..`AC-127`, `AC-181`..`AC-183`, `AC-188`..`AC-193`, `AC-200`..`AC-218`, `AC-221`..`AC-225`, `AC-231`, `AC-238`..`AC-243`, `AC-299`, `AC-361`, `AC-366`, `AC-367`, `AC-372`..`AC-374` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `product_conformance` |
@@ -333,7 +333,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.5 Phase FE-P5: Entity And Mention Flows
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | Hosts, Identities, Notes, entity mention tokens, unresolved token, resolved chip, auto-resolved chip, dismissed mention, manual resolution, and mention provenance visibility. |
 | Primary owner sections | Core 01 Sections 3.3.4, 8.5; Core 02 Sections 2.4, 2.5, 3.1, 3.2; Core 03 Sections 4.3, 4.7, 4.11; UI/UX guide Section 10.3. |
 | Frontend package or app surfaces | `/apps/web`, `/packages/grid-adapter`, `/packages/view-contracts`, `/packages/protocol-ts`, `/packages/ui-contracts`. |
@@ -343,7 +343,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Evidence handle redemption, same-field conflict resolver, WebSocket presence, saved-view persistence, and coordination workbook surfaces beyond entity relationships. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P5-01 | Unit | Verify mention chip view models preserve unresolved, resolved, auto-resolved, dismissed, and manual-resolution state by stable identifiers and field keys. | Core 02 Sections 2.4 and 2.5; Core 03 Section 4.3 | `REQ-02-026`..`REQ-02-044`, `REQ-03-276`..`REQ-03-281` | `AC-006`, `AC-019`..`AC-023`, `AC-028`, `AC-029`, `AC-188`..`AC-190`, `AC-201`, `AC-205`, `AC-221`..`AC-225`, `AC-231`, `AC-388`..`AC-393` | `make frontend-unit` | `product_conformance` |
 | FE-I-P5-01 | Integration | Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh. | Core 01 Sections 3.3.4 and 8.5; Core 02 Sections 3.1 and 3.2; Core 03 Sections 4.7 and 4.11 | `REQ-01-034`..`REQ-01-036`, `REQ-01-303`..`REQ-01-311`, `REQ-02-054`..`REQ-02-061`, `REQ-03-242`..`REQ-03-249`, `REQ-03-272` | `AC-006`, `AC-020`, `AC-023`, `AC-045`, `AC-068`..`AC-075`, `AC-097`..`AC-100`, `AC-112`, `AC-116`..`AC-118`, `AC-124`, `AC-127`, `AC-184`..`AC-187`, `AC-196`, `AC-209`, `AC-210`, `AC-231`, `AC-278`, `AC-279`, `AC-300`..`AC-303`, `AC-315`, `AC-318`, `AC-366`..`AC-368`, `AC-396`, `AC-410`, `AC-411` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-E-P5-01 | E2E | Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows. | Core 01 Section 3.3.6; Core 02 Sections 2.4, 2.5, 3.1; Core 03 Section 4.3 | `REQ-01-057`..`REQ-01-070`, `REQ-02-026`..`REQ-02-044`, `REQ-02-054`..`REQ-02-061`, `REQ-03-276`..`REQ-03-281` | `AC-006`, `AC-019`..`AC-023`, `AC-028`, `AC-029`, `AC-124`..`AC-127`, `AC-181`..`AC-183`, `AC-186`..`AC-190`, `AC-200`..`AC-218`, `AC-221`..`AC-225`, `AC-231`, `AC-279`, `AC-299`, `AC-388`..`AC-393` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `product_conformance` |
@@ -353,7 +353,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.6 Phase FE-P6: Evidence Lifecycle
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | Evidence counts, requested/pending/available/blocked/inconsistent states, attach flow, preview handle, download handle, same-origin redemption, current authorization behavior, and blocked/error states. |
 | Primary owner sections | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 5.1; Core 03 Sections 4.11 and 4.12; Core 04 Sections 3, 5, 6; UI/UX guide Section 12. |
 | Frontend package or app surfaces | `/apps/web`, `/packages/protocol-ts`, `/packages/ui-contracts`, `/packages/test-utils`. |
@@ -363,7 +363,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | WebSocket live updates, same-field conflict resolver, saved-view persistence, full coordination surfaces. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P6-01 | Unit | Verify evidence state view models cover requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states. | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 5.1; Core 03 Sections 4.11 and 4.12 | `REQ-01-243`..`REQ-01-247`, `REQ-01-458`..`REQ-01-465`, `REQ-02-186`..`REQ-02-201`, `REQ-03-242`..`REQ-03-249`, `REQ-03-272` | `AC-015`, `AC-016`, `AC-053`, `AC-100`, `AC-102`, `AC-103`, `AC-107`..`AC-111`, `AC-128`, `AC-154`, `AC-155`, `AC-231`, `AC-251`..`AC-256`, `AC-278`, `AC-280`, `AC-313`, `AC-321`, `AC-322` | `make frontend-unit` | `product_conformance` |
 | FE-I-P6-01 | Integration | Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths. | Core 01 Sections 3.3.8 and 3.3.9; Core 04 Sections 5 and 6 | `REQ-01-243`..`REQ-01-247`, `REQ-01-458`..`REQ-01-465`, `REQ-04-048`, `REQ-04-052`, `REQ-04-053` | `AC-049`..`AC-055`, `AC-102`, `AC-103`, `AC-128`, `AC-130`, `AC-131`, `AC-154`, `AC-155`, `AC-231`, `AC-232`, `AC-234`, `AC-251`..`AC-256`, `AC-321`, `AC-322` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-E-P6-01 | E2E | Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles. | Core 01 Sections 3.3.8 and 3.3.9; Core 04 Sections 3, 5, 6 | `REQ-01-243`..`REQ-01-247`, `REQ-01-458`..`REQ-01-465`, `REQ-04-021`..`REQ-04-030`, `REQ-04-048`, `REQ-04-052`, `REQ-04-053`, `REQ-04-109` | `AC-049`..`AC-055`, `AC-102`, `AC-103`, `AC-128`, `AC-130`, `AC-131`, `AC-149`, `AC-154`, `AC-155`, `AC-178`..`AC-180`, `AC-231`, `AC-232`, `AC-234`, `AC-251`..`AC-257`, `AC-260`, `AC-261`, `AC-298`, `AC-321`, `AC-322`, `AC-340`..`AC-342`, `AC-352`, `AC-370`, `AC-371`, `AC-402` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `product_conformance` |
@@ -373,7 +373,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.7 Phase FE-P7: Live Collaboration And Conflicts
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | WebSocket stream handling, event reducer, presence anchoring, live row updates, reset handling, invalidate handling, stale-row requery, same-field conflict display, and resolver. |
 | Primary owner sections | Core 01 Section 3.3.10; Core 03 Sections 4.2, 4.4, 4.5, 4.6; Core 04 Sections 2, 5; UI/UX guide Sections 10.4 and 10.5. |
 | Frontend package or app surfaces | `/apps/web`, `/packages/grid-adapter`, `/packages/protocol-ts`, `/packages/ui-contracts`, `/packages/test-utils`. |
@@ -383,7 +383,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Saved-view persistence, inspector rollback, full coordination surfaces, claim publication. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P7-01 | Unit | Verify WebSocket reducer handles row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states. | Core 01 Section 3.3.10; Core 04 Sections 2 and 5 | `REQ-01-250`..`REQ-01-253`, `REQ-04-001`..`REQ-04-017`, `REQ-04-052`, `REQ-04-053`, `REQ-04-109` | `AC-129`, `AC-131`..`AC-136`, `AC-156`..`AC-163`, `AC-231`, `AC-232`, `AC-233`, `AC-234`, `AC-298`, `AC-334`..`AC-342` | `make frontend-unit` | `product_conformance` |
 | FE-U-P7-02 | Unit | Verify same-field conflict anchors, conflict queue, and resolver state use `record_id + field_key + base_row_version` rather than visible indexes. | Core 03 Sections 4.2, 4.4, 4.5, 4.6 | `REQ-03-033`..`REQ-03-084` | `AC-009`, `AC-013`, `AC-037`..`AC-042`, `AC-047`, `AC-126`, `AC-163`, `AC-203`, `AC-204`, `AC-226`..`AC-231`, `AC-381` | `make frontend-unit` | `product_conformance` |
 | FE-I-P7-01 | Integration | Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering. | Core 01 Section 3.3.6; Core 03 Sections 4.2 through 4.6 | `REQ-01-057`..`REQ-01-070`, `REQ-03-033`..`REQ-03-084` | `AC-009`, `AC-013`, `AC-037`..`AC-042`, `AC-047`, `AC-124`..`AC-127`, `AC-181`..`AC-183`, `AC-188`..`AC-190`, `AC-200`..`AC-218`, `AC-221`..`AC-231`, `AC-299`, `AC-381` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `product_conformance` |
@@ -394,7 +394,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.8 Phase FE-P8: Saved Views And Layout/Query Controls
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | Saved views, sorting, filtering, grouping, layout state, active chips, startup/default-surface UI, group/tree rows, and query-control persistence. |
 | Primary owner sections | Core 01 Sections 3.3.4 and 3.3.5.2; Core 03 Sections 3 and 4.8; UI/UX guide Sections 7, 10.5; development guide Sections 6.1 and 6.3. |
 | Frontend package or app surfaces | `/apps/web`, `/packages/grid-adapter`, `/packages/view-contracts`, `/packages/protocol-ts`, `/packages/ui-contracts`, `/packages/test-utils`. |
@@ -404,7 +404,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Timeline create/patch semantics beyond query state, evidence handle redemption, same-field conflict resolver internals, inspector rollback. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P8-01 | Unit | Compile sort, filter, group, layout, and active chips to owner query contracts using schema `field_key` and capability metadata. | Core 01 Section 3.3.4; Core 03 Section 4.8 | `REQ-01-035`, `REQ-01-038`..`REQ-01-047`, `REQ-03-223`..`REQ-03-235` | `AC-013`, `AC-014`, `AC-024`..`AC-026`, `AC-044`, `AC-047`, `AC-124`, `AC-127`, `AC-184`, `AC-185`, `AC-231`, `AC-238`..`AC-243`, `AC-359`..`AC-361`, `AC-363`, `AC-364`, `AC-372`..`AC-375`, `AC-387` | `make frontend-unit` | `product_conformance` |
 | FE-I-P8-01 | Integration | Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts. | Core 01 Section 3.3.5.2; Core 03 Section 3 | `REQ-01-138`..`REQ-01-151`, `REQ-03-012`..`REQ-03-032` | `AC-146`..`AC-153`, `AC-231`, `AC-233`, `AC-360` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-B-P8-01 | Browser integration | Verify browser command helpers for sort, filter, group, active chips, layout persistence, tree/group expand-collapse, and startup/default surface UI. | Core 03 Sections 3 and 4.8; implementation guide Section 14.9A | `REQ-03-012`..`REQ-03-032`, `REQ-03-223`..`REQ-03-235` | `AC-013`, `AC-014`, `AC-024`..`AC-026`, `AC-044`, `AC-047`, `AC-146`..`AC-153`, `AC-231`, `AC-233`, `AC-360`, `AC-363`, `AC-364` | `make browser-e2e-webserver-backed`; `make browser-e2e-support` | `product_conformance` |
@@ -415,7 +415,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.9 Phase FE-P9: Inspector And Row-Local Actions
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | Row-local inspector tabs for Details, Relationships, Evidence, History, rollback, and destructive actions. |
 | Primary owner sections | Core 01 Sections 3.3.4, 3.3.6, 3.3.7, 3.3.8; Core 02 Sections 5.1, 5.2, 5.4; Core 03 Sections 4.11 and 4.12; UI/UX guide Sections 9, 10, 12. |
 | Frontend package or app surfaces | `/apps/web`, `/packages/protocol-ts`, `/packages/ui-contracts`, `/packages/test-utils`, `/packages/ui` where reusable presentational components exist. |
@@ -425,7 +425,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Coordination workbook surfaces beyond relationships, WebSocket live updates, visual claim publication. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P9-01 | Unit | Verify inspector selection, tab state, details, relationships, evidence, and history anchors are `record_id` based and survive row refresh. | Core 01 Sections 3.3.4, 3.3.7, 3.3.8; Core 03 Sections 4.11 and 4.12 | `REQ-01-034`..`REQ-01-036`, `REQ-01-048`..`REQ-01-056`, `REQ-01-243`..`REQ-01-247`, `REQ-03-242`..`REQ-03-249`, `REQ-03-272` | `AC-006`, `AC-015`, `AC-020`, `AC-023`, `AC-045`, `AC-072`..`AC-075`, `AC-097`..`AC-100`, `AC-102`, `AC-103`, `AC-107`..`AC-111`, `AC-124`, `AC-127`, `AC-154`, `AC-155`, `AC-184`, `AC-185`, `AC-209`, `AC-210`, `AC-231`, `AC-278`..`AC-280`, `AC-313`, `AC-315`, `AC-318`, `AC-321`, `AC-366`, `AC-367`, `AC-372`..`AC-374` | `make frontend-unit` | `product_conformance` |
 | FE-I-P9-01 | Integration | Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes. | Core 01 Section 3.3.7; Core 02 Section 5.2; Core 03 Section 4.12 | `REQ-01-048`..`REQ-01-056`, `REQ-01-089`..`REQ-01-108`, `REQ-02-205`..`REQ-02-218`, `REQ-02-238`..`REQ-02-242` | `AC-107`..`AC-111`, `AC-124`..`AC-128`, `AC-154`, `AC-155`, `AC-215`..`AC-218`, `AC-231`, `AC-383`..`AC-386`, `AC-412` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-E-P9-01 | E2E | Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes. | Core 01 Sections 3.3.6, 3.3.7, 3.3.8; Core 02 Sections 5.1 and 5.2; Core 04 Sections 3 and 5 | `REQ-01-057`..`REQ-01-070`, `REQ-01-089`..`REQ-01-108`, `REQ-01-243`..`REQ-01-247`, `REQ-02-186`..`REQ-02-201`, `REQ-02-205`..`REQ-02-218`, `REQ-04-021`..`REQ-04-030`, `REQ-04-052`, `REQ-04-053` | `AC-049`..`AC-055`, `AC-102`, `AC-103`, `AC-107`..`AC-111`, `AC-124`..`AC-128`, `AC-149`, `AC-154`, `AC-155`, `AC-178`..`AC-180`, `AC-181`..`AC-183`, `AC-188`..`AC-190`, `AC-200`..`AC-218`, `AC-221`..`AC-225`, `AC-231`, `AC-232`, `AC-234`, `AC-251`..`AC-257`, `AC-260`, `AC-261`, `AC-278`, `AC-280`, `AC-299`, `AC-313`, `AC-321`, `AC-340`..`AC-342`, `AC-352`, `AC-370`, `AC-371`, `AC-402` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `product_conformance` |
@@ -435,7 +435,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.10 Phase FE-P10: Remaining Workbook Surfaces And Keyboard Completion
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, Lesson, full keyboard contract, clipboard behavior, drag fill, column resize, frozen columns, virtual scroll, tree/group rows, focus restoration, and `Esc` behavior. |
 | Primary owner sections | Core 01 Sections 8.5 and Appendix F; Core 02 Sections 5.3 and 5.4; Core 03 Sections 2.2, 4.1, 4.8, 4.9, 4.10, 4.13; UI/UX guide Sections 6, 10, 11, 13, 14. |
 | Frontend package or app surfaces | `/apps/web`, `/packages/grid-adapter`, `/packages/view-contracts`, `/packages/protocol-ts`, `/packages/ui-contracts`, `/packages/test-utils`. |
@@ -445,7 +445,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | New behavior for route semantics, security policy, claim publication, or package ownership changes. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P10-01 | Unit | Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata. | Core 01 Section 8.5; Core 02 Sections 5.3 and 5.4; Core 03 Sections 2.2, 4.9, 4.10, 4.13 | `REQ-01-296`..`REQ-01-302`, `REQ-01-499`..`REQ-01-509`, `REQ-02-222`..`REQ-02-232`, `REQ-03-005`..`REQ-03-011`, `REQ-03-250`..`REQ-03-260`, `REQ-03-265`..`REQ-03-274` | `AC-076`..`AC-090`, `AC-116`..`AC-122`, `AC-137`..`AC-145`, `AC-231`, `AC-252`, `AC-253`, `AC-277`..`AC-287`, `AC-300`..`AC-303`, `AC-315`, `AC-318`, `AC-319`, `AC-410`, `AC-411` | `make frontend-unit` | `product_conformance` |
 | FE-B-P10-01 | Browser integration | Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls. | Core 03 Sections 2.2, 4.9, 4.10; UI/UX guide Sections 6 and 11 | `REQ-03-005`..`REQ-03-011`, `REQ-03-250`..`REQ-03-260`, `REQ-03-273` | `AC-078`, `AC-080`..`AC-090`, `AC-121`, `AC-122`, `AC-137`..`AC-145`, `AC-231`, `AC-277`..`AC-287`, `AC-315`, `AC-319`, `AC-410`, `AC-411`; `R2-AC-055`..`R2-AC-058` | `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-B-P10-02 | Browser integration | Verify full keyboard/clipboard contract: copy, paste, drag fill, column resize, frozen columns, virtual scroll, tree/group rows, focus restoration, and `Esc` priority ladder. | Core 03 Sections 4.1, 4.8, 4.13; UI/UX guide Sections 10 and 14 | `REQ-03-217`..`REQ-03-235`, `REQ-03-263`..`REQ-03-265` | `AC-003`, `AC-005`, `AC-013`, `AC-014`, `AC-024`..`AC-026`, `AC-040`, `AC-043`, `AC-044`, `AC-047`, `AC-231`, `AC-354`, `AC-360`, `AC-363`, `AC-364`, `AC-394`..`AC-396`; `R2-AC-033`..`R2-AC-039`, `R2-AC-080`..`R2-AC-086` | `make browser-e2e-support`; `make browser-e2e-webserver-backed` | `product_conformance` |
@@ -456,7 +456,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 ### 4.11 Phase FE-P11: Visual, Accessibility, And Readiness Gates
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Scope | Visual fixture matrix, accessibility coverage, density/theme/typography/status patterns, command-surface integration, measurement support separation, Core 05 publication boundary, and readiness gate composition. |
 | Primary owner sections | Core 00 Section 1; Core 05 Sections 1 through 4; UI/UX guide Sections 13 and 14; `docs/design.md`; visual golden guide Sections 2 through 6; implementation guide Sections 15 and 16; development guide Section 7. |
 | Frontend package or app surfaces | `/apps/web/e2e`, `/packages/test-utils`, `/packages/ui-contracts`, root Make surface and task manifests. |
@@ -466,7 +466,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | Out of scope | Creating new product behavior, changing owner specs, or publishing benchmark/fixture-sensitive claims without Core 05 evidence. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-V-P11-01 | Visual regression | Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior. | Visual golden guide Sections 2, 3, 4, 5; UI/UX guide Section 13 | `N/A: implementation_support; Core owner not claimed` | `R2-AC-073`..`R2-AC-079`, `D-AC-001`..`D-AC-006`, `D-AC-010`, `D-AC-011` | `make browser-e2e-visual` | `implementation_support` |
 | FE-V-P11-02 | Visual regression | Ensure the visual fixture matrix includes default grid shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, drag-fill handle, edit cell, tree/group row, exposed theme states, and empty successful query. | Visual golden guide Sections 2, 3, 5; UI/UX guide Sections 10 through 13 | `N/A: implementation_support; Core owner not claimed` | `R2-AC-040`..`R2-AC-062`, `R2-AC-073`..`R2-AC-079`, `R2-RDG-AC-001`..`R2-RDG-AC-010` | `make browser-e2e-visual`; `TODO: add missing fixtures to apps/web/e2e/workbook.visual.spec.ts where absent` | `implementation_support` |
 | FE-A11Y-P11-01 | Accessibility | Verify global accessibility matrix for keyboard access, visible focus, `System views`, grid navigation/edit entry/exit, `Esc`, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states. | UI/UX guide Section 14; `docs/design.md` Accessibility Direction | `N/A: design_direction; Core owner not claimed` | `R2-AC-080`..`R2-AC-086`, `D-AC-009`, `D-AC-012` | `make browser-e2e-a11y` | `design_direction` |
@@ -479,7 +479,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 Shared harnesses apply across every phase that introduces or changes the covered surface. A phase must not be marked complete until each triggered harness has run in the intended layer or is explicitly marked TODO and excluded from authoritative completion.
 
 | Harness ID | Harness | Applies to phases | Owner basis | Repository target or TODO | Completion rule |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | FE-H-01 | Contract-derived view-schema and field-key mapping | P0, P2 through P10 | Core 01 Section 3.3.4; Core 03 Sections 4.1 and 4.8 | `make frontend-unit`; `make frontend-typecheck` | Every queryable/editable field maps by `field_key`; labels and visible indexes are never authoritative. |
 | FE-H-02 | Grid-adapter identity and capability invariants | P0, P3 through P10 | Core 01 Section 3.3.4; Core 03 Sections 4.1, 4.8, 4.13; development guide Section 6.3 | `make frontend-unit`; `make browser-e2e-support` | Row identity is `record_id`; cell identity is `field_key`; presentation rows cannot write; writeability requires explicit editor adapter and contract capability. |
 | FE-H-03 | Renderer/editor registry behavior and lifecycle cleanup | P3 through P10 | Development guide Sections 6.7, 6.9, 6.10; R09 rationale | `make frontend-unit`; `make browser-e2e-support` | Registry precedence is deterministic; cleanup removes stale subscriptions, portals, observers, timers, and row references. |
@@ -503,7 +503,7 @@ Shared harnesses apply across every phase that introduces or changes the covered
 The visual harness must maintain one owned-stack Playwright screenshot suite unless a newer adopted harness source changes that boundary. The current suite location is `apps/web/e2e/workbook.visual.spec.ts`; the current target is `make browser-e2e-visual`.
 
 | Fixture ID | Fixture | Phase owners | Current target |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | FE-VFIX-01 | Default grid shell | P2 | `make browser-e2e-visual` |
 | FE-VFIX-02 | Unresolved and resolved entity state | P5 | `make browser-e2e-visual`; `TODO: add missing fixture where absent` |
 | FE-VFIX-03 | Same-field conflict | P7 | `make browser-e2e-visual`; `TODO: add missing fixture where absent` |
@@ -598,7 +598,7 @@ Frontend drift coverage MUST fail when a frontend map is missing, a generated fr
 Frontend readiness evidence MUST NOT activate Core 05 by default. Release-support metadata MAY declare `claim_publication_intent` with exactly one of these values:
 
 | Value | Meaning | Default |
-|---|---|---|
+| --- | --- | --- |
 | `none` | No timed, benchmark, fixture-sensitive, visual, accessibility, or measurement evidence is being published as a claim. | yes |
 | `informative_engineering_measurement` | Measurement evidence is retained for engineering analysis only and is not claim-bearing publication. | no |
 | `claim_bearing_publication` | Evidence is intended to support a public timed, benchmark, fixture-sensitive, or measurement claim. | no |
@@ -606,7 +606,7 @@ Frontend readiness evidence MUST NOT activate Core 05 by default. Release-suppor
 When `claim_publication_intent="none"`, no Core 05 gate MUST run. When `claim_publication_intent="informative_engineering_measurement"`, measurement artifacts MAY be retained but MUST NOT be treated as claim-bearing evidence. When `claim_publication_intent="claim_bearing_publication"`, release validation MUST require:
 
 | Field | Requirement |
-|---|---|
+| --- | --- |
 | `claim_text` | Exact public claim text. |
 | `criterion_ids[]` | Criteria the claim purports to satisfy. |
 | `measurement_predicate_ids[]` | Core 05 measurement predicates used by the claim. |
@@ -622,7 +622,7 @@ When `claim_publication_intent="none"`, no Core 05 gate MUST run. When `claim_pu
 This guide is complete enough for frontend implementation planning when all criteria are true:
 
 | ID | Acceptance criterion |
-|---|---|
+| --- | --- |
 | FE-GUIDE-AC-001 | The guide states that Core 00 through Core 04 remain implementation-conformance authority and that this guide is not a behavior owner. |
 | FE-GUIDE-AC-002 | The guide states that Core 05 governs only claim-bearing timed or fixture-sensitive publication. |
 | FE-GUIDE-AC-003 | The guide states that UI/UX guide and `docs/design.md` language is design-direction evidence only. |
