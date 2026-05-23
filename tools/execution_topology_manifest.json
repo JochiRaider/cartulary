@@ -4264,7 +4264,7 @@
           "scripts/print-target-plan.mjs"
         ],
         "output_policy": {
-          "output_class": "machine_stdout",
+          "output_class": "machine_stdout_json",
           "artifact_policy": "none",
           "success_budget": {
             "stdout_lines": 10000,
@@ -6316,7 +6316,7 @@
       {
         "name": "lint",
         "output_policy": {
-          "output_class": "summary_with_artifacts",
+          "output_class": "aggregate_summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
           "success_budget": {
             "stdout_lines": 2,
@@ -6914,7 +6914,7 @@
       {
         "name": "build",
         "output_policy": {
-          "output_class": "summary_with_artifacts",
+          "output_class": "aggregate_summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
           "success_budget": {
             "stdout_lines": 2,

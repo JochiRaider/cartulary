@@ -42,7 +42,7 @@ export const outputModes = Object.freeze([
 const outputModeSet = new Set(outputModes);
 const machineAcceptedOutputClasses = new Set([
   "aggregate_summary_with_artifacts",
-  "machine_stdout",
+  "machine_stdout_json",
   "scheduler_summary_with_artifacts",
   "service_summary",
   "summary_with_artifacts",

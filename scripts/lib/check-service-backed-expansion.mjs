@@ -464,6 +464,7 @@ export function expandServiceBackedSchedule({
         retained_resource_claims: retainedClaims,
         browser_stage: source.browser_stage,
         command: command("browser_stage_session_start", {
+          service_target: scheduleTarget,
           browser_stage: source.browser_stage,
         }),
         order: sourceIndex,
@@ -486,6 +487,7 @@ export function expandServiceBackedSchedule({
         release_retained_resource_claims: retainedClaims,
         browser_stage: source.browser_stage,
         command: command("browser_stage_complete", {
+          service_target: scheduleTarget,
           browser_stage: source.browser_stage,
         }),
         order: sourceIndex,
@@ -508,6 +510,7 @@ export function expandServiceBackedSchedule({
           browser_group: clone(group),
           env: browserGroupWorkerEnv(source.groups, group),
           command: command("browser_group", {
+            service_target: scheduleTarget,
             browser_stage: source.browser_stage,
             group_id: group.id,
           }),
@@ -562,7 +565,10 @@ export function expandServiceBackedSchedule({
       resource_claims: {},
       shard_names: shards.map((shard) => shard.name),
       unblock_label: source.target,
-      command: command("go_shard_finalize", { target: source.target }),
+      command: command("go_shard_finalize", {
+        target: source.target,
+        service_target: scheduleTarget,
+      }),
       order: sourceIndex,
     });
     for (const shard of shards) {
@@ -589,6 +595,7 @@ export function expandServiceBackedSchedule({
         command: command("go_shard", {
           target: source.target,
           shard: shard.name,
+          service_target: scheduleTarget,
         }),
         order: sourceIndex,
       };

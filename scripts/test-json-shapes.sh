@@ -575,6 +575,18 @@ const mutations = {
       "not-safe": "1",
     };
   },
+  "check-schedule-command-missing-required": (fixture) => {
+    delete fixture.schedules[0].work_units[0].command.target;
+  },
+  "check-schedule-command-forbidden-field": (fixture) => {
+    fixture.schedules[0].work_units[0].command.shard = "backend-store-shard-01";
+  },
+  "check-schedule-command-unknown-type": (fixture) => {
+    fixture.schedules[0].work_units[0].command.type = "legacy_command";
+  },
+  "check-schedule-command-wrong-field-type": (fixture) => {
+    fixture.schedules[0].work_units[0].command.target = 123;
+  },
   "service-backed-unknown-source-key": (fixture) => {
     fixture.schedules[0].work_units[0].legacy_key = true;
   },
@@ -729,6 +741,30 @@ write_valid_check_schedule "$invalid_check_env"
 mutate_json_fixture check-schedule-invalid-env-name "$invalid_check_env"
 invalid_check_env_output="$(assert_fails "invalid scheduler env name" run_shape_check scheduler-manifest "$invalid_check_env")"
 assert_contains "$invalid_check_env_output" "env key has invalid value" "invalid check schedule env name"
+
+missing_command_required="$tmp_dir/check_schedule_command_missing_required.json"
+write_valid_check_schedule "$missing_command_required"
+mutate_json_fixture check-schedule-command-missing-required "$missing_command_required"
+missing_command_required_output="$(assert_fails "missing scheduler command required field" run_shape_check scheduler-manifest "$missing_command_required")"
+assert_contains "$missing_command_required_output" "command.target must be a non-empty string" "missing scheduler command required field"
+
+forbidden_command_field="$tmp_dir/check_schedule_command_forbidden_field.json"
+write_valid_check_schedule "$forbidden_command_field"
+mutate_json_fixture check-schedule-command-forbidden-field "$forbidden_command_field"
+forbidden_command_field_output="$(assert_fails "forbidden scheduler command field" run_shape_check scheduler-manifest "$forbidden_command_field")"
+assert_contains "$forbidden_command_field_output" "command has unknown key shard" "forbidden scheduler command field"
+
+unknown_command_type="$tmp_dir/check_schedule_command_unknown_type.json"
+write_valid_check_schedule "$unknown_command_type"
+mutate_json_fixture check-schedule-command-unknown-type "$unknown_command_type"
+unknown_command_type_output="$(assert_fails "unknown scheduler command type" run_shape_check scheduler-manifest "$unknown_command_type")"
+assert_contains "$unknown_command_type_output" "command.type must be one of" "unknown scheduler command type"
+
+wrong_command_field_type="$tmp_dir/check_schedule_command_wrong_field_type.json"
+write_valid_check_schedule "$wrong_command_field_type"
+mutate_json_fixture check-schedule-command-wrong-field-type "$wrong_command_field_type"
+wrong_command_field_type_output="$(assert_fails "wrong scheduler command field type" run_shape_check scheduler-manifest "$wrong_command_field_type")"
+assert_contains "$wrong_command_field_type_output" "command.target must be a non-empty string" "wrong scheduler command field type"
 
 service_backed_schedule="$tmp_dir/service_backed_schedule.json"
 write_valid_service_backed_schedule "$service_backed_schedule"

@@ -1,7 +1,7 @@
 # Cartulary Visual Golden Maintenance Guide
 
 **Status**: Implementation-support guide
-**Authority**: Core 00-04 own product behavior. `docs/testing-harness-nlspec.md` owns harness conformance when adopted. This guide does not promote visual snapshot refresh into current harness conformance.
+**Authority**: Core 00-04 own product behavior. The adopted testing harness NLSpec owns harness conformance. This guide does not promote visual snapshot refresh into current harness conformance.
 
 ## Purpose
 

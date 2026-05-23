@@ -1348,7 +1348,8 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-04-106 | Core 04 §2 Authorization model | base | AC-402 |
 | REQ-04-107 | Core 04 §12.3.3 Backup storage binding | base | AC-403 |
 | REQ-04-108 | Core 04 §12.3.3 Backup storage binding | base | AC-403 |
-| REQ-04-109 | Core 04 §12.3 Key registry and binding model | base | AC-131, AC-294, AC-298 |
+| REQ-04-109 | Core 04 §4 Trust boundaries | base | AC-413 |
+| REQ-04-110 | Core 04 §12.3 Key registry and binding model | base | AC-131, AC-294, AC-298 |
 | REQ-05-001 | Core 05 §1 Scope and separation | claim_publication | PC-006 |
 | REQ-05-002 | Core 05 §1 Scope and separation | claim_publication | PC-006 |
 | REQ-05-003 | Core 05 §1 Scope and separation | claim_publication | PC-001, PC-002, PC-006 |
@@ -1497,7 +1498,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-128 | REQ-00-014, REQ-01-019, REQ-01-243..REQ-01-247, REQ-01-328, REQ-01-355..REQ-01-366, REQ-02-186..REQ-02-204, REQ-03-116..REQ-03-119, REQ-03-121..REQ-03-128, REQ-04-048 |
 | AC-129 | REQ-00-014, REQ-01-018..REQ-01-019, REQ-01-248..REQ-01-277, REQ-01-452..REQ-01-454, REQ-03-092..REQ-03-098 |
 | AC-130 | REQ-01-023..REQ-01-031, REQ-01-154, REQ-04-001..REQ-04-004, REQ-04-052..REQ-04-053 |
-| AC-131 | REQ-01-019..REQ-01-022, REQ-01-250..REQ-01-277, REQ-03-092..REQ-03-098, REQ-04-005..REQ-04-017, REQ-04-052..REQ-04-053 |
+| AC-131 | REQ-01-019..REQ-01-022, REQ-01-250..REQ-01-277, REQ-03-092..REQ-03-098, REQ-04-005..REQ-04-017, REQ-04-052..REQ-04-053, REQ-04-110 |
 | AC-132 | REQ-01-250..REQ-01-277, REQ-03-090..REQ-03-098 |
 | AC-133 | REQ-01-250..REQ-01-277, REQ-03-092..REQ-03-098 |
 | AC-134 | REQ-01-250..REQ-01-277, REQ-03-092..REQ-03-098 |
@@ -1664,11 +1665,11 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-350 | REQ-01-513..REQ-01-514, REQ-01-539..REQ-01-541, REQ-02-234..REQ-02-235, REQ-04-020, REQ-04-095 |
 | AC-351 | REQ-01-116, REQ-01-234, REQ-01-238, REQ-01-540..REQ-01-541, REQ-02-234..REQ-02-237, REQ-04-095 |
 | AC-352 | REQ-01-537..REQ-01-541, REQ-02-236, REQ-04-093..REQ-04-096 |
-| AC-294 | REQ-01-455, REQ-04-058, REQ-04-066..REQ-04-071, REQ-04-077 |
+| AC-294 | REQ-01-455, REQ-04-058, REQ-04-066..REQ-04-071, REQ-04-077, REQ-04-110 |
 | AC-295 | REQ-01-455, REQ-04-058, REQ-04-069, REQ-04-071..REQ-04-073, REQ-04-077 |
 | AC-296 | REQ-01-456, REQ-04-059, REQ-04-074..REQ-04-075, REQ-04-077 |
 | AC-297 | REQ-01-455, REQ-04-058, REQ-04-067, REQ-04-069, REQ-04-071..REQ-04-076 |
-| AC-298 | REQ-04-066, REQ-04-077..REQ-04-078 |
+| AC-298 | REQ-04-066, REQ-04-077..REQ-04-078, REQ-04-110 |
 | AC-299 | REQ-01-058, REQ-01-063, REQ-01-069..REQ-01-070 |
 | AC-300 | REQ-01-310, REQ-01-312, REQ-01-328, REQ-01-332, REQ-01-336, REQ-01-339, REQ-01-487..REQ-01-488, REQ-01-503..REQ-01-506 |
 | AC-301 | REQ-01-310, REQ-01-312, REQ-01-328, REQ-01-336, REQ-01-488, REQ-01-503..REQ-01-505 |

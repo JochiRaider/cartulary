@@ -68,7 +68,7 @@ const validOutputClasses = new Set([
   "destructive_human",
   "human_summary",
   "interactive_raw",
-  "machine_stdout",
+  "machine_stdout_json",
   "scheduler_summary_with_artifacts",
   "service_summary",
   "summary_with_artifacts",
@@ -147,7 +147,7 @@ const artifactPolicyNoneOutputClasses = new Set([
   "destructive_human",
   "human_summary",
   "interactive_raw",
-  "machine_stdout",
+  "machine_stdout_json",
 ]);
 const makeRecipeValidators = Object.freeze({
   alias: validateAliasRecipe,

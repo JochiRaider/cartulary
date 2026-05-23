@@ -95,24 +95,97 @@
           "additionalProperties": { "type": "string" }
         },
         "command": {
-          "type": "object",
-          "required": ["type"],
-          "properties": {
-            "type": {
-              "enum": [
-                "make_target",
-                "service_session_start",
-                "browser_stage_session_start",
-                "browser_group",
-                "browser_stage_complete",
-                "go_shard",
-                "go_shard_finalize",
-                "service_complete"
-              ]
-            }
-          },
-          "additionalProperties": true
+          "oneOf": [
+            { "$ref": "#/$defs/command_make_target" },
+            { "$ref": "#/$defs/command_service_session_start" },
+            { "$ref": "#/$defs/command_browser_stage_session_start" },
+            { "$ref": "#/$defs/command_browser_group" },
+            { "$ref": "#/$defs/command_browser_stage_complete" },
+            { "$ref": "#/$defs/command_go_shard" },
+            { "$ref": "#/$defs/command_go_shard_finalize" },
+            { "$ref": "#/$defs/command_service_complete" }
+          ]
         }
+      }
+    },
+    "command_make_target": {
+      "type": "object",
+      "required": ["type", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "make_target" },
+        "target": { "type": "string", "minLength": 1 },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_service_session_start": {
+      "type": "object",
+      "required": ["type", "service_target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "service_session_start" },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_browser_stage_session_start": {
+      "type": "object",
+      "required": ["type", "service_target", "browser_stage"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "browser_stage_session_start" },
+        "service_target": { "type": "string", "minLength": 1 },
+        "browser_stage": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_browser_group": {
+      "type": "object",
+      "required": ["type", "service_target", "browser_stage", "group_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "browser_group" },
+        "service_target": { "type": "string", "minLength": 1 },
+        "browser_stage": { "type": "string", "minLength": 1 },
+        "group_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_browser_stage_complete": {
+      "type": "object",
+      "required": ["type", "service_target", "browser_stage"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "browser_stage_complete" },
+        "service_target": { "type": "string", "minLength": 1 },
+        "browser_stage": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_go_shard": {
+      "type": "object",
+      "required": ["type", "target", "shard", "service_target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "go_shard" },
+        "target": { "type": "string", "minLength": 1 },
+        "shard": { "type": "string", "minLength": 1 },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_go_shard_finalize": {
+      "type": "object",
+      "required": ["type", "target", "service_target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "go_shard_finalize" },
+        "target": { "type": "string", "minLength": 1 },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_service_complete": {
+      "type": "object",
+      "required": ["type", "service_target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "service_complete" },
+        "service_target": { "type": "string", "minLength": 1 }
       }
     }
   }

@@ -14,16 +14,15 @@
 
 Use this authority order for frontend implementation planning:
 
-1. Future adopted Cartulary NLSpecs, when present and explicitly adopted in the repository.
+1. Adopted Cartulary NLSpecs explicitly adopted in the repository, including `docs/testing-harness-nlspec.md` for harness mechanics only.
 2. Cartulary Core 00 through Core 04 for implementation-conformance behavior.
 3. Core 05 only for claim-bearing timed or fixture-sensitive publication boundaries.
 4. `docs/domain.md` for vocabulary and domain-boundary interpretation.
 5. `docs/guides/cartulary_implementation_testing_guide.md` as the structural model for sequencing, test-row mapping, shared harnesses, completion rules, and coverage-ledger shape.
 6. `docs/guides/cartulary-dev-guide.md` for repo-local frontend package boundaries, dependency boundaries, generated-artifact policy, Make targets, workspace shape, and frontend implementation baseline.
 7. `docs/guides/cartulary-ui-ux-design-guide.md` and `docs/design.md` for design-direction constraints, shell composition, density, visual language, accessibility posture, and UI acceptance criteria.
-8. `docs/testing-harness-nlspec.md` as draft/proposed harness guidance only.
-9. `docs/guides/cartulary_visual_golden_maintenance.md` for visual-regression maintenance procedure.
-10. Research reports only as rationale or risk evidence.
+8. `docs/guides/cartulary_visual_golden_maintenance.md` for visual-regression maintenance procedure.
+9. Research reports only as rationale or risk evidence.
 
 When sources differ, follow this hierarchy. When two owner sections appear to conflict, record the contradiction as a corpus defect and do not pick a side. When an owner reference cannot be located, write `TODO: owner lookup required` and exclude the affected row from authoritative completion until resolved.
 
@@ -53,12 +52,11 @@ Core 05 does not expand frontend conformance. It applies when visual, timing, be
 
 `docs/guides/cartulary-ui-ux-design-guide.md` and `docs/design.md` supply design-direction evidence for reviewer discipline, shell composition, density, typography, status patterns, visual affordances, and accessibility posture. Those documents do not create product-conformance behavior unless the same behavior is owned by Core 00 through Core 04 or by an adopted NLSpec.
 
-`docs/guides/cartulary_visual_golden_maintenance.md` supplies the visual-regression maintenance procedure and the current Playwright golden target. `docs/testing-harness-nlspec.md` is draft/proposed; it may guide future harness mechanics, but it must not be treated as adopted authority.
+`docs/guides/cartulary_visual_golden_maintenance.md` supplies the visual-regression maintenance procedure and the current Playwright golden target. The adopted `docs/testing-harness-nlspec.md` owns harness mechanics, but it does not define Core product behavior or Core 05 claim-publication evidence.
 
 ### 1.6 Source limits discovered during local inspection
 
-- No future adopted Cartulary NLSpec was found during local inspection.
-- `docs/testing-harness-nlspec.md` is marked draft/proposed, so it is guidance only.
+- `docs/testing-harness-nlspec.md` is adopted current authority for harness mechanics only.
 - Frontend-local phase readiness MUST use `tools/frontend_phase_registry.json`, `tools/frontend_phase_maps/fe_p0_test_map.json` through `tools/frontend_phase_maps/fe_p11_test_map.json`, and generated ledgers under `docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md` through `docs/testing/frontend_phase_coverage_ledgers/fe_p11_coverage_ledger.md`. Rows remain blocked from frontend phase completion until the registry, maps, ledgers, and drift checks agree.
 - Frontend accessibility readiness MUST use `make browser-e2e-a11y` and the retained `cartulary.frontend_accessibility_summary.v1` artifact. Accessibility rows remain blocked from frontend phase completion until the target exists, emits the summary artifact, and maps every `FE-A11Y-*` row to an executed scenario.
 - `/packages/ui` is reserved but currently has no source package beyond the reserved directory.
@@ -170,7 +168,7 @@ Accessibility rows verify keyboard access, visible focus, accessible state commu
 
 The target MUST retain exactly one normalized accessibility evidence artifact named `frontend-accessibility-summary.json` with `schema_id="cartulary.frontend_accessibility_summary.v1"`. Raw Playwright output, DOM snapshots, screenshots, traces, and rule-engine output are diagnostic inputs; they MUST NOT replace the normalized summary artifact.
 
-`cartulary.frontend_accessibility_summary.v1` MUST include these arrays:
+The testing harness NLSpec owns `make browser-e2e-a11y` target mechanics and the normalized `cartulary.frontend_accessibility_summary.v1` schema. This guide maps frontend phase rows to that target; it MUST NOT define an incompatible schema shape. As a derived restatement, the current harness schema includes these arrays:
 
 | Field | Required content |
 | --- | --- |
@@ -258,7 +256,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P1-01 | Unit | Verify app bootstrap state distinguishes unauthenticated, MFA-required, authenticated, forbidden, revoked, loading, and public error-envelope states. | Core 01 Sections 3.3.1, 3.3.2; Core 04 Sections 2, 3 | `REQ-01-023`..`REQ-01-031`, `REQ-01-522`..`REQ-01-526`, `REQ-04-001`..`REQ-04-017`, `REQ-04-083`, `REQ-04-084` | `AC-123`, `AC-130`, `AC-156`..`AC-163`, `AC-231`, `AC-334`..`AC-342` | `make frontend-unit` | `product_conformance` |
-| FE-I-P1-01 | Integration | Verify API client requests stay under `/api/v1/`, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors. | Core 01 Section 3.3.1; Core 04 Sections 2, 5 | `REQ-01-019`..`REQ-01-022`, `REQ-04-052`, `REQ-04-053`, `REQ-04-109` | `AC-124`..`AC-131`, `AC-135`, `AC-136`, `AC-219`, `AC-220`, `AC-231`, `AC-232`, `AC-234`, `AC-298` | `make frontend-unit` | `product_conformance` |
+| FE-I-P1-01 | Integration | Verify API client requests stay under `/api/v1/`, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors. | Core 01 Section 3.3.1; Core 04 Sections 2, 5 | `REQ-01-019`..`REQ-01-022`, `REQ-04-052`, `REQ-04-053`, `REQ-04-110` | `AC-124`..`AC-131`, `AC-135`, `AC-136`, `AC-219`, `AC-220`, `AC-231`, `AC-232`, `AC-234`, `AC-298` | `make frontend-unit` | `product_conformance` |
 | FE-E-P1-01 | E2E | Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior. | Core 01 Sections 3.3.1, 3.3.2; Core 04 Sections 2, 3 | `REQ-01-023`..`REQ-01-031`, `REQ-04-001`..`REQ-04-017`, `REQ-04-021`..`REQ-04-030`, `REQ-04-085`, `REQ-04-094`, `REQ-04-105`, `REQ-04-106` | `AC-123`, `AC-130`, `AC-149`, `AC-156`..`AC-163`, `AC-178`..`AC-180`, `AC-231`, `AC-254`, `AC-255`, `AC-257`, `AC-260`, `AC-261`, `AC-334`..`AC-342`, `AC-352`, `AC-370`, `AC-371`, `AC-402` | `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-A11Y-P1-01 | Accessibility | Verify session, MFA, incident, forbidden, loading, and error states have keyboard-reachable controls, visible focus, and screen-reader-safe labels. | UI/UX guide Sections 10.5 and 14; `docs/design.md` Accessibility Direction | `N/A: design_direction; Core owner not claimed` | `R2-AC-080`..`R2-AC-086`, `D-AC-009`, `D-AC-012` | `make browser-e2e-a11y` | `design_direction` |
 | FE-S-P1-01 | Support | Verify bootstrap route selectors and error-state selectors use stable test-id builders. | Development guide Sections 6.4 and 7.4; implementation guide Section 14.9A | `N/A: implementation_support; Core owner not claimed` | `FE-SUPPORT-AC-005` | `make frontend-unit`; `make browser-e2e-support` | `implementation_support` |
@@ -366,7 +364,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | FE-U-P6-01 | Unit | Verify evidence state view models cover requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states. | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 5.1; Core 03 Sections 4.11 and 4.12 | `REQ-01-243`..`REQ-01-247`, `REQ-01-458`..`REQ-01-465`, `REQ-02-186`..`REQ-02-201`, `REQ-03-242`..`REQ-03-249`, `REQ-03-272` | `AC-015`, `AC-016`, `AC-053`, `AC-100`, `AC-102`, `AC-103`, `AC-107`..`AC-111`, `AC-128`, `AC-154`, `AC-155`, `AC-231`, `AC-251`..`AC-256`, `AC-278`, `AC-280`, `AC-313`, `AC-321`, `AC-322` | `make frontend-unit` | `product_conformance` |
 | FE-I-P6-01 | Integration | Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths. | Core 01 Sections 3.3.8 and 3.3.9; Core 04 Sections 5 and 6 | `REQ-01-243`..`REQ-01-247`, `REQ-01-458`..`REQ-01-465`, `REQ-04-048`, `REQ-04-052`, `REQ-04-053` | `AC-049`..`AC-055`, `AC-102`, `AC-103`, `AC-128`, `AC-130`, `AC-131`, `AC-154`, `AC-155`, `AC-231`, `AC-232`, `AC-234`, `AC-251`..`AC-256`, `AC-321`, `AC-322` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `product_conformance` |
-| FE-E-P6-01 | E2E | Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles. | Core 01 Sections 3.3.8 and 3.3.9; Core 04 Sections 3, 5, 6 | `REQ-01-243`..`REQ-01-247`, `REQ-01-458`..`REQ-01-465`, `REQ-04-021`..`REQ-04-030`, `REQ-04-048`, `REQ-04-052`, `REQ-04-053`, `REQ-04-109` | `AC-049`..`AC-055`, `AC-102`, `AC-103`, `AC-128`, `AC-130`, `AC-131`, `AC-149`, `AC-154`, `AC-155`, `AC-178`..`AC-180`, `AC-231`, `AC-232`, `AC-234`, `AC-251`..`AC-257`, `AC-260`, `AC-261`, `AC-298`, `AC-321`, `AC-322`, `AC-340`..`AC-342`, `AC-352`, `AC-370`, `AC-371`, `AC-402` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `product_conformance` |
+| FE-E-P6-01 | E2E | Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles. | Core 01 Sections 3.3.8 and 3.3.9; Core 04 Sections 3, 5, 6 | `REQ-01-243`..`REQ-01-247`, `REQ-01-458`..`REQ-01-465`, `REQ-04-021`..`REQ-04-030`, `REQ-04-048`, `REQ-04-052`, `REQ-04-053`, `REQ-04-110` | `AC-049`..`AC-055`, `AC-102`, `AC-103`, `AC-128`, `AC-130`, `AC-131`, `AC-149`, `AC-154`, `AC-155`, `AC-178`..`AC-180`, `AC-231`, `AC-232`, `AC-234`, `AC-251`..`AC-257`, `AC-260`, `AC-261`, `AC-298`, `AC-321`, `AC-322`, `AC-340`..`AC-342`, `AC-352`, `AC-370`, `AC-371`, `AC-402` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `product_conformance` |
 | FE-V-P6-01 | Visual regression | Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures. | UI/UX guide Sections 12 and 13; visual golden guide Sections 2, 3, 5 | `N/A: design_direction; Core owner not claimed` | `R2-AC-059`..`R2-AC-062`, `R2-AC-073`..`R2-AC-079` | `make browser-e2e-visual`; `TODO: add missing fixtures to apps/web/e2e/workbook.visual.spec.ts where absent` | `design_direction` |
 | FE-A11Y-P6-01 | Accessibility | Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions. | UI/UX guide Sections 12, 14; `docs/design.md` Accessibility Direction | `N/A: design_direction; Core owner not claimed` | `R2-AC-059`..`R2-AC-062`, `R2-AC-080`..`R2-AC-086`, `D-AC-009`, `D-AC-012` | `make browser-e2e-a11y` | `design_direction` |
 
@@ -384,7 +382,7 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| FE-U-P7-01 | Unit | Verify WebSocket reducer handles row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states. | Core 01 Section 3.3.10; Core 04 Sections 2 and 5 | `REQ-01-250`..`REQ-01-253`, `REQ-04-001`..`REQ-04-017`, `REQ-04-052`, `REQ-04-053`, `REQ-04-109` | `AC-129`, `AC-131`..`AC-136`, `AC-156`..`AC-163`, `AC-231`, `AC-232`, `AC-233`, `AC-234`, `AC-298`, `AC-334`..`AC-342` | `make frontend-unit` | `product_conformance` |
+| FE-U-P7-01 | Unit | Verify WebSocket reducer handles row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states. | Core 01 Section 3.3.10; Core 04 Sections 2 and 5 | `REQ-01-250`..`REQ-01-253`, `REQ-04-001`..`REQ-04-017`, `REQ-04-052`, `REQ-04-053`, `REQ-04-110` | `AC-129`, `AC-131`..`AC-136`, `AC-156`..`AC-163`, `AC-231`, `AC-232`, `AC-233`, `AC-234`, `AC-298`, `AC-334`..`AC-342` | `make frontend-unit` | `product_conformance` |
 | FE-U-P7-02 | Unit | Verify same-field conflict anchors, conflict queue, and resolver state use `record_id + field_key + base_row_version` rather than visible indexes. | Core 03 Sections 4.2, 4.4, 4.5, 4.6 | `REQ-03-033`..`REQ-03-084` | `AC-009`, `AC-013`, `AC-037`..`AC-042`, `AC-047`, `AC-126`, `AC-163`, `AC-203`, `AC-204`, `AC-226`..`AC-231`, `AC-381` | `make frontend-unit` | `product_conformance` |
 | FE-I-P7-01 | Integration | Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering. | Core 01 Section 3.3.6; Core 03 Sections 4.2 through 4.6 | `REQ-01-057`..`REQ-01-070`, `REQ-03-033`..`REQ-03-084` | `AC-009`, `AC-013`, `AC-037`..`AC-042`, `AC-047`, `AC-124`..`AC-127`, `AC-181`..`AC-183`, `AC-188`..`AC-190`, `AC-200`..`AC-218`, `AC-221`..`AC-231`, `AC-299`, `AC-381` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-E-P7-01 | E2E | Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through `/ws/v1/` and `/api/v1/`. | Core 01 Sections 3.3.6 and 3.3.10; Core 03 Sections 4.2 through 4.6 | `REQ-01-057`..`REQ-01-070`, `REQ-01-250`..`REQ-01-253`, `REQ-03-033`..`REQ-03-084` | `AC-009`, `AC-013`, `AC-037`..`AC-042`, `AC-047`, `AC-124`..`AC-129`, `AC-131`..`AC-136`, `AC-156`..`AC-163`, `AC-181`..`AC-183`, `AC-188`..`AC-190`, `AC-200`..`AC-218`, `AC-221`..`AC-233`, `AC-299`, `AC-381` | `make browser-e2e-stateful`; `make browser-e2e-webserver-backed` | `product_conformance` |
@@ -661,7 +659,7 @@ Claims in this guide are derived from the following local sources:
 - `docs/guides/cartulary-dev-guide.md`: frontend package boundaries, RDG adapter containment, generated TypeScript policy, frontend testing baseline, command surface.
 - `docs/guides/cartulary-ui-ux-design-guide.md`: design-direction status, workbook shell composition, system-view grouping, startup surface, status strip, grid editing, conflict/presence, saved-view/query controls, coordination surfaces, evidence UX, visual language, accessibility posture, R2 acceptance criteria.
 - `docs/design.md`: visual direction, density, accessibility posture, grid identity direction, design acceptance criteria.
-- `docs/testing-harness-nlspec.md`: draft/proposed harness mechanics only.
+- `docs/testing-harness-nlspec.md`: adopted current authority for harness mechanics only.
 - `docs/guides/cartulary_visual_golden_maintenance.md`: visual target, snapshot location, deterministic fixture expectations, scroll normalization, golden refresh procedure.
 - `apps/web/e2e/workbook.visual.spec.ts`: current visual Playwright suite location.
 - `tools/task_surface.generated.mk`: discovered Make targets.

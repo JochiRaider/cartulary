@@ -5617,6 +5617,7 @@
           "browser_stage": "webserver-backed",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
             "browser_stage": "webserver-backed"
           }
         },
@@ -5690,6 +5691,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-04"
           }
@@ -5765,6 +5767,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-02"
           }
@@ -5836,6 +5839,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-01"
           }
@@ -5908,6 +5912,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-03"
           }
@@ -5957,6 +5962,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:support"
           }
@@ -6002,6 +6008,7 @@
           "env": {},
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "stateful",
             "group_id": "browser-e2e-stateful:stateful"
           }
@@ -6037,6 +6044,7 @@
           "browser_stage": "stateful",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
             "browser_stage": "stateful"
           }
         },
@@ -6085,6 +6093,7 @@
           "env": {},
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "measurement",
             "group_id": "browser-e2e-measurement:measurement"
           }
@@ -6127,6 +6136,7 @@
           "browser_stage": "measurement",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
             "browser_stage": "measurement"
           }
         },
@@ -6171,6 +6181,7 @@
           "env": {},
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "visual",
             "group_id": "browser-e2e-visual:visual"
           }
@@ -6206,6 +6217,7 @@
           "browser_stage": "visual",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
             "browser_stage": "visual"
           }
         },
@@ -6250,6 +6262,7 @@
           "env": {},
           "command": {
             "type": "browser_group",
+            "service_target": "test-service-backed",
             "browser_stage": "a11y",
             "group_id": "browser-e2e-a11y:a11y"
           }
@@ -6285,6 +6298,7 @@
           "browser_stage": "a11y",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
             "browser_stage": "a11y"
           }
         },
@@ -6320,7 +6334,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-02"
+            "shard": "backend-integration-entities-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6355,7 +6370,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-03"
+            "shard": "backend-integration-entities-shard-03",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6390,7 +6406,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-01"
+            "shard": "backend-integration-timeline-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6425,7 +6442,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-04"
+            "shard": "backend-integration-entities-shard-04",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6488,7 +6506,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-01"
+            "shard": "backend-store-phase9-coordination-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6523,7 +6542,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-01"
+            "shard": "backend-store-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6558,7 +6578,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-01"
+            "shard": "backend-store-collaboration-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6593,7 +6614,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-02"
+            "shard": "backend-store-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6627,7 +6649,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-15"
+            "shard": "backend-store-shard-15",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6661,7 +6684,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-24"
+            "shard": "backend-store-shard-24",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6696,7 +6720,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-10"
+            "shard": "backend-store-shard-10",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6730,7 +6755,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-17"
+            "shard": "backend-store-shard-17",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6764,7 +6790,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-22"
+            "shard": "backend-store-shard-22",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6798,7 +6825,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-23"
+            "shard": "backend-store-shard-23",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6833,7 +6861,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-02"
+            "shard": "backend-store-collaboration-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6868,7 +6897,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-13"
+            "shard": "backend-store-shard-13",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6902,7 +6932,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-21"
+            "shard": "backend-store-shard-21",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6937,7 +6968,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-02"
+            "shard": "backend-store-phase9-coordination-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -6972,7 +7004,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-07"
+            "shard": "backend-store-shard-07",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7007,7 +7040,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-11"
+            "shard": "backend-store-shard-11",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7042,7 +7076,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-incidents-shard-01"
+            "shard": "backend-integration-incidents-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7077,7 +7112,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-04"
+            "shard": "backend-integration-incidents-shard-04",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7112,7 +7148,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-03"
+            "shard": "backend-store-phase9-coordination-shard-03",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7147,7 +7184,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-03"
+            "shard": "backend-integration-auth-shard-03",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7181,7 +7219,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-20"
+            "shard": "backend-store-shard-20",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7215,7 +7254,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-task-decisions-shard-01"
+            "shard": "backend-store-phase9-task-decisions-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7250,7 +7290,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-03"
+            "shard": "backend-store-shard-03",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7284,7 +7325,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-19"
+            "shard": "backend-store-shard-19",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7318,7 +7360,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-18"
+            "shard": "backend-store-shard-18",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7353,7 +7396,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-03"
+            "shard": "backend-integration-incidents-shard-03",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7387,7 +7431,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-16"
+            "shard": "backend-store-shard-16",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7422,7 +7467,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-auth-shard-01"
+            "shard": "backend-integration-auth-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7457,7 +7503,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-03"
+            "shard": "backend-integration-timeline-shard-03",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7492,7 +7539,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-04"
+            "shard": "backend-store-phase9-coordination-shard-04",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7527,7 +7575,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-06"
+            "shard": "backend-integration-entities-shard-06",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7561,7 +7610,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-parties-shard-01"
+            "shard": "backend-store-phase9-parties-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7596,7 +7646,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-02"
+            "shard": "backend-integration-timeline-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7631,7 +7682,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-05"
+            "shard": "backend-store-phase9-coordination-shard-05",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7666,7 +7718,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-evidence-shard-01"
+            "shard": "backend-integration-evidence-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7701,7 +7754,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-05"
+            "shard": "backend-integration-entities-shard-05",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7736,7 +7790,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-04"
+            "shard": "backend-store-shard-04",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7770,7 +7825,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-25"
+            "shard": "backend-store-shard-25",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7805,7 +7861,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-05"
+            "shard": "backend-store-shard-05",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7839,7 +7896,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-optional-surfaces-shard-01"
+            "shard": "backend-store-phase9-optional-surfaces-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7874,7 +7932,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-08"
+            "shard": "backend-store-shard-08",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7909,7 +7968,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-03"
+            "shard": "backend-store-collaboration-shard-03",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7944,7 +8004,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-startup-shard-01"
+            "shard": "backend-store-phase8-startup-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -7978,7 +8039,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-notes-indicators-shard-01"
+            "shard": "backend-store-phase9-notes-indicators-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8013,7 +8075,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-06"
+            "shard": "backend-store-shard-06",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8047,7 +8110,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-task-decisions-shard-02"
+            "shard": "backend-store-phase9-task-decisions-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8082,7 +8146,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-09"
+            "shard": "backend-store-shard-09",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8117,7 +8182,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-12"
+            "shard": "backend-store-shard-12",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8152,7 +8218,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-14"
+            "shard": "backend-store-shard-14",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8187,7 +8254,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-savedviews-shard-01"
+            "shard": "backend-store-phase8-savedviews-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8221,7 +8289,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-assessments-shard-01"
+            "shard": "backend-store-phase9-assessments-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8255,7 +8324,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-savedviews-shard-02"
+            "shard": "backend-store-phase8-savedviews-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8289,7 +8359,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-links-tags-shard-01"
+            "shard": "backend-store-phase8-links-tags-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8323,7 +8394,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase10-backup-metadata-shard-01"
+            "shard": "backend-store-phase10-backup-metadata-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8358,7 +8430,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-incidents-shard-02"
+            "shard": "backend-integration-incidents-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8393,7 +8466,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-05"
+            "shard": "backend-integration-incidents-shard-05",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8428,7 +8502,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-entities-shard-01"
+            "shard": "backend-integration-entities-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8463,7 +8538,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-07"
+            "shard": "backend-integration-entities-shard-07",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8498,7 +8574,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-revisions-shard-01"
+            "shard": "backend-integration-revisions-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8533,7 +8610,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-workbook-shard-01"
+            "shard": "backend-integration-workbook-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8567,7 +8645,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-08"
+            "shard": "backend-integration-entities-shard-08",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8601,7 +8680,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-platform-shard-02"
+            "shard": "backend-integration-platform-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8636,7 +8716,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-04"
+            "shard": "backend-integration-auth-shard-04",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8671,7 +8752,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-auth-shard-02"
+            "shard": "backend-integration-auth-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8706,7 +8788,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-app-shard-01"
+            "shard": "backend-integration-app-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8741,7 +8824,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-testutil-shard-01"
+            "shard": "backend-integration-testutil-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8776,7 +8860,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-collaboration-shard-02"
+            "shard": "backend-integration-collaboration-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8811,7 +8896,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-04"
+            "shard": "backend-integration-timeline-shard-04",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8846,7 +8932,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-clipboard-shard-01"
+            "shard": "backend-integration-phase9-clipboard-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8881,7 +8968,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-timeline-shard-05"
+            "shard": "backend-integration-timeline-shard-05",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8916,7 +9004,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-cursor-shard-01"
+            "shard": "backend-integration-phase8-cursor-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8951,7 +9040,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-startup-shard-01"
+            "shard": "backend-integration-phase8-startup-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -8986,7 +9076,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-collaboration-shard-01"
+            "shard": "backend-integration-collaboration-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9021,7 +9112,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-parties-shard-01"
+            "shard": "backend-integration-phase9-parties-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9056,7 +9148,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-testutil-shard-02"
+            "shard": "backend-integration-testutil-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9091,7 +9184,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-workbook-shard-02"
+            "shard": "backend-integration-workbook-shard-02",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9125,7 +9219,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-required-surfaces-shard-01"
+            "shard": "backend-integration-phase9-required-surfaces-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9160,7 +9255,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-savedviews-shard-01"
+            "shard": "backend-integration-phase8-savedviews-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9195,7 +9291,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-phase8-search-shard-01"
+            "shard": "backend-integration-phase8-search-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9230,7 +9327,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-csv-apply-shard-01"
+            "shard": "backend-integration-phase11-import-csv-apply-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9265,7 +9363,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-links-tags-shard-01"
+            "shard": "backend-integration-phase8-links-tags-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9300,7 +9399,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-jobs-incident-auth-shard-01"
+            "shard": "backend-integration-phase11-jobs-incident-auth-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9335,7 +9435,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-row-wire-shard-01"
+            "shard": "backend-integration-phase8-row-wire-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9370,7 +9471,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-jobs-deployment-auth-shard-01"
+            "shard": "backend-integration-phase11-jobs-deployment-auth-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9405,7 +9507,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase10-backup-metadata-shard-01"
+            "shard": "backend-integration-phase10-backup-metadata-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9440,7 +9543,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-xlsx-discovery-shard-01"
+            "shard": "backend-integration-phase11-import-xlsx-discovery-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9475,7 +9579,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-upload-envelope-shard-01"
+            "shard": "backend-integration-phase11-import-upload-envelope-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9510,7 +9615,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-platform-shard-01"
+            "shard": "backend-integration-platform-shard-01",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9545,7 +9651,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-platform-shard-03"
+            "shard": "backend-integration-platform-shard-03",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9661,7 +9768,8 @@
           "unblock_label": "backend-store",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-store"
+            "target": "backend-store",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9753,7 +9861,8 @@
           "unblock_label": "backend-integration",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-integration"
+            "target": "backend-integration",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9815,7 +9924,8 @@
           "unblock_label": "backend-integration-support",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-integration-support"
+            "target": "backend-integration-support",
+            "service_target": "test-service-backed"
           }
         },
         {
@@ -9851,6 +9961,7 @@
           "browser_stage": "webserver-backed",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "test-service-backed",
             "browser_stage": "webserver-backed"
           }
         },
@@ -9883,6 +9994,7 @@
           "browser_stage": "stateful",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "test-service-backed",
             "browser_stage": "stateful"
           }
         },
@@ -9915,6 +10027,7 @@
           "browser_stage": "measurement",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "test-service-backed",
             "browser_stage": "measurement"
           }
         },
@@ -9947,6 +10060,7 @@
           "browser_stage": "visual",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "test-service-backed",
             "browser_stage": "visual"
           }
         },
@@ -9979,6 +10093,7 @@
           "browser_stage": "a11y",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "test-service-backed",
             "browser_stage": "a11y"
           }
         }
@@ -10035,7 +10150,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-02"
+            "shard": "backend-integration-entities-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10070,7 +10186,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-03"
+            "shard": "backend-integration-entities-shard-03",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10105,7 +10222,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-01"
+            "shard": "backend-integration-timeline-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10140,7 +10258,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-04"
+            "shard": "backend-integration-entities-shard-04",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10203,7 +10322,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-01"
+            "shard": "backend-store-phase9-coordination-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10238,7 +10358,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-01"
+            "shard": "backend-store-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10273,7 +10394,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-01"
+            "shard": "backend-store-collaboration-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10308,7 +10430,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-02"
+            "shard": "backend-store-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10342,7 +10465,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-15"
+            "shard": "backend-store-shard-15",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10376,7 +10500,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-24"
+            "shard": "backend-store-shard-24",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10411,7 +10536,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-10"
+            "shard": "backend-store-shard-10",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10445,7 +10571,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-17"
+            "shard": "backend-store-shard-17",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10479,7 +10606,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-22"
+            "shard": "backend-store-shard-22",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10513,7 +10641,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-23"
+            "shard": "backend-store-shard-23",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10548,7 +10677,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-02"
+            "shard": "backend-store-collaboration-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10583,7 +10713,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-13"
+            "shard": "backend-store-shard-13",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10617,7 +10748,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-21"
+            "shard": "backend-store-shard-21",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10652,7 +10784,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-02"
+            "shard": "backend-store-phase9-coordination-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10687,7 +10820,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-07"
+            "shard": "backend-store-shard-07",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10722,7 +10856,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-11"
+            "shard": "backend-store-shard-11",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10757,7 +10892,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-incidents-shard-01"
+            "shard": "backend-integration-incidents-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10792,7 +10928,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-04"
+            "shard": "backend-integration-incidents-shard-04",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10827,7 +10964,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-03"
+            "shard": "backend-store-phase9-coordination-shard-03",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10862,7 +11000,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-03"
+            "shard": "backend-integration-auth-shard-03",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10896,7 +11035,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-20"
+            "shard": "backend-store-shard-20",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10930,7 +11070,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-task-decisions-shard-01"
+            "shard": "backend-store-phase9-task-decisions-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10965,7 +11106,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-03"
+            "shard": "backend-store-shard-03",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -10999,7 +11141,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-19"
+            "shard": "backend-store-shard-19",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11033,7 +11176,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-18"
+            "shard": "backend-store-shard-18",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11068,7 +11212,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-03"
+            "shard": "backend-integration-incidents-shard-03",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11102,7 +11247,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-16"
+            "shard": "backend-store-shard-16",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11137,7 +11283,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-auth-shard-01"
+            "shard": "backend-integration-auth-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11172,7 +11319,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-03"
+            "shard": "backend-integration-timeline-shard-03",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11207,7 +11355,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-04"
+            "shard": "backend-store-phase9-coordination-shard-04",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11242,7 +11391,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-06"
+            "shard": "backend-integration-entities-shard-06",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11276,7 +11426,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-parties-shard-01"
+            "shard": "backend-store-phase9-parties-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11311,7 +11462,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-02"
+            "shard": "backend-integration-timeline-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11346,7 +11498,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-05"
+            "shard": "backend-store-phase9-coordination-shard-05",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11381,7 +11534,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-evidence-shard-01"
+            "shard": "backend-integration-evidence-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11416,7 +11570,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-05"
+            "shard": "backend-integration-entities-shard-05",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11451,7 +11606,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-04"
+            "shard": "backend-store-shard-04",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11485,7 +11641,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-25"
+            "shard": "backend-store-shard-25",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11520,7 +11677,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-05"
+            "shard": "backend-store-shard-05",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11554,7 +11712,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-optional-surfaces-shard-01"
+            "shard": "backend-store-phase9-optional-surfaces-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11589,7 +11748,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-08"
+            "shard": "backend-store-shard-08",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11624,7 +11784,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-03"
+            "shard": "backend-store-collaboration-shard-03",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11659,7 +11820,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-startup-shard-01"
+            "shard": "backend-store-phase8-startup-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11693,7 +11855,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-notes-indicators-shard-01"
+            "shard": "backend-store-phase9-notes-indicators-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11728,7 +11891,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-06"
+            "shard": "backend-store-shard-06",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11762,7 +11926,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-task-decisions-shard-02"
+            "shard": "backend-store-phase9-task-decisions-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11797,7 +11962,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-09"
+            "shard": "backend-store-shard-09",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11832,7 +11998,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-12"
+            "shard": "backend-store-shard-12",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11867,7 +12034,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-14"
+            "shard": "backend-store-shard-14",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11902,7 +12070,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-savedviews-shard-01"
+            "shard": "backend-store-phase8-savedviews-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11936,7 +12105,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-assessments-shard-01"
+            "shard": "backend-store-phase9-assessments-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -11970,7 +12140,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-savedviews-shard-02"
+            "shard": "backend-store-phase8-savedviews-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12004,7 +12175,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-links-tags-shard-01"
+            "shard": "backend-store-phase8-links-tags-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12038,7 +12210,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase10-backup-metadata-shard-01"
+            "shard": "backend-store-phase10-backup-metadata-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12073,7 +12246,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-incidents-shard-02"
+            "shard": "backend-integration-incidents-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12108,7 +12282,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-05"
+            "shard": "backend-integration-incidents-shard-05",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12143,7 +12318,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-entities-shard-01"
+            "shard": "backend-integration-entities-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12178,7 +12354,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-07"
+            "shard": "backend-integration-entities-shard-07",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12213,7 +12390,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-revisions-shard-01"
+            "shard": "backend-integration-revisions-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12248,7 +12426,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-workbook-shard-01"
+            "shard": "backend-integration-workbook-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12282,7 +12461,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-08"
+            "shard": "backend-integration-entities-shard-08",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12316,7 +12496,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-platform-shard-02"
+            "shard": "backend-integration-platform-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12351,7 +12532,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-04"
+            "shard": "backend-integration-auth-shard-04",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12386,7 +12568,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-auth-shard-02"
+            "shard": "backend-integration-auth-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12421,7 +12604,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-app-shard-01"
+            "shard": "backend-integration-app-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12456,7 +12640,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-testutil-shard-01"
+            "shard": "backend-integration-testutil-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12491,7 +12676,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-collaboration-shard-02"
+            "shard": "backend-integration-collaboration-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12526,7 +12712,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-04"
+            "shard": "backend-integration-timeline-shard-04",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12561,7 +12748,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-clipboard-shard-01"
+            "shard": "backend-integration-phase9-clipboard-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12596,7 +12784,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-timeline-shard-05"
+            "shard": "backend-integration-timeline-shard-05",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12631,7 +12820,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-cursor-shard-01"
+            "shard": "backend-integration-phase8-cursor-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12666,7 +12856,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-startup-shard-01"
+            "shard": "backend-integration-phase8-startup-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12701,7 +12892,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-collaboration-shard-01"
+            "shard": "backend-integration-collaboration-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12736,7 +12928,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-parties-shard-01"
+            "shard": "backend-integration-phase9-parties-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12771,7 +12964,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-testutil-shard-02"
+            "shard": "backend-integration-testutil-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12806,7 +13000,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-workbook-shard-02"
+            "shard": "backend-integration-workbook-shard-02",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12840,7 +13035,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-required-surfaces-shard-01"
+            "shard": "backend-integration-phase9-required-surfaces-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12875,7 +13071,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-savedviews-shard-01"
+            "shard": "backend-integration-phase8-savedviews-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12910,7 +13107,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-phase8-search-shard-01"
+            "shard": "backend-integration-phase8-search-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12945,7 +13143,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-csv-apply-shard-01"
+            "shard": "backend-integration-phase11-import-csv-apply-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -12980,7 +13179,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-links-tags-shard-01"
+            "shard": "backend-integration-phase8-links-tags-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13015,7 +13215,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-jobs-incident-auth-shard-01"
+            "shard": "backend-integration-phase11-jobs-incident-auth-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13050,7 +13251,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-row-wire-shard-01"
+            "shard": "backend-integration-phase8-row-wire-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13085,7 +13287,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-jobs-deployment-auth-shard-01"
+            "shard": "backend-integration-phase11-jobs-deployment-auth-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13120,7 +13323,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase10-backup-metadata-shard-01"
+            "shard": "backend-integration-phase10-backup-metadata-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13155,7 +13359,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-xlsx-discovery-shard-01"
+            "shard": "backend-integration-phase11-import-xlsx-discovery-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13190,7 +13395,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-upload-envelope-shard-01"
+            "shard": "backend-integration-phase11-import-upload-envelope-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13225,7 +13431,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-platform-shard-01"
+            "shard": "backend-integration-platform-shard-01",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13260,7 +13467,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-platform-shard-03"
+            "shard": "backend-integration-platform-shard-03",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13376,7 +13584,8 @@
           "unblock_label": "backend-store",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-store"
+            "target": "backend-store",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13468,7 +13677,8 @@
           "unblock_label": "backend-integration",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-integration"
+            "target": "backend-integration",
+            "service_target": "test-fast-service-backed"
           }
         },
         {
@@ -13530,7 +13740,8 @@
           "unblock_label": "backend-integration-support",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-integration-support"
+            "target": "backend-integration-support",
+            "service_target": "test-fast-service-backed"
           }
         }
       ],
@@ -13590,6 +13801,7 @@
           "browser_stage": "webserver-backed",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "check-service-backed",
             "browser_stage": "webserver-backed"
           }
         },
@@ -13634,6 +13846,7 @@
           "env": {},
           "command": {
             "type": "browser_group",
+            "service_target": "check-service-backed",
             "browser_stage": "visual",
             "group_id": "browser-e2e-visual:visual"
           }
@@ -13669,6 +13882,7 @@
           "browser_stage": "visual",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "check-service-backed",
             "browser_stage": "visual"
           }
         },
@@ -13742,6 +13956,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "check-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-04"
           }
@@ -13817,6 +14032,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "check-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-02"
           }
@@ -13888,6 +14104,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "check-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-01"
           }
@@ -13960,6 +14177,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "check-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:browser-functional-shard-03"
           }
@@ -14005,6 +14223,7 @@
           "env": {},
           "command": {
             "type": "browser_group",
+            "service_target": "check-service-backed",
             "browser_stage": "stateful",
             "group_id": "browser-e2e-stateful:stateful"
           }
@@ -14040,6 +14259,7 @@
           "browser_stage": "stateful",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "check-service-backed",
             "browser_stage": "stateful"
           }
         },
@@ -14088,6 +14308,7 @@
           },
           "command": {
             "type": "browser_group",
+            "service_target": "check-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:support"
           }
@@ -14133,6 +14354,7 @@
           "env": {},
           "command": {
             "type": "browser_group",
+            "service_target": "check-service-backed",
             "browser_stage": "a11y",
             "group_id": "browser-e2e-a11y:a11y"
           }
@@ -14168,6 +14390,7 @@
           "browser_stage": "a11y",
           "command": {
             "type": "browser_stage_session_start",
+            "service_target": "check-service-backed",
             "browser_stage": "a11y"
           }
         },
@@ -14203,7 +14426,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-02"
+            "shard": "backend-integration-entities-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14238,7 +14462,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-03"
+            "shard": "backend-integration-entities-shard-03",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14273,7 +14498,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-01"
+            "shard": "backend-integration-timeline-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14308,7 +14534,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-04"
+            "shard": "backend-integration-entities-shard-04",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14371,7 +14598,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-01"
+            "shard": "backend-store-phase9-coordination-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14406,7 +14634,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-01"
+            "shard": "backend-store-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14441,7 +14670,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-01"
+            "shard": "backend-store-collaboration-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14476,7 +14706,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-02"
+            "shard": "backend-store-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14510,7 +14741,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-15"
+            "shard": "backend-store-shard-15",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14544,7 +14776,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-24"
+            "shard": "backend-store-shard-24",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14579,7 +14812,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-10"
+            "shard": "backend-store-shard-10",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14613,7 +14847,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-17"
+            "shard": "backend-store-shard-17",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14647,7 +14882,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-22"
+            "shard": "backend-store-shard-22",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14681,7 +14917,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-23"
+            "shard": "backend-store-shard-23",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14716,7 +14953,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-02"
+            "shard": "backend-store-collaboration-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14751,7 +14989,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-13"
+            "shard": "backend-store-shard-13",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14785,7 +15024,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-21"
+            "shard": "backend-store-shard-21",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14820,7 +15060,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-02"
+            "shard": "backend-store-phase9-coordination-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14855,7 +15096,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-07"
+            "shard": "backend-store-shard-07",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14890,7 +15132,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-11"
+            "shard": "backend-store-shard-11",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14925,7 +15168,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-incidents-shard-01"
+            "shard": "backend-integration-incidents-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14960,7 +15204,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-04"
+            "shard": "backend-integration-incidents-shard-04",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -14995,7 +15240,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-03"
+            "shard": "backend-store-phase9-coordination-shard-03",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15030,7 +15276,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-03"
+            "shard": "backend-integration-auth-shard-03",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15064,7 +15311,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-20"
+            "shard": "backend-store-shard-20",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15098,7 +15346,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-task-decisions-shard-01"
+            "shard": "backend-store-phase9-task-decisions-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15133,7 +15382,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-03"
+            "shard": "backend-store-shard-03",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15167,7 +15417,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-19"
+            "shard": "backend-store-shard-19",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15201,7 +15452,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-18"
+            "shard": "backend-store-shard-18",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15236,7 +15488,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-03"
+            "shard": "backend-integration-incidents-shard-03",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15270,7 +15523,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-16"
+            "shard": "backend-store-shard-16",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15305,7 +15559,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-auth-shard-01"
+            "shard": "backend-integration-auth-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15340,7 +15595,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-03"
+            "shard": "backend-integration-timeline-shard-03",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15375,7 +15631,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-04"
+            "shard": "backend-store-phase9-coordination-shard-04",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15410,7 +15667,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-06"
+            "shard": "backend-integration-entities-shard-06",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15444,7 +15702,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-parties-shard-01"
+            "shard": "backend-store-phase9-parties-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15479,7 +15738,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-02"
+            "shard": "backend-integration-timeline-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15514,7 +15774,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-coordination-shard-05"
+            "shard": "backend-store-phase9-coordination-shard-05",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15549,7 +15810,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-evidence-shard-01"
+            "shard": "backend-integration-evidence-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15584,7 +15846,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-05"
+            "shard": "backend-integration-entities-shard-05",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15619,7 +15882,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-04"
+            "shard": "backend-store-shard-04",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15653,7 +15917,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-25"
+            "shard": "backend-store-shard-25",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15688,7 +15953,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-05"
+            "shard": "backend-store-shard-05",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15722,7 +15988,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-optional-surfaces-shard-01"
+            "shard": "backend-store-phase9-optional-surfaces-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15757,7 +16024,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-08"
+            "shard": "backend-store-shard-08",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15792,7 +16060,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-collaboration-shard-03"
+            "shard": "backend-store-collaboration-shard-03",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15827,7 +16096,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-startup-shard-01"
+            "shard": "backend-store-phase8-startup-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15861,7 +16131,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-notes-indicators-shard-01"
+            "shard": "backend-store-phase9-notes-indicators-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15896,7 +16167,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-06"
+            "shard": "backend-store-shard-06",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15930,7 +16202,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-task-decisions-shard-02"
+            "shard": "backend-store-phase9-task-decisions-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -15965,7 +16238,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-09"
+            "shard": "backend-store-shard-09",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16000,7 +16274,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-12"
+            "shard": "backend-store-shard-12",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16035,7 +16310,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-shard-14"
+            "shard": "backend-store-shard-14",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16070,7 +16346,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-savedviews-shard-01"
+            "shard": "backend-store-phase8-savedviews-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16104,7 +16381,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase9-assessments-shard-01"
+            "shard": "backend-store-phase9-assessments-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16138,7 +16416,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-savedviews-shard-02"
+            "shard": "backend-store-phase8-savedviews-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16172,7 +16451,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase8-links-tags-shard-01"
+            "shard": "backend-store-phase8-links-tags-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16206,7 +16486,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-store",
-            "shard": "backend-store-phase10-backup-metadata-shard-01"
+            "shard": "backend-store-phase10-backup-metadata-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16241,7 +16522,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-incidents-shard-02"
+            "shard": "backend-integration-incidents-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16276,7 +16558,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-incidents-shard-05"
+            "shard": "backend-integration-incidents-shard-05",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16311,7 +16594,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-entities-shard-01"
+            "shard": "backend-integration-entities-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16346,7 +16630,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-07"
+            "shard": "backend-integration-entities-shard-07",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16381,7 +16666,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-revisions-shard-01"
+            "shard": "backend-integration-revisions-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16416,7 +16702,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-workbook-shard-01"
+            "shard": "backend-integration-workbook-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16450,7 +16737,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-08"
+            "shard": "backend-integration-entities-shard-08",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16484,7 +16772,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-platform-shard-02"
+            "shard": "backend-integration-platform-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16519,7 +16808,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-04"
+            "shard": "backend-integration-auth-shard-04",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16554,7 +16844,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-auth-shard-02"
+            "shard": "backend-integration-auth-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16589,7 +16880,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-app-shard-01"
+            "shard": "backend-integration-app-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16624,7 +16916,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-testutil-shard-01"
+            "shard": "backend-integration-testutil-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16659,7 +16952,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-collaboration-shard-02"
+            "shard": "backend-integration-collaboration-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16694,7 +16988,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-timeline-shard-04"
+            "shard": "backend-integration-timeline-shard-04",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16729,7 +17024,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-clipboard-shard-01"
+            "shard": "backend-integration-phase9-clipboard-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16764,7 +17060,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-timeline-shard-05"
+            "shard": "backend-integration-timeline-shard-05",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16799,7 +17096,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-cursor-shard-01"
+            "shard": "backend-integration-phase8-cursor-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16834,7 +17132,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-startup-shard-01"
+            "shard": "backend-integration-phase8-startup-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16869,7 +17168,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-collaboration-shard-01"
+            "shard": "backend-integration-collaboration-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16904,7 +17204,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-parties-shard-01"
+            "shard": "backend-integration-phase9-parties-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16939,7 +17240,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-testutil-shard-02"
+            "shard": "backend-integration-testutil-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -16974,7 +17276,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-workbook-shard-02"
+            "shard": "backend-integration-workbook-shard-02",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17008,7 +17311,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase9-required-surfaces-shard-01"
+            "shard": "backend-integration-phase9-required-surfaces-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17043,7 +17347,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-savedviews-shard-01"
+            "shard": "backend-integration-phase8-savedviews-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17078,7 +17383,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-phase8-search-shard-01"
+            "shard": "backend-integration-phase8-search-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17113,7 +17419,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-csv-apply-shard-01"
+            "shard": "backend-integration-phase11-import-csv-apply-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17148,7 +17455,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-links-tags-shard-01"
+            "shard": "backend-integration-phase8-links-tags-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17183,7 +17491,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-jobs-incident-auth-shard-01"
+            "shard": "backend-integration-phase11-jobs-incident-auth-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17218,7 +17527,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase8-row-wire-shard-01"
+            "shard": "backend-integration-phase8-row-wire-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17253,7 +17563,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-jobs-deployment-auth-shard-01"
+            "shard": "backend-integration-phase11-jobs-deployment-auth-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17288,7 +17599,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase10-backup-metadata-shard-01"
+            "shard": "backend-integration-phase10-backup-metadata-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17323,7 +17635,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-xlsx-discovery-shard-01"
+            "shard": "backend-integration-phase11-import-xlsx-discovery-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17358,7 +17671,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-phase11-import-upload-envelope-shard-01"
+            "shard": "backend-integration-phase11-import-upload-envelope-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17393,7 +17707,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration",
-            "shard": "backend-integration-platform-shard-01"
+            "shard": "backend-integration-platform-shard-01",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17428,7 +17743,8 @@
           "command": {
             "type": "go_shard",
             "target": "backend-integration-support",
-            "shard": "backend-integration-platform-shard-03"
+            "shard": "backend-integration-platform-shard-03",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17544,7 +17860,8 @@
           "unblock_label": "backend-store",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-store"
+            "target": "backend-store",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17636,7 +17953,8 @@
           "unblock_label": "backend-integration",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-integration"
+            "target": "backend-integration",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17698,7 +18016,8 @@
           "unblock_label": "backend-integration-support",
           "command": {
             "type": "go_shard_finalize",
-            "target": "backend-integration-support"
+            "target": "backend-integration-support",
+            "service_target": "check-service-backed"
           }
         },
         {
@@ -17734,6 +18053,7 @@
           "browser_stage": "webserver-backed",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "check-service-backed",
             "browser_stage": "webserver-backed"
           }
         },
@@ -17766,6 +18086,7 @@
           "browser_stage": "stateful",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "check-service-backed",
             "browser_stage": "stateful"
           }
         },
@@ -17798,6 +18119,7 @@
           "browser_stage": "visual",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "check-service-backed",
             "browser_stage": "visual"
           }
         },
@@ -17830,6 +18152,7 @@
           "browser_stage": "a11y",
           "command": {
             "type": "browser_stage_complete",
+            "service_target": "check-service-backed",
             "browser_stage": "a11y"
           }
         }

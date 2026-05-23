@@ -43,6 +43,46 @@ function renderedArtifacts() {
   };
 }
 
+function splitMarkdownRow(line) {
+  return line
+    .slice(1, -1)
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function parseHarnessPublicRegistry() {
+  const text = readFileSync(
+    path.join(repoRoot, "docs/testing-harness-nlspec.md"),
+    "utf8",
+  );
+  const lines = text.split("\n");
+  const rows = new Map();
+  let inTable = false;
+  for (const line of lines) {
+    if (line.startsWith("| Target | Command ID | Family ID |")) {
+      inTable = true;
+      continue;
+    }
+    if (inTable && line.startsWith("**TH-HARNESS-REQ-059**")) {
+      break;
+    }
+    if (!inTable || !line.startsWith("| `")) {
+      continue;
+    }
+    const cells = splitMarkdownRow(line);
+    const target = cells[0].replaceAll("`", "");
+    rows.set(target, {
+      outputClass: cells[4].replaceAll("`", ""),
+      sideEffects: cells[7]
+        .split(",")
+        .map((entry) => entry.trim().replaceAll("`", ""))
+        .filter(Boolean)
+        .sort((left, right) => left.localeCompare(right)),
+    });
+  }
+  return rows;
+}
+
 test("fast harness smoke is role-complete and intentionally small", () => {
   const manifest = readJSON("tools/task_surface_manifest.json");
   const checksByName = new Map(
@@ -132,6 +172,55 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
     taskSurfaceMake,
     /summary-target --target check-harness-smoke --child-target run-harness-smoke-fast --status pass/,
   );
+});
+
+test("harness NLSpec registry mirrors public target output classes and side effects", () => {
+  const { taskSurface } = renderedArtifacts();
+  const specRows = parseHarnessPublicRegistry();
+  const publicTargets = taskSurface.targets.filter(
+    (entry) => entry.target_class === "public",
+  );
+  assert.equal(
+    specRows.size,
+    publicTargets.length,
+    "NLSpec public target registry row count must match manifest public target count",
+  );
+  for (const target of publicTargets) {
+    const spec = specRows.get(target.name);
+    assert.ok(spec, `${target.name} must appear in the NLSpec public registry`);
+    assert.equal(
+      spec.outputClass,
+      target.output_policy.output_class,
+      `${target.name} output class must match NLSpec registry`,
+    );
+    assert.deepEqual(
+      spec.sideEffects,
+      target.side_effects
+        .map((entry) => entry.class)
+        .sort((left, right) => left.localeCompare(right)),
+      `${target.name} side effects must match NLSpec registry`,
+    );
+  }
+});
+
+test("scheduler manifest exercises every closed command type", () => {
+  const schedulerManifest = readJSON("tools/scheduler_manifest.json");
+  const expected = new Set([
+    "make_target",
+    "service_session_start",
+    "browser_stage_session_start",
+    "browser_group",
+    "browser_stage_complete",
+    "go_shard",
+    "go_shard_finalize",
+    "service_complete",
+  ]);
+  for (const schedule of schedulerManifest.schedules ?? []) {
+    for (const unit of schedule.work_units ?? []) {
+      expected.delete(unit.command?.type);
+    }
+  }
+  assert.deepEqual([...expected].sort(), [], "every scheduler command type must have a live fixture");
 });
 
 test("service-backed Go shard units are executable by their declared targets", () => {

@@ -196,6 +196,40 @@ const schedulerCommandTypes = new Set([
   "go_shard_finalize",
   "service_complete",
 ]);
+const schedulerCommandShapes = Object.freeze({
+  make_target: {
+    required: ["target"],
+    optional: ["service_target"],
+  },
+  service_session_start: {
+    required: ["service_target"],
+    optional: [],
+  },
+  browser_stage_session_start: {
+    required: ["service_target", "browser_stage"],
+    optional: [],
+  },
+  browser_group: {
+    required: ["service_target", "browser_stage", "group_id"],
+    optional: [],
+  },
+  browser_stage_complete: {
+    required: ["service_target", "browser_stage"],
+    optional: [],
+  },
+  go_shard: {
+    required: ["target", "shard", "service_target"],
+    optional: [],
+  },
+  go_shard_finalize: {
+    required: ["target", "service_target"],
+    optional: [],
+  },
+  service_complete: {
+    required: ["service_target"],
+    optional: [],
+  },
+});
 const toolRunFailureClasses = new Set([
   "product",
   "config",
@@ -511,6 +545,24 @@ function validateTaskSurfaceShape(file) {
   }
 }
 
+function validateSchedulerCommandShape(command, label) {
+  const type = requireEnum(command.type, `${label}.type`, schedulerCommandTypes);
+  const shape = schedulerCommandShapes[type];
+  assertObjectKeys(
+    command,
+    new Set(["type", ...shape.required, ...shape.optional]),
+    label,
+  );
+  for (const field of shape.required) {
+    requireString(command[field], `${label}.${field}`);
+  }
+  for (const field of shape.optional) {
+    if (command[field] !== undefined) {
+      requireString(command[field], `${label}.${field}`);
+    }
+  }
+}
+
 function validateSchedulerManifestShape(file) {
   const manifest = readShapeFile(file, file);
   assertObjectKeys(manifest, schedulerManifestKeys, file);
@@ -563,11 +615,7 @@ function validateSchedulerManifestShape(file) {
       });
       requirePositiveInteger(unit.weight_ms, `${unitLabel}.weight_ms`);
       const command = requireObject(unit.command, `${unitLabel}.command`);
-      requireEnum(
-        command.type,
-        `${unitLabel}.command.type`,
-        schedulerCommandTypes,
-      );
+      validateSchedulerCommandShape(command, `${unitLabel}.command`);
       if (unit.priority !== undefined) {
         requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
       }

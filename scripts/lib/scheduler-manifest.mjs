@@ -20,6 +20,40 @@ const commandTypes = new Set([
   "go_shard_finalize",
   "service_complete",
 ]);
+const commandShapes = Object.freeze({
+  make_target: {
+    required: ["target"],
+    optional: ["service_target"],
+  },
+  service_session_start: {
+    required: ["service_target"],
+    optional: [],
+  },
+  browser_stage_session_start: {
+    required: ["service_target", "browser_stage"],
+    optional: [],
+  },
+  browser_group: {
+    required: ["service_target", "browser_stage", "group_id"],
+    optional: [],
+  },
+  browser_stage_complete: {
+    required: ["service_target", "browser_stage"],
+    optional: [],
+  },
+  go_shard: {
+    required: ["target", "shard", "service_target"],
+    optional: [],
+  },
+  go_shard_finalize: {
+    required: ["target", "service_target"],
+    optional: [],
+  },
+  service_complete: {
+    required: ["service_target"],
+    optional: [],
+  },
+});
 
 export function parseResourceLimitOverride(value) {
   const [resource, amountText, extra] = value.split("=");
@@ -126,7 +160,32 @@ function normalizeCommand(value, label) {
   if (typeof value.type !== "string" || !commandTypes.has(value.type)) {
     throw new Error(`${label} command.type must be one of ${Array.from(commandTypes).join(", ")}`);
   }
-  return JSON.parse(JSON.stringify(value));
+  const shape = commandShapes[value.type];
+  const allowed = new Set(["type", ...shape.required, ...shape.optional]);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      throw new Error(`${label} command.${key} is not allowed for ${value.type}`);
+    }
+  }
+  for (const field of shape.required) {
+    if (typeof value[field] !== "string" || value[field].trim() === "") {
+      throw new Error(`${label} command.${field} must be a non-empty string for ${value.type}`);
+    }
+  }
+  for (const field of shape.optional) {
+    if (
+      value[field] !== undefined &&
+      (typeof value[field] !== "string" || value[field].trim() === "")
+    ) {
+      throw new Error(`${label} command.${field} must be a non-empty string for ${value.type}`);
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, raw]) => [
+      key,
+      typeof raw === "string" ? raw.trim() : raw,
+    ]),
+  );
 }
 
 function normalizeLocalInputStamp(value, label) {
