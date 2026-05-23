@@ -4,7 +4,7 @@ title: Testing Harness NLSpec
 conformance_profile_id: cartulary.testing_harness.current.v1
 doc_type: nlspec
 status: adopted/current
-authority_boundary: Harness mechanics only: command invocation, target selection, scheduling, fixture lifecycle, service ownership, artifact emission, summary emission, cleanup, and harness verification gates.
+authority_boundary: Harness mechanics only; command invocation, target selection, scheduling, fixture lifecycle, service ownership, artifact emission, summary emission, cleanup, and harness verification gates.
 ---
 
 ## 1. Status, Scope, and Authority
