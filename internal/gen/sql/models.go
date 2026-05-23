@@ -743,6 +743,66 @@ type RecordTag struct {
 	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
+type ReportingRelease struct {
+	ReleaseID                    pgtype.UUID        `json:"release_id"`
+	IncidentID                   pgtype.UUID        `json:"incident_id"`
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
+	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID                  string             `json:"client_txn_id"`
+	ReleaseScope                 string             `json:"release_scope"`
+	ReleaseState                 string             `json:"release_state"`
+	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	DerivationVersion            string             `json:"derivation_version"`
+	ExportModelSha256            string             `json:"export_model_sha256"`
+	TemplateID                   string             `json:"template_id"`
+	TemplateVersion              string             `json:"template_version"`
+	RedactionProfileID           string             `json:"redaction_profile_id"`
+	RedactionProfileVersion      string             `json:"redaction_profile_version"`
+	RedactionProfileSha256       string             `json:"redaction_profile_sha256"`
+	OutputKind                   string             `json:"output_kind"`
+	OutputMediaType              string             `json:"output_media_type"`
+	OutputSha256                 string             `json:"output_sha256"`
+	RedactionManifestSha256      string             `json:"redaction_manifest_sha256"`
+	RedactionManifestJson        []byte             `json:"redaction_manifest_json"`
+	RenderedOutput               string             `json:"rendered_output"`
+	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	RenderFailedReasonCode       pgtype.Text        `json:"render_failed_reason_code"`
+	ApprovedAt                   pgtype.Timestamptz `json:"approved_at"`
+	PublishedAt                  pgtype.Timestamptz `json:"published_at"`
+	InvalidatedAt                pgtype.Timestamptz `json:"invalidated_at"`
+	InvalidationReason           pgtype.Text        `json:"invalidation_reason"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ReportingReleaseApproval struct {
+	ApprovalID              pgtype.UUID        `json:"approval_id"`
+	ReleaseID               pgtype.UUID        `json:"release_id"`
+	ActorUserID             pgtype.UUID        `json:"actor_user_id"`
+	ApprovalRole            string             `json:"approval_role"`
+	Reason                  pgtype.Text        `json:"reason"`
+	ApprovalTupleJson       []byte             `json:"approval_tuple_json"`
+	RedactionProfileSha256  string             `json:"redaction_profile_sha256"`
+	OutputSha256            string             `json:"output_sha256"`
+	RedactionManifestSha256 string             `json:"redaction_manifest_sha256"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportingSnapshot struct {
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
+	IncidentID                   pgtype.UUID        `json:"incident_id"`
+	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID                  string             `json:"client_txn_id"`
+	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	DerivationVersion            string             `json:"derivation_version"`
+	ExportModelSha256            string             `json:"export_model_sha256"`
+	ExportModelJson              []byte             `json:"export_model_json"`
+	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+}
+
 type RestoreVerificationRun struct {
 	RestoreVerificationRunID pgtype.UUID        `json:"restore_verification_run_id"`
 	BackupSetID              pgtype.UUID        `json:"backup_set_id"`

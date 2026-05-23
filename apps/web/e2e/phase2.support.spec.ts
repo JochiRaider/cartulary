@@ -134,7 +134,9 @@ test("supports zero-membership extension discovery and singleton pagination reje
   expect(extensionsBody.data.extensions).toEqual(
     extensionRegistry().map((profile) => ({
       profile_id: profile.profile_id,
-      claimed: profile.profile_id === "import",
+      claimed:
+        profile.profile_id === "import" ||
+        profile.profile_id === "snapshot_reporting",
       route_families: profile.route_families,
     })),
   );

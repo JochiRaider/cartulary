@@ -1380,9 +1380,12 @@ A release record MUST bind, at minimum:
 - `template_version`,
 - `redaction_profile_id`,
 - `redaction_profile_version`,
+- `redaction_profile_sha256`,
 - `output_kind`,
+- `output_media_type`,
 - `release_scope`,
 - `output_sha256`,
+- `redaction_manifest_sha256`,
 - `release_state`,
 - `created_by_user_id`,
 - `created_at`,
@@ -1393,10 +1396,14 @@ A release record MUST bind, at minimum:
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-059, AC-060, AC-061, AC-062, AC-071, AC-091, AC-104, AC-105, AC-106, AC-113, AC-114, AC-115, AC-233
 
+The release record, redaction manifest artifact, and approval records MUST all bind the same `redaction_profile_sha256`, `output_sha256`, and `redaction_manifest_sha256` values for the artifact under review. A later render whose profile bytes, manifest bytes, or output bytes differ MUST be represented as a distinct candidate and MUST NOT inherit approval state.
+
 **REQ-02-146**
 If approval state is stored, it MUST bind to the release record rather than to mutable incident rows.
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-059, AC-060, AC-061, AC-062, AC-071, AC-091, AC-104, AC-105, AC-106, AC-113, AC-114, AC-115, AC-233
+
+`redaction_manifest.v1` MUST be stored as a persisted render artifact or sibling artifact. Its canonical digest MUST be retained even when the full manifest is not included in the public release resource.
 
 ## 11. Type registries and view contracts
 
@@ -2220,7 +2227,7 @@ Where an earlier section also defines lifecycle rules, semantic meanings, or gua
 | `finding.state` | `open`, `closed` |
 | `finding.confidence_band` | `unset`, `low`, `medium`, `high` |
 | `forensic_keyword.match_mode` | `literal`, `regex` |
-| `release_state` | `pending_approval`, `approved`, `invalidated`, `published` |
+| `release_state` | `pending_approval`, `approved`, `invalidated`, `published`, `render_failed` |
 | `object_blobs.upload_state` | `pending`, `available`, `failed`, `quarantined` |
 | `object_blobs.terminal_reason` | `pending_timeout`, `finalize_retry_exhausted`, `declared_size_mismatch`, `expected_sha256_mismatch` |
 | `evidence_records.lifecycle_state` | `requested`, `pending_receipt`, `received`, `available`, `quarantined`, `released` |

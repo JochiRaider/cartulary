@@ -649,7 +649,8 @@ func TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutL
 		if _, ok := item["route_families"]; !ok {
 			t.Fatalf("missing route_families in extension item %d: %#v", index, item)
 		}
-		if item["profile_id"] != want.ProfileID || item["claimed"] != (want.ProfileID == "import") {
+		wantClaimed := want.ProfileID == "import" || want.ProfileID == "snapshot_reporting"
+		if item["profile_id"] != want.ProfileID || item["claimed"] != wantClaimed {
 			t.Fatalf("unexpected extension item %d: %#v", index, item)
 		}
 		if gotFamilies := phase2OrderedRouteFamilies(t, item["route_families"]); strings.Join(gotFamilies, ",") != strings.Join(want.RouteFamilies, ",") {

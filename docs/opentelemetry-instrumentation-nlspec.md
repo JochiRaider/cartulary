@@ -7,6 +7,8 @@ created_at: 2026-05-19
 
 ## 1. Status, scope, and authority
 
+Status: `adopted/current`.
+
 This NLSpec defines Cartulary's OpenTelemetry instrumentation subsystem. It is adopted implementation-conformance authority for the telemetry subsystem only. It retains OpenTelemetry as the telemetry substrate and closes source baselining, OpenTelemetry configuration containment, semantic-convention drift control, signal-shape determinism, privacy, exporter behavior, and conformance testing.
 
 **OTEL-REQ-001**

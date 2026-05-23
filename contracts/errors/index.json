@@ -304,6 +304,46 @@
       "summary": "The import apply request cannot start because selected units are not currently applicable."
     },
     {
+      "code": "invalid_snapshot_request",
+      "http_status": 400,
+      "summary": "The snapshot request body failed route-owned validation."
+    },
+    {
+      "code": "snapshot_not_found",
+      "http_status": 404,
+      "summary": "No visible current snapshot exists for the supplied snapshot_id."
+    },
+    {
+      "code": "snapshot_source_boundary_conflict",
+      "http_status": 409,
+      "summary": "The supplied snapshot source-boundary token is not the current committed incident boundary."
+    },
+    {
+      "code": "invalid_release_request",
+      "http_status": 400,
+      "summary": "The release request body failed route-owned validation."
+    },
+    {
+      "code": "release_not_found",
+      "http_status": 404,
+      "summary": "No visible current release exists for the supplied release_id."
+    },
+    {
+      "code": "release_state_conflict",
+      "http_status": 409,
+      "summary": "The current release state does not allow the requested release action."
+    },
+    {
+      "code": "release_approval_rejected",
+      "http_status": 409,
+      "summary": "The release approval request cannot satisfy the approval policy for the current release."
+    },
+    {
+      "code": "release_render_failed",
+      "http_status": 409,
+      "summary": "The release render failed closed before producing a publishable artifact."
+    },
+    {
       "code": "extension_profile_not_claimed",
       "http_status": 404,
       "summary": "The requested reserved extension-family route belongs to an unclaimed deployment extension profile."
@@ -506,6 +546,155 @@
         {
           "code": "unit_not_ready",
           "summary": "One selected import unit is not ready to apply."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_snapshot_request",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The snapshot request body is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required snapshot request field is absent."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a non-nullable snapshot field."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the snapshot contract."
+        },
+        {
+          "code": "invalid_value",
+          "summary": "A snapshot request field value has the wrong scalar shape."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_release_request",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The release request body is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required release request field is absent."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a non-nullable release field."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the release contract."
+        },
+        {
+          "code": "invalid_value",
+          "summary": "A release request field value has the wrong scalar shape."
+        },
+        {
+          "code": "unsupported_template",
+          "summary": "The addressed template id or version is outside the current Snapshot and Reporting profile."
+        },
+        {
+          "code": "unsupported_redaction_profile",
+          "summary": "The addressed redaction profile id or version is outside the current Snapshot and Reporting profile."
+        },
+        {
+          "code": "unsupported_output_kind",
+          "summary": "The requested output_kind is outside the current Snapshot and Reporting profile."
+        },
+        {
+          "code": "unsupported_release_scope",
+          "summary": "The requested release_scope is outside the current Snapshot and Reporting profile."
+        }
+      ]
+    },
+    {
+      "error_code": "release_render_failed",
+      "reason_codes": [
+        {
+          "code": "invalid_redaction_profile",
+          "summary": "The selected redaction profile is malformed or contains reserved behavior."
+        },
+        {
+          "code": "missing_redaction_rule",
+          "summary": "A field or block reached render admission without an applicable redaction rule."
+        },
+        {
+          "code": "post_redaction_validation_failed",
+          "summary": "Post-redaction validation failed before template rendering or publish eligibility."
+        },
+        {
+          "code": "template_render_failed",
+          "summary": "The selected template failed before producing self-contained output bytes."
+        },
+        {
+          "code": "undeclared_template_binding",
+          "summary": "The selected template referenced an export-model binding outside its declared contract."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "The selected template required a field not present in the redacted export model."
+        },
+        {
+          "code": "manifest_encoding_failed",
+          "summary": "The redaction manifest could not be encoded canonically."
+        },
+        {
+          "code": "redaction_failed",
+          "summary": "Redaction failed before a redacted export model could be emitted."
+        }
+      ]
+    },
+    {
+      "error_code": "release_state_conflict",
+      "reason_codes": [
+        {
+          "code": "approval_required",
+          "summary": "The release cannot be published until required approvals are complete."
+        },
+        {
+          "code": "already_approved",
+          "summary": "The release is already approved and cannot accept another approval action."
+        },
+        {
+          "code": "already_published",
+          "summary": "The release is already published."
+        },
+        {
+          "code": "already_invalidated",
+          "summary": "The release is already invalidated."
+        },
+        {
+          "code": "approval_not_available",
+          "summary": "The current release state cannot accept approval."
+        },
+        {
+          "code": "render_failed",
+          "summary": "The release render failed and cannot be published."
+        },
+        {
+          "code": "invalid_state",
+          "summary": "The persisted release state is outside the legal action transition table."
+        }
+      ]
+    },
+    {
+      "error_code": "release_approval_rejected",
+      "reason_codes": [
+        {
+          "code": "actor_lacks_approval_role",
+          "summary": "The actor is not a reviewer or incident admin for the addressed release."
+        },
+        {
+          "code": "reviewer_approval_required",
+          "summary": "The current release scope requires a reviewer approval."
         }
       ]
     },

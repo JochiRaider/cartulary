@@ -53,7 +53,7 @@ var (
 		},
 		{
 			ProfileID: "snapshot_reporting",
-			Claimed:   false,
+			Claimed:   true,
 			RouteFamilies: []string{
 				"/api/v1/releases",
 				"/api/v1/snapshots",

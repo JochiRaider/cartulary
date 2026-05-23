@@ -882,6 +882,348 @@
         }
       }
     },
+    "/api/v1/snapshots": {
+      "post": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "createSnapshot",
+        "summary": "Create or replay one immutable reporting snapshot and return the common job resource.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Snapshot job accepted or replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid snapshot request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Snapshot source boundary or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}": {
+      "get": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "getSnapshot",
+        "summary": "Fetch one immutable reporting snapshot descriptor.",
+        "parameters": [
+          {
+            "name": "snapshot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot descriptor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Snapshot is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/releases": {
+      "post": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "createRelease",
+        "summary": "Create or replay one rendered release candidate and return the common job resource.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Release render job accepted or replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid release request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Render, release-state, or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{release_id}": {
+      "get": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "getRelease",
+        "summary": "Fetch one durable release resource.",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Release resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Release is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{release_id}/approve": {
+      "post": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "approveRelease",
+        "summary": "Record an approval for one durable release tuple.",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Post-approval release resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Approval rejected, state conflict, or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{release_id}/publish": {
+      "post": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "publishRelease",
+        "summary": "Publish one approved release.",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Published release resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State conflict or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{release_id}/invalidate": {
+      "post": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "invalidateRelease",
+        "summary": "Invalidate one pending, approved, or published release.",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invalidated release resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State conflict or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/jobs/{job_id}": {
       "get": {
         "tags": [
@@ -2642,6 +2984,310 @@
           "limit",
           "next_cursor",
           "has_more"
+        ]
+      },
+      "SnapshotCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "source_change_set_high_watermark": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "incident_id",
+          "client_txn_id"
+        ]
+      },
+      "SnapshotEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SnapshotResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SnapshotResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snapshot_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source_change_set_high_watermark": {
+            "type": "string"
+          },
+          "derivation_version": {
+            "type": "string"
+          },
+          "export_model_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "incident_id",
+          "created_by_user_id",
+          "created_at",
+          "snapshot_at",
+          "source_change_set_high_watermark",
+          "derivation_version",
+          "export_model_sha256"
+        ]
+      },
+      "ReleaseCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "redaction_profile_id": {
+            "type": "string"
+          },
+          "redaction_profile_version": {
+            "type": "string"
+          },
+          "output_kind": {
+            "type": "string",
+            "enum": [
+              "html",
+              "markdown",
+              "slidev",
+              "mermaid",
+              "reenactment"
+            ]
+          },
+          "release_scope": {
+            "type": "string",
+            "enum": [
+              "internal_draft",
+              "internal_review",
+              "external_release"
+            ]
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "client_txn_id",
+          "template_id",
+          "template_version",
+          "redaction_profile_id",
+          "redaction_profile_version",
+          "output_kind"
+        ]
+      },
+      "ReleaseActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "ReleaseEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReleaseResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReleaseResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "release_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "snapshot_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source_change_set_high_watermark": {
+            "type": "string"
+          },
+          "derivation_version": {
+            "type": "string"
+          },
+          "export_model_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "redaction_profile_id": {
+            "type": "string"
+          },
+          "redaction_profile_version": {
+            "type": "string"
+          },
+          "redaction_profile_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "output_kind": {
+            "type": "string"
+          },
+          "output_media_type": {
+            "type": "string"
+          },
+          "release_scope": {
+            "type": "string"
+          },
+          "output_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "redaction_manifest_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "release_state": {
+            "type": "string",
+            "enum": [
+              "pending_approval",
+              "approved",
+              "invalidated",
+              "published",
+              "render_failed"
+            ]
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "approved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "invalidated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "invalidation_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "release_id",
+          "incident_id",
+          "snapshot_id",
+          "snapshot_at",
+          "source_change_set_high_watermark",
+          "derivation_version",
+          "export_model_sha256",
+          "template_id",
+          "template_version",
+          "redaction_profile_id",
+          "redaction_profile_version",
+          "redaction_profile_sha256",
+          "output_kind",
+          "output_media_type",
+          "release_scope",
+          "output_sha256",
+          "redaction_manifest_sha256",
+          "release_state",
+          "created_by_user_id",
+          "created_at",
+          "approved_at",
+          "invalidated_at",
+          "published_at",
+          "invalidation_reason"
         ]
       },
       "JobCancelRequest": {

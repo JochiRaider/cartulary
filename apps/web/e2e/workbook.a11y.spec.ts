@@ -60,14 +60,14 @@ test.describe("frontend accessibility readiness", () => {
       await page.goto(`/?incident_id=${incidentId}`);
 
       await expect(page.locator("body")).toBeVisible();
+      await expect(page.getByText("Timeline workbook shell")).toBeVisible();
 
-      const focusableCount = await page
-        .locator(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        )
-        .count();
+      const focusableSelector =
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const focusableCount = await page.locator(focusableSelector).count();
       expect(focusableCount).toBeGreaterThan(0);
 
+      await page.locator(focusableSelector).first().focus();
       await page.keyboard.press("Tab");
       const activeElementIsFocusable = await page.evaluate(() => {
         const active = document.activeElement;

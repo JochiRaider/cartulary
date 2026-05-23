@@ -1,0 +1,297 @@
+package reporting
+
+import (
+	"errors"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(t *testing.T) {
+	descriptionPath := "/incident/description"
+	sourceClass := ContentClassSourceEvidence
+	maxChars := 4
+	maskText := "[MASKED]"
+	profile := RedactionProfile{
+		SchemaID:  "cartulary.redaction_profile.v1",
+		ProfileID: "test.redaction",
+		Version:   "1",
+		DefaultAction: RedactionActionSpec{
+			Type: ActionStub,
+		},
+		Rules: []RedactionRule{
+			{
+				RuleID:       "class-source-mask",
+				ContentClass: &sourceClass,
+				Action: RedactionActionSpec{
+					Type:            ActionMask,
+					ReplacementText: &maskText,
+				},
+			},
+			{
+				RuleID: "path-description-truncate",
+				Path:   &descriptionPath,
+				Action: RedactionActionSpec{
+					Type:     ActionTruncate,
+					MaxChars: &maxChars,
+				},
+			},
+		},
+	}
+	profileSHA, err := ValidateRedactionProfile(profile)
+	if err != nil {
+		t.Fatalf("validate profile: %v", err)
+	}
+	model := ExportModel{
+		SchemaID:                     "cartulary.export_model.v1",
+		IncidentID:                   "incident-1",
+		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+		SourceChangeSetHighWatermark: "incident:1:v1",
+		DerivationVersion:            DerivationVersion,
+		Fields: []ExportField{
+			{
+				Path:         "/incident/description",
+				ContentClass: ContentClassSourceEvidence,
+				Value:        "abcdefgh",
+			},
+			{
+				Path:         "/incident/raw_note",
+				ContentClass: ContentClassSourceEvidence,
+				Value:        "source value",
+			},
+			{
+				Path:         "/incident/internal_note",
+				ContentClass: ContentClassWorkingMaterial,
+				Value:        "internal value",
+			},
+		},
+	}
+	sourceBytes, err := canonicalJSON(model)
+	if err != nil {
+		t.Fatalf("source model json: %v", err)
+	}
+	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeInternalReview)
+	if err != nil {
+		t.Fatalf("redact model: %v", err)
+	}
+	values := map[string]any{}
+	for _, field := range result.Model.Fields {
+		values[field.Path] = field.Value
+	}
+	if values["/incident/description"] != "abcd"+DefaultTruncateMark {
+		t.Fatalf("path rule must override class rule, got %#v", values["/incident/description"])
+	}
+	if values["/incident/raw_note"] != maskText {
+		t.Fatalf("class rule must override default, got %#v", values["/incident/raw_note"])
+	}
+	if values["/incident/internal_note"] != DefaultStubText {
+		t.Fatalf("default rule must apply when no path or class rule matches, got %#v", values["/incident/internal_note"])
+	}
+	entries := map[string]RedactionManifestEntry{}
+	for _, entry := range result.Manifest.Entries {
+		entries[entry.Path] = entry
+	}
+	if entries["/incident/description"].RuleID != "path-description-truncate" || entries["/incident/description"].Outcome != "truncated" {
+		t.Fatalf("manifest must bind path rule and outcome, got %#v", entries["/incident/description"])
+	}
+	if entries["/incident/raw_note"].RuleID != "class-source-mask" || entries["/incident/raw_note"].Outcome != "masked" {
+		t.Fatalf("manifest must bind class rule and outcome, got %#v", entries["/incident/raw_note"])
+	}
+	if entries["/incident/internal_note"].RuleID != "profile_default" || entries["/incident/internal_note"].Outcome != "stubbed" {
+		t.Fatalf("manifest must bind default rule and outcome, got %#v", entries["/incident/internal_note"])
+	}
+	if result.Manifest.ProfileSHA256 != profileSHA || result.ManifestSHA256 == "" {
+		t.Fatalf("manifest must carry immutable profile digest and manifest digest")
+	}
+}
+
+func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafeBounds(t *testing.T) {
+	path := "/incident/title"
+	class := ContentClassCuratedNarrative
+	maxZero := 0
+	cases := []struct {
+		name    string
+		profile RedactionProfile
+	}{
+		{
+			name: "duplicate path rules",
+			profile: RedactionProfile{
+				SchemaID:      "cartulary.redaction_profile.v1",
+				ProfileID:     "test.duplicate.path",
+				Version:       "1",
+				DefaultAction: RedactionActionSpec{Type: ActionAllow},
+				Rules: []RedactionRule{
+					{RuleID: "a", Path: &path, Action: RedactionActionSpec{Type: ActionAllow}},
+					{RuleID: "b", Path: &path, Action: RedactionActionSpec{Type: ActionDrop}},
+				},
+			},
+		},
+		{
+			name: "duplicate content class rules",
+			profile: RedactionProfile{
+				SchemaID:      "cartulary.redaction_profile.v1",
+				ProfileID:     "test.duplicate.class",
+				Version:       "1",
+				DefaultAction: RedactionActionSpec{Type: ActionAllow},
+				Rules: []RedactionRule{
+					{RuleID: "a", ContentClass: &class, Action: RedactionActionSpec{Type: ActionAllow}},
+					{RuleID: "b", ContentClass: &class, Action: RedactionActionSpec{Type: ActionDrop}},
+				},
+			},
+		},
+		{
+			name: "reserved hash action",
+			profile: RedactionProfile{
+				SchemaID:      "cartulary.redaction_profile.v1",
+				ProfileID:     "test.hash",
+				Version:       "1",
+				DefaultAction: RedactionActionSpec{Type: ActionHash},
+			},
+		},
+		{
+			name: "truncate missing safe bound",
+			profile: RedactionProfile{
+				SchemaID:      "cartulary.redaction_profile.v1",
+				ProfileID:     "test.truncate",
+				Version:       "1",
+				DefaultAction: RedactionActionSpec{Type: ActionTruncate, MaxChars: &maxZero},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := ValidateRedactionProfile(tc.profile); !errors.Is(err, ErrInvalidRedactionProfile) {
+				t.Fatalf("expected ErrInvalidRedactionProfile, got %v", err)
+			}
+		})
+	}
+}
+
+func TestPhase11_U_11_REPORTING_03_ExternalValidationRejectsOpaqueBytesAndWorkingMaterial(t *testing.T) {
+	profile := internalRedactionProfile()
+	profileSHA, err := ValidateRedactionProfile(profile)
+	if err != nil {
+		t.Fatalf("validate profile: %v", err)
+	}
+	model := ExportModel{
+		SchemaID:                     "cartulary.export_model.v1",
+		IncidentID:                   "incident-1",
+		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+		SourceChangeSetHighWatermark: "incident:1:v1",
+		DerivationVersion:            DerivationVersion,
+		Fields: []ExportField{
+			{
+				Path:          "/evidence/blob",
+				ContentClass:  ContentClassSourceEvidence,
+				Value:         "raw bytes",
+				RawBlobSource: true,
+				OpaqueBinary:  true,
+			},
+			{
+				Path:         "/incident/internal_note",
+				ContentClass: ContentClassWorkingMaterial,
+				Value:        "internal",
+			},
+		},
+	}
+	sourceBytes, err := canonicalJSON(model)
+	if err != nil {
+		t.Fatalf("source model json: %v", err)
+	}
+	if _, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal); !errors.Is(err, ErrRedactionValidation) {
+		t.Fatalf("external release must reject raw bytes and working material, got %v", err)
+	}
+}
+
+func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFailClosed(t *testing.T) {
+	allowedPath := "/incident/summary"
+	restrictedPath := "/incident/restricted"
+	profile := RedactionProfile{
+		SchemaID:  "cartulary.redaction_profile.v1",
+		ProfileID: "test.partitions",
+		Version:   "1",
+		AllowedDisclosurePartitionRefs: []string{
+			"incident_summary",
+		},
+		DefaultAction: RedactionActionSpec{Type: ActionAllow},
+		Rules: []RedactionRule{
+			{RuleID: "allow-summary", Path: &allowedPath, Action: RedactionActionSpec{Type: ActionAllow}},
+			{RuleID: "allow-restricted", Path: &restrictedPath, Action: RedactionActionSpec{Type: ActionAllow}},
+		},
+	}
+	profileSHA, err := ValidateRedactionProfile(profile)
+	if err != nil {
+		t.Fatalf("validate profile: %v", err)
+	}
+	model := ExportModel{
+		SchemaID:                     "cartulary.export_model.v1",
+		IncidentID:                   "incident-1",
+		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+		SourceChangeSetHighWatermark: "incident:1:v1",
+		DerivationVersion:            DerivationVersion,
+		Fields: []ExportField{
+			{
+				Path:                    allowedPath,
+				ContentClass:            ContentClassCuratedNarrative,
+				Value:                   "supported public summary",
+				DisclosurePartitionRefs: []string{"incident_summary"},
+				SupportRefs:             []string{"/incident/source"},
+			},
+			{
+				Path:                    restrictedPath,
+				ContentClass:            ContentClassDerivedAnalytic,
+				Value:                   "restricted analytic",
+				DisclosurePartitionRefs: []string{"legal_hold"},
+			},
+		},
+	}
+	sourceBytes, err := canonicalJSON(model)
+	if err != nil {
+		t.Fatalf("source model json: %v", err)
+	}
+	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal)
+	if err != nil {
+		t.Fatalf("redact with partition filter: %v", err)
+	}
+	if len(result.Model.Fields) != 1 || result.Model.Fields[0].Path != allowedPath {
+		t.Fatalf("external profile must drop fields outside allowed partitions, got %#v", result.Model.Fields)
+	}
+	entries := map[string]RedactionManifestEntry{}
+	for _, entry := range result.Manifest.Entries {
+		entries[entry.Path] = entry
+	}
+	if entries[restrictedPath].Outcome != "dropped_disclosure_partition" {
+		t.Fatalf("restricted field must be represented as partition drop, got %#v", entries[restrictedPath])
+	}
+
+	model.Fields[0].SupportRefs = nil
+	if _, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal); !errors.Is(err, ErrRedactionValidation) {
+		t.Fatalf("external curated narrative without support refs must fail closed, got %v", err)
+	}
+}
+
+func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *testing.T) {
+	_, unknownAliasErr := DecodeCreateSnapshotRequest(strings.NewReader(`{"incident_id":"00000000-0000-0000-0000-000000000001","client_txn_id":"txn","source_change_set_high_watermark_id":"legacy"}`))
+	if unknownAliasErr == nil || unknownAliasErr.Details["reason_code"] != "unknown_field" {
+		t.Fatalf("legacy source boundary alias must be rejected as unknown field, got %#v", unknownAliasErr)
+	}
+	_, malformed := DecodeCreateReleaseRequest(strings.NewReader(`[]`))
+	if malformed == nil || malformed.Details["reason_code"] != "request_not_object" {
+		t.Fatalf("non-object release body must use registered request_not_object reason, got %#v", malformed)
+	}
+	emptyReason, apiErr := DecodeReleaseActionRequest(strings.NewReader(`{"client_txn_id":"txn","reason":""}`))
+	if apiErr != nil {
+		t.Fatalf("empty reason should normalize, got %v", apiErr)
+	}
+	nullReason, apiErr := DecodeReleaseActionRequest(strings.NewReader(`{"client_txn_id":"txn","reason":null}`))
+	if apiErr != nil {
+		t.Fatalf("null reason should normalize, got %v", apiErr)
+	}
+	omittedReason, apiErr := DecodeReleaseActionRequest(strings.NewReader(`{"client_txn_id":"txn"}`))
+	if apiErr != nil {
+		t.Fatalf("omitted reason should normalize, got %v", apiErr)
+	}
+	if string(emptyReason.Normalized) != string(nullReason.Normalized) || string(emptyReason.Normalized) != string(omittedReason.Normalized) {
+		t.Fatalf("omitted, null, and empty reasons must compare equal: empty=%s null=%s omitted=%s", emptyReason.Normalized, nullReason.Normalized, omittedReason.Normalized)
+	}
+}

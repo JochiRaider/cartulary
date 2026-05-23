@@ -2907,7 +2907,9 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `missing_required_field` | A required snapshot-create field is absent. |
 | `field_not_nullable` | The request supplies `null` for a non-nullable snapshot-create field. |
 | `unknown_field` | The request includes a top-level member not declared by the snapshot-create contract. |
-| `invalid_source_boundary` | `source_change_set_high_watermark`, when supplied, is not a valid committed source-boundary reference for the addressed incident. |
+| `invalid_value` | A snapshot request field value has the wrong scalar shape. |
+
+Boundary values that are syntactically valid but do not equal the current committed source-boundary reference for the addressed incident MUST fail with `snapshot_source_boundary_conflict`, not `invalid_snapshot_request`.
 
 `invalid_release_request` `error.details.reason_code` values:
 
@@ -2917,31 +2919,43 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `missing_required_field` | A required release-create field is absent. |
 | `field_not_nullable` | The request supplies `null` for a non-nullable release-create field. |
 | `unknown_field` | The request includes a top-level member not declared by the release-create contract. |
-| `invalid_release_scope` | The supplied `release_scope` is not one of the current-profile release-scope tokens. |
-| `version_selector_required` | The request omitted `template_version` or `redaction_profile_version`, or otherwise attempted implicit latest-version selection. |
+| `invalid_value` | A release request field value has the wrong scalar shape. |
+| `unsupported_template` | The addressed template id or version is outside the current Snapshot and Reporting profile. |
+| `unsupported_redaction_profile` | The addressed redaction profile id or version is outside the current Snapshot and Reporting profile. |
+| `unsupported_output_kind` | The requested `output_kind` is outside the current Snapshot and Reporting profile. |
+| `unsupported_release_scope` | The requested `release_scope` is outside the current Snapshot and Reporting profile. |
 
 `release_render_failed` `error.details.reason_code` values:
 
 | `reason_code` | Canonical meaning |
 | --- | --- |
+| `invalid_redaction_profile` | The selected redaction profile is malformed or contains reserved behavior. |
 | `missing_redaction_rule` | A renderable field or block lacked an applicable redaction rule for the chosen `release_scope`. |
+| `post_redaction_validation_failed` | Post-redaction validation failed before template rendering or publish eligibility. |
+| `template_render_failed` | The selected template failed before producing self-contained output bytes. |
 | `undeclared_template_binding` | The selected template referenced an undeclared export-model binding. |
 | `missing_required_field` | The selected template required a field not present in the frozen export model. |
+| `manifest_encoding_failed` | The redaction manifest could not be encoded canonically. |
+| `redaction_failed` | Redaction failed before a redacted export model could be emitted. |
 
 `release_state_conflict` `error.details.reason_code` values:
 
 | `reason_code` | Canonical meaning |
 | --- | --- |
-| `not_approved` | The requested publish action targeted a release that is not currently `approved`. |
+| `approval_required` | The requested publish action targeted a release that is not currently `approved`. |
 | `already_approved` | The requested approve action targeted a release already in `approved` state. |
 | `already_published` | The requested approve or publish action targeted a release already in `published` state. |
 | `already_invalidated` | The requested approve, publish, or invalidate action targeted a release already in `invalidated` state. |
+| `approval_not_available` | The current release state cannot accept approval. |
+| `render_failed` | The release render failed and cannot be published or invalidated. |
+| `invalid_state` | The persisted release state is outside the legal action transition table. |
 
 `release_approval_rejected` `error.details.reason_code` values:
 
 | `reason_code` | Canonical meaning |
 | --- | --- |
-| `approval_requirements_not_met` | The caller or current artifact tuple cannot contribute a valid approval for the requested approve action while the release remains eligible for approval, including duplicate or otherwise non-contributing approval attempts while `release_state='pending_approval'`. |
+| `actor_lacks_approval_role` | The actor is not a reviewer or incident admin for the addressed release. |
+| `reviewer_approval_required` | The current release scope requires a reviewer approval. |
 
 `invalid_reference_pack_request` `error.details.reason_code` values:
 
@@ -4561,6 +4575,7 @@ Each rendered artifact MUST bind to one immutable release tuple equivalent to:
 - `derivation_version`,
 - `template_id` and `template_version`,
 - `redaction_profile_id` and `redaction_profile_version`,
+- `redaction_profile_sha256`,
 - `export_model_sha256`.
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-233
@@ -4581,6 +4596,8 @@ Re-rendering from the same release tuple MUST reproduce the same canonical expor
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-233
 
+Render admission MUST resolve `redaction_profile_id`, `redaction_profile_version`, and `redaction_profile_sha256` exactly once before redaction begins. That resolved profile digest MUST be recorded on the release record, the redaction manifest, each approval tuple, and the provenance used to compute `output_sha256`. A later change to profile bytes for the same id and version MUST NOT silently reuse an earlier approval or publication state.
+
 ### 10.2.1 Rendered artifact lifecycle
 
 For Snapshot and Reporting Extension Profile outputs, Cartulary defines an artifact-scoped lifecycle over each rendered output candidate.
@@ -4597,7 +4614,8 @@ The closed vocabulary for `release_state` is:
 - `pending_approval`,
 - `approved`,
 - `invalidated`,
-- `published`.
+- `published`,
+- `render_failed`.
 
 A rendered output enters `pending_approval` when render completion has produced bytes and `output_sha256` for one immutable release tuple but the required approvals for the chosen `release_scope` are not yet satisfied.
 
@@ -4610,6 +4628,8 @@ A rendered output enters `invalidated` when any of the following occurs after ap
 - a superseding render is produced for the same logical output slot with a different `output_sha256`,
 - the implementation can no longer attest that the required approval set applies to that exact artifact,
 - the implementation explicitly marks the artifact as superseded by a newly rendered candidate for the same logical output slot.
+
+A rendered output enters `render_failed` only for a failed-closed render candidate that did not produce publishable output bytes. A `render_failed` release MUST NOT transition to `approved` or `published`.
 
 **REQ-01-375**
 Approval invalidation MUST be an explicit lifecycle transition on the artifact record. It MUST NOT be implemented only as an implicit UI rule.
@@ -4733,6 +4753,14 @@ Each versioned redaction profile MUST declare, at minimum:
 Profiles: snapshot_reporting
 Verified by: AC-057, AC-060, AC-113, AC-114, AC-115, AC-233
 
+For each export-model field or block, rule selection MUST be deterministic:
+
+- first, one exact stable export-model path rule, when present;
+- second, one exact `content_class` rule, when present;
+- third, the profile default action.
+
+Profiles MUST be rejected before render admission when two rules at the same precedence match the same path or same `content_class`, unless a future owner spec defines an explicit tie-breaker.
+
 **REQ-01-387**
 When recipient-specific reporting is implemented, a versioned redaction profile MUST also be able to declare zero or more allowed stable incident-local `disclosure_partition_refs[]`.
 Profiles: snapshot_reporting
@@ -4744,13 +4772,24 @@ The closed vocabulary for redaction actions is:
 - `drop`,
 - `mask`,
 - `truncate`,
-- `hash`,
 - `stub`.
+
+In the current profile, `hash` is reserved and invalid. A profile containing `hash` MUST be rejected before render admission until a future owner spec defines keyed pseudonymization, key ownership, rotation, and release-review semantics.
+
+The current-profile action semantics are exact:
+
+- `allow` includes the original export-model value unchanged in the redacted export model.
+- `drop` omits the field or block from the redacted export model and records a manifest outcome of `dropped`.
+- `mask` replaces the value with the rule's `replacement_text`, or `[REDACTED]` when that parameter is omitted.
+- `truncate` is valid only when `max_chars` is present, positive, and bounded by the profile schema. It emits the first `max_chars` Unicode scalar values followed by `[TRUNCATED]` only when truncation occurs.
+- `stub` replaces the value with the rule's `stub_text`, or `[STUB]` when that parameter is omitted.
 
 **REQ-01-388**
 Redaction MUST run after snapshot materialization and before template rendering.
 Profiles: snapshot_reporting
 Verified by: AC-057, AC-060, AC-113, AC-114, AC-115, AC-233
+
+After redaction and before template rendering or publish eligibility, the implementation MUST run a redaction conformance pass. That pass MUST verify rule coverage, release-scope eligibility, disclosure-partition eligibility, redacted export-model validity, manifest completeness, and self-contained output packaging constraints. Any failure MUST produce `release_render_failed` with one stable reason code and MUST leave the affected release in a non-publishable state.
 
 **REQ-01-389**
 If a field or block eligible for the chosen `release_scope` appears in the canonical export model without an applicable redaction rule, rendering MUST fail closed.
@@ -4768,7 +4807,7 @@ Profiles: snapshot_reporting
 Verified by: AC-057, AC-060, AC-113, AC-114, AC-115, AC-233
 
 **REQ-01-392**
-Each rendered artifact MUST emit a `redaction_manifest` keyed by stable export-model path and rule identifier, recording every field or block that was dropped, masked, truncated, hashed, or stubbed.
+Each rendered artifact MUST emit or persist a `redaction_manifest.v1` keyed by stable export-model path and rule identifier. The manifest MUST include one entry for every export-model field or block processed by redaction, including fields that were allowed unchanged. Each entry MUST include stable export-model path, `content_class`, selected action, rule id, profile id, profile version, profile digest, disclosure-partition handling, and outcome. The release record MUST bind at least the manifest digest; if the full manifest is exposed separately, that manifest MUST byte-for-byte match the digest-bound artifact used for output generation.
 Profiles: snapshot_reporting
 Verified by: AC-057, AC-060, AC-113, AC-114, AC-115, AC-233
 
@@ -4835,6 +4874,8 @@ Verified by: AC-031, AC-061, AC-062, AC-233
 Generated report and presentation artifacts MUST be self-contained. They MUST NOT require remote JavaScript, CSS, fonts, or runtime media assets at render time.
 Profiles: snapshot_reporting
 Verified by: AC-031, AC-233
+
+Reporting redaction MUST NOT claim to sanitize arbitrary binary or opaque source bytes in place. External outputs MAY include only eligible derived excerpts, thumbnails, labels, hashes, or metadata blocks represented in the canonical export model. Raw blob bytes, object-store payloads, and opaque source files MUST NOT be packaged into `external_release` outputs by the reporting renderer.
 
 ## 11. Reference Pack Extension Profile
 
@@ -5935,26 +5976,26 @@ Verified by: AC-266, AC-267, AC-268
 | --- | --- | --- | --- | --- |
 | `POST /api/v1/snapshots` | JSON object with required `incident_id`, required `client_txn_id`, and optional `source_change_set_high_watermark` resolved once at job admission when omitted | Common job resource; terminal success emits one `snapshot` ref | Yes | `invalid_snapshot_request` |
 | `GET /api/v1/snapshots/{snapshot_id}` | Singleton read | `snapshot` resource | No | `snapshot_not_found`, `invalid_pagination_request` |
-| `POST /api/v1/releases` | JSON object with required snapshot, template, redaction-profile, output-kind, and `client_txn_id`; optional `release_scope` defaulting to `internal_draft` | Common job resource; terminal success emits one `release` ref | Yes | `invalid_release_request`, `release_render_failed` |
+| `POST /api/v1/releases` | JSON object with required `snapshot_id`, `client_txn_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, and `output_kind`; optional `release_scope` defaulting to `internal_draft` | Common job resource; terminal success emits one `release` ref | Yes | `invalid_release_request`, `release_render_failed` |
 | `GET /api/v1/releases/{release_id}` | Singleton read | `release` resource | No | `release_not_found`, `invalid_pagination_request` |
-| `POST /api/v1/releases/{release_id}/approve` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with `data.release` and `approval_progress` | No | `invalid_release_request`, `release_state_conflict`, `release_approval_rejected` |
-| `POST /api/v1/releases/{release_id}/publish` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with `data.release` | No | `invalid_release_request`, `release_state_conflict` |
-| `POST /api/v1/releases/{release_id}/invalidate` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with `data.release` | No | `invalid_release_request`, `release_state_conflict` |
+| `POST /api/v1/releases/{release_id}/approve` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with the post-commit `release` resource | No | `invalid_release_request`, `release_state_conflict`, `release_approval_rejected` |
+| `POST /api/v1/releases/{release_id}/publish` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with the post-commit `release` resource | No | `invalid_release_request`, `release_state_conflict` |
+| `POST /api/v1/releases/{release_id}/invalidate` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with the post-commit `release` resource | No | `invalid_release_request`, `release_state_conflict` |
 
 **Table 17.3-B. Snapshot and release durable resources**
 
 | Resource | Required members or properties |
 | --- | --- |
 | `snapshot` | `snapshot_id`, `incident_id`, `created_by_user_id`, `created_at`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `export_model_sha256` |
-| `release` | `release_id`, `incident_id`, `snapshot_id`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `export_model_sha256`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `output_kind`, `release_scope`, `output_sha256`, `release_state`, `created_by_user_id`, `created_at`, `approved_at`, `invalidated_at`, `published_at`, `invalidation_reason` |
+| `release` | `release_id`, `incident_id`, `snapshot_id`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `export_model_sha256`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `redaction_profile_sha256`, `output_kind`, `output_media_type`, `release_scope`, `output_sha256`, `redaction_manifest_sha256`, `release_state`, `created_by_user_id`, `created_at`, `approved_at`, `invalidated_at`, `published_at`, `invalidation_reason` |
 | `release_scope` omission rule | Omitted `release_scope` resolves to `internal_draft`; explicit `null` is invalid; omission and explicit `internal_draft` compare equal for idempotency |
-| `release_state` vocabulary | Exactly `pending_approval`, `approved`, `invalidated`, `published`; worker-phase tokens are forbidden |
+| `release_state` vocabulary | Exactly `pending_approval`, `approved`, `invalidated`, `published`, and `render_failed`; worker-phase tokens are forbidden |
 
 **Table 17.3-C. Release action summary**
 
 | Action route | Legal current state | Success summary |
 | --- | --- | --- |
-| `approve` | `pending_approval` only | Records one approval for the exact immutable release tuple; success returns `approval_progress` with `approval_recorded`, `approval_requirements_satisfied`, and `resulting_release_state` |
+| `approve` | `pending_approval` only | Records one approval for the exact immutable release tuple; success returns the post-commit durable `release` resource |
 | `publish` | `approved` only | Marks the release published and returns the post-commit `release` resource |
 | `invalidate` | `pending_approval`, `approved`, or `published` | Marks the release invalidated and returns the post-commit `release` resource |
 
@@ -5965,9 +6006,9 @@ Verified by: AC-266, AC-267, AC-268
 | Snapshot-create success | `result_summary.code='snapshot_created'` and exactly one `snapshot` ref |
 | Release-create success | `result_summary.code='release_created'` and exactly one `release` ref |
 | Invalid release request registry | `invalid_release_request` for malformed create or action bodies |
-| Release render failure registry | `release_render_failed` with `missing_redaction_rule`, `undeclared_template_binding`, and `missing_required_field` |
-| Release state conflict registry | `release_state_conflict` with `not_approved`, `already_approved`, `already_published`, and `already_invalidated` |
-| Release approval rejection registry | `release_approval_rejected` with `approval_requirements_not_met` |
+| Release render failure registry | `release_render_failed` with stable reason codes for invalid redaction profiles, missing redaction rules, post-redaction validation failure, template failures, manifest encoding failures, undeclared template bindings, and missing required fields |
+| Release state conflict registry | `release_state_conflict` with stable reason codes for approval-required, already-approved, already-published, already-invalidated, render-failed, and invalid-state cases |
+| Release approval rejection registry | `release_approval_rejected` with stable reason codes for actors lacking approval role or approvals supplied through the wrong approval role |
 
 
 **REQ-01-477**
@@ -6015,9 +6056,12 @@ The `release resource` MUST expose exactly:
 - `template_version`,
 - `redaction_profile_id`,
 - `redaction_profile_version`,
+- `redaction_profile_sha256`,
 - `output_kind`,
+- `output_media_type`,
 - `release_scope`,
 - `output_sha256`,
+- `redaction_manifest_sha256`,
 - `release_state`,
 - `created_by_user_id`,
 - `created_at`,
@@ -6030,15 +6074,15 @@ For `release resource` serialization:
 
 - `approved_at`, `invalidated_at`, `published_at`, and `invalidation_reason` MUST always be present and MUST be JSON `null` when unset;
 - every other member above is required and non-null in the current profile;
-- `data.release` in successful `approve`, `publish`, and `invalidate` responses MUST use the exact `release resource` shape defined here;
-- the `release resource` MUST NOT inline approval records, redaction manifests, rendered bytes, or worker-phase or job-status state.
+- successful `approve`, `publish`, and `invalidate` responses MUST return `data = <release resource>` using the exact shape defined here;
+- the `release resource` MUST NOT inline approval records, full redaction manifests, rendered bytes, or worker-phase or job-status state.
 
-`POST /api/v1/releases/{release_id}/approve`, `POST /api/v1/releases/{release_id}/publish`, and `POST /api/v1/releases/{release_id}/invalidate` MUST each accept only a JSON object with required `client_txn_id` and optional `reason`. If present, `reason` MUST be a JSON string or JSON `null` and MUST normalize under `string_contract_id=reason_note_v1`. For idempotency comparison, omission, explicit JSON `null`, and any `reason` value that normalizes to empty under `reason_note_v1` MUST compare equal. Unknown top-level members, a non-object body, missing `client_txn_id`, or `null` for a non-nullable member MUST fail with `400` and `error.code = invalid_release_request`. Route-scoped idempotency for these three action routes MUST be keyed by `(actor_user_id, release_id, action_route, client_txn_id)` and MUST compare the exact action route plus normalized `reason`. Exact replay of a previously committed success MUST return the original committed success result before any fresh state-conflict evaluation runs. Reuse of the same route-scoped key with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict`. `approve` MUST mean recording an approval against that exact immutable release tuple. A successful `approve` MAY leave `release_state='pending_approval'` when the required approval set is not yet complete. It transitions to `approved` only when the required approval set is now satisfied for that exact release record. A successful `approve` MUST return `200 OK` with the common success envelope and `data` containing required `release` equal to the post-commit durable release resource plus required `approval_progress`, with exactly boolean `approval_recorded`, boolean `approval_requirements_satisfied`, and `resulting_release_state`, where `resulting_release_state` MUST use only `pending_approval` or `approved`. A successful `publish` MUST return `200 OK` with the common success envelope and `data.release` equal to the post-commit durable release resource. A successful `invalidate` MUST return `200 OK` with the common success envelope and `data.release` equal to the post-commit durable release resource. `approve` is legal only when the current `release_state` is `pending_approval`. `publish` is legal only when the current `release_state` is `approved`. `invalidate` is legal only when the current `release_state` is `pending_approval`, `approved`, or `published`. The public `release_state` vocabulary remains exactly `pending_approval`, `approved`, `invalidated`, and `published`. Render jobs MUST NOT introduce `queued`, `running`, `rendering`, or equivalent worker-phase tokens into `release_state`. A successful internal-draft render candidate becomes `approved` immediately because the current profile requires no separate approval action for `release_scope='internal_draft'`.
+`POST /api/v1/releases/{release_id}/approve`, `POST /api/v1/releases/{release_id}/publish`, and `POST /api/v1/releases/{release_id}/invalidate` MUST each accept only a JSON object with required `client_txn_id` and optional `reason`. If present, `reason` MUST be a JSON string or JSON `null` and MUST normalize under `string_contract_id=reason_note_v1`. For idempotency comparison, omission, explicit JSON `null`, and any `reason` value that normalizes to empty under `reason_note_v1` MUST compare equal. Unknown top-level members, a non-object body, missing `client_txn_id`, or `null` for a non-nullable member MUST fail with `400` and `error.code = invalid_release_request`. Route-scoped idempotency for these three action routes MUST be keyed by `(actor_user_id, release_id, action_route, client_txn_id)` and MUST compare the exact action route plus normalized `reason`. Exact replay of a previously committed success MUST return the original committed success result before any fresh state-conflict evaluation runs. Reuse of the same route-scoped key with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict`. `approve` MUST mean recording an approval against that exact immutable release tuple, including `redaction_profile_sha256`, `output_sha256`, and `redaction_manifest_sha256`. A successful `approve` MAY leave `release_state='pending_approval'` when the required approval set is not yet complete. It transitions to `approved` only when the required approval set is now satisfied for that exact release record. A successful `approve`, `publish`, or `invalidate` MUST return `200 OK` with the common success envelope and `data` equal to the post-commit durable release resource. `approve` is legal only when the current `release_state` is `pending_approval`. `publish` is legal only when the current `release_state` is `approved`. `invalidate` is legal only when the current `release_state` is `pending_approval`, `approved`, or `published`. The public `release_state` vocabulary remains exactly `pending_approval`, `approved`, `invalidated`, `published`, and `render_failed`. Render jobs MUST NOT introduce `queued`, `running`, `rendering`, or equivalent worker-phase tokens into `release_state`. A successful internal-draft render candidate becomes `approved` immediately because the current profile requires no separate approval action for `release_scope='internal_draft'`.
 Profiles: snapshot_reporting
 Verified by: AC-268, AC-305, AC-306
 
 **REQ-01-479**
-The snapshot and release route family MUST use only `invalid_snapshot_request`, `snapshot_not_found`, `invalid_release_request`, `release_not_found`, `release_state_conflict`, `release_approval_rejected`, and `release_render_failed`. `invalid_release_request` applies to malformed release-create requests and malformed approve, publish, or invalidate action bodies. `release_render_failed` MUST use only `missing_redaction_rule`, `undeclared_template_binding`, and `missing_required_field`. `release_state_conflict` MUST use only `not_approved`, `already_approved`, `already_published`, and `already_invalidated`. `release_approval_rejected` MUST use only `approval_requirements_not_met`, and that code is reserved for approval-eligibility failures while the durable release state still permits an approval attempt. Terminal-state failures MUST use `release_state_conflict`.
+The snapshot and release route family MUST use only `invalid_snapshot_request`, `snapshot_not_found`, `snapshot_source_boundary_conflict`, `invalid_release_request`, `release_not_found`, `release_state_conflict`, `release_approval_rejected`, and `release_render_failed`. `invalid_release_request` applies to malformed release-create requests and malformed approve, publish, or invalidate action bodies. `release_render_failed` MUST fail closed before approval or publication and MUST use only reason codes declared in the error registry. `release_state_conflict` MUST distinguish approval-required, already-approved, already-published, already-invalidated, render-failed, and invalid-state cases. `release_approval_rejected` is reserved for actor-role or approval-role failures while the durable release state still permits an approval attempt. Terminal-state failures MUST use `release_state_conflict`.
 Profiles: snapshot_reporting
 Verified by: AC-269, AC-307
 
