@@ -1,0 +1,181 @@
+{
+  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "phase_namespace": "frontend",
+  "phase_id": "FE-P1",
+  "rows": [
+    {
+      "id": "FE-U-P1-01",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.1, 3.3.2",
+        "Core 04 Sections 2, 3"
+      ],
+      "core_req_ids": [
+        "REQ-01-023",
+        "REQ-01-031",
+        "REQ-01-522",
+        "REQ-01-526",
+        "REQ-04-001",
+        "REQ-04-017",
+        "REQ-04-083",
+        "REQ-04-084"
+      ],
+      "core_ac_ids": [
+        "AC-123",
+        "AC-130",
+        "AC-156",
+        "AC-163",
+        "AC-231",
+        "AC-334",
+        "AC-342"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify app bootstrap state distinguishes unauthenticated, MFA-required, authenticated, forbidden, revoked, loading, and public error-envelope states.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-I-P1-01",
+      "layer": "integration",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 3.3.1",
+        "Core 04 Sections 2, 5"
+      ],
+      "core_req_ids": [
+        "REQ-01-019",
+        "REQ-01-022",
+        "REQ-04-052",
+        "REQ-04-053",
+        "REQ-04-109"
+      ],
+      "core_ac_ids": [
+        "AC-124",
+        "AC-131",
+        "AC-135",
+        "AC-136",
+        "AC-219",
+        "AC-220",
+        "AC-231",
+        "AC-232",
+        "AC-234",
+        "AC-298"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify API client requests stay under /api/v1/, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-E-P1-01",
+      "layer": "e2e",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.1, 3.3.2",
+        "Core 04 Sections 2, 3"
+      ],
+      "core_req_ids": [
+        "REQ-01-023",
+        "REQ-01-031",
+        "REQ-04-001",
+        "REQ-04-017",
+        "REQ-04-021",
+        "REQ-04-030",
+        "REQ-04-085",
+        "REQ-04-094",
+        "REQ-04-105",
+        "REQ-04-106"
+      ],
+      "core_ac_ids": [
+        "AC-123",
+        "AC-130",
+        "AC-149",
+        "AC-156",
+        "AC-163",
+        "AC-178",
+        "AC-180",
+        "AC-231",
+        "AC-254",
+        "AC-255",
+        "AC-257",
+        "AC-260",
+        "AC-261",
+        "AC-334",
+        "AC-342",
+        "AC-352",
+        "AC-370",
+        "AC-371",
+        "AC-402"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make browser-e2e-webserver-backed"
+      ],
+      "scenario_titles": [
+        "FE-E-P1-01 Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-A11Y-P1-01",
+      "layer": "accessibility",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 10.5 and 14",
+        "docs/design.md Accessibility Direction"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-080",
+        "R2-AC-086",
+        "D-AC-009",
+        "D-AC-012"
+      ],
+      "targets": [
+        "make browser-e2e-a11y"
+      ],
+      "scenario_titles": [
+        "FE-A11Y-P1-01 Verify session, MFA, incident, forbidden, loading, and error states have keyboard-reachable controls, visible focus, and screen-reader-safe labels."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify session, MFA, incident, forbidden, loading, and error states have keyboard-reachable controls, visible focus, and screen-reader-safe labels.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-S-P1-01",
+      "layer": "support",
+      "evidence_class": "implementation_support",
+      "owner_refs": [
+        "Development guide Sections 6.4 and 7.4",
+        "implementation guide Section 14.9A"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "FE-SUPPORT-AC-005"
+      ],
+      "targets": [
+        "make frontend-unit",
+        "make browser-e2e-support"
+      ],
+      "scenario_titles": [
+        "FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify bootstrap route selectors and error-state selectors use stable test-id builders.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    }
+  ]
+}

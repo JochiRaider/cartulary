@@ -7,6 +7,7 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "./lib/browser-batch-manifest.mjs";
+import { validateFrontendPhaseArtifacts } from "./lib/frontend-phase-manifest.mjs";
 import { validateSchemaSync } from "./lib/harness-contract.mjs";
 import {
   executionTopologySchemaID,
@@ -1210,6 +1211,7 @@ function validateAll(root) {
   validateSchemaAttachmentPolicy(root);
   validatePhaseRegistryShape(repoFile(root, "tools/phase_registry.json"));
   validatePhaseRegistry(root);
+  validateFrontendPhaseArtifacts(root);
   for (const entry of activePhaseRegistryEntries(root)) {
     validatePhaseMapShape(repoFile(root, entry.manifest_path));
     validatePhaseManifestSemantics(root, entry.phase);

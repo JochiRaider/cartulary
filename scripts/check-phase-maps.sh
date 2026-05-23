@@ -5,6 +5,7 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 
 (cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate)
+(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/frontend-phase-manifest.mjs" validate)
 
 mapfile -t phases < <(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-registered-manifest-phases)
 

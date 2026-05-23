@@ -8,7 +8,9 @@ function main() {
   const root = process.cwd();
 
   for (const { phase, outputPath } of phaseLedgerOutputs(root)) {
-    validateManifest(root, phase, { allowPlanned: true });
+    if (!phase.startsWith("FE-P")) {
+      validateManifest(root, phase, { allowPlanned: true });
+    }
     const rendered = renderPhaseLedger(root, phase);
     const absoluteOutputPath = path.join(root, outputPath);
     mkdirSync(path.dirname(absoluteOutputPath), { recursive: true });

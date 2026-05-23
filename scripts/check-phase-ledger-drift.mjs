@@ -15,7 +15,9 @@ import { phaseLedgerOutputs, renderPhaseLedger } from "./render-phase-ledger.mjs
 const diffLineLimit = 200;
 
 function renderTempLedger(root, tempRoot, phase, outputPath) {
-  validateManifest(root, phase, { allowPlanned: true });
+  if (!phase.startsWith("FE-P")) {
+    validateManifest(root, phase, { allowPlanned: true });
+  }
   const rendered = renderPhaseLedger(root, phase);
   const tempOutputPath = path.join(tempRoot, outputPath);
   mkdirSync(path.dirname(tempOutputPath), { recursive: true });
@@ -70,8 +72,12 @@ function main() {
 
   if (drifts.length > 0) {
     for (const drift of drifts) {
+      const source =
+        drift.phase.startsWith("FE-P")
+          ? `tools/frontend_phase_maps/fe_p${drift.phase.slice("FE-P".length).toLowerCase()}_test_map.json`
+          : `tools/${drift.phase}_test_map.json`;
       process.stderr.write(
-        `${drift.phase} coverage ledger drift: regenerate ${drift.outputPath} from tools/${drift.phase}_test_map.json\n`,
+        `${drift.phase} coverage ledger drift: regenerate ${drift.outputPath} from ${source}\n`,
       );
       process.stderr.write(`${drift.excerpt}\n`);
     }

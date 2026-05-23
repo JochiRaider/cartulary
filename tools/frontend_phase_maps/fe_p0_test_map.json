@@ -1,0 +1,189 @@
+{
+  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "phase_namespace": "frontend",
+  "phase_id": "FE-P0",
+  "rows": [
+    {
+      "id": "FE-U-P0-01",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.1, 7.4",
+        "development guide Sections 6.2, 6.6"
+      ],
+      "core_req_ids": [
+        "REQ-01-019",
+        "REQ-01-020",
+        "REQ-01-022",
+        "REQ-01-034",
+        "REQ-01-307",
+        "REQ-01-311"
+      ],
+      "core_ac_ids": [
+        "AC-124",
+        "AC-125",
+        "AC-127",
+        "AC-184",
+        "AC-185",
+        "AC-231",
+        "AC-300",
+        "AC-303",
+        "AC-366",
+        "AC-368"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-typecheck",
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-U-P0-02",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 3.3.4",
+        "Core 03 Sections 4.1, 4.8"
+      ],
+      "core_req_ids": [
+        "REQ-01-034",
+        "REQ-01-035",
+        "REQ-01-036",
+        "REQ-03-223",
+        "REQ-03-235"
+      ],
+      "core_ac_ids": [
+        "AC-124",
+        "AC-127",
+        "AC-184",
+        "AC-185",
+        "AC-231",
+        "AC-238",
+        "AC-243",
+        "AC-360",
+        "AC-363",
+        "AC-364",
+        "AC-366",
+        "AC-368",
+        "AC-372",
+        "AC-375"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify view-schema adapters key editable and queryable fields by field_key, not labels, indexes, or visible column order.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-U-P0-03",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 7.4",
+        "Core 02 Section 5.3",
+        "development guide Section 6.4"
+      ],
+      "core_req_ids": [
+        "REQ-01-307",
+        "REQ-01-311",
+        "REQ-02-222",
+        "REQ-02-223"
+      ],
+      "core_ac_ids": [
+        "AC-076",
+        "AC-084",
+        "AC-116",
+        "AC-122",
+        "AC-137",
+        "AC-145",
+        "AC-231",
+        "AC-252",
+        "AC-253",
+        "AC-277",
+        "AC-284",
+        "AC-287",
+        "AC-300",
+        "AC-303"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-S-P0-01",
+      "layer": "support",
+      "evidence_class": "implementation_support",
+      "owner_refs": [
+        "Core 00 Section 1",
+        "development guide Sections 2, 6.6, 7.1"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "FE-SUPPORT-AC-004"
+      ],
+      "targets": [
+        "make generated-artifact-policy-check",
+        "make generate-drift"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Enforce generated protocol policy and detect generated contract drift.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-S-P0-02",
+      "layer": "support",
+      "evidence_class": "implementation_support",
+      "owner_refs": [
+        "Development guide Sections 6.1, 6.3, 6.8, 6.10",
+        "implementation guide Section 14.8"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "FE-SUPPORT-AC-001",
+        "FE-SUPPORT-AC-002"
+      ],
+      "targets": [
+        "make frontend-import-boundary-check"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Enforce frontend import boundaries: /apps/web must consume /packages/grid-adapter and must not import react-data-grid directly.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-S-P0-03",
+      "layer": "support",
+      "evidence_class": "implementation_support",
+      "owner_refs": [
+        "Implementation guide Sections 15 and 16"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "FE-GUIDE-AC-018"
+      ],
+      "targets": [
+        "make phase-ledger-drift"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Record frontend phase rows in a scheduler-enforced manifest or ledger before claiming phase-enforced completion.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    }
+  ]
+}

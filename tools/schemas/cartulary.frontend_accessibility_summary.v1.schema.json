@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_accessibility_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "status",
+    "phase_rows",
+    "scenarios",
+    "keyboard_matrix",
+    "state_communication_checks",
+    "contrast_checks",
+    "violations",
+    "artifact_refs"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.frontend_accessibility_summary.v1"
+    },
+    "status": {
+      "enum": ["pass", "fail"]
+    },
+    "phase_rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["row_id", "phase_id", "evidence_class", "claim_status", "targets"],
+        "properties": {
+          "row_id": { "type": "string" },
+          "phase_id": { "type": "string" },
+          "evidence_class": { "type": "string" },
+          "claim_status": { "type": "string" },
+          "targets": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["row_id", "title", "status"],
+        "properties": {
+          "row_id": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    "keyboard_matrix": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "state_communication_checks": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "contrast_checks": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "violations": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["kind", "path"],
+        "properties": {
+          "kind": { "type": "string" },
+          "path": { "type": "string" }
+        }
+      }
+    }
+  }
+}

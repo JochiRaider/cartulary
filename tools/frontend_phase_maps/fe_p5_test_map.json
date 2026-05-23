@@ -1,0 +1,216 @@
+{
+  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "phase_namespace": "frontend",
+  "phase_id": "FE-P5",
+  "rows": [
+    {
+      "id": "FE-U-P5-01",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 02 Sections 2.4 and 2.5",
+        "Core 03 Section 4.3"
+      ],
+      "core_req_ids": [
+        "REQ-02-026",
+        "REQ-02-044",
+        "REQ-03-276",
+        "REQ-03-281"
+      ],
+      "core_ac_ids": [
+        "AC-006",
+        "AC-019",
+        "AC-023",
+        "AC-028",
+        "AC-029",
+        "AC-188",
+        "AC-190",
+        "AC-201",
+        "AC-205",
+        "AC-221",
+        "AC-225",
+        "AC-231",
+        "AC-388",
+        "AC-393"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify mention chip view models preserve unresolved, resolved, auto-resolved, dismissed, and manual-resolution state by stable identifiers and field keys.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-I-P5-01",
+      "layer": "integration",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.4 and 8.5",
+        "Core 02 Sections 3.1 and 3.2",
+        "Core 03 Sections 4.7 and 4.11"
+      ],
+      "core_req_ids": [
+        "REQ-01-034",
+        "REQ-01-036",
+        "REQ-01-303",
+        "REQ-01-311",
+        "REQ-02-054",
+        "REQ-02-061",
+        "REQ-03-242",
+        "REQ-03-249",
+        "REQ-03-272"
+      ],
+      "core_ac_ids": [
+        "AC-006",
+        "AC-020",
+        "AC-023",
+        "AC-045",
+        "AC-068",
+        "AC-075",
+        "AC-097",
+        "AC-100",
+        "AC-112",
+        "AC-116",
+        "AC-118",
+        "AC-124",
+        "AC-127",
+        "AC-184",
+        "AC-187",
+        "AC-196",
+        "AC-209",
+        "AC-210",
+        "AC-231",
+        "AC-278",
+        "AC-279",
+        "AC-300",
+        "AC-303",
+        "AC-315",
+        "AC-318",
+        "AC-366",
+        "AC-368",
+        "AC-396",
+        "AC-410",
+        "AC-411"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit",
+        "make browser-e2e-webserver-backed"
+      ],
+      "scenario_titles": [
+        "FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-E-P5-01",
+      "layer": "e2e",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 3.3.6",
+        "Core 02 Sections 2.4, 2.5, 3.1",
+        "Core 03 Section 4.3"
+      ],
+      "core_req_ids": [
+        "REQ-01-057",
+        "REQ-01-070",
+        "REQ-02-026",
+        "REQ-02-044",
+        "REQ-02-054",
+        "REQ-02-061",
+        "REQ-03-276",
+        "REQ-03-281"
+      ],
+      "core_ac_ids": [
+        "AC-006",
+        "AC-019",
+        "AC-023",
+        "AC-028",
+        "AC-029",
+        "AC-124",
+        "AC-127",
+        "AC-181",
+        "AC-183",
+        "AC-186",
+        "AC-190",
+        "AC-200",
+        "AC-218",
+        "AC-221",
+        "AC-225",
+        "AC-231",
+        "AC-279",
+        "AC-299",
+        "AC-388",
+        "AC-393"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make browser-e2e-webserver-backed",
+        "make browser-e2e-stateful"
+      ],
+      "scenario_titles": [
+        "FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-V-P5-01",
+      "layer": "visual_regression",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 10.3 and 13",
+        "visual golden guide Sections 2, 3, 5"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-040",
+        "R2-AC-044",
+        "R2-AC-073",
+        "R2-AC-079"
+      ],
+      "targets": [
+        "make browser-e2e-visual"
+      ],
+      "scenario_titles": [
+        "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures."
+      ],
+      "claim_status": "blocked",
+      "claim": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-A11Y-P5-01",
+      "layer": "accessibility",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 10.3, 10.5, 14"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-040",
+        "R2-AC-044",
+        "R2-AC-080",
+        "R2-AC-086",
+        "D-AC-009",
+        "D-AC-012"
+      ],
+      "targets": [
+        "make browser-e2e-a11y"
+      ],
+      "scenario_titles": [
+        "FE-A11Y-P5-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    }
+  ]
+}

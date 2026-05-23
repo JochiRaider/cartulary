@@ -83,6 +83,24 @@
       ]
     },
     {
+      "name": "a11y",
+      "target": "browser-e2e-a11y",
+      "schedule_tags": [
+        "service_backed_full",
+        "service_backed_check"
+      ],
+      "groups": [
+        {
+          "name": "a11y",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_a11y",
+          "workers": "1"
+        }
+      ]
+    },
+    {
       "name": "visual",
       "target": "browser-e2e-visual",
       "schedule_tags": [
@@ -133,6 +151,7 @@
       "summary_children": [
         "browser-e2e-stateful",
         "browser-e2e-measurement",
+        "browser-e2e-a11y",
         "browser-e2e-visual"
       ],
       "groups": [
@@ -154,13 +173,22 @@
           "reset_before": "stateful-to-measurement"
         },
         {
+          "name": "a11y",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "reset_before": "measurement-to-a11y"
+        },
+        {
           "name": "visual",
           "target": "browser-e2e-visual",
           "kind": "visual",
           "coverage": "authoritative",
           "execution_dependency": "browser_visual",
           "workers": "1",
-          "reset_before": "measurement-to-visual"
+          "reset_before": "a11y-to-visual"
         }
       ]
     }

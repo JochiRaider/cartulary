@@ -6,6 +6,7 @@ import {
   knownRoles,
   taskGuide,
 } from "./lib/task-guidance.mjs";
+import { loadFrontendPhaseRegistry } from "./lib/frontend-phase-manifest.mjs";
 import { phaseSliceExecutionMap } from "./lib/task-execution-map.mjs";
 
 process.stdout.on("error", (error) => {
@@ -16,12 +17,14 @@ process.stdout.on("error", (error) => {
 });
 
 function usage() {
-  process.stderr.write("usage: print-task-guide.mjs [--role <role>] [--phase <phaseN>] [--json]\n");
+  process.stderr.write(
+    "usage: print-task-guide.mjs [--role <role>] [--phase <phaseN|FE-PN>] [--phase-namespace <base|frontend>] [--json]\n",
+  );
   process.exit(2);
 }
 
 function parseArgs(argv) {
-  const options = { role: "", phase: "", json: false };
+  const options = { role: "", phase: "", phaseNamespace: "base", json: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--role") {
@@ -31,6 +34,11 @@ function parseArgs(argv) {
     }
     if (arg === "--phase") {
       options.phase = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--phase-namespace") {
+      options.phaseNamespace = argv[index + 1] ?? "";
       index += 1;
       continue;
     }
@@ -114,6 +122,35 @@ function renderHuman(guide) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.phaseNamespace === "frontend") {
+    const registry = loadFrontendPhaseRegistry(process.cwd());
+    const phase = registry.phases.find((entry) => entry.phase_id === options.phase);
+    if (!phase) {
+      throw new Error("unknown frontend phase; expected FE-P0 through FE-P11");
+    }
+    const guide = {
+      schema_id: "cartulary.frontend_task_guide.v1",
+      role: options.role || "feature-dev",
+      phase_namespace: "frontend",
+      phase: phase.phase_id,
+      status: phase.status,
+      recommendations: [
+        `make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
+        "make phase-ledger-drift",
+      ],
+    };
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify(guide, null, 2)}\n`);
+      return;
+    }
+    process.stdout.write(
+      `Cartulary task guide\nrole=${guide.role} phase_namespace=frontend phase=${phase.phase_id}\nstatus=${phase.status}\n  make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | inspect planned frontend phase rows\n  make phase-ledger-drift | verify frontend ledgers and base ledgers\n`,
+    );
+    return;
+  }
+  if (options.phase.startsWith("FE-P")) {
+    throw new Error("frontend phases require PHASE_NAMESPACE=frontend");
+  }
   const guide = taskGuide(options);
   if (!guide) {
     throw new Error(

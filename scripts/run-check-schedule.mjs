@@ -3,7 +3,13 @@ import { existsSync } from "node:fs";
 import { mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
+import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
+import { createRunnerContext } from "./lib/runner-context.mjs";
+import {
+  loadSchedulerManifest,
+  normalizeSchedulerSchedule,
+  parseResourceLimitOverride,
+} from "./lib/scheduler-manifest.mjs";
 import {
   formatResourceMap,
   relToRepo as relToRepoPath,
@@ -29,23 +35,20 @@ import {
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "./lib/scheduler-runner.mjs";
-import { createRunnerContext } from "./lib/runner-context.mjs";
-import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
 import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
   summaryGroupsSpec,
 } from "./lib/summary-topology.mjs";
-import {
-  loadSchedulerManifest,
-  normalizeSchedulerSchedule,
-  parseResourceLimitOverride,
-} from "./lib/scheduler-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const defaultManifestPath = path.join(repoRoot, "tools", "scheduler_manifest.json");
+const defaultManifestPath = path.join(
+  repoRoot,
+  "tools",
+  "scheduler_manifest.json",
+);
 const supportedSchemaID = "cartulary.scheduler_manifest.v1";
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v9";
@@ -61,7 +64,11 @@ const schedulerOwnedEnvNames = new Set([
   "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT",
 ]);
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
-const checkInputStampScript = path.join(repoRoot, "scripts", "check-input-stamp.mjs");
+const checkInputStampScript = path.join(
+  repoRoot,
+  "scripts",
+  "check-input-stamp.mjs",
+);
 const schedulerReadinessTargets = new Set([
   "toolchain-drift",
   "codegen-toolchain",
@@ -128,11 +135,15 @@ function normalizeMakeJobs(value, label, resourceClaims) {
     return 1;
   }
   if (typeof value === "string") {
-    const resource = assertKnownResource(value, `${label} make_jobs`, { scheduler: "check" });
+    const resource = assertKnownResource(value, `${label} make_jobs`, {
+      scheduler: "check",
+    });
     return resourceClaims.get(resource) ?? 1;
   }
   if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${label} make_jobs must be a positive integer or check scheduler resource name`);
+    throw new Error(
+      `${label} make_jobs must be a positive integer or check scheduler resource name`,
+    );
   }
   return value;
 }
@@ -165,20 +176,30 @@ function normalizeUnitEnv(value, label) {
   for (const [name, rawValue] of Object.entries(value)) {
     const envName = String(name).trim();
     if (!checkScheduleEnvNamePattern.test(envName)) {
-      throw new Error(`${label} env.${name} must be a safe environment variable name`);
+      throw new Error(
+        `${label} env.${name} must be a safe environment variable name`,
+      );
     }
     if (schedulerOwnedEnvNames.has(envName)) {
-      throw new Error(`${label} env.${envName} is scheduler-owned and cannot be overridden`);
+      throw new Error(
+        `${label} env.${envName} is scheduler-owned and cannot be overridden`,
+      );
     }
     if (typeof rawValue !== "string") {
       throw new Error(`${label} env.${envName} must be a string`);
     }
-    if (rawValue.includes("\0") || rawValue.includes("\n") || rawValue.includes("\r")) {
+    if (
+      rawValue.includes("\0") ||
+      rawValue.includes("\n") ||
+      rawValue.includes("\r")
+    ) {
       throw new Error(`${label} env.${envName} must be a single-line string`);
     }
     entries.push([envName, rawValue]);
   }
-  return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)));
+  return Object.fromEntries(
+    entries.sort(([left], [right]) => left.localeCompare(right)),
+  );
 }
 
 function normalizeLocalInputStamp(value, label) {
@@ -189,7 +210,9 @@ function normalizeLocalInputStamp(value, label) {
     throw new Error(`${label} local_input_stamp must be an object`);
   }
   if (typeof value.profile !== "string" || value.profile.trim() === "") {
-    throw new Error(`${label} local_input_stamp.profile must be a non-empty string`);
+    throw new Error(
+      `${label} local_input_stamp.profile must be a non-empty string`,
+    );
   }
   return {
     profile: value.profile.trim(),
@@ -207,19 +230,31 @@ function normalizeNestedScheduler(value, label, unitTarget, resourceClaims) {
     throw new Error(`${label} nested_scheduler.type must be service_backed`);
   }
   if (typeof value.target !== "string" || value.target.trim() === "") {
-    throw new Error(`${label} nested_scheduler.target must be a non-empty string`);
+    throw new Error(
+      `${label} nested_scheduler.target must be a non-empty string`,
+    );
   }
   const nestedTarget = value.target.trim();
   if (nestedTarget !== unitTarget) {
-    throw new Error(`${label} nested_scheduler.target must match work unit target ${unitTarget}`);
+    throw new Error(
+      `${label} nested_scheduler.target must match work unit target ${unitTarget}`,
+    );
   }
   if (typeof value.manifest !== "string" || value.manifest.trim() === "") {
-    throw new Error(`${label} nested_scheduler.manifest must be a non-empty string`);
+    throw new Error(
+      `${label} nested_scheduler.manifest must be a non-empty string`,
+    );
   }
   if (value.resource_limit_env !== undefined) {
-    throw new Error(`${label} nested_scheduler.resource_limit_env is obsolete; use forwarding`);
+    throw new Error(
+      `${label} nested_scheduler.resource_limit_env is obsolete; use forwarding`,
+    );
   }
-  const forwarding = resolveForwardingProfile(value.forwarding, resourceClaims, `${label} nested_scheduler`);
+  const forwarding = resolveForwardingProfile(
+    value.forwarding,
+    resourceClaims,
+    `${label} nested_scheduler`,
+  );
   return {
     type: value.type,
     target: nestedTarget,
@@ -233,7 +268,10 @@ function nestedSchedulerForwardedLimits(unit) {
     return new Map();
   }
   const limits = new Map();
-  for (const [envName, amount] of unit.nestedScheduler.resourceLimitEnv.entries()) {
+  for (const [
+    envName,
+    amount,
+  ] of unit.nestedScheduler.resourceLimitEnv.entries()) {
     limits.set(envName, amount);
   }
   return limits;
@@ -244,10 +282,9 @@ function nestedSchedulerEnv(unit) {
     return process.env;
   }
   const forwarded = Object.fromEntries(
-    Array.from(nestedSchedulerForwardedLimits(unit).entries()).map(([envName, amount]) => [
-      envName,
-      String(amount),
-    ]),
+    Array.from(nestedSchedulerForwardedLimits(unit).entries()).map(
+      ([envName, amount]) => [envName, String(amount)],
+    ),
   );
   return {
     ...process.env,
@@ -259,7 +296,12 @@ async function readJSONFile(file) {
   return JSON.parse(await readFile(file, "utf8"));
 }
 
-async function refreshNestedSchedulerTargetSummary({ unit, result, reporter, testOutputScript }) {
+async function refreshNestedSchedulerTargetSummary({
+  unit,
+  result,
+  reporter,
+  testOutputScript,
+}) {
   if (!unit.nestedScheduler) {
     return;
   }
@@ -271,12 +313,17 @@ async function refreshNestedSchedulerTargetSummary({ unit, result, reporter, tes
   } catch {
     return;
   }
-  const completed = reporter.completedWork.findLast((record) => record.id === unit.id);
+  const completed = reporter.completedWork.findLast(
+    (record) => record.id === unit.id,
+  );
   if (!completed || !Number.isInteger(completed.duration_ms)) {
     return;
   }
   const finishMonotonicMs = reporter.lastEventMonotonicMs;
-  const startMonotonicMs = Math.max(0, finishMonotonicMs - completed.duration_ms);
+  const startMonotonicMs = Math.max(
+    0,
+    finishMonotonicMs - completed.duration_ms,
+  );
   const spansDir = path.join(targetDir, "timing-spans");
   await mkdir(spansDir, { recursive: true });
   await writeFile(
@@ -319,8 +366,12 @@ function nestedSchedulerDetail(unit) {
     manifest: unit.nestedScheduler.manifest,
     forwarding: unit.nestedScheduler.profile,
     forwarding_mappings: unit.nestedScheduler.forwardingMappings,
-    forwarded_limits: schedulerResourceMapToObject(nestedSchedulerForwardedLimits(unit)),
-    forwarded_resource_limits: schedulerResourceMapToObject(unit.nestedScheduler.forwardedResourceLimits),
+    forwarded_limits: schedulerResourceMapToObject(
+      nestedSchedulerForwardedLimits(unit),
+    ),
+    forwarded_resource_limits: schedulerResourceMapToObject(
+      unit.nestedScheduler.forwardedResourceLimits,
+    ),
   };
 }
 
@@ -336,7 +387,9 @@ function normalizeRetainedResourceClaims(value, label, resourceClaims) {
   const retained = normalizeResourceClaims(value, label, resourceClaims);
   for (const [resource, amount] of retained.entries()) {
     if ((resourceClaims.get(resource) ?? 0) < amount) {
-      throw new Error(`${label} retained_resource_claims.${resource} exceeds resource_claims`);
+      throw new Error(
+        `${label} retained_resource_claims.${resource} exceeds resource_claims`,
+      );
     }
   }
   return retained;
@@ -350,17 +403,23 @@ function normalizeReleaseRetainedResourceClaims(value, label, resourceLimits) {
 }
 
 function _findSchedule(manifest, target, overrides) {
-  const schedule = selectSingleSchedule(manifest, target, { label: "check schedule" });
+  const schedule = selectSingleSchedule(manifest, target, {
+    label: "check schedule",
+  });
   if (!Array.isArray(schedule.work_units) || schedule.work_units.length === 0) {
     throw new Error(`check schedule ${target} must declare work_units[]`);
   }
-  const normalizedLimits = normalizeSchedulerResourceLimits(schedule.resource_limits, `check schedule ${target}`, {
-    scheduler: "check",
-    capacityProfile: schedule.capacity_profile ?? null,
-    overrides,
-    allowAuto: true,
-    env: process.env,
-  });
+  const normalizedLimits = normalizeSchedulerResourceLimits(
+    schedule.resource_limits,
+    `check schedule ${target}`,
+    {
+      scheduler: "check",
+      capacityProfile: schedule.capacity_profile ?? null,
+      overrides,
+      allowAuto: true,
+      env: process.env,
+    },
+  );
   const normalizeUnit = (unit, index, resourceLimits) => {
     const label = `check schedule ${target} work_units ${index + 1}`;
     if (!unit || typeof unit !== "object" || Array.isArray(unit)) {
@@ -370,32 +429,44 @@ function _findSchedule(manifest, target, overrides) {
       throw new Error(`${label} must declare target`);
     }
     if (!Number.isFinite(unit.weight_ms) || unit.weight_ms < 0) {
-      throw new Error(`${label} ${unit.target} must declare non-negative weight_ms`);
+      throw new Error(
+        `${label} ${unit.target} must declare non-negative weight_ms`,
+      );
     }
     const unitTarget = unit.target.trim();
-    const unitKind = typeof unit.kind === "string" && unit.kind.trim() !== ""
-      ? unit.kind.trim()
-      : "make_target";
-    const unitID = typeof unit.id === "string" && unit.id.trim() !== ""
-      ? unit.id.trim()
-      : unitTarget;
-    const labelText = typeof unit.label === "string" && unit.label.trim() !== ""
-      ? unit.label.trim()
-      : unitTarget;
-    const aggregateTarget = typeof unit.aggregate_target === "string" && unit.aggregate_target.trim() !== ""
-      ? unit.aggregate_target.trim()
-      : unitTarget;
-    const claims = normalizeResourceClaims(unit.resource_claims, `${label} ${unitTarget}`, resourceLimits);
+    const unitKind =
+      typeof unit.kind === "string" && unit.kind.trim() !== ""
+        ? unit.kind.trim()
+        : "make_target";
+    const unitID =
+      typeof unit.id === "string" && unit.id.trim() !== ""
+        ? unit.id.trim()
+        : unitTarget;
+    const labelText =
+      typeof unit.label === "string" && unit.label.trim() !== ""
+        ? unit.label.trim()
+        : unitTarget;
+    const aggregateTarget =
+      typeof unit.aggregate_target === "string" &&
+      unit.aggregate_target.trim() !== ""
+        ? unit.aggregate_target.trim()
+        : unitTarget;
+    const claims = normalizeResourceClaims(
+      unit.resource_claims,
+      `${label} ${unitTarget}`,
+      resourceLimits,
+    );
     const retainedResourceClaims = normalizeRetainedResourceClaims(
       unit.retained_resource_claims,
       `${label} ${unitTarget}`,
       claims,
     );
-    const releaseRetainedResourceClaims = normalizeReleaseRetainedResourceClaims(
-      unit.release_retained_resource_claims,
-      `${label} ${unitTarget}`,
-      resourceLimits,
-    );
+    const releaseRetainedResourceClaims =
+      normalizeReleaseRetainedResourceClaims(
+        unit.release_retained_resource_claims,
+        `${label} ${unitTarget}`,
+        resourceLimits,
+      );
     const nestedScheduler = normalizeNestedScheduler(
       unit.nested_scheduler,
       `${label} ${unitTarget}`,
@@ -416,7 +487,11 @@ function _findSchedule(manifest, target, overrides) {
       failureKeys: normalizeCompletionKeys(
         unit.failure_keys,
         `${label} ${unitTarget} failure_keys`,
-        normalizeCompletionKeys(unit.completion_keys, `${label} ${unitTarget} completion_keys`, [unitID]),
+        normalizeCompletionKeys(
+          unit.completion_keys,
+          `${label} ${unitTarget} completion_keys`,
+          [unitID],
+        ),
       ),
       runningDependencyKeys: normalizeTargetList(
         unit.running_dependency_keys,
@@ -432,30 +507,47 @@ function _findSchedule(manifest, target, overrides) {
       resourceClaims: claims,
       retainedResourceClaims,
       releaseRetainedResourceClaims,
-      makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unitTarget}`, claims),
+      makeJobs: normalizeMakeJobs(
+        unit.make_jobs,
+        `${label} ${unitTarget}`,
+        claims,
+      ),
       env: normalizeUnitEnv(unit.env, `${label} ${unitTarget}`),
-      localInputStamp: normalizeLocalInputStamp(unit.local_input_stamp, `${label} ${unitTarget}`),
+      localInputStamp: normalizeLocalInputStamp(
+        unit.local_input_stamp,
+        `${label} ${unitTarget}`,
+      ),
       nestedScheduler,
       serviceSession: unit.service_session ?? null,
-      browserStage: typeof unit.browser_stage === "string" ? unit.browser_stage : "",
-      browserGroup: unit.browser_group && typeof unit.browser_group === "object" && !Array.isArray(unit.browser_group)
-        ? unit.browser_group
-        : null,
+      browserStage:
+        typeof unit.browser_stage === "string" ? unit.browser_stage : "",
+      browserGroup:
+        unit.browser_group &&
+        typeof unit.browser_group === "object" &&
+        !Array.isArray(unit.browser_group)
+          ? unit.browser_group
+          : null,
       shard: typeof unit.shard === "string" ? unit.shard : "",
       shardNames: Array.isArray(unit.shard_names)
-        ? unit.shard_names.filter((entry) => typeof entry === "string" && entry !== "")
+        ? unit.shard_names.filter(
+            (entry) => typeof entry === "string" && entry !== "",
+          )
         : [],
       countInTotal: unit.count_in_total === false ? false : undefined,
       countsStarted: unit.counts_started === false ? false : undefined,
       completeOnFailure: unit.complete_on_failure === true,
-      unblockLabel: typeof unit.unblock_label === "string" && unit.unblock_label.trim() !== ""
-        ? unit.unblock_label.trim()
-        : undefined,
+      unblockLabel:
+        typeof unit.unblock_label === "string" &&
+        unit.unblock_label.trim() !== ""
+          ? unit.unblock_label.trim()
+          : undefined,
       startDetail: nestedScheduler ? { nested_scheduler: null } : {},
       order: index,
     };
   };
-  const provisionalLimits = provisionalResourceLimitsForClaims(normalizedLimits.limits);
+  const provisionalLimits = provisionalResourceLimitsForClaims(
+    normalizedLimits.limits,
+  );
   const provisionalUnits = schedule.work_units.map((unit, index) =>
     normalizeUnit(unit, index, provisionalLimits),
   );
@@ -471,11 +563,15 @@ function _findSchedule(manifest, target, overrides) {
           maxResourceClaim(provisionalUnits, "host_io"),
         ),
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
-        estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, { cpuResources: ["host_cpu"] }),
+        estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
+          cpuResources: ["host_cpu"],
+        }),
     },
   );
   const resourceLimits = resolvedLimits.resourceLimits;
-  const units = schedule.work_units.map((unit, index) => normalizeUnit(unit, index, resourceLimits));
+  const units = schedule.work_units.map((unit, index) =>
+    normalizeUnit(unit, index, resourceLimits),
+  );
   validateCheckWorkUnitDependencyGraph(units, `check schedule ${target}`);
   const sortedUnits = units.sort(
     (left, right) =>
@@ -484,7 +580,9 @@ function _findSchedule(manifest, target, overrides) {
       left.order - right.order ||
       left.target.localeCompare(right.target),
   );
-  const summaryTargets = sortedUnits.flatMap((unit) => unit.producesSummaryTargets);
+  const summaryTargets = sortedUnits.flatMap(
+    (unit) => unit.producesSummaryTargets,
+  );
   return {
     target,
     resourceLimits,
@@ -500,7 +598,9 @@ function validateCheckWorkUnitDependencyGraph(units, scheduleLabel) {
   const completionKeys = new Map();
   for (const unit of units) {
     if (ids.has(unit.id)) {
-      throw new Error(`${scheduleLabel} contains duplicate work unit id ${unit.id}`);
+      throw new Error(
+        `${scheduleLabel} contains duplicate work unit id ${unit.id}`,
+      );
     }
     ids.add(unit.id);
     for (const key of unit.completionKeys) {
@@ -515,7 +615,9 @@ function validateCheckWorkUnitDependencyGraph(units, scheduleLabel) {
   for (const unit of units) {
     for (const need of unit.needs) {
       if (!completionKeys.has(need)) {
-        throw new Error(`${scheduleLabel} work unit ${unit.id} depends on unknown completion key ${need}`);
+        throw new Error(
+          `${scheduleLabel} work unit ${unit.id} depends on unknown completion key ${need}`,
+        );
       }
     }
   }
@@ -547,7 +649,11 @@ function slowestRunningObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
-  if (typeof value.label !== "string" || value.label === "" || !Number.isFinite(value.duration_ms)) {
+  if (
+    typeof value.label !== "string" ||
+    value.label === "" ||
+    !Number.isFinite(value.duration_ms)
+  ) {
     return null;
   }
   return {
@@ -622,7 +728,12 @@ class NestedSchedulerProgressReader {
   }
 
   progressFromEvent(event) {
-    if (!event || typeof event !== "object" || event.event !== "progress" || event.target !== this.nestedTarget) {
+    if (
+      !event ||
+      typeof event !== "object" ||
+      event.event !== "progress" ||
+      event.target !== this.nestedTarget
+    ) {
       return null;
     }
     return {
@@ -636,11 +747,14 @@ class NestedSchedulerProgressReader {
       running: integerOrZero(event.running),
       pending: integerOrZero(event.pending),
       blocked: integerOrZero(event.blocked),
-      finalizing: Number.isInteger(event.running_finalizers) ? event.running_finalizers : null,
+      finalizing: Number.isInteger(event.running_finalizers)
+        ? event.running_finalizers
+        : null,
       active_groups: countObject(event.active_groups),
       blocked_by: stringArray(event.blocked_by),
       waiting_on: stringArray(event.waiting_on),
-      unblocks_after: typeof event.unblocks_after === "string" ? event.unblocks_after : null,
+      unblocks_after:
+        typeof event.unblocks_after === "string" ? event.unblocks_after : null,
       slowest_running: slowestRunningObject(event.slowest_running),
       artifacts: relToRepoPath(repoRoot, this.targetDir),
       events_jsonl: relToRepoPath(repoRoot, this.eventsPath),
@@ -685,7 +799,9 @@ function createNestedProgressSupport(schedule) {
         progress.push(result.latest);
       }
     }
-    return progress.sort((left, right) => left.work_unit.localeCompare(right.work_unit));
+    return progress.sort((left, right) =>
+      left.work_unit.localeCompare(right.work_unit),
+    );
   };
   return {
     async progressExtras({ runningUnits }) {
@@ -751,7 +867,9 @@ async function readServiceSessionEnv(envFile) {
   const raw = await readFile(envFile, "utf8");
   const parsed = JSON.parse(raw);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`service session env file ${envFile} must contain an object`);
+    throw new Error(
+      `service session env file ${envFile} must contain an object`,
+    );
   }
   return Object.fromEntries(
     Object.entries(parsed).filter((entry) => typeof entry[1] === "string"),
@@ -759,35 +877,48 @@ async function readServiceSessionEnv(envFile) {
 }
 
 function serviceSessionTarget(unit) {
-  return typeof unit.serviceSession?.target === "string" && unit.serviceSession.target.trim() !== ""
+  return typeof unit.serviceSession?.target === "string" &&
+    unit.serviceSession.target.trim() !== ""
     ? unit.serviceSession.target.trim()
     : "";
 }
 
-function attachRuntime(schedule, {
-  makeBin,
-  testOutputScript,
-  summaryTargets,
-  summaryGroups,
-  testServicesBin,
-  goTargetRunner,
-  tempDir,
-  serviceSummaryChildren,
-  resultsDir,
-  runId,
-}) {
+function attachRuntime(
+  schedule,
+  {
+    makeBin,
+    testOutputScript,
+    summaryTargets,
+    summaryGroups,
+    testServicesBin,
+    goTargetRunner,
+    tempDir,
+    serviceSummaryChildren,
+    resultsDir,
+    runId,
+  },
+) {
   const nestedProgress = createNestedProgressSupport(schedule);
   const summaryTargetSet = new Set(summaryTargets);
   const browserSessionScript =
-    process.env.CARTULARY_BROWSER_E2E_SESSION_SCRIPT || path.join(repoRoot, "scripts", "start-web-e2e.sh");
-  const browserGroupRunner = process.env.CARTULARY_BROWSER_E2E_GROUP_RUNNER || "";
+    process.env.CARTULARY_BROWSER_E2E_SESSION_SCRIPT ||
+    path.join(repoRoot, "scripts", "start-web-e2e.sh");
+  const browserGroupRunner =
+    process.env.CARTULARY_BROWSER_E2E_GROUP_RUNNER || "";
   const testOutputCommand = testOutputScript.endsWith(".mjs")
     ? `${JSON.stringify(process.env.NODE_BIN || process.execPath)} ${JSON.stringify(testOutputScript)}`
     : JSON.stringify(testOutputScript);
   const cartularyTestServicesBin =
-    process.env.CARTULARY_TEST_SERVICES_BIN || testServicesBin || process.env.TEST_SERVICES_BIN || "";
+    process.env.CARTULARY_TEST_SERVICES_BIN ||
+    testServicesBin ||
+    process.env.TEST_SERVICES_BIN ||
+    "";
   const serviceSessionTargets = Array.from(
-    new Set(schedule.workUnits.map(serviceSessionTarget).filter((target) => target !== "")),
+    new Set(
+      schedule.workUnits
+        .map(serviceSessionTarget)
+        .filter((target) => target !== ""),
+    ),
   ).sort((left, right) => left.localeCompare(right));
   const serviceSessionFiles = new Map(
     serviceSessionTargets.map((target) => [
@@ -827,7 +958,10 @@ function attachRuntime(schedule, {
         unit.target,
         {
           envFile: path.join(tempDir, `${unit.browserStage}-browser-env.json`),
-          leaseFile: path.join(tempDir, `${unit.browserStage}-browser-lease.json`),
+          leaseFile: path.join(
+            tempDir,
+            `${unit.browserStage}-browser-lease.json`,
+          ),
         },
       ]),
   );
@@ -851,16 +985,20 @@ function attachRuntime(schedule, {
   const helperUnitNames = schedule.workUnits
     .filter((unit) => !summaryTargetSet.has(unit.target))
     .map((unit) => unit.target);
-  const countedWorkUnitCount = schedule.workUnits
-    .filter((unit) => unit.countInTotal !== false)
-    .length;
+  const countedWorkUnitCount = schedule.workUnits.filter(
+    (unit) => unit.countInTotal !== false,
+  ).length;
   for (const unit of schedule.workUnits) {
-    unit.startDetail = unit.nestedScheduler ? { nested_scheduler: nestedSchedulerDetail(unit) } : {};
+    unit.startDetail = unit.nestedScheduler
+      ? { nested_scheduler: nestedSchedulerDetail(unit) }
+      : {};
     if (unit.kind === "service_session") {
       const files = serviceSessionFiles.get(serviceSessionTarget(unit));
       unit.command = () => {
         if (!testServicesBin) {
-          throw new Error("TEST_SERVICES_BIN is required for check service sessions");
+          throw new Error(
+            "TEST_SERVICES_BIN is required for check service sessions",
+          );
         }
         return {
           command: testServicesBin,
@@ -906,7 +1044,9 @@ function attachRuntime(schedule, {
         const sessionEnv = await browserEnvFor(unit.aggregateTarget);
         const serviceEnv = await serviceEnvFor(serviceSessionTarget(unit));
         const group = unit.browserGroup;
-        const pnpmBin = process.env.PNPM || path.join(repoRoot, "tmp", "node-runtime", "bin", "pnpm");
+        const pnpmBin =
+          process.env.PNPM ||
+          path.join(repoRoot, "tmp", "node-runtime", "bin", "pnpm");
         const commonEnv = makeChildEnv({
           ...serviceEnv,
           ...sessionEnv,
@@ -928,7 +1068,12 @@ function attachRuntime(schedule, {
         }
         if (group.kind === "functional_shard") {
           return {
-            command: path.join(repoRoot, "scripts", "lib", "run-playwright-webserver-batch.sh"),
+            command: path.join(
+              repoRoot,
+              "scripts",
+              "lib",
+              "run-playwright-webserver-batch.sh",
+            ),
             args: [
               "functional-shard",
               group.shard_name,
@@ -949,7 +1094,12 @@ function attachRuntime(schedule, {
         }
         if (group.kind === "support") {
           return {
-            command: path.join(repoRoot, "scripts", "lib", "run-playwright-webserver-batch.sh"),
+            command: path.join(
+              repoRoot,
+              "scripts",
+              "lib",
+              "run-playwright-webserver-batch.sh",
+            ),
             args: [
               "support",
               "--",
@@ -968,6 +1118,7 @@ function attachRuntime(schedule, {
         const scriptsByKind = new Map([
           ["stateful", "run-browser-e2e-stateful.sh"],
           ["measurement", "run-browser-e2e-measurement.sh"],
+          ["a11y", "run-browser-e2e-a11y.sh"],
           ["visual", "run-browser-e2e-visual.sh"],
         ]);
         const script = scriptsByKind.get(group.kind);
@@ -1024,10 +1175,16 @@ function attachRuntime(schedule, {
       continue;
     }
     if (unit.kind === "aggregate_finalize") {
-      const files = serviceSessionFiles.get(serviceSessionTarget(unit) || serviceSessionTargets[0]);
+      const files = serviceSessionFiles.get(
+        serviceSessionTarget(unit) || serviceSessionTargets[0],
+      );
       unit.command = () => ({
         command: goTargetRunner,
-        args: ["finalize-shards", unit.aggregateTarget, files?.metadataDir ?? tempDir],
+        args: [
+          "finalize-shards",
+          unit.aggregateTarget,
+          files?.metadataDir ?? tempDir,
+        ],
         env: {
           ...process.env,
           CARTULARY_TEST_TARGET: unit.aggregateTarget,
@@ -1040,7 +1197,12 @@ function attachRuntime(schedule, {
     if (unit.kind === "service_make_target") {
       unit.command = async () => ({
         command: makeBin,
-        args: ["--no-print-directory", "--output-sync=target", "-j1", unit.target],
+        args: [
+          "--no-print-directory",
+          "--output-sync=target",
+          "-j1",
+          unit.target,
+        ],
         env: makeChildEnv({
           ...(await serviceEnvFor(serviceSessionTarget(unit))),
           ...unit.env,
@@ -1059,7 +1221,12 @@ function attachRuntime(schedule, {
       continue;
     }
     unit.command = () => {
-      const args = ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target];
+      const args = [
+        "--no-print-directory",
+        "--output-sync=target",
+        `-j${unit.makeJobs}`,
+        unit.target,
+      ];
       const env = makeChildEnv({
         ...nestedSchedulerEnv(unit),
         ...unit.env,
@@ -1098,8 +1265,10 @@ function attachRuntime(schedule, {
     stopOnFirstFailure: true,
     summaryTotalWallTime: true,
     progressExtras: nestedProgress.progressExtras,
-    countCompletedUnit: (unit, result) => unit.countInTotal !== false && result.status === 0,
-    shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,
+    countCompletedUnit: (unit, result) =>
+      unit.countInTotal !== false && result.status === 0,
+    shouldReplayLog: ({ result, reporter }) =>
+      result.status !== 0 || reporter.verbose,
     afterUnitFinish: refreshNestedSchedulerTargetSummary,
     beforeUnitStart: async ({ unit, started, total, reporter }) => {
       if (!reporter.verbose || unit.countInTotal === false) {
@@ -1152,10 +1321,16 @@ function attachRuntime(schedule, {
           () => 0,
           () => 1,
         );
-        serviceSessionCleanupDurationMs.set(target, Math.max(0, Date.now() - cleanupStartedAt));
+        serviceSessionCleanupDurationMs.set(
+          target,
+          Math.max(0, Date.now() - cleanupStartedAt),
+        );
         if (result !== 0 && !cleanupFailure) {
           serviceSessionCleanupStatus.set(target, "failed");
-          cleanupFailure = { status: result, label: `${target}:terminate-suite` };
+          cleanupFailure = {
+            status: result,
+            label: `${target}:terminate-suite`,
+          };
         } else if (result === 0) {
           serviceSessionCleanupStatus.set(target, "pass");
         }
@@ -1173,11 +1348,16 @@ function attachRuntime(schedule, {
         const childWork = reporter.completedWork.filter(
           (record) =>
             record.service_session_target === target &&
-            !["service_session", "service_complete"].includes(record.work_unit_type),
+            !["service_session", "service_complete"].includes(
+              record.work_unit_type,
+            ),
         );
-        const childWorkStartedAt = childWork.length > 0
-          ? Math.min(...childWork.map((record) => record.started_monotonic_ms))
-          : null;
+        const childWorkStartedAt =
+          childWork.length > 0
+            ? Math.min(
+                ...childWork.map((record) => record.started_monotonic_ms),
+              )
+            : null;
         return {
           target,
           env_file: relToRepoPath(repoRoot, files.envFile),
@@ -1185,9 +1365,13 @@ function attachRuntime(schedule, {
           metadata_dir: relToRepoPath(repoRoot, files.metadataDir),
           cleanup_status: serviceSessionCleanupStatus.get(target) ?? "unknown",
           setup_duration_ms: setupRecord?.duration_ms ?? null,
-          ready_at_monotonic_ms: setupRecord?.status === 0 ? setupRecord.finished_monotonic_ms : null,
+          ready_at_monotonic_ms:
+            setupRecord?.status === 0
+              ? setupRecord.finished_monotonic_ms
+              : null,
           child_work_started_at_monotonic_ms: childWorkStartedAt,
-          cleanup_duration_ms: serviceSessionCleanupDurationMs.get(target) ?? null,
+          cleanup_duration_ms:
+            serviceSessionCleanupDurationMs.get(target) ?? null,
         };
       }),
       browser_stage_sessions: browserSessionTargets.map((target) => {
@@ -1200,7 +1384,9 @@ function attachRuntime(schedule, {
       }),
     }),
     beforeRun: async () => {
-      const capacityDisplay = schedule.resourceLimits.get("host_cpu") ?? Math.max(...schedule.resourceLimits.values());
+      const capacityDisplay =
+        schedule.resourceLimits.get("host_cpu") ??
+        Math.max(...schedule.resourceLimits.values());
       await runLifecycle(repoRoot, testOutputScript, [
         "run-start",
         schedule.target,
@@ -1222,7 +1408,12 @@ function attachRuntime(schedule, {
           ...nestedSchedulerDetail(unit),
         })),
     nestedSchedulerObservations: () => nestedProgress.summaryRecords(),
-    afterSummary: async ({ reporter, requestedStatus, completedKeys, firstFailureLabel }) => {
+    afterSummary: async ({
+      reporter,
+      requestedStatus,
+      completedKeys,
+      firstFailureLabel,
+    }) => {
       for (const target of serviceSessionTargets) {
         const children = serviceSummaryChildren.get(target) ?? [];
         if (children.length === 0) {
@@ -1256,9 +1447,14 @@ function attachRuntime(schedule, {
       }
       if (helperUnitNames.length > 0) {
         summaryArgs.push("--helper-units", helperUnitNames.join(","));
-        summaryArgs.push("--completed-helper-units", helperUnitNames.filter((name) => completedKeys.has(name)).join(","));
+        summaryArgs.push(
+          "--completed-helper-units",
+          helperUnitNames.filter((name) => completedKeys.has(name)).join(","),
+        );
       }
-      const unitsById = new Map(schedule.workUnits.map((unit) => [unit.id, unit]));
+      const unitsById = new Map(
+        schedule.workUnits.map((unit) => [unit.id, unit]),
+      );
       const skippedSummaryTargets = new Set();
       for (const skipped of reporter.skippedWork) {
         const skippedUnit = unitsById.get(skipped.id);
@@ -1272,9 +1468,14 @@ function attachRuntime(schedule, {
           skippedSummaryTargets.add(target);
         }
       }
-      const skippedSummaryTargetsList = summaryTargets.filter((target) => skippedSummaryTargets.has(target));
+      const skippedSummaryTargetsList = summaryTargets.filter((target) =>
+        skippedSummaryTargets.has(target),
+      );
       if (skippedSummaryTargetsList.length > 0) {
-        summaryArgs.push("--skipped-after-failure", skippedSummaryTargetsList.join(","));
+        summaryArgs.push(
+          "--skipped-after-failure",
+          skippedSummaryTargetsList.join(","),
+        );
       }
       summaryArgs.push(...summaryTargets);
       await runLifecycle(
@@ -1304,10 +1505,13 @@ function attachRuntime(schedule, {
 async function main() {
   const context = createRunnerContext({ repoRoot });
   const options = parseArgs(process.argv.slice(2));
-  const { manifest, manifestPath } = await loadSchedulerManifest(options.manifest, {
-    repoRoot,
-    schemaID: supportedSchemaID,
-  });
+  const { manifest, manifestPath } = await loadSchedulerManifest(
+    options.manifest,
+    {
+      repoRoot,
+      schemaID: supportedSchemaID,
+    },
+  );
   const schedule = normalizeSchedulerSchedule(manifest, options.target, {
     scheduler: "check",
     resourceLimitOverrides: options.resourceLimitOverrides,
@@ -1320,31 +1524,48 @@ async function main() {
           maxResourceClaim(provisionalUnits, "host_io"),
         ),
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
-        estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, { cpuResources: ["host_cpu"] }),
+        estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
+          cpuResources: ["host_cpu"],
+        }),
     }),
   });
-  schedule.summaryTargets = schedule.workUnits.flatMap((unit) => unit.producesSummaryTargets);
+  schedule.summaryTargets = schedule.workUnits.flatMap(
+    (unit) => unit.producesSummaryTargets,
+  );
   const topologyContext = loadSummaryTopologyContext({
-    taskSurfaceManifestPath: process.env.TASK_SURFACE_MANIFEST ?? path.join(repoRoot, "tools", "task_surface_manifest.json"),
+    taskSurfaceManifestPath:
+      process.env.TASK_SURFACE_MANIFEST ??
+      path.join(repoRoot, "tools", "task_surface_manifest.json"),
     schedulerManifestPath: process.env.SCHEDULER_MANIFEST ?? options.manifest,
     browserBatchManifestPath: process.env.BROWSER_E2E_BATCH_MANIFEST,
   });
   const summaryTargets = schedule.summaryTargets;
-  const summaryGroups = summaryGroupsSpec(resolveSummaryGroups(topologyContext, schedule.summaryGroups));
+  const summaryGroups = summaryGroupsSpec(
+    resolveSummaryGroups(topologyContext, schedule.summaryGroups),
+  );
   if (summaryTargets.length === 0) {
     throw new Error("check schedule must produce at least one summary target");
   }
   const makeBin = process.env.MAKE || "make";
   const testOutputScript =
-    process.env.TEST_OUTPUT_SCRIPT || path.join(repoRoot, "scripts", "lib", "test-output.mjs");
+    process.env.TEST_OUTPUT_SCRIPT ||
+    path.join(repoRoot, "scripts", "lib", "test-output.mjs");
   const serviceSummaryChildren = new Map();
   for (const unit of schedule.workUnits) {
     const target = serviceSessionTarget(unit);
     if (target && !serviceSummaryChildren.has(target)) {
-      serviceSummaryChildren.set(target, serviceBackedScheduleChildren(topologyContext, target));
+      serviceSummaryChildren.set(
+        target,
+        serviceBackedScheduleChildren(topologyContext, target),
+      );
     }
   }
-  const tempDir = path.join(context.resultsDir, context.runId, options.target, "service-sessions");
+  const tempDir = path.join(
+    context.resultsDir,
+    context.runId,
+    options.target,
+    "service-sessions",
+  );
   await rm(tempDir, { recursive: true, force: true });
   await mkdir(tempDir, { recursive: true });
   const runtimeSchedule = attachRuntime(schedule, {
@@ -1380,7 +1601,9 @@ async function main() {
     schedule: runtimeSchedule,
     testOutputScript,
   });
-  process.exitCode = publicExitCodeForSummary(result.summary, { status: result.status });
+  process.exitCode = publicExitCodeForSummary(result.summary, {
+    status: result.status,
+  });
 }
 
 main().catch((error) => {

@@ -1,0 +1,232 @@
+{
+  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "phase_namespace": "frontend",
+  "phase_id": "FE-P7",
+  "rows": [
+    {
+      "id": "FE-U-P7-01",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 3.3.10",
+        "Core 04 Sections 2 and 5"
+      ],
+      "core_req_ids": [
+        "REQ-01-250",
+        "REQ-01-253",
+        "REQ-04-001",
+        "REQ-04-017",
+        "REQ-04-052",
+        "REQ-04-053",
+        "REQ-04-109"
+      ],
+      "core_ac_ids": [
+        "AC-129",
+        "AC-131",
+        "AC-136",
+        "AC-156",
+        "AC-163",
+        "AC-231",
+        "AC-232",
+        "AC-233",
+        "AC-234",
+        "AC-298",
+        "AC-334",
+        "AC-342"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify WebSocket reducer handles row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-U-P7-02",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 03 Sections 4.2, 4.4, 4.5, 4.6"
+      ],
+      "core_req_ids": [
+        "REQ-03-033",
+        "REQ-03-084"
+      ],
+      "core_ac_ids": [
+        "AC-009",
+        "AC-013",
+        "AC-037",
+        "AC-042",
+        "AC-047",
+        "AC-126",
+        "AC-163",
+        "AC-203",
+        "AC-204",
+        "AC-226",
+        "AC-231",
+        "AC-381"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify same-field conflict anchors, conflict queue, and resolver state use record_id + field_key + base_row_version rather than visible indexes.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-I-P7-01",
+      "layer": "integration",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 3.3.6",
+        "Core 03 Sections 4.2 through 4.6"
+      ],
+      "core_req_ids": [
+        "REQ-01-057",
+        "REQ-01-070",
+        "REQ-03-033",
+        "REQ-03-084"
+      ],
+      "core_ac_ids": [
+        "AC-009",
+        "AC-013",
+        "AC-037",
+        "AC-042",
+        "AC-047",
+        "AC-124",
+        "AC-127",
+        "AC-181",
+        "AC-183",
+        "AC-188",
+        "AC-190",
+        "AC-200",
+        "AC-218",
+        "AC-221",
+        "AC-231",
+        "AC-299",
+        "AC-381"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit",
+        "make browser-e2e-webserver-backed"
+      ],
+      "scenario_titles": [
+        "FE-I-P7-01 Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-E-P7-01",
+      "layer": "e2e",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.6 and 3.3.10",
+        "Core 03 Sections 4.2 through 4.6"
+      ],
+      "core_req_ids": [
+        "REQ-01-057",
+        "REQ-01-070",
+        "REQ-01-250",
+        "REQ-01-253",
+        "REQ-03-033",
+        "REQ-03-084"
+      ],
+      "core_ac_ids": [
+        "AC-009",
+        "AC-013",
+        "AC-037",
+        "AC-042",
+        "AC-047",
+        "AC-124",
+        "AC-129",
+        "AC-131",
+        "AC-136",
+        "AC-156",
+        "AC-163",
+        "AC-181",
+        "AC-183",
+        "AC-188",
+        "AC-190",
+        "AC-200",
+        "AC-218",
+        "AC-221",
+        "AC-233",
+        "AC-299",
+        "AC-381"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make browser-e2e-stateful",
+        "make browser-e2e-webserver-backed"
+      ],
+      "scenario_titles": [
+        "FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-V-P7-01",
+      "layer": "visual_regression",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 8, 10.4, 10.5, 13",
+        "visual golden guide Sections 2, 3, 5"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-023",
+        "R2-AC-026",
+        "R2-AC-045",
+        "R2-AC-050",
+        "R2-AC-073",
+        "R2-AC-079"
+      ],
+      "targets": [
+        "make browser-e2e-visual"
+      ],
+      "scenario_titles": [
+        "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures."
+      ],
+      "claim_status": "blocked",
+      "claim": "Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-A11Y-P7-01",
+      "layer": "accessibility",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 10.4, 10.5, 14"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-045",
+        "R2-AC-050",
+        "R2-AC-080",
+        "R2-AC-086",
+        "D-AC-009",
+        "D-AC-012"
+      ],
+      "targets": [
+        "make browser-e2e-a11y"
+      ],
+      "scenario_titles": [
+        "FE-A11Y-P7-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    }
+  ]
+}

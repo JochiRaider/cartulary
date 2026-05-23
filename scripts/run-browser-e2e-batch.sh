@@ -120,6 +120,9 @@ run_group() {
     visual)
       "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-visual.sh"
       ;;
+    a11y)
+      "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-a11y.sh"
+      ;;
     *)
       echo "unsupported browser E2E batch group kind ${kind}" >&2
       return 2

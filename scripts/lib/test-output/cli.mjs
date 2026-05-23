@@ -27,6 +27,10 @@ import {
   summarizeFixtureActivities,
 } from "../fixture-reporting.mjs";
 import {
+  loadFrontendPhaseMap,
+  loadFrontendPhaseRegistry,
+} from "../frontend-phase-manifest.mjs";
+import {
   compactJSONString,
   prettyJSONString,
   secureMkdir,
@@ -91,6 +95,7 @@ const runId = resolveRunId();
 
 let cachedGoModulePath;
 let cachedManifestIndex;
+let cachedFrontendPlaywrightIndex;
 let cachedTestAccountingClassification;
 
 function firstArtifactPath(value) {
@@ -2980,7 +2985,9 @@ function serviceSharedMetadata(runRunRoot) {
     readiness_status: statusFromBooleans(
       suites.map((suite) => suite.readiness_status === "pass"),
     ),
-    teardown_status: rollupStatuses(suites.map((suite) => suite.teardown_status)),
+    teardown_status: rollupStatuses(
+      suites.map((suite) => suite.teardown_status),
+    ),
     leak_status: rollupStatuses(suites.map((suite) => suite.leak_status)),
     suites,
   };
@@ -5643,6 +5650,45 @@ function isForbiddenFile(file, phase) {
   return files ? files.has(file) : false;
 }
 
+function frontendEvidenceCoverage(evidenceClass) {
+  return evidenceClass === "product_conformance" ? "authoritative" : "support";
+}
+
+function loadFrontendPlaywrightIndex() {
+  if (cachedFrontendPlaywrightIndex) {
+    return cachedFrontendPlaywrightIndex;
+  }
+  const byTitle = new Map();
+  let registry;
+  try {
+    registry = loadFrontendPhaseRegistry(repoRoot);
+  } catch {
+    cachedFrontendPlaywrightIndex = { byTitle };
+    return cachedFrontendPlaywrightIndex;
+  }
+  for (const phase of registry.phases) {
+    const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
+    for (const row of manifest.rows) {
+      if (
+        !row.targets.some((target) => target.startsWith("make browser-e2e")) ||
+        row.scenario_titles.length === 0
+      ) {
+        continue;
+      }
+      for (const title of row.scenario_titles) {
+        byTitle.set(title, {
+          coverage: frontendEvidenceCoverage(row.evidence_class),
+          phase: phase.phase_id,
+          id: row.id,
+          evidence_class: row.evidence_class,
+        });
+      }
+    }
+  }
+  cachedFrontendPlaywrightIndex = { byTitle };
+  return cachedFrontendPlaywrightIndex;
+}
+
 function classifyPlaywrightCase(file, title, phaseLabel) {
   const normalizedFile = normalizePlaywrightFile(file);
   const manifested = loadManifestIndex().manifestPlaywright.get(
@@ -5664,6 +5710,15 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
       coverage: "authoritative",
       phase: authoritative.phase,
       id: authoritative.id,
+      owner: normalizedFile,
+    };
+  }
+  const frontendManifested = loadFrontendPlaywrightIndex().byTitle.get(title);
+  if (frontendManifested) {
+    return {
+      coverage: frontendManifested.coverage,
+      phase: frontendManifested.phase,
+      id: frontendManifested.id,
       owner: normalizedFile,
     };
   }
@@ -5848,7 +5903,11 @@ function createPlaywrightSelection({ manifestAware }) {
   if (manifestAware && reportSlice) {
     const { phase, coverage, executionDependency } = readManifestScopeEnv();
     const selected = new Set(
-      selectPlaywrightManifestEntries(phase, coverage, executionDependency).flatMap((entry) =>
+      selectPlaywrightManifestEntries(
+        phase,
+        coverage,
+        executionDependency,
+      ).flatMap((entry) =>
         playwrightEntryTitles(entry).map((title) => `${entry.file}::${title}`),
       ),
     );

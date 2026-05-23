@@ -1,0 +1,220 @@
+{
+  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "phase_namespace": "frontend",
+  "phase_id": "FE-P6",
+  "rows": [
+    {
+      "id": "FE-U-P6-01",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.8 and 3.3.9",
+        "Core 02 Section 5.1",
+        "Core 03 Sections 4.11 and 4.12"
+      ],
+      "core_req_ids": [
+        "REQ-01-243",
+        "REQ-01-247",
+        "REQ-01-458",
+        "REQ-01-465",
+        "REQ-02-186",
+        "REQ-02-201",
+        "REQ-03-242",
+        "REQ-03-249",
+        "REQ-03-272"
+      ],
+      "core_ac_ids": [
+        "AC-015",
+        "AC-016",
+        "AC-053",
+        "AC-100",
+        "AC-102",
+        "AC-103",
+        "AC-107",
+        "AC-111",
+        "AC-128",
+        "AC-154",
+        "AC-155",
+        "AC-231",
+        "AC-251",
+        "AC-256",
+        "AC-278",
+        "AC-280",
+        "AC-313",
+        "AC-321",
+        "AC-322"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify evidence state view models cover requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-I-P6-01",
+      "layer": "integration",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.8 and 3.3.9",
+        "Core 04 Sections 5 and 6"
+      ],
+      "core_req_ids": [
+        "REQ-01-243",
+        "REQ-01-247",
+        "REQ-01-458",
+        "REQ-01-465",
+        "REQ-04-048",
+        "REQ-04-052",
+        "REQ-04-053"
+      ],
+      "core_ac_ids": [
+        "AC-049",
+        "AC-055",
+        "AC-102",
+        "AC-103",
+        "AC-128",
+        "AC-130",
+        "AC-131",
+        "AC-154",
+        "AC-155",
+        "AC-231",
+        "AC-232",
+        "AC-234",
+        "AC-251",
+        "AC-256",
+        "AC-321",
+        "AC-322"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit",
+        "make browser-e2e-webserver-backed"
+      ],
+      "scenario_titles": [
+        "FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-E-P6-01",
+      "layer": "e2e",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.8 and 3.3.9",
+        "Core 04 Sections 3, 5, 6"
+      ],
+      "core_req_ids": [
+        "REQ-01-243",
+        "REQ-01-247",
+        "REQ-01-458",
+        "REQ-01-465",
+        "REQ-04-021",
+        "REQ-04-030",
+        "REQ-04-048",
+        "REQ-04-052",
+        "REQ-04-053",
+        "REQ-04-109"
+      ],
+      "core_ac_ids": [
+        "AC-049",
+        "AC-055",
+        "AC-102",
+        "AC-103",
+        "AC-128",
+        "AC-130",
+        "AC-131",
+        "AC-149",
+        "AC-154",
+        "AC-155",
+        "AC-178",
+        "AC-180",
+        "AC-231",
+        "AC-232",
+        "AC-234",
+        "AC-251",
+        "AC-257",
+        "AC-260",
+        "AC-261",
+        "AC-298",
+        "AC-321",
+        "AC-322",
+        "AC-340",
+        "AC-342",
+        "AC-352",
+        "AC-370",
+        "AC-371",
+        "AC-402"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make browser-e2e-webserver-backed",
+        "make browser-e2e-stateful"
+      ],
+      "scenario_titles": [
+        "FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-V-P6-01",
+      "layer": "visual_regression",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 12 and 13",
+        "visual golden guide Sections 2, 3, 5"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-059",
+        "R2-AC-062",
+        "R2-AC-073",
+        "R2-AC-079"
+      ],
+      "targets": [
+        "make browser-e2e-visual"
+      ],
+      "scenario_titles": [
+        "FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures."
+      ],
+      "claim_status": "blocked",
+      "claim": "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-A11Y-P6-01",
+      "layer": "accessibility",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 12, 14",
+        "docs/design.md Accessibility Direction"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-059",
+        "R2-AC-062",
+        "R2-AC-080",
+        "R2-AC-086",
+        "D-AC-009",
+        "D-AC-012"
+      ],
+      "targets": [
+        "make browser-e2e-a11y"
+      ],
+      "scenario_titles": [
+        "FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    }
+  ]
+}

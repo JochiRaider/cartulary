@@ -1,0 +1,204 @@
+{
+  "schema_id": "cartulary.frontend_phase_registry.v1",
+  "phase_namespace": "frontend",
+  "guide_path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+  "phases": [
+    {
+      "phase_id": "FE-P0",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p0_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": []
+    },
+    {
+      "phase_id": "FE-P1",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p1_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0"
+      ]
+    },
+    {
+      "phase_id": "FE-P2",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p2_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p2_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1"
+      ]
+    },
+    {
+      "phase_id": "FE-P3",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p3_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p3_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2"
+      ]
+    },
+    {
+      "phase_id": "FE-P4",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p4_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2",
+        "FE-P3"
+      ]
+    },
+    {
+      "phase_id": "FE-P5",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p5_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p5_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2",
+        "FE-P3",
+        "FE-P4"
+      ]
+    },
+    {
+      "phase_id": "FE-P6",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p6_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p6_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2",
+        "FE-P3",
+        "FE-P4",
+        "FE-P5"
+      ]
+    },
+    {
+      "phase_id": "FE-P7",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p7_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p7_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2",
+        "FE-P3",
+        "FE-P4",
+        "FE-P5",
+        "FE-P6"
+      ]
+    },
+    {
+      "phase_id": "FE-P8",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p8_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p8_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2",
+        "FE-P3",
+        "FE-P4",
+        "FE-P5",
+        "FE-P6",
+        "FE-P7"
+      ]
+    },
+    {
+      "phase_id": "FE-P9",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p9_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p9_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2",
+        "FE-P3",
+        "FE-P4",
+        "FE-P5",
+        "FE-P6",
+        "FE-P7",
+        "FE-P8"
+      ]
+    },
+    {
+      "phase_id": "FE-P10",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p10_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p10_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2",
+        "FE-P3",
+        "FE-P4",
+        "FE-P5",
+        "FE-P6",
+        "FE-P7",
+        "FE-P8",
+        "FE-P9"
+      ]
+    },
+    {
+      "phase_id": "FE-P11",
+      "status": "planned",
+      "manifest_path": "tools/frontend_phase_maps/fe_p11_test_map.json",
+      "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p11_coverage_ledger.md",
+      "owner_refs": [
+        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+      ],
+      "depends_on": [
+        "FE-P0",
+        "FE-P1",
+        "FE-P2",
+        "FE-P3",
+        "FE-P4",
+        "FE-P5",
+        "FE-P6",
+        "FE-P7",
+        "FE-P8",
+        "FE-P9",
+        "FE-P10"
+      ]
+    }
+  ]
+}

@@ -1,4 +1,10 @@
 import {
+  frontendLedgerOutputPath,
+  loadFrontendPhaseRegistry,
+  renderFrontendPhaseLedger,
+  validateFrontendPhaseArtifacts,
+} from "./lib/frontend-phase-manifest.mjs";
+import {
   collectEntries,
   collectSupportGoEntries,
   entryClaimStatus,
@@ -23,7 +29,7 @@ export function phaseLedgerOutputPath(phase) {
 }
 
 export function phaseLedgerOutputs(root = process.cwd()) {
-  return phaseManifestNames(root, { includePlanned: true }).map((phase) => {
+  const baseOutputs = phaseManifestNames(root, { includePlanned: true }).map((phase) => {
     const { manifestPath, manifest, registryEntry } = loadManifest(root, phase, {
       allowPlanned: true,
     });
@@ -32,6 +38,12 @@ export function phaseLedgerOutputs(root = process.cwd()) {
     }
     return { phase, outputPath: registryEntry.ledger_path };
   });
+  const frontendOutputs = loadFrontendPhaseRegistry(root).phases.map((entry) => ({
+    phase: entry.phase_id,
+    outputPath: frontendLedgerOutputPath(entry),
+    namespace: "frontend",
+  }));
+  return [...baseOutputs, ...frontendOutputs];
 }
 
 function renderEvidence(entry) {
@@ -208,6 +220,10 @@ function renderSection(title, entries) {
 }
 
 export function renderPhaseLedger(root, phase) {
+  if (/^FE-P(?:0|[1-9]\d*)$/.test(phase)) {
+    validateFrontendPhaseArtifacts(root);
+    return renderFrontendPhaseLedger(root, phase);
+  }
   const { manifest } = loadManifest(root, phase, { allowPlanned: true });
   const registryEntry = phaseRegistryEntry(root, phase);
   if (!registryEntry) {

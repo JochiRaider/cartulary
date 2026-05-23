@@ -16,6 +16,10 @@ import {
   executionDependencyInfo,
 } from "./lib/execution-dependencies.mjs";
 import {
+  loadFrontendPhaseMap,
+  loadFrontendPhaseRegistry,
+} from "./lib/frontend-phase-manifest.mjs";
+import {
   collectEntries,
   entryIsExecutable,
   loadManifest,
@@ -35,7 +39,7 @@ const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_basel
 const defaultBrowserFunctionalMinShards = 2;
 const defaultBrowserFunctionalMaxShards = 4;
 const browserCriticalPathPriority = 100;
-const measurementIsolationStages = new Set(["webserver-backed", "stateful", "visual"]);
+const measurementIsolationStages = new Set(["webserver-backed", "stateful", "a11y", "visual"]);
 
 function usage() {
   throw new Error(
@@ -564,6 +568,18 @@ function validateStageHasServiceBackedEvidence(stage, scheduleTarget) {
 }
 
 function hasPlaywrightRows(coverage, executionDependency) {
+  if (executionDependency === "browser_a11y") {
+    const registry = loadFrontendPhaseRegistry(repoRoot);
+    return registry.phases.some((phase) => {
+      const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
+      return manifest.rows.some(
+        (row) =>
+          row.id.startsWith("FE-A11Y-") &&
+          row.targets.includes("make browser-e2e-a11y") &&
+          coverage === "authoritative",
+      );
+    });
+  }
   for (const phase of phaseManifestNames(repoRoot)) {
     const { manifest } = loadManifest(repoRoot, phase);
     if (

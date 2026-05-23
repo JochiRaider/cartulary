@@ -26,7 +26,8 @@
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
         "browser_stage_stateful": 1,
-        "browser_stage_visual": 1
+        "browser_stage_visual": 1,
+        "browser_stage_a11y": 1
       },
       "summary_groups": [
         {
@@ -848,6 +849,97 @@
           }
         },
         {
+          "id": "check-service-backed:browser-e2e-a11y:a11y",
+          "kind": "browser_group",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/a11y",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "browser_stage": "a11y",
+          "browser_group": {
+            "id": "browser-e2e-a11y:a11y",
+            "name": "a11y",
+            "kind": "a11y",
+            "target": "browser-e2e-a11y",
+            "aggregate_target": "browser-e2e-a11y",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_a11y",
+            "priority": 100,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {},
+          "command": {
+            "type": "browser_group",
+            "service_target": "check-service-backed",
+            "browser_stage": "a11y",
+            "group_id": "browser-e2e-a11y:a11y"
+          }
+        },
+        {
+          "id": "check-service-backed:browser-stage-session:a11y",
+          "kind": "browser_stage_session",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/stage-session",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 10000,
+          "needs": [
+            "service_session:check-service-backed",
+            "build-server",
+            "build-migrate"
+          ],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "host_cpu": 1,
+            "host_io": 1,
+            "minio": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "browser_stage": "a11y",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "check-service-backed",
+            "browser_stage": "a11y"
+          }
+        },
+        {
           "id": "check-service-backed:browser-stage-complete:webserver-backed",
           "kind": "browser_stage_complete",
           "target": "browser-e2e-webserver-backed",
@@ -954,6 +1046,41 @@
             "type": "browser_stage_complete",
             "service_target": "check-service-backed",
             "browser_stage": "visual"
+          }
+        },
+        {
+          "id": "check-service-backed:browser-stage-complete:a11y",
+          "kind": "browser_stage_complete",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/complete",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "completion_keys": [
+            "browser-e2e-a11y"
+          ],
+          "failure_keys": [
+            "browser-e2e-a11y"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "browser_stage": "a11y",
+          "command": {
+            "type": "browser_stage_complete",
+            "service_target": "check-service-backed",
+            "browser_stage": "a11y"
           }
         },
         {
@@ -4699,7 +4826,8 @@
             "backend-process",
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",
-            "browser-e2e-visual"
+            "browser-e2e-visual",
+            "browser-e2e-a11y"
           ],
           "completion_keys": [
             "check-service-backed"
@@ -5450,7 +5578,8 @@
         "browser_stage_webserver_backed": 1,
         "browser_stage_stateful": 1,
         "browser_stage_measurement": 1,
-        "browser_stage_visual": 1
+        "browser_stage_visual": 1,
+        "browser_stage_a11y": 1
       },
       "stop_on_first_failure": false,
       "progress_tick_seconds": 30,
@@ -5972,7 +6101,8 @@
           "needs": [
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",
-            "browser-e2e-visual"
+            "browser-e2e-visual",
+            "browser-e2e-a11y"
           ],
           "completion_keys": [
             "browser_stage_session:browser-e2e-measurement"
@@ -6077,6 +6207,85 @@
           "command": {
             "type": "browser_stage_session_start",
             "browser_stage": "visual"
+          }
+        },
+        {
+          "id": "browser-e2e-a11y:a11y",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/a11y",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "a11y",
+          "browser_group": {
+            "id": "browser-e2e-a11y:a11y",
+            "name": "a11y",
+            "kind": "a11y",
+            "target": "browser-e2e-a11y",
+            "aggregate_target": "browser-e2e-a11y",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_a11y",
+            "priority": 100,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {},
+          "command": {
+            "type": "browser_group",
+            "browser_stage": "a11y",
+            "group_id": "browser-e2e-a11y:a11y"
+          }
+        },
+        {
+          "id": "browser-stage-session:a11y",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/stage-session",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 10000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "minio": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "browser_stage": "a11y",
+          "command": {
+            "type": "browser_stage_session_start",
+            "browser_stage": "a11y"
           }
         },
         {
@@ -9740,6 +9949,38 @@
             "type": "browser_stage_complete",
             "browser_stage": "visual"
           }
+        },
+        {
+          "id": "browser-stage-complete:a11y",
+          "kind": "browser_stage_complete",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/complete",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "completion_keys": [
+            "browser-e2e-a11y"
+          ],
+          "failure_keys": [
+            "browser-e2e-a11y"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "browser_stage": "a11y",
+          "command": {
+            "type": "browser_stage_complete",
+            "browser_stage": "a11y"
+          }
         }
       ],
       "finalizers": []
@@ -13310,7 +13551,8 @@
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
         "browser_stage_stateful": 1,
-        "browser_stage_visual": 1
+        "browser_stage_visual": 1,
+        "browser_stage_a11y": 1
       },
       "stop_on_first_failure": false,
       "progress_tick_seconds": 30,
@@ -13848,6 +14090,85 @@
             "type": "browser_group",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:support"
+          }
+        },
+        {
+          "id": "browser-e2e-a11y:a11y",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/a11y",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1
+          },
+          "browser_stage": "a11y",
+          "browser_group": {
+            "id": "browser-e2e-a11y:a11y",
+            "name": "a11y",
+            "kind": "a11y",
+            "target": "browser-e2e-a11y",
+            "aggregate_target": "browser-e2e-a11y",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_a11y",
+            "priority": 100,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {},
+          "command": {
+            "type": "browser_group",
+            "browser_stage": "a11y",
+            "group_id": "browser-e2e-a11y:a11y"
+          }
+        },
+        {
+          "id": "browser-stage-session:a11y",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/stage-session",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 10000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-a11y"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "minio": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "browser_stage": "a11y",
+          "command": {
+            "type": "browser_stage_session_start",
+            "browser_stage": "a11y"
           }
         },
         {
@@ -17478,6 +17799,38 @@
           "command": {
             "type": "browser_stage_complete",
             "browser_stage": "visual"
+          }
+        },
+        {
+          "id": "browser-stage-complete:a11y",
+          "kind": "browser_stage_complete",
+          "class": "browser",
+          "target": "browser-e2e-a11y",
+          "label": "browser-e2e-a11y/complete",
+          "aggregate_target": "browser-e2e-a11y",
+          "priority": 100,
+          "weight_ms": 1,
+          "needs": [
+            "browser_group:browser-e2e-a11y:a11y"
+          ],
+          "completion_keys": [
+            "browser-e2e-a11y"
+          ],
+          "failure_keys": [
+            "browser-e2e-a11y"
+          ],
+          "count_in_total": false,
+          "counts_started": false,
+          "resource_claims": {},
+          "release_retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_a11y": 1,
+            "process": 1
+          },
+          "browser_stage": "a11y",
+          "command": {
+            "type": "browser_stage_complete",
+            "browser_stage": "a11y"
           }
         }
       ],

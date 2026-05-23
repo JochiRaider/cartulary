@@ -1,0 +1,242 @@
+{
+  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "phase_namespace": "frontend",
+  "phase_id": "FE-P8",
+  "rows": [
+    {
+      "id": "FE-U-P8-01",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 3.3.4",
+        "Core 03 Section 4.8"
+      ],
+      "core_req_ids": [
+        "REQ-01-035",
+        "REQ-01-038",
+        "REQ-01-047",
+        "REQ-03-223",
+        "REQ-03-235"
+      ],
+      "core_ac_ids": [
+        "AC-013",
+        "AC-014",
+        "AC-024",
+        "AC-026",
+        "AC-044",
+        "AC-047",
+        "AC-124",
+        "AC-127",
+        "AC-184",
+        "AC-185",
+        "AC-231",
+        "AC-238",
+        "AC-243",
+        "AC-359",
+        "AC-361",
+        "AC-363",
+        "AC-364",
+        "AC-372",
+        "AC-375",
+        "AC-387"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Compile sort, filter, group, layout, and active chips to owner query contracts using schema field_key and capability metadata.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-I-P8-01",
+      "layer": "integration",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 3.3.5.2",
+        "Core 03 Section 3"
+      ],
+      "core_req_ids": [
+        "REQ-01-138",
+        "REQ-01-151",
+        "REQ-03-012",
+        "REQ-03-032"
+      ],
+      "core_ac_ids": [
+        "AC-146",
+        "AC-153",
+        "AC-231",
+        "AC-233",
+        "AC-360"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit",
+        "make browser-e2e-webserver-backed"
+      ],
+      "scenario_titles": [
+        "FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-B-P8-01",
+      "layer": "browser_integration",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 03 Sections 3 and 4.8",
+        "implementation guide Section 14.9A"
+      ],
+      "core_req_ids": [
+        "REQ-03-012",
+        "REQ-03-032",
+        "REQ-03-223",
+        "REQ-03-235"
+      ],
+      "core_ac_ids": [
+        "AC-013",
+        "AC-014",
+        "AC-024",
+        "AC-026",
+        "AC-044",
+        "AC-047",
+        "AC-146",
+        "AC-153",
+        "AC-231",
+        "AC-233",
+        "AC-360",
+        "AC-363",
+        "AC-364"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make browser-e2e-webserver-backed",
+        "make browser-e2e-support"
+      ],
+      "scenario_titles": [
+        "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, tree/group expand-collapse, and startup/default surface UI."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify browser command helpers for sort, filter, group, active chips, layout persistence, tree/group expand-collapse, and startup/default surface UI.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-E-P8-01",
+      "layer": "e2e",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.4 and 3.3.5.2",
+        "Core 03 Sections 3 and 4.8"
+      ],
+      "core_req_ids": [
+        "REQ-01-035",
+        "REQ-01-038",
+        "REQ-01-047",
+        "REQ-01-138",
+        "REQ-01-151",
+        "REQ-03-012",
+        "REQ-03-032",
+        "REQ-03-223",
+        "REQ-03-235"
+      ],
+      "core_ac_ids": [
+        "AC-013",
+        "AC-014",
+        "AC-024",
+        "AC-026",
+        "AC-044",
+        "AC-047",
+        "AC-124",
+        "AC-127",
+        "AC-146",
+        "AC-153",
+        "AC-184",
+        "AC-185",
+        "AC-231",
+        "AC-233",
+        "AC-238",
+        "AC-243",
+        "AC-359",
+        "AC-361",
+        "AC-363",
+        "AC-364",
+        "AC-372",
+        "AC-375",
+        "AC-387"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make browser-e2e-webserver-backed",
+        "make browser-e2e-stateful"
+      ],
+      "scenario_titles": [
+        "FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-V-P8-01",
+      "layer": "visual_regression",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 7, 10.5, 13",
+        "visual golden guide Sections 2, 3, 5"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-027",
+        "R2-AC-032",
+        "R2-AC-051",
+        "R2-AC-054",
+        "R2-AC-073",
+        "R2-AC-079",
+        "R2-RDG-AC-001",
+        "R2-RDG-AC-010"
+      ],
+      "targets": [
+        "make browser-e2e-visual"
+      ],
+      "scenario_titles": [
+        "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, tree/group row, default/startup state indicator, and empty successful query fixtures."
+      ],
+      "claim_status": "blocked",
+      "claim": "Capture saved-view selector, active chips, grouped result, tree/group row, default/startup state indicator, and empty successful query fixtures.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-A11Y-P8-01",
+      "layer": "accessibility",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 7, 10.5, 14"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-027",
+        "R2-AC-032",
+        "R2-AC-051",
+        "R2-AC-054",
+        "R2-AC-080",
+        "R2-AC-086",
+        "D-AC-009",
+        "D-AC-012"
+      ],
+      "targets": [
+        "make browser-e2e-a11y"
+      ],
+      "scenario_titles": [
+        "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, tree/group expand-collapse, and default/startup controls are keyboard reachable and announced."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify sort, filter, group, saved-view menu, active chips, tree/group expand-collapse, and default/startup controls are keyboard reachable and announced.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    }
+  ]
+}

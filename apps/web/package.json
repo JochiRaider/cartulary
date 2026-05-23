@@ -35,6 +35,7 @@
     "test:e2e": "pnpm run test:e2e:functional && pnpm run test:e2e:stateful",
     "test:e2e:functional": "bash ../../scripts/run-browser-e2e-functional.sh",
     "test:e2e:stateful": "bash ../../scripts/run-browser-e2e-stateful.sh",
+    "test:e2e:a11y": "bash ../../scripts/run-browser-e2e-a11y.sh",
     "test:e2e:visual": "bash ../../scripts/run-browser-e2e-visual.sh",
     "typecheck": "pnpm --workspace-root typecheck"
   }

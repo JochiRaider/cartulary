@@ -1,0 +1,245 @@
+{
+  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "phase_namespace": "frontend",
+  "phase_id": "FE-P9",
+  "rows": [
+    {
+      "id": "FE-U-P9-01",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.4, 3.3.7, 3.3.8",
+        "Core 03 Sections 4.11 and 4.12"
+      ],
+      "core_req_ids": [
+        "REQ-01-034",
+        "REQ-01-036",
+        "REQ-01-048",
+        "REQ-01-056",
+        "REQ-01-243",
+        "REQ-01-247",
+        "REQ-03-242",
+        "REQ-03-249",
+        "REQ-03-272"
+      ],
+      "core_ac_ids": [
+        "AC-006",
+        "AC-015",
+        "AC-020",
+        "AC-023",
+        "AC-045",
+        "AC-072",
+        "AC-075",
+        "AC-097",
+        "AC-100",
+        "AC-102",
+        "AC-103",
+        "AC-107",
+        "AC-111",
+        "AC-124",
+        "AC-127",
+        "AC-154",
+        "AC-155",
+        "AC-184",
+        "AC-185",
+        "AC-209",
+        "AC-210",
+        "AC-231",
+        "AC-278",
+        "AC-280",
+        "AC-313",
+        "AC-315",
+        "AC-318",
+        "AC-321",
+        "AC-366",
+        "AC-367",
+        "AC-372",
+        "AC-374"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit"
+      ],
+      "scenario_titles": [],
+      "claim_status": "blocked",
+      "claim": "Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-I-P9-01",
+      "layer": "integration",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Section 3.3.7",
+        "Core 02 Section 5.2",
+        "Core 03 Section 4.12"
+      ],
+      "core_req_ids": [
+        "REQ-01-048",
+        "REQ-01-056",
+        "REQ-01-089",
+        "REQ-01-108",
+        "REQ-02-205",
+        "REQ-02-218",
+        "REQ-02-238",
+        "REQ-02-242"
+      ],
+      "core_ac_ids": [
+        "AC-107",
+        "AC-111",
+        "AC-124",
+        "AC-128",
+        "AC-154",
+        "AC-155",
+        "AC-215",
+        "AC-218",
+        "AC-231",
+        "AC-383",
+        "AC-386",
+        "AC-412"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make frontend-unit",
+        "make browser-e2e-webserver-backed"
+      ],
+      "scenario_titles": [
+        "FE-I-P9-01 Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-E-P9-01",
+      "layer": "e2e",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        "Core 01 Sections 3.3.6, 3.3.7, 3.3.8",
+        "Core 02 Sections 5.1 and 5.2",
+        "Core 04 Sections 3 and 5"
+      ],
+      "core_req_ids": [
+        "REQ-01-057",
+        "REQ-01-070",
+        "REQ-01-089",
+        "REQ-01-108",
+        "REQ-01-243",
+        "REQ-01-247",
+        "REQ-02-186",
+        "REQ-02-201",
+        "REQ-02-205",
+        "REQ-02-218",
+        "REQ-04-021",
+        "REQ-04-030",
+        "REQ-04-052",
+        "REQ-04-053"
+      ],
+      "core_ac_ids": [
+        "AC-049",
+        "AC-055",
+        "AC-102",
+        "AC-103",
+        "AC-107",
+        "AC-111",
+        "AC-124",
+        "AC-128",
+        "AC-149",
+        "AC-154",
+        "AC-155",
+        "AC-178",
+        "AC-180",
+        "AC-181",
+        "AC-183",
+        "AC-188",
+        "AC-190",
+        "AC-200",
+        "AC-218",
+        "AC-221",
+        "AC-225",
+        "AC-231",
+        "AC-232",
+        "AC-234",
+        "AC-251",
+        "AC-257",
+        "AC-260",
+        "AC-261",
+        "AC-278",
+        "AC-280",
+        "AC-299",
+        "AC-313",
+        "AC-321",
+        "AC-340",
+        "AC-342",
+        "AC-352",
+        "AC-370",
+        "AC-371",
+        "AC-402"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        "make browser-e2e-webserver-backed",
+        "make browser-e2e-stateful"
+      ],
+      "scenario_titles": [
+        "FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-V-P9-01",
+      "layer": "visual_regression",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 9, 12, 13",
+        "visual golden guide Sections 2, 3, 5"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-023",
+        "R2-AC-026",
+        "R2-AC-059",
+        "R2-AC-062",
+        "R2-AC-073",
+        "R2-AC-079"
+      ],
+      "targets": [
+        "make browser-e2e-visual"
+      ],
+      "scenario_titles": [
+        "FE-V-P9-01 Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures."
+      ],
+      "claim_status": "blocked",
+      "claim": "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-A11Y-P9-01",
+      "layer": "accessibility",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "UI/UX guide Sections 9, 12, 14"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-080",
+        "R2-AC-086",
+        "D-AC-009",
+        "D-AC-012"
+      ],
+      "targets": [
+        "make browser-e2e-a11y"
+      ],
+      "scenario_titles": [
+        "FE-A11Y-P9-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced."
+      ],
+      "claim_status": "blocked",
+      "claim": "Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    }
+  ]
+}

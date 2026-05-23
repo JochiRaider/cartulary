@@ -10,6 +10,7 @@ import {
   buildPhaseSlicePlan,
   printablePlan,
 } from "./lib/phase-slice-plan.mjs";
+import { loadFrontendPhaseRegistry } from "./lib/frontend-phase-manifest.mjs";
 import {
   formatResourceMap,
 } from "./lib/scheduler-reporting.mjs";
@@ -34,13 +35,13 @@ const schedulerSummarySchemaID = "cartulary.phase_slice_scheduler_summary.v3";
 
 function usage() {
   process.stderr.write(
-    "usage: run-phase-slice.mjs --phase <phaseN> --mode <phase|service-backed> [--inside-service-wrapper]\n",
+    "usage: run-phase-slice.mjs --phase <phaseN|FE-PN> --mode <phase|service-backed> [--phase-namespace <base|frontend>] [--inside-service-wrapper]\n",
   );
   process.exit(2);
 }
 
 function parseArgs(argv) {
-  const options = { phase: "", mode: "", insideServiceWrapper: false, json: false };
+  const options = { phase: "", mode: "", phaseNamespace: "base", insideServiceWrapper: false, json: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--phase") {
@@ -50,6 +51,11 @@ function parseArgs(argv) {
     }
     if (arg === "--mode") {
       options.mode = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--phase-namespace") {
+      options.phaseNamespace = argv[index + 1] ?? "";
       index += 1;
       continue;
     }
@@ -63,7 +69,7 @@ function parseArgs(argv) {
     }
     usage();
   }
-  if (!options.phase || !validModes.has(options.mode)) {
+  if (!options.phase || !validModes.has(options.mode) || !["base", "frontend"].includes(options.phaseNamespace)) {
     usage();
   }
   return options;
@@ -345,6 +351,23 @@ async function runScheduler(plan, context) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.phaseNamespace === "frontend") {
+    const registry = loadFrontendPhaseRegistry(repoRoot);
+    const phase = registry.phases.find((entry) => entry.phase_id === options.phase);
+    if (!phase) {
+      throw new Error(`unknown frontend phase ${options.phase}; expected FE-P0 through FE-P11`);
+    }
+    if (phase.status !== "active") {
+      process.stderr.write(
+        `planned/non-executable frontend phase ${options.phase}; frontend phases must be promoted to active before phase-slice execution\n`,
+      );
+      return 2;
+    }
+    throw new Error("active frontend phase-slice execution is not implemented yet");
+  }
+  if (options.phase.startsWith("FE-P")) {
+    throw new Error("frontend phases require --phase-namespace frontend");
+  }
   const context = createRunnerContext({ repoRoot });
   const mode = options.mode === "service-backed" ? "service_backed" : "phase";
   const plan = buildPhaseSlicePlan(options.phase, { mode, root: repoRoot });

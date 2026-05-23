@@ -5,18 +5,29 @@ import {
   formatRequirements,
   phaseGuidance,
 } from "./lib/task-guidance.mjs";
+import {
+  loadFrontendPhaseMap,
+  loadFrontendPhaseRegistry,
+} from "./lib/frontend-phase-manifest.mjs";
 
 function usage() {
-  process.stderr.write("usage: print-explain-phase.mjs --phase <phaseN> [--json]\n");
+  process.stderr.write(
+    "usage: print-explain-phase.mjs --phase <phaseN|FE-PN> [--phase-namespace <base|frontend>] [--json]\n",
+  );
   process.exit(2);
 }
 
 function parseArgs(argv) {
-  const options = { phase: "", json: false };
+  const options = { phase: "", phaseNamespace: "base", json: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--phase") {
       options.phase = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--phase-namespace") {
+      options.phaseNamespace = argv[index + 1] ?? "";
       index += 1;
       continue;
     }
@@ -26,7 +37,7 @@ function parseArgs(argv) {
     }
     usage();
   }
-  if (!options.phase) {
+  if (!options.phase || !["base", "frontend"].includes(options.phaseNamespace)) {
     usage();
   }
   return options;
@@ -127,8 +138,72 @@ function renderHuman(phase) {
   return lines.join("\n");
 }
 
+function frontendPhaseGuidance(phaseID) {
+  const registry = loadFrontendPhaseRegistry(process.cwd());
+  const entry = registry.phases.find((candidate) => candidate.phase_id === phaseID);
+  if (!entry) {
+    return null;
+  }
+  const { manifest } = loadFrontendPhaseMap(process.cwd(), phaseID);
+  return {
+    schema_id: "cartulary.frontend_phase_guidance.v1",
+    phase_namespace: "frontend",
+    phase: phaseID,
+    status: entry.status,
+    manifest_path: entry.manifest_path,
+    ledger_path: entry.ledger_path,
+    owner_refs: entry.owner_refs,
+    depends_on: entry.depends_on,
+    rows: manifest.rows,
+  };
+}
+
+function renderFrontendHuman(phase) {
+  const lines = [
+    `Cartulary frontend phase guidance: ${phase.phase}`,
+    "namespace: frontend",
+    `status: ${phase.status}`,
+    `manifest: ${phase.manifest_path}`,
+    `ledger: ${phase.ledger_path}`,
+    `owners: ${phase.owner_refs.join("; ")}`,
+    `depends on: ${phase.depends_on.length === 0 ? "none" : phase.depends_on.join(", ")}`,
+    "",
+    "rows:",
+  ];
+  for (const row of phase.rows) {
+    lines.push(
+      `  - ${row.id} evidence_class=${row.evidence_class} claim_status=${row.claim_status} targets=${row.targets.join(", ")}`,
+    );
+  }
+  return lines.join("\n");
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.phaseNamespace === "frontend") {
+    const phase = frontendPhaseGuidance(options.phase);
+    if (!phase) {
+      throw new Error(`unknown frontend phase ${options.phase}; expected FE-P0 through FE-P11`);
+    }
+    if (phase.status !== "active") {
+      const message = `frontend phase ${options.phase} is ${phase.status}; planned frontend phases are explainable but not executable`;
+      if (options.json) {
+        process.stdout.write(`${JSON.stringify({ ...phase, executable: false, diagnostic: message }, null, 2)}\n`);
+        return;
+      }
+      process.stdout.write(`${renderFrontendHuman(phase)}\n${message}\n`);
+      return;
+    }
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify({ ...phase, executable: true }, null, 2)}\n`);
+      return;
+    }
+    process.stdout.write(`${renderFrontendHuman(phase)}\n`);
+    return;
+  }
+  if (options.phase.startsWith("FE-P")) {
+    throw new Error("frontend phases require --phase-namespace frontend");
+  }
   const phase = phaseGuidance(options.phase);
   if (!phase) {
     throw new Error(`unknown phase ${options.phase}; expected one of tools/phase_registry.json`);

@@ -103,7 +103,7 @@ export const makeNodeTools = {
     },
   },
   "task-guide": {
-    inputs: ["ROLE", "PHASE", "JSON"],
+    inputs: ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON"],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR"],
     script: "./scripts/print-task-guide.mjs",
     usage: "usage: make task-guide [ROLE=<role>] [PHASE=phaseN] [JSON=1]",
@@ -111,34 +111,37 @@ export const makeNodeTools = {
       const args = [];
       optionalFlag(args, env, "ROLE", "--role");
       optionalFlag(args, env, "PHASE", "--phase");
+      optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
       jsonFlag(args, env);
       return args;
     },
   },
   "phase-slice": {
-    inputs: ["PHASE", "JSON"],
+    inputs: ["PHASE", "PHASE_NAMESPACE", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
     script: "./scripts/run-phase-slice.mjs",
-    usage: "usage: make phase-slice PHASE=<phaseN>",
+    usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN>");
+        throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]");
       }
       const args = ["--phase", value(env, "PHASE"), "--mode", "phase"];
+      optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
       jsonFlag(args, env);
       return args;
     },
   },
   "service-backed-slice": {
-    inputs: ["PHASE", "JSON"],
+    inputs: ["PHASE", "PHASE_NAMESPACE", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
     script: "./scripts/run-phase-slice.mjs",
-    usage: "usage: make service-backed-slice PHASE=<phaseN>",
+    usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN>");
+        throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]");
       }
       const args = ["--phase", value(env, "PHASE"), "--mode", "service-backed"];
+      optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
       jsonFlag(args, env);
       return args;
     },
@@ -192,14 +195,15 @@ export const makeNodeTools = {
     },
   },
   "explain-phase": {
-    inputs: ["PHASE", "JSON"],
+    inputs: ["PHASE", "PHASE_NAMESPACE", "JSON"],
     script: "./scripts/print-explain-phase.mjs",
-    usage: "usage: make explain-phase PHASE=<phaseN>",
+    usage: "usage: make explain-phase PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make explain-phase PHASE=<phaseN>");
+        throw new UsageError("PHASE is required", "usage: make explain-phase PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]");
       }
       const args = ["--phase", value(env, "PHASE")];
+      optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
       jsonFlag(args, env);
       return args;
     },
