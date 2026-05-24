@@ -1,20 +1,21 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase11",
-  "note": "Phase 11 manifest for the selected Import Extension Profile, Snapshot and Reporting Extension Profile, and shared common-job substrate. Reference Pack, Incident Portability, and Enterprise Authentication remain reserved and unclaimed.",
+  "note": "Phase 11 manifest for the selected Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, and shared common-job substrate. Incident Portability and Enterprise Authentication remain reserved and unclaimed.",
   "ledger": {
     "title": "Phase 11 Coverage Ledger",
     "notes": [
-      "Phase 11 is active for the selected Import Extension Profile, the selected Snapshot and Reporting Extension Profile, and the common job substrate required by selected extension routes.",
+      "Phase 11 is active for the selected Import Extension Profile, the selected Snapshot and Reporting Extension Profile, the selected Reference Pack Extension Profile, and the common job substrate required by selected extension routes.",
       "Import evidence covers upload-envelope early failure, CSV and XLSX discovery, session and unit reads, preview, deterministic mapping approval, select, apply, terminal job summaries, durable state separation, and request-time authorization for common jobs.",
       "Snapshot and Reporting evidence covers immutable snapshot replay, redaction profile validation, deterministic redaction precedence, manifest provenance, external-release binary and working-material boundaries, distinct approvals, publication, and state conflicts.",
-      "Reference Pack, Incident Portability, and Enterprise Authentication remain unselected and unclaimed; reserved-family behavior continues to be their only default runtime exposure.",
+      "Incident Portability and Enterprise Authentication remain unselected and unclaimed; reserved-family behavior continues to be their only default runtime exposure.",
       "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
     ],
     "authoritative_execution": [
       "`backend-integration` selects request-time authorization re-derivation for incident-scoped and deployment-scoped common jobs.",
       "`backend-integration` selects Import upload-envelope no-durable-state behavior, CSV mapping/select/apply, XLSX used-range discovery evidence, and Snapshot/Reporting snapshot-release lifecycle evidence.",
-      "`backend-unit` selects Snapshot/Reporting redaction profile and post-redaction validation fixtures."
+      "`backend-unit` selects Snapshot/Reporting redaction profile and post-redaction validation fixtures.",
+      "`backend-unit` and `backend-integration` select Reference Pack request validation, disconnected bundle verification, import/list/read, lifecycle, failure, and contract-registry evidence."
     ],
     "support_execution_extras": [
       "Upload-envelope helper unit tests and lower-level durable job manager tests remain support-only substrate outside the direct Phase 11 rows.",
@@ -28,14 +29,14 @@
     "shared_harness": [
       "| Harness | Phase 11 evidence |",
       "| --- | --- |",
-      "| Active manifest ownership | `tools/phase11_test_map.json` records selected Import, Snapshot/Reporting, and common-job evidence. |",
+      "| Active manifest ownership | `tools/phase11_test_map.json` records selected Import, Snapshot/Reporting, Reference Pack, and common-job evidence. |",
       "| Generated ledger | `docs/testing/phase11_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
       "| Schedule boundary | Generated schedules must execute implemented Import/common-job evidence without implying claims for unselected extension profiles. |"
     ],
     "support_only": [
       "Helper substrate alone does not claim an extension profile.",
       "OpenAPI and generated contract artifacts are derived evidence and do not replace direct route tests.",
-      "Unselected extension family roots must continue to return `extension_profile_not_claimed`."
+      "Unselected Incident Portability and Enterprise Authentication roots must continue to return `extension_profile_not_claimed`."
     ]
   },
   "shared_harnesses": [],
@@ -54,7 +55,13 @@
     "I-11-REPORTING-01",
     "I-11-REPORTING-02",
     "I-11-REPORTING-03",
-    "I-11-REPORTING-04"
+    "I-11-REPORTING-04",
+    "U-11-REFERENCE-PACK-01",
+    "U-11-REFERENCE-PACK-02",
+    "U-11-REFERENCE-PACK-05",
+    "I-11-REFERENCE-PACK-01",
+    "I-11-REFERENCE-PACK-02",
+    "I-11-REFERENCE-PACK-03"
   ],
   "forbidden_id_files": [],
   "support_go_targets": [],
@@ -178,6 +185,51 @@
       "out_of_scope": "This contract-shape evidence is derived from generated OpenAPI artifacts and does not replace direct route behavior tests.",
       "execution_family": "backend-unit-phase11-reporting-openapi-contract",
       "execution_label": "backend-unit phase11 reporting OpenAPI contract"
+    },
+    {
+      "id": "U-11-REFERENCE-PACK-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reference_data",
+      "file": "internal/modules/reference_data/api_test.go",
+      "symbol": "TestPhase11_U_11_REFERENCE_PACK_01_RequestValidationNormalizationAndClosedRegistries",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "Reference Pack request decoders enforce activation-policy, action reason, refresh selector, idempotency-normalization, and closed verification/error reason vocabulary.",
+      "out_of_scope": "This unit fixture does not exercise persistence or route authorization.",
+      "execution_family": "backend-unit-phase11-reference-pack-request-validation",
+      "execution_label": "backend-unit phase11 reference pack request validation"
+    },
+    {
+      "id": "U-11-REFERENCE-PACK-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reference_data",
+      "file": "internal/modules/reference_data/api_test.go",
+      "symbol": "TestPhase11_U_11_REFERENCE_PACK_02_VerifierAcceptsLocalBundleAndRejectsFailures",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "Reference Pack verifier accepts disconnected local bundles and fails closed for checksum, signature, path traversal, active content, missing payload, and contract incompatibility.",
+      "out_of_scope": "This unit fixture does not claim route idempotency or job summaries.",
+      "execution_family": "backend-unit-phase11-reference-pack-verifier",
+      "execution_label": "backend-unit phase11 reference pack verifier"
+    },
+    {
+      "id": "U-11-REFERENCE-PACK-05",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reference_data",
+      "file": "internal/modules/reference_data/openapi_contract_test.go",
+      "symbol": "TestPhase11_U_11_REFERENCE_PACK_05_OpenAPIAndErrorRegistriesExposeClosedReferencePackContract",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "Generated OpenAPI and error-registry artifacts expose the exact Reference Pack resource, route, state enum, verification enum, and closed error reason registries.",
+      "out_of_scope": "Generated contract artifacts remain downstream evidence and do not replace direct route tests.",
+      "execution_family": "backend-unit-phase11-reference-pack-contracts",
+      "execution_label": "backend-unit phase11 reference pack contracts"
     }
   ],
   "integration": [
@@ -285,6 +337,51 @@
       "out_of_scope": "This evidence does not claim browser report inspection or network-level renderer instrumentation.",
       "execution_family": "backend-integration-phase11-reporting-shape-visibility",
       "execution_label": "backend-integration phase11 reporting shape and visibility"
+    },
+    {
+      "id": "I-11-REFERENCE-PACK-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reference_data",
+      "file": "internal/modules/reference_data/reference_pack_integration_test.go",
+      "symbol": "TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Reference Pack import uses the shared upload envelope, staged_only policy, file-hash idempotency, terminal job summary, list/read pagination, singleton pagination rejection, sorting, and exact version resource shape.",
+      "out_of_scope": "This row does not claim activation, reverify, refresh, or failure modes.",
+      "execution_family": "backend-integration-phase11-reference-pack-import-list-read",
+      "execution_label": "backend-integration phase11 reference pack import list read"
+    },
+    {
+      "id": "I-11-REFERENCE-PACK-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reference_data",
+      "file": "internal/modules/reference_data/reference_pack_integration_test.go",
+      "symbol": "TestPhase11_I_11_REFERENCE_PACK_02_ActivationDisableReverifyAndRefreshLifecycle",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Reference Pack activation, prior-active retention, disable, route-scoped idempotency, reverify job behavior, and refresh selector behavior follow the legal state-transition contract.",
+      "out_of_scope": "This row does not claim malformed bundle failure reasons.",
+      "execution_family": "backend-integration-phase11-reference-pack-lifecycle",
+      "execution_label": "backend-integration phase11 reference pack lifecycle"
+    },
+    {
+      "id": "I-11-REFERENCE-PACK-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reference_data",
+      "file": "internal/modules/reference_data/reference_pack_integration_test.go",
+      "symbol": "TestPhase11_I_11_REFERENCE_PACK_03_FailuresRemainInactiveAndNoNetworkIsNeeded",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Disconnected Reference Pack failure modes produce terminal verification failures, keep candidates inactive, and leave the previously active local version active without any live fetch dependency.",
+      "out_of_scope": "This row does not add an operator UI claim.",
+      "execution_family": "backend-integration-phase11-reference-pack-failures",
+      "execution_label": "backend-integration phase11 reference pack failures"
     }
   ],
   "e2e": [],

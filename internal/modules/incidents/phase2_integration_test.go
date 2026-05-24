@@ -649,7 +649,7 @@ func TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutL
 		if _, ok := item["route_families"]; !ok {
 			t.Fatalf("missing route_families in extension item %d: %#v", index, item)
 		}
-		wantClaimed := want.ProfileID == "import" || want.ProfileID == "snapshot_reporting"
+		wantClaimed := want.ProfileID == "import" || want.ProfileID == "reference_pack" || want.ProfileID == "snapshot_reporting"
 		if item["profile_id"] != want.ProfileID || item["claimed"] != wantClaimed {
 			t.Fatalf("unexpected extension item %d: %#v", index, item)
 		}
@@ -682,13 +682,13 @@ func TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePath
 	_, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	phase2test.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)
 	userSession, _ := phase2test.LoginLocalUser(t, harness.Server, "reserved-user@example.test", "ReservedUser1!")
-	referenceProfile := phase2ExtensionContract(t, "reference_pack")
+	incidentProfile := phase2ExtensionContract(t, "incident_portability")
 	enterpriseProfile := phase2ExtensionContract(t, "enterprise_authentication")
 
-	rootReserved := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+referenceProfile.RouteFamilies[0], nil, phase2test.WithCookies(userSession))
+	rootReserved := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+incidentProfile.RouteFamilies[0], nil, phase2test.WithCookies(userSession))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
-	if rootDetails["profile_id"] != referenceProfile.ProfileID || rootDetails["route_family"] != referenceProfile.RouteFamilies[0] {
+	if rootDetails["profile_id"] != incidentProfile.ProfileID || rootDetails["route_family"] != incidentProfile.RouteFamilies[0] {
 		t.Fatalf("unexpected reserved root dispatch details: %#v", rootDetails)
 	}
 

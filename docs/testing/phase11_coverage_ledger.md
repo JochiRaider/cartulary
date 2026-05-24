@@ -2,13 +2,13 @@
 
 This ledger is generated from `tools/phase11_test_map.json`. Update the manifest row metadata first, then regenerate this file.
 
-- Scope: Selected Import Extension Profile route family, selected Snapshot and Reporting Extension Profile route family, and common job substrate; Reference Pack, Incident Portability, and Enterprise Authentication remain reserved and unclaimed.
+- Scope: Selected Import Extension Profile route family, selected Snapshot and Reporting Extension Profile route family, selected Reference Pack Extension Profile route family, and common job substrate; Incident Portability and Enterprise Authentication remain reserved and unclaimed.
 - Normative owners: Core 00 §4.2 and §5.1; Core 01 §17 and §20; Core 04 extension-profile claim criteria; Core 05 only for claim-bearing timed or fixture-sensitive publication.
 - Authority: `tools/phase11_test_map.json` is the enforced Phase 11 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.
-- Phase 11 is active for the selected Import Extension Profile, the selected Snapshot and Reporting Extension Profile, and the common job substrate required by selected extension routes.
+- Phase 11 is active for the selected Import Extension Profile, the selected Snapshot and Reporting Extension Profile, the selected Reference Pack Extension Profile, and the common job substrate required by selected extension routes.
 - Import evidence covers upload-envelope early failure, CSV and XLSX discovery, session and unit reads, preview, deterministic mapping approval, select, apply, terminal job summaries, durable state separation, and request-time authorization for common jobs.
 - Snapshot and Reporting evidence covers immutable snapshot replay, redaction profile validation, deterministic redaction precedence, manifest provenance, external-release binary and working-material boundaries, distinct approvals, publication, and state conflicts.
-- Reference Pack, Incident Portability, and Enterprise Authentication remain unselected and unclaimed; reserved-family behavior continues to be their only default runtime exposure.
+- Incident Portability and Enterprise Authentication remain unselected and unclaimed; reserved-family behavior continues to be their only default runtime exposure.
 - Generated ledgers and schedules are downstream artifacts and must not be hand-edited.
 
 ## Authoritative Execution
@@ -16,6 +16,7 @@ This ledger is generated from `tools/phase11_test_map.json`. Update the manifest
 - `backend-integration` selects request-time authorization re-derivation for incident-scoped and deployment-scoped common jobs.
 - `backend-integration` selects Import upload-envelope no-durable-state behavior, CSV mapping/select/apply, XLSX used-range discovery evidence, and Snapshot/Reporting snapshot-release lifecycle evidence.
 - `backend-unit` selects Snapshot/Reporting redaction profile and post-redaction validation fixtures.
+- `backend-unit` and `backend-integration` select Reference Pack request validation, disconnected bundle verification, import/list/read, lifecycle, failure, and contract-registry evidence.
 
 ## Support-Only Execution
 
@@ -34,6 +35,9 @@ This ledger is generated from `tools/phase11_test_map.json`. Update the manifest
 | `U-11-REPORTING-04` | `implemented` | `internal/modules/reporting/redaction_test.go::TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFailClosed` | `backend_unit` | Snapshot/Reporting recipient redaction profiles enforce disclosure partition allowlists, keep dropped partition fields in the redaction manifest, and fail closed when external curated narrative lacks support references. | This unit fixture uses in-memory export models and does not inspect rendered route output. |
 | `U-11-REPORTING-05` | `implemented` | `internal/modules/reporting/redaction_test.go::TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons` | `backend_unit` | Snapshot/Reporting route decoders reject legacy alias fields with registered reason codes and normalize omitted, null, and empty release-action reasons to the same idempotency payload. | This unit fixture does not exercise session authorization or database idempotency persistence. |
 | `U-11-REPORTING-06` | `implemented` | `internal/modules/reporting/openapi_contract_test.go::TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources` | `backend_unit` | Snapshot/Reporting OpenAPI uses reusable closed enum schemas for release output kind and release scope in both release create and durable release resources, and documents exact snapshot/release resource envelopes for route responses. | This contract-shape evidence is derived from generated OpenAPI artifacts and does not replace direct route behavior tests. |
+| `U-11-REFERENCE-PACK-01` | `implemented` | `internal/modules/reference_data/api_test.go::TestPhase11_U_11_REFERENCE_PACK_01_RequestValidationNormalizationAndClosedRegistries` | `backend_unit` | Reference Pack request decoders enforce activation-policy, action reason, refresh selector, idempotency-normalization, and closed verification/error reason vocabulary. | This unit fixture does not exercise persistence or route authorization. |
+| `U-11-REFERENCE-PACK-02` | `implemented` | `internal/modules/reference_data/api_test.go::TestPhase11_U_11_REFERENCE_PACK_02_VerifierAcceptsLocalBundleAndRejectsFailures` | `backend_unit` | Reference Pack verifier accepts disconnected local bundles and fails closed for checksum, signature, path traversal, active content, missing payload, and contract incompatibility. | This unit fixture does not claim route idempotency or job summaries. |
+| `U-11-REFERENCE-PACK-05` | `implemented` | `internal/modules/reference_data/openapi_contract_test.go::TestPhase11_U_11_REFERENCE_PACK_05_OpenAPIAndErrorRegistriesExposeClosedReferencePackContract` | `backend_unit` | Generated OpenAPI and error-registry artifacts expose the exact Reference Pack resource, route, state enum, verification enum, and closed error reason registries. | Generated contract artifacts remain downstream evidence and do not replace direct route tests. |
 
 ## Integration
 
@@ -46,6 +50,9 @@ This ledger is generated from `tools/phase11_test_map.json`. Update the manifest
 | `I-11-REPORTING-02` | `implemented` | `internal/modules/reporting/reporting_integration_test.go::TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflicts` | `backend_integration` | External releases require distinct reviewer and admin approvals, transition to approved only after the complete approval set, publish synchronously from approved state, and reject duplicate publication with a stable release_state_conflict reason. | This evidence does not claim deployment-wide approval policies beyond the Snapshot and Reporting release gate. |
 | `I-11-REPORTING-03` | `implemented` | `internal/modules/reporting/reporting_integration_test.go::TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency` | `backend_integration` | Snapshot/Reporting route idempotency treats an omitted snapshot source boundary and the originally resolved explicit boundary as the same request, defaults omitted release_scope to approved internal_draft, and replays release actions with omitted/null/empty reason before fresh state checks. | This evidence does not claim browser report inspection. |
 | `I-11-REPORTING-04` | `implemented` | `internal/modules/reporting/reporting_integration_test.go::TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility` | `backend_integration` | Snapshot/Reporting singleton reads and release actions enforce exact durable resource shapes, route-scoped hidden-resource errors, singleton pagination rejection, admin-only publish/invalidate authorization, and action response parity with release reads. | This evidence does not claim browser report inspection or network-level renderer instrumentation. |
+| `I-11-REFERENCE-PACK-01` | `implemented` | `internal/modules/reference_data/reference_pack_integration_test.go::TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary` | `backend_integration` | Reference Pack import uses the shared upload envelope, staged_only policy, file-hash idempotency, terminal job summary, list/read pagination, singleton pagination rejection, sorting, and exact version resource shape. | This row does not claim activation, reverify, refresh, or failure modes. |
+| `I-11-REFERENCE-PACK-02` | `implemented` | `internal/modules/reference_data/reference_pack_integration_test.go::TestPhase11_I_11_REFERENCE_PACK_02_ActivationDisableReverifyAndRefreshLifecycle` | `backend_integration` | Reference Pack activation, prior-active retention, disable, route-scoped idempotency, reverify job behavior, and refresh selector behavior follow the legal state-transition contract. | This row does not claim malformed bundle failure reasons. |
+| `I-11-REFERENCE-PACK-03` | `implemented` | `internal/modules/reference_data/reference_pack_integration_test.go::TestPhase11_I_11_REFERENCE_PACK_03_FailuresRemainInactiveAndNoNetworkIsNeeded` | `backend_integration` | Disconnected Reference Pack failure modes produce terminal verification failures, keep candidates inactive, and leave the previously active local version active without any live fetch dependency. | This row does not add an operator UI claim. |
 
 ## Browser E2E
 
@@ -56,7 +63,7 @@ This ledger is generated from `tools/phase11_test_map.json`. Update the manifest
 
 | Harness | Phase 11 evidence |
 | --- | --- |
-| Active manifest ownership | `tools/phase11_test_map.json` records selected Import, Snapshot/Reporting, and common-job evidence. |
+| Active manifest ownership | `tools/phase11_test_map.json` records selected Import, Snapshot/Reporting, Reference Pack, and common-job evidence. |
 | Generated ledger | `docs/testing/phase11_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |
 | Schedule boundary | Generated schedules must execute implemented Import/common-job evidence without implying claims for unselected extension profiles. |
 
@@ -64,4 +71,4 @@ This ledger is generated from `tools/phase11_test_map.json`. Update the manifest
 
 - Helper substrate alone does not claim an extension profile.
 - OpenAPI and generated contract artifacts are derived evidence and do not replace direct route tests.
-- Unselected extension family roots must continue to return `extension_profile_not_claimed`.
+- Unselected Incident Portability and Enterprise Authentication roots must continue to return `extension_profile_not_claimed`.

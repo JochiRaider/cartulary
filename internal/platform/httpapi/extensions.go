@@ -46,7 +46,7 @@ var (
 		},
 		{
 			ProfileID: "reference_pack",
-			Claimed:   false,
+			Claimed:   true,
 			RouteFamilies: []string{
 				"/api/v1/reference-packs",
 			},

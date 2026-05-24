@@ -344,6 +344,31 @@
       "summary": "The release render failed closed before producing a publishable artifact."
     },
     {
+      "code": "invalid_reference_pack_request",
+      "http_status": 400,
+      "summary": "The reference-pack request body or upload metadata failed route-owned validation."
+    },
+    {
+      "code": "reference_pack_not_found",
+      "http_status": 404,
+      "summary": "No visible current reference-pack version exists for the supplied pack_key and pack_version."
+    },
+    {
+      "code": "reference_pack_state_conflict",
+      "http_status": 409,
+      "summary": "The addressed reference-pack version state does not allow the requested action."
+    },
+    {
+      "code": "reference_pack_verification_failed",
+      "http_status": 409,
+      "summary": "Reference-pack verification failed closed before the candidate could become or remain available."
+    },
+    {
+      "code": "reference_pack_activation_rejected",
+      "http_status": 409,
+      "summary": "The addressed reference-pack version cannot become the active version."
+    },
+    {
       "code": "extension_profile_not_claimed",
       "http_status": 404,
       "summary": "The requested reserved extension-family route belongs to an unclaimed deployment extension profile."
@@ -546,6 +571,150 @@
         {
           "code": "unit_not_ready",
           "summary": "One selected import unit is not ready to apply."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_reference_pack_request",
+      "reason_codes": [
+        {
+          "code": "unsupported_upload_envelope",
+          "summary": "The request is not a supported multipart upload envelope."
+        },
+        {
+          "code": "missing_required_part",
+          "summary": "The upload envelope is missing a required part."
+        },
+        {
+          "code": "duplicate_part",
+          "summary": "The upload envelope repeated a required part."
+        },
+        {
+          "code": "unexpected_part",
+          "summary": "The upload envelope includes a part outside the route contract."
+        },
+        {
+          "code": "invalid_part_content_type",
+          "summary": "A multipart part uses a content type outside the route allowlist."
+        },
+        {
+          "code": "invalid_metadata_encoding",
+          "summary": "The metadata part is not valid UTF-8 JSON without a byte-order mark."
+        },
+        {
+          "code": "malformed_metadata_json",
+          "summary": "The metadata part is not a single valid JSON object with unique member names."
+        },
+        {
+          "code": "request_not_object",
+          "summary": "The request body or metadata is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required reference-pack request field is absent."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a non-nullable reference-pack field."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the reference-pack contract."
+        },
+        {
+          "code": "invalid_activation_policy",
+          "summary": "activation_policy has a malformed non-null JSON value."
+        },
+        {
+          "code": "pack_version_required",
+          "summary": "The action route did not include an exact pack_version segment."
+        },
+        {
+          "code": "auto_activation_not_supported",
+          "summary": "The current profile does not support import-time auto-activation."
+        },
+        {
+          "code": "invalid_pack_keys",
+          "summary": "The refresh pack_keys selector is malformed or references a non-visible pack_key."
+        },
+        {
+          "code": "empty_pack_keys",
+          "summary": "The refresh pack_keys selector is explicitly empty."
+        }
+      ]
+    },
+    {
+      "error_code": "reference_pack_verification_failed",
+      "reason_codes": [
+        {
+          "code": "checksum_mismatch",
+          "summary": "A declared payload checksum does not match the supplied bundle bytes."
+        },
+        {
+          "code": "signature_mismatch",
+          "summary": "The supplied signature or signed digest does not match the verified payload metadata."
+        },
+        {
+          "code": "missing_integrity_metadata",
+          "summary": "Required manifest, payload digest, or signature metadata is missing or malformed."
+        },
+        {
+          "code": "contract_incompatible",
+          "summary": "The pack_contract_version is not compatible with this implementation."
+        },
+        {
+          "code": "path_traversal",
+          "summary": "A bundle member path is absolute, escapes the archive root, or is otherwise unsafe."
+        },
+        {
+          "code": "disallowed_content",
+          "summary": "A bundle member contains active or non-allowlisted content."
+        },
+        {
+          "code": "payload_missing",
+          "summary": "A manifest-declared payload is missing or the archive cannot be read as a payload bundle."
+        },
+        {
+          "code": "archive_extracted_bytes_exceeded",
+          "summary": "The bundle exceeds the configured extracted-byte limit."
+        },
+        {
+          "code": "archive_compression_ratio_exceeded",
+          "summary": "The bundle exceeds the configured compression-ratio limit."
+        },
+        {
+          "code": "archive_member_count_exceeded",
+          "summary": "The bundle exceeds the configured archive-member limit."
+        }
+      ]
+    },
+    {
+      "error_code": "reference_pack_activation_rejected",
+      "reason_codes": [
+        {
+          "code": "already_active",
+          "summary": "The addressed version is already the active version for its pack_key."
+        },
+        {
+          "code": "not_verified_available",
+          "summary": "The addressed version is not in verified_available condition."
+        }
+      ]
+    },
+    {
+      "error_code": "reference_pack_state_conflict",
+      "reason_codes": [
+        {
+          "code": "already_disabled",
+          "summary": "The addressed version is already disabled."
+        },
+        {
+          "code": "not_disableable",
+          "summary": "The addressed version is not in a disableable condition."
+        },
+        {
+          "code": "verification_pending",
+          "summary": "The addressed version is still staged and cannot be reverified yet."
         }
       ]
     },

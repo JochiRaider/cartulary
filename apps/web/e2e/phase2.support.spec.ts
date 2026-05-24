@@ -136,7 +136,8 @@ test("supports zero-membership extension discovery and singleton pagination reje
       profile_id: profile.profile_id,
       claimed:
         profile.profile_id === "import" ||
-        profile.profile_id === "snapshot_reporting",
+        profile.profile_id === "snapshot_reporting" ||
+        profile.profile_id === "reference_pack",
       route_families: profile.route_families,
     })),
   );
@@ -176,7 +177,7 @@ test("supports reserved-family dispatch precedence probes while ordinary base an
   expect(readyResponse.ok()).toBeTruthy();
   expect(await readyResponse.text()).toContain("ready");
 
-  const referenceProfile = extensionProfile("reference_pack");
+  const referenceProfile = extensionProfile("incident_portability");
   const referenceRouteFamily = routeFamily(referenceProfile);
   await expectAPIError(
     await page.request.get(`${apiBase}${referenceRouteFamily}`),

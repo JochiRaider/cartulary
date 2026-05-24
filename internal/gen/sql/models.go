@@ -743,6 +743,69 @@ type RecordTag struct {
 	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
+type ReferencePack struct {
+	PackKey               string             `json:"pack_key"`
+	Version               string             `json:"version"`
+	PackKind              string             `json:"pack_kind"`
+	SourceIdentifier      pgtype.Text        `json:"source_identifier"`
+	ManifestSha256        string             `json:"manifest_sha256"`
+	PayloadSha256         string             `json:"payload_sha256"`
+	PackContractVersion   string             `json:"pack_contract_version"`
+	VerificationMethod    string             `json:"verification_method"`
+	SignerKeyID           pgtype.Text        `json:"signer_key_id"`
+	Status                string             `json:"status"`
+	ImportedAt            pgtype.Timestamptz `json:"imported_at"`
+	ImportedByUserID      pgtype.UUID        `json:"imported_by_user_id"`
+	ActivatedAt           pgtype.Timestamptz `json:"activated_at"`
+	ActivatedByUserID     pgtype.UUID        `json:"activated_by_user_id"`
+	PreviousActiveVersion pgtype.Text        `json:"previous_active_version"`
+	VerificationResult    string             `json:"verification_result"`
+	BundleSha256          string             `json:"bundle_sha256"`
+	BundleStoragePath     string             `json:"bundle_storage_path"`
+	Metadata              []byte             `json:"metadata"`
+}
+
+type ReferencePackActivationState struct {
+	PackKey               string             `json:"pack_key"`
+	ActiveVersion         pgtype.Text        `json:"active_version"`
+	PreviousActiveVersion pgtype.Text        `json:"previous_active_version"`
+	ActivatedAt           pgtype.Timestamptz `json:"activated_at"`
+	ActivatedByUserID     pgtype.UUID        `json:"activated_by_user_id"`
+	OperatorNote          pgtype.Text        `json:"operator_note"`
+}
+
+type ReferencePackAttestation struct {
+	ID                    pgtype.UUID        `json:"id"`
+	PackKey               string             `json:"pack_key"`
+	PackVersion           string             `json:"pack_version"`
+	PackKind              string             `json:"pack_kind"`
+	EventKind             string             `json:"event_kind"`
+	ManifestSha256        string             `json:"manifest_sha256"`
+	PayloadSha256         string             `json:"payload_sha256"`
+	SourceIdentifier      pgtype.Text        `json:"source_identifier"`
+	VerificationMethod    string             `json:"verification_method"`
+	SignerKeyID           pgtype.Text        `json:"signer_key_id"`
+	PreviousActiveVersion pgtype.Text        `json:"previous_active_version"`
+	VerificationResult    string             `json:"verification_result"`
+	ActorUserID           pgtype.UUID        `json:"actor_user_id"`
+	JobID                 pgtype.UUID        `json:"job_id"`
+	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
+	OperatorNote          pgtype.Text        `json:"operator_note"`
+	Metadata              []byte             `json:"metadata"`
+}
+
+type ReferencePackJobPayload struct {
+	JobID            pgtype.UUID        `json:"job_id"`
+	JobKind          string             `json:"job_kind"`
+	ActorUserID      pgtype.UUID        `json:"actor_user_id"`
+	PackKey          pgtype.Text        `json:"pack_key"`
+	PackVersion      pgtype.Text        `json:"pack_version"`
+	ResolvedPackKeys []string           `json:"resolved_pack_keys"`
+	BundleSha256     pgtype.Text        `json:"bundle_sha256"`
+	RequestJson      []byte             `json:"request_json"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type ReportingJobPayload struct {
 	JobID       pgtype.UUID        `json:"job_id"`
 	JobKind     string             `json:"job_kind"`

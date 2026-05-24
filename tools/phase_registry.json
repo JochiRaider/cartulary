@@ -118,7 +118,7 @@
       "label": "Phase 11",
       "manifest_path": "tools/phase11_test_map.json",
       "ledger_path": "docs/testing/phase11_coverage_ledger.md",
-      "scope": "Selected Import Extension Profile route family, selected Snapshot and Reporting Extension Profile route family, and common job substrate; Reference Pack, Incident Portability, and Enterprise Authentication remain reserved and unclaimed.",
+      "scope": "Selected Import Extension Profile route family, selected Snapshot and Reporting Extension Profile route family, selected Reference Pack Extension Profile route family, and common job substrate; Incident Portability and Enterprise Authentication remain reserved and unclaimed.",
       "normative_owners": "Core 00 §4.2 and §5.1; Core 01 §17 and §20; Core 04 extension-profile claim criteria; Core 05 only for claim-bearing timed or fixture-sensitive publication."
     }
   ]

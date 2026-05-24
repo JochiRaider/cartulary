@@ -81,7 +81,7 @@ func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 		t.Fatalf("NewHandler(): %v", err)
 	}
 
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/reference-packs", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/incident-bundles", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
