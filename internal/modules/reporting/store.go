@@ -62,6 +62,7 @@ type SnapshotRecord struct {
 	ClientTxnID                  string
 	SnapshotAt                   time.Time
 	SourceChangeSetHighWatermark string
+	SourceBoundaryJSON           []byte
 	DerivationVersion            string
 	ExportModelSHA256            string
 	ExportModelJSON              []byte
@@ -115,6 +116,19 @@ type CreateSnapshotResult struct {
 	Replayed   bool
 }
 
+type SourceBoundaryState struct {
+	IncidentID               string  `json:"incident_id"`
+	IncidentVersion          int64   `json:"incident_version"`
+	LatestChangeSetID        *string `json:"latest_change_set_id"`
+	LatestChangeSetCreatedAt *string `json:"latest_change_set_created_at"`
+}
+
+type ResolvedSourceBoundary struct {
+	Token         string
+	CanonicalJSON []byte
+	State         SourceBoundaryState
+}
+
 type RenderedRelease struct {
 	Profile                 RedactionProfile
 	ProfileSHA256           string
@@ -127,9 +141,10 @@ type RenderedRelease struct {
 }
 
 type CreateReleaseParams struct {
-	ActorUserID uuid.UUID
-	Request     CreateReleaseRequest
-	Now         time.Time
+	ActorUserID      uuid.UUID
+	Request          CreateReleaseRequest
+	TemplateContract TemplateContract
+	Now              time.Time
 }
 
 type CreateReleaseResult struct {
@@ -139,13 +154,14 @@ type CreateReleaseResult struct {
 }
 
 type snapshotCreateJobPayload struct {
-	IncidentID                   string      `json:"incident_id"`
-	ActorUserID                  string      `json:"actor_user_id"`
-	ClientTxnID                  string      `json:"client_txn_id"`
-	SnapshotAt                   time.Time   `json:"snapshot_at"`
-	SourceChangeSetHighWatermark string      `json:"source_change_set_high_watermark"`
-	ExportModel                  ExportModel `json:"export_model"`
-	ExportModelSHA256            string      `json:"export_model_sha256"`
+	IncidentID                   string          `json:"incident_id"`
+	ActorUserID                  string          `json:"actor_user_id"`
+	ClientTxnID                  string          `json:"client_txn_id"`
+	SnapshotAt                   time.Time       `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string          `json:"source_change_set_high_watermark"`
+	SourceBoundaryJSON           json.RawMessage `json:"source_boundary_json"`
+	ExportModel                  ExportModel     `json:"export_model"`
+	ExportModelSHA256            string          `json:"export_model_sha256"`
 }
 
 type releaseCreateJobPayload struct {
@@ -160,6 +176,7 @@ type releaseCreateJobPayload struct {
 	ExportModel                  ExportModel          `json:"export_model"`
 	TemplateID                   string               `json:"template_id"`
 	TemplateVersion              string               `json:"template_version"`
+	TemplateContract             TemplateContract     `json:"template_contract"`
 	RedactionProfileID           string               `json:"redaction_profile_id"`
 	RedactionProfileVersion      string               `json:"redaction_profile_version"`
 	OutputKind                   string               `json:"output_kind"`
@@ -201,7 +218,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 		ScopeKey:    params.Request.IncidentID.String(),
 		ClientTxnID: params.Request.ClientTxnID,
 	}
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
@@ -237,11 +254,14 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	watermark := SourceBoundaryForIncident(incident)
-	if params.Request.SourceChangeSetHighWatermark != nil && *params.Request.SourceChangeSetHighWatermark != watermark {
-		return CreateSnapshotResult{}, &SnapshotBoundaryConflictError{Expected: *params.Request.SourceChangeSetHighWatermark, Actual: watermark}
+	boundary, err := resolveSourceBoundaryTx(ctx, tx, incident)
+	if err != nil {
+		return CreateSnapshotResult{}, err
 	}
-	normalized, err := normalizeSnapshotRequest(params.Request.IncidentID, params.Request.ClientTxnID, &watermark)
+	if params.Request.SourceChangeSetHighWatermark != nil && *params.Request.SourceChangeSetHighWatermark != boundary.Token {
+		return CreateSnapshotResult{}, &SnapshotBoundaryConflictError{Expected: *params.Request.SourceChangeSetHighWatermark, Actual: boundary.Token}
+	}
+	normalized, err := normalizeSnapshotRequest(params.Request.IncidentID, params.Request.ClientTxnID, &boundary.Token)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
@@ -251,7 +271,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	model, exportSHA, err := BuildExportModel(incident, params.Now.UTC(), watermark, workbookFields)
+	model, exportSHA, err := BuildExportModel(incident, params.Now.UTC(), boundary.Token, workbookFields)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
@@ -260,7 +280,8 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 		ActorUserID:                  params.ActorUserID.String(),
 		ClientTxnID:                  params.Request.ClientTxnID,
 		SnapshotAt:                   params.Now.UTC(),
-		SourceChangeSetHighWatermark: watermark,
+		SourceChangeSetHighWatermark: boundary.Token,
+		SourceBoundaryJSON:           append(json.RawMessage(nil), boundary.CanonicalJSON...),
 		ExportModel:                  model,
 		ExportModelSHA256:            exportSHA,
 	})
@@ -325,6 +346,9 @@ func (s *Store) GetSnapshotForRender(ctx context.Context, snapshotID uuid.UUID) 
 	if err := json.Unmarshal(record.ExportModelJSON, &model); err != nil {
 		return SnapshotRecord{}, ExportModel{}, err
 	}
+	if model.SchemaID != ExportModelSchemaID || model.DerivationVersion != DerivationVersion {
+		return SnapshotRecord{}, ExportModel{}, fmt.Errorf("unsupported snapshot export model %q derivation %q", model.SchemaID, model.DerivationVersion)
+	}
 	return record, model, nil
 }
 
@@ -372,6 +396,9 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if err := json.Unmarshal(snapshot.ExportModelJSON, &model); err != nil {
 		return CreateReleaseResult{}, err
 	}
+	if model.SchemaID != ExportModelSchemaID || model.DerivationVersion != DerivationVersion {
+		return CreateReleaseResult{}, fmt.Errorf("unsupported snapshot export model %q derivation %q", model.SchemaID, model.DerivationVersion)
+	}
 	payloadJSON, err := canonicalJSON(releaseCreateJobPayload{
 		ActorUserID:                  params.ActorUserID.String(),
 		ClientTxnID:                  params.Request.ClientTxnID,
@@ -384,6 +411,7 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 		ExportModel:                  model,
 		TemplateID:                   params.Request.TemplateID,
 		TemplateVersion:              params.Request.TemplateVersion,
+		TemplateContract:             params.TemplateContract,
 		RedactionProfileID:           params.Request.RedactionProfileID,
 		RedactionProfileVersion:      params.Request.RedactionProfileVersion,
 		OutputKind:                   params.Request.OutputKind,
@@ -464,6 +492,7 @@ func (s *Store) CompleteSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) 
 		ClientTxnID:                  payload.ClientTxnID,
 		SnapshotAt:                   pgTimestamptz(payload.SnapshotAt),
 		SourceChangeSetHighWatermark: payload.SourceChangeSetHighWatermark,
+		SourceBoundaryJson:           []byte(payload.SourceBoundaryJSON),
 		DerivationVersion:            DerivationVersion,
 		ExportModelSha256:            payload.ExportModelSHA256,
 		ExportModelJson:              exportJSON,
@@ -932,11 +961,48 @@ SELECT id, incident_key, title, description, status, severity, tlp, current_phas
 	return record, nil
 }
 
+func resolveSourceBoundaryTx(ctx context.Context, tx pgx.Tx, incident incidents.IncidentRecord) (ResolvedSourceBoundary, error) {
+	var latestID pgtype.Text
+	var latestCreated pgtype.Timestamptz
+	err := tx.QueryRow(ctx, `
+SELECT change_set_id::text, created_at
+  FROM change_sets
+ WHERE incident_id = $1
+ ORDER BY created_at DESC, change_set_id DESC
+ LIMIT 1
+`, incident.ID).Scan(&latestID, &latestCreated)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return ResolvedSourceBoundary{}, err
+	}
+
+	var latestIDPtr *string
+	var latestCreatedPtr *string
+	if err == nil {
+		id := latestID.String
+		latestIDPtr = &id
+		created := latestCreated.Time.UTC().Format(time.RFC3339Nano)
+		latestCreatedPtr = &created
+	}
+	state := SourceBoundaryState{
+		IncidentID:               incident.ID.String(),
+		IncidentVersion:          incident.IncidentVersion,
+		LatestChangeSetID:        latestIDPtr,
+		LatestChangeSetCreatedAt: latestCreatedPtr,
+	}
+	encoded, err := canonicalJSON(state)
+	if err != nil {
+		return ResolvedSourceBoundary{}, err
+	}
+	return ResolvedSourceBoundary{
+		Token:         SourceBoundaryTokenPrefix + hashHex(encoded),
+		CanonicalJSON: encoded,
+		State:         state,
+	}, nil
+}
+
 type workbookExportQuery struct {
-	Prefix       string
-	SourceFamily string
-	ContentClass string
-	SQL          string
+	Prefix string
+	SQL    string
 }
 
 func collectWorkbookExportFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ExportField, error) {
@@ -946,106 +1012,119 @@ func collectWorkbookExportFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uu
 	}
 	queries := []workbookExportQuery{
 		{
-			Prefix:       "record_envelopes",
-			SourceFamily: "record_envelope",
-			ContentClass: ContentClassDerivedAnalytic,
-			SQL: `SELECT r.record_id::text, to_jsonb(r) - 'incident_id'
+			Prefix: "record_envelopes",
+			SQL: `SELECT r.record_id::text, 'record_envelope'::text, 'derived_analytic'::text, to_jsonb(r) - 'incident_id'
   FROM records r
  WHERE r.incident_id = $1 AND r.deleted_at IS NULL`,
 		},
 		{
-			Prefix:       "timeline",
-			SourceFamily: "timeline_event",
-			ContentClass: ContentClassSourceEvidence,
-			SQL: `SELECT t.record_id::text, to_jsonb(t) - 'incident_id'
+			Prefix: "timeline",
+			SQL: `SELECT t.record_id::text, 'timeline_event'::text, 'source_evidence'::text, to_jsonb(t) - 'incident_id'
   FROM timeline_events t
   JOIN records r ON r.incident_id = t.incident_id AND r.record_id = t.record_id AND r.deleted_at IS NULL
  WHERE t.incident_id = $1`,
 		},
 		{
-			Prefix:       "hosts",
-			SourceFamily: "host",
-			ContentClass: ContentClassDerivedAnalytic,
-			SQL: `SELECT h.record_id::text, to_jsonb(h) - 'incident_id'
+			Prefix: "hosts",
+			SQL: `SELECT h.record_id::text, 'host'::text, 'derived_analytic'::text, to_jsonb(h) - 'incident_id'
   FROM host_grid_projection h
   JOIN records r ON r.incident_id = h.incident_id AND r.record_id = h.record_id AND r.deleted_at IS NULL
  WHERE h.incident_id = $1`,
 		},
 		{
-			Prefix:       "identities",
-			SourceFamily: "identity",
-			ContentClass: ContentClassDerivedAnalytic,
-			SQL: `SELECT i.record_id::text, to_jsonb(i) - 'incident_id'
+			Prefix: "identities",
+			SQL: `SELECT i.record_id::text, 'identity'::text, 'derived_analytic'::text, to_jsonb(i) - 'incident_id'
   FROM identity_grid_projection i
   JOIN records r ON r.incident_id = i.incident_id AND r.record_id = i.record_id AND r.deleted_at IS NULL
  WHERE i.incident_id = $1`,
 		},
 		{
-			Prefix:       "parties",
-			SourceFamily: "party",
-			ContentClass: ContentClassSourceEvidence,
-			SQL: `SELECT p.record_id::text, to_jsonb(p) - 'incident_id'
+			Prefix: "parties",
+			SQL: `SELECT p.record_id::text, 'party'::text, 'source_evidence'::text, to_jsonb(p) - 'incident_id'
   FROM parties p
   JOIN records r ON r.incident_id = p.incident_id AND r.record_id = p.record_id AND r.deleted_at IS NULL
  WHERE p.incident_id = $1`,
 		},
 		{
-			Prefix:       "evidence",
-			SourceFamily: "evidence",
-			ContentClass: ContentClassSourceEvidence,
-			SQL: `SELECT e.record_id::text, to_jsonb(e) - 'incident_id' - 'blob_hash'
+			Prefix: "evidence",
+			SQL: `SELECT e.record_id::text, 'evidence'::text, 'source_evidence'::text, to_jsonb(e) - 'incident_id' - 'blob_hash' - 'storage_ref' - 'object_blob_id'
   FROM evidence e
   JOIN records r ON r.incident_id = e.incident_id AND r.record_id = e.record_id AND r.deleted_at IS NULL
  WHERE e.incident_id = $1`,
 		},
 		{
-			Prefix:       "task_requests",
-			SourceFamily: "task_request",
-			ContentClass: ContentClassDerivedAnalytic,
-			SQL: `SELECT t.record_id::text, to_jsonb(t) - 'incident_id'
+			Prefix: "task_requests",
+			SQL: `SELECT t.record_id::text, 'task_request'::text, 'working_material'::text, to_jsonb(t) - 'incident_id'
   FROM task_request_grid_projection t
   JOIN records r ON r.incident_id = t.incident_id AND r.record_id = t.record_id AND r.deleted_at IS NULL
  WHERE t.incident_id = $1`,
 		},
 		{
-			Prefix:       "decisions",
-			SourceFamily: "decision",
-			ContentClass: ContentClassDerivedAnalytic,
-			SQL: `SELECT d.record_id::text, to_jsonb(d) - 'incident_id'
+			Prefix: "decisions",
+			SQL: `SELECT d.record_id::text, 'decision'::text, 'working_material'::text, to_jsonb(d) - 'incident_id'
   FROM decision_grid_projection d
   JOIN records r ON r.incident_id = d.incident_id AND r.record_id = d.record_id AND r.deleted_at IS NULL
  WHERE d.incident_id = $1`,
 		},
 		{
-			Prefix:       "artifacts",
-			SourceFamily: "artifact",
-			ContentClass: ContentClassWorkingMaterial,
-			SQL: `SELECT a.record_id::text, to_jsonb(a) - 'incident_id'
+			Prefix: "notes",
+			SQL: `SELECT a.record_id::text, 'note'::text, 'working_material'::text, to_jsonb(a) - 'incident_id'
   FROM artifact_grid_projection a
   JOIN records r ON r.incident_id = a.incident_id AND r.record_id = a.record_id AND r.deleted_at IS NULL
- WHERE a.incident_id = $1`,
+ WHERE a.incident_id = $1 AND a.artifact_type = 'note'`,
 		},
 		{
-			Prefix:       "relationships",
-			SourceFamily: "record_link",
-			ContentClass: ContentClassDerivedAnalytic,
-			SQL: `SELECT rl.record_link_id::text, to_jsonb(rl) - 'incident_id'
+			Prefix: "findings",
+			SQL: `SELECT a.record_id::text, 'finding_hypothesis'::text,
+       CASE WHEN a.finding_kind = 'finding' THEN 'curated_narrative'::text ELSE 'working_material'::text END,
+       to_jsonb(a) - 'incident_id'
+  FROM artifact_grid_projection a
+  JOIN records r ON r.incident_id = a.incident_id AND r.record_id = a.record_id AND r.deleted_at IS NULL
+ WHERE a.incident_id = $1 AND a.artifact_type = 'finding'`,
+		},
+		{
+			Prefix: "comm_log",
+			SQL: `SELECT a.record_id::text, 'comm_log'::text, 'working_material'::text, to_jsonb(a) - 'incident_id'
+  FROM artifact_grid_projection a
+  JOIN records r ON r.incident_id = a.incident_id AND r.record_id = a.record_id AND r.deleted_at IS NULL
+ WHERE a.incident_id = $1 AND a.artifact_type = 'comm_log'`,
+		},
+		{
+			Prefix: "handoffs",
+			SQL: `SELECT a.record_id::text, 'handoff'::text, 'working_material'::text, to_jsonb(a) - 'incident_id'
+  FROM artifact_grid_projection a
+  JOIN records r ON r.incident_id = a.incident_id AND r.record_id = a.record_id AND r.deleted_at IS NULL
+ WHERE a.incident_id = $1 AND a.artifact_type = 'handoff'`,
+		},
+		{
+			Prefix: "status_reviews",
+			SQL: `SELECT a.record_id::text, 'status_review'::text, 'working_material'::text, to_jsonb(a) - 'incident_id'
+  FROM artifact_grid_projection a
+  JOIN records r ON r.incident_id = a.incident_id AND r.record_id = a.record_id AND r.deleted_at IS NULL
+ WHERE a.incident_id = $1 AND a.artifact_type = 'status_review'`,
+		},
+		{
+			Prefix: "lessons",
+			SQL: `SELECT a.record_id::text, 'lesson'::text, 'working_material'::text, to_jsonb(a) - 'incident_id'
+  FROM artifact_grid_projection a
+  JOIN records r ON r.incident_id = a.incident_id AND r.record_id = a.record_id AND r.deleted_at IS NULL
+ WHERE a.incident_id = $1 AND a.artifact_type = 'lesson'`,
+		},
+		{
+			Prefix: "relationships",
+			SQL: `SELECT rl.record_link_id::text, 'record_link'::text, 'derived_analytic'::text, to_jsonb(rl) - 'incident_id'
   FROM record_links rl
  WHERE rl.incident_id = $1 AND rl.deleted_at IS NULL`,
 		},
 		{
-			Prefix:       "tags",
-			SourceFamily: "record_tag",
-			ContentClass: ContentClassDerivedAnalytic,
-			SQL: `SELECT rt.record_tag_id::text, to_jsonb(rt) - 'incident_id'
+			Prefix: "tags",
+			SQL: `SELECT rt.record_tag_id::text, 'record_tag'::text, 'derived_analytic'::text, to_jsonb(rt) - 'incident_id'
   FROM record_tags rt
  WHERE rt.incident_id = $1 AND rt.deleted_at IS NULL`,
 		},
 		{
-			Prefix:       "entity_mentions",
-			SourceFamily: "entity_mention",
-			ContentClass: ContentClassSourceEvidence,
-			SQL: `SELECT em.entity_mention_id::text, to_jsonb(em)
+			Prefix: "entity_mentions",
+			SQL: `SELECT em.entity_mention_id::text, 'entity_mention'::text, 'source_evidence'::text, to_jsonb(em)
   FROM entity_mentions em
   JOIN records r ON r.record_id = em.source_record_id AND r.deleted_at IS NULL
  WHERE r.incident_id = $1`,
@@ -1059,8 +1138,10 @@ func collectWorkbookExportFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uu
 		}
 		for rows.Next() {
 			var id string
+			var sourceFamily string
+			var contentClass string
 			var raw []byte
-			if err := rows.Scan(&id, &raw); err != nil {
+			if err := rows.Scan(&id, &sourceFamily, &contentClass, &raw); err != nil {
 				rows.Close()
 				return nil, err
 			}
@@ -1071,12 +1152,12 @@ func collectWorkbookExportFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uu
 			}
 			field := ExportField{
 				Path:         fmt.Sprintf("/%s/%s", query.Prefix, id),
-				ContentClass: query.ContentClass,
-				SourceFamily: query.SourceFamily,
+				ContentClass: contentClass,
+				SourceFamily: sourceFamily,
 				Value:        value,
 				SupportRefs:  cloneStrings(supportRefs[id]),
 			}
-			if query.SourceFamily == "party" {
+			if sourceFamily == "party" {
 				field.DisclosurePartitionRefs = []string{"party:" + id}
 			}
 			fields = append(fields, field)
@@ -1118,28 +1199,56 @@ SELECT src_record_id::text, dst_record_id::text
 	return out, rows.Err()
 }
 
-func snapshotRecordFromSQL(row sqlc.ReportingSnapshot) (SnapshotRecord, error) {
-	snapshotID, err := uuidFromPG(row.SnapshotID)
+func snapshotRecordFromSQL(row any) (SnapshotRecord, error) {
+	switch r := row.(type) {
+	case sqlc.ReportingSnapshot:
+		return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.ExportModelSha256, r.ExportModelJson, r.CreateJobID, r.CreatedAt)
+	case sqlc.CreateReportingSnapshotRow:
+		return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.ExportModelSha256, r.ExportModelJson, r.CreateJobID, r.CreatedAt)
+	case sqlc.GetReportingSnapshotRow:
+		return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.ExportModelSha256, r.ExportModelJson, r.CreateJobID, r.CreatedAt)
+	case sqlc.GetReportingSnapshotByCreateJobRow:
+		return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.ExportModelSha256, r.ExportModelJson, r.CreateJobID, r.CreatedAt)
+	default:
+		return SnapshotRecord{}, fmt.Errorf("unsupported snapshot SQL row %T", row)
+	}
+}
+
+func snapshotRecordFromSQLFields(
+	rowSnapshotID pgtype.UUID,
+	rowIncidentID pgtype.UUID,
+	rowCreatedByUserID pgtype.UUID,
+	rowClientTxnID string,
+	rowSnapshotAt pgtype.Timestamptz,
+	rowSourceChangeSetHighWatermark string,
+	rowSourceBoundaryJSON []byte,
+	rowDerivationVersion string,
+	rowExportModelSHA256 string,
+	rowExportModelJSON []byte,
+	rowCreateJobID pgtype.UUID,
+	rowCreatedAt pgtype.Timestamptz,
+) (SnapshotRecord, error) {
+	snapshotID, err := uuidFromPG(rowSnapshotID)
 	if err != nil {
 		return SnapshotRecord{}, err
 	}
-	incidentID, err := uuidFromPG(row.IncidentID)
+	incidentID, err := uuidFromPG(rowIncidentID)
 	if err != nil {
 		return SnapshotRecord{}, err
 	}
-	createdBy, err := uuidFromPG(row.CreatedByUserID)
+	createdBy, err := uuidFromPG(rowCreatedByUserID)
 	if err != nil {
 		return SnapshotRecord{}, err
 	}
-	createJobID, err := uuidFromPG(row.CreateJobID)
+	createJobID, err := uuidFromPG(rowCreateJobID)
 	if err != nil {
 		return SnapshotRecord{}, err
 	}
-	snapshotAt, err := timeFromPG(row.SnapshotAt)
+	snapshotAt, err := timeFromPG(rowSnapshotAt)
 	if err != nil {
 		return SnapshotRecord{}, err
 	}
-	createdAt, err := timeFromPG(row.CreatedAt)
+	createdAt, err := timeFromPG(rowCreatedAt)
 	if err != nil {
 		return SnapshotRecord{}, err
 	}
@@ -1147,12 +1256,13 @@ func snapshotRecordFromSQL(row sqlc.ReportingSnapshot) (SnapshotRecord, error) {
 		SnapshotID:                   snapshotID,
 		IncidentID:                   incidentID,
 		CreatedByUserID:              createdBy,
-		ClientTxnID:                  row.ClientTxnID,
+		ClientTxnID:                  rowClientTxnID,
 		SnapshotAt:                   snapshotAt,
-		SourceChangeSetHighWatermark: row.SourceChangeSetHighWatermark,
-		DerivationVersion:            row.DerivationVersion,
-		ExportModelSHA256:            row.ExportModelSha256,
-		ExportModelJSON:              append([]byte(nil), row.ExportModelJson...),
+		SourceChangeSetHighWatermark: rowSourceChangeSetHighWatermark,
+		SourceBoundaryJSON:           append([]byte(nil), rowSourceBoundaryJSON...),
+		DerivationVersion:            rowDerivationVersion,
+		ExportModelSHA256:            rowExportModelSHA256,
+		ExportModelJSON:              append([]byte(nil), rowExportModelJSON...),
 		CreateJobID:                  createJobID,
 		CreatedAt:                    createdAt,
 	}, nil
@@ -1370,24 +1480,18 @@ func releaseResource(record ReleaseRecord) map[string]any {
 }
 
 func invalidatePriorCandidateTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, snapshotID uuid.UUID, outputKind string, releaseScope string, templateID string, templateVersion string, redactionProfileID string, redactionProfileVersion string, recipientPartitionRefs []byte, now time.Time) error {
-	_, err := tx.Exec(ctx, `
-UPDATE reporting_releases
-   SET release_state = 'invalidated',
-       invalidated_at = COALESCE(invalidated_at, $10),
-       invalidation_reason = COALESCE(invalidation_reason, 'superseded_by_new_render'),
-       updated_at = $10
- WHERE snapshot_id = $1
-   AND output_kind = $2
-   AND release_scope = $3
-   AND template_id = $4
-   AND template_version = $5
-   AND redaction_profile_id = $6
-   AND redaction_profile_version = $7
-   AND recipient_partition_refs = $8::jsonb
-   AND release_id <> $9
-   AND release_state IN ('pending_approval', 'approved', 'published')
-`, snapshotID, outputKind, releaseScope, templateID, templateVersion, redactionProfileID, redactionProfileVersion, string(recipientPartitionRefs), releaseID, now)
-	return err
+	return sqlc.New(tx).InvalidateSupersededReportingReleases(ctx, sqlc.InvalidateSupersededReportingReleasesParams{
+		SnapshotID:              pgUUID(snapshotID),
+		OutputKind:              outputKind,
+		ReleaseScope:            releaseScope,
+		TemplateID:              templateID,
+		TemplateVersion:         templateVersion,
+		RedactionProfileID:      redactionProfileID,
+		RedactionProfileVersion: redactionProfileVersion,
+		RecipientPartitionRefs:  recipientPartitionRefs,
+		ReleaseID:               pgUUID(releaseID),
+		UpdatedAt:               pgTimestamptz(now),
+	})
 }
 
 func approvalsSatisfiedTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, releaseScope string) (bool, error) {

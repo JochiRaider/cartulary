@@ -30,36 +30,44 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	incidentID := incident["incident_id"].(string)
 	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID)
 
-	createSnapshot := func() *http.Response {
+	createSnapshot := func(clientTxnID string, watermark *string) *http.Response {
 		t.Helper()
+		body := map[string]any{
+			"incident_id":   incidentID,
+			"client_txn_id": clientTxnID,
+		}
+		if watermark != nil {
+			body["source_change_set_high_watermark"] = *watermark
+		}
 		return phase2test.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/snapshots",
-			map[string]any{
-				"incident_id":   incidentID,
-				"client_txn_id": "txn-reporting-snapshot",
-			},
+			body,
 			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 	}
-	firstSnapshot := createSnapshot()
+	firstSnapshot := createSnapshot("txn-reporting-snapshot", nil)
 	firstSnapshotJob := httptestx.RequireSuccessEnvelope(t, firstSnapshot, http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, firstSnapshotJob, "snapshot")
 	snapshot := requireSnapshot(t, harness, adminLogin, snapshotID)
 	if snapshot["export_model_sha256"] == "" || snapshot["source_change_set_high_watermark"] == "" {
 		t.Fatalf("snapshot must expose immutable export model and source boundary provenance: %#v", snapshot)
 	}
+	initialWatermark := snapshot["source_change_set_high_watermark"].(string)
+	if !strings.HasPrefix(initialWatermark, reporting.SourceBoundaryTokenPrefix) {
+		t.Fatalf("snapshot source boundary must use v3 token prefix, got %q", initialWatermark)
+	}
+	requireSnapshotBoundaryJSON(t, harness.DB, snapshotID, initialWatermark, incidentID)
 	exportModel := requireSnapshotExportModel(t, harness.DB, snapshotID)
 	requireExportModelCoverage(t, exportModel, fixture)
-	initialWatermark := snapshot["source_change_set_high_watermark"]
 
 	phase2test.PatchIncident(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"base_incident_version": 1,
 		"current_phase":         "containment",
 	})
-	replaySnapshot := createSnapshot()
+	replaySnapshot := createSnapshot("txn-reporting-snapshot", nil)
 	replaySnapshotJob := httptestx.RequireSuccessEnvelope(t, replaySnapshot, http.StatusAccepted)["data"].(map[string]any)
 	if replaySnapshotJob["job_id"] != firstSnapshotJob["job_id"] {
 		t.Fatalf("snapshot replay must return original job: first=%#v replay=%#v", firstSnapshotJob, replaySnapshotJob)
@@ -71,6 +79,26 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	if replayedSnapshot["source_change_set_high_watermark"] != initialWatermark {
 		t.Fatalf("snapshot replay must preserve original resolved source boundary: before=%v after=%v", initialWatermark, replayedSnapshot["source_change_set_high_watermark"])
 	}
+	staleIncidentBoundary := createSnapshot("txn-reporting-snapshot-stale-incident", &initialWatermark)
+	httptestx.RequireErrorEnvelope(t, staleIncidentBoundary, http.StatusConflict, "snapshot_source_boundary_conflict")
+	afterIncidentSnapshotJob := httptestx.RequireSuccessEnvelope(t, createSnapshot("txn-reporting-snapshot-after-incident", nil), http.StatusAccepted)["data"].(map[string]any)
+	afterIncidentSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, afterIncidentSnapshotJob, "snapshot")
+	afterIncidentSnapshot := requireSnapshot(t, harness, adminLogin, afterIncidentSnapshotID)
+	afterIncidentWatermark := afterIncidentSnapshot["source_change_set_high_watermark"].(string)
+	if afterIncidentWatermark == initialWatermark {
+		t.Fatalf("incident metadata mutation must change source boundary token: %q", afterIncidentWatermark)
+	}
+
+	createWorkbookNote(t, harness, adminLogin, incidentID, "txn-reporting-boundary-note")
+	afterWorkbookSnapshotJob := httptestx.RequireSuccessEnvelope(t, createSnapshot("txn-reporting-snapshot-after-workbook", nil), http.StatusAccepted)["data"].(map[string]any)
+	afterWorkbookSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, afterWorkbookSnapshotJob, "snapshot")
+	afterWorkbookSnapshot := requireSnapshot(t, harness, adminLogin, afterWorkbookSnapshotID)
+	afterWorkbookWatermark := afterWorkbookSnapshot["source_change_set_high_watermark"].(string)
+	if afterWorkbookWatermark == afterIncidentWatermark {
+		t.Fatalf("workbook change-set mutation must change source boundary token: before=%q after=%q", afterIncidentWatermark, afterWorkbookWatermark)
+	}
+	staleWorkbookBoundary := createSnapshot("txn-reporting-snapshot-stale-workbook", &afterIncidentWatermark)
+	httptestx.RequireErrorEnvelope(t, staleWorkbookBoundary, http.StatusConflict, "snapshot_source_boundary_conflict")
 
 	createReleaseResp := phase2test.DoJSON(
 		t,
@@ -105,16 +133,16 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	if refs := release["recipient_partition_refs"].([]any); len(refs) != 0 {
 		t.Fatalf("omitted recipient partitions must canonicalize to [], got %#v", refs)
 	}
-	if strings.Contains(rendered, "internal workbook context") {
+	if strings.Contains(rendered, "Working note body") {
 		t.Fatalf("external output must not package working material: %s", rendered)
 	}
 	if manifest["profile_sha256"] != release["redaction_profile_sha256"] {
 		t.Fatalf("manifest profile digest must match release provenance: manifest=%#v release=%#v", manifest["profile_sha256"], release["redaction_profile_sha256"])
 	}
 	entries := manifestEntriesByPath(t, manifest)
-	internalEntry := entries["/incident/internal_note"]
-	if internalEntry["action"] != reporting.ActionDrop || internalEntry["outcome"] != "dropped" {
-		t.Fatalf("working material must be dropped with stable manifest outcome, got %#v", internalEntry)
+	noteEntry := entries["/notes/"+fixture["note"]]
+	if noteEntry["action"] != reporting.ActionDrop || noteEntry["outcome"] != "dropped" {
+		t.Fatalf("note working material must be dropped with stable manifest outcome, got %#v", noteEntry)
 	}
 	descriptionEntry := entries["/incident/description"]
 	if descriptionEntry["action"] != reporting.ActionTruncate || descriptionEntry["outcome"] != "truncated" {
@@ -125,6 +153,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 		t.Fatalf("party partition must be dropped when not requested, got %#v", partyEntry)
 	}
 
+	liveNotesBeforePartitionedRelease := queryLiveWorkbookRowsJSON(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1")
 	createPartitionedRelease := phase2test.DoJSON(
 		t,
 		http.MethodPost,
@@ -161,6 +190,43 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	manifestRefs := partitionedManifest["recipient_partition_refs"].([]any)
 	if len(manifestRefs) != 1 || manifestRefs[0] != "party:"+fixture["party"] {
 		t.Fatalf("redaction manifest must bind recipient partitions, got %#v", manifestRefs)
+	}
+	secondPartitionedRelease := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases",
+		map[string]any{
+			"snapshot_id":               snapshotID,
+			"client_txn_id":             "txn-reporting-release-party-supersede",
+			"template_id":               reporting.DefaultTemplateID,
+			"template_version":          reporting.DefaultTemplateVersion,
+			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
+			"redaction_profile_version": "1",
+			"release_scope":             "external_release",
+			"output_kind":               "html",
+			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
+		},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	secondPartitionedJob := httptestx.RequireSuccessEnvelope(t, secondPartitionedRelease, http.StatusAccepted)["data"].(map[string]any)
+	secondPartitionedReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, secondPartitionedJob, "release")
+	supersededPartitionedRelease := requireRelease(t, harness, adminLogin, partitionedReleaseID)
+	if supersededPartitionedRelease["release_state"] != reporting.ReleaseStateInvalidated ||
+		supersededPartitionedRelease["invalidation_reason"] != "superseded_by_new_render" {
+		t.Fatalf("same recipient partition slot must be superseded by a new render, got %#v", supersededPartitionedRelease)
+	}
+	baseReleaseAfterPartitionSupersede := requireRelease(t, harness, adminLogin, releaseID)
+	if baseReleaseAfterPartitionSupersede["release_state"] != reporting.ReleaseStatePendingApproval {
+		t.Fatalf("different recipient partition slot must not be superseded, got %#v", baseReleaseAfterPartitionSupersede)
+	}
+	currentPartitionedRelease := requireRelease(t, harness, adminLogin, secondPartitionedReleaseID)
+	if currentPartitionedRelease["release_state"] != reporting.ReleaseStatePendingApproval {
+		t.Fatalf("new partitioned release must remain current pending candidate, got %#v", currentPartitionedRelease)
+	}
+	liveNotesAfterPartitionedRelease := queryLiveWorkbookRowsJSON(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1")
+	if liveNotesAfterPartitionedRelease != liveNotesBeforePartitionedRelease {
+		t.Fatalf("recipient redaction must not change live workbook query results: before=%s after=%s", liveNotesBeforePartitionedRelease, liveNotesAfterPartitionedRelease)
 	}
 }
 
@@ -384,6 +450,28 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 		failedRelease["output_media_type"] != nil {
 		t.Fatalf("render failure must persist nullable render-failed release resource, got %#v", failedRelease)
 	}
+	unknownReleaseID := "00000000-0000-0000-0000-000000000999"
+	for _, action := range []string{"approve", "publish", "invalidate"} {
+		malformed := phase2test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/releases/"+failedReleaseID+"/"+action,
+			[]string{"not", "an", "object"},
+			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, malformed, http.StatusBadRequest, "invalid_release_request")
+
+		missing := phase2test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/releases/"+unknownReleaseID+"/"+action,
+			map[string]any{"client_txn_id": "txn-reporting-missing-" + action},
+			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, missing, http.StatusNotFound, "release_not_found")
+	}
 	for _, action := range []string{"approve", "publish", "invalidate"} {
 		resp := phase2test.DoJSON(
 			t,
@@ -572,7 +660,7 @@ WITH rec AS (
 )
 SELECT record_id::text FROM projection
 `, incidentID, actorID)
-	ids["artifact"] = querySeedID(t, db, `
+	ids["note"] = querySeedID(t, db, `
 WITH rec AS (
     INSERT INTO records (incident_id, record_type, created_by_user_id, updated_by_user_id)
     VALUES ($1, 'artifact', $2, $2)
@@ -585,11 +673,61 @@ WITH rec AS (
 )
 SELECT record_id::text FROM inserted
 `, incidentID, actorID)
+	ids["artifact"] = ids["note"]
+	ids["finding"] = querySeedID(t, db, `
+WITH rec AS (
+    INSERT INTO records (incident_id, record_type, created_by_user_id, updated_by_user_id)
+    VALUES ($1, 'artifact', $2, $2)
+    RETURNING record_id
+), artifact AS (
+    INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
+    SELECT record_id, $1, 'finding', 'Reporting finding', 'Finding working notes', $2
+      FROM rec
+    RETURNING record_id
+), finding AS (
+    INSERT INTO artifact_findings (record_id, incident_id, kind, statement, state, confidence_score, owner_user_id)
+    SELECT record_id, $1, 'finding', 'Evidence supports reporting escalation.', 'open', 85, $2
+      FROM artifact
+    RETURNING record_id
+)
+SELECT record_id::text FROM finding
+`, incidentID, actorID)
+	for _, seed := range []struct {
+		key          string
+		artifactType string
+		title        string
+		body         string
+	}{
+		{key: "comm_log", artifactType: "comm_log", title: "Reporting communication", body: "Coordination communication body"},
+		{key: "handoff", artifactType: "handoff", title: "Reporting handoff", body: "Handoff risk body"},
+		{key: "status_review", artifactType: "status_review", title: "Reporting status review", body: "Status review body"},
+		{key: "lesson", artifactType: "lesson", title: "Reporting lesson", body: "Lesson body"},
+	} {
+		ids[seed.key] = querySeedID(t, db, `
+WITH rec AS (
+    INSERT INTO records (incident_id, record_type, created_by_user_id, updated_by_user_id)
+    VALUES ($1, 'artifact', $2, $2)
+    RETURNING record_id
+), inserted AS (
+    INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
+    SELECT record_id, $1, $3, $4, $5, $2
+      FROM rec
+    RETURNING record_id
+)
+SELECT record_id::text FROM inserted
+`, incidentID, actorID, seed.artifactType, seed.title, seed.body)
+	}
 	if _, err := db.Exec(`
 INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
 VALUES ($1, $2, $3, 'supported_by', 'manual', $4, $4)
 `, incidentID, ids["task"], ids["evidence"], actorID); err != nil {
 		t.Fatalf("seed reporting support link: %v", err)
+	}
+	if _, err := db.Exec(`
+INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
+VALUES ($1, $2, $3, 'supported_by', 'manual', $4, $4)
+`, incidentID, ids["finding"], ids["evidence"], actorID); err != nil {
+		t.Fatalf("seed reporting finding support link: %v", err)
 	}
 	if _, err := db.Exec(`
 INSERT INTO record_tags (incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
@@ -632,16 +770,85 @@ SELECT export_model_json
 	if err := json.Unmarshal(raw, &model); err != nil {
 		t.Fatalf("decode snapshot export model: %v", err)
 	}
-	if strings.Contains(string(raw), "raw-blob-hash-must-not-export") || strings.Contains(string(raw), "blob_hash") {
-		t.Fatalf("snapshot export model must exclude raw blob bytes/hash fields: %s", string(raw))
+	for _, forbidden := range []string{"raw-blob-hash-must-not-export", "blob_hash", "storage_ref", "object_blob_id", "reporting_job_payloads", "client_txn_id"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("snapshot export model must exclude forbidden source material %q: %s", forbidden, string(raw))
+		}
 	}
 	return model
 }
 
+func requireSnapshotBoundaryJSON(t testing.TB, db *sql.DB, snapshotID string, token string, incidentID string) {
+	t.Helper()
+	if !strings.HasPrefix(token, reporting.SourceBoundaryTokenPrefix) {
+		t.Fatalf("source boundary token must use current prefix, got %q", token)
+	}
+	var raw []byte
+	if err := db.QueryRow(`
+SELECT source_boundary_json
+  FROM reporting_snapshots
+ WHERE snapshot_id::text = $1
+`, snapshotID).Scan(&raw); err != nil {
+		t.Fatalf("query snapshot source boundary json: %v", err)
+	}
+	var boundary map[string]any
+	if err := json.Unmarshal(raw, &boundary); err != nil {
+		t.Fatalf("decode source boundary json: %v", err)
+	}
+	if boundary["incident_id"] != incidentID {
+		t.Fatalf("source boundary json incident_id = %#v want %s: %s", boundary["incident_id"], incidentID, string(raw))
+	}
+	if boundary["incident_version"].(float64) < 1 {
+		t.Fatalf("source boundary json must persist incident_version: %s", string(raw))
+	}
+	if _, ok := boundary["latest_change_set_id"]; !ok {
+		t.Fatalf("source boundary json must include latest_change_set_id key: %s", string(raw))
+	}
+	if _, ok := boundary["latest_change_set_created_at"]; !ok {
+		t.Fatalf("source boundary json must include latest_change_set_created_at key: %s", string(raw))
+	}
+}
+
+func createWorkbookNote(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, incidentID string, clientTxnID string) {
+	t.Helper()
+	resp := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.notes.v1/rows",
+		map[string]any{
+			"client_txn_id": clientTxnID,
+			"note.title":    "Boundary note",
+			"note.body":     "Boundary note body",
+		},
+		phase2test.WithCookies(login.SessionCookie, login.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)
+}
+
+func queryLiveWorkbookRowsJSON(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, incidentID string, viewSchemaID string) string {
+	t.Helper()
+	resp := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
+		map[string]any{"sort": []map[string]any{{"field_key": "note.title", "direction": "asc"}}},
+		phase2test.WithCookies(login.SessionCookie, login.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+	)
+	envelope := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	rows := envelope["data"].(map[string]any)["rows"]
+	encoded, err := json.Marshal(rows)
+	if err != nil {
+		t.Fatalf("encode live workbook rows: %v", err)
+	}
+	return string(encoded)
+}
+
 func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[string]string) {
 	t.Helper()
-	if model["schema_id"] != "cartulary.export_model.v2" || model["derivation_version"] != reporting.DerivationVersion {
-		t.Fatalf("snapshot export model must use v2 identity, got %#v", model)
+	if model["schema_id"] != reporting.ExportModelSchemaID || model["derivation_version"] != reporting.DerivationVersion {
+		t.Fatalf("snapshot export model must use v3 identity, got %#v", model)
 	}
 	fields := model["fields"].([]any)
 	byPath := make(map[string]map[string]any, len(fields))
@@ -657,11 +864,52 @@ func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[stri
 		"/evidence/" + ids["evidence"],
 		"/task_requests/" + ids["task"],
 		"/decisions/" + ids["decision"],
-		"/artifacts/" + ids["artifact"],
+		"/notes/" + ids["note"],
+		"/findings/" + ids["finding"],
+		"/comm_log/" + ids["comm_log"],
+		"/handoffs/" + ids["handoff"],
+		"/status_reviews/" + ids["status_review"],
+		"/lessons/" + ids["lesson"],
 	}
 	for _, path := range wantPaths {
 		if byPath[path] == nil {
 			t.Fatalf("snapshot export model missing workbook path %s; paths=%#v", path, byPath)
+		}
+	}
+	wantFamilies := map[string]string{
+		"/timeline/" + ids["timeline"]:            "timeline_event",
+		"/hosts/" + ids["host"]:                   "host",
+		"/identities/" + ids["identity"]:          "identity",
+		"/parties/" + ids["party"]:                "party",
+		"/evidence/" + ids["evidence"]:            "evidence",
+		"/task_requests/" + ids["task"]:           "task_request",
+		"/decisions/" + ids["decision"]:           "decision",
+		"/notes/" + ids["note"]:                   "note",
+		"/findings/" + ids["finding"]:             "finding_hypothesis",
+		"/comm_log/" + ids["comm_log"]:            "comm_log",
+		"/handoffs/" + ids["handoff"]:             "handoff",
+		"/status_reviews/" + ids["status_review"]: "status_review",
+		"/lessons/" + ids["lesson"]:               "lesson",
+	}
+	for path, family := range wantFamilies {
+		if byPath[path]["source_family"] != family {
+			t.Fatalf("path %s source_family = %#v want %q", path, byPath[path]["source_family"], family)
+		}
+	}
+	wantClasses := map[string]string{
+		"/hosts/" + ids["host"]:                   reporting.ContentClassDerivedAnalytic,
+		"/task_requests/" + ids["task"]:           reporting.ContentClassWorkingMaterial,
+		"/decisions/" + ids["decision"]:           reporting.ContentClassWorkingMaterial,
+		"/notes/" + ids["note"]:                   reporting.ContentClassWorkingMaterial,
+		"/findings/" + ids["finding"]:             reporting.ContentClassCuratedNarrative,
+		"/comm_log/" + ids["comm_log"]:            reporting.ContentClassWorkingMaterial,
+		"/handoffs/" + ids["handoff"]:             reporting.ContentClassWorkingMaterial,
+		"/status_reviews/" + ids["status_review"]: reporting.ContentClassWorkingMaterial,
+		"/lessons/" + ids["lesson"]:               reporting.ContentClassWorkingMaterial,
+	}
+	for path, class := range wantClasses {
+		if byPath[path]["content_class"] != class {
+			t.Fatalf("path %s content_class = %#v want %q", path, byPath[path]["content_class"], class)
 		}
 	}
 	if byPath["/relationships/"+ids["task"]] == nil {
@@ -696,6 +944,10 @@ relationshipPresent:
 	supportRefs := byPath["/task_requests/"+ids["task"]]["support_refs"].([]any)
 	if len(supportRefs) != 1 || supportRefs[0] != "/record_envelopes/"+ids["evidence"] {
 		t.Fatalf("task export field must carry deterministic support refs, got %#v", supportRefs)
+	}
+	findingSupportRefs := byPath["/findings/"+ids["finding"]]["support_refs"].([]any)
+	if len(findingSupportRefs) != 1 || findingSupportRefs[0] != "/record_envelopes/"+ids["evidence"] {
+		t.Fatalf("curated finding export field must carry deterministic support refs, got %#v", findingSupportRefs)
 	}
 	partyPartitions := byPath["/parties/"+ids["party"]]["disclosure_partition_refs"].([]any)
 	if len(partyPartitions) != 1 || partyPartitions[0] != "party:"+ids["party"] {

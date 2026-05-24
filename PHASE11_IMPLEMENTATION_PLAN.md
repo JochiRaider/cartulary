@@ -23,8 +23,8 @@ Implemented remediation record:
 - OpenAPI, generated Go/TypeScript contracts, SQL-derived generated code, phase manifest, generated phase ledger, generated schedules, and duration-maintenance inputs were refreshed through canonical targets.
 - Phase 2, process, and browser reserved-extension expectations were adjusted to use an unclaimed profile root instead of Import now that Import is claimed.
 - Retained-run finalizer maintenance was run after the successful `make check` root and the warm `check-service-backed` retained-run budget was raised to `120000ms` to match observed successful timing.
-- Snapshot and Reporting now implements the `/api/v1/snapshots` and `/api/v1/releases` route families on the forward remediation model: `cartulary.snapshot_export_model.v2`, broad workbook export collection, explicit `recipient_partition_refs`, durable `render_failed` release rows, async snapshot/release create jobs, generated OpenAPI/contract coverage, SQLC-backed reporting queries, approval/publish/invalidate actions, and Phase 11 direct evidence rows.
-- Snapshot and Reporting final validation passed `make check` at `.cartulary/test-results/20260524T001428Z-p534507` and retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` at `.cartulary/test-results/20260524T002013Z-p583746`.
+- Snapshot and Reporting now targets the `/api/v1/snapshots` and `/api/v1/releases` route families on the v3 remediation model: `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit export-family collection, exact `cartulary.report.default@1` template contracts, explicit `recipient_partition_refs`, durable `render_failed` release rows, async snapshot/release create jobs, generated OpenAPI/contract coverage, SQLC-backed reporting queries, approval/publish/invalidate actions, and Phase 11 direct evidence rows.
+- Historical retained finalizer roots that predate the explain-run tool-summary diagnostic cleanup remain historical evidence only. Current remediation handoff must cite fresh retained roots that are explainable through `make explain-run`.
 
 Authority model:
 - Future adopted Cartulary NLSpecs, if present and explicitly adopted by the repository authority process, govern first.
@@ -406,7 +406,7 @@ Files and areas:
 
 Test-first sequence:
 1. Prove `POST /api/v1/snapshots` request validation, omitted high-watermark resolution at admission, replay using original boundary, queued/running/terminal job behavior, and exact snapshot read shape.
-2. Prove `cartulary.snapshot_export_model.v2` collects current base-profile workbook surfaces, active relationship/evidence metadata, deterministic ordering, support refs, disclosure partition refs, and no raw blob bytes.
+2. Prove `cartulary.snapshot_export_model.v3` collects current base-profile workbook surfaces, active relationship/evidence metadata, deterministic ordering, support refs, disclosure partition refs, and no raw blob bytes, blob hashes, storage refs, job records, auth/admin state, mutable history, or idempotency records.
 3. Prove `POST /api/v1/releases` exact version selectors, `release_scope` defaulting to `internal_draft`, explicit canonical `recipient_partition_refs`, closed vocabulary, no `latest/current`, render job summary, and exact release resource shape.
 4. Prove durable `render_failed` release rows expose `render_failed_reason_code`, nullable output fields, terminal failed jobs, and state-conflict behavior for approve, publish, and invalidate.
 5. Prove approve, publish, and invalidate action routes, approval tuple binding including recipient partitions, replay before fresh state checks, legal state transitions, and exact `release_state` vocabulary.
@@ -416,7 +416,7 @@ Test-first sequence:
 Implementation tasks:
 - Add snapshot and release route family exactly under `/api/v1/snapshots` and `/api/v1/releases`.
 - Persist immutable snapshot descriptors separate from release records.
-- Replace the provisional export summary with `cartulary.snapshot_export_model.v2` over current base-profile workbook surfaces and active reporting metadata.
+- Replace the provisional export summary with `cartulary.snapshot_export_model.v3` over current base-profile workbook surfaces and active reporting metadata.
 - Add `recipient_partition_refs` to the release tuple, release resource, idempotency hash, output slot, redaction manifest, and approval binding.
 - Persist release records, approval state, output hashes, invalidation fields, nullable render output fields for failed renders, `render_failed_reason_code`, and release-state transitions.
 - Admit snapshot and release creation as reporting jobs with queued/running/terminal state, cancellation checkpoints before durable commit, and exactly one success ref.
@@ -429,16 +429,16 @@ Validation commands:
 - `go test ./internal/app ./internal/platform/httpapi ./internal/modules/incidents`
 - `make generate`, `make generate-drift`, and `make migration-drift`
 - `make phase-ledgers`, `make phase-schedules`, `make phase-ledger-drift`, `make phase-schedule-drift`, and `make phase-test-name-check`
-- `make phase-slice PHASE=phase11`: passed at `.cartulary/test-results/20260523T235600Z-p471316`
-- `make service-backed-slice PHASE=phase11`: passed at `.cartulary/test-results/20260524T000122Z-p481978`
-- `make check`: passed at `.cartulary/test-results/20260524T001428Z-p534507`
-- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507`: passed at `.cartulary/test-results/20260524T002013Z-p583746`
+- `make phase-slice PHASE=phase11`: passed at `.cartulary/test-results/20260524T141115Z-p1914505`
+- `make service-backed-slice PHASE=phase11`: passed at `.cartulary/test-results/20260524T141644Z-p1925389`
+- `make check`: passed at `.cartulary/test-results/20260524T142209Z-p1934659`
+- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659`: passed at `.cartulary/test-results/20260524T142930Z-p1990229`
 - `git diff --check`
 
 Deliverables:
 - Snapshot and release route family.
 - Immutable snapshot and release durable state.
-- Export model v2 over current workbook surfaces.
+- Export model v3 over current workbook surfaces.
 - Explicit recipient-partition release tuple and manifest binding.
 - Durable render-failed release lifecycle.
 - Reporting job payload/executor boundary for snapshot and release create.
@@ -684,17 +684,19 @@ Import remediation validation record:
 - An earlier retained-run finalizer attempt exposed a stale warm `check-service-backed` budget. The budget was raised to `120000ms`, then finalizer maintenance passed against the successful `make check` root.
 
 Snapshot and Reporting remediation implementation record:
-- Owner specs now bind `cartulary.snapshot_export_model.v2`, broad workbook export collection, `recipient_partition_refs`, durable `render_failed` release resources, release-create job behavior, approval tuple provenance, deterministic redaction rule precedence, reserved `hash` handling, post-redaction validation, disclosure-partition eligibility, and the opaque-binary boundary.
+- Owner specs now bind `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit workbook export-family collection, `recipient_partition_refs`, durable `render_failed` release resources, release-create job behavior, approval tuple provenance, deterministic redaction rule precedence, reserved `hash` handling, post-redaction validation, disclosure-partition eligibility, and the opaque-binary boundary.
 - OpenAPI now declares `/api/v1/snapshots`, `/api/v1/snapshots/{snapshot_id}`, `/api/v1/releases`, `/api/v1/releases/{release_id}`, release `approve`, `publish`, and `invalidate` action routes, release recipient partitions, render failure reason codes, and nullable output fields for `render_failed`.
-- Implementation added `internal/modules/reporting` with immutable async snapshot creation, export model v2 collection over workbook surfaces, release rendering, deterministic redaction manifests, persisted rendered artifacts, route-scoped idempotency, recipient-partition-aware external releases, durable render-failed rows, distinct external reviewer/admin approvals, publish/invalidate actions, SQLC-backed reporting-table queries, and runtime claim registration for `profile:snapshot_reporting`.
+- Implementation added `internal/modules/reporting` with immutable async snapshot creation, export model v3 collection over workbook surfaces, release rendering through the versioned default template contract, deterministic redaction manifests, persisted rendered artifacts, route-scoped idempotency, recipient-partition-aware external releases, durable render-failed rows, distinct external reviewer/admin approvals, publish/invalidate actions, SQLC-backed reporting-table queries, and runtime claim registration for `profile:snapshot_reporting`.
 - Persistence added `reporting_snapshots`, `reporting_releases`, `reporting_release_approvals`, reporting job payloads, recipient partition columns, render-failed nullable output constraints, and authored SQLC query inputs in `db/queries/reporting_phase11.sql`.
-- Migration `00026_phase11_reporting_remediation.sql` deletes provisional v1 snapshot/reporting rows, adds recipient partition and reporting job payload storage, allows output fields to be nullable only for durable `render_failed`, and avoids legacy v1 renderer support.
+- SQLC ownership cleanup moved superseded-release invalidation back to the generated `InvalidateSupersededReportingReleases` query, including canonical `recipient_partition_refs[]`, and removed the duplicate inline invalidation SQL from the reporting store.
+- Migration `00026_phase11_reporting_remediation.sql` refuses to run against non-empty reporting tables instead of deleting incompatible pre-claim rows, adds recipient partition and reporting job payload storage, allows output fields to be nullable only for durable `render_failed`, and avoids legacy renderer support.
 - Direct evidence added Phase 11 reporting unit rows `U-11-REPORTING-01..05` and integration rows `I-11-REPORTING-01..03`.
-- Focused validation: `go test ./internal/modules/reporting`, `make generate`, `make generate-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-schedules`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check`, `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make lint-go-staticcheck`, and `git diff --check` passed during remediation.
-- Retained roots: `make generate` `.cartulary/test-results/20260523T233819Z-p437768`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260523T235600Z-p471316`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260524T000122Z-p481978`; `make check` `.cartulary/test-results/20260524T001428Z-p534507`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` `.cartulary/test-results/20260524T002013Z-p583746`.
-- Finalizer notes: retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` passed with `generated=updated files=6 duration=refreshed run_checks=pass`.
+- Harness diagnostic cleanup added `explain-run` support for retained public tool-run roots that contain `<target>/tool-run-summary.json`, including bounded `agent-finalize/finalize-summary.json` summaries and child log access without fabricating `run-summary.json`.
+- Focused validation: `go test ./internal/modules/reporting`, `make check-harness-smoke`, `make generate`, `make generate-drift`, `make migration-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, and `git diff --check` passed during this cleanup.
+- Retained roots from this cleanup: `make generate` `.cartulary/test-results/20260524T140301Z-p1887464`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260524T141115Z-p1914505`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260524T141644Z-p1925389`; `make check` `.cartulary/test-results/20260524T142209Z-p1934659`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` `.cartulary/test-results/20260524T142930Z-p1990229`.
+- Finalizer notes: retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` passed with `generated=updated files=6 duration=refreshed run_checks=pass`; updated files were the browser, Go, harness-smoke, service-backed duration baselines plus `tools/execution_topology_render_index.json` and `tools/scheduler_manifest.json`.
 - Broad gate note: an initial `make check` attempt at `.cartulary/test-results/20260524T000651Z-p491510` exposed two unused reporting integration helpers after async job polling replaced direct table helpers. They were removed, `go test ./internal/modules/reporting` and `make lint-go-staticcheck` passed, and the broad gate was rerun successfully.
-- Final broad gate: `make check` passed at `.cartulary/test-results/20260524T001428Z-p534507` with 140/140 work units and 695 tests. Retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` passed at `.cartulary/test-results/20260524T002013Z-p583746`.
+- Current final broad gate: `make check` passed at `.cartulary/test-results/20260524T142209Z-p1934659` with 144/144 work units and 695 tests. Retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` passed at `.cartulary/test-results/20260524T142930Z-p1990229`, and both retained roots are explainable through `make explain-run`.
 
 Risks and assumptions:
 - Broad gates may be heavy and should run only when product implementation occurs or repository convention requires them.
@@ -738,6 +740,6 @@ Expected remediation-task result:
 - `make phase-slice PHASE=phase11` and `make service-backed-slice PHASE=phase11` execute the selected rows.
 - `make check` passed at retained root `.cartulary/test-results/20260523T161735Z-p3268642`.
 - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T161735Z-p3268642` passed at retained root `.cartulary/test-results/20260523T162808Z-p3327944`.
-- Snapshot/Reporting remediation `make check` passed at retained root `.cartulary/test-results/20260524T001428Z-p534507`.
-- Snapshot/Reporting remediation `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` passed at retained root `.cartulary/test-results/20260524T002013Z-p583746`.
+- Snapshot/Reporting cleanup `make check` passed at retained root `.cartulary/test-results/20260524T142209Z-p1934659`.
+- Snapshot/Reporting cleanup `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` passed at retained root `.cartulary/test-results/20260524T142930Z-p1990229`.
 - Do not fabricate successful retained run roots.

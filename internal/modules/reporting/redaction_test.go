@@ -1,10 +1,13 @@
 package reporting
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(t *testing.T) {
@@ -43,10 +46,10 @@ func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(
 		t.Fatalf("validate profile: %v", err)
 	}
 	model := ExportModel{
-		SchemaID:                     "cartulary.export_model.v2",
+		SchemaID:                     ExportModelSchemaID,
 		IncidentID:                   "incident-1",
 		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
-		SourceChangeSetHighWatermark: "incident:1:v1",
+		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("0", 64),
 		DerivationVersion:            DerivationVersion,
 		Fields: []ExportField{
 			{
@@ -174,10 +177,10 @@ func TestPhase11_U_11_REPORTING_03_ExternalValidationRejectsOpaqueBytesAndWorkin
 		t.Fatalf("validate profile: %v", err)
 	}
 	model := ExportModel{
-		SchemaID:                     "cartulary.export_model.v2",
+		SchemaID:                     ExportModelSchemaID,
 		IncidentID:                   "incident-1",
 		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
-		SourceChangeSetHighWatermark: "incident:1:v1",
+		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("1", 64),
 		DerivationVersion:            DerivationVersion,
 		Fields: []ExportField{
 			{
@@ -224,10 +227,10 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 		t.Fatalf("validate profile: %v", err)
 	}
 	model := ExportModel{
-		SchemaID:                     "cartulary.export_model.v2",
+		SchemaID:                     ExportModelSchemaID,
 		IncidentID:                   "incident-1",
 		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
-		SourceChangeSetHighWatermark: "incident:1:v1",
+		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("2", 64),
 		DerivationVersion:            DerivationVersion,
 		Fields: []ExportField{
 			{
@@ -338,4 +341,149 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 	if internalPartitions == nil || internalPartitions.Details["reason_code"] != "recipient_partitions_not_allowed" {
 		t.Fatalf("internal recipient partitions must use closed rejection reason, got %#v", internalPartitions)
 	}
+
+	contract, ok := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
+	if !ok {
+		t.Fatal("default template contract must resolve")
+	}
+	baseRequest := CreateReleaseRequest{
+		SnapshotID:              mustTestUUID("00000000-0000-0000-0000-000000000001"),
+		ClientTxnID:             "txn-render-reasons",
+		TemplateID:              DefaultTemplateID,
+		TemplateVersion:         DefaultTemplateVersion,
+		RedactionProfileID:      InternalRedactionProfileID,
+		RedactionProfileVersion: "1",
+		OutputKind:              OutputKindHTML,
+		ReleaseScope:            ReleaseScopeInternalDraft,
+	}
+	baseModel := ExportModel{
+		SchemaID:                     ExportModelSchemaID,
+		IncidentID:                   "00000000-0000-0000-0000-000000000001",
+		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("3", 64),
+		DerivationVersion:            DerivationVersion,
+		Fields: []ExportField{
+			{Path: "/incident/status", ContentClass: ContentClassDerivedAnalytic, Value: "open"},
+			{Path: "/incident/title", ContentClass: ContentClassCuratedNarrative, Value: "Renderable", SupportRefs: []string{"/incident/status"}},
+		},
+	}
+	reasonCases := []struct {
+		name     string
+		request  CreateReleaseRequest
+		contract TemplateContract
+		model    ExportModel
+		want     string
+	}{
+		{
+			name: "invalid redaction profile",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.RedactionProfileVersion = "missing"
+				return req
+			}(),
+			contract: contract,
+			model:    baseModel,
+			want:     "invalid_redaction_profile",
+		},
+		{
+			name: "post redaction validation",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.RedactionProfileID = ExternalRedactionProfileID
+				req.ReleaseScope = ReleaseScopeExternal
+				return req
+			}(),
+			contract: contract,
+			model: func() ExportModel {
+				model := baseModel
+				model.Fields = append(model.Fields, ExportField{
+					Path:          "/evidence/raw",
+					ContentClass:  ContentClassSourceEvidence,
+					Value:         "raw",
+					RawBlobSource: true,
+					OpaqueBinary:  true,
+				})
+				return model
+			}(),
+			want: "post_redaction_validation_failed",
+		},
+		{
+			name: "template render failure",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.OutputKind = OutputKindReenactment
+				req.ReleaseScope = ReleaseScopeExternal
+				return req
+			}(),
+			contract: contract,
+			model:    baseModel,
+			want:     "template_render_failed",
+		},
+		{
+			name:    "undeclared template binding",
+			request: baseRequest,
+			contract: func() TemplateContract {
+				next := contract
+				next.RenderBindings = append(next.RenderBindings, TemplateBinding{Name: "undeclared"})
+				return next
+			}(),
+			model: baseModel,
+			want:  "undeclared_template_binding",
+		},
+		{
+			name:    "missing required field",
+			request: baseRequest,
+			contract: func() TemplateContract {
+				next := contract
+				next.RequiredFieldPaths = append(next.RequiredFieldPaths, "/incident/missing")
+				return next
+			}(),
+			model: baseModel,
+			want:  "missing_required_field",
+		},
+	}
+	for _, tc := range reasonCases {
+		t.Run(tc.name, func(t *testing.T) {
+			source, err := canonicalJSON(tc.model)
+			if err != nil {
+				t.Fatalf("source json: %v", err)
+			}
+			_, reasonCode, err := renderReleaseCandidate(tc.request, tc.contract, tc.model, hashHex(source))
+			if err == nil || reasonCode != tc.want {
+				t.Fatalf("render reason = %q, err=%v want %q", reasonCode, err, tc.want)
+			}
+		})
+	}
+
+	t.Run("manifest encoding failure", func(t *testing.T) {
+		original := encodeCanonicalJSON
+		manifestEncodes := 0
+		encodeCanonicalJSON = func(value any) ([]byte, error) {
+			if _, ok := value.(RedactionManifest); ok {
+				manifestEncodes++
+				if manifestEncodes == 3 {
+					return nil, errors.New("forced manifest encoding failure")
+				}
+			}
+			return json.Marshal(value)
+		}
+		defer func() { encodeCanonicalJSON = original }()
+
+		source, err := canonicalJSON(baseModel)
+		if err != nil {
+			t.Fatalf("source json: %v", err)
+		}
+		_, reasonCode, err := renderReleaseCandidate(baseRequest, contract, baseModel, hashHex(source))
+		if err == nil || reasonCode != "manifest_encoding_failed" {
+			t.Fatalf("manifest encoding reason = %q, err=%v", reasonCode, err)
+		}
+	})
+}
+
+func mustTestUUID(value string) uuid.UUID {
+	parsed, err := uuid.Parse(value)
+	if err != nil {
+		panic(err)
+	}
+	return parsed
 }

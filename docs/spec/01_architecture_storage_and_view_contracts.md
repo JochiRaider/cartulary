@@ -2618,7 +2618,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `release_not_found` | `404` | `false` | No visible release exists for the supplied `release_id`. |  |  |  |
 | `release_state_conflict` | `409` | `false` | The addressed release exists, but its current `release_state` does not allow the requested approve, publish, or invalidate action. `error.details.reason_code` MUST use the `release_state_conflict` registry in §3.3.6.2. |  |  |  |
 | `release_approval_rejected` | `409` | `false` | The addressed release exists, but the caller or current artifact tuple does not satisfy the approval requirements for the requested approval action. `error.details.reason_code` MUST use the `release_approval_rejected` registry in §3.3.6.2. |  |  |  |
-| `release_render_failed` | `409` | `false` | A release render request reached the render phase but failed closed because a required template binding or redaction rule was not satisfied. `error.details.reason_code` MUST use the `release_render_failed` registry in §3.3.6.2. |  |  |  |
+| `release_render_failed` | `409` | `false` | A release render request reached the render phase but failed closed because the selected redaction profile, template contract, post-redaction model, or manifest encoding was invalid. `error.details.reason_code` MUST use the `release_render_failed` registry in §3.3.6.2. |  |  |  |
 | `invalid_reference_pack_request` | `400` | `false` | A reference-pack import, activation, disable, reverify, or refresh request is malformed, omits a required member, uses `null` where forbidden, includes an unknown top-level member, or fails the shared upload-envelope contract for `POST /api/v1/reference-packs/import`, including unsupported framing, missing or duplicate required parts, unexpected extra parts, invalid metadata encoding or JSON, or invalid part content type. |  |  |  |
 | `reference_pack_not_found` | `404` | `false` | No visible reference-pack version exists for the supplied `(pack_key, pack_version)` pair. |  |  |  |
 | `reference_pack_state_conflict` | `409` | `false` | The addressed reference-pack version exists, but its current durable state does not allow the requested disable or reverify action. `error.details.reason_code` MUST use the `reference_pack_state_conflict` registry in §3.3.6.2. |  |  |  |
@@ -2931,7 +2931,6 @@ Boundary values that are syntactically valid but do not equal the current commit
 | `reason_code` | Canonical meaning |
 | --- | --- |
 | `invalid_redaction_profile` | The selected redaction profile is malformed or contains reserved behavior. |
-| `missing_redaction_rule` | A renderable field or block lacked an applicable redaction rule for the chosen `release_scope`. |
 | `post_redaction_validation_failed` | Post-redaction validation failed before template rendering or publish eligibility. |
 | `template_render_failed` | The selected template failed before producing self-contained output bytes. |
 | `undeclared_template_binding` | The selected template referenced an undeclared export-model binding. |
@@ -4576,7 +4575,12 @@ Each rendered artifact MUST bind to one immutable release tuple equivalent to:
 - `template_id` and `template_version`,
 - `redaction_profile_id` and `redaction_profile_version`,
 - `redaction_profile_sha256`,
-- `export_model_sha256`.
+- `export_model_sha256`,
+- `output_kind`,
+- `release_scope`,
+- canonical `recipient_partition_refs[]`,
+- `output_sha256` when render output bytes exist,
+- `redaction_manifest_sha256` when a redaction manifest exists.
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-233
 
@@ -4607,7 +4611,7 @@ The authoritative persisted representation for this lifecycle MUST be the releas
 Profiles: snapshot_reporting
 Verified by: AC-059, AC-060, AC-104, AC-105, AC-106, AC-233
 
-For this lifecycle, the logical output slot is the bound release tuple excluding `output_sha256`.
+For this lifecycle, the logical output slot is the bound release tuple excluding `output_sha256` and including canonical `recipient_partition_refs[]`.
 
 The closed vocabulary for `release_state` is:
 
@@ -4723,6 +4727,8 @@ Verified by: AC-058, AC-091, AC-233
 Template bundles SHOULD reuse the same integrity-verification and activation machinery as reference packs when that machinery is available. Template activation MUST remain independent of optional reference-pack presence.
 Profiles: snapshot_reporting
 Verified by: AC-058, AC-091, AC-233
+
+The current Snapshot and Reporting profile MUST provide the exact template contract `cartulary.report.default@1`. It MUST be resolved from a versioned local registry before release render admission, MUST declare the supported `output_kind` and `release_scope` vocabularies, MUST declare all export-model bindings and required fields consumed by the renderer, and MUST declare only local embedded assets. Selectors such as `latest` and `current` are invalid.
 
 **REQ-01-384**
 A template renderer MUST:
@@ -6008,7 +6014,7 @@ Verified by: AC-266, AC-267, AC-268
 | Release-create success | `result_summary.code='release_created'` and exactly one `release` ref |
 | Release-create render failure | `error_summary.code='release_render_failed'`, durable `release_state='render_failed'`, non-null `render_failed_reason_code`, nullable output and manifest fields, and no approval or publication eligibility |
 | Invalid release request registry | `invalid_release_request` for malformed create or action bodies |
-| Release render failure registry | `release_render_failed` with stable reason codes for invalid redaction profiles, missing redaction rules, post-redaction validation failure, template failures, manifest encoding failures, undeclared template bindings, and missing required fields |
+| Release render failure registry | `release_render_failed` with stable reason codes for invalid redaction profiles, post-redaction validation failure, template failures, manifest encoding failures, undeclared template bindings, and missing required fields |
 | Release state conflict registry | `release_state_conflict` with stable reason codes for approval-required, already-approved, already-published, already-invalidated, render-failed, and invalid-state cases |
 | Release approval rejection registry | `release_approval_rejected` with stable reason codes for actors lacking approval role or approvals supplied through the wrong approval role |
 
@@ -6033,7 +6039,7 @@ For `snapshot resource` serialization:
 - `source_change_set_high_watermark` MUST always serialize as the resolved committed boundary token, even when `POST /api/v1/snapshots` omitted it;
 - the `snapshot resource` MUST NOT include `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `release_state`, approval data, redaction manifests, or rendered-output bytes.
 
-`POST /api/v1/snapshots` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `source_change_set_high_watermark`. For this member, omission means the current committed incident head resolved once at snapshot-job admission, explicit JSON `null` is invalid, and any supplied value MUST be one exact committed source-boundary token for the addressed incident. Omission and explicit transmission of that same resolved committed boundary MUST compare equal for idempotency and replay. Exact replay of a previously committed snapshot-create request MUST reuse the originally resolved committed boundary token rather than re-resolving a later incident head. `POST /api/v1/releases` MUST accept a JSON object with required `snapshot_id`, required `template_id`, required `template_version`, required `redaction_profile_id`, required `redaction_profile_version`, required `output_kind`, and required `client_txn_id`. It MAY include optional `release_scope` and optional `recipient_partition_refs[]`. For `release_scope`, omission means `internal_draft`, explicit JSON `null` is invalid, the allowed current-profile values are exactly `internal_draft`, `internal_review`, and `external_release`, and omission and explicit `internal_draft` MUST compare equal for idempotency and replay. For `recipient_partition_refs[]`, omission means `[]`, explicit JSON `null` is invalid, order is non-semantic, duplicates coalesce, and the canonical form sorts exact tokens ascending. Non-empty `recipient_partition_refs[]` are valid only with `release_scope='external_release'`; internal scopes MUST reject them with `invalid_release_request` and `reason_code='recipient_partitions_not_allowed'`. The durable `release resource` MUST always serialize the resolved `release_scope` and canonical `recipient_partition_refs[]`. Both routes MUST run as background jobs. The release-create route MUST fail closed if the request omits either version selector, attempts implicit latest-version resolution, or supplies a `release_scope`, output selector, redaction-profile selector, template selector, or recipient-partition shape outside the closed current-profile vocabulary.
+`POST /api/v1/snapshots` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `source_change_set_high_watermark`. For this member, omission means the current committed incident head resolved once at snapshot-job admission, explicit JSON `null` is invalid, and any supplied value MUST be one exact committed source-boundary token for the addressed incident. The current source-boundary token format is `cartulary.source_boundary.v1:<sha256>`, where the hash input is canonical JSON containing `incident_id`, `incident_version`, latest visible `change_set_id`, and latest visible `change_set.created_at`; the change-set fields are JSON `null` when the incident has no source change sets. Older incident-version-only tokens are not part of the current vocabulary and MUST NOT be accepted or translated. Omission and explicit transmission of that same resolved committed boundary MUST compare equal for idempotency and replay. Exact replay of a previously committed snapshot-create request MUST reuse the originally resolved committed boundary token rather than re-resolving a later incident head. `POST /api/v1/releases` MUST accept a JSON object with required `snapshot_id`, required `template_id`, required `template_version`, required `redaction_profile_id`, required `redaction_profile_version`, required `output_kind`, and required `client_txn_id`. It MAY include optional `release_scope` and optional `recipient_partition_refs[]`. For `release_scope`, omission means `internal_draft`, explicit JSON `null` is invalid, the allowed current-profile values are exactly `internal_draft`, `internal_review`, and `external_release`, and omission and explicit `internal_draft` MUST compare equal for idempotency and replay. For `recipient_partition_refs[]`, omission means `[]`, explicit JSON `null` is invalid, order is non-semantic, duplicates coalesce, and the canonical form sorts exact tokens ascending. Non-empty `recipient_partition_refs[]` are valid only with `release_scope='external_release'`; internal scopes MUST reject them with `invalid_release_request` and `reason_code='recipient_partitions_not_allowed'`. The durable `release resource` MUST always serialize the resolved `release_scope` and canonical `recipient_partition_refs[]`. Both routes MUST run as background jobs. The release-create route MUST fail closed if the request omits either version selector, attempts implicit latest-version resolution, or supplies a `release_scope`, output selector, redaction-profile selector, template selector, or recipient-partition shape outside the closed current-profile vocabulary.
 
 For terminal common-job summaries produced by this family:
 

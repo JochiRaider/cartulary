@@ -641,7 +641,7 @@ explain_run_summary="$(
   "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results" --run-id child-summary --target parent-target \
     2>&1
 )"
-assert_contains "$explain_run_summary" "[RUN] missing" "explain-run missing run summary"
+assert_contains "$explain_run_summary" "[RUN] tool-summary-only target=parent-target" "explain-run target tool summary"
 assert_contains "$explain_run_summary" "[TARGET] parent-target status=pass kind=aggregate tests=18 failed=0" "explain-run target summary"
 assert_contains "$explain_run_summary" "failed_children=none missing_children=none skipped_children=none slowest_child=child-b(2.00s)" "explain-run compact child hints"
 explain_run_children="$(
@@ -695,6 +695,110 @@ explain_helper_logs="$(
 )"
 assert_contains "$explain_helper_logs" "helper stdout" "explain-run helper stdout log"
 assert_contains "$explain_helper_logs" "helper stderr" "explain-run helper stderr log"
+
+tool_only_results="$(mktemp -d "$ROOT_DIR/tmp/explain-run-tool-only.XXXXXX")"
+cleanup_paths+=("$tool_only_results")
+mkdir -p "$tool_only_results/tool-run/agent-finalize/agent-finalize"
+cat >"$tool_only_results/tool-run/agent-finalize/tool-run-summary.json" <<'JSON'
+{
+  "target": "agent-finalize",
+  "status": "pass",
+  "exit_code": 0,
+  "duration_ms": 1200,
+  "output_mode": "summary",
+  "run_root": "tmp/explain-run-tool-only/tool-run",
+  "summary_artifacts": [],
+  "log_artifacts": [],
+  "counts": {
+    "tests": 0,
+    "failed": 0
+  },
+  "failure_class": null,
+  "failure_reason": null,
+  "failures": []
+}
+JSON
+cat >"$tool_only_results/tool-run/agent-finalize/finalize-summary.json" <<JSON
+{
+  "target": "agent-finalize",
+  "status": "pass",
+  "results_dir_status": "valid",
+  "generated": {
+    "status": "unchanged",
+    "updated_file_count": 0
+  },
+  "duration": {
+    "status": "skipped"
+  },
+  "run_checks": {
+    "status": "pass"
+  },
+  "actions": [
+    {
+      "action_id": "structure_ledger_refresh",
+      "status": "pass",
+      "duration_ms": 1200,
+      "substeps": [
+        {
+          "id": "phase-ledgers",
+          "target": "phase-ledgers",
+          "status": "pass",
+          "summary_json": "none",
+          "stdout_log": "$tool_only_results/tool-run/agent-finalize/agent-finalize/stdout.log",
+          "stderr_log": null
+        }
+      ]
+    }
+  ],
+  "failures": []
+}
+JSON
+printf "finalize child stdout\n" >"$tool_only_results/tool-run/agent-finalize/agent-finalize/stdout.log"
+explain_tool_only_summary="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$tool_only_results/tool-run" \
+    2>&1
+)"
+assert_contains "$explain_tool_only_summary" "[RUN] tool-summary-only target=agent-finalize" "explain-run tool-only run line"
+assert_contains "$explain_tool_only_summary" "[FINALIZE] agent-finalize status=pass results_dir_status=valid" "explain-run finalizer summary line"
+assert_contains "$explain_tool_only_summary" "[FINALIZE-ACTION] structure_ledger_refresh status=pass substeps=1" "explain-run finalizer action line"
+explain_tool_only_children="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail children \
+    2>&1
+)"
+assert_contains "$explain_tool_only_children" "[FINALIZE-SUBSTEP] action=structure_ledger_refresh id=phase-ledgers" "explain-run finalizer child line"
+explain_tool_only_logs="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail logs \
+    2>&1
+)"
+assert_contains "$explain_tool_only_logs" "finalize child stdout" "explain-run finalizer child log"
+
+missing_finalize_results="$(mktemp -d "$ROOT_DIR/tmp/explain-run-missing-finalize.XXXXXX")"
+cleanup_paths+=("$missing_finalize_results")
+mkdir -p "$missing_finalize_results/tool-run/agent-finalize"
+cat >"$missing_finalize_results/tool-run/agent-finalize/tool-run-summary.json" <<'JSON'
+{
+  "target": "agent-finalize",
+  "status": "pass",
+  "exit_code": 0,
+  "duration_ms": 1,
+  "output_mode": "summary",
+  "run_root": "tmp/explain-run-missing-finalize/tool-run",
+  "summary_artifacts": [],
+  "log_artifacts": [],
+  "counts": {
+    "tests": 0,
+    "failed": 0
+  },
+  "failure_class": null,
+  "failure_reason": null,
+  "failures": []
+}
+JSON
+explain_missing_finalize="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$missing_finalize_results/tool-run" \
+    2>&1
+)"
+assert_contains "$explain_missing_finalize" "[FINALIZE] missing" "explain-run missing finalizer summary line"
 
 nested_artifacts_results="$(mktemp -d "$ROOT_DIR/tmp/nested-phase-artifacts.XXXXXX")"
 cleanup_paths+=("$nested_artifacts_results")

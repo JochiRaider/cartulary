@@ -807,6 +807,7 @@ type ReportingSnapshot struct {
 	ClientTxnID                  string             `json:"client_txn_id"`
 	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
 	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
 	DerivationVersion            string             `json:"derivation_version"`
 	ExportModelSha256            string             `json:"export_model_sha256"`
 	ExportModelJson              []byte             `json:"export_model_json"`

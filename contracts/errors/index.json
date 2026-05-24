@@ -627,10 +627,6 @@
           "summary": "The selected redaction profile is malformed or contains reserved behavior."
         },
         {
-          "code": "missing_redaction_rule",
-          "summary": "A field or block reached render admission without an applicable redaction rule."
-        },
-        {
           "code": "post_redaction_validation_failed",
           "summary": "Post-redaction validation failed before template rendering or publish eligibility."
         },

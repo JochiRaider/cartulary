@@ -1,14 +1,14 @@
 -- name: GetReportingSnapshot :one
 SELECT snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
        source_change_set_high_watermark, derivation_version, export_model_sha256,
-       export_model_json, create_job_id, created_at
+       source_boundary_json, export_model_json, create_job_id, created_at
   FROM reporting_snapshots
  WHERE snapshot_id = $1;
 
 -- name: GetReportingSnapshotByCreateJob :one
 SELECT snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
        source_change_set_high_watermark, derivation_version, export_model_sha256,
-       export_model_json, create_job_id, created_at
+       source_boundary_json, export_model_json, create_job_id, created_at
   FROM reporting_snapshots
  WHERE create_job_id = $1;
 
@@ -16,12 +16,12 @@ SELECT snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
 INSERT INTO reporting_snapshots (
     incident_id, created_by_user_id, client_txn_id, snapshot_at,
     source_change_set_high_watermark, derivation_version, export_model_sha256,
-    export_model_json, create_job_id, created_at
+    source_boundary_json, export_model_json, create_job_id, created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $4)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4)
 RETURNING snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
           source_change_set_high_watermark, derivation_version, export_model_sha256,
-          export_model_json, create_job_id, created_at;
+          source_boundary_json, export_model_json, create_job_id, created_at;
 
 -- name: GetReportingRelease :one
 SELECT *
@@ -112,9 +112,9 @@ SELECT approval_role, actor_user_id
 -- name: InvalidateSupersededReportingReleases :exec
 UPDATE reporting_releases
    SET release_state = 'invalidated',
-       invalidated_at = COALESCE(invalidated_at, $9),
+       invalidated_at = COALESCE(invalidated_at, $10),
        invalidation_reason = COALESCE(invalidation_reason, 'superseded_by_new_render'),
-       updated_at = $9
+       updated_at = $10
  WHERE snapshot_id = $1
    AND output_kind = $2
    AND release_scope = $3
@@ -122,7 +122,8 @@ UPDATE reporting_releases
    AND template_version = $5
    AND redaction_profile_id = $6
    AND redaction_profile_version = $7
-   AND release_id <> $8
+   AND recipient_partition_refs = $8
+   AND release_id <> $9
    AND release_state IN ('pending_approval', 'approved', 'published');
 
 -- name: UpdateReportingReleaseState :one

@@ -1,7 +1,28 @@
 -- +goose Up
-DELETE FROM reporting_release_approvals;
-DELETE FROM reporting_releases;
-DELETE FROM reporting_snapshots;
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM reporting_release_approvals LIMIT 1)
+        OR EXISTS (SELECT 1 FROM reporting_releases LIMIT 1)
+        OR EXISTS (SELECT 1 FROM reporting_snapshots LIMIT 1) THEN
+        RAISE EXCEPTION 'phase11 reporting v3 remediation cannot run with existing reporting rows; reset reporting data before applying this migration';
+    END IF;
+END $$;
+-- +goose StatementEnd
+
+ALTER TABLE reporting_snapshots
+    ADD COLUMN IF NOT EXISTS source_boundary_json jsonb;
+
+ALTER TABLE reporting_snapshots
+    ALTER COLUMN source_boundary_json SET NOT NULL;
+
+ALTER TABLE reporting_snapshots
+    DROP CONSTRAINT IF EXISTS reporting_snapshots_source_boundary_json_ck;
+
+ALTER TABLE reporting_snapshots
+    ADD CONSTRAINT reporting_snapshots_source_boundary_json_ck CHECK (
+        jsonb_typeof(source_boundary_json) = 'object'
+    );
 
 ALTER TABLE reporting_releases
     ADD COLUMN IF NOT EXISTS recipient_partition_refs jsonb NOT NULL DEFAULT '[]'::jsonb;
@@ -67,12 +88,22 @@ CREATE INDEX IF NOT EXISTS reporting_job_payloads_incident_lookup_idx
     ON reporting_job_payloads (incident_id, created_at DESC, job_id);
 
 -- +goose Down
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM reporting_release_approvals LIMIT 1)
+        OR EXISTS (SELECT 1 FROM reporting_releases LIMIT 1)
+        OR EXISTS (SELECT 1 FROM reporting_snapshots LIMIT 1) THEN
+        RAISE EXCEPTION 'phase11 reporting v3 remediation rollback cannot run with existing reporting rows; reset reporting data before rolling back this migration';
+    END IF;
+END $$;
+-- +goose StatementEnd
+
 DROP INDEX IF EXISTS reporting_job_payloads_incident_lookup_idx;
 DROP TABLE IF EXISTS reporting_job_payloads;
 
-DELETE FROM reporting_release_approvals;
-DELETE FROM reporting_releases;
-DELETE FROM reporting_snapshots;
+ALTER TABLE reporting_snapshots
+    DROP CONSTRAINT IF EXISTS reporting_snapshots_source_boundary_json_ck;
 
 ALTER TABLE reporting_releases
     DROP CONSTRAINT IF EXISTS reporting_releases_render_failed_reason_ck;

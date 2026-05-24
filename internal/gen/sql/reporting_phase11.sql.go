@@ -335,12 +335,12 @@ const createReportingSnapshot = `-- name: CreateReportingSnapshot :one
 INSERT INTO reporting_snapshots (
     incident_id, created_by_user_id, client_txn_id, snapshot_at,
     source_change_set_high_watermark, derivation_version, export_model_sha256,
-    export_model_json, create_job_id, created_at
+    source_boundary_json, export_model_json, create_job_id, created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $4)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4)
 RETURNING snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
           source_change_set_high_watermark, derivation_version, export_model_sha256,
-          export_model_json, create_job_id, created_at
+          source_boundary_json, export_model_json, create_job_id, created_at
 `
 
 type CreateReportingSnapshotParams struct {
@@ -351,11 +351,27 @@ type CreateReportingSnapshotParams struct {
 	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
 	DerivationVersion            string             `json:"derivation_version"`
 	ExportModelSha256            string             `json:"export_model_sha256"`
+	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
 	ExportModelJson              []byte             `json:"export_model_json"`
 	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
 }
 
-func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReportingSnapshotParams) (ReportingSnapshot, error) {
+type CreateReportingSnapshotRow struct {
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
+	IncidentID                   pgtype.UUID        `json:"incident_id"`
+	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID                  string             `json:"client_txn_id"`
+	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	DerivationVersion            string             `json:"derivation_version"`
+	ExportModelSha256            string             `json:"export_model_sha256"`
+	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
+	ExportModelJson              []byte             `json:"export_model_json"`
+	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReportingSnapshotParams) (CreateReportingSnapshotRow, error) {
 	row := q.db.QueryRow(ctx, createReportingSnapshot,
 		arg.IncidentID,
 		arg.CreatedByUserID,
@@ -364,10 +380,11 @@ func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReporti
 		arg.SourceChangeSetHighWatermark,
 		arg.DerivationVersion,
 		arg.ExportModelSha256,
+		arg.SourceBoundaryJson,
 		arg.ExportModelJson,
 		arg.CreateJobID,
 	)
-	var i ReportingSnapshot
+	var i CreateReportingSnapshotRow
 	err := row.Scan(
 		&i.SnapshotID,
 		&i.IncidentID,
@@ -377,6 +394,7 @@ func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReporti
 		&i.SourceChangeSetHighWatermark,
 		&i.DerivationVersion,
 		&i.ExportModelSha256,
+		&i.SourceBoundaryJson,
 		&i.ExportModelJson,
 		&i.CreateJobID,
 		&i.CreatedAt,
@@ -544,14 +562,29 @@ func (q *Queries) GetReportingReleaseForUpdate(ctx context.Context, releaseID pg
 const getReportingSnapshot = `-- name: GetReportingSnapshot :one
 SELECT snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
        source_change_set_high_watermark, derivation_version, export_model_sha256,
-       export_model_json, create_job_id, created_at
+       source_boundary_json, export_model_json, create_job_id, created_at
   FROM reporting_snapshots
  WHERE snapshot_id = $1
 `
 
-func (q *Queries) GetReportingSnapshot(ctx context.Context, snapshotID pgtype.UUID) (ReportingSnapshot, error) {
+type GetReportingSnapshotRow struct {
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
+	IncidentID                   pgtype.UUID        `json:"incident_id"`
+	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID                  string             `json:"client_txn_id"`
+	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	DerivationVersion            string             `json:"derivation_version"`
+	ExportModelSha256            string             `json:"export_model_sha256"`
+	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
+	ExportModelJson              []byte             `json:"export_model_json"`
+	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetReportingSnapshot(ctx context.Context, snapshotID pgtype.UUID) (GetReportingSnapshotRow, error) {
 	row := q.db.QueryRow(ctx, getReportingSnapshot, snapshotID)
-	var i ReportingSnapshot
+	var i GetReportingSnapshotRow
 	err := row.Scan(
 		&i.SnapshotID,
 		&i.IncidentID,
@@ -561,6 +594,7 @@ func (q *Queries) GetReportingSnapshot(ctx context.Context, snapshotID pgtype.UU
 		&i.SourceChangeSetHighWatermark,
 		&i.DerivationVersion,
 		&i.ExportModelSha256,
+		&i.SourceBoundaryJson,
 		&i.ExportModelJson,
 		&i.CreateJobID,
 		&i.CreatedAt,
@@ -571,14 +605,29 @@ func (q *Queries) GetReportingSnapshot(ctx context.Context, snapshotID pgtype.UU
 const getReportingSnapshotByCreateJob = `-- name: GetReportingSnapshotByCreateJob :one
 SELECT snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
        source_change_set_high_watermark, derivation_version, export_model_sha256,
-       export_model_json, create_job_id, created_at
+       source_boundary_json, export_model_json, create_job_id, created_at
   FROM reporting_snapshots
  WHERE create_job_id = $1
 `
 
-func (q *Queries) GetReportingSnapshotByCreateJob(ctx context.Context, createJobID pgtype.UUID) (ReportingSnapshot, error) {
+type GetReportingSnapshotByCreateJobRow struct {
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
+	IncidentID                   pgtype.UUID        `json:"incident_id"`
+	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID                  string             `json:"client_txn_id"`
+	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	DerivationVersion            string             `json:"derivation_version"`
+	ExportModelSha256            string             `json:"export_model_sha256"`
+	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
+	ExportModelJson              []byte             `json:"export_model_json"`
+	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetReportingSnapshotByCreateJob(ctx context.Context, createJobID pgtype.UUID) (GetReportingSnapshotByCreateJobRow, error) {
 	row := q.db.QueryRow(ctx, getReportingSnapshotByCreateJob, createJobID)
-	var i ReportingSnapshot
+	var i GetReportingSnapshotByCreateJobRow
 	err := row.Scan(
 		&i.SnapshotID,
 		&i.IncidentID,
@@ -588,6 +637,7 @@ func (q *Queries) GetReportingSnapshotByCreateJob(ctx context.Context, createJob
 		&i.SourceChangeSetHighWatermark,
 		&i.DerivationVersion,
 		&i.ExportModelSha256,
+		&i.SourceBoundaryJson,
 		&i.ExportModelJson,
 		&i.CreateJobID,
 		&i.CreatedAt,
@@ -688,9 +738,9 @@ func (q *Queries) InvalidateReportingRelease(ctx context.Context, arg Invalidate
 const invalidateSupersededReportingReleases = `-- name: InvalidateSupersededReportingReleases :exec
 UPDATE reporting_releases
    SET release_state = 'invalidated',
-       invalidated_at = COALESCE(invalidated_at, $9),
+       invalidated_at = COALESCE(invalidated_at, $10),
        invalidation_reason = COALESCE(invalidation_reason, 'superseded_by_new_render'),
-       updated_at = $9
+       updated_at = $10
  WHERE snapshot_id = $1
    AND output_kind = $2
    AND release_scope = $3
@@ -698,7 +748,8 @@ UPDATE reporting_releases
    AND template_version = $5
    AND redaction_profile_id = $6
    AND redaction_profile_version = $7
-   AND release_id <> $8
+   AND recipient_partition_refs = $8
+   AND release_id <> $9
    AND release_state IN ('pending_approval', 'approved', 'published')
 `
 
@@ -710,6 +761,7 @@ type InvalidateSupersededReportingReleasesParams struct {
 	TemplateVersion         string             `json:"template_version"`
 	RedactionProfileID      string             `json:"redaction_profile_id"`
 	RedactionProfileVersion string             `json:"redaction_profile_version"`
+	RecipientPartitionRefs  []byte             `json:"recipient_partition_refs"`
 	ReleaseID               pgtype.UUID        `json:"release_id"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
 }
@@ -723,6 +775,7 @@ func (q *Queries) InvalidateSupersededReportingReleases(ctx context.Context, arg
 		arg.TemplateVersion,
 		arg.RedactionProfileID,
 		arg.RedactionProfileVersion,
+		arg.RecipientPartitionRefs,
 		arg.ReleaseID,
 		arg.UpdatedAt,
 	)

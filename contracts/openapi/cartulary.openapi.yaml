@@ -1107,6 +1107,26 @@
               }
             }
           },
+          "400": {
+            "description": "Malformed release action request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Release not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Approval rejected, state conflict, or idempotency conflict",
             "content": {
@@ -1159,6 +1179,26 @@
               }
             }
           },
+          "400": {
+            "description": "Malformed release action request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Release not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "409": {
             "description": "State conflict or idempotency conflict",
             "content": {
@@ -1207,6 +1247,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReleaseEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed release action request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Release not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }

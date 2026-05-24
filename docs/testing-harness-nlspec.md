@@ -642,6 +642,10 @@ Verified by: TH-HARNESS-AC-000
 `browser-e2e-a11y` MUST emit exactly one retained `cartulary.frontend_accessibility_summary.v1` artifact for a completed accessibility target attempt. The artifact MUST be a JSON object with `schema_id`, `phase_rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]`. Axe-style reports, Playwright traces, DOM snapshots, screenshots, and browser console logs MAY be retained as diagnostic inputs, but they MUST NOT replace the normalized accessibility summary schema and MUST NOT become the public row evidence contract.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-022
 
+**TH-HARNESS-REQ-256**
+`explain-run` MUST diagnose retained aggregate run roots that contain `run-summary.json` and retained public tool-run roots that contain at least one `<target>/tool-run-summary.json`. Tool-run diagnostics MUST NOT require a synthetic aggregate `run-summary.json`. When a tool-run target also emits a command-specific summary artifact, such as `agent-finalize/finalize-summary.json`, `explain-run` MUST surface a bounded human summary of that artifact and retain `DETAIL=logs` access to target and child logs when `TARGET=<target>` is supplied.
+Verified by: TH-HARNESS-AC-015, TH-HARNESS-AC-019
+
 ### 8.1 Artifact Families
 
 | Artifact family                                      | Producer                                        | Path under run root                                             | Schema policy                                                 | Ordering and nullability                                                              | Retention and cleanup                                        |

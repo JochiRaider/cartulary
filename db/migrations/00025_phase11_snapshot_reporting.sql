@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS reporting_snapshots (
     client_txn_id text NOT NULL,
     snapshot_at timestamptz NOT NULL,
     source_change_set_high_watermark text NOT NULL,
+    source_boundary_json jsonb NOT NULL CHECK (jsonb_typeof(source_boundary_json) = 'object'),
     derivation_version text NOT NULL,
     export_model_sha256 text NOT NULL,
     export_model_json jsonb NOT NULL,

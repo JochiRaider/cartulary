@@ -164,7 +164,8 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if request.TemplateID != DefaultTemplateID || request.TemplateVersion != DefaultTemplateVersion {
+	templateContract, ok := ResolveTemplateContract(request.TemplateID, request.TemplateVersion)
+	if !ok {
 		writeAPIError(w, r, unsupportedTemplateError(request.TemplateID, request.TemplateVersion))
 		return
 	}
@@ -187,9 +188,10 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 	}
 	_ = model
 	result, err := s.store.CreateRelease(r.Context(), CreateReleaseParams{
-		ActorUserID: principal.User.ID,
-		Request:     request,
-		Now:         s.now(),
+		ActorUserID:      principal.User.ID,
+		Request:          request,
+		TemplateContract: templateContract,
+		Now:              s.now(),
 	})
 	if errors.Is(err, authn.ErrClientTxnConflict) {
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
@@ -357,7 +359,7 @@ func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func renderReleaseCandidate(request CreateReleaseRequest, model ExportModel, exportModelSHA string) (RenderedRelease, string, error) {
+func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContract, model ExportModel, exportModelSHA string) (RenderedRelease, string, error) {
 	profile, profileSHA, err := ResolveRedactionProfile(request.RedactionProfileID, request.RedactionProfileVersion, request.RecipientPartitionRefs)
 	if errors.Is(err, ErrInvalidRedactionProfile) {
 		return RenderedRelease{}, "invalid_redaction_profile", err
@@ -377,7 +379,13 @@ func renderReleaseCandidate(request CreateReleaseRequest, model ExportModel, exp
 		return partial, "post_redaction_validation_failed", err
 	}
 	partial.Redaction = redaction
-	output, mediaType, err := RenderOutput(request.OutputKind, redaction.Model, redaction.Manifest, request.ReleaseScope)
+	output, mediaType, err := RenderOutput(contract, request.OutputKind, redaction.Model, redaction.Manifest, request.ReleaseScope)
+	if errors.Is(err, ErrUndeclaredTemplateBinding) {
+		return partial, "undeclared_template_binding", err
+	}
+	if errors.Is(err, ErrMissingRequiredField) {
+		return partial, "missing_required_field", err
+	}
 	if err != nil {
 		return partial, "template_render_failed", err
 	}
@@ -491,7 +499,7 @@ func (s *Service) executeReleaseCreateJob(ctx context.Context, jobID uuid.UUID) 
 		s.failReportingJob(ctx, jobID, "internal_error", err)
 		return
 	}
-	rendered, reasonCode, renderErr := renderReleaseCandidate(payload.Request, payload.ExportModel, payload.ExportModelSHA256)
+	rendered, reasonCode, renderErr := renderReleaseCandidate(payload.Request, payload.TemplateContract, payload.ExportModel, payload.ExportModelSHA256)
 	if renderErr != nil {
 		releaseID, err := s.store.CompleteReleaseRenderFailedJob(ctx, jobID, rendered.Profile, rendered.ProfileSHA256, reasonCode, s.now())
 		if err != nil {

@@ -18,7 +18,9 @@ import (
 const (
 	ProfileID = "snapshot_reporting"
 
-	DerivationVersion = "cartulary.snapshot_export_model.v2"
+	DerivationVersion         = "cartulary.snapshot_export_model.v3"
+	ExportModelSchemaID       = "cartulary.export_model.v3"
+	SourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 
 	DefaultTemplateID      = "cartulary.report.default"
 	DefaultTemplateVersion = "1"

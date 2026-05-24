@@ -73,31 +73,67 @@ function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+function toolSummaryTargets(runDir) {
+  if (!existsSync(runDir)) {
+    return [];
+  }
+  return readdirSync(runDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((target) => existsSync(path.join(runDir, target, "tool-run-summary.json")))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function hasRunArtifacts(dir) {
+  if (existsSync(path.join(dir, "run-summary.json"))) {
+    return true;
+  }
+  return toolSummaryTargets(dir).length > 0;
+}
+
 function newestRunDir(resultsRoot) {
   const candidates = readdirSync(resultsRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(resultsRoot, entry.name))
-    .filter((dir) => existsSync(path.join(dir, "run-summary.json")))
+    .filter((dir) => hasRunArtifacts(dir))
     .sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs);
   return candidates[0] ?? "";
 }
 
-function resolveRunDir(options) {
+function defaultToolTarget(runDir) {
+  const targets = toolSummaryTargets(runDir);
+  if (targets.includes("agent-finalize")) {
+    return "agent-finalize";
+  }
+  return targets.length === 1 ? targets[0] : "";
+}
+
+function resolveRunContext(options) {
   const resultsDir = resolvePath(options.resultsDir);
   if (existsSync(path.join(resultsDir, "run-summary.json"))) {
-    return resultsDir;
+    return { runDir: resultsDir, targetFromPath: "" };
+  }
+  if (existsSync(path.join(resultsDir, "tool-run-summary.json"))) {
+    const toolSummary = readJSON(path.join(resultsDir, "tool-run-summary.json"));
+    return { runDir: path.dirname(resultsDir), targetFromPath: toolSummary.target ?? path.basename(resultsDir) };
   }
   if (options.target && existsSync(path.join(resultsDir, options.target, "target-summary.json"))) {
-    return resultsDir;
+    return { runDir: resultsDir, targetFromPath: "" };
+  }
+  if (options.target && existsSync(path.join(resultsDir, options.target, "tool-run-summary.json"))) {
+    return { runDir: resultsDir, targetFromPath: options.target };
+  }
+  if (toolSummaryTargets(resultsDir).length > 0) {
+    return { runDir: resultsDir, targetFromPath: "" };
   }
   if (options.runId) {
-    return path.join(resultsDir, options.runId);
+    return { runDir: path.join(resultsDir, options.runId), targetFromPath: "" };
   }
   const newest = newestRunDir(resultsDir);
   if (newest) {
-    return newest;
+    return { runDir: newest, targetFromPath: "" };
   }
-  throw new Error(`no run-summary.json found under ${resultsDir}; pass RUN_ID for a results root`);
+  throw new Error(`no run-summary.json or target/tool-run-summary.json found under ${resultsDir}; pass RUN_ID for a results root`);
 }
 
 function formatDuration(ms) {
@@ -179,6 +215,24 @@ function loadSchedulerSummary(runDir, target) {
   return existsSync(file) ? readJSON(file) : null;
 }
 
+function loadToolSummary(runDir, target) {
+  if (!target) {
+    return null;
+  }
+  const file = path.join(runDir, target, "tool-run-summary.json");
+  return existsSync(file) ? readJSON(file) : null;
+}
+
+function artifactPathByRole(summary, role) {
+  return (summary?.summary_artifacts ?? []).find((artifact) => artifact.role === role)?.path ?? "";
+}
+
+function loadFinalizeSummary(runDir, toolSummary) {
+  const configured = artifactPathByRole(toolSummary, "finalize_summary");
+  const file = configured ? absoluteArtifactPath(configured) : path.join(runDir, "agent-finalize", "finalize-summary.json");
+  return existsSync(file) ? { file, summary: readJSON(file) } : { file, summary: null };
+}
+
 function writeRunSummary(runDir, runSummary) {
   if (!runSummary) {
     process.stdout.write(`[RUN] missing artifacts=${relToRepo(runDir)}\n`);
@@ -200,6 +254,44 @@ function writeRunSummary(runDir, runSummary) {
   const missing = summaryTargets.missing ?? [];
   if (missing.length > 0) {
     process.stdout.write(`[RUN-MISSING] ${missing.join(",")}\n`);
+  }
+}
+
+function writeToolSummary(runDir, target, toolSummary) {
+  if (!toolSummary) {
+    const targets = toolSummaryTargets(runDir);
+    process.stdout.write(`[TOOL] missing target=${target || "none"} available=${targets.join(",") || "none"} artifacts=${relToRepo(runDir)}\n`);
+    return;
+  }
+  const c = counts(toolSummary);
+  process.stdout.write(
+    `[TOOL] ${toolSummary.target} status=${toolSummary.status}${failureClassField(toolSummary)} exit_code=${toolSummary.exit_code} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${formatDuration(toolSummary.duration_ms ?? 0)} output_mode=${toolSummary.output_mode} summaries=${toolSummary.summary_artifacts?.length ?? 0} logs=${toolSummary.log_artifacts?.length ?? 0} artifacts=${toolSummary.run_root ?? relToRepo(runDir)}\n`,
+  );
+  writeFailureHeadline(toolSummary.target, toolSummary);
+}
+
+function writeFinalizeSummary(runDir, toolSummary) {
+  const { file, summary } = loadFinalizeSummary(runDir, toolSummary);
+  if (!summary) {
+    process.stdout.write(`[FINALIZE] missing artifacts=${relToRepo(file)}\n`);
+    return;
+  }
+  const actions = summary.actions ?? [];
+  process.stdout.write(
+    `[FINALIZE] ${summary.target} status=${summary.status} results_dir_status=${summary.results_dir_status} generated=${summary.generated?.status ?? "unknown"} updated_files=${summary.generated?.updated_file_count ?? 0} duration=${summary.duration?.status ?? "unknown"} run_checks=${summary.run_checks?.status ?? "unknown"} actions=${actions.length} failures=${summary.failures?.length ?? 0} artifacts=${relToRepo(file)}\n`,
+  );
+  for (const action of actions) {
+    const substeps = action.substeps ?? [];
+    const failed = substeps.filter((substep) => substep.status === "fail").map((substep) => substep.id);
+    const skipped = substeps.filter((substep) => substep.status === "skipped").map((substep) => substep.id);
+    process.stdout.write(
+      `[FINALIZE-ACTION] ${action.action_id} status=${action.status} substeps=${substeps.length} failed=${failed.join(",") || "none"} skipped=${skipped.join(",") || "none"} duration=${formatDuration(action.duration_ms ?? 0)}\n`,
+    );
+  }
+  for (const failure of summary.failures ?? []) {
+    process.stdout.write(
+      `[FINALIZE-FAILURE] action=${failure.action_id} substep=${failure.substep_id ?? "none"} target=${failure.target ?? "none"} failure_class=${failure.failure_class} failure_reason=${failure.failure_reason} headline=${failure.headline} artifact=${failure.summary_json ?? "none"}\n`,
+    );
   }
 }
 
@@ -334,6 +426,32 @@ function writeRunChildren(runSummary) {
   writeHelperLines(runSummary);
 }
 
+function writeToolChildren(runDir, target, toolSummary) {
+  if (target === "agent-finalize" && toolSummary) {
+    const { summary } = loadFinalizeSummary(runDir, toolSummary);
+    if (!summary) {
+      process.stdout.write("[CHILDREN] none\n");
+      return;
+    }
+    for (const action of summary.actions ?? []) {
+      for (const substep of action.substeps ?? []) {
+        process.stdout.write(
+          `[FINALIZE-SUBSTEP] action=${action.action_id} id=${substep.id} target=${substep.target ?? "none"} status=${substep.status} summary_json=${substep.summary_json ?? "none"} stdout_log=${substep.stdout_log ?? "none"} stderr_log=${substep.stderr_log ?? "none"}\n`,
+        );
+      }
+    }
+    return;
+  }
+  const refs = [...(toolSummary?.evidence_targets ?? []), ...(toolSummary?.helper_units ?? [])];
+  if (refs.length === 0) {
+    process.stdout.write("[CHILDREN] none\n");
+    return;
+  }
+  for (const ref of refs) {
+    process.stdout.write(`[TOOL-REF] ${ref.target} status=${ref.status ?? "unknown"} run_root=${ref.run_root ?? relToRepo(runDir)}\n`);
+  }
+}
+
 function absoluteArtifactPath(value) {
   if (!value) {
     return "";
@@ -377,6 +495,25 @@ function writeLogs(runDir, target, runSummary) {
   }
 }
 
+function writeToolLogs(runDir, target, toolSummary) {
+  let wrote = false;
+  for (const artifact of toolSummary?.log_artifacts ?? []) {
+    wrote = writeLogFile(target, artifact.path) || wrote;
+  }
+  if (target === "agent-finalize" && toolSummary) {
+    const { summary } = loadFinalizeSummary(runDir, toolSummary);
+    for (const action of summary?.actions ?? []) {
+      for (const substep of action.substeps ?? []) {
+        wrote = writeLogFile(target, substep.stdout_log) || wrote;
+        wrote = writeLogFile(target, substep.stderr_log) || wrote;
+      }
+    }
+  }
+  if (!wrote) {
+    process.stdout.write(`[LOGS] ${target} none\n`);
+  }
+}
+
 function writeProgress(runDir, target, schedulerSummary) {
   const configured = schedulerSummary?.artifacts?.progress_summary_log ?? "";
   const fallback = path.join(runDir, target, "progress-summary.log");
@@ -395,31 +532,51 @@ function writeProgress(runDir, target, schedulerSummary) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
-  const runDir = resolveRunDir(options);
+  const { runDir, targetFromPath } = resolveRunContext(options);
   const runSummary = loadRunSummary(runDir);
-  const targetSummary = loadTargetSummary(runDir, options.target);
-  const schedulerSummary = loadSchedulerSummary(runDir, options.target);
+  const target = options.target || targetFromPath || (runSummary ? "" : defaultToolTarget(runDir));
+  const targetSummary = loadTargetSummary(runDir, target);
+  const schedulerSummary = loadSchedulerSummary(runDir, target);
+  const toolSummary = loadToolSummary(runDir, target);
 
   if (options.detail === "summary") {
-    writeRunSummary(runDir, runSummary);
+    if (runSummary) {
+      writeRunSummary(runDir, runSummary);
+    } else if (toolSummary) {
+      process.stdout.write(`[RUN] tool-summary-only target=${target || "none"} artifacts=${relToRepo(runDir)}\n`);
+    } else {
+      writeRunSummary(runDir, runSummary);
+    }
     writeTargetSummary(runDir, targetSummary);
     writeSchedulerSummary(schedulerSummary);
-    writeHelperLines(runSummary, options.target);
+    if (toolSummary) {
+      writeToolSummary(runDir, target, toolSummary);
+      if (target === "agent-finalize") {
+        writeFinalizeSummary(runDir, toolSummary);
+      }
+    }
+    writeHelperLines(runSummary, target);
     return;
   }
   if (options.detail === "children") {
-    if (options.target) {
+    if (targetSummary) {
       writeChildren(targetSummary);
+    } else if (toolSummary) {
+      writeToolChildren(runDir, target, toolSummary);
     } else {
       writeRunChildren(runSummary);
     }
     return;
   }
   if (options.detail === "progress") {
-    writeProgress(runDir, options.target, schedulerSummary);
+    writeProgress(runDir, target, schedulerSummary);
     return;
   }
-  writeLogs(runDir, options.target, runSummary);
+  if (toolSummary) {
+    writeToolLogs(runDir, target, toolSummary);
+    return;
+  }
+  writeLogs(runDir, target, runSummary);
 }
 
 try {

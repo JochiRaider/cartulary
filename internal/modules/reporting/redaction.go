@@ -33,8 +33,10 @@ const (
 )
 
 var (
-	ErrInvalidRedactionProfile = errors.New("reporting: invalid redaction profile")
-	ErrRedactionValidation     = errors.New("reporting: redaction validation failed")
+	ErrInvalidRedactionProfile   = errors.New("reporting: invalid redaction profile")
+	ErrRedactionValidation       = errors.New("reporting: redaction validation failed")
+	ErrUndeclaredTemplateBinding = errors.New("reporting: undeclared template binding")
+	ErrMissingRequiredField      = errors.New("reporting: missing required template field")
 )
 
 type RedactionProfile struct {
@@ -135,6 +137,27 @@ type RedactionResult struct {
 	ManifestSHA256 string
 }
 
+type TemplateAsset struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+}
+
+type TemplateBinding struct {
+	Name string `json:"name"`
+	Path string `json:"path,omitempty"`
+}
+
+type TemplateContract struct {
+	TemplateID             string            `json:"template_id"`
+	TemplateVersion        string            `json:"template_version"`
+	SupportedOutputKinds   []string          `json:"supported_output_kinds"`
+	SupportedReleaseScopes []string          `json:"supported_release_scopes"`
+	AllowedBindings        []string          `json:"allowed_bindings"`
+	RenderBindings         []TemplateBinding `json:"render_bindings"`
+	RequiredFieldPaths     []string          `json:"required_field_paths"`
+	LocalAssets            []TemplateAsset   `json:"local_assets"`
+}
+
 func BuildExportModel(incident incidents.IncidentRecord, snapshotAt time.Time, watermark string, workbookFields []ExportField) (ExportModel, string, error) {
 	fields := []ExportField{
 		{
@@ -151,15 +174,6 @@ func BuildExportModel(incident incidents.IncidentRecord, snapshotAt time.Time, w
 			ContentClass: ContentClassDerivedAnalytic,
 			SourceFamily: "incident_metadata",
 			Value:        incident.Status,
-		},
-		{
-			Path:         "/incident/internal_note",
-			ContentClass: ContentClassWorkingMaterial,
-			SourceFamily: "note",
-			Value:        "internal workbook context omitted from recipient reports",
-			DisclosurePartitionRefs: []string{
-				"working_material",
-			},
 		},
 	}
 	fields = append(fields, workbookFields...)
@@ -200,7 +214,7 @@ func BuildExportModel(incident incidents.IncidentRecord, snapshotAt time.Time, w
 		return fields[i].Path < fields[j].Path
 	})
 	model := ExportModel{
-		SchemaID:                     "cartulary.export_model.v2",
+		SchemaID:                     ExportModelSchemaID,
 		IncidentID:                   incident.ID.String(),
 		SnapshotAt:                   snapshotAt.UTC(),
 		SourceChangeSetHighWatermark: watermark,
@@ -212,10 +226,6 @@ func BuildExportModel(incident incidents.IncidentRecord, snapshotAt time.Time, w
 		return ExportModel{}, "", err
 	}
 	return model, hashHex(encoded), nil
-}
-
-func SourceBoundaryForIncident(incident incidents.IncidentRecord) string {
-	return fmt.Sprintf("incident:%s:v%d", incident.ID.String(), incident.IncidentVersion)
 }
 
 type RedactionProfileRegistry struct{}
@@ -544,7 +554,51 @@ func disclosurePartitionHandling(field ExportField, include bool) string {
 	return "retained_with_field"
 }
 
-func RenderOutput(kind string, model RedactedExportModel, manifest RedactionManifest, releaseScope string) ([]byte, string, error) {
+const defaultReportCSS = "body{font-family:system-ui,sans-serif;margin:2rem;}main{max-width:72rem;}dt{font-weight:600;}dd{margin:0 0 0.75rem 0;}"
+
+func ResolveTemplateContract(id string, version string) (TemplateContract, bool) {
+	if id != DefaultTemplateID || version != DefaultTemplateVersion {
+		return TemplateContract{}, false
+	}
+	return TemplateContract{
+		TemplateID:             DefaultTemplateID,
+		TemplateVersion:        DefaultTemplateVersion,
+		SupportedOutputKinds:   []string{OutputKindHTML, OutputKindMarkdown, OutputKindSlidev, OutputKindMermaid, OutputKindReenactment},
+		SupportedReleaseScopes: []string{ReleaseScopeInternalDraft, ReleaseScopeInternalReview, ReleaseScopeExternal},
+		AllowedBindings:        []string{"fields", "redaction_manifest"},
+		RenderBindings: []TemplateBinding{
+			{Name: "fields"},
+			{Name: "redaction_manifest"},
+		},
+		RequiredFieldPaths: []string{"/incident/status", "/incident/title"},
+		LocalAssets: []TemplateAsset{
+			{Path: "templates/cartulary.report.default/1/report.css", SHA256: hashHex([]byte(defaultReportCSS))},
+		},
+	}, true
+}
+
+func (contract TemplateContract) SupportsOutputKind(kind string) bool {
+	for _, supported := range contract.SupportedOutputKinds {
+		if kind == supported {
+			return true
+		}
+	}
+	return false
+}
+
+func (contract TemplateContract) SupportsReleaseScope(scope string) bool {
+	for _, supported := range contract.SupportedReleaseScopes {
+		if scope == supported {
+			return true
+		}
+	}
+	return false
+}
+
+func RenderOutput(contract TemplateContract, kind string, model RedactedExportModel, manifest RedactionManifest, releaseScope string) ([]byte, string, error) {
+	if err := validateTemplateContract(contract, kind, model, releaseScope); err != nil {
+		return nil, "", err
+	}
 	switch kind {
 	case OutputKindHTML:
 		return renderHTML(model, manifest), "text/html; charset=utf-8", nil
@@ -562,6 +616,42 @@ func RenderOutput(kind string, model RedactedExportModel, manifest RedactionMani
 	default:
 		return nil, "", fmt.Errorf("unsupported output kind %q", kind)
 	}
+}
+
+func validateTemplateContract(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string) error {
+	if contract.TemplateID == "" || contract.TemplateVersion == "" {
+		return fmt.Errorf("template contract identity is incomplete")
+	}
+	if !contract.SupportsOutputKind(kind) {
+		return fmt.Errorf("template %s@%s does not support output kind %q", contract.TemplateID, contract.TemplateVersion, kind)
+	}
+	if !contract.SupportsReleaseScope(releaseScope) {
+		return fmt.Errorf("template %s@%s does not support release scope %q", contract.TemplateID, contract.TemplateVersion, releaseScope)
+	}
+	allowed := map[string]struct{}{}
+	for _, name := range contract.AllowedBindings {
+		allowed[name] = struct{}{}
+	}
+	for _, binding := range contract.RenderBindings {
+		if _, ok := allowed[binding.Name]; !ok {
+			return fmt.Errorf("%w: %s", ErrUndeclaredTemplateBinding, binding.Name)
+		}
+	}
+	paths := map[string]struct{}{}
+	for _, field := range model.Fields {
+		paths[field.Path] = struct{}{}
+	}
+	for _, path := range contract.RequiredFieldPaths {
+		if _, ok := paths[path]; !ok {
+			return fmt.Errorf("%w: %s", ErrMissingRequiredField, path)
+		}
+	}
+	for _, asset := range contract.LocalAssets {
+		if strings.HasPrefix(asset.Path, "http://") || strings.HasPrefix(asset.Path, "https://") || strings.HasPrefix(asset.Path, "//") || asset.Path == "" || asset.SHA256 == "" {
+			return fmt.Errorf("template asset is not a local integrity-checked asset")
+		}
+	}
+	return nil
 }
 
 func renderHTML(model RedactedExportModel, manifest RedactionManifest) []byte {
@@ -621,8 +711,10 @@ func escapeHTML(value string) string {
 }
 
 func canonicalJSON(value any) ([]byte, error) {
-	return json.Marshal(value)
+	return encodeCanonicalJSON(value)
 }
+
+var encodeCanonicalJSON = json.Marshal
 
 func cloneStrings(values []string) []string {
 	if len(values) == 0 {
