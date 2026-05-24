@@ -47,12 +47,14 @@
     "U-11-REPORTING-03",
     "U-11-REPORTING-04",
     "U-11-REPORTING-05",
+    "U-11-REPORTING-06",
     "I-11-IMPORT-01",
     "I-11-IMPORT-02",
     "I-11-IMPORT-03",
     "I-11-REPORTING-01",
     "I-11-REPORTING-02",
-    "I-11-REPORTING-03"
+    "I-11-REPORTING-03",
+    "I-11-REPORTING-04"
   ],
   "forbidden_id_files": [],
   "support_go_targets": [],
@@ -161,6 +163,21 @@
       "out_of_scope": "This unit fixture does not exercise session authorization or database idempotency persistence.",
       "execution_family": "backend-unit-phase11-reporting-decoder-normalization",
       "execution_label": "backend-unit phase11 reporting decoder normalization"
+    },
+    {
+      "id": "U-11-REPORTING-06",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reporting",
+      "file": "internal/modules/reporting/openapi_contract_test.go",
+      "symbol": "TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "Snapshot/Reporting OpenAPI uses reusable closed enum schemas for release output kind and release scope in both release create and durable release resources, and documents exact snapshot/release resource envelopes for route responses.",
+      "out_of_scope": "This contract-shape evidence is derived from generated OpenAPI artifacts and does not replace direct route behavior tests.",
+      "execution_family": "backend-unit-phase11-reporting-openapi-contract",
+      "execution_label": "backend-unit phase11 reporting OpenAPI contract"
     }
   ],
   "integration": [
@@ -253,6 +270,21 @@
       "out_of_scope": "This evidence does not claim browser report inspection.",
       "execution_family": "backend-integration-phase11-reporting-idempotency",
       "execution_label": "backend-integration phase11 reporting idempotency"
+    },
+    {
+      "id": "I-11-REPORTING-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reporting",
+      "file": "internal/modules/reporting/reporting_integration_test.go",
+      "symbol": "TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Snapshot/Reporting singleton reads and release actions enforce exact durable resource shapes, route-scoped hidden-resource errors, singleton pagination rejection, admin-only publish/invalidate authorization, and action response parity with release reads.",
+      "out_of_scope": "This evidence does not claim browser report inspection or network-level renderer instrumentation.",
+      "execution_family": "backend-integration-phase11-reporting-shape-visibility",
+      "execution_label": "backend-integration phase11 reporting shape and visibility"
     }
   ],
   "e2e": [],

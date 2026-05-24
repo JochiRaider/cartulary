@@ -23,7 +23,7 @@ Implemented remediation record:
 - OpenAPI, generated Go/TypeScript contracts, SQL-derived generated code, phase manifest, generated phase ledger, generated schedules, and duration-maintenance inputs were refreshed through canonical targets.
 - Phase 2, process, and browser reserved-extension expectations were adjusted to use an unclaimed profile root instead of Import now that Import is claimed.
 - Retained-run finalizer maintenance was run after the successful `make check` root and the warm `check-service-backed` retained-run budget was raised to `120000ms` to match observed successful timing.
-- Snapshot and Reporting now targets the `/api/v1/snapshots` and `/api/v1/releases` route families on the v3 remediation model: `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit export-family collection, exact `cartulary.report.default@1` template contracts, explicit `recipient_partition_refs`, durable `render_failed` release rows, async snapshot/release create jobs, generated OpenAPI/contract coverage, SQLC-backed reporting queries, approval/publish/invalidate actions, and Phase 11 direct evidence rows.
+- Snapshot and Reporting now targets the `/api/v1/snapshots` and `/api/v1/releases` route families on the v3 remediation model: `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit export-family collection, exact `cartulary.report.default@1` template contracts, closed `output_kind` and `release_scope` OpenAPI resource schemas, explicit `recipient_partition_refs`, durable `render_failed` release rows, route-scoped hidden-resource errors, async snapshot/release create jobs, generated OpenAPI/contract coverage, SQLC-backed reporting queries, approval/publish/invalidate actions, exact-shape route evidence, and Phase 11 direct evidence rows.
 - Historical retained finalizer roots that predate the explain-run tool-summary diagnostic cleanup remain historical evidence only. Current remediation handoff must cite fresh retained roots that are explainable through `make explain-run`.
 
 Authority model:
@@ -133,12 +133,12 @@ Optional/profile-selected scope:
 
 ## Evidence Layer Matrix
 
-Phase 11 now has authoritative active rows in `tools/phase11_test_map.json`. Current adopted rows cover common jobs, Import, and Snapshot/Reporting: `U-11-JOBS-01`, `U-11-JOBS-02`, `I-11-IMPORT-01`, `I-11-IMPORT-02`, `I-11-IMPORT-03`, `U-11-REPORTING-01..05`, and `I-11-REPORTING-01..03`. Other profile evidence categories remain planning-only until future profile rows are explicitly adopted.
+Phase 11 now has authoritative active rows in `tools/phase11_test_map.json`. Current adopted rows cover common jobs, Import, and Snapshot/Reporting: `U-11-JOBS-01`, `U-11-JOBS-02`, `I-11-IMPORT-01`, `I-11-IMPORT-02`, `I-11-IMPORT-03`, `U-11-REPORTING-01..06`, and `I-11-REPORTING-01..04`. Other profile evidence categories remain planning-only until future profile rows are explicitly adopted.
 
 | Profile | Backend unit evidence | Backend store evidence | Backend integration/process evidence | Browser/E2E evidence | Generated/drift evidence | Claim blockers |
 | --- | --- | --- | --- | --- | --- | --- |
 | Import | Upload-envelope parser, request normalization, mapping fingerprint, error registries, parser isolation guards | Import sessions/units, provenance, source hash, mapping persistence, duplicate-apply and overlap state | Real Postgres import lifecycle, CSV/XLSX bounded discovery, apply jobs, idempotent replay | No browser Import workflow is claimed in the current API-only evidence set | OpenAPI, generated Go/TS contracts, SQL-derived models, phase ledger, phase schedule, and duration baselines refreshed through generators | No open blocker for the current selected Import API route family; future UI evidence is separate and unclaimed |
-| Snapshot and Reporting | Snapshot/release request validation, release-state guards, approval tuple, redaction policy selection, disclosure partition checks, error registries | Immutable snapshots, release records, approval records, output hashes, invalidation persistence, SQLC-backed reporting queries | Real Postgres snapshot/release lifecycle, self-contained output production, snapshot boundary high-watermark replay, approval/publish idempotency | No browser reporting workflow is claimed in the current API-only evidence set | OpenAPI, generated Go/TS contracts, SQL-derived models and queries, phase ledger, phase schedule, and duration baselines refreshed through generators | No open blocker for the current selected API route family; future UI evidence and richer template packs are separate work |
+| Snapshot and Reporting | Snapshot/release request validation, release-state guards, approval tuple, redaction policy selection, disclosure partition checks, error registries, generated OpenAPI closed enum/resource-shape assertions | Immutable snapshots, release records, approval records, output hashes, invalidation persistence, SQLC-backed reporting queries | Real Postgres snapshot/release lifecycle, self-contained output production, snapshot boundary high-watermark replay, approval/publish idempotency, singleton exact-shape and route-scoped visibility/auth assertions | No browser reporting workflow is claimed in the current API-only evidence set | OpenAPI, generated Go/TS contracts, SQL-derived models and queries, phase ledger, phase schedule, and duration baselines refreshed through generators | No open blocker for the current selected API route family; future UI evidence and richer template packs are separate work |
 | Reference Pack | Upload envelope, activation-policy validation, state conflict registry, derived `active` rules | Pack metadata, verification result, active pointer, prior active version, durable conditions | Bundle staging, verification, activation, disable, reverify, refresh, disconnected no-network fixtures | Operator pack import/activate/disable/reverify/refresh flows if product UI exists | Contract/OpenAPI, reference-pack fixture manifests, ledgers/schedules through generators | Base claim freshness; disconnected bundle fixture shape TODO; no route implementation |
 | Incident Portability | Export/import request validation, bundle selector canonicalization, error registries, forbidden-mode rejection | Export descriptor, manifest checksum records, staged import bookkeeping, imported actor descriptors | Whole-incident export/import with Postgres/object store, projection rebuild, missing-file/checksum failures | Export/import progress and imported incident open if product UI exists | Contract/OpenAPI, bundle fixture generation, ledgers/schedules through generators | Base claim freshness; destructive import fixture isolation TODO; no route implementation |
 | Enterprise Authentication | Provider discovery, begin validation, callback/ACS rejection, binding request validation, error registries | Provider config, auth transaction, binding lifecycle, active uniqueness, audit lineage | OIDC/SAML protocol simulation, session issuance, session revocation on rotate/retire | Provider sign-in redirect/callback/ACS and post-login landing behavior if harness can simulate IdP | Contract/OpenAPI and generated protocol drift if route schemas change; ledgers/schedules through generators | Base claim freshness; IdP fixture strategy TODO; no route implementation |
@@ -149,8 +149,8 @@ Phase 11 now has authoritative active rows in `tools/phase11_test_map.json`. Cur
 | --- | --- | --- | --- | --- |
 | [x] | 0. Phase 11 ownership model, profile-selection policy, and harness setup | `make phase-map-check`, `make explain-phase PHASE=phase11`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check` | None. | Sprint 0 is historical. Phase 11 is now active because Import/common-job rows were adopted. |
 | [x] | 1. Common extension substrate and upload-envelope foundation | `go test ./internal/platform/jobs ./internal/modules/jobapi ./internal/modules/imports ./internal/modules/imports/tabularingest ./internal/platform/httpapi ./internal/app`; `make generate`; `make phase-slice PHASE=phase11` | None for common substrate. | Helper evidence remains substrate only; Import route-family evidence in Sprint 2 carries the claim. |
-| [x] | 2. Import Extension Profile | `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make check` | None for the selected API route family. | Import is the only selected and claimed profile; no browser Import workflow is claimed. |
-| [x] | 3. Snapshot and Reporting Extension Profile | `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make check` | None for the selected API route family after final gate passes. | Covers snapshots, releases, approval tuple, state machine, rendering, invalidation, redaction boundary, and generated contracts. |
+| [x] | 2. Import Extension Profile | `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make check` | None for the selected API route family. | Import is selected and claimed; no browser Import workflow is claimed. |
+| [x] | 3. Snapshot and Reporting Extension Profile | `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, latest post-remediation `make test-fast`; historical Sprint 3 `make check` root recorded below | None for the selected API route family. | Covers snapshots, releases, approval tuple, state machine, rendering, invalidation, redaction boundary, generated contracts, exact shapes, and route-scoped visibility/auth. |
 | [ ] | 4. Reference Pack Extension Profile | profile-selected targets | Pending implementation. | Covers pack import, verification, activation, disable, reverify, refresh, disconnected bundle constraints. |
 | [ ] | 5. Incident Portability Extension Profile | profile-selected targets | Pending implementation. | Covers export/import bundle layout, checksums, authoritative source state, blob/history preservation, no deployment-local admin import. |
 | [ ] | 6. Enterprise Authentication Extension Profile | profile-selected targets | Pending implementation. | Covers providers, begin/callback/ACS, same session family, binding management, no auto-provisioning. |
@@ -163,7 +163,7 @@ Objective: Establish Phase 11 traceability and profile-selection policy without 
 Relevant IDs:
 - Extension profile selectors: `profile:import`, `profile:snapshot_reporting`, `profile:reference_pack`, `profile:incident_portability`, `profile:enterprise_authentication`.
 - Aggregate claim gates: `AC-232`, `AC-233`, `AC-234`, `AC-235`, `AC-236`.
-- Active authoritative Phase 11 rows now exist for Import, Snapshot/Reporting, and common jobs: `U-11-JOBS-01`, `U-11-JOBS-02`, `I-11-IMPORT-01`, `I-11-IMPORT-02`, `I-11-IMPORT-03`, `U-11-REPORTING-01..05`, and `I-11-REPORTING-01..03`.
+- Active authoritative Phase 11 rows now exist for Import, Snapshot/Reporting, and common jobs: `U-11-JOBS-01`, `U-11-JOBS-02`, `I-11-IMPORT-01`, `I-11-IMPORT-02`, `I-11-IMPORT-03`, `U-11-REPORTING-01..06`, and `I-11-REPORTING-01..04`.
 
 Files and areas:
 - `tools/phase_registry.json`
@@ -407,11 +407,13 @@ Files and areas:
 Test-first sequence:
 1. Prove `POST /api/v1/snapshots` request validation, omitted high-watermark resolution at admission, replay using original boundary, queued/running/terminal job behavior, and exact snapshot read shape.
 2. Prove `cartulary.snapshot_export_model.v3` collects current base-profile workbook surfaces, active relationship/evidence metadata, deterministic ordering, support refs, disclosure partition refs, and no raw blob bytes, blob hashes, storage refs, job records, auth/admin state, mutable history, or idempotency records.
-3. Prove `POST /api/v1/releases` exact version selectors, `release_scope` defaulting to `internal_draft`, explicit canonical `recipient_partition_refs`, closed vocabulary, no `latest/current`, render job summary, and exact release resource shape.
+3. Prove `POST /api/v1/releases` exact version selectors, `release_scope` defaulting to `internal_draft`, explicit canonical `recipient_partition_refs`, closed `output_kind` and `release_scope` vocabulary, no `latest/current`, render job summary, and exact release resource shape.
 4. Prove durable `render_failed` release rows expose `render_failed_reason_code`, nullable output fields, terminal failed jobs, and state-conflict behavior for approve, publish, and invalidate.
-5. Prove approve, publish, and invalidate action routes, approval tuple binding including recipient partitions, replay before fresh state checks, legal state transitions, and exact `release_state` vocabulary.
+5. Prove approve, publish, and invalidate action routes, approval tuple binding including recipient partitions, replay before fresh state checks, legal state transitions, singleton pagination rejection, action response parity with `GET /api/v1/releases/{release_id}`, admin-only publish/invalidate authorization, and exact `release_state` vocabulary.
 6. Prove self-contained disconnected output and deterministic ordering/hashes.
 7. Prove recipient-specific redaction profiles operate at snapshot/render/release time and do not change live workbook query results, field visibility, row visibility, or evidence visibility.
+8. Prove generated OpenAPI references reusable closed enum schemas from both release create and durable release resource schemas, and keeps snapshot/release resource schemas closed with exact required members.
+9. Prove hidden snapshot member and hidden release member/action routes return reporting route-family not-found codes instead of incident-family not-found codes.
 
 Implementation tasks:
 - Add snapshot and release route family exactly under `/api/v1/snapshots` and `/api/v1/releases`.
@@ -423,16 +425,21 @@ Implementation tasks:
 - Render self-contained outputs without runtime remote assets.
 - Implement incident-aware immutable redaction profile resolution backed by a closed built-in catalog.
 - Maintain the closed snapshot/release family error and reason-code registries without carrying old catch-all reasons.
+- Centralize current-profile reporting vocabularies for validators and template contracts while returning copy-safe slices to callers.
+- Keep generated OpenAPI contract precision aligned with runtime and database closed vocabularies by using reusable `ReleaseOutputKind` and `ReleaseScope` schemas.
+- Map non-visible snapshot and release resources to `snapshot_not_found` or `release_not_found`, while preserving visible insufficient-role publish/invalidate failures as `authorization_denied`.
+- Add authoritative Phase 11 evidence rows for OpenAPI contract precision and endpoint-specific exact-shape/visibility/auth behavior.
 
 Validation commands:
 - `go test ./internal/modules/reporting`
 - `go test ./internal/app ./internal/platform/httpapi ./internal/modules/incidents`
 - `make generate`, `make generate-drift`, and `make migration-drift`
 - `make phase-ledgers`, `make phase-schedules`, `make phase-ledger-drift`, `make phase-schedule-drift`, and `make phase-test-name-check`
-- `make phase-slice PHASE=phase11`: passed at `.cartulary/test-results/20260524T141115Z-p1914505`
-- `make service-backed-slice PHASE=phase11`: passed at `.cartulary/test-results/20260524T141644Z-p1925389`
-- `make check`: passed at `.cartulary/test-results/20260524T142209Z-p1934659`
-- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659`: passed at `.cartulary/test-results/20260524T142930Z-p1990229`
+- `make phase-slice PHASE=phase11`: latest post-contract-remediation pass at `.cartulary/test-results/20260524T160036Z-p2155281`
+- `make service-backed-slice PHASE=phase11`: latest post-contract-remediation pass at `.cartulary/test-results/20260524T160051Z-p2157836`
+- `make agent-finalize`: latest post-contract-remediation pass at `.cartulary/test-results/20260524T155911Z-p2149879`; retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+- `make test-fast`: latest post-contract-remediation pass at `.cartulary/test-results/20260524T160600Z-p2167905`
+- `make check`: historical Sprint 3 broad gate passed at `.cartulary/test-results/20260524T142209Z-p1934659`; it was not rerun after the later generated-contract precision and exact-shape/auth evidence hardening.
 - `git diff --check`
 
 Deliverables:
@@ -444,17 +451,20 @@ Deliverables:
 - Reporting job payload/executor boundary for snapshot and release create.
 - Self-contained output and redaction evidence.
 - Direct non-aggregate evidence for every Snapshot and Reporting delta family.
+- Reusable OpenAPI enum schemas for release output kind and release scope, referenced by both create and durable resource schemas.
+- Endpoint-specific exact-shape, singleton pagination, route-scoped hidden-resource error, and visible insufficient-role action evidence.
 
 Risks and assumptions:
 - Live-recipient-specific workbook withholding is out of scope and non-conformant.
 - Release approvals bind to the exact release tuple and rendered bytes.
 - Core 05 applies only if timed or fixture-sensitive claim publication is made.
+- Browser/network instrumentation remains out of scope for this API-rendered output boundary unless future renderer asset behavior changes.
 
 Exit criteria:
 - Passing Base claim evidence is identified.
 - All Snapshot and Reporting delta ACs have direct evidence.
 - The profile can be claimed independently without implying other extension profiles.
-- `profile:snapshot_reporting.claimed` is true only after the direct Phase 11 slices, drift gates, retained-run finalizer, and selected broad gate passed.
+- `profile:snapshot_reporting.claimed` is true only after the direct Phase 11 slices, drift gates, finalizer maintenance, and selected broad gate passed. After later contract/evidence hardening, the direct slices, drift gates, finalizer without retained-run input, and `make test-fast` passed; `make check` remains the recommended pre-merge gate.
 
 ## Sprint 4. Reference Pack Extension Profile
 
@@ -684,19 +694,30 @@ Import remediation validation record:
 - An earlier retained-run finalizer attempt exposed a stale warm `check-service-backed` budget. The budget was raised to `120000ms`, then finalizer maintenance passed against the successful `make check` root.
 
 Snapshot and Reporting remediation implementation record:
-- Owner specs now bind `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit workbook export-family collection, `recipient_partition_refs`, durable `render_failed` release resources, release-create job behavior, approval tuple provenance, deterministic redaction rule precedence, reserved `hash` handling, post-redaction validation, disclosure-partition eligibility, and the opaque-binary boundary.
-- OpenAPI now declares `/api/v1/snapshots`, `/api/v1/snapshots/{snapshot_id}`, `/api/v1/releases`, `/api/v1/releases/{release_id}`, release `approve`, `publish`, and `invalidate` action routes, release recipient partitions, render failure reason codes, and nullable output fields for `render_failed`.
-- Implementation added `internal/modules/reporting` with immutable async snapshot creation, export model v3 collection over workbook surfaces, release rendering through the versioned default template contract, deterministic redaction manifests, persisted rendered artifacts, route-scoped idempotency, recipient-partition-aware external releases, durable render-failed rows, distinct external reviewer/admin approvals, publish/invalidate actions, SQLC-backed reporting-table queries, and runtime claim registration for `profile:snapshot_reporting`.
+- Owner specs now bind `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit workbook export-family collection, closed `output_kind` and `release_scope` durable resource vocabularies, `recipient_partition_refs`, durable `render_failed` release resources, release-create job behavior, approval tuple provenance, deterministic redaction rule precedence, reserved `hash` handling, post-redaction validation, disclosure-partition eligibility, route-scoped hidden-resource errors, admin-only publish/invalidate behavior, and the opaque-binary boundary.
+- OpenAPI now declares `/api/v1/snapshots`, `/api/v1/snapshots/{snapshot_id}`, `/api/v1/releases`, `/api/v1/releases/{release_id}`, release `approve`, `publish`, and `invalidate` action routes, reusable `ReleaseOutputKind` and `ReleaseScope` enum schemas, release recipient partitions, render failure reason codes, and nullable output fields for `render_failed`.
+- Implementation added `internal/modules/reporting` with immutable async snapshot creation, export model v3 collection over workbook surfaces, release rendering through the versioned default template contract, deterministic redaction manifests, persisted rendered artifacts, route-scoped idempotency, recipient-partition-aware external releases, durable render-failed rows, distinct external reviewer/admin approvals, publish/invalidate actions, route-local snapshot/release visibility errors, centralized current-profile vocabulary helpers, SQLC-backed reporting-table queries, and runtime claim registration for `profile:snapshot_reporting`.
 - Persistence added `reporting_snapshots`, `reporting_releases`, `reporting_release_approvals`, reporting job payloads, recipient partition columns, render-failed nullable output constraints, and authored SQLC query inputs in `db/queries/reporting_phase11.sql`.
 - SQLC ownership cleanup moved superseded-release invalidation back to the generated `InvalidateSupersededReportingReleases` query, including canonical `recipient_partition_refs[]`, and removed the duplicate inline invalidation SQL from the reporting store.
 - Migration `00026_phase11_reporting_remediation.sql` refuses to run against non-empty reporting tables instead of deleting incompatible pre-claim rows, adds recipient partition and reporting job payload storage, allows output fields to be nullable only for durable `render_failed`, and avoids legacy renderer support.
-- Direct evidence added Phase 11 reporting unit rows `U-11-REPORTING-01..05` and integration rows `I-11-REPORTING-01..03`.
+- Direct evidence added Phase 11 reporting unit rows `U-11-REPORTING-01..06` and integration rows `I-11-REPORTING-01..04`. The added post-remediation rows assert OpenAPI enum/resource precision, exact snapshot/release response key sets, singleton pagination rejection, route-scoped hidden-resource errors, visible insufficient-role action errors, and action response parity with `GET /api/v1/releases/{release_id}`.
 - Harness diagnostic cleanup added `explain-run` support for retained public tool-run roots that contain `<target>/tool-run-summary.json`, including bounded `agent-finalize/finalize-summary.json` summaries and child log access without fabricating `run-summary.json`.
 - Focused validation: `go test ./internal/modules/reporting`, `make check-harness-smoke`, `make generate`, `make generate-drift`, `make migration-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, and `git diff --check` passed during this cleanup.
 - Retained roots from this cleanup: `make generate` `.cartulary/test-results/20260524T140301Z-p1887464`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260524T141115Z-p1914505`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260524T141644Z-p1925389`; `make check` `.cartulary/test-results/20260524T142209Z-p1934659`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` `.cartulary/test-results/20260524T142930Z-p1990229`.
 - Finalizer notes: retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` passed with `generated=updated files=6 duration=refreshed run_checks=pass`; updated files were the browser, Go, harness-smoke, service-backed duration baselines plus `tools/execution_topology_render_index.json` and `tools/scheduler_manifest.json`.
 - Broad gate note: an initial `make check` attempt at `.cartulary/test-results/20260524T000651Z-p491510` exposed two unused reporting integration helpers after async job polling replaced direct table helpers. They were removed, `go test ./internal/modules/reporting` and `make lint-go-staticcheck` passed, and the broad gate was rerun successfully.
-- Current final broad gate: `make check` passed at `.cartulary/test-results/20260524T142209Z-p1934659` with 144/144 work units and 695 tests. Retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` passed at `.cartulary/test-results/20260524T142930Z-p1990229`, and both retained roots are explainable through `make explain-run`.
+- Historical Sprint 3 broad gate before generated-contract precision remediation: `make check` passed at `.cartulary/test-results/20260524T142209Z-p1934659` with 144/144 work units and 695 tests. Retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` passed at `.cartulary/test-results/20260524T142930Z-p1990229`, and both retained roots are explainable through `make explain-run`.
+
+Snapshot and Reporting generated-contract precision remediation record:
+- The confirmed gap was OpenAPI resource precision only: runtime code and database constraints already enforced closed `release_scope` and `output_kind` vocabularies, but `ReleaseResource` exposed those fields as plain strings.
+- Remediation added reusable OpenAPI enum schemas for `ReleaseOutputKind` (`html`, `markdown`, `slidev`, `mermaid`, `reenactment`) and `ReleaseScope` (`internal_draft`, `internal_review`, `external_release`) and referenced them from both `ReleaseCreateRequest` and `ReleaseResource`.
+- Route behavior was aligned with clarified owner text: hidden snapshot reads and release-create attempts against hidden snapshots return `snapshot_not_found`; hidden release reads and release actions return `release_not_found`; visible publish/invalidate callers without incident `admin` role keep `authorization_denied`; approve/publish/invalidate reject singleton pagination query members.
+- Reporting template contracts and validators now share the same runtime vocabulary source with copy-safe slices rather than duplicated literal lists.
+- Generated artifacts refreshed by canonical commands: OpenAPI-derived Go/TypeScript contracts, generated Phase 11 ledger, generated schedules, and Go duration baselines.
+- Latest post-remediation validation: `make generate`, `make phase-ledgers`, `make phase-schedules`, isolated `go test ./internal/modules/reporting -run TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources`, `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260524T155233Z-p2135664`, `make go-test-duration-baseline-coverage`, `make agent-finalize`, `make generate-drift`, `make migration-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make test-fast`, and `git diff --check` passed.
+- Latest retained roots: `make agent-finalize` `.cartulary/test-results/20260524T155911Z-p2149879`; `make generate-drift` `.cartulary/test-results/20260524T160011Z-p2152395`; `make migration-drift` `.cartulary/test-results/20260524T160016Z-p2153189`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260524T160036Z-p2155281`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260524T160051Z-p2157836`; `make test-fast` `.cartulary/test-results/20260524T160600Z-p2167905`.
+- Latest finalizer note: `make agent-finalize` passed with `generated=unchanged files=0 duration=skipped run_checks=skipped results_dir=-`; retained-run maintenance was skipped because `RESULTS_DIR` was unset. An earlier finalizer attempt failed because the new integration shard lacked a Go duration baseline; a successful Phase 11 service-backed retained root was used to refresh the missing observed baseline without pruning partial evidence, and baseline coverage then passed.
+- `make check` was not rerun after this generated-contract precision remediation. The historical Sprint 3 `make check` root above remains evidence for the earlier full Sprint 3 implementation state; `make check` remains the recommended pre-merge broad gate for the latest remediation.
 
 Risks and assumptions:
 - Broad gates may be heavy and should run only when product implementation occurs or repository convention requires them.

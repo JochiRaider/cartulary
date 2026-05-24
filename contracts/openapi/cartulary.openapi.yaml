@@ -3128,6 +3128,24 @@
           "export_model_sha256"
         ]
       },
+      "ReleaseOutputKind": {
+        "type": "string",
+        "enum": [
+          "html",
+          "markdown",
+          "slidev",
+          "mermaid",
+          "reenactment"
+        ]
+      },
+      "ReleaseScope": {
+        "type": "string",
+        "enum": [
+          "internal_draft",
+          "internal_review",
+          "external_release"
+        ]
+      },
       "ReleaseCreateRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -3152,22 +3170,10 @@
             "type": "string"
           },
           "output_kind": {
-            "type": "string",
-            "enum": [
-              "html",
-              "markdown",
-              "slidev",
-              "mermaid",
-              "reenactment"
-            ]
+            "$ref": "#/components/schemas/ReleaseOutputKind"
           },
           "release_scope": {
-            "type": "string",
-            "enum": [
-              "internal_draft",
-              "internal_review",
-              "external_release"
-            ]
+            "$ref": "#/components/schemas/ReleaseScope"
           },
           "recipient_partition_refs": {
             "type": "array",
@@ -3268,7 +3274,7 @@
             "pattern": "^[0-9a-f]{64}$"
           },
           "output_kind": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReleaseOutputKind"
           },
           "output_media_type": {
             "type": [
@@ -3277,7 +3283,7 @@
             ]
           },
           "release_scope": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReleaseScope"
           },
           "recipient_partition_refs": {
             "type": "array",

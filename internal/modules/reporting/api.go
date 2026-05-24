@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 
@@ -41,6 +42,29 @@ const (
 	ReleaseStateInvalidated     = "invalidated"
 	ReleaseStateRenderFailed    = "render_failed"
 )
+
+var (
+	outputKindVocabulary = []string{
+		OutputKindHTML,
+		OutputKindMarkdown,
+		OutputKindSlidev,
+		OutputKindMermaid,
+		OutputKindReenactment,
+	}
+	releaseScopeVocabulary = []string{
+		ReleaseScopeInternalDraft,
+		ReleaseScopeInternalReview,
+		ReleaseScopeExternal,
+	}
+)
+
+func supportedOutputKinds() []string {
+	return append([]string(nil), outputKindVocabulary...)
+}
+
+func supportedReleaseScopes() []string {
+	return append([]string(nil), releaseScopeVocabulary...)
+}
 
 type CreateSnapshotRequest struct {
 	IncidentID                   uuid.UUID
@@ -358,21 +382,11 @@ func optionalStringForHash(value *string) any {
 }
 
 func validOutputKind(kind string) bool {
-	switch kind {
-	case OutputKindHTML, OutputKindMarkdown, OutputKindSlidev, OutputKindMermaid, OutputKindReenactment:
-		return true
-	default:
-		return false
-	}
+	return slices.Contains(outputKindVocabulary, kind)
 }
 
 func validReleaseScope(scope string) bool {
-	switch scope {
-	case ReleaseScopeInternalDraft, ReleaseScopeInternalReview, ReleaseScopeExternal:
-		return true
-	default:
-		return false
-	}
+	return slices.Contains(releaseScopeVocabulary, scope)
 }
 
 func isSupportedRedactionProfileSelector(id string, version string) bool {

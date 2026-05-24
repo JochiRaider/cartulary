@@ -139,7 +139,7 @@ func (s *Service) handleSnapshotsMember(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+		writeAPIError(w, r, snapshotVisibilityError(apiErr))
 		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
@@ -183,7 +183,7 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if _, apiErr := s.requireIncidentRole(r.Context(), snapshot.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+		writeAPIError(w, r, snapshotVisibilityError(apiErr))
 		return
 	}
 	_ = model
@@ -241,7 +241,7 @@ func (s *Service) handleReleasesMember(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-			writeAPIError(w, r, apiErr)
+			writeAPIError(w, r, releaseVisibilityError(apiErr))
 			return
 		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
@@ -265,6 +265,10 @@ func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, p
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	request, apiErr := DecodeReleaseActionRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -282,7 +286,7 @@ func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, p
 	_ = release
 	membership, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID)
 	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
+		writeAPIError(w, r, releaseVisibilityError(apiErr))
 		return
 	}
 	result, err := s.store.ApproveRelease(r.Context(), ApproveReleaseParams{
@@ -300,6 +304,10 @@ func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, p
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	request, apiErr := DecodeReleaseActionRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -315,7 +323,7 @@ func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+		writeAPIError(w, r, releaseVisibilityError(apiErr))
 		return
 	}
 	result, err := s.store.PublishRelease(r.Context(), ReleaseActionParams{
@@ -332,6 +340,10 @@ func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	request, apiErr := DecodeReleaseActionRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -347,7 +359,7 @@ func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+		writeAPIError(w, r, releaseVisibilityError(apiErr))
 		return
 	}
 	result, err := s.store.InvalidateRelease(r.Context(), ReleaseActionParams{
@@ -620,6 +632,20 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 		}
 	}
 	return incidents.MembershipRecord{}, &auth.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": strings.Join(roles, "|")}}
+}
+
+func snapshotVisibilityError(apiErr *auth.APIError) *auth.APIError {
+	if apiErr != nil && apiErr.Status == http.StatusNotFound && apiErr.Code == "incident_not_found" {
+		return &auth.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}}
+	}
+	return apiErr
+}
+
+func releaseVisibilityError(apiErr *auth.APIError) *auth.APIError {
+	if apiErr != nil && apiErr.Status == http.StatusNotFound && apiErr.Code == "incident_not_found" {
+		return &auth.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}}
+	}
+	return apiErr
 }
 
 func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {

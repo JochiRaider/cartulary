@@ -563,8 +563,8 @@ func ResolveTemplateContract(id string, version string) (TemplateContract, bool)
 	return TemplateContract{
 		TemplateID:             DefaultTemplateID,
 		TemplateVersion:        DefaultTemplateVersion,
-		SupportedOutputKinds:   []string{OutputKindHTML, OutputKindMarkdown, OutputKindSlidev, OutputKindMermaid, OutputKindReenactment},
-		SupportedReleaseScopes: []string{ReleaseScopeInternalDraft, ReleaseScopeInternalReview, ReleaseScopeExternal},
+		SupportedOutputKinds:   supportedOutputKinds(),
+		SupportedReleaseScopes: supportedReleaseScopes(),
 		AllowedBindings:        []string{"fields", "redaction_manifest"},
 		RenderBindings: []TemplateBinding{
 			{Name: "fields"},

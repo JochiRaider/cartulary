@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -538,6 +540,195 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 	}
 }
 
+func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase11-reporting-shape-auth")
+
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	reviewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)
+	phase2test.SeedLocalUserFlags(t, harness.DB, "shape-outsider@example.test", "Shape Outsider", "ShapeOutsider1!", false, false, true)
+	reviewerSession, reviewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "shape-reviewer@example.test", "ShapeReviewer1!")
+	reviewerLogin := phase2test.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
+	outsiderSession, outsiderCSRF := phase2test.LoginLocalUser(t, harness.Server, "shape-outsider@example.test", "ShapeOutsider1!")
+	outsiderLogin := phase2test.LoginResult{SessionCookie: outsiderSession, CSRFCookie: outsiderCSRF}
+
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-reporting-shape-incident",
+		"incident_key":  "IR-REPORTING-04",
+		"title":         "Reporting Shape Incident",
+		"description":   "resource shape and visibility source text",
+	})
+	incidentID := incident["incident_id"].(string)
+	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+		"client_txn_id": "txn-reporting-shape-reviewer-membership",
+		"user_id":       reviewerID,
+		"role":          "reviewer",
+	})
+	_ = phase2test.CreateIncident(t, harness.Server, outsiderLogin, map[string]any{
+		"client_txn_id": "txn-reporting-shape-other-incident",
+		"incident_key":  "IR-REPORTING-04-OTHER",
+		"title":         "Other Reporting Incident",
+	})
+
+	snapshotJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/snapshots",
+		map[string]any{
+			"incident_id":   incidentID,
+			"client_txn_id": "txn-reporting-shape-snapshot",
+		},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	), http.StatusAccepted)["data"].(map[string]any)
+	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
+	_ = requireSnapshot(t, harness, adminLogin, snapshotID)
+
+	paginatedSnapshot := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID+"?limit=1",
+		nil,
+		phase2test.WithCookies(adminLogin.SessionCookie),
+	)
+	httptestx.RequireErrorEnvelope(t, paginatedSnapshot, http.StatusBadRequest, "invalid_pagination_request")
+
+	hiddenSnapshot := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
+		nil,
+		phase2test.WithCookies(outsiderLogin.SessionCookie),
+	)
+	httptestx.RequireErrorEnvelope(t, hiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
+
+	hiddenReleaseCreate := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases",
+		map[string]any{
+			"snapshot_id":               snapshotID,
+			"client_txn_id":             "txn-reporting-shape-hidden-release-create",
+			"template_id":               reporting.DefaultTemplateID,
+			"template_version":          reporting.DefaultTemplateVersion,
+			"redaction_profile_id":      reporting.InternalRedactionProfileID,
+			"redaction_profile_version": "1",
+			"output_kind":               reporting.OutputKindMarkdown,
+		},
+		phase2test.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, hiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
+
+	releaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases",
+		map[string]any{
+			"snapshot_id":               snapshotID,
+			"client_txn_id":             "txn-reporting-shape-release",
+			"template_id":               reporting.DefaultTemplateID,
+			"template_version":          reporting.DefaultTemplateVersion,
+			"redaction_profile_id":      reporting.InternalRedactionProfileID,
+			"redaction_profile_version": "1",
+			"output_kind":               reporting.OutputKindMarkdown,
+		},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	), http.StatusAccepted)["data"].(map[string]any)
+	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
+	release := requireRelease(t, harness, adminLogin, releaseID)
+	if release["release_scope"] != reporting.ReleaseScopeInternalDraft || release["output_kind"] != reporting.OutputKindMarkdown {
+		t.Fatalf("release resource must expose resolved closed vocabularies, got %#v", release)
+	}
+
+	paginatedRelease := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"?limit=1",
+		nil,
+		phase2test.WithCookies(adminLogin.SessionCookie),
+	)
+	httptestx.RequireErrorEnvelope(t, paginatedRelease, http.StatusBadRequest, "invalid_pagination_request")
+
+	hiddenRelease := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
+		nil,
+		phase2test.WithCookies(outsiderLogin.SessionCookie),
+	)
+	httptestx.RequireErrorEnvelope(t, hiddenRelease, http.StatusNotFound, "release_not_found")
+
+	for _, action := range []string{"approve", "publish", "invalidate"} {
+		paginatedAction := phase2test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action+"?limit=1",
+			map[string]any{"client_txn_id": "txn-reporting-shape-paginated-" + action},
+			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, paginatedAction, http.StatusBadRequest, "invalid_pagination_request")
+
+		hiddenAction := phase2test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action,
+			map[string]any{"client_txn_id": "txn-reporting-shape-hidden-" + action},
+			phase2test.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
+			phase2test.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, hiddenAction, http.StatusNotFound, "release_not_found")
+	}
+
+	reviewerPublish := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
+		map[string]any{"client_txn_id": "txn-reporting-shape-reviewer-publish"},
+		phase2test.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, reviewerPublish, http.StatusForbidden, "authorization_denied")
+
+	published := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
+		map[string]any{"client_txn_id": "txn-reporting-shape-admin-publish"},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	), http.StatusOK)["data"].(map[string]any)
+	requireReleaseResourceShape(t, published)
+	if got := requireRelease(t, harness, adminLogin, releaseID); !reflect.DeepEqual(published, got) {
+		t.Fatalf("publish action response must match GET release resource: action=%#v get=%#v", published, got)
+	}
+
+	reviewerInvalidate := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/invalidate",
+		map[string]any{"client_txn_id": "txn-reporting-shape-reviewer-invalidate"},
+		phase2test.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, reviewerInvalidate, http.StatusForbidden, "authorization_denied")
+
+	invalidated := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/invalidate",
+		map[string]any{"client_txn_id": "txn-reporting-shape-admin-invalidate"},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	), http.StatusOK)["data"].(map[string]any)
+	requireReleaseResourceShape(t, invalidated)
+	if got := requireRelease(t, harness, adminLogin, releaseID); !reflect.DeepEqual(invalidated, got) {
+		t.Fatalf("invalidate action response must match GET release resource: action=%#v get=%#v", invalidated, got)
+	}
+}
+
 func seedReportingWorkbookFixture(t testing.TB, db *sql.DB, incidentID string, actorID string) map[string]string {
 	t.Helper()
 	ids := map[string]string{}
@@ -1021,7 +1212,9 @@ func requireSnapshot(t testing.TB, harness *phase2test.ServerHarness, actor phas
 		nil,
 		phase2test.WithCookies(actor.SessionCookie),
 	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	resource := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	requireSnapshotResourceShape(t, resource)
+	return resource
 }
 
 func requireRelease(t testing.TB, harness *phase2test.ServerHarness, actor phase2test.LoginResult, releaseID string) map[string]any {
@@ -1033,7 +1226,80 @@ func requireRelease(t testing.TB, harness *phase2test.ServerHarness, actor phase
 		nil,
 		phase2test.WithCookies(actor.SessionCookie),
 	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	resource := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	requireReleaseResourceShape(t, resource)
+	return resource
+}
+
+func requireSnapshotResourceShape(t testing.TB, resource map[string]any) {
+	t.Helper()
+	requireExactResourceKeys(t, "snapshot resource", resource, []string{
+		"snapshot_id",
+		"incident_id",
+		"created_by_user_id",
+		"created_at",
+		"snapshot_at",
+		"source_change_set_high_watermark",
+		"derivation_version",
+		"export_model_sha256",
+	})
+}
+
+func requireReleaseResourceShape(t testing.TB, resource map[string]any) {
+	t.Helper()
+	requireExactResourceKeys(t, "release resource", resource, []string{
+		"release_id",
+		"incident_id",
+		"snapshot_id",
+		"snapshot_at",
+		"source_change_set_high_watermark",
+		"derivation_version",
+		"export_model_sha256",
+		"template_id",
+		"template_version",
+		"redaction_profile_id",
+		"redaction_profile_version",
+		"redaction_profile_sha256",
+		"output_kind",
+		"output_media_type",
+		"release_scope",
+		"recipient_partition_refs",
+		"output_sha256",
+		"redaction_manifest_sha256",
+		"release_state",
+		"render_failed_reason_code",
+		"created_by_user_id",
+		"created_at",
+		"approved_at",
+		"invalidated_at",
+		"published_at",
+		"invalidation_reason",
+	})
+}
+
+func requireExactResourceKeys(t testing.TB, label string, resource map[string]any, want []string) {
+	t.Helper()
+	wantSet := make(map[string]struct{}, len(want))
+	for _, key := range want {
+		wantSet[key] = struct{}{}
+	}
+	var missing []string
+	for _, key := range want {
+		if _, ok := resource[key]; !ok {
+			missing = append(missing, key)
+		}
+	}
+	var extra []string
+	for key := range resource {
+		if _, ok := wantSet[key]; !ok {
+			extra = append(extra, key)
+		}
+	}
+	if len(missing) > 0 || len(extra) > 0 {
+		sort.Strings(missing)
+		sort.Strings(extra)
+		t.Fatalf("%s exact shape mismatch: missing=%v extra=%v resource=%#v", label, missing, extra, resource)
+	}
 }
 
 func requireReleaseArtifacts(t testing.TB, db *sql.DB, releaseID string) (string, map[string]any) {
