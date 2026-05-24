@@ -962,6 +962,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Snapshot is not visible to the caller",
             "content": {
@@ -1051,6 +1061,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReleaseEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }

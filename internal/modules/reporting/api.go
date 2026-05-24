@@ -211,12 +211,6 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *auth.A
 		}
 		request.ReleaseScope = value
 	}
-	if !validOutputKind(request.OutputKind) {
-		return CreateReleaseRequest{}, invalidReleaseRequest("output_kind", "unsupported_output_kind")
-	}
-	if !validReleaseScope(request.ReleaseScope) {
-		return CreateReleaseRequest{}, invalidReleaseRequest("release_scope", "unsupported_release_scope")
-	}
 	if value, ok := raw["recipient_partition_refs"]; ok {
 		refs, apiErr := optionalStringSet(value, "recipient_partition_refs", "invalid_release_request")
 		if apiErr != nil {
@@ -226,9 +220,6 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *auth.A
 	}
 	if request.RecipientPartitionRefs == nil {
 		request.RecipientPartitionRefs = []string{}
-	}
-	if request.ReleaseScope != ReleaseScopeExternal && len(request.RecipientPartitionRefs) > 0 {
-		return CreateReleaseRequest{}, invalidReleaseRequest("recipient_partition_refs", "recipient_partitions_not_allowed")
 	}
 	redactionProfileID, apiErr := requiredStringField(raw, "redaction_profile_id", "invalid_release_request")
 	if apiErr != nil {
@@ -387,6 +378,26 @@ func validOutputKind(kind string) bool {
 
 func validReleaseScope(scope string) bool {
 	return slices.Contains(releaseScopeVocabulary, scope)
+}
+
+func validateCreateReleaseRequestSemantics(request CreateReleaseRequest) (TemplateContract, *auth.APIError) {
+	if !validOutputKind(request.OutputKind) {
+		return TemplateContract{}, invalidReleaseRequest("output_kind", "unsupported_output_kind")
+	}
+	if !validReleaseScope(request.ReleaseScope) {
+		return TemplateContract{}, invalidReleaseRequest("release_scope", "unsupported_release_scope")
+	}
+	if request.ReleaseScope != ReleaseScopeExternal && len(request.RecipientPartitionRefs) > 0 {
+		return TemplateContract{}, invalidReleaseRequest("recipient_partition_refs", "recipient_partitions_not_allowed")
+	}
+	templateContract, ok := ResolveTemplateContract(request.TemplateID, request.TemplateVersion)
+	if !ok {
+		return TemplateContract{}, unsupportedTemplateError(request.TemplateID, request.TemplateVersion)
+	}
+	if !isSupportedRedactionProfileSelector(request.RedactionProfileID, request.RedactionProfileVersion) {
+		return TemplateContract{}, unsupportedRedactionProfileError(request.RedactionProfileID, request.RedactionProfileVersion)
+	}
+	return templateContract, nil
 }
 
 func isSupportedRedactionProfileSelector(id string, version string) bool {

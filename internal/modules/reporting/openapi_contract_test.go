@@ -78,11 +78,15 @@ func TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources(t *testi
 	requireOpenAPIPropertyRef(t, releaseProperties, "release_scope", "ReleaseScope")
 
 	paths := reportingOpenAPIObjectAt(t, document, "paths")
-	requireOpenAPIResponseRef(t, reportingOpenAPIObjectAt(t, paths, "/api/v1/snapshots/{snapshot_id}", "get"), "200", "SnapshotEnvelope")
+	getSnapshot := reportingOpenAPIObjectAt(t, paths, "/api/v1/snapshots/{snapshot_id}", "get")
+	requireOpenAPIResponseRef(t, getSnapshot, "200", "SnapshotEnvelope")
+	requireOpenAPIResponseRef(t, getSnapshot, "400", "ErrorEnvelope")
 	createRelease := reportingOpenAPIObjectAt(t, paths, "/api/v1/releases", "post")
 	requireOpenAPIRequestRef(t, createRelease, "ReleaseCreateRequest")
 	requireOpenAPIResponseRef(t, createRelease, "202", "JobEnvelope")
-	requireOpenAPIResponseRef(t, reportingOpenAPIObjectAt(t, paths, "/api/v1/releases/{release_id}", "get"), "200", "ReleaseEnvelope")
+	getRelease := reportingOpenAPIObjectAt(t, paths, "/api/v1/releases/{release_id}", "get")
+	requireOpenAPIResponseRef(t, getRelease, "200", "ReleaseEnvelope")
+	requireOpenAPIResponseRef(t, getRelease, "400", "ErrorEnvelope")
 	for _, action := range []string{"approve", "publish", "invalidate"} {
 		operation := reportingOpenAPIObjectAt(t, paths, "/api/v1/releases/{release_id}/"+action, "post")
 		requireOpenAPIRequestRef(t, operation, "ReleaseActionRequest")

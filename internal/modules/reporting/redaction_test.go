@@ -328,7 +328,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 	if nullPartitions == nil || nullPartitions.Details["reason_code"] != "field_not_nullable" {
 		t.Fatalf("recipient_partition_refs null must be rejected as non-nullable, got %#v", nullPartitions)
 	}
-	_, internalPartitions := DecodeCreateReleaseRequest(strings.NewReader(`{
+	internalPartitionRequest, apiErr := DecodeCreateReleaseRequest(strings.NewReader(`{
 		"snapshot_id":"00000000-0000-0000-0000-000000000001",
 		"client_txn_id":"txn-release-internal-partitions",
 		"template_id":"cartulary.report.default",
@@ -338,6 +338,10 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 		"output_kind":"html",
 		"recipient_partition_refs":["party:a"]
 	}`))
+	if apiErr != nil {
+		t.Fatalf("structural release decode should not perform hidden-resource selector validation, got %#v", apiErr)
+	}
+	_, internalPartitions := validateCreateReleaseRequestSemantics(internalPartitionRequest)
 	if internalPartitions == nil || internalPartitions.Details["reason_code"] != "recipient_partitions_not_allowed" {
 		t.Fatalf("internal recipient partitions must use closed rejection reason, got %#v", internalPartitions)
 	}
@@ -367,6 +371,32 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 			{Path: "/incident/title", ContentClass: ContentClassCuratedNarrative, Value: "Renderable", SupportRefs: []string{"/incident/status"}},
 		},
 	}
+	selfContainedCases := []struct {
+		name   string
+		kind   string
+		output string
+	}{
+		{name: "remote script", kind: OutputKindHTML, output: `<script src="https://cdn.example.test/app.js"></script>`},
+		{name: "remote stylesheet", kind: OutputKindHTML, output: `<link rel="stylesheet" href="//cdn.example.test/app.css">`},
+		{name: "remote font css import", kind: OutputKindHTML, output: `<style>@import url("https://fonts.example.test/font.css");</style>`},
+		{name: "remote css url", kind: OutputKindHTML, output: `<style>body{background:url(https://cdn.example.test/bg.png)}</style>`},
+		{name: "remote image", kind: OutputKindHTML, output: `<img src="https://cdn.example.test/a.png">`},
+		{name: "markdown remote image", kind: OutputKindMarkdown, output: `![remote](https://cdn.example.test/a.png)`},
+		{name: "markdown raw remote image", kind: OutputKindMarkdown, output: `<img src="https://cdn.example.test/a.png">`},
+	}
+	for _, tc := range selfContainedCases {
+		t.Run("self contained rejects "+tc.name, func(t *testing.T) {
+			if err := ValidateSelfContainedOutput(tc.kind, []byte(tc.output)); !errors.Is(err, ErrRemoteRuntimeAsset) {
+				t.Fatalf("remote output asset should fail closed, got %v", err)
+			}
+		})
+	}
+	t.Run("self contained allows plain escaped URL text", func(t *testing.T) {
+		output := []byte(`<p>Observed URL text: https://portal.example.test/login</p>`)
+		if err := ValidateSelfContainedOutput(OutputKindHTML, output); err != nil {
+			t.Fatalf("plain escaped URL text should remain renderable, got %v", err)
+		}
+	})
 	reasonCases := []struct {
 		name     string
 		request  CreateReleaseRequest
@@ -440,6 +470,26 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 			}(),
 			model: baseModel,
 			want:  "missing_required_field",
+		},
+		{
+			name: "self contained output validation",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.OutputKind = OutputKindMarkdown
+				return req
+			}(),
+			contract: contract,
+			model: func() ExportModel {
+				model := baseModel
+				model.Fields = append(model.Fields, ExportField{
+					Path:         "/incident/description",
+					ContentClass: ContentClassCuratedNarrative,
+					Value:        "![remote](https://cdn.example.test/a.png)",
+					SupportRefs:  []string{"/incident/status"},
+				})
+				return model
+			}(),
+			want: "template_render_failed",
 		},
 	}
 	for _, tc := range reasonCases {

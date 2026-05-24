@@ -164,15 +164,6 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	templateContract, ok := ResolveTemplateContract(request.TemplateID, request.TemplateVersion)
-	if !ok {
-		writeAPIError(w, r, unsupportedTemplateError(request.TemplateID, request.TemplateVersion))
-		return
-	}
-	if !isSupportedRedactionProfileSelector(request.RedactionProfileID, request.RedactionProfileVersion) {
-		writeAPIError(w, r, unsupportedRedactionProfileError(request.RedactionProfileID, request.RedactionProfileVersion))
-		return
-	}
 	snapshot, model, err := s.store.GetSnapshotForRender(r.Context(), request.SnapshotID)
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}})
@@ -184,6 +175,11 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 	}
 	if _, apiErr := s.requireIncidentRole(r.Context(), snapshot.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, snapshotVisibilityError(apiErr))
+		return
+	}
+	templateContract, apiErr := validateCreateReleaseRequestSemantics(request)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	_ = model

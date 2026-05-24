@@ -3,6 +3,7 @@ package reporting_test
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"reflect"
 	"sort"
@@ -452,6 +453,50 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 		failedRelease["output_media_type"] != nil {
 		t.Fatalf("render failure must persist nullable render-failed release resource, got %#v", failedRelease)
 	}
+	remoteAssetIncident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-reporting-idempotency-remote-asset-incident",
+		"incident_key":  "IR-REPORTING-03-REMOTE",
+		"title":         "Reporting Remote Asset Incident",
+		"description":   "![remote asset](https://cdn.example.test/report.png)",
+	})
+	remoteAssetIncidentID := remoteAssetIncident["incident_id"].(string)
+	remoteAssetSnapshotJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/snapshots",
+		map[string]any{
+			"incident_id":   remoteAssetIncidentID,
+			"client_txn_id": "txn-reporting-idempotency-remote-asset-snapshot",
+		},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	), http.StatusAccepted)["data"].(map[string]any)
+	remoteAssetSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, remoteAssetSnapshotJob, "snapshot")
+	remoteAssetReleaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases",
+		map[string]any{
+			"snapshot_id":               remoteAssetSnapshotID,
+			"client_txn_id":             "txn-reporting-idempotency-remote-asset-release",
+			"template_id":               reporting.DefaultTemplateID,
+			"template_version":          reporting.DefaultTemplateVersion,
+			"redaction_profile_id":      reporting.InternalRedactionProfileID,
+			"redaction_profile_version": "1",
+			"output_kind":               reporting.OutputKindMarkdown,
+		},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	), http.StatusAccepted)["data"].(map[string]any)
+	remoteAssetReleaseID := requireFailedReleaseJob(t, harness, adminLogin, remoteAssetReleaseJob, "template_render_failed")
+	remoteAssetRelease := requireRelease(t, harness, adminLogin, remoteAssetReleaseID)
+	if remoteAssetRelease["release_state"] != reporting.ReleaseStateRenderFailed ||
+		remoteAssetRelease["render_failed_reason_code"] != "template_render_failed" ||
+		remoteAssetRelease["output_sha256"] != nil ||
+		remoteAssetRelease["redaction_manifest_sha256"] != nil ||
+		remoteAssetRelease["output_media_type"] != nil {
+		t.Fatalf("self-contained output validation must persist render-failed release, got %#v", remoteAssetRelease)
+	}
 	unknownReleaseID := "00000000-0000-0000-0000-000000000999"
 	for _, action := range []string{"approve", "publish", "invalidate"} {
 		malformed := phase2test.DoJSON(
@@ -619,6 +664,68 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		phase2test.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
+
+	releaseCreateBody := func(clientTxnID string, mutate func(map[string]any)) map[string]any {
+		body := map[string]any{
+			"snapshot_id":               snapshotID,
+			"client_txn_id":             clientTxnID,
+			"template_id":               reporting.DefaultTemplateID,
+			"template_version":          reporting.DefaultTemplateVersion,
+			"redaction_profile_id":      reporting.InternalRedactionProfileID,
+			"redaction_profile_version": "1",
+			"output_kind":               reporting.OutputKindMarkdown,
+		}
+		if mutate != nil {
+			mutate(body)
+		}
+		return body
+	}
+	postReleaseCreate := func(actor phase2test.LoginResult, body map[string]any) *http.Response {
+		t.Helper()
+		return phase2test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/releases",
+			body,
+			phase2test.WithCookies(actor.SessionCookie, actor.CSRFCookie),
+			phase2test.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+		)
+	}
+	hiddenSelectorCases := []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{name: "unsupported template", mutate: func(body map[string]any) { body["template_id"] = "cartulary.report.missing" }},
+		{name: "unsupported redaction profile", mutate: func(body map[string]any) { body["redaction_profile_version"] = "missing" }},
+		{name: "unsupported output kind", mutate: func(body map[string]any) { body["output_kind"] = "docx" }},
+		{name: "unsupported release scope", mutate: func(body map[string]any) { body["release_scope"] = "public" }},
+		{name: "recipient partitions with internal scope", mutate: func(body map[string]any) { body["recipient_partition_refs"] = []string{"party:hidden"} }},
+	}
+	for i, tc := range hiddenSelectorCases {
+		body := releaseCreateBody(fmt.Sprintf("txn-reporting-shape-hidden-selector-%d", i), tc.mutate)
+		resp := postReleaseCreate(outsiderLogin, body)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "snapshot_not_found")
+	}
+	visibleSelectorCases := []struct {
+		name       string
+		mutate     func(map[string]any)
+		wantReason string
+	}{
+		{name: "unsupported template", mutate: func(body map[string]any) { body["template_id"] = "cartulary.report.missing" }, wantReason: "unsupported_template"},
+		{name: "unsupported redaction profile", mutate: func(body map[string]any) { body["redaction_profile_version"] = "missing" }, wantReason: "unsupported_redaction_profile"},
+		{name: "unsupported output kind", mutate: func(body map[string]any) { body["output_kind"] = "docx" }, wantReason: "unsupported_output_kind"},
+		{name: "unsupported release scope", mutate: func(body map[string]any) { body["release_scope"] = "public" }, wantReason: "unsupported_release_scope"},
+		{name: "recipient partitions with internal scope", mutate: func(body map[string]any) { body["recipient_partition_refs"] = []string{"party:visible"} }, wantReason: "recipient_partitions_not_allowed"},
+	}
+	for i, tc := range visibleSelectorCases {
+		body := releaseCreateBody(fmt.Sprintf("txn-reporting-shape-visible-selector-%d", i), tc.mutate)
+		resp := postReleaseCreate(adminLogin, body)
+		envelope := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_release_request")
+		details := httptestx.RequireErrorDetails(t, envelope)
+		if details["reason_code"] != tc.wantReason {
+			t.Fatalf("%s reason_code = %#v want %q", tc.name, details["reason_code"], tc.wantReason)
+		}
+	}
 
 	releaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
 		t,
