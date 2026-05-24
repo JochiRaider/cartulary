@@ -743,6 +743,16 @@ type RecordTag struct {
 	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
+type ReportingJobPayload struct {
+	JobID       pgtype.UUID        `json:"job_id"`
+	JobKind     string             `json:"job_kind"`
+	IncidentID  pgtype.UUID        `json:"incident_id"`
+	ActorUserID pgtype.UUID        `json:"actor_user_id"`
+	RequestJson []byte             `json:"request_json"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ReportingRelease struct {
 	ReleaseID                    pgtype.UUID        `json:"release_id"`
 	IncidentID                   pgtype.UUID        `json:"incident_id"`
@@ -761,11 +771,11 @@ type ReportingRelease struct {
 	RedactionProfileVersion      string             `json:"redaction_profile_version"`
 	RedactionProfileSha256       string             `json:"redaction_profile_sha256"`
 	OutputKind                   string             `json:"output_kind"`
-	OutputMediaType              string             `json:"output_media_type"`
-	OutputSha256                 string             `json:"output_sha256"`
-	RedactionManifestSha256      string             `json:"redaction_manifest_sha256"`
+	OutputMediaType              pgtype.Text        `json:"output_media_type"`
+	OutputSha256                 pgtype.Text        `json:"output_sha256"`
+	RedactionManifestSha256      pgtype.Text        `json:"redaction_manifest_sha256"`
 	RedactionManifestJson        []byte             `json:"redaction_manifest_json"`
-	RenderedOutput               string             `json:"rendered_output"`
+	RenderedOutput               pgtype.Text        `json:"rendered_output"`
 	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
 	RenderFailedReasonCode       pgtype.Text        `json:"render_failed_reason_code"`
 	ApprovedAt                   pgtype.Timestamptz `json:"approved_at"`
@@ -774,6 +784,7 @@ type ReportingRelease struct {
 	InvalidationReason           pgtype.Text        `json:"invalidation_reason"`
 	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	RecipientPartitionRefs       []byte             `json:"recipient_partition_refs"`
 }
 
 type ReportingReleaseApproval struct {

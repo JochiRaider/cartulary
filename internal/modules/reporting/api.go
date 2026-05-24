@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -17,7 +18,7 @@ import (
 const (
 	ProfileID = "snapshot_reporting"
 
-	DerivationVersion = "cartulary.snapshot_export_model.v1"
+	DerivationVersion = "cartulary.snapshot_export_model.v2"
 
 	DefaultTemplateID      = "cartulary.report.default"
 	DefaultTemplateVersion = "1"
@@ -55,6 +56,7 @@ type CreateReleaseRequest struct {
 	RedactionProfileVersion string
 	OutputKind              string
 	ReleaseScope            string
+	RecipientPartitionRefs  []string
 	Normalized              []byte
 }
 
@@ -132,6 +134,7 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *auth.A
 		"redaction_profile_version": {},
 		"output_kind":               {},
 		"release_scope":             {},
+		"recipient_partition_refs":  {},
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
@@ -188,6 +191,19 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *auth.A
 	if !validReleaseScope(request.ReleaseScope) {
 		return CreateReleaseRequest{}, invalidReleaseRequest("release_scope", "unsupported_release_scope")
 	}
+	if value, ok := raw["recipient_partition_refs"]; ok {
+		refs, apiErr := optionalStringSet(value, "recipient_partition_refs", "invalid_release_request")
+		if apiErr != nil {
+			return CreateReleaseRequest{}, apiErr
+		}
+		request.RecipientPartitionRefs = refs
+	}
+	if request.RecipientPartitionRefs == nil {
+		request.RecipientPartitionRefs = []string{}
+	}
+	if request.ReleaseScope != ReleaseScopeExternal && len(request.RecipientPartitionRefs) > 0 {
+		return CreateReleaseRequest{}, invalidReleaseRequest("recipient_partition_refs", "recipient_partitions_not_allowed")
+	}
 	redactionProfileID, apiErr := requiredStringField(raw, "redaction_profile_id", "invalid_release_request")
 	if apiErr != nil {
 		return CreateReleaseRequest{}, apiErr
@@ -207,6 +223,7 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *auth.A
 		"redaction_profile_version": request.RedactionProfileVersion,
 		"output_kind":               request.OutputKind,
 		"release_scope":             request.ReleaseScope,
+		"recipient_partition_refs":  request.RecipientPartitionRefs,
 	})
 	if err != nil {
 		return CreateReleaseRequest{}, internalAPIError(err)
@@ -300,6 +317,29 @@ func optionalNonNullString(raw json.RawMessage, field string, errorCode string) 
 	return parsed, nil
 }
 
+func optionalStringSet(raw json.RawMessage, field string, errorCode string) ([]string, *auth.APIError) {
+	if bytesEqualJSONNull(raw) {
+		return nil, invalidRequest(errorCode, field, "field_not_nullable")
+	}
+	var values []string
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return nil, invalidRequest(errorCode, field, "invalid_value")
+	}
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		if strings.TrimSpace(value) == "" {
+			return nil, invalidRequest(errorCode, field, "invalid_value")
+		}
+		seen[value] = struct{}{}
+	}
+	out := make([]string, 0, len(seen))
+	for value := range seen {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
 func normalizeSnapshotRequest(incidentID uuid.UUID, clientTxnID string, watermark *string) ([]byte, error) {
 	return json.Marshal(map[string]any{
 		"incident_id":                      incidentID.String(),
@@ -328,6 +368,15 @@ func validReleaseScope(scope string) bool {
 	switch scope {
 	case ReleaseScopeInternalDraft, ReleaseScopeInternalReview, ReleaseScopeExternal:
 		return true
+	default:
+		return false
+	}
+}
+
+func isSupportedRedactionProfileSelector(id string, version string) bool {
+	switch id {
+	case InternalRedactionProfileID, ExternalRedactionProfileID:
+		return version == "1"
 	default:
 		return false
 	}
@@ -380,14 +429,6 @@ func internalAPIError(err error) *auth.APIError {
 		Message: err.Error(),
 		Details: map[string]any{},
 	}
-}
-
-func releaseRenderFailed(reasonCode string, err error) *auth.APIError {
-	details := map[string]any{"reason_code": reasonCode}
-	if err != nil {
-		details["detail"] = err.Error()
-	}
-	return &auth.APIError{Status: http.StatusConflict, Code: "release_render_failed", Details: details}
 }
 
 func releaseStateConflict(reasonCode string) *auth.APIError {

@@ -102,9 +102,7 @@ func (s *Service) handleSnapshotsCollection(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if !result.Replayed {
-		s.completeSnapshotJob(r.Context(), result)
-	}
+	s.dispatchReportingJob(result.Job.JobID)
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -170,6 +168,10 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, unsupportedTemplateError(request.TemplateID, request.TemplateVersion))
 		return
 	}
+	if !isSupportedRedactionProfileSelector(request.RedactionProfileID, request.RedactionProfileVersion) {
+		writeAPIError(w, r, unsupportedRedactionProfileError(request.RedactionProfileID, request.RedactionProfileVersion))
+		return
+	}
 	snapshot, model, err := s.store.GetSnapshotForRender(r.Context(), request.SnapshotID)
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}})
@@ -183,15 +185,10 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	rendered, apiErr := renderReleaseCandidate(request, model, snapshot.ExportModelSHA256)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
+	_ = model
 	result, err := s.store.CreateRelease(r.Context(), CreateReleaseParams{
 		ActorUserID: principal.User.ID,
 		Request:     request,
-		Rendered:    rendered,
 		Now:         s.now(),
 	})
 	if errors.Is(err, authn.ErrClientTxnConflict) {
@@ -202,9 +199,7 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if !result.Replayed {
-		s.completeReleaseJob(r.Context(), result)
-	}
+	s.dispatchReportingJob(result.Job.JobID)
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -283,7 +278,7 @@ func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	_ = release
-	membership, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "reviewer", "admin")
+	membership, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -362,31 +357,33 @@ func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func renderReleaseCandidate(request CreateReleaseRequest, model ExportModel, exportModelSHA string) (RenderedRelease, *auth.APIError) {
-	profile, profileSHA, err := ResolveRedactionProfile(request.RedactionProfileID, request.RedactionProfileVersion)
+func renderReleaseCandidate(request CreateReleaseRequest, model ExportModel, exportModelSHA string) (RenderedRelease, string, error) {
+	profile, profileSHA, err := ResolveRedactionProfile(request.RedactionProfileID, request.RedactionProfileVersion, request.RecipientPartitionRefs)
 	if errors.Is(err, ErrInvalidRedactionProfile) {
-		return RenderedRelease{}, unsupportedRedactionProfileError(request.RedactionProfileID, request.RedactionProfileVersion)
+		return RenderedRelease{}, "invalid_redaction_profile", err
 	}
 	if err != nil {
-		return RenderedRelease{}, releaseRenderFailed("invalid_redaction_profile", err)
+		return RenderedRelease{}, "invalid_redaction_profile", err
 	}
-	redaction, err := RedactExportModel(model, profile, profileSHA, exportModelSHA, request.ReleaseScope)
+	partial := RenderedRelease{Profile: profile, ProfileSHA256: profileSHA}
+	redaction, err := RedactExportModel(model, profile, profileSHA, exportModelSHA, request.ReleaseScope, request.RecipientPartitionRefs)
 	if errors.Is(err, ErrInvalidRedactionProfile) {
-		return RenderedRelease{}, releaseRenderFailed("invalid_redaction_profile", err)
+		return partial, "invalid_redaction_profile", err
 	}
 	if errors.Is(err, ErrRedactionValidation) {
-		return RenderedRelease{}, releaseRenderFailed("post_redaction_validation_failed", err)
+		return partial, "post_redaction_validation_failed", err
 	}
 	if err != nil {
-		return RenderedRelease{}, releaseRenderFailed("redaction_failed", err)
+		return partial, "post_redaction_validation_failed", err
 	}
+	partial.Redaction = redaction
 	output, mediaType, err := RenderOutput(request.OutputKind, redaction.Model, redaction.Manifest, request.ReleaseScope)
 	if err != nil {
-		return RenderedRelease{}, releaseRenderFailed("template_render_failed", err)
+		return partial, "template_render_failed", err
 	}
 	manifestJSON, err := canonicalJSON(redaction.Manifest)
 	if err != nil {
-		return RenderedRelease{}, releaseRenderFailed("manifest_encoding_failed", err)
+		return partial, "manifest_encoding_failed", err
 	}
 	return RenderedRelease{
 		Profile:                 profile,
@@ -397,7 +394,7 @@ func renderReleaseCandidate(request CreateReleaseRequest, model ExportModel, exp
 		OutputSHA256:            hashHex(output),
 		RedactionManifestSHA256: redaction.ManifestSHA256,
 		RedactionManifestJSON:   manifestJSON,
-	}, nil
+	}, "", nil
 }
 
 func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, clientTxnID string, result ReleaseActionResult, err error) {
@@ -426,13 +423,46 @@ func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, prin
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
-func (s *Service) completeSnapshotJob(ctx context.Context, result CreateSnapshotResult) {
-	jobID, err := uuid.Parse(result.Job.JobID)
+func (s *Service) dispatchReportingJob(jobID string) {
+	parsed, err := uuid.Parse(jobID)
 	if err != nil {
 		return
 	}
+	go func() {
+		time.Sleep(25 * time.Millisecond)
+		s.executeReportingJob(context.Background(), parsed)
+	}()
+}
+
+func (s *Service) executeReportingJob(ctx context.Context, jobID uuid.UUID) {
+	kind, err := s.store.ReportingJobKind(ctx, jobID)
+	if err != nil {
+		s.failReportingJob(ctx, jobID, "internal_error", err)
+		return
+	}
+	switch kind {
+	case "snapshot_create":
+		s.executeSnapshotCreateJob(ctx, jobID)
+	case "release_create":
+		s.executeReleaseCreateJob(ctx, jobID)
+	default:
+		s.failReportingJob(ctx, jobID, "internal_error", fmt.Errorf("unknown reporting job kind %q", kind))
+	}
+}
+
+func (s *Service) executeSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) {
 	total := 1
-	_, _ = s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil)
+	if !s.markReportingJobRunning(ctx, jobID, total) {
+		return
+	}
+	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
+		return
+	}
+	snapshotID, err := s.store.CompleteSnapshotCreateJob(ctx, jobID)
+	if err != nil {
+		s.failReportingJob(ctx, jobID, "internal_error", err)
+		return
+	}
 	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
 		JobID:    jobID,
 		Progress: jobs.Progress{Completed: 1, Total: &total},
@@ -441,20 +471,56 @@ func (s *Service) completeSnapshotJob(ctx context.Context, result CreateSnapshot
 			Message: "Snapshot created.",
 			ResourceRefs: []jobs.ResourceRef{{
 				Kind:  "snapshot",
-				ID:    result.SnapshotID.String(),
-				Route: "/api/v1/snapshots/" + result.SnapshotID.String(),
+				ID:    snapshotID.String(),
+				Route: "/api/v1/snapshots/" + snapshotID.String(),
 			}},
 		},
 	})
 }
 
-func (s *Service) completeReleaseJob(ctx context.Context, result CreateReleaseResult) {
-	jobID, err := uuid.Parse(result.Job.JobID)
-	if err != nil {
+func (s *Service) executeReleaseCreateJob(ctx context.Context, jobID uuid.UUID) {
+	total := 1
+	if !s.markReportingJobRunning(ctx, jobID, total) {
 		return
 	}
-	total := 1
-	_, _ = s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil)
+	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
+		return
+	}
+	payload, err := s.store.ReleasePayloadForJob(ctx, jobID)
+	if err != nil {
+		s.failReportingJob(ctx, jobID, "internal_error", err)
+		return
+	}
+	rendered, reasonCode, renderErr := renderReleaseCandidate(payload.Request, payload.ExportModel, payload.ExportModelSHA256)
+	if renderErr != nil {
+		releaseID, err := s.store.CompleteReleaseRenderFailedJob(ctx, jobID, rendered.Profile, rendered.ProfileSHA256, reasonCode, s.now())
+		if err != nil {
+			s.failReportingJob(ctx, jobID, "internal_error", err)
+			return
+		}
+		_, _ = s.jobManager.CompleteFailed(ctx, jobs.TransitionParams{
+			JobID:    jobID,
+			Progress: jobs.Progress{Completed: 1, Total: &total},
+			ErrorSummary: &jobs.ErrorSummary{
+				Code:      "release_render_failed",
+				Message:   "Release render failed.",
+				Retryable: false,
+				Details: map[string]any{
+					"reason_code": reasonCode,
+					"release_id":  releaseID.String(),
+				},
+			},
+		})
+		return
+	}
+	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
+		return
+	}
+	releaseID, err := s.store.CompleteReleaseCreateJob(ctx, jobID, rendered, s.now())
+	if err != nil {
+		s.failReportingJob(ctx, jobID, "internal_error", err)
+		return
+	}
 	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
 		JobID:    jobID,
 		Progress: jobs.Progress{Completed: 1, Total: &total},
@@ -463,9 +529,63 @@ func (s *Service) completeReleaseJob(ctx context.Context, result CreateReleaseRe
 			Message: "Release rendered.",
 			ResourceRefs: []jobs.ResourceRef{{
 				Kind:  "release",
-				ID:    result.ReleaseID.String(),
-				Route: "/api/v1/releases/" + result.ReleaseID.String(),
+				ID:    releaseID.String(),
+				Route: "/api/v1/releases/" + releaseID.String(),
 			}},
+		},
+	})
+}
+
+func (s *Service) markReportingJobRunning(ctx context.Context, jobID uuid.UUID, total int) bool {
+	resource, err := s.jobManager.Get(ctx, jobID)
+	if err != nil {
+		return false
+	}
+	switch resource.Status {
+	case jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
+		return false
+	case jobs.StatusCancelRequested:
+		_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
+			JobID:    jobID,
+			Progress: jobs.Progress{Completed: 0, Total: &total},
+		})
+		return false
+	}
+	if _, err := s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil); err != nil {
+		resource, getErr := s.jobManager.Get(ctx, jobID)
+		if getErr == nil && resource.Status == jobs.StatusCancelRequested {
+			_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
+				JobID:    jobID,
+				Progress: jobs.Progress{Completed: 0, Total: &total},
+			})
+		}
+		return false
+	}
+	return true
+}
+
+func (s *Service) cancelReportingJobIfRequested(ctx context.Context, jobID uuid.UUID, total int) bool {
+	resource, err := s.jobManager.Get(ctx, jobID)
+	if err != nil || resource.Status != jobs.StatusCancelRequested {
+		return false
+	}
+	_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
+		JobID:    jobID,
+		Progress: jobs.Progress{Completed: 0, Total: &total},
+	})
+	return true
+}
+
+func (s *Service) failReportingJob(ctx context.Context, jobID uuid.UUID, code string, err error) {
+	total := 1
+	_, _ = s.jobManager.CompleteFailed(ctx, jobs.TransitionParams{
+		JobID:    jobID,
+		Progress: jobs.Progress{Completed: 0, Total: &total},
+		ErrorSummary: &jobs.ErrorSummary{
+			Code:      code,
+			Message:   err.Error(),
+			Retryable: false,
+			Details:   map[string]any{},
 		},
 	})
 }

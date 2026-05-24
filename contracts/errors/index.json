@@ -612,6 +612,10 @@
         {
           "code": "unsupported_release_scope",
           "summary": "The requested release_scope is outside the current Snapshot and Reporting profile."
+        },
+        {
+          "code": "recipient_partitions_not_allowed",
+          "summary": "Recipient partition refs are only valid for external release scope."
         }
       ]
     },
@@ -645,10 +649,6 @@
         {
           "code": "manifest_encoding_failed",
           "summary": "The redaction manifest could not be encoded canonically."
-        },
-        {
-          "code": "redaction_failed",
-          "summary": "Redaction failed before a redacted export model could be emitted."
         }
       ]
     },

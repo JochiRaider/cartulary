@@ -3108,6 +3108,13 @@
               "internal_review",
               "external_release"
             ]
+          },
+          "recipient_partition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
           }
         },
         "required": [
@@ -3204,17 +3211,32 @@
             "type": "string"
           },
           "output_media_type": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "release_scope": {
             "type": "string"
           },
+          "recipient_partition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "output_sha256": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^[0-9a-f]{64}$"
           },
           "redaction_manifest_sha256": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^[0-9a-f]{64}$"
           },
           "release_state": {
@@ -3225,6 +3247,12 @@
               "invalidated",
               "published",
               "render_failed"
+            ]
+          },
+          "render_failed_reason_code": {
+            "type": [
+              "string",
+              "null"
             ]
           },
           "created_by_user_id": {
@@ -3279,9 +3307,11 @@
           "output_kind",
           "output_media_type",
           "release_scope",
+          "recipient_partition_refs",
           "output_sha256",
           "redaction_manifest_sha256",
           "release_state",
+          "render_failed_reason_code",
           "created_by_user_id",
           "created_at",
           "approved_at",

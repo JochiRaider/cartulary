@@ -24,27 +24,20 @@ RETURNING snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_
           export_model_json, create_job_id, created_at;
 
 -- name: GetReportingRelease :one
-SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-       release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-       derivation_version, export_model_sha256, template_id, template_version,
-       redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-       output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-       redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-       approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at
+SELECT *
   FROM reporting_releases
  WHERE release_id = $1;
 
 -- name: GetReportingReleaseForUpdate :one
-SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-       release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-       derivation_version, export_model_sha256, template_id, template_version,
-       redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-       output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-       redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-       approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at
+SELECT *
   FROM reporting_releases
  WHERE release_id = $1
  FOR UPDATE;
+
+-- name: GetReportingReleaseByCreateJob :one
+SELECT *
+  FROM reporting_releases
+ WHERE create_job_id = $1;
 
 -- name: CreateReportingRelease :one
 INSERT INTO reporting_releases (
@@ -52,14 +45,14 @@ INSERT INTO reporting_releases (
     snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
     output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
-    rendered_output, create_job_id, approved_at, created_at, updated_at
+    rendered_output, create_job_id, recipient_partition_refs, approved_at, created_at, updated_at
 )
 VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10,
     $11, $12, $13, $14, $15,
     $16, $17, $18, $19, $20,
-    $21, $22, $23, $24, $24
+    $21, $22, $23, $24, $25, $25
 )
 RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
           release_scope, release_state, snapshot_at, source_change_set_high_watermark,
@@ -67,7 +60,32 @@ RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_i
           redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
           output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
           redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-          approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at;
+          recipient_partition_refs, approved_at, published_at, invalidated_at, invalidation_reason,
+          created_at, updated_at;
+
+-- name: CreateRenderFailedReportingRelease :one
+INSERT INTO reporting_releases (
+    incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
+    snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
+    template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
+    output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
+    rendered_output, create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
+)
+VALUES (
+    $1, $2, $3, $4, $5, 'render_failed',
+    $6, $7, $8, $9,
+    $10, $11, $12, $13, $14,
+    $15, NULL, NULL, NULL, NULL,
+    NULL, $16, $17, $18, $19, $19
+)
+RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
+          release_scope, release_state, snapshot_at, source_change_set_high_watermark,
+          derivation_version, export_model_sha256, template_id, template_version,
+          redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
+          output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
+          redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
+          recipient_partition_refs, approved_at, published_at, invalidated_at, invalidation_reason,
+          created_at, updated_at;
 
 -- name: InsertReportingReleaseApproval :exec
 INSERT INTO reporting_release_approvals (
@@ -114,13 +132,7 @@ UPDATE reporting_releases
        published_at = CASE WHEN $2 = 'published' THEN COALESCE(published_at, $3) ELSE published_at END,
        updated_at = $3
  WHERE release_id = $1
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-          release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-          derivation_version, export_model_sha256, template_id, template_version,
-          redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-          output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-          redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-          approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at;
+RETURNING *;
 
 -- name: InvalidateReportingRelease :one
 UPDATE reporting_releases
@@ -129,10 +141,15 @@ UPDATE reporting_releases
        invalidation_reason = COALESCE($3, invalidation_reason, 'explicit_invalidation'),
        updated_at = $2
  WHERE release_id = $1
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-          release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-          derivation_version, export_model_sha256, template_id, template_version,
-          redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-          output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-          redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-          approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at;
+RETURNING *;
+
+-- name: CreateReportingJobPayload :exec
+INSERT INTO reporting_job_payloads (
+    job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $6);
+
+-- name: GetReportingJobPayload :one
+SELECT job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at
+  FROM reporting_job_payloads
+ WHERE job_id = $1;

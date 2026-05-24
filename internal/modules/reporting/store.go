@@ -6,7 +6,10 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -84,13 +87,14 @@ type ReleaseRecord struct {
 	RedactionProfileVersion      string
 	RedactionProfileSHA256       string
 	OutputKind                   string
-	OutputMediaType              string
-	OutputSHA256                 string
-	RedactionManifestSHA256      string
+	OutputMediaType              *string
+	OutputSHA256                 *string
+	RedactionManifestSHA256      *string
 	RedactionManifestJSON        []byte
-	RenderedOutput               string
+	RenderedOutput               *string
 	CreateJobID                  uuid.UUID
 	RenderFailedReasonCode       *string
+	RecipientPartitionRefs       []string
 	ApprovedAt                   *time.Time
 	PublishedAt                  *time.Time
 	InvalidatedAt                *time.Time
@@ -125,7 +129,6 @@ type RenderedRelease struct {
 type CreateReleaseParams struct {
 	ActorUserID uuid.UUID
 	Request     CreateReleaseRequest
-	Rendered    RenderedRelease
 	Now         time.Time
 }
 
@@ -133,6 +136,37 @@ type CreateReleaseResult struct {
 	Job       jobs.Resource
 	ReleaseID uuid.UUID
 	Replayed  bool
+}
+
+type snapshotCreateJobPayload struct {
+	IncidentID                   string      `json:"incident_id"`
+	ActorUserID                  string      `json:"actor_user_id"`
+	ClientTxnID                  string      `json:"client_txn_id"`
+	SnapshotAt                   time.Time   `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string      `json:"source_change_set_high_watermark"`
+	ExportModel                  ExportModel `json:"export_model"`
+	ExportModelSHA256            string      `json:"export_model_sha256"`
+}
+
+type releaseCreateJobPayload struct {
+	ActorUserID                  string               `json:"actor_user_id"`
+	ClientTxnID                  string               `json:"client_txn_id"`
+	SnapshotID                   string               `json:"snapshot_id"`
+	IncidentID                   string               `json:"incident_id"`
+	SnapshotAt                   time.Time            `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string               `json:"source_change_set_high_watermark"`
+	DerivationVersion            string               `json:"derivation_version"`
+	ExportModelSHA256            string               `json:"export_model_sha256"`
+	ExportModel                  ExportModel          `json:"export_model"`
+	TemplateID                   string               `json:"template_id"`
+	TemplateVersion              string               `json:"template_version"`
+	RedactionProfileID           string               `json:"redaction_profile_id"`
+	RedactionProfileVersion      string               `json:"redaction_profile_version"`
+	OutputKind                   string               `json:"output_kind"`
+	ReleaseScope                 string               `json:"release_scope"`
+	RecipientPartitionRefs       []string             `json:"recipient_partition_refs"`
+	NormalizedRequest            []byte               `json:"normalized_request"`
+	Request                      CreateReleaseRequest `json:"-"`
 }
 
 type ApproveReleaseParams struct {
@@ -179,11 +213,11 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 		if parseErr != nil {
 			return CreateSnapshotResult{}, parseErr
 		}
-		snapshot, snapshotErr := getSnapshotRecordByCreateJobIDTx(ctx, tx, existingJobID)
-		if snapshotErr != nil {
-			return CreateSnapshotResult{}, snapshotErr
+		payload, payloadErr := getSnapshotPayloadTx(ctx, tx, existingJobID)
+		if payloadErr != nil {
+			return CreateSnapshotResult{}, payloadErr
 		}
-		if params.Request.SourceChangeSetHighWatermark != nil && *params.Request.SourceChangeSetHighWatermark != snapshot.SourceChangeSetHighWatermark {
+		if params.Request.SourceChangeSetHighWatermark != nil && *params.Request.SourceChangeSetHighWatermark != payload.SourceChangeSetHighWatermark {
 			return CreateSnapshotResult{}, authn.ErrClientTxnConflict
 		}
 		var resource jobs.Resource
@@ -213,40 +247,44 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	}
 	sum := sha256.Sum256(normalized)
 	requestHash := sum[:]
-	model, exportSHA, err := BuildExportModel(incident, params.Now.UTC(), watermark)
+	workbookFields, err := collectWorkbookExportFieldsTx(ctx, tx, params.Request.IncidentID)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	exportJSON, err := canonicalJSON(model)
+	model, exportSHA, err := BuildExportModel(incident, params.Now.UTC(), watermark, workbookFields)
+	if err != nil {
+		return CreateSnapshotResult{}, err
+	}
+	payloadJSON, err := canonicalJSON(snapshotCreateJobPayload{
+		IncidentID:                   params.Request.IncidentID.String(),
+		ActorUserID:                  params.ActorUserID.String(),
+		ClientTxnID:                  params.Request.ClientTxnID,
+		SnapshotAt:                   params.Now.UTC(),
+		SourceChangeSetHighWatermark: watermark,
+		ExportModel:                  model,
+		ExportModelSHA256:            exportSHA,
+	})
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID},
 		SubmittedByUserID: params.ActorUserID,
-		Cancelable:        false,
+		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
 	}, params.Now.UTC())
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
-	snapshotRow, err := sqlc.New(tx).CreateReportingSnapshot(ctx, sqlc.CreateReportingSnapshotParams{
-		IncidentID:                   pgUUID(params.Request.IncidentID),
-		CreatedByUserID:              pgUUID(params.ActorUserID),
-		ClientTxnID:                  params.Request.ClientTxnID,
-		SnapshotAt:                   pgTimestamptz(params.Now),
-		SourceChangeSetHighWatermark: watermark,
-		DerivationVersion:            DerivationVersion,
-		ExportModelSha256:            exportSHA,
-		ExportModelJson:              exportJSON,
-		CreateJobID:                  pgUUID(jobID),
-	})
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	snapshot, err := snapshotRecordFromSQL(snapshotRow)
-	if err != nil {
+	if err := sqlc.New(tx).CreateReportingJobPayload(ctx, sqlc.CreateReportingJobPayloadParams{
+		JobID:       pgUUID(jobID),
+		JobKind:     "snapshot_create",
+		IncidentID:  pgUUID(params.Request.IncidentID),
+		ActorUserID: pgUUID(params.ActorUserID),
+		RequestJson: payloadJSON,
+		CreatedAt:   pgTimestamptz(params.Now),
+	}); err != nil {
 		return CreateSnapshotResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
@@ -255,7 +293,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err := tx.Commit(ctx); err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	return CreateSnapshotResult{Job: job, SnapshotID: snapshot.SnapshotID}, nil
+	return CreateSnapshotResult{Job: job}, nil
 }
 
 type SnapshotBoundaryConflictError struct {
@@ -279,6 +317,9 @@ func (s *Store) GetSnapshotForRender(ctx context.Context, snapshotID uuid.UUID) 
 	record, err := s.getSnapshotRecord(ctx, snapshotID)
 	if err != nil {
 		return SnapshotRecord{}, ExportModel{}, err
+	}
+	if record.DerivationVersion != DerivationVersion {
+		return SnapshotRecord{}, ExportModel{}, fmt.Errorf("unsupported snapshot derivation version %q", record.DerivationVersion)
 	}
 	var model ExportModel
 	if err := json.Unmarshal(record.ExportModelJSON, &model); err != nil {
@@ -324,57 +365,53 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if err != nil {
 		return CreateReleaseResult{}, err
 	}
-	initialState := ReleaseStatePendingApproval
-	var approvedAt *time.Time
-	if params.Request.ReleaseScope == ReleaseScopeInternalDraft {
-		initialState = ReleaseStateApproved
-		now := params.Now.UTC()
-		approvedAt = &now
+	if snapshot.DerivationVersion != DerivationVersion {
+		return CreateReleaseResult{}, fmt.Errorf("unsupported snapshot derivation version %q", snapshot.DerivationVersion)
+	}
+	var model ExportModel
+	if err := json.Unmarshal(snapshot.ExportModelJSON, &model); err != nil {
+		return CreateReleaseResult{}, err
+	}
+	payloadJSON, err := canonicalJSON(releaseCreateJobPayload{
+		ActorUserID:                  params.ActorUserID.String(),
+		ClientTxnID:                  params.Request.ClientTxnID,
+		SnapshotID:                   snapshot.SnapshotID.String(),
+		IncidentID:                   snapshot.IncidentID.String(),
+		SnapshotAt:                   snapshot.SnapshotAt.UTC(),
+		SourceChangeSetHighWatermark: snapshot.SourceChangeSetHighWatermark,
+		DerivationVersion:            snapshot.DerivationVersion,
+		ExportModelSHA256:            snapshot.ExportModelSHA256,
+		ExportModel:                  model,
+		TemplateID:                   params.Request.TemplateID,
+		TemplateVersion:              params.Request.TemplateVersion,
+		RedactionProfileID:           params.Request.RedactionProfileID,
+		RedactionProfileVersion:      params.Request.RedactionProfileVersion,
+		OutputKind:                   params.Request.OutputKind,
+		ReleaseScope:                 params.Request.ReleaseScope,
+		RecipientPartitionRefs:       cloneStrings(params.Request.RecipientPartitionRefs),
+		NormalizedRequest:            append([]byte(nil), params.Request.Normalized...),
+	})
+	if err != nil {
+		return CreateReleaseResult{}, err
 	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &snapshot.IncidentID},
 		SubmittedByUserID: params.ActorUserID,
-		Cancelable:        false,
+		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
 	}, params.Now.UTC())
 	if err != nil {
 		return CreateReleaseResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
-	releaseRow, err := sqlc.New(tx).CreateReportingRelease(ctx, sqlc.CreateReportingReleaseParams{
-		IncidentID:                   pgUUID(snapshot.IncidentID),
-		SnapshotID:                   pgUUID(snapshot.SnapshotID),
-		CreatedByUserID:              pgUUID(params.ActorUserID),
-		ClientTxnID:                  params.Request.ClientTxnID,
-		ReleaseScope:                 params.Request.ReleaseScope,
-		ReleaseState:                 initialState,
-		SnapshotAt:                   pgTimestamptz(snapshot.SnapshotAt),
-		SourceChangeSetHighWatermark: snapshot.SourceChangeSetHighWatermark,
-		DerivationVersion:            snapshot.DerivationVersion,
-		ExportModelSha256:            snapshot.ExportModelSHA256,
-		TemplateID:                   params.Request.TemplateID,
-		TemplateVersion:              params.Request.TemplateVersion,
-		RedactionProfileID:           params.Rendered.Profile.ProfileID,
-		RedactionProfileVersion:      params.Rendered.Profile.Version,
-		RedactionProfileSha256:       params.Rendered.ProfileSHA256,
-		OutputKind:                   params.Request.OutputKind,
-		OutputMediaType:              params.Rendered.OutputMediaType,
-		OutputSha256:                 params.Rendered.OutputSHA256,
-		RedactionManifestSha256:      params.Rendered.RedactionManifestSHA256,
-		RedactionManifestJson:        params.Rendered.RedactionManifestJSON,
-		RenderedOutput:               string(params.Rendered.Output),
-		CreateJobID:                  pgUUID(jobID),
-		ApprovedAt:                   optionalPGTimestamptz(approvedAt),
-		CreatedAt:                    pgTimestamptz(params.Now),
-	})
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	release, err := releaseRecordFromSQL(releaseRow)
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	if err := invalidatePriorCandidateTx(ctx, tx, release.ReleaseID, snapshot.SnapshotID, params.Request.OutputKind, params.Request.ReleaseScope, params.Request.TemplateID, params.Request.TemplateVersion, params.Rendered.Profile.ProfileID, params.Rendered.Profile.Version, params.Now.UTC()); err != nil {
+	if err := sqlc.New(tx).CreateReportingJobPayload(ctx, sqlc.CreateReportingJobPayloadParams{
+		JobID:       pgUUID(jobID),
+		JobKind:     "release_create",
+		IncidentID:  pgUUID(snapshot.IncidentID),
+		ActorUserID: pgUUID(params.ActorUserID),
+		RequestJson: payloadJSON,
+		CreatedAt:   pgTimestamptz(params.Now),
+	}); err != nil {
 		return CreateReleaseResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
@@ -383,7 +420,7 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if err := tx.Commit(ctx); err != nil {
 		return CreateReleaseResult{}, err
 	}
-	return CreateReleaseResult{Job: job, ReleaseID: release.ReleaseID}, nil
+	return CreateReleaseResult{Job: job}, nil
 }
 
 func (s *Store) GetRelease(ctx context.Context, releaseID uuid.UUID) (map[string]any, uuid.UUID, error) {
@@ -392,6 +429,239 @@ func (s *Store) GetRelease(ctx context.Context, releaseID uuid.UUID) (map[string
 		return nil, uuid.UUID{}, err
 	}
 	return releaseResource(record), record.IncidentID, nil
+}
+
+func (s *Store) CompleteSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if existing, err := getSnapshotRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
+		return existing.SnapshotID, tx.Commit(ctx)
+	} else if !errors.Is(err, ErrNotFound) {
+		return uuid.UUID{}, err
+	}
+	payload, err := getSnapshotPayloadTx(ctx, tx, jobID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	incidentID, err := uuid.Parse(payload.IncidentID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	actorID, err := uuid.Parse(payload.ActorUserID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	exportJSON, err := canonicalJSON(payload.ExportModel)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	row, err := sqlc.New(tx).CreateReportingSnapshot(ctx, sqlc.CreateReportingSnapshotParams{
+		IncidentID:                   pgUUID(incidentID),
+		CreatedByUserID:              pgUUID(actorID),
+		ClientTxnID:                  payload.ClientTxnID,
+		SnapshotAt:                   pgTimestamptz(payload.SnapshotAt),
+		SourceChangeSetHighWatermark: payload.SourceChangeSetHighWatermark,
+		DerivationVersion:            DerivationVersion,
+		ExportModelSha256:            payload.ExportModelSHA256,
+		ExportModelJson:              exportJSON,
+		CreateJobID:                  pgUUID(jobID),
+	})
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	record, err := snapshotRecordFromSQL(row)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.UUID{}, err
+	}
+	return record.SnapshotID, nil
+}
+
+func (s *Store) ReleasePayloadForJob(ctx context.Context, jobID uuid.UUID) (releaseCreateJobPayload, error) {
+	row, err := sqlc.New(s.pool).GetReportingJobPayload(ctx, pgUUID(jobID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return releaseCreateJobPayload{}, ErrNotFound
+	}
+	if err != nil {
+		return releaseCreateJobPayload{}, err
+	}
+	if row.JobKind != "release_create" {
+		return releaseCreateJobPayload{}, fmt.Errorf("reporting job %s has kind %q", jobID, row.JobKind)
+	}
+	var payload releaseCreateJobPayload
+	if err := json.Unmarshal(row.RequestJson, &payload); err != nil {
+		return releaseCreateJobPayload{}, err
+	}
+	snapshotID, err := uuid.Parse(payload.SnapshotID)
+	if err != nil {
+		return releaseCreateJobPayload{}, err
+	}
+	payload.Request = CreateReleaseRequest{
+		SnapshotID:              snapshotID,
+		ClientTxnID:             payload.ClientTxnID,
+		TemplateID:              payload.TemplateID,
+		TemplateVersion:         payload.TemplateVersion,
+		RedactionProfileID:      payload.RedactionProfileID,
+		RedactionProfileVersion: payload.RedactionProfileVersion,
+		OutputKind:              payload.OutputKind,
+		ReleaseScope:            payload.ReleaseScope,
+		RecipientPartitionRefs:  cloneStrings(payload.RecipientPartitionRefs),
+		Normalized:              append([]byte(nil), payload.NormalizedRequest...),
+	}
+	return payload, nil
+}
+
+func (s *Store) ReportingJobKind(ctx context.Context, jobID uuid.UUID) (string, error) {
+	row, err := sqlc.New(s.pool).GetReportingJobPayload(ctx, pgUUID(jobID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return row.JobKind, nil
+}
+
+func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, rendered RenderedRelease, now time.Time) (uuid.UUID, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if existing, err := getReleaseRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
+		return existing.ReleaseID, tx.Commit(ctx)
+	} else if !errors.Is(err, ErrNotFound) {
+		return uuid.UUID{}, err
+	}
+	payload, err := getReleasePayloadTx(ctx, tx, jobID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	incidentID, snapshotID, actorID, err := payloadUUIDs(payload)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	initialState := ReleaseStatePendingApproval
+	var approvedAt *time.Time
+	if payload.ReleaseScope == ReleaseScopeInternalDraft {
+		initialState = ReleaseStateApproved
+		approved := now.UTC()
+		approvedAt = &approved
+	}
+	partitionJSON, err := canonicalStringArrayJSON(payload.RecipientPartitionRefs)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	row, err := sqlc.New(tx).CreateReportingRelease(ctx, sqlc.CreateReportingReleaseParams{
+		IncidentID:                   pgUUID(incidentID),
+		SnapshotID:                   pgUUID(snapshotID),
+		CreatedByUserID:              pgUUID(actorID),
+		ClientTxnID:                  payload.ClientTxnID,
+		ReleaseScope:                 payload.ReleaseScope,
+		ReleaseState:                 initialState,
+		SnapshotAt:                   pgTimestamptz(payload.SnapshotAt),
+		SourceChangeSetHighWatermark: payload.SourceChangeSetHighWatermark,
+		DerivationVersion:            payload.DerivationVersion,
+		ExportModelSha256:            payload.ExportModelSHA256,
+		TemplateID:                   payload.TemplateID,
+		TemplateVersion:              payload.TemplateVersion,
+		RedactionProfileID:           rendered.Profile.ProfileID,
+		RedactionProfileVersion:      rendered.Profile.Version,
+		RedactionProfileSha256:       rendered.ProfileSHA256,
+		OutputKind:                   payload.OutputKind,
+		OutputMediaType:              requiredPGText(rendered.OutputMediaType),
+		OutputSha256:                 requiredPGText(rendered.OutputSHA256),
+		RedactionManifestSha256:      requiredPGText(rendered.RedactionManifestSHA256),
+		RedactionManifestJson:        rendered.RedactionManifestJSON,
+		RenderedOutput:               requiredPGText(string(rendered.Output)),
+		CreateJobID:                  pgUUID(jobID),
+		RecipientPartitionRefs:       partitionJSON,
+		ApprovedAt:                   optionalPGTimestamptz(approvedAt),
+		CreatedAt:                    pgTimestamptz(now),
+	})
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	releaseID, err := uuidFromPG(row.ReleaseID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := invalidatePriorCandidateTx(ctx, tx, releaseID, snapshotID, payload.OutputKind, payload.ReleaseScope, payload.TemplateID, payload.TemplateVersion, rendered.Profile.ProfileID, rendered.Profile.Version, partitionJSON, now.UTC()); err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.UUID{}, err
+	}
+	return releaseID, nil
+}
+
+func (s *Store) CompleteReleaseRenderFailedJob(ctx context.Context, jobID uuid.UUID, profile RedactionProfile, profileSHA string, reasonCode string, now time.Time) (uuid.UUID, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if existing, err := getReleaseRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
+		return existing.ReleaseID, tx.Commit(ctx)
+	} else if !errors.Is(err, ErrNotFound) {
+		return uuid.UUID{}, err
+	}
+	payload, err := getReleasePayloadTx(ctx, tx, jobID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	incidentID, snapshotID, actorID, err := payloadUUIDs(payload)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	partitionJSON, err := canonicalStringArrayJSON(payload.RecipientPartitionRefs)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if profile.ProfileID == "" {
+		profile.ProfileID = payload.RedactionProfileID
+		profile.Version = payload.RedactionProfileVersion
+	}
+	if profileSHA == "" {
+		profileSHA = strings.Repeat("0", 64)
+	}
+	row, err := sqlc.New(tx).CreateRenderFailedReportingRelease(ctx, sqlc.CreateRenderFailedReportingReleaseParams{
+		IncidentID:                   pgUUID(incidentID),
+		SnapshotID:                   pgUUID(snapshotID),
+		CreatedByUserID:              pgUUID(actorID),
+		ClientTxnID:                  payload.ClientTxnID,
+		ReleaseScope:                 payload.ReleaseScope,
+		SnapshotAt:                   pgTimestamptz(payload.SnapshotAt),
+		SourceChangeSetHighWatermark: payload.SourceChangeSetHighWatermark,
+		DerivationVersion:            payload.DerivationVersion,
+		ExportModelSha256:            payload.ExportModelSHA256,
+		TemplateID:                   payload.TemplateID,
+		TemplateVersion:              payload.TemplateVersion,
+		RedactionProfileID:           profile.ProfileID,
+		RedactionProfileVersion:      profile.Version,
+		RedactionProfileSha256:       profileSHA,
+		OutputKind:                   payload.OutputKind,
+		CreateJobID:                  pgUUID(jobID),
+		RenderFailedReasonCode:       requiredPGText(reasonCode),
+		RecipientPartitionRefs:       partitionJSON,
+		CreatedAt:                    pgTimestamptz(now),
+	})
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	releaseID, err := uuidFromPG(row.ReleaseID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.UUID{}, err
+	}
+	return releaseID, nil
 }
 
 func (s *Store) ApproveRelease(ctx context.Context, params ApproveReleaseParams) (ReleaseActionResult, error) {
@@ -404,6 +674,9 @@ func (s *Store) ApproveRelease(ctx context.Context, params ApproveReleaseParams)
 		}
 		if release.ReleaseState == ReleaseStateApproved {
 			return ReleaseRecord{}, &StateConflictError{ReasonCode: "already_approved"}
+		}
+		if release.ReleaseState == ReleaseStateRenderFailed {
+			return ReleaseRecord{}, &StateConflictError{ReasonCode: "render_failed"}
 		}
 		if release.ReleaseState != ReleaseStatePendingApproval {
 			return ReleaseRecord{}, &StateConflictError{ReasonCode: "approval_not_available"}
@@ -433,8 +706,8 @@ func (s *Store) ApproveRelease(ctx context.Context, params ApproveReleaseParams)
 			Reason:                  optionalPGText(params.Request.Reason),
 			ApprovalTupleJson:       tupleJSON,
 			RedactionProfileSha256:  release.RedactionProfileSHA256,
-			OutputSha256:            release.OutputSHA256,
-			RedactionManifestSha256: release.RedactionManifestSHA256,
+			OutputSha256:            derefString(release.OutputSHA256),
+			RedactionManifestSha256: derefString(release.RedactionManifestSHA256),
 			CreatedAt:               pgTimestamptz(params.Now),
 		}); err != nil {
 			return ReleaseRecord{}, err
@@ -588,6 +861,21 @@ func getSnapshotRecordByCreateJobIDTx(ctx context.Context, tx pgx.Tx, createJobI
 	return snapshotRecordFromSQL(row)
 }
 
+func getReleaseRecordByCreateJobIDTx(ctx context.Context, tx pgx.Tx, createJobID uuid.UUID) (ReleaseRecord, error) {
+	row, err := sqlc.New(tx).GetReportingReleaseByCreateJob(ctx, pgUUID(createJobID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ReleaseRecord{}, ErrNotFound
+	}
+	if err != nil {
+		return ReleaseRecord{}, err
+	}
+	releaseID, err := uuidFromPG(row.ReleaseID)
+	if err != nil {
+		return ReleaseRecord{}, err
+	}
+	return getReleaseRecordTx(ctx, tx, releaseID)
+}
+
 func getReleaseRecordTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID) (ReleaseRecord, error) {
 	row, err := sqlc.New(tx).GetReportingRelease(ctx, pgUUID(releaseID))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -642,6 +930,192 @@ SELECT id, incident_key, title, description, status, severity, tlp, current_phas
 		return incidents.IncidentRecord{}, err
 	}
 	return record, nil
+}
+
+type workbookExportQuery struct {
+	Prefix       string
+	SourceFamily string
+	ContentClass string
+	SQL          string
+}
+
+func collectWorkbookExportFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ExportField, error) {
+	supportRefs, err := collectSupportRefsTx(ctx, tx, incidentID)
+	if err != nil {
+		return nil, err
+	}
+	queries := []workbookExportQuery{
+		{
+			Prefix:       "record_envelopes",
+			SourceFamily: "record_envelope",
+			ContentClass: ContentClassDerivedAnalytic,
+			SQL: `SELECT r.record_id::text, to_jsonb(r) - 'incident_id'
+  FROM records r
+ WHERE r.incident_id = $1 AND r.deleted_at IS NULL`,
+		},
+		{
+			Prefix:       "timeline",
+			SourceFamily: "timeline_event",
+			ContentClass: ContentClassSourceEvidence,
+			SQL: `SELECT t.record_id::text, to_jsonb(t) - 'incident_id'
+  FROM timeline_events t
+  JOIN records r ON r.incident_id = t.incident_id AND r.record_id = t.record_id AND r.deleted_at IS NULL
+ WHERE t.incident_id = $1`,
+		},
+		{
+			Prefix:       "hosts",
+			SourceFamily: "host",
+			ContentClass: ContentClassDerivedAnalytic,
+			SQL: `SELECT h.record_id::text, to_jsonb(h) - 'incident_id'
+  FROM host_grid_projection h
+  JOIN records r ON r.incident_id = h.incident_id AND r.record_id = h.record_id AND r.deleted_at IS NULL
+ WHERE h.incident_id = $1`,
+		},
+		{
+			Prefix:       "identities",
+			SourceFamily: "identity",
+			ContentClass: ContentClassDerivedAnalytic,
+			SQL: `SELECT i.record_id::text, to_jsonb(i) - 'incident_id'
+  FROM identity_grid_projection i
+  JOIN records r ON r.incident_id = i.incident_id AND r.record_id = i.record_id AND r.deleted_at IS NULL
+ WHERE i.incident_id = $1`,
+		},
+		{
+			Prefix:       "parties",
+			SourceFamily: "party",
+			ContentClass: ContentClassSourceEvidence,
+			SQL: `SELECT p.record_id::text, to_jsonb(p) - 'incident_id'
+  FROM parties p
+  JOIN records r ON r.incident_id = p.incident_id AND r.record_id = p.record_id AND r.deleted_at IS NULL
+ WHERE p.incident_id = $1`,
+		},
+		{
+			Prefix:       "evidence",
+			SourceFamily: "evidence",
+			ContentClass: ContentClassSourceEvidence,
+			SQL: `SELECT e.record_id::text, to_jsonb(e) - 'incident_id' - 'blob_hash'
+  FROM evidence e
+  JOIN records r ON r.incident_id = e.incident_id AND r.record_id = e.record_id AND r.deleted_at IS NULL
+ WHERE e.incident_id = $1`,
+		},
+		{
+			Prefix:       "task_requests",
+			SourceFamily: "task_request",
+			ContentClass: ContentClassDerivedAnalytic,
+			SQL: `SELECT t.record_id::text, to_jsonb(t) - 'incident_id'
+  FROM task_request_grid_projection t
+  JOIN records r ON r.incident_id = t.incident_id AND r.record_id = t.record_id AND r.deleted_at IS NULL
+ WHERE t.incident_id = $1`,
+		},
+		{
+			Prefix:       "decisions",
+			SourceFamily: "decision",
+			ContentClass: ContentClassDerivedAnalytic,
+			SQL: `SELECT d.record_id::text, to_jsonb(d) - 'incident_id'
+  FROM decision_grid_projection d
+  JOIN records r ON r.incident_id = d.incident_id AND r.record_id = d.record_id AND r.deleted_at IS NULL
+ WHERE d.incident_id = $1`,
+		},
+		{
+			Prefix:       "artifacts",
+			SourceFamily: "artifact",
+			ContentClass: ContentClassWorkingMaterial,
+			SQL: `SELECT a.record_id::text, to_jsonb(a) - 'incident_id'
+  FROM artifact_grid_projection a
+  JOIN records r ON r.incident_id = a.incident_id AND r.record_id = a.record_id AND r.deleted_at IS NULL
+ WHERE a.incident_id = $1`,
+		},
+		{
+			Prefix:       "relationships",
+			SourceFamily: "record_link",
+			ContentClass: ContentClassDerivedAnalytic,
+			SQL: `SELECT rl.record_link_id::text, to_jsonb(rl) - 'incident_id'
+  FROM record_links rl
+ WHERE rl.incident_id = $1 AND rl.deleted_at IS NULL`,
+		},
+		{
+			Prefix:       "tags",
+			SourceFamily: "record_tag",
+			ContentClass: ContentClassDerivedAnalytic,
+			SQL: `SELECT rt.record_tag_id::text, to_jsonb(rt) - 'incident_id'
+  FROM record_tags rt
+ WHERE rt.incident_id = $1 AND rt.deleted_at IS NULL`,
+		},
+		{
+			Prefix:       "entity_mentions",
+			SourceFamily: "entity_mention",
+			ContentClass: ContentClassSourceEvidence,
+			SQL: `SELECT em.entity_mention_id::text, to_jsonb(em)
+  FROM entity_mentions em
+  JOIN records r ON r.record_id = em.source_record_id AND r.deleted_at IS NULL
+ WHERE r.incident_id = $1`,
+		},
+	}
+	fields := []ExportField{}
+	for _, query := range queries {
+		rows, err := tx.Query(ctx, query.SQL, incidentID)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id string
+			var raw []byte
+			if err := rows.Scan(&id, &raw); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			var value any
+			if err := json.Unmarshal(raw, &value); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			field := ExportField{
+				Path:         fmt.Sprintf("/%s/%s", query.Prefix, id),
+				ContentClass: query.ContentClass,
+				SourceFamily: query.SourceFamily,
+				Value:        value,
+				SupportRefs:  cloneStrings(supportRefs[id]),
+			}
+			if query.SourceFamily == "party" {
+				field.DisclosurePartitionRefs = []string{"party:" + id}
+			}
+			fields = append(fields, field)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+	}
+	sort.Slice(fields, func(i, j int) bool {
+		return fields[i].Path < fields[j].Path
+	})
+	return fields, nil
+}
+
+func collectSupportRefsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[string][]string, error) {
+	rows, err := tx.Query(ctx, `
+SELECT src_record_id::text, dst_record_id::text
+  FROM record_links
+ WHERE incident_id = $1
+   AND deleted_at IS NULL
+   AND link_type IN ('supported_by', 'references_record', 'attached_evidence')
+ ORDER BY src_record_id::text ASC, dst_record_id::text ASC
+`, incidentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	for rows.Next() {
+		var src string
+		var dst string
+		if err := rows.Scan(&src, &dst); err != nil {
+			return nil, err
+		}
+		out[src] = append(out[src], "/record_envelopes/"+dst)
+	}
+	return out, rows.Err()
 }
 
 func snapshotRecordFromSQL(row sqlc.ReportingSnapshot) (SnapshotRecord, error) {
@@ -735,13 +1209,14 @@ func releaseRecordFromSQL(row sqlc.ReportingRelease) (ReleaseRecord, error) {
 		RedactionProfileVersion:      row.RedactionProfileVersion,
 		RedactionProfileSHA256:       row.RedactionProfileSha256,
 		OutputKind:                   row.OutputKind,
-		OutputMediaType:              row.OutputMediaType,
-		OutputSHA256:                 row.OutputSha256,
-		RedactionManifestSHA256:      row.RedactionManifestSha256,
+		OutputMediaType:              optionalStringFromPG(row.OutputMediaType),
+		OutputSHA256:                 optionalStringFromPG(row.OutputSha256),
+		RedactionManifestSHA256:      optionalStringFromPG(row.RedactionManifestSha256),
 		RedactionManifestJSON:        append([]byte(nil), row.RedactionManifestJson...),
-		RenderedOutput:               row.RenderedOutput,
+		RenderedOutput:               optionalStringFromPG(row.RenderedOutput),
 		CreateJobID:                  createJobID,
 		RenderFailedReasonCode:       optionalStringFromPG(row.RenderFailedReasonCode),
+		RecipientPartitionRefs:       decodeStringArrayJSON(row.RecipientPartitionRefs),
 		ApprovedAt:                   optionalTimeFromPG(row.ApprovedAt),
 		PublishedAt:                  optionalTimeFromPG(row.PublishedAt),
 		InvalidatedAt:                optionalTimeFromPG(row.InvalidatedAt),
@@ -782,6 +1257,58 @@ func existingResponseJobID(responseJSON []byte) (uuid.UUID, error) {
 	return jobID, nil
 }
 
+func getSnapshotPayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (snapshotCreateJobPayload, error) {
+	row, err := sqlc.New(tx).GetReportingJobPayload(ctx, pgUUID(jobID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return snapshotCreateJobPayload{}, ErrNotFound
+	}
+	if err != nil {
+		return snapshotCreateJobPayload{}, err
+	}
+	if row.JobKind != "snapshot_create" {
+		return snapshotCreateJobPayload{}, fmt.Errorf("reporting job %s has kind %q", jobID, row.JobKind)
+	}
+	var payload snapshotCreateJobPayload
+	if err := json.Unmarshal(row.RequestJson, &payload); err != nil {
+		return snapshotCreateJobPayload{}, err
+	}
+	return payload, nil
+}
+
+func getReleasePayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (releaseCreateJobPayload, error) {
+	row, err := sqlc.New(tx).GetReportingJobPayload(ctx, pgUUID(jobID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return releaseCreateJobPayload{}, ErrNotFound
+	}
+	if err != nil {
+		return releaseCreateJobPayload{}, err
+	}
+	if row.JobKind != "release_create" {
+		return releaseCreateJobPayload{}, fmt.Errorf("reporting job %s has kind %q", jobID, row.JobKind)
+	}
+	var payload releaseCreateJobPayload
+	if err := json.Unmarshal(row.RequestJson, &payload); err != nil {
+		return releaseCreateJobPayload{}, err
+	}
+	return payload, nil
+}
+
+func payloadUUIDs(payload releaseCreateJobPayload) (uuid.UUID, uuid.UUID, uuid.UUID, error) {
+	incidentID, err := uuid.Parse(payload.IncidentID)
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, uuid.UUID{}, err
+	}
+	snapshotID, err := uuid.Parse(payload.SnapshotID)
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, uuid.UUID{}, err
+	}
+	actorID, err := uuid.Parse(payload.ActorUserID)
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, uuid.UUID{}, err
+	}
+	return incidentID, snapshotID, actorID, nil
+}
+
 func snapshotResource(record SnapshotRecord) map[string]any {
 	return map[string]any{
 		"snapshot_id":                      record.SnapshotID.String(),
@@ -812,9 +1339,11 @@ func releaseResource(record ReleaseRecord) map[string]any {
 		"output_kind":                      record.OutputKind,
 		"output_media_type":                record.OutputMediaType,
 		"release_scope":                    record.ReleaseScope,
+		"recipient_partition_refs":         stringArrayForResource(record.RecipientPartitionRefs),
 		"output_sha256":                    record.OutputSHA256,
 		"redaction_manifest_sha256":        record.RedactionManifestSHA256,
 		"release_state":                    record.ReleaseState,
+		"render_failed_reason_code":        nil,
 		"created_by_user_id":               record.CreatedByUserID.String(),
 		"created_at":                       record.CreatedAt.UTC(),
 		"approved_at":                      nil,
@@ -834,21 +1363,31 @@ func releaseResource(record ReleaseRecord) map[string]any {
 	if record.InvalidationReason != nil {
 		resource["invalidation_reason"] = *record.InvalidationReason
 	}
+	if record.RenderFailedReasonCode != nil {
+		resource["render_failed_reason_code"] = *record.RenderFailedReasonCode
+	}
 	return resource
 }
 
-func invalidatePriorCandidateTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, snapshotID uuid.UUID, outputKind string, releaseScope string, templateID string, templateVersion string, redactionProfileID string, redactionProfileVersion string, now time.Time) error {
-	return sqlc.New(tx).InvalidateSupersededReportingReleases(ctx, sqlc.InvalidateSupersededReportingReleasesParams{
-		SnapshotID:              pgUUID(snapshotID),
-		OutputKind:              outputKind,
-		ReleaseScope:            releaseScope,
-		TemplateID:              templateID,
-		TemplateVersion:         templateVersion,
-		RedactionProfileID:      redactionProfileID,
-		RedactionProfileVersion: redactionProfileVersion,
-		ReleaseID:               pgUUID(releaseID),
-		UpdatedAt:               pgTimestamptz(now),
-	})
+func invalidatePriorCandidateTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, snapshotID uuid.UUID, outputKind string, releaseScope string, templateID string, templateVersion string, redactionProfileID string, redactionProfileVersion string, recipientPartitionRefs []byte, now time.Time) error {
+	_, err := tx.Exec(ctx, `
+UPDATE reporting_releases
+   SET release_state = 'invalidated',
+       invalidated_at = COALESCE(invalidated_at, $10),
+       invalidation_reason = COALESCE(invalidation_reason, 'superseded_by_new_render'),
+       updated_at = $10
+ WHERE snapshot_id = $1
+   AND output_kind = $2
+   AND release_scope = $3
+   AND template_id = $4
+   AND template_version = $5
+   AND redaction_profile_id = $6
+   AND redaction_profile_version = $7
+   AND recipient_partition_refs = $8::jsonb
+   AND release_id <> $9
+   AND release_state IN ('pending_approval', 'approved', 'published')
+`, snapshotID, outputKind, releaseScope, templateID, templateVersion, redactionProfileID, redactionProfileVersion, string(recipientPartitionRefs), releaseID, now)
+	return err
 }
 
 func approvalsSatisfiedTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, releaseScope string) (bool, error) {
@@ -941,10 +1480,11 @@ func approvalTupleJSON(release ReleaseRecord, actorUserID uuid.UUID, approvalRol
 		"redaction_profile_sha256":         release.RedactionProfileSHA256,
 		"export_model_sha256":              release.ExportModelSHA256,
 		"output_kind":                      release.OutputKind,
-		"output_media_type":                release.OutputMediaType,
-		"output_sha256":                    release.OutputSHA256,
-		"redaction_manifest_sha256":        release.RedactionManifestSHA256,
+		"output_media_type":                derefString(release.OutputMediaType),
+		"output_sha256":                    derefString(release.OutputSHA256),
+		"redaction_manifest_sha256":        derefString(release.RedactionManifestSHA256),
 		"release_scope":                    release.ReleaseScope,
+		"recipient_partition_refs":         stringArrayForResource(release.RecipientPartitionRefs),
 		"source_change_set_high_watermark": release.SourceChangeSetHighWatermark,
 	})
 }
@@ -993,10 +1533,48 @@ func optionalPGText(value *string) pgtype.Text {
 	return pgtype.Text{String: *value, Valid: true}
 }
 
+func requiredPGText(value string) pgtype.Text {
+	return pgtype.Text{String: value, Valid: true}
+}
+
 func optionalStringFromPG(value pgtype.Text) *string {
 	if !value.Valid {
 		return nil
 	}
 	parsed := value.String
 	return &parsed
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func decodeStringArrayJSON(raw []byte) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var values []string
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return nil
+	}
+	return cloneStrings(values)
+}
+
+func canonicalStringArrayJSON(values []string) ([]byte, error) {
+	out := cloneStrings(values)
+	if out == nil {
+		out = []string{}
+	}
+	return canonicalJSON(out)
+}
+
+func stringArrayForResource(values []string) []string {
+	out := cloneStrings(values)
+	if out == nil {
+		return []string{}
+	}
+	return out
 }

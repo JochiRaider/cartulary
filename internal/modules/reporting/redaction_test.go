@@ -43,7 +43,7 @@ func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(
 		t.Fatalf("validate profile: %v", err)
 	}
 	model := ExportModel{
-		SchemaID:                     "cartulary.export_model.v1",
+		SchemaID:                     "cartulary.export_model.v2",
 		IncidentID:                   "incident-1",
 		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
 		SourceChangeSetHighWatermark: "incident:1:v1",
@@ -70,7 +70,7 @@ func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(
 	if err != nil {
 		t.Fatalf("source model json: %v", err)
 	}
-	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeInternalReview)
+	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeInternalReview, nil)
 	if err != nil {
 		t.Fatalf("redact model: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestPhase11_U_11_REPORTING_03_ExternalValidationRejectsOpaqueBytesAndWorkin
 		t.Fatalf("validate profile: %v", err)
 	}
 	model := ExportModel{
-		SchemaID:                     "cartulary.export_model.v1",
+		SchemaID:                     "cartulary.export_model.v2",
 		IncidentID:                   "incident-1",
 		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
 		SourceChangeSetHighWatermark: "incident:1:v1",
@@ -198,7 +198,7 @@ func TestPhase11_U_11_REPORTING_03_ExternalValidationRejectsOpaqueBytesAndWorkin
 	if err != nil {
 		t.Fatalf("source model json: %v", err)
 	}
-	if _, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal); !errors.Is(err, ErrRedactionValidation) {
+	if _, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal, nil); !errors.Is(err, ErrRedactionValidation) {
 		t.Fatalf("external release must reject raw bytes and working material, got %v", err)
 	}
 }
@@ -211,7 +211,7 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 		ProfileID: "test.partitions",
 		Version:   "1",
 		AllowedDisclosurePartitionRefs: []string{
-			"incident_summary",
+			"public_summary",
 		},
 		DefaultAction: RedactionActionSpec{Type: ActionAllow},
 		Rules: []RedactionRule{
@@ -224,7 +224,7 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 		t.Fatalf("validate profile: %v", err)
 	}
 	model := ExportModel{
-		SchemaID:                     "cartulary.export_model.v1",
+		SchemaID:                     "cartulary.export_model.v2",
 		IncidentID:                   "incident-1",
 		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
 		SourceChangeSetHighWatermark: "incident:1:v1",
@@ -234,7 +234,7 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 				Path:                    allowedPath,
 				ContentClass:            ContentClassCuratedNarrative,
 				Value:                   "supported public summary",
-				DisclosurePartitionRefs: []string{"incident_summary"},
+				DisclosurePartitionRefs: []string{"public_summary"},
 				SupportRefs:             []string{"/incident/source"},
 			},
 			{
@@ -249,7 +249,7 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 	if err != nil {
 		t.Fatalf("source model json: %v", err)
 	}
-	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal)
+	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal, nil)
 	if err != nil {
 		t.Fatalf("redact with partition filter: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 	}
 
 	model.Fields[0].SupportRefs = nil
-	if _, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal); !errors.Is(err, ErrRedactionValidation) {
+	if _, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeExternal, nil); !errors.Is(err, ErrRedactionValidation) {
 		t.Fatalf("external curated narrative without support refs must fail closed, got %v", err)
 	}
 }
@@ -293,5 +293,49 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 	}
 	if string(emptyReason.Normalized) != string(nullReason.Normalized) || string(emptyReason.Normalized) != string(omittedReason.Normalized) {
 		t.Fatalf("omitted, null, and empty reasons must compare equal: empty=%s null=%s omitted=%s", emptyReason.Normalized, nullReason.Normalized, omittedReason.Normalized)
+	}
+	partitioned, apiErr := DecodeCreateReleaseRequest(strings.NewReader(`{
+		"snapshot_id":"00000000-0000-0000-0000-000000000001",
+		"client_txn_id":"txn-release",
+		"template_id":"cartulary.report.default",
+		"template_version":"1",
+		"redaction_profile_id":"cartulary.redaction.external",
+		"redaction_profile_version":"1",
+		"output_kind":"html",
+		"release_scope":"external_release",
+		"recipient_partition_refs":["party:b","party:a","party:b"]
+	}`))
+	if apiErr != nil {
+		t.Fatalf("valid recipient partitions should decode, got %v", apiErr)
+	}
+	if got := strings.Join(partitioned.RecipientPartitionRefs, ","); got != "party:a,party:b" {
+		t.Fatalf("recipient partitions must coalesce and sort, got %q", got)
+	}
+	_, nullPartitions := DecodeCreateReleaseRequest(strings.NewReader(`{
+		"snapshot_id":"00000000-0000-0000-0000-000000000001",
+		"client_txn_id":"txn-release-null",
+		"template_id":"cartulary.report.default",
+		"template_version":"1",
+		"redaction_profile_id":"cartulary.redaction.external",
+		"redaction_profile_version":"1",
+		"output_kind":"html",
+		"release_scope":"external_release",
+		"recipient_partition_refs":null
+	}`))
+	if nullPartitions == nil || nullPartitions.Details["reason_code"] != "field_not_nullable" {
+		t.Fatalf("recipient_partition_refs null must be rejected as non-nullable, got %#v", nullPartitions)
+	}
+	_, internalPartitions := DecodeCreateReleaseRequest(strings.NewReader(`{
+		"snapshot_id":"00000000-0000-0000-0000-000000000001",
+		"client_txn_id":"txn-release-internal-partitions",
+		"template_id":"cartulary.report.default",
+		"template_version":"1",
+		"redaction_profile_id":"cartulary.redaction.internal",
+		"redaction_profile_version":"1",
+		"output_kind":"html",
+		"recipient_partition_refs":["party:a"]
+	}`))
+	if internalPartitions == nil || internalPartitions.Details["reason_code"] != "recipient_partitions_not_allowed" {
+		t.Fatalf("internal recipient partitions must use closed rejection reason, got %#v", internalPartitions)
 	}
 }

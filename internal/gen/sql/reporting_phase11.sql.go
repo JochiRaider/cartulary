@@ -11,20 +11,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createReportingRelease = `-- name: CreateReportingRelease :one
+const createRenderFailedReportingRelease = `-- name: CreateRenderFailedReportingRelease :one
 INSERT INTO reporting_releases (
     incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
     snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
     output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
-    rendered_output, create_job_id, approved_at, created_at, updated_at
+    rendered_output, create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
 )
 VALUES (
-    $1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10,
-    $11, $12, $13, $14, $15,
-    $16, $17, $18, $19, $20,
-    $21, $22, $23, $24, $24
+    $1, $2, $3, $4, $5, 'render_failed',
+    $6, $7, $8, $9,
+    $10, $11, $12, $13, $14,
+    $15, NULL, NULL, NULL, NULL,
+    NULL, $16, $17, $18, $19, $19
 )
 RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
           release_scope, release_state, snapshot_at, source_change_set_high_watermark,
@@ -32,10 +32,34 @@ RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_i
           redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
           output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
           redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-          approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at
+          recipient_partition_refs, approved_at, published_at, invalidated_at, invalidation_reason,
+          created_at, updated_at
 `
 
-type CreateReportingReleaseParams struct {
+type CreateRenderFailedReportingReleaseParams struct {
+	IncidentID                   pgtype.UUID        `json:"incident_id"`
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
+	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID                  string             `json:"client_txn_id"`
+	ReleaseScope                 string             `json:"release_scope"`
+	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	DerivationVersion            string             `json:"derivation_version"`
+	ExportModelSha256            string             `json:"export_model_sha256"`
+	TemplateID                   string             `json:"template_id"`
+	TemplateVersion              string             `json:"template_version"`
+	RedactionProfileID           string             `json:"redaction_profile_id"`
+	RedactionProfileVersion      string             `json:"redaction_profile_version"`
+	RedactionProfileSha256       string             `json:"redaction_profile_sha256"`
+	OutputKind                   string             `json:"output_kind"`
+	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	RenderFailedReasonCode       pgtype.Text        `json:"render_failed_reason_code"`
+	RecipientPartitionRefs       []byte             `json:"recipient_partition_refs"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+}
+
+type CreateRenderFailedReportingReleaseRow struct {
+	ReleaseID                    pgtype.UUID        `json:"release_id"`
 	IncidentID                   pgtype.UUID        `json:"incident_id"`
 	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
 	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
@@ -52,24 +76,29 @@ type CreateReportingReleaseParams struct {
 	RedactionProfileVersion      string             `json:"redaction_profile_version"`
 	RedactionProfileSha256       string             `json:"redaction_profile_sha256"`
 	OutputKind                   string             `json:"output_kind"`
-	OutputMediaType              string             `json:"output_media_type"`
-	OutputSha256                 string             `json:"output_sha256"`
-	RedactionManifestSha256      string             `json:"redaction_manifest_sha256"`
+	OutputMediaType              pgtype.Text        `json:"output_media_type"`
+	OutputSha256                 pgtype.Text        `json:"output_sha256"`
+	RedactionManifestSha256      pgtype.Text        `json:"redaction_manifest_sha256"`
 	RedactionManifestJson        []byte             `json:"redaction_manifest_json"`
-	RenderedOutput               string             `json:"rendered_output"`
+	RenderedOutput               pgtype.Text        `json:"rendered_output"`
 	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	RenderFailedReasonCode       pgtype.Text        `json:"render_failed_reason_code"`
+	RecipientPartitionRefs       []byte             `json:"recipient_partition_refs"`
 	ApprovedAt                   pgtype.Timestamptz `json:"approved_at"`
+	PublishedAt                  pgtype.Timestamptz `json:"published_at"`
+	InvalidatedAt                pgtype.Timestamptz `json:"invalidated_at"`
+	InvalidationReason           pgtype.Text        `json:"invalidation_reason"`
 	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportingReleaseParams) (ReportingRelease, error) {
-	row := q.db.QueryRow(ctx, createReportingRelease,
+func (q *Queries) CreateRenderFailedReportingRelease(ctx context.Context, arg CreateRenderFailedReportingReleaseParams) (CreateRenderFailedReportingReleaseRow, error) {
+	row := q.db.QueryRow(ctx, createRenderFailedReportingRelease,
 		arg.IncidentID,
 		arg.SnapshotID,
 		arg.CreatedByUserID,
 		arg.ClientTxnID,
 		arg.ReleaseScope,
-		arg.ReleaseState,
 		arg.SnapshotAt,
 		arg.SourceChangeSetHighWatermark,
 		arg.DerivationVersion,
@@ -80,16 +109,12 @@ func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportin
 		arg.RedactionProfileVersion,
 		arg.RedactionProfileSha256,
 		arg.OutputKind,
-		arg.OutputMediaType,
-		arg.OutputSha256,
-		arg.RedactionManifestSha256,
-		arg.RedactionManifestJson,
-		arg.RenderedOutput,
 		arg.CreateJobID,
-		arg.ApprovedAt,
+		arg.RenderFailedReasonCode,
+		arg.RecipientPartitionRefs,
 		arg.CreatedAt,
 	)
-	var i ReportingRelease
+	var i CreateRenderFailedReportingReleaseRow
 	err := row.Scan(
 		&i.ReleaseID,
 		&i.IncidentID,
@@ -115,6 +140,187 @@ func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportin
 		&i.RenderedOutput,
 		&i.CreateJobID,
 		&i.RenderFailedReasonCode,
+		&i.RecipientPartitionRefs,
+		&i.ApprovedAt,
+		&i.PublishedAt,
+		&i.InvalidatedAt,
+		&i.InvalidationReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createReportingJobPayload = `-- name: CreateReportingJobPayload :exec
+INSERT INTO reporting_job_payloads (
+    job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $6)
+`
+
+type CreateReportingJobPayloadParams struct {
+	JobID       pgtype.UUID        `json:"job_id"`
+	JobKind     string             `json:"job_kind"`
+	IncidentID  pgtype.UUID        `json:"incident_id"`
+	ActorUserID pgtype.UUID        `json:"actor_user_id"`
+	RequestJson []byte             `json:"request_json"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateReportingJobPayload(ctx context.Context, arg CreateReportingJobPayloadParams) error {
+	_, err := q.db.Exec(ctx, createReportingJobPayload,
+		arg.JobID,
+		arg.JobKind,
+		arg.IncidentID,
+		arg.ActorUserID,
+		arg.RequestJson,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const createReportingRelease = `-- name: CreateReportingRelease :one
+INSERT INTO reporting_releases (
+    incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
+    snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
+    template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
+    output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
+    rendered_output, create_job_id, recipient_partition_refs, approved_at, created_at, updated_at
+)
+VALUES (
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10,
+    $11, $12, $13, $14, $15,
+    $16, $17, $18, $19, $20,
+    $21, $22, $23, $24, $25, $25
+)
+RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
+          release_scope, release_state, snapshot_at, source_change_set_high_watermark,
+          derivation_version, export_model_sha256, template_id, template_version,
+          redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
+          output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
+          redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
+          recipient_partition_refs, approved_at, published_at, invalidated_at, invalidation_reason,
+          created_at, updated_at
+`
+
+type CreateReportingReleaseParams struct {
+	IncidentID                   pgtype.UUID        `json:"incident_id"`
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
+	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID                  string             `json:"client_txn_id"`
+	ReleaseScope                 string             `json:"release_scope"`
+	ReleaseState                 string             `json:"release_state"`
+	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	DerivationVersion            string             `json:"derivation_version"`
+	ExportModelSha256            string             `json:"export_model_sha256"`
+	TemplateID                   string             `json:"template_id"`
+	TemplateVersion              string             `json:"template_version"`
+	RedactionProfileID           string             `json:"redaction_profile_id"`
+	RedactionProfileVersion      string             `json:"redaction_profile_version"`
+	RedactionProfileSha256       string             `json:"redaction_profile_sha256"`
+	OutputKind                   string             `json:"output_kind"`
+	OutputMediaType              pgtype.Text        `json:"output_media_type"`
+	OutputSha256                 pgtype.Text        `json:"output_sha256"`
+	RedactionManifestSha256      pgtype.Text        `json:"redaction_manifest_sha256"`
+	RedactionManifestJson        []byte             `json:"redaction_manifest_json"`
+	RenderedOutput               pgtype.Text        `json:"rendered_output"`
+	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	RecipientPartitionRefs       []byte             `json:"recipient_partition_refs"`
+	ApprovedAt                   pgtype.Timestamptz `json:"approved_at"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+}
+
+type CreateReportingReleaseRow struct {
+	ReleaseID                    pgtype.UUID        `json:"release_id"`
+	IncidentID                   pgtype.UUID        `json:"incident_id"`
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
+	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID                  string             `json:"client_txn_id"`
+	ReleaseScope                 string             `json:"release_scope"`
+	ReleaseState                 string             `json:"release_state"`
+	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
+	DerivationVersion            string             `json:"derivation_version"`
+	ExportModelSha256            string             `json:"export_model_sha256"`
+	TemplateID                   string             `json:"template_id"`
+	TemplateVersion              string             `json:"template_version"`
+	RedactionProfileID           string             `json:"redaction_profile_id"`
+	RedactionProfileVersion      string             `json:"redaction_profile_version"`
+	RedactionProfileSha256       string             `json:"redaction_profile_sha256"`
+	OutputKind                   string             `json:"output_kind"`
+	OutputMediaType              pgtype.Text        `json:"output_media_type"`
+	OutputSha256                 pgtype.Text        `json:"output_sha256"`
+	RedactionManifestSha256      pgtype.Text        `json:"redaction_manifest_sha256"`
+	RedactionManifestJson        []byte             `json:"redaction_manifest_json"`
+	RenderedOutput               pgtype.Text        `json:"rendered_output"`
+	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
+	RenderFailedReasonCode       pgtype.Text        `json:"render_failed_reason_code"`
+	RecipientPartitionRefs       []byte             `json:"recipient_partition_refs"`
+	ApprovedAt                   pgtype.Timestamptz `json:"approved_at"`
+	PublishedAt                  pgtype.Timestamptz `json:"published_at"`
+	InvalidatedAt                pgtype.Timestamptz `json:"invalidated_at"`
+	InvalidationReason           pgtype.Text        `json:"invalidation_reason"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportingReleaseParams) (CreateReportingReleaseRow, error) {
+	row := q.db.QueryRow(ctx, createReportingRelease,
+		arg.IncidentID,
+		arg.SnapshotID,
+		arg.CreatedByUserID,
+		arg.ClientTxnID,
+		arg.ReleaseScope,
+		arg.ReleaseState,
+		arg.SnapshotAt,
+		arg.SourceChangeSetHighWatermark,
+		arg.DerivationVersion,
+		arg.ExportModelSha256,
+		arg.TemplateID,
+		arg.TemplateVersion,
+		arg.RedactionProfileID,
+		arg.RedactionProfileVersion,
+		arg.RedactionProfileSha256,
+		arg.OutputKind,
+		arg.OutputMediaType,
+		arg.OutputSha256,
+		arg.RedactionManifestSha256,
+		arg.RedactionManifestJson,
+		arg.RenderedOutput,
+		arg.CreateJobID,
+		arg.RecipientPartitionRefs,
+		arg.ApprovedAt,
+		arg.CreatedAt,
+	)
+	var i CreateReportingReleaseRow
+	err := row.Scan(
+		&i.ReleaseID,
+		&i.IncidentID,
+		&i.SnapshotID,
+		&i.CreatedByUserID,
+		&i.ClientTxnID,
+		&i.ReleaseScope,
+		&i.ReleaseState,
+		&i.SnapshotAt,
+		&i.SourceChangeSetHighWatermark,
+		&i.DerivationVersion,
+		&i.ExportModelSha256,
+		&i.TemplateID,
+		&i.TemplateVersion,
+		&i.RedactionProfileID,
+		&i.RedactionProfileVersion,
+		&i.RedactionProfileSha256,
+		&i.OutputKind,
+		&i.OutputMediaType,
+		&i.OutputSha256,
+		&i.RedactionManifestSha256,
+		&i.RedactionManifestJson,
+		&i.RenderedOutput,
+		&i.CreateJobID,
+		&i.RenderFailedReasonCode,
+		&i.RecipientPartitionRefs,
 		&i.ApprovedAt,
 		&i.PublishedAt,
 		&i.InvalidatedAt,
@@ -178,14 +384,29 @@ func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReporti
 	return i, err
 }
 
+const getReportingJobPayload = `-- name: GetReportingJobPayload :one
+SELECT job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at
+  FROM reporting_job_payloads
+ WHERE job_id = $1
+`
+
+func (q *Queries) GetReportingJobPayload(ctx context.Context, jobID pgtype.UUID) (ReportingJobPayload, error) {
+	row := q.db.QueryRow(ctx, getReportingJobPayload, jobID)
+	var i ReportingJobPayload
+	err := row.Scan(
+		&i.JobID,
+		&i.JobKind,
+		&i.IncidentID,
+		&i.ActorUserID,
+		&i.RequestJson,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getReportingRelease = `-- name: GetReportingRelease :one
-SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-       release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-       derivation_version, export_model_sha256, template_id, template_version,
-       redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-       output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-       redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-       approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at
+SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs
   FROM reporting_releases
  WHERE release_id = $1
 `
@@ -224,18 +445,58 @@ func (q *Queries) GetReportingRelease(ctx context.Context, releaseID pgtype.UUID
 		&i.InvalidationReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RecipientPartitionRefs,
+	)
+	return i, err
+}
+
+const getReportingReleaseByCreateJob = `-- name: GetReportingReleaseByCreateJob :one
+SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs
+  FROM reporting_releases
+ WHERE create_job_id = $1
+`
+
+func (q *Queries) GetReportingReleaseByCreateJob(ctx context.Context, createJobID pgtype.UUID) (ReportingRelease, error) {
+	row := q.db.QueryRow(ctx, getReportingReleaseByCreateJob, createJobID)
+	var i ReportingRelease
+	err := row.Scan(
+		&i.ReleaseID,
+		&i.IncidentID,
+		&i.SnapshotID,
+		&i.CreatedByUserID,
+		&i.ClientTxnID,
+		&i.ReleaseScope,
+		&i.ReleaseState,
+		&i.SnapshotAt,
+		&i.SourceChangeSetHighWatermark,
+		&i.DerivationVersion,
+		&i.ExportModelSha256,
+		&i.TemplateID,
+		&i.TemplateVersion,
+		&i.RedactionProfileID,
+		&i.RedactionProfileVersion,
+		&i.RedactionProfileSha256,
+		&i.OutputKind,
+		&i.OutputMediaType,
+		&i.OutputSha256,
+		&i.RedactionManifestSha256,
+		&i.RedactionManifestJson,
+		&i.RenderedOutput,
+		&i.CreateJobID,
+		&i.RenderFailedReasonCode,
+		&i.ApprovedAt,
+		&i.PublishedAt,
+		&i.InvalidatedAt,
+		&i.InvalidationReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RecipientPartitionRefs,
 	)
 	return i, err
 }
 
 const getReportingReleaseForUpdate = `-- name: GetReportingReleaseForUpdate :one
-SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-       release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-       derivation_version, export_model_sha256, template_id, template_version,
-       redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-       output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-       redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-       approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at
+SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs
   FROM reporting_releases
  WHERE release_id = $1
  FOR UPDATE
@@ -275,6 +536,7 @@ func (q *Queries) GetReportingReleaseForUpdate(ctx context.Context, releaseID pg
 		&i.InvalidationReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RecipientPartitionRefs,
 	)
 	return i, err
 }
@@ -375,13 +637,7 @@ UPDATE reporting_releases
        invalidation_reason = COALESCE($3, invalidation_reason, 'explicit_invalidation'),
        updated_at = $2
  WHERE release_id = $1
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-          release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-          derivation_version, export_model_sha256, template_id, template_version,
-          redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-          output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-          redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-          approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at
+RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs
 `
 
 type InvalidateReportingReleaseParams struct {
@@ -424,6 +680,7 @@ func (q *Queries) InvalidateReportingRelease(ctx context.Context, arg Invalidate
 		&i.InvalidationReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RecipientPartitionRefs,
 	)
 	return i, err
 }
@@ -534,13 +791,7 @@ UPDATE reporting_releases
        published_at = CASE WHEN $2 = 'published' THEN COALESCE(published_at, $3) ELSE published_at END,
        updated_at = $3
  WHERE release_id = $1
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-          release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-          derivation_version, export_model_sha256, template_id, template_version,
-          redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-          output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-          redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-          approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at
+RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs
 `
 
 type UpdateReportingReleaseStateParams struct {
@@ -583,6 +834,7 @@ func (q *Queries) UpdateReportingReleaseState(ctx context.Context, arg UpdateRep
 		&i.InvalidationReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RecipientPartitionRefs,
 	)
 	return i, err
 }

@@ -23,8 +23,8 @@ Implemented remediation record:
 - OpenAPI, generated Go/TypeScript contracts, SQL-derived generated code, phase manifest, generated phase ledger, generated schedules, and duration-maintenance inputs were refreshed through canonical targets.
 - Phase 2, process, and browser reserved-extension expectations were adjusted to use an unclaimed profile root instead of Import now that Import is claimed.
 - Retained-run finalizer maintenance was run after the successful `make check` root and the warm `check-service-backed` retained-run budget was raised to `120000ms` to match observed successful timing.
-- Snapshot and Reporting now implements the `/api/v1/snapshots` and `/api/v1/releases` route families, generated OpenAPI/contract coverage, SQLC-backed reporting queries, immutable snapshot and release state, recipient redaction, approval/publish/invalidate actions, and Phase 11 direct evidence rows.
-- Snapshot and Reporting final validation passed `make check` at `.cartulary/test-results/20260523T215237Z-p211655` and retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T215237Z-p211655` at `.cartulary/test-results/20260523T220018Z-p261205`.
+- Snapshot and Reporting now implements the `/api/v1/snapshots` and `/api/v1/releases` route families on the forward remediation model: `cartulary.snapshot_export_model.v2`, broad workbook export collection, explicit `recipient_partition_refs`, durable `render_failed` release rows, async snapshot/release create jobs, generated OpenAPI/contract coverage, SQLC-backed reporting queries, approval/publish/invalidate actions, and Phase 11 direct evidence rows.
+- Snapshot and Reporting final validation passed `make check` at `.cartulary/test-results/20260524T001428Z-p534507` and retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` at `.cartulary/test-results/20260524T002013Z-p583746`.
 
 Authority model:
 - Future adopted Cartulary NLSpecs, if present and explicitly adopted by the repository authority process, govern first.
@@ -167,7 +167,7 @@ Relevant IDs:
 
 Files and areas:
 - `tools/phase_registry.json`
-- `tools/phase11_test_map.json` is the active shared Phase 11 manifest and contains only Import/common-job rows.
+- `tools/phase11_test_map.json` is the active shared Phase 11 manifest and contains Import, Snapshot/Reporting, and common-job rows.
 - `docs/testing/phase11_coverage_ledger.md` is generated from the active shared manifest.
 - `scripts/check-phase-maps.sh`, `scripts/render-phase-ledgers.mjs`, `scripts/render-execution-topology-artifacts.mjs`, and `scripts/check-phase-test-names.mjs`.
 - `tools/task_surface_manifest.json`, `tools/execution_topology_manifest.json`, and generated schedule artifacts define the public wrapper and service-backed selection behavior.
@@ -193,7 +193,7 @@ Sprint 0 policy:
 - Planning rows for future profiles remain in this file only. Blocker rows may be added to the shared manifest only when the blocker must participate in harness selection or generated ledgers.
 - Skipped rows are not claim evidence. Future non-executable profile work should remain absent from the active manifest unless an intentional blocker row is needed.
 - Claimable profile evidence must be direct, profile-selected, and non-aggregate. Aggregate ACs `AC-232..AC-236` remain profile claim gates and must not substitute for direct runtime behavior evidence.
-- Historical Sprint 0 profile statuses were all `not_started`. After remediation, Import is selected and implemented; Snapshot and Reporting, Reference Pack, Incident Portability, and Enterprise Authentication remain `not_started`.
+- Historical Sprint 0 profile statuses were all `not_started`. After remediation, Import and Snapshot/Reporting are selected and implemented; Reference Pack, Incident Portability, and Enterprise Authentication remain `not_started`.
 - Valid current public wrappers: `make explain-phase PHASE=phase11`, `make phase-slice PHASE=phase11`, and `make service-backed-slice PHASE=phase11`.
 - Historical planned-phase invalid-command behavior was normalized for clarity, but it no longer applies to current `phase11` because the phase is active.
 
@@ -208,11 +208,11 @@ Validation commands:
 Deliverables:
 - Phase 11 manifest policy: one shared manifest with selected-profile rows only.
 - Generated ledger and schedule status: Phase 11 ledger and schedule artifacts are generated from `tools/phase11_test_map.json`.
-- Updated plan notes record Import as selected/claimed and all other profiles as unclaimed.
+- Updated plan notes record Import and Snapshot/Reporting as selected/claimed and all other profiles as unclaimed.
 
 Risks and assumptions:
 - The previous `make explain-phase PHASE=phase11` unknown-phase failure was expected while Phase 11 was unregistered. After Sprint 0 registration, this command is expected to pass and report `status: planned`.
-- Current `make explain-phase PHASE=phase11` reports active Import/common-job coverage, not planned coverage.
+- Current `make explain-phase PHASE=phase11` reports active Import, Snapshot/Reporting, and common-job coverage, not planned coverage.
 - Generated ledgers and schedules are downstream artifacts and must not be hand-edited.
 - A broad Phase 11 manifest must not imply all five profiles are implemented.
 
@@ -228,8 +228,8 @@ Objective: Build shared extension route-family substrate only for profiles selec
 
 Sprint 1 execution status:
 - Sprint 1 final scope is helper substrate only. It is not route-parity evidence by itself.
-- Current selected profile set in the default registry after remediation: Import only. Import is claimed only after its Sprint 2 route-family evidence; all other Phase 11 profiles remain unclaimed.
-- Phase 11 manifest policy after remediation: one shared active `tools/phase11_test_map.json` with Import/common-job rows only. Generated ledgers and schedules are produced from that manifest.
+- Current selected profile set in the default registry after remediation: Import and Snapshot/Reporting. Import is claimed by Sprint 2 route-family evidence; Snapshot/Reporting is claimed by Sprint 3 route-family evidence; all other Phase 11 profiles remain unclaimed.
+- Phase 11 manifest policy after remediation: one shared active `tools/phase11_test_map.json` with Import, Snapshot/Reporting, and common-job rows. Generated ledgers and schedules are produced from that manifest.
 - Implemented helper-only substrate: `internal/platform/httpapi.ParseUploadEnvelope` with `UploadEnvelopePolicy`, `UploadEnvelope`, `UploadEnvelopeError`, closed shared reason-code helpers, route-local file media-type allowlists, metadata duplicate-key rejection, metadata BOM/non-UTF-8 rejection, nested multipart rejection, and SHA-256 calculation for accepted file bytes.
 - Common job substrate: `/api/v1/jobs/{job_id}` and `/api/v1/jobs/{job_id}/cancel` are listed in the OpenAPI route inventory and backed by durable job storage, route-scoped cancel idempotency, request-time job authorization, terminal summaries, retention timestamps, and incident-scoped `job_progress` publication.
 - Import substrate status: Sprint 1 introduced the helper and scaffold surface; Sprint 2 completes the selected Import route family.
@@ -276,7 +276,7 @@ Deliverables:
 - Common job resource evidence: targeted jobs tests cover durable creation, cancellation, idempotent cancel replay, terminal summaries, and retention fields.
 - Import route substrate evidence: targeted integration tests cover route-level upload failure with zero import/job/idempotency rows, exact multipart replay, divergent replay rejection, durable session/unit reads, preview reads, pagination metadata, and discovery-job terminal summary.
 - Full selected-profile route parity evidence: complete for Import through the Sprint 2 remediation rows.
-- Explicit non-claim status for not-yet-implemented profiles: Snapshot and Reporting, Reference Pack, Incident Portability, and Enterprise Authentication remain unclaimed in the default extension registry.
+- Explicit non-claim status for not-yet-implemented profiles: Reference Pack, Incident Portability, and Enterprise Authentication remain unclaimed in the default extension registry.
 
 Risks and assumptions:
 - Enterprise Authentication protocol routes are intentionally non-idempotent and not upload-envelope routes.
@@ -371,8 +371,8 @@ Exit criteria:
 
 Sprint 2 remediation status:
 - Import is selected and implemented.
-- Default extension discovery reports Import as claimed and leaves all other extension profiles unclaimed.
-- The active Phase 11 manifest contains only Import and common-job rows.
+- At Sprint 2 close, default extension discovery reported Import as claimed and left all other extension profiles unclaimed. Sprint 3 later moved Snapshot/Reporting into the selected/claimed set.
+- At Sprint 2 close, the active Phase 11 manifest contained Import and common-job rows. The current manifest also includes Snapshot/Reporting rows.
 - Direct tests cover non-object metadata early failure, CSV mapping/select/apply, XLSX used-range discovery, and incident/deployment common-job authorization re-derivation.
 
 Sprint 2 validation record:
@@ -400,39 +400,48 @@ Relevant IDs:
 - `AC-333`
 
 Files and areas:
-- Runtime and persistence: `internal/modules/reporting`, `internal/app/runtime.go`, `internal/platform/httpapi/extensions.go`, `db/migrations/00025_phase11_snapshot_reporting.sql`, and `db/queries/reporting_phase11.sql`.
+- Runtime and persistence: `internal/modules/reporting`, `internal/app/runtime.go`, `internal/platform/httpapi/extensions.go`, `db/migrations/00025_phase11_snapshot_reporting.sql`, `db/migrations/00026_phase11_reporting_remediation.sql`, and `db/queries/reporting_phase11.sql`.
 - Owner/spec and contracts: Core 01, Core 02, Core 04, `contracts/openapi/cartulary.openapi.yaml`, and `contracts/errors/index.json`.
 - Generated artifacts: `internal/gen/**`, `packages/protocol-ts/src/generated/**`, `docs/testing/phase11_coverage_ledger.md`, `tools/scheduler_manifest.json`, `tools/execution_topology_render_index.json`, and duration baseline JSON files were refreshed through generators/finalizers only.
 
 Test-first sequence:
-1. Prove `POST /api/v1/snapshots` request validation, omitted high-watermark resolution at admission, replay using original boundary, job summary, and exact snapshot read shape.
-2. Prove `POST /api/v1/releases` exact version selectors, `release_scope` defaulting to `internal_draft`, closed vocabulary, no `latest/current`, render job summary, and exact release resource shape.
-3. Prove approve, publish, and invalidate action routes, approval tuple binding, replay before fresh state checks, legal state transitions, and exact `release_state` vocabulary.
-4. Prove self-contained disconnected output and deterministic ordering/hashes.
-5. Prove recipient-specific redaction profiles operate at snapshot/render/release time and do not change live workbook query results, field visibility, row visibility, or evidence visibility.
+1. Prove `POST /api/v1/snapshots` request validation, omitted high-watermark resolution at admission, replay using original boundary, queued/running/terminal job behavior, and exact snapshot read shape.
+2. Prove `cartulary.snapshot_export_model.v2` collects current base-profile workbook surfaces, active relationship/evidence metadata, deterministic ordering, support refs, disclosure partition refs, and no raw blob bytes.
+3. Prove `POST /api/v1/releases` exact version selectors, `release_scope` defaulting to `internal_draft`, explicit canonical `recipient_partition_refs`, closed vocabulary, no `latest/current`, render job summary, and exact release resource shape.
+4. Prove durable `render_failed` release rows expose `render_failed_reason_code`, nullable output fields, terminal failed jobs, and state-conflict behavior for approve, publish, and invalidate.
+5. Prove approve, publish, and invalidate action routes, approval tuple binding including recipient partitions, replay before fresh state checks, legal state transitions, and exact `release_state` vocabulary.
+6. Prove self-contained disconnected output and deterministic ordering/hashes.
+7. Prove recipient-specific redaction profiles operate at snapshot/render/release time and do not change live workbook query results, field visibility, row visibility, or evidence visibility.
 
 Implementation tasks:
 - Add snapshot and release route family exactly under `/api/v1/snapshots` and `/api/v1/releases`.
 - Persist immutable snapshot descriptors separate from release records.
-- Persist release records, approval state, output hashes, invalidation fields, and release-state transitions.
+- Replace the provisional export summary with `cartulary.snapshot_export_model.v2` over current base-profile workbook surfaces and active reporting metadata.
+- Add `recipient_partition_refs` to the release tuple, release resource, idempotency hash, output slot, redaction manifest, and approval binding.
+- Persist release records, approval state, output hashes, invalidation fields, nullable render output fields for failed renders, `render_failed_reason_code`, and release-state transitions.
+- Admit snapshot and release creation as reporting jobs with queued/running/terminal state, cancellation checkpoints before durable commit, and exactly one success ref.
 - Render self-contained outputs without runtime remote assets.
-- Implement redaction manifest and recipient-specific profile handling.
-- Maintain snapshot/release family error and reason-code registries.
+- Implement incident-aware immutable redaction profile resolution backed by a closed built-in catalog.
+- Maintain the closed snapshot/release family error and reason-code registries without carrying old catch-all reasons.
 
 Validation commands:
 - `go test ./internal/modules/reporting`
 - `go test ./internal/app ./internal/platform/httpapi ./internal/modules/incidents`
 - `make generate`, `make generate-drift`, and `make migration-drift`
 - `make phase-ledgers`, `make phase-schedules`, `make phase-ledger-drift`, `make phase-schedule-drift`, and `make phase-test-name-check`
-- `make phase-slice PHASE=phase11`: passed at `.cartulary/test-results/20260523T210545Z-p58667`
-- `make service-backed-slice PHASE=phase11`: passed at `.cartulary/test-results/20260523T211057Z-p70103`
-- `make check`: passed at `.cartulary/test-results/20260523T215237Z-p211655`
-- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T215237Z-p211655`: passed at `.cartulary/test-results/20260523T220018Z-p261205`
+- `make phase-slice PHASE=phase11`: passed at `.cartulary/test-results/20260523T235600Z-p471316`
+- `make service-backed-slice PHASE=phase11`: passed at `.cartulary/test-results/20260524T000122Z-p481978`
+- `make check`: passed at `.cartulary/test-results/20260524T001428Z-p534507`
+- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507`: passed at `.cartulary/test-results/20260524T002013Z-p583746`
 - `git diff --check`
 
 Deliverables:
 - Snapshot and release route family.
 - Immutable snapshot and release durable state.
+- Export model v2 over current workbook surfaces.
+- Explicit recipient-partition release tuple and manifest binding.
+- Durable render-failed release lifecycle.
+- Reporting job payload/executor boundary for snapshot and release create.
 - Self-contained output and redaction evidence.
 - Direct non-aggregate evidence for every Snapshot and Reporting delta family.
 
@@ -675,17 +684,17 @@ Import remediation validation record:
 - An earlier retained-run finalizer attempt exposed a stale warm `check-service-backed` budget. The budget was raised to `120000ms`, then finalizer maintenance passed against the successful `make check` root.
 
 Snapshot and Reporting remediation implementation record:
-- Owner specs now bind `redaction_profile_sha256`, `redaction_manifest_sha256`, output provenance, explicit approval tuple provenance, deterministic redaction rule precedence, reserved `hash` handling, post-redaction validation, disclosure-partition eligibility, and the opaque-binary boundary.
-- OpenAPI now declares `/api/v1/snapshots`, `/api/v1/snapshots/{snapshot_id}`, `/api/v1/releases`, `/api/v1/releases/{release_id}`, and release `approve`, `publish`, and `invalidate` action routes.
-- Implementation added `internal/modules/reporting` with immutable snapshot creation, release rendering, deterministic redaction manifests, persisted rendered artifacts, route-scoped idempotency, distinct external reviewer/admin approvals, publish/invalidate actions, SQLC-backed reporting-table queries, and runtime claim registration for `profile:snapshot_reporting`.
-- Persistence added `reporting_snapshots`, `reporting_releases`, `reporting_release_approvals`, and authored SQLC query inputs in `db/queries/reporting_phase11.sql`.
+- Owner specs now bind `cartulary.snapshot_export_model.v2`, broad workbook export collection, `recipient_partition_refs`, durable `render_failed` release resources, release-create job behavior, approval tuple provenance, deterministic redaction rule precedence, reserved `hash` handling, post-redaction validation, disclosure-partition eligibility, and the opaque-binary boundary.
+- OpenAPI now declares `/api/v1/snapshots`, `/api/v1/snapshots/{snapshot_id}`, `/api/v1/releases`, `/api/v1/releases/{release_id}`, release `approve`, `publish`, and `invalidate` action routes, release recipient partitions, render failure reason codes, and nullable output fields for `render_failed`.
+- Implementation added `internal/modules/reporting` with immutable async snapshot creation, export model v2 collection over workbook surfaces, release rendering, deterministic redaction manifests, persisted rendered artifacts, route-scoped idempotency, recipient-partition-aware external releases, durable render-failed rows, distinct external reviewer/admin approvals, publish/invalidate actions, SQLC-backed reporting-table queries, and runtime claim registration for `profile:snapshot_reporting`.
+- Persistence added `reporting_snapshots`, `reporting_releases`, `reporting_release_approvals`, reporting job payloads, recipient partition columns, render-failed nullable output constraints, and authored SQLC query inputs in `db/queries/reporting_phase11.sql`.
+- Migration `00026_phase11_reporting_remediation.sql` deletes provisional v1 snapshot/reporting rows, adds recipient partition and reporting job payload storage, allows output fields to be nullable only for durable `render_failed`, and avoids legacy v1 renderer support.
 - Direct evidence added Phase 11 reporting unit rows `U-11-REPORTING-01..05` and integration rows `I-11-REPORTING-01..03`.
-- Focused validation: `go test ./internal/modules/reporting`, `go test ./internal/app ./internal/platform/httpapi ./internal/modules/incidents`, `make generate`, `make generate-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-schedules`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check`, `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make agent-finalize`, `git diff --check`, `make otel-conformance`, and `make lint-go-staticcheck` passed during remediation.
-- Retained roots: `make generate` `.cartulary/test-results/20260523T205031Z-p40427`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260523T210545Z-p58667`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260523T211057Z-p70103`; successful `make agent-finalize` `.cartulary/test-results/20260523T211725Z-p77412`.
-- Finalizer notes: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T211057Z-p70103` failed retained-run preflight because the slice root is not an accepted full retained-run root. `make agent-finalize` without `RESULTS_DIR` passed after `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260523T211057Z-p70103` refreshed missing advisory Go test duration baselines; retained-run duration checks were recorded as skipped.
-- Broad gate note: an initial `make check` attempt at `.cartulary/test-results/20260523T211818Z-p78913` exposed an unused reporting helper and a pre-existing OpenTelemetry NLSpec status-text conformance issue. Both were corrected before rerunning the broad gate.
-- Additional broad-gate retries exposed browser expectation drift now that Snapshot/Reporting is claimed and a frontend a11y focus-seeding issue. `apps/web/e2e/phase2.support.spec.ts` and `apps/web/e2e/workbook.a11y.spec.ts` were adjusted, `make browser-e2e-a11y` passed at `.cartulary/test-results/20260523T214617Z-p185634`, and `make lint-biome` passed at `.cartulary/test-results/20260523T215231Z-p211281`.
-- Final broad gate: `make check` passed at `.cartulary/test-results/20260523T215237Z-p211655` with 146/146 work units and 695 tests. Retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T215237Z-p211655` passed at `.cartulary/test-results/20260523T220018Z-p261205` with `generated=updated files=3 duration=refreshed run_checks=pass`.
+- Focused validation: `go test ./internal/modules/reporting`, `make generate`, `make generate-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-schedules`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check`, `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make lint-go-staticcheck`, and `git diff --check` passed during remediation.
+- Retained roots: `make generate` `.cartulary/test-results/20260523T233819Z-p437768`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260523T235600Z-p471316`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260524T000122Z-p481978`; `make check` `.cartulary/test-results/20260524T001428Z-p534507`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` `.cartulary/test-results/20260524T002013Z-p583746`.
+- Finalizer notes: retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` passed with `generated=updated files=6 duration=refreshed run_checks=pass`.
+- Broad gate note: an initial `make check` attempt at `.cartulary/test-results/20260524T000651Z-p491510` exposed two unused reporting integration helpers after async job polling replaced direct table helpers. They were removed, `go test ./internal/modules/reporting` and `make lint-go-staticcheck` passed, and the broad gate was rerun successfully.
+- Final broad gate: `make check` passed at `.cartulary/test-results/20260524T001428Z-p534507` with 140/140 work units and 695 tests. Retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` passed at `.cartulary/test-results/20260524T002013Z-p583746`.
 
 Risks and assumptions:
 - Broad gates may be heavy and should run only when product implementation occurs or repository convention requires them.
@@ -729,6 +738,6 @@ Expected remediation-task result:
 - `make phase-slice PHASE=phase11` and `make service-backed-slice PHASE=phase11` execute the selected rows.
 - `make check` passed at retained root `.cartulary/test-results/20260523T161735Z-p3268642`.
 - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T161735Z-p3268642` passed at retained root `.cartulary/test-results/20260523T162808Z-p3327944`.
-- Snapshot/Reporting remediation `make check` passed at retained root `.cartulary/test-results/20260523T215237Z-p211655`.
-- Snapshot/Reporting remediation `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T215237Z-p211655` passed at retained root `.cartulary/test-results/20260523T220018Z-p261205`.
+- Snapshot/Reporting remediation `make check` passed at retained root `.cartulary/test-results/20260524T001428Z-p534507`.
+- Snapshot/Reporting remediation `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T001428Z-p534507` passed at retained root `.cartulary/test-results/20260524T002013Z-p583746`.
 - Do not fabricate successful retained run roots.

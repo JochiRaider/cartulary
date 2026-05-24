@@ -1317,7 +1317,7 @@ Verified by: AC-101, AC-231, AC-287
 If the Snapshot and Reporting Extension Profile is implemented, the domain model MUST also support structured metadata for:
 
 - immutable snapshot descriptors,
-- canonical export-model fields and blocks with stable export-model paths,
+- canonical export-model fields and blocks with stable export-model paths over the current base-profile workbook surfaces,
 - versioned redaction profiles,
 - versioned template contracts,
 - redaction manifests,
@@ -1346,14 +1346,14 @@ For rendered-output lifecycle, the authoritative persisted state MUST be artifac
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-059, AC-060, AC-061, AC-062, AC-071, AC-091, AC-104, AC-105, AC-106, AC-113, AC-114, AC-115, AC-233
 
-For this lifecycle, the logical output slot is the bound release tuple excluding `output_sha256`.
+For this lifecycle, the logical output slot is the bound release tuple excluding `output_sha256` and including canonical `recipient_partition_refs[]`.
 
 **REQ-02-142**
 `release_state` MUST use the exact closed vocabulary defined in §18. `approved_at`, `invalidated_at`, `published_at`, and optional `invalidation_reason` are artifact-scoped release metadata and MUST remain on the release record rather than on the snapshot descriptor.
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-059, AC-060, AC-061, AC-062, AC-071, AC-091, AC-104, AC-105, AC-106, AC-113, AC-114, AC-115, AC-233
 
-A rendered output enters `pending_approval` when bytes and `output_sha256` exist for one immutable release tuple but the required approvals are not yet satisfied. It enters `approved` only when the required approvals are satisfied for that exact release record. It enters `published` only through an explicit publish action after approval. It enters `invalidated` when a different artifact for the same logical output slot supersedes it, when `output_sha256` changes for that slot, or when the implementation can no longer attest that the required approval set applies to that exact artifact.
+A rendered output enters `pending_approval` when bytes and `output_sha256` exist for one immutable release tuple but the required approvals are not yet satisfied. It enters `approved` only when the required approvals are satisfied for that exact release record. It enters `published` only through an explicit publish action after approval. It enters `invalidated` when a different artifact for the same logical output slot supersedes it, when `output_sha256` changes for that slot, or when the implementation can no longer attest that the required approval set applies to that exact artifact. It enters `render_failed` only for an admitted durable render candidate that fails closed before output bytes exist; in that state output and manifest fields are nullable and `render_failed_reason_code` is required.
 
 **REQ-02-143**
 Each exportable field or block in the canonical export model MUST persist:
@@ -1361,9 +1361,12 @@ Each exportable field or block in the canonical export model MUST persist:
 - a stable export-model path,
 - exactly one `content_class`,
 - deterministic order metadata sufficient to reproduce export ordering,
+- a `source_family` when the field or block is derived from a workbook family,
 - when `content_class='curated_narrative'`, zero or more `support_refs[]`.
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-059, AC-060, AC-061, AC-062, AC-071, AC-091, AC-104, AC-105, AC-106, AC-113, AC-114, AC-115, AC-233, AC-333
+
+The current canonical derivation id is `cartulary.snapshot_export_model.v2`. It covers incident metadata plus active base-profile workbook/reporting surfaces needed for reports: Timeline, hosts, identities, parties, evidence metadata, task requests, decisions, note and coordination artifacts, findings and hypotheses, active record links, tags, entity mentions, support refs, and disclosure-partition refs. It MUST exclude raw blob bytes, mutable history, deployment auth or admin state, job records, and idempotency records.
 
 **REQ-02-144**
 When recipient-specific reporting is implemented, each exportable field or block MUST also be able to carry zero or more stable incident-local `disclosure_partition_refs[]`. Each `disclosure_partition_ref` names an export-only withholding boundary such as an affected party or other approved recipient partition. `disclosure_partition_refs[]` MUST be stored as snapshot or export metadata only. They MUST NOT change live workspace authorization.
@@ -1384,9 +1387,11 @@ A release record MUST bind, at minimum:
 - `output_kind`,
 - `output_media_type`,
 - `release_scope`,
+- canonical `recipient_partition_refs[]`,
 - `output_sha256`,
 - `redaction_manifest_sha256`,
 - `release_state`,
+- `render_failed_reason_code`,
 - `created_by_user_id`,
 - `created_at`,
 - `approved_at`,
@@ -1396,7 +1401,7 @@ A release record MUST bind, at minimum:
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-059, AC-060, AC-061, AC-062, AC-071, AC-091, AC-104, AC-105, AC-106, AC-113, AC-114, AC-115, AC-233
 
-The release record, redaction manifest artifact, and approval records MUST all bind the same `redaction_profile_sha256`, `output_sha256`, and `redaction_manifest_sha256` values for the artifact under review. A later render whose profile bytes, manifest bytes, or output bytes differ MUST be represented as a distinct candidate and MUST NOT inherit approval state.
+The release record, redaction manifest artifact, and approval records MUST all bind the same canonical `recipient_partition_refs[]`, `redaction_profile_sha256`, `output_sha256`, and `redaction_manifest_sha256` values for the artifact under review. A later render whose recipient partitions, profile bytes, manifest bytes, or output bytes differ MUST be represented as a distinct candidate and MUST NOT inherit approval state.
 
 **REQ-02-146**
 If approval state is stored, it MUST bind to the release record rather than to mutable incident rows.
@@ -2050,8 +2055,10 @@ If the Snapshot and Reporting Extension Profile is implemented, the schema MUST 
 - versioned template identifiers,
 - versioned redaction-profile identifiers,
 - `release_scope`,
+- `recipient_partition_refs[]`,
 - `export_model_sha256`,
 - `output_sha256`,
+- nullable output/manifests fields for durable `render_failed` releases,
 - redaction-manifest entries keyed by stable export-model path and rule identifier.
 Profiles: snapshot_reporting
 Verified by: AC-057, AC-060, AC-061, AC-062, AC-113, AC-114, AC-115, AC-233, AC-333
