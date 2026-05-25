@@ -28,9 +28,8 @@ type Store struct {
 type ImportAcceptedParams struct {
 	ActorUserID       uuid.UUID
 	Request           ImportMetadataRequest
-	Verification      *VerificationResult
-	VerificationError *VerificationError
-	BundleStoragePath string
+	BundleSHA256      string
+	BundleStagingPath string
 	NormalizedRequest []byte
 	Now               time.Time
 }
@@ -38,6 +37,19 @@ type ImportAcceptedParams struct {
 type JobAcceptedResult struct {
 	Job      jobs.Resource
 	Replayed bool
+}
+
+type JobPayload struct {
+	JobID             uuid.UUID
+	JobKind           string
+	ActorUserID       uuid.UUID
+	PackKey           *string
+	PackVersion       *string
+	ResolvedPackKeys  []string
+	BundleSHA256      *string
+	BundleStagingPath *string
+	RequestJSON       json.RawMessage
+	CreatedAt         time.Time
 }
 
 type ActionParams struct {
@@ -151,33 +163,9 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 		return JobAcceptedResult{}, err
 	}
 
-	var packKey *string
-	var packVersion *string
-	var bundleSHA *string
-	if params.Verification != nil {
-		verification := *params.Verification
-		packKey = &verification.PackKey
-		packVersion = &verification.PackVersion
-		bundleSHA = &verification.BundleSHA256
-		if err := upsertVerifiedPackTx(ctx, tx, params.ActorUserID, verification, params.BundleStoragePath, params.Now); err != nil {
-			return JobAcceptedResult{}, err
-		}
-		if err := insertAttestationTx(ctx, tx, attestationParams{
-			PackKey: verification.PackKey, PackVersion: verification.PackVersion, PackKind: verification.PackKind,
-			EventKind: "import", ManifestSHA256: verification.ManifestSHA256, PayloadSHA256: verification.PayloadSHA256,
-			SourceIdentifier: verification.SourceIdentifier, VerificationMethod: verification.VerificationMethod,
-			SignerKeyID: verification.SignerKeyID, VerificationResult: VerificationPassed, ActorUserID: &params.ActorUserID,
-			JobID: parseJobUUID(job.JobID), OccurredAt: params.Now, Metadata: verification.Metadata,
-		}); err != nil {
-			return JobAcceptedResult{}, err
-		}
-	} else if params.VerificationError != nil {
-		metadata := map[string]any{"reason_code": params.VerificationError.ReasonCode}
-		if err := insertJobOnlyAttestationTx(ctx, tx, params.ActorUserID, job.JobID, params.Now, metadata); err != nil {
-			return JobAcceptedResult{}, err
-		}
-	}
-	if err := insertJobPayloadTx(ctx, tx, job.JobID, "import", params.ActorUserID, packKey, packVersion, nil, bundleSHA, params.NormalizedRequest, params.Now); err != nil {
+	bundleSHA := params.BundleSHA256
+	bundleStagingPath := params.BundleStagingPath
+	if err := insertJobPayloadTx(ctx, tx, job.JobID, "import", params.ActorUserID, nil, nil, nil, &bundleSHA, &bundleStagingPath, params.NormalizedRequest, params.Now); err != nil {
 		return JobAcceptedResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
@@ -318,6 +306,108 @@ func (s *Store) AcceptRefresh(ctx context.Context, params RefreshAcceptedParams)
 		NormalizedRequest: params.NormalizedRequest,
 		Now:               params.Now,
 	})
+}
+
+func (s *Store) LookupRefreshReplay(ctx context.Context, actorUserID uuid.UUID, clientTxnID string) (JobAcceptedResult, JobPayload, bool, error) {
+	key := authn.RouteIdempotencyKey{
+		RouteKey:    "reference_packs.refresh",
+		ActorUserID: actorUserID,
+		ScopeKey:    "deployment",
+		ClientTxnID: clientTxnID,
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return JobAcceptedResult{}, JobPayload{}, false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
+	if errors.Is(err, authn.ErrNotFound) {
+		return JobAcceptedResult{}, JobPayload{}, false, tx.Commit(ctx)
+	}
+	if err != nil {
+		return JobAcceptedResult{}, JobPayload{}, false, err
+	}
+	var job jobs.Resource
+	if err := json.Unmarshal(existing.ResponseJSON, &job); err != nil {
+		return JobAcceptedResult{}, JobPayload{}, false, err
+	}
+	jobID, err := uuid.Parse(job.JobID)
+	if err != nil {
+		return JobAcceptedResult{}, JobPayload{}, false, err
+	}
+	payload, err := getJobPayloadTx(ctx, tx, jobID)
+	if err != nil {
+		return JobAcceptedResult{}, JobPayload{}, false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return JobAcceptedResult{}, JobPayload{}, false, err
+	}
+	return JobAcceptedResult{Job: job, Replayed: true}, payload, true, nil
+}
+
+func (s *Store) JobPayload(ctx context.Context, jobID uuid.UUID) (JobPayload, error) {
+	return getJobPayloadTx(ctx, s.pool, jobID)
+}
+
+func (s *Store) PendingJobIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := s.pool.Query(ctx, `
+SELECT rpjp.job_id
+  FROM reference_pack_job_payloads rpjp
+  JOIN jobs j ON j.job_id = rpjp.job_id
+ WHERE j.status IN ('queued', 'running', 'cancel_requested')
+ ORDER BY rpjp.created_at ASC, rpjp.job_id ASC
+`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var jobID uuid.UUID
+		if err := rows.Scan(&jobID); err != nil {
+			return nil, err
+		}
+		out = append(out, jobID)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) CompleteImportVerification(ctx context.Context, jobID uuid.UUID, actorUserID uuid.UUID, verification VerificationResult, bundleStoragePath string, now time.Time) (VersionRecord, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return VersionRecord{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := upsertVerifiedPackTx(ctx, tx, actorUserID, verification, bundleStoragePath, now); err != nil {
+		return VersionRecord{}, err
+	}
+	if err := insertAttestationTx(ctx, tx, attestationParams{
+		PackKey: verification.PackKey, PackVersion: verification.PackVersion, PackKind: verification.PackKind,
+		EventKind: "import", ManifestSHA256: verification.ManifestSHA256, PayloadSHA256: verification.PayloadSHA256,
+		SourceIdentifier: verification.SourceIdentifier, VerificationMethod: verification.VerificationMethod,
+		SignerKeyID: verification.SignerKeyID, VerificationResult: VerificationPassed, ActorUserID: &actorUserID,
+		JobID: &jobID, OccurredAt: now, Metadata: verification.Metadata,
+	}); err != nil {
+		return VersionRecord{}, err
+	}
+	_, err = tx.Exec(ctx, `
+UPDATE reference_pack_job_payloads
+   SET pack_key = $2,
+       pack_version = $3,
+       bundle_sha256 = $4
+ WHERE job_id = $1
+`, jobID, verification.PackKey, verification.PackVersion, verification.BundleSHA256)
+	if err != nil {
+		return VersionRecord{}, err
+	}
+	updated, err := getVersionTx(ctx, tx, verification.PackKey, verification.PackVersion)
+	if err != nil {
+		return VersionRecord{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return VersionRecord{}, err
+	}
+	return updated, nil
 }
 
 func (s *Store) ApplyVerificationResult(ctx context.Context, record VersionRecord, verification *VerificationResult, verificationErr *VerificationError, eventKind string, actorUserID uuid.UUID, jobID uuid.UUID, now time.Time) (VersionRecord, error) {
@@ -477,7 +567,7 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 	if err != nil {
 		return JobAcceptedResult{}, err
 	}
-	if err := insertJobPayloadTx(ctx, tx, job.JobID, params.JobKind, params.ActorUserID, params.PackKey, params.PackVersion, params.ResolvedPackKeys, nil, params.NormalizedRequest, params.Now); err != nil {
+	if err := insertJobPayloadTx(ctx, tx, job.JobID, params.JobKind, params.ActorUserID, params.PackKey, params.PackVersion, params.ResolvedPackKeys, nil, nil, params.NormalizedRequest, params.Now); err != nil {
 		return JobAcceptedResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
@@ -674,24 +764,50 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 	return err
 }
 
-func insertJobOnlyAttestationTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, jobID string, now time.Time, metadata map[string]any) error {
-	// Verification failures that cannot identify a pack version are still
-	// represented by the common job error summary; no version attestation exists.
-	return nil
-}
-
-func insertJobPayloadTx(ctx context.Context, tx pgx.Tx, jobID string, jobKind string, actorUserID uuid.UUID, packKey *string, packVersion *string, resolvedPackKeys []string, bundleSHA *string, normalizedRequest []byte, now time.Time) error {
+func insertJobPayloadTx(ctx context.Context, tx pgx.Tx, jobID string, jobKind string, actorUserID uuid.UUID, packKey *string, packVersion *string, resolvedPackKeys []string, bundleSHA *string, bundleStagingPath *string, normalizedRequest []byte, now time.Time) error {
 	if resolvedPackKeys == nil {
 		resolvedPackKeys = []string{}
 	}
 	_, err := tx.Exec(ctx, `
 INSERT INTO reference_pack_job_payloads (
     job_id, job_kind, actor_user_id, pack_key, pack_version, resolved_pack_keys,
-    bundle_sha256, request_json, created_at
+    bundle_sha256, bundle_staging_path, request_json, created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-`, jobID, jobKind, actorUserID, packKey, packVersion, resolvedPackKeys, bundleSHA, json.RawMessage(normalizedRequest), now)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+`, jobID, jobKind, actorUserID, packKey, packVersion, resolvedPackKeys, bundleSHA, bundleStagingPath, json.RawMessage(normalizedRequest), now)
 	return err
+}
+
+type jobPayloadQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func getJobPayloadTx(ctx context.Context, q jobPayloadQuerier, jobID uuid.UUID) (JobPayload, error) {
+	var payload JobPayload
+	var packKey sql.NullString
+	var packVersion sql.NullString
+	var bundleSHA sql.NullString
+	var stagingPath sql.NullString
+	err := q.QueryRow(ctx, `
+SELECT job_id, job_kind, actor_user_id, pack_key, pack_version, resolved_pack_keys,
+       bundle_sha256, bundle_staging_path, request_json, created_at
+  FROM reference_pack_job_payloads
+ WHERE job_id = $1
+`, jobID).Scan(&payload.JobID, &payload.JobKind, &payload.ActorUserID, &packKey, &packVersion, &payload.ResolvedPackKeys, &bundleSHA, &stagingPath, &payload.RequestJSON, &payload.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return JobPayload{}, ErrNotFound
+	}
+	if err != nil {
+		return JobPayload{}, err
+	}
+	payload.PackKey = nullStringPtr(packKey)
+	payload.PackVersion = nullStringPtr(packVersion)
+	payload.BundleSHA256 = nullStringPtr(bundleSHA)
+	payload.BundleStagingPath = nullStringPtr(stagingPath)
+	if payload.ResolvedPackKeys == nil {
+		payload.ResolvedPackKeys = []string{}
+	}
+	return payload, nil
 }
 
 func lookupRouteIdempotencyTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
@@ -708,14 +824,6 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 		return authn.RouteIdempotencyRecord{}, authn.ErrNotFound
 	}
 	return record, err
-}
-
-func parseJobUUID(jobID string) *uuid.UUID {
-	parsed, err := uuid.Parse(jobID)
-	if err != nil {
-		return nil
-	}
-	return &parsed
 }
 
 func nullStringPtr(value sql.NullString) *string {

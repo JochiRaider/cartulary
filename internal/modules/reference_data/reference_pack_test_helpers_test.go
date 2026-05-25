@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -141,6 +142,23 @@ func postReferencePackUpload(t testing.TB, baseURL string, login phase2test.Logi
 }
 
 func requireJob(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, jobID string) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	var job map[string]any
+	for {
+		job = requireJobNow(t, harness, login, jobID)
+		switch job["status"] {
+		case "succeeded", "failed", "canceled":
+			return job
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("job %s did not reach terminal state: %#v", jobID, job)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+}
+
+func requireJobNow(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, jobID string) map[string]any {
 	t.Helper()
 	resp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(login.SessionCookie))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)

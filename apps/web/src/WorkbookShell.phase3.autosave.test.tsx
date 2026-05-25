@@ -759,6 +759,26 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Alpha",
+            captureState: "reviewed",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Replacement",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
         record_id: "record-1",
         incident_id: "incident-1",
         row_version: 3,
@@ -799,7 +819,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     fireEvent.click(await screen.findByTestId("row-record-1-mark-reviewed"));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
     });
     expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
       base_row_version: 1,
@@ -811,9 +831,9 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     fireEvent.click(await screen.findByTestId("row-record-1-supersede"));
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(4);
+      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(5);
     });
-    expect(extractTimelineJSONBody(fetchMock, 3)).toMatchObject({
+    expect(extractTimelineJSONBody(fetchMock, 4)).toMatchObject({
       base_row_version: 2,
       replacement_record_id: "record-2",
     });

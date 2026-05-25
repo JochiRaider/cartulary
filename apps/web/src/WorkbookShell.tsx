@@ -309,6 +309,7 @@ type PendingQueueSnapshot = {
 };
 
 export const pendingReplayCapacity = 64;
+const maxTimelineFreshnessRetryDepth = 2;
 
 type TimelineActionEnvelope = {
   data: {
@@ -813,6 +814,7 @@ type AutoResolutionNotice = {
 
 type LoadRowsOptions = {
   showLoading: boolean;
+  freshnessRetryDepth?: number;
   viewportContinuityToken?: number;
 };
 
@@ -827,6 +829,37 @@ type TimelineScalarBinding = {
   key: keyof RowValues;
   multiline?: boolean;
 };
+
+export type WorkbookVersionedRecord = {
+  readonly recordId: string | null;
+  readonly rowVersion: number | null;
+};
+
+export type WorkbookRecordFreshnessDecision = {
+  readonly comparable: boolean;
+  readonly stale: boolean;
+};
+
+export function decideWorkbookRecordFreshness(
+  incoming: WorkbookVersionedRecord,
+  knownRowVersion: number | null | undefined,
+): WorkbookRecordFreshnessDecision {
+  if (
+    incoming.recordId === null ||
+    incoming.rowVersion === null ||
+    knownRowVersion === null ||
+    knownRowVersion === undefined
+  ) {
+    return {
+      comparable: false,
+      stale: false,
+    };
+  }
+  return {
+    comparable: true,
+    stale: incoming.rowVersion < knownRowVersion,
+  };
+}
 
 type TimelineCollectionBinding = {
   kind: "collection";
@@ -2462,6 +2495,7 @@ export function TimelineWorkbook({
   const rowsRef = useRef(rows);
   const committedTimelineRowsRef = useRef(new Map<string, WorkbookRow>());
   const committedTimelineRowVersionsRef = useRef(new Map<string, number>());
+  const committedTimelineRowsEpochRef = useRef(0);
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
   const activeSocketRef = useRef<WebSocket | null>(null);
   const socketEstablishedRef = useRef(false);
@@ -2475,6 +2509,7 @@ export function TimelineWorkbook({
   const loadRowsRef = useRef<(options: LoadRowsOptions) => Promise<void>>(
     async () => undefined,
   );
+  const schedulePendingReplayRef = useRef<() => void>(() => undefined);
   const socketResumeTokenRef = useRef<string | null>(null);
   const socketLastSeenStreamSeqRef = useRef(0);
   const socketClientInstanceIdRef = useRef<string | null>(null);
@@ -3072,19 +3107,47 @@ export function TimelineWorkbook({
     [hostEntities, identityEntities],
   );
 
-  const acceptCommittedTimelineRow = useCallback((row: WorkbookRow) => {
-    if (row.recordId === null || row.rowVersion === null) {
-      return;
-    }
-    const currentVersion = committedTimelineRowVersionsRef.current.get(
-      row.recordId,
-    );
-    if (currentVersion !== undefined && row.rowVersion < currentVersion) {
-      return;
-    }
-    committedTimelineRowVersionsRef.current.set(row.recordId, row.rowVersion);
-    committedTimelineRowsRef.current.set(row.recordId, row);
+  const knownTimelineRowVersion = useCallback((recordId: string) => {
+    return committedTimelineRowVersionsRef.current.get(recordId);
   }, []);
+
+  const currentCommittedTimelineRow = useCallback((recordId: string) => {
+    return (
+      committedTimelineRowsRef.current.get(recordId) ??
+      rowsRef.current.find(
+        (candidate) =>
+          candidate.recordId === recordId && candidate.rowVersion !== null,
+      ) ??
+      null
+    );
+  }, []);
+
+  const acceptCommittedTimelineRow = useCallback(
+    (
+      row: WorkbookRow,
+    ): { row: WorkbookRow; accepted: boolean; stale: boolean } => {
+      if (row.recordId === null || row.rowVersion === null) {
+        return { row, accepted: false, stale: false };
+      }
+      const currentVersion = knownTimelineRowVersion(row.recordId);
+      if (
+        decideWorkbookRecordFreshness(row, currentVersion).stale
+      ) {
+        return {
+          row: currentCommittedTimelineRow(row.recordId) ?? row,
+          accepted: false,
+          stale: true,
+        };
+      }
+      if (currentVersion !== row.rowVersion) {
+        committedTimelineRowsEpochRef.current += 1;
+      }
+      committedTimelineRowVersionsRef.current.set(row.recordId, row.rowVersion);
+      committedTimelineRowsRef.current.set(row.recordId, row);
+      return { row, accepted: true, stale: false };
+    },
+    [currentCommittedTimelineRow, knownTimelineRowVersion],
+  );
 
   const acceptCommittedTimelineRows = useCallback(
     (committedRows: readonly WorkbookRow[]) => {
@@ -3095,22 +3158,30 @@ export function TimelineWorkbook({
     [acceptCommittedTimelineRow],
   );
 
+  const isStaleTimelineRowVersion = useCallback(
+    (recordId: string, rowVersion: number) =>
+      decideWorkbookRecordFreshness(
+        { recordId, rowVersion },
+        knownTimelineRowVersion(recordId),
+      ).stale,
+    [knownTimelineRowVersion],
+  );
+
   const acceptTimelineRecordVersion = useCallback(
     (recordId: string, rowVersion: number) => {
-      const currentVersion =
-        committedTimelineRowVersionsRef.current.get(recordId);
-      if (currentVersion !== undefined && rowVersion < currentVersion) {
-        return;
+      if (isStaleTimelineRowVersion(recordId, rowVersion)) {
+        return { accepted: false, stale: true };
       }
-      committedTimelineRowVersionsRef.current.set(recordId, rowVersion);
-      const existing =
-        committedTimelineRowsRef.current.get(recordId) ??
-        rowsRef.current.find((row) => row.recordId === recordId) ??
-        null;
-      if (existing === null || existing.rowVersion === rowVersion) {
-        return;
+      const existing = currentCommittedTimelineRow(recordId);
+      if (existing === null) {
+        const currentVersion = knownTimelineRowVersion(recordId);
+        if (currentVersion !== rowVersion) {
+          committedTimelineRowsEpochRef.current += 1;
+        }
+        committedTimelineRowVersionsRef.current.set(recordId, rowVersion);
+        return { accepted: true, stale: false };
       }
-      acceptCommittedTimelineRow({
+      const accepted = acceptCommittedTimelineRow({
         ...existing,
         rowVersion,
         rawRow:
@@ -3121,8 +3192,14 @@ export function TimelineWorkbook({
                 row_version: rowVersion,
               },
       });
+      return { accepted: accepted.accepted, stale: accepted.stale };
     },
-    [acceptCommittedTimelineRow],
+    [
+      acceptCommittedTimelineRow,
+      currentCommittedTimelineRow,
+      isStaleTimelineRowVersion,
+      knownTimelineRowVersion,
+    ],
   );
 
   const acceptTimelineActionResult = useCallback(
@@ -3135,7 +3212,7 @@ export function TimelineWorkbook({
         acceptTimelineRecordVersion(result.record_id, result.row_version);
         return;
       }
-      acceptCommittedTimelineRow({
+      const accepted = acceptCommittedTimelineRow({
         ...existing,
         rowVersion: result.row_version,
         captureState: result.capture_state,
@@ -3153,6 +3230,7 @@ export function TimelineWorkbook({
                 },
               },
       });
+      return accepted;
     },
     [acceptCommittedTimelineRow, acceptTimelineRecordVersion],
   );
@@ -3212,8 +3290,9 @@ export function TimelineWorkbook({
       const previousRow = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
       );
-      const committed = rowFromApi(envelope.data.row);
-      acceptCommittedTimelineRow(committed);
+      const incomingCommitted = rowFromApi(envelope.data.row);
+      const accepted = acceptCommittedTimelineRow(incomingCommitted);
+      const committed = accepted.row;
       const nextRows = rowsRef.current.map((row) =>
         row.key === rowKey ? committed : row,
       );
@@ -3317,10 +3396,65 @@ export function TimelineWorkbook({
     [latestCommittedRowVersion, latestCommittedTimelineRow],
   );
 
+  const refreshTimelineRowsAfterStaleResult = useCallback(
+    async (options: LoadRowsOptions) => {
+      const nextDepth = (options.freshnessRetryDepth ?? 0) + 1;
+      if (nextDepth > maxTimelineFreshnessRetryDepth) {
+        if (options.viewportContinuityToken !== undefined) {
+          clearViewportContinuity(options.viewportContinuityToken);
+        }
+        return false;
+      }
+
+      pendingQueueRef.current.resetRefreshInFlight = true;
+      publishPendingQueueState();
+      try {
+        await loadRowsRef.current({
+          showLoading: false,
+          freshnessRetryDepth: nextDepth,
+          viewportContinuityToken: options.viewportContinuityToken,
+        });
+      } finally {
+        pendingQueueRef.current.resetRefreshInFlight = false;
+        publishPendingQueueState();
+        schedulePendingReplayRef.current();
+      }
+      return true;
+    },
+    [clearViewportContinuity, publishPendingQueueState],
+  );
+
+  const freshTimelineRowsForQueryResult = useCallback(
+    (incomingRows: readonly WorkbookRow[]) => {
+      let hasStaleRows = false;
+      const rows: WorkbookRow[] = [];
+      for (const row of incomingRows) {
+        if (
+          row.recordId !== null &&
+          decideWorkbookRecordFreshness(
+            row,
+            knownTimelineRowVersion(row.recordId),
+          ).stale
+        ) {
+          hasStaleRows = true;
+          const current = currentCommittedTimelineRow(row.recordId);
+          if (current !== null) {
+            rows.push(current);
+          }
+          continue;
+        }
+        rows.push(row);
+      }
+      return { hasStaleRows, rows };
+    },
+    [currentCommittedTimelineRow, knownTimelineRowVersion],
+  );
+
   const loadRows = useCallback(
     async (options: LoadRowsOptions) => {
       const requestSequence = loadSequenceRef.current + 1;
       loadSequenceRef.current = requestSequence;
+      const queryStartEpoch = committedTimelineRowsEpochRef.current;
 
       if (options.showLoading && !hasLoadedRowsRef.current) {
         setIsInitialLoading(true);
@@ -3340,6 +3474,14 @@ export function TimelineWorkbook({
         return;
       }
 
+      if (queryStartEpoch !== committedTimelineRowsEpochRef.current) {
+        const refreshed = await refreshTimelineRowsAfterStaleResult(options);
+        if (!refreshed && !hasLoadedRowsRef.current) {
+          setIsInitialLoading(false);
+        }
+        return;
+      }
+
       if (!result.ok) {
         if (options.viewportContinuityToken !== undefined) {
           clearViewportContinuity(options.viewportContinuityToken);
@@ -3355,10 +3497,19 @@ export function TimelineWorkbook({
       }
 
       const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
+      const incomingFreshness = freshTimelineRowsForQueryResult(
+        envelope.data.rows.map(rowFromApi),
+      );
+      if (incomingFreshness.hasStaleRows) {
+        const refreshed = await refreshTimelineRowsAfterStaleResult(options);
+        if (refreshed) {
+          return;
+        }
+      }
       const { committedRows, rows: hydratedRows } =
         reconcileCommittedRowsWithLocalDrafts({
           currentRows: rowsRef.current,
-          incomingRows: envelope.data.rows.map(rowFromApi),
+          incomingRows: incomingFreshness.rows,
           draftValueForFocusKey: (focusKey) =>
             scalarDraftValuesRef.current.get(focusKey),
           nextDraftIndex,
@@ -3390,9 +3541,11 @@ export function TimelineWorkbook({
       acceptCommittedTimelineRows,
       clearViewportContinuity,
       computeSaveState,
+      freshTimelineRowsForQueryResult,
       nextDraftIndex,
       queryBody,
       queryPath,
+      refreshTimelineRowsAfterStaleResult,
     ],
   );
 
@@ -3400,6 +3553,9 @@ export function TimelineWorkbook({
 
   const applyRecordChangedPatch = useCallback(
     (payload: RecordChangedPayload) => {
+      if (isStaleTimelineRowVersion(payload.record_id, payload.row_version)) {
+        return true;
+      }
       acceptTimelineRecordVersion(payload.record_id, payload.row_version);
       const affectedView = payload.affected_views.find(
         (view) => view.view_schema_id === timelineViewSchemaId,
@@ -3413,6 +3569,9 @@ export function TimelineWorkbook({
       }
 
       const patch = affectedView.patch_cells;
+      if (isStaleTimelineRowVersion(patch.record_id, patch.row_version)) {
+        return true;
+      }
       acceptTimelineRecordVersion(patch.record_id, patch.row_version);
       let patched = false;
       const nextRows = rowsRef.current.map((row) => {
@@ -3422,8 +3581,9 @@ export function TimelineWorkbook({
         patched = true;
         const nextRawRow = applyViewRowPatch(row.rawRow, patch);
         const committed = rowFromApi(nextRawRow);
+        const accepted = acceptCommittedTimelineRow(committed);
         return {
-          ...committed,
+          ...accepted.row,
           collectionDrafts: row.collectionDrafts,
           pendingSignature: row.pendingSignature,
         };
@@ -3435,7 +3595,11 @@ export function TimelineWorkbook({
       setRows(nextRows);
       return true;
     },
-    [acceptTimelineRecordVersion],
+    [
+      acceptCommittedTimelineRow,
+      acceptTimelineRecordVersion,
+      isStaleTimelineRowVersion,
+    ],
   );
 
   useEffect(() => {
@@ -3860,6 +4024,7 @@ export function TimelineWorkbook({
       void replayPendingQueueRef.current();
     }, 0);
   }, []);
+  schedulePendingReplayRef.current = schedulePendingReplay;
 
   const schedulePendingReplayRetry = useCallback(() => {
     const pending = pendingQueueRef.current;

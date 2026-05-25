@@ -78,6 +78,34 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/WorkbookShell.phase3.grid.test.tsx",
+      "title": "classifies committed Timeline row freshness by record_id and row_version",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 workbook freshness helper coverage remains product regression coverage outside the authoritative phase row inventory."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/WorkbookShell.phase3.grid.test.tsx",
+      "title": "keeps accepted committed row state across stale invalidation queries and replay responses",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 stale query and replay regression coverage remains product regression coverage outside the authoritative phase row inventory."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/WorkbookShell.phase3.grid.test.tsx",
+      "title": "ignores stale query errors after a newer committed row response",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 stale query error regression coverage remains product regression coverage outside the authoritative phase row inventory."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/WorkbookShell.phase3.grid.test.tsx",
+      "title": "ignores stale sparse live row patches after a newer committed row is accepted",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 stale live patch regression coverage remains product regression coverage outside the authoritative phase row inventory."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/WorkbookShell.surfaces.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Workbook surface switching behavior is intentional regression coverage until a later phase owns it."

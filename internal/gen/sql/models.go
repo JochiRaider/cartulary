@@ -795,15 +795,16 @@ type ReferencePackAttestation struct {
 }
 
 type ReferencePackJobPayload struct {
-	JobID            pgtype.UUID        `json:"job_id"`
-	JobKind          string             `json:"job_kind"`
-	ActorUserID      pgtype.UUID        `json:"actor_user_id"`
-	PackKey          pgtype.Text        `json:"pack_key"`
-	PackVersion      pgtype.Text        `json:"pack_version"`
-	ResolvedPackKeys []string           `json:"resolved_pack_keys"`
-	BundleSha256     pgtype.Text        `json:"bundle_sha256"`
-	RequestJson      []byte             `json:"request_json"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	JobID             pgtype.UUID        `json:"job_id"`
+	JobKind           string             `json:"job_kind"`
+	ActorUserID       pgtype.UUID        `json:"actor_user_id"`
+	PackKey           pgtype.Text        `json:"pack_key"`
+	PackVersion       pgtype.Text        `json:"pack_version"`
+	ResolvedPackKeys  []string           `json:"resolved_pack_keys"`
+	BundleSha256      pgtype.Text        `json:"bundle_sha256"`
+	RequestJson       []byte             `json:"request_json"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	BundleStagingPath pgtype.Text        `json:"bundle_staging_path"`
 }
 
 type ReportingJobPayload struct {

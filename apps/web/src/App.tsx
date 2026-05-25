@@ -27,6 +27,7 @@ import {
   loadSession,
   type SessionData,
 } from "./phase1Client";
+import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
 
 const LazyWorkbookShell = lazy(async () => {
   const module = await import("./WorkbookShell");
@@ -727,6 +728,7 @@ export function App() {
             onRefreshShell={refreshCurrentShell}
             session={session}
           />
+          <ReferencePackAdminPanel session={session} />
         </section>
       </div>
     </main>

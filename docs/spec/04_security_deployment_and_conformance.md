@@ -635,7 +635,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-03-141..REQ-03-142
 - **AC-012**: Whole-row restore and whole-change-set rollback are available as explicit secondary actions for multi-target or destructive changes; arbitrary field-picker rollback from historical snapshots is not required in the base profile.
   - Verifies: REQ-03-141..REQ-03-142
-- **AC-013**: Re-sorting, re-filtering, or re-grouping a sheet does not cause a pending edit to target a different underlying record; all mutations are sent using `record_id`, `base_row_version`, and changed fields only.
+- **AC-013**: Re-sorting, re-filtering, or re-grouping a sheet does not cause a pending edit to target a different underlying record; stale full-query results, stale live row patches, stale mutation replay responses, and stale action responses do not lower the rendered `row_version` or committed cell state for a locally accepted newer `record_id`; all mutations are sent using `record_id`, `base_row_version`, and changed fields only.
   - Verifies: REQ-01-350, REQ-03-033..REQ-03-035, REQ-03-086, REQ-03-223..REQ-03-224
 - **AC-014**: Renaming a visible column header or tab label does not change filter semantics, write-back behavior, or export semantics for a built-in or system view; those behaviors are bound to `view_schema_id`.
   - Verifies: REQ-03-223..REQ-03-224
@@ -723,7 +723,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
 - **AC-046**: Imports, evidence processing, projection rebuilds, snapshot generation, report generation, and reference-pack refresh remain background jobs, show progress and cancellation within 1 second of job start, and do not block grid editing or row creation.
   - Verifies: REQ-00-013, REQ-01-004..REQ-01-014, REQ-01-018, REQ-01-248..REQ-01-249, REQ-01-342..REQ-01-348,
     REQ-01-351..REQ-01-353, REQ-01-369, REQ-01-452..REQ-01-454
-- **AC-047**: Under representative live-update traffic within the supported large-grid operating envelope, scrolling, sorting, filtering, grouping, and live updates never retarget pending edits away from the selected `record_id`, and viewport stabilization does not require a full-sheet rerender.
+- **AC-047**: Under representative live-update traffic within the supported large-grid operating envelope, scrolling, sorting, filtering, grouping, stale full-query refreshes, invalidation-triggered refreshes, and live updates never retarget pending edits away from the selected `record_id`, never visibly roll a locally accepted row back to an older `row_version`, and viewport stabilization does not require a full-sheet rerender.
   - Verifies: REQ-01-015..REQ-01-017, REQ-03-033..REQ-03-035, REQ-03-086, REQ-03-223..REQ-03-224,
     REQ-03-233..REQ-03-235
 - **AC-017**: Indicator data entered through the Indicators system view, imported through supported ingest paths, or resolved from supported source fields appears under a stable indicator system-view contract and, when export surfaces exist, a stable export contract with consistent indicator type, value kind, canonical value, normalization, deterministic dedupe key, and optional STIX-mapping fields.

@@ -57,6 +57,7 @@ type Runtime struct {
 	Postgres    *pgxpool.Pool
 	ObjectStore objectstore.Store
 	Jobs        *jobs.Manager
+	JobRunner   *jobs.Runner
 	WSHub       *platformws.Hub
 }
 
@@ -68,6 +69,10 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 
 	runtime := &Runtime{
 		Config: normalizedCfg,
+	}
+	now := options.Now
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
 	}
 
 	if options.Postgres != nil {
@@ -95,12 +100,12 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, err
 	}
-
-	now := options.Now
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
+	if err := reference_data.EnsureMinimumDisconnectedBundle(ctx, normalizedCfg, runtime.Postgres, now()); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 	}
 	runtime.Jobs = newJobsManager()
+	runtime.JobRunner = jobs.NewRunner()
 	hub := newWSHub()
 	runtime.WSHub = hub
 	runtime.Jobs.Configure(runtime.Postgres, now)
@@ -121,6 +126,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		Postgres:    runtime.Postgres,
 		ObjectStore: runtime.ObjectStore,
 		Jobs:        runtime.Jobs,
+		JobRunner:   runtime.JobRunner,
 		WSHub:       hub,
 		CursorCodec: cursorCodec,
 		Now:         now,
@@ -139,6 +145,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 func (r *Runtime) Close() {
 	if r == nil {
 		return
+	}
+	if r.JobRunner != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = r.JobRunner.Close(ctx)
+		cancel()
 	}
 	if r.ObjectStore != nil {
 		_ = r.ObjectStore.Close()

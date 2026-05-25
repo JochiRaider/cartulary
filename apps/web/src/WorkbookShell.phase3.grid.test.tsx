@@ -38,7 +38,10 @@ import {
   waitForTimelineWorkbookReady,
   waitForVisibleGridRowRecordIds,
 } from "./timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "./WorkbookShell";
+import {
+  decideWorkbookRecordFreshness,
+  TimelineWorkbook,
+} from "./WorkbookShell";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 
@@ -51,6 +54,30 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
   afterEach(() => {
     cleanupTimelineWorkbookTestGlobals();
+  });
+
+  it("classifies committed Timeline row freshness by record_id and row_version", () => {
+    expect(
+      decideWorkbookRecordFreshness(
+        { recordId: "record-1", rowVersion: 1 },
+        2,
+      ),
+    ).toEqual({ comparable: true, stale: true });
+    expect(
+      decideWorkbookRecordFreshness(
+        { recordId: "record-1", rowVersion: 2 },
+        2,
+      ),
+    ).toEqual({ comparable: true, stale: false });
+    expect(
+      decideWorkbookRecordFreshness(
+        { recordId: "record-1", rowVersion: 3 },
+        2,
+      ),
+    ).toEqual({ comparable: true, stale: false });
+    expect(
+      decideWorkbookRecordFreshness({ recordId: null, rowVersion: null }, 2),
+    ).toEqual({ comparable: false, stale: false });
   });
 
   it("Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key", async () => {
@@ -469,6 +496,278 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     expect(await screen.findByTestId("timeline-refresh-error")).toBeTruthy();
     expect(screen.getByTestId(gridFilterFieldTestId("timeline"))).toBeTruthy();
     expect(visibleGridRows(container)).toHaveLength(2);
+  });
+
+  it("keeps accepted committed row state across stale invalidation queries and replay responses", async () => {
+    const staleInvalidationQuery = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha summary",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(staleInvalidationQuery.promise);
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-fresh-patch",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Zulu anchored",
+          captureState: "enriched",
+        }),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Zulu anchored",
+            captureState: "enriched",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-stale-replay",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 1,
+          summary: "Alpha summary",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("save-state");
+    await waitForTimelineWorkbookReady(container, 1);
+
+    emitRecordChanged(
+      latestTimelineWebSocket(),
+      buildRecordChangedPayload({
+        recordId: "external-record",
+        rowVersion: 1,
+        clientTxnId: "external-stale-query",
+        changedFieldKeys: ["timeline.details"],
+      }),
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const summaryInput = screen.getByTestId(
+      "row-record-1-summary",
+    ) as HTMLInputElement;
+    await changeInputValue(summaryInput, "Zulu anchored");
+    fireEvent.blur(summaryInput);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+      expect(
+        (screen.getByTestId("row-record-1-summary") as HTMLInputElement).value,
+      ).toBe("Zulu anchored");
+    });
+
+    staleInvalidationQuery.resolve(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha summary",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+      expect(
+        (screen.getByTestId("row-record-1-summary") as HTMLInputElement).value,
+      ).toBe("Zulu anchored");
+    });
+
+    const replayInput = screen.getByTestId(
+      "row-record-1-summary",
+    ) as HTMLInputElement;
+    await changeInputValue(replayInput, "Replay should not regress");
+    fireEvent.blur(replayInput);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(5);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+      expect(
+        (screen.getByTestId("row-record-1-summary") as HTMLInputElement).value,
+      ).toBe("Zulu anchored");
+    });
+  });
+
+  it("ignores stale query errors after a newer committed row response", async () => {
+    const staleInvalidationQuery = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha summary",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(staleInvalidationQuery.promise);
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-fresh-patch",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Zulu anchored",
+          captureState: "enriched",
+        }),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Zulu anchored",
+            captureState: "enriched",
+          }),
+        ],
+      }),
+    );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("save-state");
+    await waitForTimelineWorkbookReady(container, 1);
+
+    emitRecordChanged(
+      latestTimelineWebSocket(),
+      buildRecordChangedPayload({
+        recordId: "external-record",
+        rowVersion: 1,
+        clientTxnId: "external-stale-error",
+        changedFieldKeys: ["timeline.details"],
+      }),
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const summaryInput = screen.getByTestId(
+      "row-record-1-summary",
+    ) as HTMLInputElement;
+    await changeInputValue(summaryInput, "Zulu anchored");
+    fireEvent.blur(summaryInput);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    staleInvalidationQuery.resolve(errorEnvelope("projection_failed", 500));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("timeline-refresh-error")).toBeNull();
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+      expect(
+        (screen.getByTestId("row-record-1-summary") as HTMLInputElement).value,
+      ).toBe("Zulu anchored");
+    });
+  });
+
+  it("ignores stale sparse live row patches after a newer committed row is accepted", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Zulu anchored",
+            captureState: "enriched",
+          }),
+        ],
+      }),
+    );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId("save-state");
+    await waitForTimelineWorkbookReady(container, 1);
+
+    emitRecordChanged(latestTimelineWebSocket(), {
+      record_id: "record-1",
+      row_version: 1,
+      change_set_id: "change-set-stale-live",
+      client_txn_id: "external-stale-live",
+      actor_user_id: "user-2",
+      changed_field_keys: ["timeline.summary"],
+      affected_views: [
+        {
+          view_schema_id: timelineViewSchemaId,
+          change_kind: "patch",
+          patch_cells: {
+            record_id: "record-1",
+            row_version: 1,
+            cells: {
+              "timeline.summary": { value: "Alpha summary" },
+            },
+          },
+        },
+      ],
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+      expect(
+        (screen.getByTestId("row-record-1-summary") as HTMLInputElement).value,
+      ).toBe("Zulu anchored");
+    });
   });
 
   it("Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key", async () => {

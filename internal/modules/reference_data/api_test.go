@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -94,6 +95,86 @@ func TestPhase11_U_11_REFERENCE_PACK_01_RequestValidationNormalizationAndClosedR
 	if err := referencePackVerificationFailed("checksum_mismatch"); err.Status != http.StatusConflict || err.Code != "reference_pack_verification_failed" {
 		t.Fatalf("verification error shape = %#v", err)
 	}
+}
+
+func TestPhase11_U_11_REFERENCE_PACK_03_VerifierRejectsArchiveLimits(t *testing.T) {
+	valid := referencePackBundle(t, bundleOptions{
+		PackKey:     "type_registry.host",
+		PackKind:    "type_registry",
+		PackVersion: "1",
+	})
+	cases := []struct {
+		name       string
+		bundle     []byte
+		input      VerificationInput
+		wantReason string
+	}{
+		{
+			name:   "member-count",
+			bundle: valid,
+			input: VerificationInput{
+				ContentType:   MediaTypeZip,
+				ArchiveLimits: config.ArchiveLimits{MaxMembers: 1},
+			},
+			wantReason: "archive_member_count_exceeded",
+		},
+		{
+			name:   "extracted-bytes",
+			bundle: valid,
+			input: VerificationInput{
+				ContentType:     MediaTypeZip,
+				ReferenceLimits: config.ReferencePackLimits{MaxExtractedBytes: 1},
+			},
+			wantReason: "archive_extracted_bytes_exceeded",
+		},
+		{
+			name:   "compression-ratio",
+			bundle: compressibleReferencePackBundle(t),
+			input: VerificationInput{
+				ContentType:   MediaTypeZip,
+				ArchiveLimits: config.ArchiveLimits{MaxCompressionRatio: 1},
+			},
+			wantReason: "archive_compression_ratio_exceeded",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.input.Bundle = tc.bundle
+			_, err := VerifyBundle(tc.input)
+			var verificationErr *VerificationError
+			if !asVerificationError(err, &verificationErr) || verificationErr.ReasonCode != tc.wantReason {
+				t.Fatalf("VerifyBundle limit error = %v, want %s", err, tc.wantReason)
+			}
+		})
+	}
+}
+
+func compressibleReferencePackBundle(t testing.TB) []byte {
+	t.Helper()
+	payload := bytes.Repeat([]byte("a"), 64*1024)
+	payloadSHABytes := sha256.Sum256(payload)
+	payloadSHA := hex.EncodeToString(payloadSHABytes[:])
+	manifestBytes, err := json.Marshal(map[string]any{
+		"pack_key":              "type_registry.compression",
+		"pack_kind":             "type_registry",
+		"pack_version":          "1",
+		"pack_contract_version": PackContractVersionV1,
+		"verification_method":   "manifest_sha256_v1",
+		"payloads": []map[string]any{
+			{"path": "payload/data.json", "sha256": payloadSHA},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+	addZipFile(t, writer, "manifest.json", manifestBytes)
+	addZipFile(t, writer, "payload/data.json", payload)
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buffer.Bytes()
 }
 
 func referencePackBundle(t testing.TB, options bundleOptions) []byte {

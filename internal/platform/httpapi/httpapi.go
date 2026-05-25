@@ -28,6 +28,7 @@ type DependencySet struct {
 	Postgres    *pgxpool.Pool
 	ObjectStore objectstore.Store
 	Jobs        *jobs.Manager
+	JobRunner   *jobs.Runner
 	WSHub       *platformws.Hub
 	CursorCodec *pagination.Codec
 	Now         func() time.Time

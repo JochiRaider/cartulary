@@ -308,7 +308,6 @@ func NormalizeRefreshRequest(request RefreshRequest, resolved []string) (Refresh
 	normalized, err := json.Marshal(map[string]any{
 		"client_txn_id":      request.ClientTxnID,
 		"resolved_pack_keys": request.ResolvedPackKeys,
-		"pack_keys_provided": request.PackKeysProvided,
 	})
 	if err != nil {
 		return RefreshRequest{}, err
