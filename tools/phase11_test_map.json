@@ -1,21 +1,22 @@
 {
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase11",
-  "note": "Phase 11 manifest for the selected Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, and shared common-job substrate. Incident Portability and Enterprise Authentication remain reserved and unclaimed.",
+  "note": "Phase 11 manifest for the selected Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, Incident Portability Extension Profile, and shared common-job substrate. Enterprise Authentication remains reserved and unclaimed.",
   "ledger": {
     "title": "Phase 11 Coverage Ledger",
     "notes": [
-      "Phase 11 is active for the selected Import Extension Profile, the selected Snapshot and Reporting Extension Profile, the selected Reference Pack Extension Profile, and the common job substrate required by selected extension routes.",
+      "Phase 11 is active for the selected Import Extension Profile, the selected Snapshot and Reporting Extension Profile, the selected Reference Pack Extension Profile, the selected Incident Portability Extension Profile, and the common job substrate required by selected extension routes.",
       "Import evidence covers upload-envelope early failure, CSV and XLSX discovery, session and unit reads, preview, deterministic mapping approval, select, apply, terminal job summaries, durable state separation, and request-time authorization for common jobs.",
       "Snapshot and Reporting evidence covers immutable snapshot replay, redaction profile validation, deterministic redaction precedence, manifest provenance, external-release binary and working-material boundaries, distinct approvals, publication, and state conflicts.",
-      "Incident Portability and Enterprise Authentication remain unselected and unclaimed; reserved-family behavior continues to be their only default runtime exposure.",
+      "Enterprise Authentication remains unselected and unclaimed; reserved-family behavior continues to be its only default runtime exposure.",
       "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
     ],
     "authoritative_execution": [
       "`backend-integration` selects request-time authorization re-derivation for incident-scoped and deployment-scoped common jobs.",
       "`backend-integration` selects Import upload-envelope no-durable-state behavior, CSV mapping/select/apply, XLSX used-range discovery evidence, and Snapshot/Reporting snapshot-release lifecycle evidence.",
       "`backend-unit` selects Snapshot/Reporting redaction profile and post-redaction validation fixtures.",
-      "`backend-unit`, `backend-integration`, `frontend-unit`, and `browser-e2e-webserver-backed` select Reference Pack request validation, disconnected bundle verification, archive-limit enforcement, import/list/read, lifecycle, failure, async admission, disconnected seed, refresh replay, optional-pack degradation, Reference Pack-owned job authorization, admin-gated UI, operator progress/cancel, and contract-registry evidence."
+      "`backend-unit`, `backend-integration`, `frontend-unit`, and `browser-e2e-webserver-backed` select Reference Pack request validation, disconnected bundle verification, archive-limit enforcement, import/list/read, lifecycle, failure, async admission, disconnected seed, refresh replay, optional-pack degradation, Reference Pack-owned job authorization, admin-gated UI, operator progress/cancel, and contract-registry evidence.",
+      "`backend-unit` and `backend-integration` select Incident Portability request validation, manifest/checksum determinism, archive verification, contract registries, export descriptor, import idempotency, projection rebuild, and imported incident open evidence."
     ],
     "support_execution_extras": [
       "Upload-envelope helper unit tests and lower-level durable job manager tests remain support-only substrate outside the direct Phase 11 rows.",
@@ -36,7 +37,7 @@
     "support_only": [
       "Helper substrate alone does not claim an extension profile.",
       "OpenAPI and generated contract artifacts are derived evidence and do not replace direct route tests.",
-      "Unselected Incident Portability and Enterprise Authentication roots must continue to return `extension_profile_not_claimed`."
+      "Unselected Enterprise Authentication roots must continue to return `extension_profile_not_claimed`."
     ]
   },
   "shared_harnesses": [],
@@ -71,6 +72,12 @@
     "I-11-REFERENCE-PACK-07",
     "I-11-REFERENCE-PACK-08",
     "I-11-REFERENCE-PACK-09",
+    "U-11-INCIDENT-BUNDLES-01",
+    "U-11-INCIDENT-BUNDLES-02",
+    "U-11-INCIDENT-BUNDLES-03",
+    "U-11-INCIDENT-BUNDLES-04",
+    "I-11-INCIDENT-BUNDLES-01",
+    "I-11-INCIDENT-BUNDLES-02",
     "E-11-01"
   ],
   "forbidden_id_files": [],
@@ -279,6 +286,66 @@
       "claim_status": "implemented",
       "claim": "The deployment-admin Reference Pack panel starts refresh work, polls the common job resource, displays progress, and exposes cancel for non-terminal jobs.",
       "out_of_scope": "This component evidence uses mocked transport and does not claim backend worker execution."
+    },
+    {
+      "id": "U-11-INCIDENT-BUNDLES-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/api_test.go",
+      "symbol": "TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRejectsModes",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle export requests canonicalize selector arrays, force full history/blob modes, reject user-supplied alternate modes, and normalize route-idempotency input.",
+      "out_of_scope": "This unit row does not claim durable descriptor creation or worker execution.",
+      "execution_family": "backend-unit-phase11-incident-bundles-request",
+      "execution_label": "backend-unit phase11 incident bundle request contract"
+    },
+    {
+      "id": "U-11-INCIDENT-BUNDLES-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/api_test.go",
+      "symbol": "TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle archive construction emits deterministic manifest and checksum inventory bytes independent of input map order.",
+      "out_of_scope": "This unit row does not claim database source-state coverage.",
+      "execution_family": "backend-unit-phase11-incident-bundles-determinism",
+      "execution_label": "backend-unit phase11 incident bundle determinism"
+    },
+    {
+      "id": "U-11-INCIDENT-BUNDLES-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/api_test.go",
+      "symbol": "TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapabilityFailures",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle verification rejects unsafe paths and unsupported required capabilities before import visibility.",
+      "out_of_scope": "This unit row does not claim object-store-backed blob staging.",
+      "execution_family": "backend-unit-phase11-incident-bundles-verifier",
+      "execution_label": "backend-unit phase11 incident bundle verifier"
+    },
+    {
+      "id": "U-11-INCIDENT-BUNDLES-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/api_test.go",
+      "symbol": "TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncidentBundleContracts",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "OpenAPI and error registries expose Incident Bundle routes, resource schema, and closed request/export/import reason registries.",
+      "out_of_scope": "Generated contract artifacts remain downstream evidence and do not replace direct route tests.",
+      "execution_family": "backend-unit-phase11-incident-bundles-contracts",
+      "execution_label": "backend-unit phase11 incident bundle contracts"
     }
   ],
   "integration": [
@@ -521,6 +588,36 @@
       "out_of_scope": "This row does not change generic deployment-job submitter access for non-Reference-Pack route families.",
       "execution_family": "backend-integration-phase11-reference-pack-job-authz",
       "execution_label": "backend-integration phase11 reference pack job authz"
+    },
+    {
+      "id": "I-11-INCIDENT-BUNDLES-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/routes_integration_test.go",
+      "symbol": "TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle export uses the common job resource, route-scoped idempotency, divergent replay rejection, terminal incident_bundle ref summary, and durable descriptor reads with canonical fixed modes and manifest hash.",
+      "out_of_scope": "This row does not claim import staging or projection rebuild.",
+      "execution_family": "backend-integration-phase11-incident-bundles-export",
+      "execution_label": "backend-integration phase11 incident bundle export"
+    },
+    {
+      "id": "I-11-INCIDENT-BUNDLES-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/routes_integration_test.go",
+      "symbol": "TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIncidentOpen",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle import reuses the shared upload envelope, keys idempotency by uploaded file hash, rejects divergent replay, emits one imported incident ref, rebuilds projections, and opens the imported incident through the normal workbook startup route.",
+      "out_of_scope": "This row uses same-deployment round-trip cleanup to avoid importing deployment-local users or memberships from the bundle.",
+      "execution_family": "backend-integration-phase11-incident-bundles-import",
+      "execution_label": "backend-integration phase11 incident bundle import"
     }
   ],
   "e2e": [

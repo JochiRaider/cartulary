@@ -1907,6 +1907,160 @@
         }
       }
     },
+    "/api/v1/incident-bundles/export": {
+      "post": {
+        "tags": [
+          "incident-bundles"
+        ],
+        "operationId": "exportIncidentBundle",
+        "summary": "Queue a whole-incident portability bundle export.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentBundleExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Incident bundle export job accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid incident-bundle export request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Export rejected or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incident-bundles/{bundle_id}": {
+      "get": {
+        "tags": [
+          "incident-bundles"
+        ],
+        "operationId": "getIncidentBundleDescriptor",
+        "summary": "Read a completed incident-bundle export descriptor.",
+        "parameters": [
+          {
+            "name": "bundle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incident bundle descriptor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentBundleEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid singleton read query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident bundle descriptor not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incident-bundles/import": {
+      "post": {
+        "tags": [
+          "incident-bundles"
+        ],
+        "operationId": "importIncidentBundle",
+        "summary": "Queue a whole-incident portability bundle import.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentBundleImportUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Incident bundle import job accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid incident-bundle import request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Import rejected or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/extensions": {
       "get": {
         "tags": [
@@ -3458,6 +3612,158 @@
         },
         "required": [
           "request_id"
+        ]
+      },
+      "IncidentBundleExportRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reference_pack_mode": {
+            "type": "string",
+            "enum": [
+              "refs_only",
+              "embedded"
+            ]
+          },
+          "optional_sections": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "reference_packs",
+                "snapshots"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "required_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "reference_packs",
+                "snapshots"
+              ]
+            },
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "incident_id",
+          "client_txn_id"
+        ]
+      },
+      "IncidentBundleImportUploadRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "client_txn_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "client_txn_id"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "required": [
+          "metadata",
+          "file"
+        ]
+      },
+      "IncidentBundleEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/IncidentBundleResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "IncidentBundleResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "exported_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "manifest_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "reference_pack_mode": {
+            "type": "string",
+            "enum": [
+              "refs_only",
+              "embedded"
+            ]
+          },
+          "history_mode": {
+            "type": "string",
+            "enum": [
+              "full"
+            ]
+          },
+          "blob_mode": {
+            "type": "string",
+            "enum": [
+              "full"
+            ]
+          },
+          "optional_sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "bundle_id",
+          "incident_id",
+          "exported_at",
+          "manifest_sha256",
+          "reference_pack_mode",
+          "history_mode",
+          "blob_mode",
+          "optional_sections",
+          "required_capabilities"
         ]
       },
       "ExtensionDiscoveryEnvelope": {

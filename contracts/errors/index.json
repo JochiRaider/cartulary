@@ -369,6 +369,26 @@
       "summary": "The addressed reference-pack version cannot become the active version."
     },
     {
+      "code": "invalid_incident_bundle_request",
+      "http_status": 400,
+      "summary": "The incident-bundle request body or upload metadata failed route-owned validation."
+    },
+    {
+      "code": "incident_bundle_not_found",
+      "http_status": 404,
+      "summary": "No visible incident-bundle export descriptor exists for the supplied bundle_id."
+    },
+    {
+      "code": "incident_bundle_export_rejected",
+      "http_status": 409,
+      "summary": "Incident-bundle export failed closed before producing a durable bundle descriptor."
+    },
+    {
+      "code": "incident_bundle_import_rejected",
+      "http_status": 409,
+      "summary": "Incident-bundle import failed closed before any imported incident became visible."
+    },
+    {
       "code": "extension_profile_not_claimed",
       "http_status": 404,
       "summary": "The requested reserved extension-family route belongs to an unclaimed deployment extension profile."
@@ -715,6 +735,149 @@
         {
           "code": "verification_pending",
           "summary": "The addressed version is still staged and cannot be reverified yet."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_incident_bundle_request",
+      "reason_codes": [
+        {
+          "code": "unsupported_upload_envelope",
+          "summary": "The request is not a supported multipart upload envelope."
+        },
+        {
+          "code": "missing_required_part",
+          "summary": "The upload envelope is missing a required part."
+        },
+        {
+          "code": "duplicate_part",
+          "summary": "The upload envelope repeated a required part."
+        },
+        {
+          "code": "unexpected_part",
+          "summary": "The upload envelope includes a part outside the route contract."
+        },
+        {
+          "code": "invalid_part_content_type",
+          "summary": "A multipart part uses a content type outside the route allowlist."
+        },
+        {
+          "code": "invalid_metadata_encoding",
+          "summary": "The metadata part is not valid UTF-8 JSON without a byte-order mark."
+        },
+        {
+          "code": "malformed_metadata_json",
+          "summary": "The metadata part is not a single valid JSON object with unique member names."
+        },
+        {
+          "code": "request_not_object",
+          "summary": "The request body or metadata is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required incident-bundle request field is absent."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a non-nullable incident-bundle field."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the incident-bundle contract."
+        },
+        {
+          "code": "invalid_reference_pack_mode",
+          "summary": "reference_pack_mode is outside the closed incident-bundle vocabulary."
+        },
+        {
+          "code": "invalid_optional_sections",
+          "summary": "optional_sections is malformed or contains a token outside the incident-bundle vocabulary."
+        },
+        {
+          "code": "invalid_required_capabilities",
+          "summary": "required_capabilities is malformed or contains a token outside the incident-bundle vocabulary."
+        },
+        {
+          "code": "history_mode_not_supported",
+          "summary": "history_mode is fixed to full and cannot be supplied by the client."
+        },
+        {
+          "code": "blob_mode_not_supported",
+          "summary": "blob_mode is fixed to full and cannot be supplied by the client."
+        }
+      ]
+    },
+    {
+      "error_code": "incident_bundle_export_rejected",
+      "reason_codes": [
+        {
+          "code": "missing_required_file",
+          "summary": "A required incident-bundle structured file could not be materialized."
+        },
+        {
+          "code": "missing_required_blob",
+          "summary": "A required incident-bundle blob could not be read or verified."
+        }
+      ]
+    },
+    {
+      "error_code": "incident_bundle_import_rejected",
+      "reason_codes": [
+        {
+          "code": "invalid_member_path",
+          "summary": "A bundle member path is absolute, escapes the archive root, or is otherwise unsafe."
+        },
+        {
+          "code": "unsupported_member_type",
+          "summary": "A bundle archive member is not a regular file."
+        },
+        {
+          "code": "checksum_mismatch",
+          "summary": "A declared bundle checksum does not match the supplied member bytes."
+        },
+        {
+          "code": "signature_mismatch",
+          "summary": "The supplied signature or signed digest does not match the verified checksum inventory."
+        },
+        {
+          "code": "blob_hash_mismatch",
+          "summary": "A blob path hash does not match the raw blob bytes."
+        },
+        {
+          "code": "duplicate_incident_id",
+          "summary": "The target deployment already contains the incident_id carried by the bundle."
+        },
+        {
+          "code": "unsupported_required_capability",
+          "summary": "The bundle requires an optional capability unsupported by this deployment."
+        },
+        {
+          "code": "remote_fetch_required",
+          "summary": "The bundle requires a live remote fetch, which incident portability does not allow."
+        },
+        {
+          "code": "missing_required_file",
+          "summary": "A required incident-bundle file is absent."
+        },
+        {
+          "code": "missing_required_blob",
+          "summary": "A required incident-bundle blob is absent."
+        },
+        {
+          "code": "malformed_manifest",
+          "summary": "The incident-bundle manifest is malformed or outside the supported format version."
+        },
+        {
+          "code": "archive_extracted_bytes_exceeded",
+          "summary": "The bundle exceeds the configured incident-bundle extracted-byte limit."
+        },
+        {
+          "code": "archive_compression_ratio_exceeded",
+          "summary": "The bundle exceeds the configured archive compression-ratio limit."
+        },
+        {
+          "code": "archive_member_count_exceeded",
+          "summary": "The bundle exceeds the configured archive-member count limit."
         }
       ]
     },

@@ -39,7 +39,7 @@ var (
 		},
 		{
 			ProfileID: "incident_portability",
-			Claimed:   false,
+			Claimed:   true,
 			RouteFamilies: []string{
 				"/api/v1/incident-bundles",
 			},

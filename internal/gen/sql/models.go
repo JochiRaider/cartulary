@@ -510,6 +510,58 @@ type Incident struct {
 	ClosedAt               pgtype.Timestamptz `json:"closed_at"`
 }
 
+type IncidentBundleExport struct {
+	BundleID             pgtype.UUID        `json:"bundle_id"`
+	IncidentID           pgtype.UUID        `json:"incident_id"`
+	ExportJobID          pgtype.UUID        `json:"export_job_id"`
+	ExportedByUserID     pgtype.UUID        `json:"exported_by_user_id"`
+	ExportedAt           pgtype.Timestamptz `json:"exported_at"`
+	ManifestSha256       string             `json:"manifest_sha256"`
+	ReferencePackMode    string             `json:"reference_pack_mode"`
+	HistoryMode          string             `json:"history_mode"`
+	BlobMode             string             `json:"blob_mode"`
+	OptionalSections     []string           `json:"optional_sections"`
+	RequiredCapabilities []string           `json:"required_capabilities"`
+	BundleSha256         string             `json:"bundle_sha256"`
+	BundleByteSize       int64              `json:"bundle_byte_size"`
+	BundleStoragePath    string             `json:"bundle_storage_path"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type IncidentBundleImportedActor struct {
+	ImportedActorDescriptorID pgtype.UUID        `json:"imported_actor_descriptor_id"`
+	IncidentID                pgtype.UUID        `json:"incident_id"`
+	SourceActorID             string             `json:"source_actor_id"`
+	DisplayName               pgtype.Text        `json:"display_name"`
+	EmailHint                 pgtype.Text        `json:"email_hint"`
+	LocalUserID               pgtype.UUID        `json:"local_user_id"`
+	ImportedAt                pgtype.Timestamptz `json:"imported_at"`
+}
+
+type IncidentBundleJobPayload struct {
+	JobID              pgtype.UUID        `json:"job_id"`
+	JobKind            string             `json:"job_kind"`
+	ActorUserID        pgtype.UUID        `json:"actor_user_id"`
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	BundleID           pgtype.UUID        `json:"bundle_id"`
+	UploadedSha256     pgtype.Text        `json:"uploaded_sha256"`
+	BundleStagingPath  pgtype.Text        `json:"bundle_staging_path"`
+	ImportedIncidentID pgtype.UUID        `json:"imported_incident_id"`
+	ManifestSha256     pgtype.Text        `json:"manifest_sha256"`
+	FailureReason      pgtype.Text        `json:"failure_reason"`
+	RequestJson        []byte             `json:"request_json"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type IncidentBundleManifestFile struct {
+	BundleID  pgtype.UUID `json:"bundle_id"`
+	Path      string      `json:"path"`
+	Sha256    string      `json:"sha256"`
+	SizeBytes int64       `json:"size_bytes"`
+	Required  bool        `json:"required"`
+}
+
 type IncidentMembership struct {
 	IncidentID        pgtype.UUID        `json:"incident_id"`
 	UserID            pgtype.UUID        `json:"user_id"`
