@@ -5300,7 +5300,7 @@ Verified by: AC-164, AC-166, AC-236
   "incident_id": "uuid",
   "incident_key": "string",
   "exported_at": "RFC3339 timestamp",
-  "source_change_set_high_watermark": "uuid-or-sequence",
+  "source_change_set_high_watermark": "cartulary.source_boundary.v1:<sha256>",
   "history_mode": "full",
   "blob_mode": "full",
   "reference_pack_mode": "refs_only | embedded",
@@ -5308,18 +5308,18 @@ Verified by: AC-164, AC-166, AC-236
   "required_capabilities": [],
   "signing_key_id": "optional key identifier",
   "files": [
-    {"path": "data/incident.json", "sha256": "sha256:...", "bytes": 123, "required": true}
+    {"path": "data/incident.json", "sha256": "sha256:...", "size_bytes": 123, "required": true}
   ]
 }
 ```
 
 **REQ-01-434**
-`manifest.json` MUST describe one immutable export boundary. `source_change_set_high_watermark` MUST identify the frozen source boundary used to build the bundle. `history_mode` and `blob_mode` MUST each equal `full` for this profile.
+`manifest.json` MUST describe one immutable export boundary. `source_change_set_high_watermark` MUST identify the frozen source boundary used to build the bundle and MUST use the exact `cartulary.source_boundary.v1:<sha256>` token form. `history_mode` and `blob_mode` MUST each equal `full` for this profile.
 Profiles: incident_portability
 Verified by: AC-164, AC-166, AC-236
 
 **REQ-01-435**
-`manifest.json.files[]` MUST enumerate every regular file in the logical bundle except `integrity/checksums.sha256` and `integrity/signature.ed25519`, sorted lexicographically by `path`. `required=true` MUST identify the files required to reconstruct the core incident state. `required=false` MAY be used only for optional embedded sections.
+`manifest.json.files[]` MUST enumerate every regular file in the logical bundle except `manifest.json`, `integrity/checksums.sha256`, and `integrity/signature.ed25519`, sorted lexicographically by `path`. `required=true` MUST identify the files required to reconstruct the core incident state. `required=false` MAY be used only for optional embedded sections. Each entry MUST use `path`, `sha256`, `size_bytes`, and `required`; `sha256` MUST be serialized as `sha256:<lowercase-hex-sha256>`, and `size_bytes` MUST be the exact non-negative byte count of that member.
 Profiles: incident_portability
 Verified by: AC-164, AC-166, AC-236
 
@@ -6267,7 +6267,7 @@ Profiles: incident_portability
 Verified by: AC-275
 
 **REQ-01-486**
-The incident-bundle route family MUST use only `invalid_incident_bundle_request`, `incident_bundle_not_found`, `incident_bundle_export_rejected`, and `incident_bundle_import_rejected`. `invalid_incident_bundle_request` MUST use only the shared upload-envelope reasons from REQ-01-553 plus `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_reference_pack_mode`, `invalid_optional_sections`, `invalid_required_capabilities`, `history_mode_not_supported`, and `blob_mode_not_supported`. `incident_bundle_export_rejected` MUST use only `missing_required_file` and `missing_required_blob`. `incident_bundle_import_rejected` MUST use only `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`, `unsupported_required_capability`, `remote_fetch_required`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`.
+The incident-bundle route family MUST use only `invalid_incident_bundle_request`, `incident_bundle_not_found`, `incident_bundle_export_rejected`, and `incident_bundle_import_rejected`. `invalid_incident_bundle_request` MUST use only the shared upload-envelope reasons from REQ-01-553 plus `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_reference_pack_mode`, `invalid_optional_sections`, `invalid_required_capabilities`, `history_mode_not_supported`, `blob_mode_not_supported`, and `invalid_value`. `incident_bundle_export_rejected` MUST use only `missing_required_file` and `missing_required_blob`. `incident_bundle_import_rejected` MUST use only `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`, `unsupported_required_capability`, `remote_fetch_required`, `missing_required_file`, `missing_required_blob`, `malformed_manifest`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`.
 Profiles: incident_portability
 Verified by: AC-276, AC-327, AC-328, AC-332
 

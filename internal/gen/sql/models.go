@@ -363,6 +363,18 @@ type EvidenceAccessHandle struct {
 	RecordRowVersion       int64              `json:"record_row_version"`
 }
 
+type EvidenceCustodyEvent struct {
+	CustodyEventID   pgtype.UUID        `json:"custody_event_id"`
+	IncidentID       pgtype.UUID        `json:"incident_id"`
+	EvidenceRecordID pgtype.UUID        `json:"evidence_record_id"`
+	CustodyEventType string             `json:"custody_event_type"`
+	ActorUserID      pgtype.UUID        `json:"actor_user_id"`
+	OccurredAt       pgtype.Timestamptz `json:"occurred_at"`
+	LocationText     pgtype.Text        `json:"location_text"`
+	Note             pgtype.Text        `json:"note"`
+	Metadata         []byte             `json:"metadata"`
+}
+
 type HandoffRiskRef struct {
 	RiskRefID             pgtype.UUID        `json:"risk_ref_id"`
 	IncidentID            pgtype.UUID        `json:"incident_id"`
@@ -536,6 +548,17 @@ type IncidentBundleImportedActor struct {
 	EmailHint                 pgtype.Text        `json:"email_hint"`
 	LocalUserID               pgtype.UUID        `json:"local_user_id"`
 	ImportedAt                pgtype.Timestamptz `json:"imported_at"`
+}
+
+type IncidentBundleImportedAttribution struct {
+	ImportedAttributionID pgtype.UUID        `json:"imported_attribution_id"`
+	IncidentID            pgtype.UUID        `json:"incident_id"`
+	SourceTable           string             `json:"source_table"`
+	SourceRowID           string             `json:"source_row_id"`
+	SourceColumn          string             `json:"source_column"`
+	SourceActorID         string             `json:"source_actor_id"`
+	LocalUserID           pgtype.UUID        `json:"local_user_id"`
+	ImportedAt            pgtype.Timestamptz `json:"imported_at"`
 }
 
 type IncidentBundleJobPayload struct {

@@ -804,6 +804,10 @@
         {
           "code": "blob_mode_not_supported",
           "summary": "blob_mode is fixed to full and cannot be supplied by the client."
+        },
+        {
+          "code": "invalid_value",
+          "summary": "An incident-bundle request field has a malformed or unsupported scalar value."
         }
       ]
     },

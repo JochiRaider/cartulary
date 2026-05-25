@@ -19,37 +19,38 @@ import (
 )
 
 const (
-	BundleFormat  = "cartulary.incident_bundle"
-	BundleVersion = "v1"
+	BundleFormat              = "cartulary.incident_bundle"
+	BundleVersion             = 1
+	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 )
 
 var requiredStructuredFiles = []string{
 	"data/incident.json",
-	"actors.ndjson",
-	"records.ndjson",
-	"timeline_events.ndjson",
-	"hosts.ndjson",
-	"identities.ndjson",
-	"entity_aliases.ndjson",
-	"indicators.ndjson",
-	"indicator_observations.ndjson",
-	"indicator_state_intervals.ndjson",
-	"artifacts.ndjson",
-	"task_requests.ndjson",
-	"decisions.ndjson",
-	"evidence_records.ndjson",
-	"evidence_custody_events.ndjson",
-	"object_blobs.ndjson",
-	"entity_mentions.ndjson",
-	"compromise_assessments.ndjson",
-	"record_links.ndjson",
-	"tags.ndjson",
-	"record_tags.ndjson",
-	"change_sets.ndjson",
-	"change_set_mutations.ndjson",
-	"record_revisions.ndjson",
-	"saved_views.ndjson",
-	"reference_pack_refs.json",
+	"data/actors.ndjson",
+	"data/records.ndjson",
+	"data/timeline_events.ndjson",
+	"data/hosts.ndjson",
+	"data/identities.ndjson",
+	"data/entity_aliases.ndjson",
+	"data/indicators.ndjson",
+	"data/indicator_observations.ndjson",
+	"data/indicator_state_intervals.ndjson",
+	"data/artifacts.ndjson",
+	"data/task_requests.ndjson",
+	"data/decisions.ndjson",
+	"data/evidence_records.ndjson",
+	"data/evidence_custody_events.ndjson",
+	"data/object_blobs.ndjson",
+	"data/entity_mentions.ndjson",
+	"data/compromise_assessments.ndjson",
+	"data/record_links.ndjson",
+	"data/tags.ndjson",
+	"data/record_tags.ndjson",
+	"data/change_sets.ndjson",
+	"data/change_set_mutations.ndjson",
+	"data/record_revisions.ndjson",
+	"data/saved_views.ndjson",
+	"data/reference_pack_refs.json",
 }
 
 type ManifestInput struct {
@@ -70,19 +71,20 @@ type BundleArchive struct {
 }
 
 type BundleManifest struct {
-	BundleFormat         string         `json:"bundle_format"`
-	BundleVersion        string         `json:"bundle_version"`
-	BundleID             string         `json:"bundle_id"`
-	IncidentID           string         `json:"incident_id"`
-	IncidentKey          string         `json:"incident_key"`
-	ExportedAt           string         `json:"exported_at"`
-	SourceBoundary       string         `json:"source_boundary"`
-	HistoryMode          string         `json:"history_mode"`
-	BlobMode             string         `json:"blob_mode"`
-	ReferencePackMode    string         `json:"reference_pack_mode"`
-	OptionalSections     []string       `json:"optional_sections"`
-	RequiredCapabilities []string       `json:"required_capabilities"`
-	Files                []ManifestFile `json:"files"`
+	BundleFormat                 string         `json:"bundle_format"`
+	BundleVersion                int            `json:"bundle_version"`
+	BundleID                     string         `json:"bundle_id"`
+	IncidentID                   string         `json:"incident_id"`
+	IncidentKey                  string         `json:"incident_key"`
+	ExportedAt                   string         `json:"exported_at"`
+	SourceChangeSetHighWatermark string         `json:"source_change_set_high_watermark"`
+	HistoryMode                  string         `json:"history_mode"`
+	BlobMode                     string         `json:"blob_mode"`
+	ReferencePackMode            string         `json:"reference_pack_mode"`
+	OptionalSections             []string       `json:"optional_sections"`
+	RequiredCapabilities         []string       `json:"required_capabilities"`
+	SigningKeyID                 *string        `json:"signing_key_id,omitempty"`
+	Files                        []ManifestFile `json:"files"`
 }
 
 type ManifestFile struct {
@@ -139,19 +141,19 @@ func BuildBundleArchive(input ManifestInput, files map[string][]byte) (BundleArc
 		return BundleArchive{}, err
 	}
 	manifest := BundleManifest{
-		BundleFormat:         BundleFormat,
-		BundleVersion:        BundleVersion,
-		BundleID:             input.BundleID,
-		IncidentID:           input.IncidentID,
-		IncidentKey:          input.IncidentKey,
-		ExportedAt:           input.ExportedAt,
-		SourceBoundary:       "cartulary.source_boundary.v1:" + hashHex(sourceBoundaryBytes),
-		HistoryMode:          HistoryModeFull,
-		BlobMode:             BlobModeFull,
-		ReferencePackMode:    input.ReferencePackMode,
-		OptionalSections:     canonicalStringSet(input.OptionalSections),
-		RequiredCapabilities: canonicalStringSet(input.RequiredCapabilities),
-		Files:                manifestFiles,
+		BundleFormat:                 BundleFormat,
+		BundleVersion:                BundleVersion,
+		BundleID:                     input.BundleID,
+		IncidentID:                   input.IncidentID,
+		IncidentKey:                  input.IncidentKey,
+		ExportedAt:                   input.ExportedAt,
+		SourceChangeSetHighWatermark: sourceBoundaryTokenPrefix + hashHex(sourceBoundaryBytes),
+		HistoryMode:                  HistoryModeFull,
+		BlobMode:                     BlobModeFull,
+		ReferencePackMode:            input.ReferencePackMode,
+		OptionalSections:             canonicalStringSet(input.OptionalSections),
+		RequiredCapabilities:         canonicalStringSet(input.RequiredCapabilities),
+		Files:                        manifestFiles,
 	}
 	if manifest.ReferencePackMode == "" {
 		manifest.ReferencePackMode = ReferencePackModeRefsOnly
@@ -194,6 +196,15 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	if manifest.BundleFormat != BundleFormat || manifest.BundleVersion != BundleVersion || manifest.HistoryMode != HistoryModeFull || manifest.BlobMode != BlobModeFull {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
+	if !strings.HasPrefix(manifest.SourceChangeSetHighWatermark, sourceBoundaryTokenPrefix) {
+		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	if signatureBytes, ok := files["integrity/signature.ed25519"]; ok {
+		if len(signatureBytes) == 0 || manifest.SigningKeyID == nil || strings.TrimSpace(*manifest.SigningKeyID) == "" {
+			return VerifiedBundle{}, &VerificationError{ReasonCode: "signature_mismatch"}
+		}
+		return VerifiedBundle{}, &VerificationError{ReasonCode: "signature_mismatch"}
+	}
 	if len(manifest.RequiredCapabilities) > 0 {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "unsupported_required_capability"}
 	}
@@ -235,12 +246,28 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 			return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
 		}
 	}
+	if !canonicalManifestFilesMatch(files, manifest.Files) {
+		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
 	return VerifiedBundle{
 		Manifest:       manifest,
 		ManifestSHA256: hashHex(manifestBytes),
 		Files:          files,
 		Checksums:      checksums,
 	}, nil
+}
+
+func canonicalManifestFilesMatch(files map[string][]byte, manifestFiles []ManifestFile) bool {
+	expected := manifestFilesFor(files, false)
+	if len(expected) != len(manifestFiles) {
+		return false
+	}
+	for idx := range expected {
+		if expected[idx] != manifestFiles[idx] {
+			return false
+		}
+	}
+	return true
 }
 
 func readBundleArchive(bundle []byte, limits config.LimitConfig) (map[string][]byte, error) {

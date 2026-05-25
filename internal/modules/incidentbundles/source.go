@@ -41,54 +41,57 @@ type exportNDJSONSpec struct {
 }
 
 var exportSpecs = []exportNDJSONSpec{
-	{"records.ndjson", `SELECT to_jsonb(t) FROM records t WHERE incident_id = $1 ORDER BY record_id`},
-	{"timeline_events.ndjson", `SELECT to_jsonb(t) FROM timeline_events t WHERE incident_id = $1 ORDER BY record_id`},
-	{"entity_mentions.ndjson", `SELECT to_jsonb(t) FROM entity_mentions t JOIN records r ON r.record_id = t.source_record_id WHERE r.incident_id = $1 ORDER BY t.entity_mention_id`},
-	{"hosts.ndjson", `SELECT to_jsonb(t) FROM hosts t WHERE incident_id = $1 ORDER BY record_id`},
-	{"identities.ndjson", `SELECT to_jsonb(t) FROM identities t WHERE incident_id = $1 ORDER BY record_id`},
-	{"entity_aliases.ndjson", `SELECT to_jsonb(t) FROM entity_aliases t WHERE incident_id = $1 ORDER BY entity_alias_id`},
-	{"indicators.ndjson", `SELECT to_jsonb(t) FROM indicators t WHERE incident_id = $1 ORDER BY record_id`},
-	{"indicator_observations.ndjson", `SELECT to_jsonb(t) FROM indicator_observations t WHERE incident_id = $1 ORDER BY indicator_observation_id`},
-	{"indicator_state_intervals.ndjson", `SELECT to_jsonb(t) FROM indicator_state_intervals t WHERE incident_id = $1 ORDER BY indicator_state_interval_id`},
-	{"artifacts.ndjson", `SELECT to_jsonb(t) FROM artifacts t WHERE incident_id = $1 ORDER BY record_id`},
-	{"task_requests.ndjson", `SELECT to_jsonb(t) FROM task_requests t WHERE incident_id = $1 ORDER BY record_id`},
-	{"decisions.ndjson", `SELECT to_jsonb(t) FROM decisions t WHERE incident_id = $1 ORDER BY record_id`},
-	{"evidence_records.ndjson", `SELECT to_jsonb(t) FROM evidence t WHERE incident_id = $1 ORDER BY record_id`},
-	{"object_blobs.ndjson", `SELECT to_jsonb(t) FROM object_blobs t WHERE incident_id = $1 ORDER BY object_blob_id`},
-	{"compromise_assessments.ndjson", `SELECT to_jsonb(t) FROM assessments t WHERE incident_id = $1 ORDER BY record_id`},
-	{"record_links.ndjson", `SELECT to_jsonb(t) FROM record_links t WHERE incident_id = $1 ORDER BY record_link_id`},
-	{"record_tags.ndjson", `SELECT to_jsonb(t) FROM record_tags t WHERE incident_id = $1 ORDER BY record_tag_id`},
-	{"change_sets.ndjson", `SELECT to_jsonb(t) FROM change_sets t WHERE incident_id = $1 ORDER BY created_at, change_set_id`},
-	{"change_set_mutations.ndjson", `SELECT to_jsonb(t) FROM change_set_mutations t JOIN change_sets c ON c.change_set_id = t.change_set_id WHERE c.incident_id = $1 ORDER BY t.change_set_id, t.sequence_no`},
-	{"record_revisions.ndjson", `SELECT to_jsonb(t) FROM record_revisions t JOIN change_sets c ON c.change_set_id = t.change_set_id WHERE c.incident_id = $1 ORDER BY t.record_id, t.row_version`},
-	{"saved_views.ndjson", `SELECT to_jsonb(t) FROM saved_views t WHERE incident_id = $1 ORDER BY saved_view_id`},
+	{"data/records.ndjson", `SELECT to_jsonb(t) FROM records t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/timeline_events.ndjson", `SELECT to_jsonb(t) FROM timeline_events t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/entity_mentions.ndjson", `SELECT to_jsonb(t) FROM entity_mentions t JOIN records r ON r.record_id = t.source_record_id WHERE r.incident_id = $1 ORDER BY t.entity_mention_id`},
+	{"data/hosts.ndjson", `SELECT to_jsonb(t) FROM hosts t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/identities.ndjson", `SELECT to_jsonb(t) FROM identities t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/entity_aliases.ndjson", `SELECT to_jsonb(t) FROM entity_aliases t WHERE incident_id = $1 ORDER BY entity_alias_id`},
+	{"data/indicators.ndjson", `SELECT to_jsonb(t) FROM indicators t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/indicator_observations.ndjson", `SELECT to_jsonb(t) FROM indicator_observations t WHERE incident_id = $1 ORDER BY indicator_observation_id`},
+	{"data/indicator_state_intervals.ndjson", `SELECT to_jsonb(t) FROM indicator_state_intervals t WHERE incident_id = $1 ORDER BY indicator_state_interval_id`},
+	{"data/artifacts.ndjson", `SELECT to_jsonb(t) FROM artifacts t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/task_requests.ndjson", `SELECT to_jsonb(t) FROM task_requests t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/decisions.ndjson", `SELECT to_jsonb(t) FROM decisions t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/evidence_records.ndjson", `SELECT to_jsonb(t) FROM evidence t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/evidence_custody_events.ndjson", `SELECT to_jsonb(t) FROM evidence_custody_events t WHERE incident_id = $1 ORDER BY evidence_record_id, occurred_at, custody_event_id`},
+	{"data/object_blobs.ndjson", `SELECT to_jsonb(t) FROM object_blobs t WHERE incident_id = $1 ORDER BY object_blob_id`},
+	{"data/compromise_assessments.ndjson", `SELECT to_jsonb(t) FROM assessments t WHERE incident_id = $1 ORDER BY record_id`},
+	{"data/record_links.ndjson", `SELECT to_jsonb(t) FROM record_links t WHERE incident_id = $1 ORDER BY record_link_id`},
+	{"data/tags.ndjson", `SELECT jsonb_build_object('tag_name', tag_name, 'normalized_tag_name', normalized_tag_name) FROM (SELECT DISTINCT tag_name, normalized_tag_name FROM record_tags WHERE incident_id = $1 ORDER BY normalized_tag_name, tag_name) tags`},
+	{"data/record_tags.ndjson", `SELECT to_jsonb(t) FROM record_tags t WHERE incident_id = $1 ORDER BY record_id, normalized_tag_name, record_tag_id`},
+	{"data/change_sets.ndjson", `SELECT to_jsonb(t) FROM change_sets t WHERE incident_id = $1 ORDER BY created_at, change_set_id`},
+	{"data/change_set_mutations.ndjson", `SELECT to_jsonb(t) FROM change_set_mutations t JOIN change_sets c ON c.change_set_id = t.change_set_id WHERE c.incident_id = $1 ORDER BY t.change_set_id, t.sequence_no`},
+	{"data/record_revisions.ndjson", `SELECT to_jsonb(t) FROM record_revisions t JOIN change_sets c ON c.change_set_id = t.change_set_id WHERE c.incident_id = $1 ORDER BY t.record_id, t.row_version`},
+	{"data/saved_views.ndjson", `SELECT to_jsonb(t) FROM saved_views t WHERE incident_id = $1 ORDER BY saved_view_id`},
 }
 
 var importSpecs = []struct {
 	Path  string
 	Table string
 }{
-	{"records.ndjson", "records"},
-	{"timeline_events.ndjson", "timeline_events"},
-	{"entity_mentions.ndjson", "entity_mentions"},
-	{"hosts.ndjson", "hosts"},
-	{"identities.ndjson", "identities"},
-	{"entity_aliases.ndjson", "entity_aliases"},
-	{"indicators.ndjson", "indicators"},
-	{"indicator_observations.ndjson", "indicator_observations"},
-	{"indicator_state_intervals.ndjson", "indicator_state_intervals"},
-	{"artifacts.ndjson", "artifacts"},
-	{"task_requests.ndjson", "task_requests"},
-	{"decisions.ndjson", "decisions"},
-	{"object_blobs.ndjson", "object_blobs"},
-	{"evidence_records.ndjson", "evidence"},
-	{"compromise_assessments.ndjson", "assessments"},
-	{"record_links.ndjson", "record_links"},
-	{"record_tags.ndjson", "record_tags"},
-	{"change_sets.ndjson", "change_sets"},
-	{"change_set_mutations.ndjson", "change_set_mutations"},
-	{"record_revisions.ndjson", "record_revisions"},
-	{"saved_views.ndjson", "saved_views"},
+	{"data/records.ndjson", "records"},
+	{"data/timeline_events.ndjson", "timeline_events"},
+	{"data/entity_mentions.ndjson", "entity_mentions"},
+	{"data/hosts.ndjson", "hosts"},
+	{"data/identities.ndjson", "identities"},
+	{"data/entity_aliases.ndjson", "entity_aliases"},
+	{"data/indicators.ndjson", "indicators"},
+	{"data/indicator_observations.ndjson", "indicator_observations"},
+	{"data/indicator_state_intervals.ndjson", "indicator_state_intervals"},
+	{"data/artifacts.ndjson", "artifacts"},
+	{"data/task_requests.ndjson", "task_requests"},
+	{"data/decisions.ndjson", "decisions"},
+	{"data/object_blobs.ndjson", "object_blobs"},
+	{"data/evidence_records.ndjson", "evidence"},
+	{"data/evidence_custody_events.ndjson", "evidence_custody_events"},
+	{"data/compromise_assessments.ndjson", "assessments"},
+	{"data/record_links.ndjson", "record_links"},
+	{"data/record_tags.ndjson", "record_tags"},
+	{"data/change_sets.ndjson", "change_sets"},
+	{"data/change_set_mutations.ndjson", "change_set_mutations"},
+	{"data/record_revisions.ndjson", "record_revisions"},
+	{"data/saved_views.ndjson", "saved_views"},
 }
 
 func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request ExportRequest, bundleID uuid.UUID, exportedAt time.Time) (BuiltIncidentBundle, error) {
@@ -102,7 +105,7 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 	if err != nil {
 		return BuiltIncidentBundle{}, err
 	}
-	files["actors.ndjson"] = actors
+	files["data/actors.ndjson"] = actors
 	for _, spec := range exportSpecs {
 		payload, err := b.exportNDJSON(ctx, incidentID, spec.Query)
 		if err != nil {
@@ -110,9 +113,7 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 		}
 		files[spec.Path] = payload
 	}
-	files["tags.ndjson"] = []byte{}
-	files["evidence_custody_events.ndjson"] = []byte{}
-	files["reference_pack_refs.json"] = []byte("[]\n")
+	files["data/reference_pack_refs.json"] = []byte("[]\n")
 	if err := b.exportBlobs(ctx, incidentID, files); err != nil {
 		return BuiltIncidentBundle{}, err
 	}
@@ -152,15 +153,40 @@ func (b BundleBuilder) exportIncident(ctx context.Context, incidentID uuid.UUID)
 
 func (b BundleBuilder) exportActors(ctx context.Context, incidentID uuid.UUID) ([]byte, error) {
 	rows, err := b.pool.Query(ctx, `
-WITH actor_ids AS (
-    SELECT created_by_user_id AS user_id FROM incidents WHERE id = $1
-    UNION SELECT updated_by_user_id FROM incidents WHERE id = $1
-    UNION SELECT created_by_user_id FROM records WHERE incident_id = $1
-    UNION SELECT updated_by_user_id FROM records WHERE incident_id = $1
-    UNION SELECT actor_user_id FROM change_sets WHERE incident_id = $1
+WITH scoped_rows AS (
+    SELECT to_jsonb(t) AS row_json FROM incidents t WHERE id = $1
+    UNION ALL SELECT to_jsonb(t) FROM records t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM timeline_events t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM entity_mentions t JOIN records r ON r.record_id = t.source_record_id WHERE r.incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM hosts t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM identities t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM entity_aliases t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM indicators t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM indicator_observations t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM indicator_state_intervals t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM artifacts t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM task_requests t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM decisions t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM evidence t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM evidence_custody_events t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM object_blobs t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM assessments t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM record_links t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM record_tags t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM change_sets t WHERE incident_id = $1
+    UNION ALL SELECT to_jsonb(t) FROM saved_views t WHERE incident_id = $1
+), actor_ids AS (
+    SELECT DISTINCT kv.value::uuid AS user_id
+      FROM scoped_rows
+      CROSS JOIN LATERAL jsonb_each_text(row_json) AS kv(key, value)
+     WHERE kv.key LIKE '%\_user_id' ESCAPE '\'
+       AND kv.value IS NOT NULL
+       AND kv.value <> ''
+       AND kv.value <> 'null'
+       AND kv.value ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 )
 SELECT jsonb_build_object(
-    'source_actor_id', u.id::text,
+    'actor_id', u.id::text,
     'display_name', u.display_name,
     'email_hint', u.email::text
 )
@@ -256,7 +282,8 @@ func (i Importer) Import(ctx context.Context, verified VerifiedBundle, actorUser
 	if existing > 0 {
 		return uuid.UUID{}, &VerificationError{ReasonCode: "duplicate_incident_id"}
 	}
-	if err := i.importIncident(ctx, tx, verified.Files["data/incident.json"], actorUserID); err != nil {
+	attributions := importedAttributionBuffer{IncidentID: incidentID, LocalUserID: actorUserID}
+	if err := i.importIncident(ctx, tx, verified.Files["data/incident.json"], actorUserID, &attributions); err != nil {
 		return uuid.UUID{}, err
 	}
 	if _, err := tx.Exec(ctx, `
@@ -266,20 +293,36 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 `, incidentID, actorUserID); err != nil {
 		return uuid.UUID{}, err
 	}
-	if err := i.importActors(ctx, tx, verified.Files["actors.ndjson"], incidentID, actorUserID); err != nil {
+	if err := i.importActors(ctx, tx, verified.Files["data/actors.ndjson"], incidentID); err != nil {
 		return uuid.UUID{}, err
 	}
-	if err := i.importObjectBlobBytes(ctx, verified, actorUserID); err != nil {
+	rewrittenObjectBlobs, writtenObjectKeys, err := i.rewriteAndImportObjectBlobBytes(ctx, verified, incidentID, actorUserID, &attributions)
+	if err != nil {
 		return uuid.UUID{}, err
 	}
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		for _, key := range writtenObjectKeys {
+			_ = i.objectStore.DeleteObject(ctx, key)
+		}
+	}()
 	for _, spec := range importSpecs {
 		payload := verified.Files[spec.Path]
+		if spec.Path == "data/object_blobs.ndjson" {
+			payload = rewrittenObjectBlobs
+		}
 		if len(bytes.TrimSpace(payload)) == 0 {
 			continue
 		}
-		if err := i.importNDJSON(ctx, tx, spec.Table, payload, actorUserID); err != nil {
+		if err := i.importNDJSON(ctx, tx, spec.Table, payload, actorUserID, &attributions); err != nil {
 			return uuid.UUID{}, err
 		}
+	}
+	if err := attributions.flush(ctx, tx); err != nil {
+		return uuid.UUID{}, err
 	}
 	projectionStore := projections.NewStore(i.pool)
 	if err := projectionStore.RebuildIncidentTimelineTx(ctx, tx, incidentID); err != nil {
@@ -306,15 +349,16 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.UUID{}, err
 	}
+	committed = true
 	return incidentID, nil
 }
 
-func (i Importer) importIncident(ctx context.Context, tx pgx.Tx, payload []byte, actorUserID uuid.UUID) error {
+func (i Importer) importIncident(ctx context.Context, tx pgx.Tx, payload []byte, actorUserID uuid.UUID, attributions *importedAttributionBuffer) error {
 	var row map[string]any
 	if err := json.Unmarshal(bytes.TrimSpace(payload), &row); err != nil {
 		return &VerificationError{ReasonCode: "malformed_manifest"}
 	}
-	remapUserFields(row, actorUserID)
+	remapTopLevelUserFields(row, "incidents", actorUserID, attributions)
 	raw, err := json.Marshal(row)
 	if err != nil {
 		return err
@@ -323,13 +367,16 @@ func (i Importer) importIncident(ctx context.Context, tx pgx.Tx, payload []byte,
 	return err
 }
 
-func (i Importer) importActors(ctx context.Context, tx pgx.Tx, payload []byte, incidentID uuid.UUID, actorUserID uuid.UUID) error {
+func (i Importer) importActors(ctx context.Context, tx pgx.Tx, payload []byte, incidentID uuid.UUID) error {
 	rows, err := decodeNDJSON(payload)
 	if err != nil {
 		return err
 	}
 	for _, row := range rows {
-		sourceActorID, _ := row["source_actor_id"].(string)
+		sourceActorID, _ := row["actor_id"].(string)
+		if strings.TrimSpace(sourceActorID) == "" {
+			sourceActorID, _ = row["source_actor_id"].(string)
+		}
 		if strings.TrimSpace(sourceActorID) == "" {
 			continue
 		}
@@ -339,7 +386,7 @@ func (i Importer) importActors(ctx context.Context, tx pgx.Tx, payload []byte, i
 INSERT INTO incident_bundle_imported_actors (incident_id, source_actor_id, display_name, email_hint, local_user_id)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (incident_id, source_actor_id) DO NOTHING
-`, incidentID, sourceActorID, nullableString(displayName), nullableString(emailHint), actorUserID)
+`, incidentID, sourceActorID, nullableString(displayName), nullableString(emailHint), nil)
 		if err != nil {
 			return err
 		}
@@ -347,15 +394,22 @@ ON CONFLICT (incident_id, source_actor_id) DO NOTHING
 	return nil
 }
 
-func (i Importer) importObjectBlobBytes(ctx context.Context, verified VerifiedBundle, actorUserID uuid.UUID) error {
-	rows, err := decodeNDJSON(verified.Files["object_blobs.ndjson"])
+func (i Importer) rewriteAndImportObjectBlobBytes(ctx context.Context, verified VerifiedBundle, incidentID uuid.UUID, actorUserID uuid.UUID, attributions *importedAttributionBuffer) ([]byte, []string, error) {
+	rows, err := decodeNDJSON(verified.Files["data/object_blobs.ndjson"])
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+	writtenKeys := make([]string, 0, len(rows))
+	var buf bytes.Buffer
 	for _, row := range rows {
-		remapUserFields(row, actorUserID)
+		remapTopLevelUserFields(row, "object_blobs", actorUserID, attributions)
 		state, _ := row["upload_state"].(string)
 		if state != "available" {
+			line, err := canonicalJSONString(row)
+			if err != nil {
+				return nil, writtenKeys, err
+			}
+			buf.Write(line)
 			continue
 		}
 		sha, _ := row["observed_sha256_hex"].(string)
@@ -364,12 +418,13 @@ func (i Importer) importObjectBlobBytes(ctx context.Context, verified VerifiedBu
 		}
 		data, ok := verified.Files["blobs/sha256/"+sha]
 		if !ok {
-			return &VerificationError{ReasonCode: "missing_required_blob"}
+			return nil, writtenKeys, &VerificationError{ReasonCode: "missing_required_blob"}
 		}
 		if hashHex(data) != sha {
-			return &VerificationError{ReasonCode: "blob_hash_mismatch"}
+			return nil, writtenKeys, &VerificationError{ReasonCode: "blob_hash_mismatch"}
 		}
-		storageKey, _ := row["storage_key"].(string)
+		storageKey := "incident-bundles/imported/" + incidentID.String() + "/sha256/" + sha
+		row["storage_key"] = storageKey
 		contentType, _ := row["observed_content_type"].(string)
 		if contentType == "" {
 			contentType, _ = row["content_type_hint"].(string)
@@ -378,19 +433,25 @@ func (i Importer) importObjectBlobBytes(ctx context.Context, verified VerifiedBu
 			contentType = "application/octet-stream"
 		}
 		if err := i.objectStore.PutObject(ctx, storageKey, bytes.NewReader(data), int64(len(data)), contentType); err != nil {
-			return err
+			return nil, writtenKeys, err
 		}
+		writtenKeys = append(writtenKeys, storageKey)
+		line, err := canonicalJSONString(row)
+		if err != nil {
+			return nil, writtenKeys, err
+		}
+		buf.Write(line)
 	}
-	return nil
+	return buf.Bytes(), writtenKeys, nil
 }
 
-func (i Importer) importNDJSON(ctx context.Context, tx pgx.Tx, table string, payload []byte, actorUserID uuid.UUID) error {
+func (i Importer) importNDJSON(ctx context.Context, tx pgx.Tx, table string, payload []byte, actorUserID uuid.UUID, attributions *importedAttributionBuffer) error {
 	rows, err := decodeNDJSON(payload)
 	if err != nil {
 		return err
 	}
 	for _, row := range rows {
-		remapUserFields(row, actorUserID)
+		remapTopLevelUserFields(row, table, actorUserID, attributions)
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
@@ -426,15 +487,124 @@ func decodeNDJSON(payload []byte) ([]map[string]any, error) {
 	return rows, nil
 }
 
-func remapUserFields(row map[string]any, actorUserID uuid.UUID) {
+type importedAttribution struct {
+	SourceTable   string
+	SourceRowID   string
+	SourceColumn  string
+	SourceActorID string
+}
+
+type importedAttributionBuffer struct {
+	IncidentID  uuid.UUID
+	LocalUserID uuid.UUID
+	rows        []importedAttribution
+}
+
+func (b *importedAttributionBuffer) add(table string, row map[string]any, column string, sourceActorID string) {
+	sourceActorID = strings.TrimSpace(sourceActorID)
+	if b == nil || sourceActorID == "" {
+		return
+	}
+	rowID := sourceRowID(table, row)
+	if rowID == "" {
+		return
+	}
+	b.rows = append(b.rows, importedAttribution{
+		SourceTable:   table,
+		SourceRowID:   rowID,
+		SourceColumn:  column,
+		SourceActorID: sourceActorID,
+	})
+}
+
+func (b *importedAttributionBuffer) flush(ctx context.Context, tx pgx.Tx) error {
+	if b == nil {
+		return nil
+	}
+	for _, row := range b.rows {
+		_, err := tx.Exec(ctx, `
+INSERT INTO incident_bundle_imported_attributions (
+    incident_id,
+    source_table,
+    source_row_id,
+    source_column,
+    source_actor_id,
+    local_user_id
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (incident_id, source_table, source_row_id, source_column) DO NOTHING
+`, b.IncidentID, row.SourceTable, row.SourceRowID, row.SourceColumn, row.SourceActorID, b.LocalUserID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func remapTopLevelUserFields(row map[string]any, table string, actorUserID uuid.UUID, attributions *importedAttributionBuffer) {
 	for key, value := range row {
-		if nested, ok := value.(map[string]any); ok {
-			remapUserFields(nested, actorUserID)
+		if !strings.HasSuffix(key, "_user_id") || value == nil {
 			continue
 		}
-		if strings.HasSuffix(key, "_user_id") && value != nil {
-			row[key] = actorUserID.String()
+		sourceActorID := stringFromAny(value)
+		if strings.TrimSpace(sourceActorID) == "" {
+			continue
 		}
+		if attributions != nil {
+			attributions.add(table, row, key, sourceActorID)
+		}
+		row[key] = actorUserID.String()
+	}
+}
+
+func sourceRowID(table string, row map[string]any) string {
+	switch table {
+	case "incidents":
+		return stringFromAny(row["id"])
+	case "records", "timeline_events", "hosts", "identities", "indicators", "artifacts", "task_requests", "decisions", "evidence", "assessments", "saved_views":
+		return stringFromAny(row["record_id"])
+	case "entity_mentions":
+		return stringFromAny(row["entity_mention_id"])
+	case "entity_aliases":
+		return stringFromAny(row["entity_alias_id"])
+	case "indicator_observations":
+		return stringFromAny(row["indicator_observation_id"])
+	case "indicator_state_intervals":
+		return stringFromAny(row["indicator_state_interval_id"])
+	case "object_blobs":
+		return stringFromAny(row["object_blob_id"])
+	case "record_links":
+		return stringFromAny(row["record_link_id"])
+	case "record_tags":
+		return stringFromAny(row["record_tag_id"])
+	case "change_sets":
+		return stringFromAny(row["change_set_id"])
+	case "change_set_mutations":
+		changeSetID := stringFromAny(row["change_set_id"])
+		sequenceNo := stringFromAny(row["sequence_no"])
+		if changeSetID == "" || sequenceNo == "" {
+			return ""
+		}
+		return changeSetID + ":" + sequenceNo
+	case "record_revisions":
+		return stringFromAny(row["revision_id"])
+	case "evidence_custody_events":
+		return stringFromAny(row["custody_event_id"])
+	default:
+		return ""
+	}
+}
+
+func stringFromAny(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return typed
+	case json.Number:
+		return typed.String()
+	default:
+		return fmt.Sprint(typed)
 	}
 }
 

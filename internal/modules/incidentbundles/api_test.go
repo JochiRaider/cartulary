@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"slices"
 	"testing"
@@ -53,9 +54,9 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRej
 
 func TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic(t *testing.T) {
 	files := map[string][]byte{
-		"records.ndjson":           []byte("{}\n"),
-		"data/incident.json":       []byte(`{"id":"inc"}` + "\n"),
-		"reference_pack_refs.json": []byte("[]\n"),
+		"data/records.ndjson":           []byte("{}\n"),
+		"data/incident.json":            []byte(`{"id":"inc"}` + "\n"),
+		"data/reference_pack_refs.json": []byte("[]\n"),
 	}
 	first, err := BuildBundleArchive(ManifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
@@ -78,9 +79,9 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic(t 
 		OptionalSections:     []string{},
 		RequiredCapabilities: []string{},
 	}, map[string][]byte{
-		"reference_pack_refs.json": []byte("[]\n"),
-		"data/incident.json":       []byte(`{"id":"inc"}` + "\n"),
-		"records.ndjson":           []byte("{}\n"),
+		"data/reference_pack_refs.json": []byte("[]\n"),
+		"data/incident.json":            []byte(`{"id":"inc"}` + "\n"),
+		"data/records.ndjson":           []byte("{}\n"),
 	})
 	if err != nil {
 		t.Fatalf("BuildBundleArchive second: %v", err)
@@ -90,6 +91,17 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic(t 
 	}
 	if first.ManifestSHA256 == "" || len(first.ChecksumLines) == 0 {
 		t.Fatalf("bundle result must expose manifest hash and checksums: %#v", first)
+	}
+	if first.Manifest.BundleVersion != 1 {
+		t.Fatalf("manifest bundle_version must be numeric 1, got %#v", first.Manifest.BundleVersion)
+	}
+	if first.Manifest.SourceChangeSetHighWatermark == "" {
+		t.Fatalf("manifest must expose source_change_set_high_watermark: %#v", first.Manifest)
+	}
+	for _, file := range first.Manifest.Files {
+		if file.Path == "data/records.ndjson" && file.SizeBytes != int64(len(files["data/records.ndjson"])) {
+			t.Fatalf("manifest file must use exact size_bytes: %#v", file)
+		}
 	}
 }
 
@@ -104,9 +116,9 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapability
 	}
 
 	files := map[string][]byte{
-		"data/incident.json":       []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n"),
-		"records.ndjson":           []byte(""),
-		"reference_pack_refs.json": []byte("[]\n"),
+		"data/incident.json":            []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n"),
+		"data/records.ndjson":           []byte(""),
+		"data/reference_pack_refs.json": []byte("[]\n"),
 	}
 	bundle, err := BuildBundleArchive(ManifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
@@ -125,6 +137,34 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapability
 	})
 	if !isVerificationReason(err, "unsupported_required_capability") {
 		t.Fatalf("required capability reason mismatch: %v", err)
+	}
+
+	validBundle, err := BuildBundleArchive(ManifestInput{
+		BundleID:          "33333333-3333-3333-3333-333333333333",
+		IncidentID:        "11111111-1111-1111-1111-111111111111",
+		IncidentKey:       "INC-1",
+		ExportedAt:        "2026-05-25T00:00:00Z",
+		ReferencePackMode: ReferencePackModeRefsOnly,
+	}, files)
+	if err != nil {
+		t.Fatalf("BuildBundleArchive valid bundle: %v", err)
+	}
+	missingRequired := removeZipMember(t, validBundle.Bytes, "data/records.ndjson")
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: missingRequired,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "missing_required_file") {
+		t.Fatalf("missing required file reason mismatch: %v", err)
+	}
+
+	withSignature := appendZipMember(t, validBundle.Bytes, "integrity/signature.ed25519", []byte("not-a-supported-signature"))
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: withSignature,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "signature_mismatch") {
+		t.Fatalf("signature reason mismatch: %v", err)
 	}
 }
 
@@ -153,13 +193,95 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncident
 		`"code": "incident_bundle_export_rejected"`,
 		`"code": "incident_bundle_import_rejected"`,
 		`"error_code": "incident_bundle_import_rejected"`,
+		`"code": "invalid_value"`,
 		`"code": "checksum_mismatch"`,
+		`"code": "missing_required_blob"`,
+		`"code": "malformed_manifest"`,
 		`"code": "unsupported_required_capability"`,
 	} {
 		if !bytes.Contains(errorsDoc, []byte(needle)) {
 			t.Fatalf("errors registry missing %q", needle)
 		}
 	}
+}
+
+func removeZipMember(t testing.TB, bundle []byte, memberPath string) []byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	found := false
+	for _, member := range reader.File {
+		if member.Name == memberPath {
+			found = true
+			continue
+		}
+		rc, err := member.Open()
+		if err != nil {
+			t.Fatalf("open member %s: %v", member.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read member %s: %v", member.Name, err)
+		}
+		w, err := zw.Create(member.Name)
+		if err != nil {
+			t.Fatalf("create member %s: %v", member.Name, err)
+		}
+		if _, err := w.Write(data); err != nil {
+			t.Fatalf("write member %s: %v", member.Name, err)
+		}
+	}
+	if !found {
+		t.Fatalf("zip member %s not found", memberPath)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func appendZipMember(t testing.TB, bundle []byte, memberPath string, payload []byte) []byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, member := range reader.File {
+		rc, err := member.Open()
+		if err != nil {
+			t.Fatalf("open member %s: %v", member.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read member %s: %v", member.Name, err)
+		}
+		w, err := zw.Create(member.Name)
+		if err != nil {
+			t.Fatalf("create member %s: %v", member.Name, err)
+		}
+		if _, err := w.Write(data); err != nil {
+			t.Fatalf("write member %s: %v", member.Name, err)
+		}
+	}
+	w, err := zw.Create(memberPath)
+	if err != nil {
+		t.Fatalf("create appended member %s: %v", memberPath, err)
+	}
+	if _, err := w.Write(payload); err != nil {
+		t.Fatalf("write appended member %s: %v", memberPath, err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buf.Bytes()
 }
 
 func newZip(t testing.TB, files map[string][]byte) []byte {

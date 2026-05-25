@@ -388,6 +388,16 @@ UPDATE evidence
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
+	if err := insertEvidenceCustodyEventTx(ctx, tx, evidenceCustodyEventParams{
+		IncidentID:       meta.IncidentID,
+		EvidenceRecordID: recordID,
+		CustodyEventType: "made_available",
+		ActorUserID:      &actor.ID,
+		OccurredAt:       now.UTC(),
+		Metadata:         map[string]any{"object_blob_id": request.ObjectBlobID.String()},
+	}); err != nil {
+		return AttachBlobResult{}, err
+	}
 	rowVersion, err := advanceRecordVersionTx(ctx, tx, recordID, actor.ID, now)
 	if err != nil {
 		return AttachBlobResult{}, err
@@ -539,6 +549,16 @@ UPDATE evidence
 		if err != nil {
 			return QuarantineBlobResult{}, err
 		}
+		if err := insertEvidenceCustodyEventTx(ctx, tx, evidenceCustodyEventParams{
+			IncidentID:       blob.IncidentID,
+			EvidenceRecordID: recordID,
+			CustodyEventType: "quarantined",
+			ActorUserID:      &actorUserID,
+			OccurredAt:       now.UTC(),
+			Metadata:         map[string]any{"object_blob_id": objectBlobID.String(), "trigger": trigger},
+		}); err != nil {
+			return QuarantineBlobResult{}, err
+		}
 		rowVersion, err := advanceRecordVersionTx(ctx, tx, recordID, actorUserID, now)
 		if err != nil {
 			return QuarantineBlobResult{}, err
@@ -580,6 +600,42 @@ UPDATE evidence
 		IncidentID: blob.IncidentID, ObjectBlobID: objectBlobID, ChangeSetID: changeSetID,
 		ChangedEvidenceRows: changedRows, ChangedEvidenceRecord: len(recordIDs),
 	}, nil
+}
+
+type evidenceCustodyEventParams struct {
+	IncidentID       uuid.UUID
+	EvidenceRecordID uuid.UUID
+	CustodyEventType string
+	ActorUserID      *uuid.UUID
+	OccurredAt       time.Time
+	LocationText     *string
+	Note             *string
+	Metadata         map[string]any
+}
+
+func insertEvidenceCustodyEventTx(ctx context.Context, tx pgx.Tx, params evidenceCustodyEventParams) error {
+	metadata := params.Metadata
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+INSERT INTO evidence_custody_events (
+    incident_id,
+    evidence_record_id,
+    custody_event_type,
+    actor_user_id,
+    occurred_at,
+    location_text,
+    note,
+    metadata
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+`, params.IncidentID, params.EvidenceRecordID, params.CustodyEventType, params.ActorUserID, params.OccurredAt.UTC(), params.LocationText, params.Note, metadataJSON)
+	return err
 }
 
 func (s *Store) CleanupFailedUnattachedBlobBytes(ctx context.Context, objectStore objectstore.Store, now time.Time, limit int) (CleanupFailedBlobResult, error) {

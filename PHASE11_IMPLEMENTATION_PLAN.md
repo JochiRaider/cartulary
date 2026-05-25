@@ -11,18 +11,19 @@ Core 00 through Core 04 own implementation-conformance behavior. Core 05 owns cl
 Current remediation state:
 - Import and Snapshot and Reporting are the selected and claimed Phase 11 extension profiles.
 - Reference Pack is selected and claimed for the full `profile:reference_pack` contract after the remediation work added real background jobs, minimum disconnected seed packs, refresh replay stability, optional-pack degradation evidence, Reference Pack-owned job authorization evidence, operator progress/cancel UI, and direct evidence rows.
-- Incident Portability is selected and claimed for the full `profile:incident_portability` contract after Sprint 5 added the `/api/v1/incident-bundles` route family, deterministic whole-incident bundles, export descriptors, staged import bookkeeping, imported inert actor descriptors, fail-closed import verification, and direct evidence rows.
+- Incident Portability is selected and claimed after remediation added strict manifest conformance, actor-attribution preservation, source-state round-trip coverage, import cleanup behavior, refreshed generated artifacts, and direct evidence gates.
 - Phase 11 now has an active shared manifest at `tools/phase11_test_map.json` with Import, Snapshot/Reporting, Reference Pack, Incident Portability, and common-job rows.
 - Enterprise Authentication remains reserved and unclaimed.
-- The remaining unimplemented Enterprise Authentication sprint is open future implementation work. It is not closed, failed, or descoped by the completed Import, Snapshot/Reporting, Reference Pack, or Incident Portability remediation.
+- The remaining unimplemented Enterprise Authentication sprint is open future implementation work. It is not closed, failed, or descoped by the completed Import, Snapshot/Reporting, or Reference Pack remediation, or by the active Incident Portability remediation.
 - Helper-only Sprint 1 evidence is not used by itself to claim route parity; Import claim evidence is carried by the completed route-family implementation and direct Phase 11 rows.
 
-Current validation refresh after Incident Portability claim implementation:
-- Base prerequisite evidence is current: `make check` passed on the current tree at `.cartulary/test-results/20260525T170647Z-p1282476` with 153/153 work units and 723 tests.
-- Phase 11 profile evidence is current: `make phase-slice PHASE=phase11` passed at `.cartulary/test-results/20260525T164851Z-p1212206`, and `make service-backed-slice PHASE=phase11` passed at `.cartulary/test-results/20260525T165416Z-p1226179`.
-- Generated and migration evidence is current: `make generate-drift` passed at `.cartulary/test-results/20260525T171544Z-p1339811`, `make migration-drift` passed at `.cartulary/test-results/20260525T171544Z-p1339767`, `make phase-ledger-drift` passed at `.cartulary/test-results/20260525T171544Z-p1339831`, `make phase-schedule-drift` passed at `.cartulary/test-results/20260525T171544Z-p1339785`, `make phase-test-name-check` passed with no retained summary output, and `git diff --check` passed.
-- Retained-run finalizer evidence is current: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T170647Z-p1282476` passed at `.cartulary/test-results/20260525T171408Z-p1335438` with `generated=unchanged files=0 duration=refreshed run_checks=pass`.
-- Claim state remains truthful: `profile:import.claimed=true`, `profile:snapshot_reporting.claimed=true`, `profile:reference_pack.claimed=true`, and `profile:incident_portability.claimed=true` are supported by the current Base gate plus direct Phase 11 evidence; Enterprise Authentication remains reserved and unclaimed.
+Current validation refresh after Incident Portability remediation:
+- Focused package evidence passed after reclaim: `go test ./internal/modules/incidentbundles ./internal/modules/evidence ./internal/modules/revisions -count=1 -timeout=5m`, `go test ./internal/platform/httpapi ./internal/modules/incidents -run 'TestPhase2_I_2_05|TestPhase2_I_2_06|ReservedExtension|ExtensionDiscovery' -count=1`, and `go test ./cmd/server -run 'TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke|TestPhase10' -count=1`.
+- Generated and migration drift passed after reclaim: `make generate-drift` at `.cartulary/test-results/20260525T193859Z-p1721795`, `make migration-drift` at `.cartulary/test-results/20260525T193859Z-p1721777`, `make phase-ledger-drift` at `.cartulary/test-results/20260525T193859Z-p1721718`, `make phase-schedule-drift` at `.cartulary/test-results/20260525T193859Z-p1721780`, and `make phase-test-name-check` with no retained summary output.
+- Phase and broad gates passed after reclaim: `make phase-slice PHASE=phase11` at `.cartulary/test-results/20260525T194502Z-p1738024`, `make service-backed-slice PHASE=phase11` at `.cartulary/test-results/20260525T195036Z-p1753483`, `make backend-unit` at `.cartulary/test-results/20260525T195604Z-p1766092`, `make test-fast` at `.cartulary/test-results/20260525T195626Z-p1769783`, and `make check` at `.cartulary/test-results/20260525T200309Z-p1797041`.
+- Retained-run finalization passed after reclaim: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T200309Z-p1797041` at `.cartulary/test-results/20260525T201036Z-p1852637` with `generated=updated files=5 duration=refreshed run_checks=pass`.
+- The temporary truthfulness gate set `profile:incident_portability.claimed=false` while remediation was under validation; after gates passed, the default extension registry was restored to `profile:incident_portability.claimed=true`.
+- Claim state remains truthful: `profile:import.claimed=true`, `profile:snapshot_reporting.claimed=true`, `profile:reference_pack.claimed=true`, and `profile:incident_portability.claimed=true`; Enterprise Authentication remains reserved and unclaimed.
 
 Implemented remediation record:
 - Owner/spec alignment was completed for the shared upload envelope and Import request reasons: valid JSON metadata that is not an object maps to route-family `request_not_object`, while `invalid_value` is owner-backed for scalar, type, and format validation.
@@ -34,7 +35,7 @@ Implemented remediation record:
 - Retained-run finalizer maintenance was run after the successful `make check` root and the warm `check-service-backed` retained-run budget was raised to `135000ms` after current retained check evidence exceeded the older `120000ms` maintenance threshold.
 - Snapshot and Reporting now targets the `/api/v1/snapshots` and `/api/v1/releases` route families on the v3 remediation model: `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit export-family collection, exact `cartulary.report.default@1` template contracts, closed `output_kind` and `release_scope` OpenAPI resource schemas, explicit `recipient_partition_refs`, durable `render_failed` release rows, route-scoped hidden-resource errors, async snapshot/release create jobs, generated OpenAPI/contract coverage, SQLC-backed reporting queries, approval/publish/invalidate actions, exact-shape route evidence, and Phase 11 direct evidence rows.
 - Reference Pack now targets the `/api/v1/reference-packs` route family with local bundle import through the shared upload envelope, `activation_policy='staged_only'`, no auto-activation, file-hash idempotency, explicit activation/disable, genuinely backgrounded import/reverify/refresh jobs, deployment-admin-only job poll/cancel authorization for Reference Pack jobs, activation-pointer-derived `active`, reachable durable `missing` state for unavailable stored payloads, closed durable/public condition vocabulary, prior-active retention, local-only archive verification, the required fresh-disconnected three-pack floor, closed Reference Pack error and reason registries, generated OpenAPI/contract coverage, deployment-admin UI progress/cancel controls, and Phase 11 direct evidence rows.
-- Incident Portability now targets the `/api/v1/incident-bundles` route family with whole-incident export/import jobs, fixed full history/blob modes, route-scoped idempotency, durable export descriptors, normalized manifest checksum records, staged import bookkeeping, deterministic ZIP/TAR/TAR.GZ verification, object-store blob preservation by SHA-256, fail-closed import validation before visibility, imported incident projection rebuild, inert imported actor descriptors, no deployment-local login-capable auth/admin state import, closed error and reason registries, generated OpenAPI/contract coverage, and Phase 11 direct evidence rows.
+- Incident Portability remediation targets the `/api/v1/incident-bundles` route family with whole-incident export/import jobs, numeric `bundle_version: 1`, `source_change_set_high_watermark`, strict manifest file metadata, fixed full history/blob modes, route-scoped idempotency, durable export descriptors, deterministic ZIP/TAR/TAR.GZ verification, object-store blob preservation by SHA-256 under target-owned import keys, fail-closed import validation before visibility, failed-staging cleanup, imported incident projection rebuild, inert imported actor descriptors, imported source-actor attribution sidecars, no deployment-local login-capable auth/admin state import, closed error and reason registries, generated OpenAPI/contract coverage, and Phase 11 direct evidence rows.
 - Historical retained finalizer roots that predate the explain-run tool-summary diagnostic cleanup remain historical evidence only. Current remediation handoff must cite fresh retained roots that are explainable through `make explain-run`.
 
 Authority model:
@@ -77,6 +78,7 @@ Reference Pack claim exit state:
 Incident Portability claim exit state:
 - Observable outcome: deployment administrators can export a full-fidelity whole-incident bundle, read the durable export descriptor, and import a checksum-verified bundle into an empty incident namespace without importing deployment-local login-capable administrative state.
 - Proof required: direct evidence for deterministic bundle layout, authoritative-source-only export, fixed `history_mode='full'` and `blob_mode='full'`, optional sections and required capabilities, manifest and checksum verification, staged import under temporary-work root, no projections or deployment-local runtime state, rejection of clone/merge/identifier-remap/remote-fetch modes, error and reason-code registries, idempotency, jobs, generated artifacts, and harness selection.
+- Current status: selected and claimed after remediation validation. Runtime route registration remains claim-gated, and tests retain explicit profile overrides where they need isolated route-family coverage.
 
 Enterprise Authentication claim exit state:
 - Observable outcome: users can discover enabled OIDC/SAML providers, start provider sign-in, complete OIDC authorization-code with PKCE `S256` and `nonce` or SAML SP-initiated ACS, receive the same opaque server-managed session family as base auth, and deployment admins can create, rotate, and retire enterprise auth bindings for existing local users.
@@ -152,7 +154,7 @@ Phase 11 now has authoritative active rows in `tools/phase11_test_map.json`. Cur
 | Import | Upload-envelope parser, request normalization, mapping fingerprint, error registries, parser isolation guards | Import sessions/units, provenance, source hash, mapping persistence, duplicate-apply and overlap state | Real Postgres import lifecycle, CSV/XLSX bounded discovery, apply jobs, idempotent replay | No browser Import workflow is claimed in the current API-only evidence set | OpenAPI, generated Go/TS contracts, SQL-derived models, phase ledger, phase schedule, and duration baselines refreshed through generators | No open blocker for the current selected Import API route family; future UI evidence is separate and unclaimed |
 | Snapshot and Reporting | Snapshot/release request validation, release-state guards, approval tuple, redaction policy selection, disclosure partition checks, error registries, generated OpenAPI closed enum/resource-shape assertions | Immutable snapshots, release records, approval records, output hashes, invalidation persistence, SQLC-backed reporting queries | Real Postgres snapshot/release lifecycle, self-contained output production, snapshot boundary high-watermark replay, approval/publish idempotency, singleton exact-shape and route-scoped visibility/auth assertions | No browser reporting workflow is claimed in the current API-only evidence set | OpenAPI, generated Go/TS contracts, SQL-derived models and queries, phase ledger, phase schedule, and duration baselines refreshed through generators | No open blocker for the current selected API route family; future UI evidence and richer template packs are separate work |
 | Reference Pack | Upload envelope, activation-policy validation, state conflict registry, closed error/reason registries, verifier failure mapping, derived `active` rules | Pack metadata, verification result, active pointer, prior active version, durable conditions including `missing`, job auth policy, job payloads and summaries | Bundle staging, verification, activation, disable, reverify, refresh, file-hash replay, divergent replay, disconnected seed fixtures, integrity/archive/path/content-screening failures, optional-pack degradation, and Reference Pack job auth re-derivation | Deployment-admin landing/admin panel lists packs, imports bundles, runs actions, polls progress, and cancels non-terminal jobs | Contract/OpenAPI, SQL-derived models, TypeScript contracts, phase ledger, schedules, and duration baselines refreshed through generators/finalizers | No open blocker for the selected full profile |
-| Incident Portability | Export/import request validation, canonical optional/required arrays, closed error/reason registries, forbidden alternate modes, deterministic manifest/checksum serialization, archive verifier failures | Export descriptor, manifest checksum records, export/import job payloads, staged import bookkeeping, imported actor descriptors | Whole-incident export/import with Postgres/object store, route-scoped replay/divergent replay, projection rebuild and imported incident open, fail-closed verification before visibility | No new UI surface is claimed; imported-incident open is covered through backend workbook-startup route evidence | OpenAPI, generated Go/TS contracts, SQL-derived models, phase ledger, schedules, and duration baselines refreshed through generators/finalizers | No open blocker for the selected Incident Portability profile |
+| Incident Portability | Export/import request validation, canonical optional/required arrays, closed error/reason registries, forbidden alternate modes, deterministic numeric manifest/checksum serialization, archive verifier failures | Export descriptor, manifest checksum records, export/import job payloads, staged import bookkeeping, imported actor descriptors, imported attribution sidecars, custody-event state | Whole-incident export/import with Postgres/object store, route-scoped replay/divergent replay, projection rebuild and imported incident open, fail-closed verification before visibility, target-owned blob import keys | No new UI surface is claimed; imported-incident open is covered through backend workbook-startup route evidence | OpenAPI, generated Go/TS contracts, SQL-derived models, phase ledger, schedules, and duration baselines refreshed through generators/finalizers | No open blocker for the selected Incident Portability profile |
 | Enterprise Authentication | Provider discovery, begin validation, callback/ACS rejection, binding request validation, error registries | Provider config, auth transaction, binding lifecycle, active uniqueness, audit lineage | OIDC/SAML protocol simulation, session issuance, session revocation on rotate/retire | Provider sign-in redirect/callback/ACS and post-login landing behavior if harness can simulate IdP | Contract/OpenAPI and generated protocol drift if route schemas change; ledgers/schedules through generators | Base claim freshness; IdP fixture strategy TODO; no route implementation |
 
 ## Sprint Checklist
@@ -240,7 +242,7 @@ Objective: Build shared extension route-family substrate only for profiles selec
 
 Sprint 1 execution status:
 - Sprint 1 final scope is helper substrate only. It is not route-parity evidence by itself.
-- Current selected profile set in the default registry after remediation: Import, Snapshot/Reporting, Reference Pack, and Incident Portability. Import is claimed by Sprint 2 route-family evidence; Snapshot/Reporting is claimed by Sprint 3 route-family evidence; Reference Pack is claimed by Sprint 4 route-family evidence; Incident Portability is claimed by Sprint 5 route-family evidence; Enterprise Authentication remains unclaimed.
+- Current selected profile set in the default registry after remediation: Import, Snapshot/Reporting, Reference Pack, and Incident Portability are claimed; Enterprise Authentication remains unclaimed.
 - Phase 11 manifest policy after remediation: one shared active `tools/phase11_test_map.json` with Import, Snapshot/Reporting, Reference Pack, Incident Portability, and common-job rows. Generated ledgers and schedules are produced from that manifest.
 - Implemented helper-only substrate: `internal/platform/httpapi.ParseUploadEnvelope` with `UploadEnvelopePolicy`, `UploadEnvelope`, `UploadEnvelopeError`, closed shared reason-code helpers, route-local file media-type allowlists, metadata duplicate-key rejection, metadata BOM/non-UTF-8 rejection, nested multipart rejection, and SHA-256 calculation for accepted file bytes.
 - Common job substrate: `/api/v1/jobs/{job_id}` and `/api/v1/jobs/{job_id}/cancel` are listed in the OpenAPI route inventory and backed by durable job storage, route-scoped cancel idempotency, request-time job authorization, terminal summaries, retention timestamps, and incident-scoped `job_progress` publication.
@@ -497,7 +499,7 @@ Files and areas:
 - Runtime and persistence: `internal/modules/reference_data`, `internal/app/runtime.go`, `internal/platform/httpapi/extensions.go`, `internal/platform/jobs/runner.go`, `internal/platform/jobs`, `db/migrations/00027_phase11_reference_packs.sql`, `db/migrations/00028_phase11_reference_pack_async_payloads.sql`, and `db/migrations/00029_phase11_job_auth_policy.sql`.
 - Owner-derived contracts and registries: `contracts/openapi/cartulary.openapi.yaml` and `contracts/errors/index.json`.
 - Generated artifacts refreshed through canonical commands: `internal/gen/contracts/contracts_gen.go`, `internal/gen/sql/models.go`, `packages/protocol-ts/src/generated/contracts.ts`, `docs/testing/phase11_coverage_ledger.md`, `tools/scheduler_manifest.json`, `tools/execution_topology_render_index.json`, and `tools/go_test_duration_baselines.json`.
-- Support expectation updates: Phase 2 reserved-extension tests use Enterprise Authentication as the unclaimed root after Incident Portability was claimed; Reference Pack UI evidence is carried by frontend-unit panel rows.
+- Support expectation updates: Phase 2 reserved-extension tests use unclaimed profile roots, including Enterprise Authentication and Incident Portability while the current remediation gate is open; Reference Pack UI evidence is carried by frontend-unit panel rows.
 
 Test-first sequence:
 1. Proved list/read route shapes, paging, sorting by `pack_key asc` then exact `pack_version asc`, singleton pagination rejection, not-found behavior, and exact `reference_pack_version` resources.
@@ -583,7 +585,7 @@ Exit criteria:
 
 Objective: Implement and prove the Incident Portability Extension Profile only when selected.
 
-Status: complete for the selected full profile after Sprint 5 implementation. Incident Portability is claimed; Enterprise Authentication remains unclaimed and continues to use reserved-family behavior.
+Status: complete for the selected full profile after remediation. Incident Portability is claimed; Enterprise Authentication remains unclaimed and continues to use reserved-family behavior.
 
 Relevant IDs:
 - `AC-164..AC-169`
@@ -598,48 +600,53 @@ Files and areas:
 - New owner module: `internal/modules/incidentbundles`.
 - Runtime registration: `internal/app/runtime.go` registers the route family only through the `incident_portability` claim.
 - Route family: `POST /api/v1/incident-bundles/export`, `GET /api/v1/incident-bundles/{bundle_id}`, and `POST /api/v1/incident-bundles/import`.
-- Persistence: migration `db/migrations/00030_phase11_incident_bundles.sql` adds export descriptors, normalized manifest file rows, export/import job payloads, and inert imported actor descriptors.
+- Persistence: migration `db/migrations/00030_phase11_incident_bundles.sql` adds export descriptors, normalized manifest file rows, export/import job payloads, and inert imported actor descriptors. Remediation migration `db/migrations/00031_phase11_incident_bundle_remediation.sql` adds evidence custody events and imported attribution sidecars.
 - Contracts and generated outputs: `contracts/openapi/cartulary.openapi.yaml`, `contracts/errors/index.json`, generated Go/TS contracts, SQL-derived models, phase ledger, schedules, and duration baselines.
 - Phase 10 recovery remains operational backup/restore only and does not own Incident Portability.
 
 Test-first sequence:
 1. Added failing unit tests first for export/import request validation, canonical arrays, fixed `history_mode='full'`, fixed `blob_mode='full'`, forbidden user modes, upload-envelope metadata, deterministic manifests, verifier failures, and OpenAPI/error registry precision.
 2. Added service-backed integration tests for export job idempotency, divergent replay, durable descriptor read, import upload-envelope replay, imported incident terminal job summary, projection rebuild, local workbook open, and no durable import-session-style resource.
-3. Implemented the route family, persistence, bundle builder/verifier, importer, and claim after direct tests passed.
-4. Refreshed contracts, generated code, phase manifest, ledger, schedules, and duration baselines only through canonical targets.
+3. Implemented the route family, persistence, bundle builder/verifier, importer, and initial claim after direct tests passed.
+4. Reopened remediation after audit identified overclaiming, manifest drift, actor rewriting, placeholder source-state files, stale reserved-route expectations, and late-failure cleanup gaps.
+5. Refreshed contracts, generated code, phase manifest, ledger, schedules, and duration baselines only through canonical targets.
 
 Implementation tasks:
 - Added the route family exactly under `/api/v1/incident-bundles`.
 - Export creates common deployment-scoped jobs, re-derives authorization through job access, checks current incident access before acceptance/replay, writes durable descriptors only after successful export, and stores deterministic bundle metadata.
 - Import uses `httpapi.ParseUploadEnvelope` with incident-bundle media types and metadata containing only `client_txn_id`; file SHA-256 participates in route-scoped idempotency.
-- Bundle export uses canonical JSON/NDJSON with LF UTF-8, sorted paths, sorted checksums, fixed `history_mode='full'`, fixed `blob_mode='full'`, and blob bytes under `blobs/sha256/<hex>`.
+- Bundle export uses canonical JSON/NDJSON with LF UTF-8, sorted paths, sorted checksums, numeric `bundle_version: 1`, `source_change_set_high_watermark`, fixed `history_mode='full'`, fixed `blob_mode='full'`, and blob bytes under `blobs/sha256/<hex>`.
 - Bundle verification accepts ZIP, TAR, and gzip-compressed TAR; rejects unsafe paths, non-regular archive entries, checksum mismatch, malformed manifests, missing blobs, blob hash mismatches, and unsupported required capabilities.
-- Import stages under the configured temporary-work root, verifies archive/manifest/checksums/blobs before DB visibility, inserts authoritative incident source state, writes inert imported actor descriptors, rebuilds projections before commit, and cleans staging on failure.
+- Import stages under the configured temporary-work root, verifies archive/manifest/checksums/blobs before DB visibility, inserts authoritative incident source state, writes inert imported actor descriptors, preserves source actor identifiers through attribution sidecars, writes imported blob bytes under target-owned storage keys, deletes those imported object-store writes on later import failure, rebuilds projections before commit, and cleans staging on failure.
 - Export/import terminal summaries emit exactly one resource ref: exported `incident_bundle` or imported `incident`.
-- Deployment-local sessions, credentials, auth bindings, memberships, login-capable users, deployment admins, projections, search indexes, and runtime state are excluded from the bundle/import state.
+- Deployment-local sessions, credentials, auth bindings, source memberships, login-capable users, deployment admins, projections, search indexes, and runtime state are excluded from the bundle/import state.
 
-Validation commands:
+Validation commands for current remediation:
 - Focused:
   - `go test ./internal/modules/incidentbundles`
+  - `go test ./internal/modules/evidence ./internal/modules/revisions`
+  - `go test ./internal/platform/httpapi ./internal/modules/incidents -run 'TestPhase2_I_2_05|TestPhase2_I_2_06|ReservedExtension|ExtensionDiscovery' -count=1`
   - `go test ./internal/modules/incidentbundles ./internal/modules/incidents ./internal/app`
   - `go test ./cmd/server -run TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke -count=1`
   - `go test ./internal/modules/incidentbundles ./cmd/server -run 'TestPhase11|TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke' -count=1`
   - `make lint-go`
 - Generated and profile gates:
-  - `make generate`: passed at `.cartulary/test-results/20260525T153423Z-p955780`
-  - `make phase-ledgers phase-schedules`: passed at `.cartulary/test-results/20260525T153935Z-p964432` and `.cartulary/test-results/20260525T153936Z-p964642`
-  - `make phase-slice PHASE=phase11`: latest pass at `.cartulary/test-results/20260525T164851Z-p1212206`
-  - `make service-backed-slice PHASE=phase11`: latest pass at `.cartulary/test-results/20260525T165416Z-p1226179`
-  - `make generate-drift`: latest pass at `.cartulary/test-results/20260525T171544Z-p1339811`
-  - `make migration-drift`: latest pass at `.cartulary/test-results/20260525T171544Z-p1339767`
-  - `make phase-ledger-drift`: latest pass at `.cartulary/test-results/20260525T171544Z-p1339831`
-  - `make phase-schedule-drift`: latest pass at `.cartulary/test-results/20260525T171544Z-p1339785`
-  - `make phase-test-name-check`: latest pass with no retained summary output
-  - `git diff --check`: latest pass
+  - `make agent-finalize` before broader verification.
+  - `make generate-drift`
+  - `make migration-drift`
+  - `make phase-ledger-drift`
+  - `make phase-schedule-drift`
+  - `make phase-test-name-check`
+  - `make phase-slice PHASE=phase11`
+  - `make service-backed-slice PHASE=phase11`
+  - `make backend-unit`
+  - `make test-fast`
+  - `git diff --check`
 - Final gates:
-  - `make check`: passed at `.cartulary/test-results/20260525T170647Z-p1282476`
-  - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T170647Z-p1282476`: passed at `.cartulary/test-results/20260525T171408Z-p1335438` with `generated=unchanged files=0 duration=refreshed run_checks=pass`
+  - `make check`
+  - `make agent-finalize RESULTS_DIR=<successful make check retained root>`
 - Notable failed/diagnostic attempts:
+  - During the current remediation, `make check` failed at `.cartulary/test-results/20260525T192222Z-p1618345` because a browser support probe still expected `profile:incident_portability.claimed=true` while the temporary truthfulness gate had set it false; the support expectation was corrected for the gate, then restored when reclaim completed, and the final `make check` passed at `.cartulary/test-results/20260525T200309Z-p1797041`.
   - `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260525T155210Z-p997234 PRUNE_OBSERVED_PACKAGES=1` failed at `.cartulary/test-results/20260525T155909Z-p1014066` because prune mode requires a successful full `test-service-backed` or `check-service-backed` scheduler summary.
   - `make test-service-backed` failed at `.cartulary/test-results/20260525T155921Z-p1014997`; the product-side Phase 2 process-smoke expectation was corrected, and the remaining browser functional-shard harness invocation issue was superseded by the later passing `make check`.
   - The first `make check` attempt failed at `.cartulary/test-results/20260525T161308Z-p1065708` on staticcheck findings in the new module; the unused helpers and deprecated `tar.TypeRegA` check were fixed before the final passing check.
@@ -656,7 +663,7 @@ Deliverables:
   - `U-11-INCIDENT-BUNDLES-04` OpenAPI and error registry precision.
   - `I-11-INCIDENT-BUNDLES-01` export job, idempotency, divergent replay, terminal summary, and descriptor read.
   - `I-11-INCIDENT-BUNDLES-02` import envelope, file-hash idempotency, divergent replay, imported incident ref, projection rebuild, and backend workbook open.
-- Profile claim status: `profile:incident_portability` is claimed in the default extension registry. Import, Snapshot/Reporting, and Reference Pack claims were preserved. Enterprise Authentication remains unclaimed.
+- Profile claim status: `profile:incident_portability` is claimed in the default extension registry after remediation validation. Import, Snapshot/Reporting, and Reference Pack claims were preserved. Enterprise Authentication remains unclaimed.
 
 Risks and assumptions:
 - Operational backup/restore is Phase 10 Base Profile behavior and must not be reinterpreted as incident portability.
@@ -666,11 +673,11 @@ Risks and assumptions:
 - Import creates a local membership for the importing deployment admin so the imported incident can open; source deployment-local memberships and login-capable auth state are not imported.
 
 Exit criteria:
-- Passing Base claim evidence is identified by `make check` at `.cartulary/test-results/20260525T170647Z-p1282476`.
+- A fresh `make check` root on the remediated tree is available and explainable through `make explain-run`.
 - All Incident Portability delta AC families have direct evidence in `tools/phase11_test_map.json` and the generated ledger.
-- Incident Portability is claimed independently without claiming Enterprise Authentication.
-- Skipped checks: no Incident Portability-specific required checks were skipped in the final validation refresh.
-- Unresolved blockers: none for the selected Incident Portability profile.
+- Incident Portability is reclaimed independently after validation passes, without claiming Enterprise Authentication.
+- Skipped checks are explicitly recorded; no Incident Portability-specific required checks may be skipped for reclaim.
+- Unresolved blockers are either zero or the profile remains unclaimed.
 
 ## Sprint 6. Enterprise Authentication Extension Profile
 

@@ -16,7 +16,7 @@
       "`backend-integration` selects Import upload-envelope no-durable-state behavior, CSV mapping/select/apply, XLSX used-range discovery evidence, and Snapshot/Reporting snapshot-release lifecycle evidence.",
       "`backend-unit` selects Snapshot/Reporting redaction profile and post-redaction validation fixtures.",
       "`backend-unit`, `backend-integration`, `frontend-unit`, and `browser-e2e-webserver-backed` select Reference Pack request validation, disconnected bundle verification, archive-limit enforcement, import/list/read, lifecycle, failure, async admission, disconnected seed, refresh replay, optional-pack degradation, Reference Pack-owned job authorization, admin-gated UI, operator progress/cancel, and contract-registry evidence.",
-      "`backend-unit` and `backend-integration` select Incident Portability request validation, manifest/checksum determinism, archive verification, contract registries, export descriptor, import idempotency, projection rebuild, and imported incident open evidence."
+      "`backend-unit` and `backend-integration` select Incident Portability request validation, numeric manifest/checksum determinism, archive verification, closed contract registries, export descriptor, import idempotency, source-state round-trip, inert actor descriptor, attribution sidecar, projection rebuild, and imported incident open evidence."
     ],
     "support_execution_extras": [
       "Upload-envelope helper unit tests and lower-level durable job manager tests remain support-only substrate outside the direct Phase 11 rows.",
@@ -30,9 +30,9 @@
     "shared_harness": [
       "| Harness | Phase 11 evidence |",
       "| --- | --- |",
-      "| Active manifest ownership | `tools/phase11_test_map.json` records selected Import, Snapshot/Reporting, Reference Pack, and common-job evidence. |",
+      "| Active manifest ownership | `tools/phase11_test_map.json` records selected Import, Snapshot/Reporting, Reference Pack, Incident Portability, and common-job evidence. |",
       "| Generated ledger | `docs/testing/phase11_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
-      "| Schedule boundary | Generated schedules must execute implemented Import/common-job evidence without implying claims for unselected extension profiles. |"
+      "| Schedule boundary | Generated schedules must execute implemented evidence without implying claims for unselected extension profiles. |"
     ],
     "support_only": [
       "Helper substrate alone does not claim an extension profile.",
@@ -312,7 +312,7 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim_status": "implemented",
-      "claim": "Incident Bundle archive construction emits deterministic manifest and checksum inventory bytes independent of input map order.",
+      "claim": "Incident Bundle archive construction emits deterministic checksum inventory bytes and a strict numeric `bundle_version: 1` manifest with `source_change_set_high_watermark` and `size_bytes` file metadata independent of input map order.",
       "out_of_scope": "This unit row does not claim database source-state coverage.",
       "execution_family": "backend-unit-phase11-incident-bundles-determinism",
       "execution_label": "backend-unit phase11 incident bundle determinism"
@@ -327,7 +327,7 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim_status": "implemented",
-      "claim": "Incident Bundle verification rejects unsafe paths and unsupported required capabilities before import visibility.",
+      "claim": "Incident Bundle verification rejects unsafe paths, missing required files, unsupported required capabilities, and unsupported signature material before import visibility.",
       "out_of_scope": "This unit row does not claim object-store-backed blob staging.",
       "execution_family": "backend-unit-phase11-incident-bundles-verifier",
       "execution_label": "backend-unit phase11 incident bundle verifier"
@@ -614,8 +614,8 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
       "claim_status": "implemented",
-      "claim": "Incident Bundle import reuses the shared upload envelope, keys idempotency by uploaded file hash, rejects divergent replay, emits one imported incident ref, rebuilds projections, and opens the imported incident through the normal workbook startup route.",
-      "out_of_scope": "This row uses same-deployment round-trip cleanup to avoid importing deployment-local users or memberships from the bundle.",
+      "claim": "Incident Bundle import reuses the shared upload envelope, keys idempotency by uploaded file hash, rejects divergent replay, cleans failed staging, emits one imported incident ref, rebuilds projections, opens the imported incident through the normal workbook startup route, preserves record tags, custody events, blob bytes under target-owned storage keys, inert actor descriptors, and imported source actor attribution in history.",
+      "out_of_scope": "This row uses same-deployment round-trip cleanup to avoid importing deployment-local memberships from the bundle; cross-deployment actor mapping remains future explicit admin action.",
       "execution_family": "backend-integration-phase11-incident-bundles-import",
       "execution_label": "backend-integration phase11 incident bundle import"
     }
