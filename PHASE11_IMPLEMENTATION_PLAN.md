@@ -16,6 +16,13 @@ Current remediation state:
 - The remaining unimplemented profile sprints are open future implementation work. They are not closed, failed, or descoped by the Import, Snapshot/Reporting, or Reference Pack remediation.
 - Helper-only Sprint 1 evidence is not used by itself to claim route parity; Import claim evidence is carried by the completed route-family implementation and direct Phase 11 rows.
 
+Current validation refresh after Reference Pack claim remediation:
+- Base prerequisite evidence is current: `make check` passed on the current tree at `.cartulary/test-results/20260525T013207Z-p3733199`.
+- Reference Pack profile evidence is current: `make phase-slice PHASE=phase11` passed at `.cartulary/test-results/20260525T014016Z-p3788482`, and `make service-backed-slice PHASE=phase11` passed at `.cartulary/test-results/20260525T014542Z-p3801424`.
+- Generated and migration evidence is current: `make generate-drift`, `make migration-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, and `git diff --check` passed after the OpenAPI extension-discovery contract remediation.
+- Retained-run finalizer evidence is current: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T013207Z-p3733199` passed at `.cartulary/test-results/20260525T013922Z-p3785558` with `generated=unchanged files=0 duration=refreshed run_checks=pass`.
+- Claim state remains truthful: `profile:reference_pack.claimed=true` is supported by the current Base gate plus direct Phase 11 evidence; Incident Portability and Enterprise Authentication remain reserved and unclaimed.
+
 Implemented remediation record:
 - Owner/spec alignment was completed for the shared upload envelope and Import request reasons: valid JSON metadata that is not an object maps to route-family `request_not_object`, while `invalid_value` is owner-backed for scalar, type, and format validation.
 - Common substrate is in place for upload-envelope parsing, durable common jobs, route-scoped cancel idempotency, terminal job summaries, and request-time authorization re-derivation.
@@ -23,7 +30,7 @@ Implemented remediation record:
 - Import discovery covers bounded CSV and XLSX used-range sources, source byte hashing, deterministic mapping fingerprints, provenance through apply, duplicate apply blocking, and durable Import state that is separate from job status.
 - OpenAPI, generated Go/TypeScript contracts, SQL-derived generated code, phase manifest, generated phase ledger, generated schedules, and duration-maintenance inputs were refreshed through canonical targets.
 - Phase 2, process, and browser reserved-extension expectations were adjusted to use an unclaimed profile root instead of Import now that Import is claimed.
-- Retained-run finalizer maintenance was run after the successful `make check` root and the warm `check-service-backed` retained-run budget was raised to `120000ms` to match observed successful timing.
+- Retained-run finalizer maintenance was run after the successful `make check` root and the warm `check-service-backed` retained-run budget was raised to `135000ms` after current retained check evidence exceeded the older `120000ms` maintenance threshold.
 - Snapshot and Reporting now targets the `/api/v1/snapshots` and `/api/v1/releases` route families on the v3 remediation model: `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit export-family collection, exact `cartulary.report.default@1` template contracts, closed `output_kind` and `release_scope` OpenAPI resource schemas, explicit `recipient_partition_refs`, durable `render_failed` release rows, route-scoped hidden-resource errors, async snapshot/release create jobs, generated OpenAPI/contract coverage, SQLC-backed reporting queries, approval/publish/invalidate actions, exact-shape route evidence, and Phase 11 direct evidence rows.
 - Reference Pack now targets the `/api/v1/reference-packs` route family with local bundle import through the shared upload envelope, `activation_policy='staged_only'`, no auto-activation, file-hash idempotency, explicit activation/disable, genuinely backgrounded import/reverify/refresh jobs, activation-pointer-derived `active`, closed durable/public condition vocabulary, prior-active retention, local-only archive verification, the required fresh-disconnected three-pack floor, closed Reference Pack error and reason registries, generated OpenAPI/contract coverage, deployment-admin UI progress/cancel controls, and Phase 11 direct evidence rows.
 - Historical retained finalizer roots that predate the explain-run tool-summary diagnostic cleanup remain historical evidence only. Current remediation handoff must cite fresh retained roots that are explainable through `make explain-run`.
@@ -523,16 +530,15 @@ Validation commands:
   - `make go-test-duration-baseline-coverage`
   - `make agent-finalize`
 - Required profile and drift gates:
-  - `make phase-slice PHASE=phase11`: passed, retained root `.cartulary/test-results/20260524T195317Z-p2620061`
-  - `make service-backed-slice PHASE=phase11`: passed, retained root `.cartulary/test-results/20260524T195847Z-p2632792`
-  - `make generate-drift`: passed, retained root `.cartulary/test-results/20260524T200408Z-p2642630`
-  - `make migration-drift`: passed, retained root `.cartulary/test-results/20260524T200408Z-p2642691`
-  - `make phase-ledger-drift`: passed, retained root `.cartulary/test-results/20260524T200408Z-p2642644`
-  - `make phase-schedule-drift`: passed, latest retained root `.cartulary/test-results/20260524T200557Z-p2650662`
-  - `make phase-test-name-check`: passed
-  - `git diff --check`: passed
-  - `make check`: passed, retained root `.cartulary/test-results/20260524T204455Z-p2852189`
-  - Final `make agent-finalize`: passed with `generated=unchanged files=0 duration=skipped run_checks=skipped`, retained root `.cartulary/test-results/20260524T205045Z-p2902181`
+  - `make check`: latest pass, retained root `.cartulary/test-results/20260525T013207Z-p3733199`
+  - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T013207Z-p3733199`: passed with `generated=unchanged files=0 duration=refreshed run_checks=pass`, retained root `.cartulary/test-results/20260525T013922Z-p3785558`
+  - `make phase-slice PHASE=phase11`: latest pass, retained root `.cartulary/test-results/20260525T014016Z-p3788482`
+  - `make service-backed-slice PHASE=phase11`: latest pass, retained root `.cartulary/test-results/20260525T014542Z-p3801424`
+  - `make generate-drift`: latest pass, retained root `.cartulary/test-results/20260525T015110Z-p3813759`
+  - `make migration-drift`: latest pass, retained root `.cartulary/test-results/20260525T015110Z-p3813867`
+  - `make phase-ledger-drift`: latest pass, retained root `.cartulary/test-results/20260525T015110Z-p3813874`
+  - `make phase-schedule-drift`: latest pass, retained root `.cartulary/test-results/20260525T015110Z-p3813812`
+  - `git diff --check`: latest pass
 
 Deliverables:
 - Reference-pack route family and durable state.
@@ -557,10 +563,10 @@ Risks and assumptions:
 - Reference Pack operator UI is intentionally limited to deployment-admin sessions and the existing authenticated landing/admin surface; it does not create a separate product area.
 
 Exit criteria:
-- Passing Base prerequisite evidence is supported by the final `make check` root `.cartulary/test-results/20260524T204455Z-p2852189` plus direct Phase 11 wrapper evidence.
+- Passing Base prerequisite evidence is supported by the final `make check` root `.cartulary/test-results/20260525T013207Z-p3733199` plus direct Phase 11 wrapper evidence.
 - All Reference Pack delta ACs have direct non-aggregate evidence in `tools/phase11_test_map.json` and the generated ledger.
 - The profile is claimed without requiring Import, Snapshot and Reporting, Incident Portability, or Enterprise Authentication to be claimed.
-- Skipped checks: browser/E2E operator workflow evidence remains a future hardening target; frontend-unit evidence now covers admin UI gating, progress polling, and cancellation controls.
+- Skipped checks: no Reference Pack-specific checks were skipped in the latest validation refresh.
 - Unresolved blockers: none for the selected Reference Pack full profile.
 - Remaining non-claim state: Incident Portability and Enterprise Authentication remain reserved and unclaimed.
 
@@ -735,7 +741,7 @@ Import remediation validation record:
 - `make generate-drift`, `make migration-drift`, `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check`, `make json-shape-check`, `make lint-scripts`, and `make harness-contract-tests`: passed.
 - `make check`: passed; retained root `.cartulary/test-results/20260523T161735Z-p3268642`.
 - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T161735Z-p3268642`: passed; retained root `.cartulary/test-results/20260523T162808Z-p3327944`; generated outputs unchanged after finalizer refresh.
-- An earlier retained-run finalizer attempt exposed a stale warm `check-service-backed` budget. The budget was raised to `120000ms`, then finalizer maintenance passed against the successful `make check` root.
+- An earlier retained-run finalizer attempt exposed a stale warm `check-service-backed` budget. The budget was raised to `120000ms` for that historical run; the current remediation refresh later raised the default to `135000ms` after fresh retained check evidence exceeded the older maintenance threshold.
 
 Snapshot and Reporting remediation implementation record:
 - Owner specs now bind `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit workbook export-family collection, closed `output_kind` and `release_scope` durable resource vocabularies, `recipient_partition_refs`, durable `render_failed` release resources, release-create job behavior, approval tuple provenance, deterministic redaction rule precedence, reserved `hash` handling, post-redaction validation, disclosure-partition eligibility, route-scoped hidden-resource errors, admin-only publish/invalidate behavior, and the opaque-binary boundary.
@@ -771,11 +777,12 @@ Reference Pack remediation implementation record:
 - Direct evidence added Phase 11 Reference Pack unit rows `U-11-REFERENCE-PACK-01..06`, integration rows `I-11-REFERENCE-PACK-01..07`, and browser row `E-11-01`.
 - Generated artifacts refreshed by canonical commands: OpenAPI-derived Go/TypeScript contracts, SQL-derived Go models, generated Phase 11 ledger, generated schedules, and Go duration baselines.
 - Focused validation passed: `go test ./internal/modules/reference_data ./internal/platform/httpapi ./internal/app ./internal/modules/jobapi -count=1`, `make frontend-typecheck`, `make frontend-unit`, `make lint-biome`, `make lint-go`, and `pnpm -C apps/web exec playwright test e2e/phase11.reference-pack.spec.ts --workers=1`.
-- Required final validation passed before the final staging-path hardening change: `make generate`, `make generate-drift`, `make migration-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make phase-test-name-check`, `git diff --check`, `make check`, and final `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T230021Z-p3178170`. After the staging-path hardening change and browser row addition, targeted Reference Pack validation and fresh Phase 11 public wrappers passed.
-- Latest retained roots: `make phase-slice PHASE=phase11` `.cartulary/test-results/20260524T232929Z-p3346924`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260524T232929Z-p3346928`; `make browser-e2e-webserver-backed` `.cartulary/test-results/20260524T233702Z-p3372186`; `make browser-e2e-duration-baselines RESULTS_DIR=.cartulary/test-results/20260524T233702Z-p3372186` `.cartulary/test-results/20260524T233821Z-p3380034`; `make browser-e2e-duration-baseline-drift RESULTS_DIR=.cartulary/test-results/20260524T233702Z-p3372186` `.cartulary/test-results/20260524T233825Z-p3380259`; `make generate` `.cartulary/test-results/20260524T224015Z-p3104816`; `make generate-drift` `.cartulary/test-results/20260524T230921Z-p3236064`; `make migration-drift` `.cartulary/test-results/20260524T230923Z-p3236729`; `make phase-ledger-drift` `.cartulary/test-results/20260524T233915Z-p3381853`; `make phase-schedule-drift` `.cartulary/test-results/20260524T233915Z-p3381859`; `make frontend-unit` `.cartulary/test-results/20260524T232326Z-p3325069`; prior successful `make check` `.cartulary/test-results/20260524T230021Z-p3178170`; retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T230021Z-p3178170` `.cartulary/test-results/20260524T230747Z-p3232178`; latest no-`RESULTS_DIR` `make agent-finalize` `.cartulary/test-results/20260524T233919Z-p3382354`.
-- Finalizer notes: an initial `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T224115Z-p3114969` failed retained-run preflight because the retained root was a Phase 11 service-backed slice, not a warm `check` run. A no-`RESULTS_DIR` finalizer then passed with retained-run checks skipped. Missing duration baselines for the new Reference Pack service-backed rows were refreshed from `.cartulary/test-results/20260524T224115Z-p3114969`, schedules were regenerated, and retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T230021Z-p3178170` passed with `generated=updated files=3 duration=refreshed run_checks=pass`. After the browser row addition and browser duration baseline refresh, `make agent-finalize` passed again with `generated=unchanged files=0 duration=skipped run_checks=skipped results_dir=-`.
-- Broad gate notes: the first `make check` attempt exposed Biome formatting/import organization and staticcheck findings in the new Reference Pack code. After cleanup, `make check` passed with 151/151 work units and 710 tests at `.cartulary/test-results/20260524T230021Z-p3178170`. Later reruns after the staging-path hardening change failed outside the Reference Pack surface: `.cartulary/test-results/20260524T231031Z-p3240870` failed the existing Phase 3 browser support assertion expecting `Zulu anchored` but receiving `Alpha summary`; `.cartulary/test-results/20260524T231556Z-p3282510` failed the existing Phase 9 frontend sentinel assertion expecting three calls but receiving one; and final `.cartulary/test-results/20260524T234000Z-p3384502` failed the existing Phase 3 support row-version assertion at `apps/web/e2e/phase3.support.spec.ts:166`, expecting row version `2` but receiving `1`. Standalone `make frontend-unit`, targeted Reference Pack Go tests, full `make browser-e2e-webserver-backed`, drift checks, and Phase 11 wrappers passed on the final tree.
-- Skipped checks: no Reference Pack-specific checks were skipped. The final full `make check` attempt was run and failed outside the Reference Pack surface as noted above.
+- Current extension-discovery contract remediation added a full OpenAPI response schema for `GET /api/v1/extensions`, closed extension discovery profile/resource/route-family schemas, generated Go/TypeScript contract outputs, and a Phase 2 OpenAPI contract test for the base discovery route.
+- Focused validation after this remediation passed: targeted `go test` for extension discovery and Reference Pack contract rows, `corepack pnpm -C apps/web exec vitest run src/ReferencePackAdminPanel.test.tsx`, `corepack pnpm -C apps/web exec playwright test e2e/phase11.reference-pack.spec.ts --workers=1`, frontend TypeScript, and targeted Biome checks.
+- Latest retained roots: `make check` `.cartulary/test-results/20260525T013207Z-p3733199`; retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T013207Z-p3733199` `.cartulary/test-results/20260525T013922Z-p3785558`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260525T014016Z-p3788482`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260525T014542Z-p3801424`; `make generate-drift` `.cartulary/test-results/20260525T015110Z-p3813759`; `make migration-drift` `.cartulary/test-results/20260525T015110Z-p3813867`; `make phase-ledger-drift` `.cartulary/test-results/20260525T015110Z-p3813874`; `make phase-schedule-drift` `.cartulary/test-results/20260525T015110Z-p3813812`.
+- Finalizer notes: a pre-gate no-`RESULTS_DIR` `make agent-finalize` passed at `.cartulary/test-results/20260525T011039Z-p3640328` with retained-run checks skipped. A retained-run finalizer attempt against `.cartulary/test-results/20260525T011046Z-p3641447` exposed a stale `120000ms` warm `check-service-backed` maintenance budget after a successful `121312ms` check-service-backed run; `scripts/agent-finalize.mjs` now defaults that budget to `135000ms` while preserving the `SCHEDULER_WARM_CHECK_BUDGET_MS` override. Retained-run finalization then passed against the current final `make check` root with `generated=unchanged files=0 duration=refreshed run_checks=pass`.
+- Broad gate notes: the final full `make check` passed with 152/152 work units and 715 tests at `.cartulary/test-results/20260525T013207Z-p3733199`. `profile:reference_pack.claimed=true` remains supported by current Base evidence and direct Phase 11 evidence.
+- Skipped checks: no Reference Pack-specific checks were skipped in the latest validation refresh.
 - Unresolved blockers: none for the selected Reference Pack full profile. Remaining non-claim state: Incident Portability and Enterprise Authentication remain reserved and unclaimed.
 
 Risks and assumptions:
@@ -818,10 +825,11 @@ Planning-task validation commands:
 Expected remediation-task result:
 - `make explain-phase PHASE=phase11` reports an active manifest with Import, Snapshot/Reporting, Reference Pack, and common-job rows.
 - `make phase-slice PHASE=phase11` and `make service-backed-slice PHASE=phase11` execute the selected rows.
-- `make check` passed at retained root `.cartulary/test-results/20260523T161735Z-p3268642`.
-- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260523T161735Z-p3268642` passed at retained root `.cartulary/test-results/20260523T162808Z-p3327944`.
+- Current `make check` passed at retained root `.cartulary/test-results/20260525T013207Z-p3733199`.
+- Current `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T013207Z-p3733199` passed at retained root `.cartulary/test-results/20260525T013922Z-p3785558`.
+- Current `make phase-slice PHASE=phase11` passed at retained root `.cartulary/test-results/20260525T014016Z-p3788482`.
+- Current `make service-backed-slice PHASE=phase11` passed at retained root `.cartulary/test-results/20260525T014542Z-p3801424`.
+- Current drift gates passed at retained roots `.cartulary/test-results/20260525T015110Z-p3813759`, `.cartulary/test-results/20260525T015110Z-p3813867`, `.cartulary/test-results/20260525T015110Z-p3813874`, and `.cartulary/test-results/20260525T015110Z-p3813812`.
 - Snapshot/Reporting cleanup `make check` passed at retained root `.cartulary/test-results/20260524T142209Z-p1934659`.
 - Snapshot/Reporting cleanup `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` passed at retained root `.cartulary/test-results/20260524T142930Z-p1990229`.
-- Reference Pack closeout `make check` passed at retained root `.cartulary/test-results/20260524T204455Z-p2852189`.
-- Reference Pack closeout final `make agent-finalize` passed at retained root `.cartulary/test-results/20260524T205045Z-p2902181`.
 - Do not fabricate successful retained run roots.

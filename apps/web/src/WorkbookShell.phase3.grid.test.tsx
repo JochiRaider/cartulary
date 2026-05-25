@@ -58,22 +58,13 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
   it("classifies committed Timeline row freshness by record_id and row_version", () => {
     expect(
-      decideWorkbookRecordFreshness(
-        { recordId: "record-1", rowVersion: 1 },
-        2,
-      ),
+      decideWorkbookRecordFreshness({ recordId: "record-1", rowVersion: 1 }, 2),
     ).toEqual({ comparable: true, stale: true });
     expect(
-      decideWorkbookRecordFreshness(
-        { recordId: "record-1", rowVersion: 2 },
-        2,
-      ),
+      decideWorkbookRecordFreshness({ recordId: "record-1", rowVersion: 2 }, 2),
     ).toEqual({ comparable: true, stale: false });
     expect(
-      decideWorkbookRecordFreshness(
-        { recordId: "record-1", rowVersion: 3 },
-        2,
-      ),
+      decideWorkbookRecordFreshness({ recordId: "record-1", rowVersion: 3 }, 2),
     ).toEqual({ comparable: true, stale: false });
     expect(
       decideWorkbookRecordFreshness({ recordId: null, rowVersion: null }, 2),

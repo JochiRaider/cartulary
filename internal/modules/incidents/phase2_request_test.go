@@ -377,6 +377,88 @@ func TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts(t *tes
 	requireOpenAPIEnvelopeSchema(t, openAPIObjectAt(t, schemas, "UserWorkbookPreferencesEnvelope"), "UserWorkbookPreferencesResource")
 }
 
+func TestSupportPhase2_OpenAPIExtensionDiscoveryExposesClosedContract(t *testing.T) {
+	artifact, ok := contracts.ContractArtifactIndex["contracts/openapi/cartulary.openapi.yaml"]
+	if !ok {
+		t.Fatal("missing generated OpenAPI contract artifact")
+	}
+
+	var document map[string]any
+	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
+		t.Fatalf("decode generated OpenAPI contract artifact: %v", err)
+	}
+
+	extensionsPath := openAPIObjectAt(t, document, "paths", "/api/v1/extensions")
+	requireOpenAPIOperation(t, extensionsPath, "get", "listDeploymentExtensions")
+	operation := openAPIObjectAt(t, extensionsPath, "get")
+	requireOpenAPIResponseSchemaRef(t, operation, "ExtensionDiscoveryEnvelope")
+	requireOpenAPIStatusResponseSchemaRef(t, operation, "400", "ErrorEnvelope")
+	requireOpenAPIStatusResponseSchemaRef(t, operation, "401", "ErrorEnvelope")
+
+	schemas := openAPIObjectAt(t, document, "components", "schemas")
+	requireOpenAPIEnvelopeSchema(t, openAPIObjectAt(t, schemas, "ExtensionDiscoveryEnvelope"), "ExtensionDiscoveryData")
+
+	data := openAPIObjectAt(t, schemas, "ExtensionDiscoveryData")
+	if data["type"] != "object" || data["additionalProperties"] != false {
+		t.Fatalf("extension discovery data must be a closed object schema: %#v", data)
+	}
+	if required := toStrings(t, data["required"]); !equalStringSlices(required, []string{"extensions"}) {
+		t.Fatalf("unexpected extension discovery data required fields: %v", required)
+	}
+	extensionsItems := openAPIObjectAt(t, data, "properties", "extensions", "items")
+	if extensionsItems["$ref"] != "#/components/schemas/ExtensionProfileResource" {
+		t.Fatalf("unexpected extension discovery items ref: %#v", extensionsItems)
+	}
+
+	resource := openAPIObjectAt(t, schemas, "ExtensionProfileResource")
+	if resource["type"] != "object" || resource["additionalProperties"] != false {
+		t.Fatalf("extension profile resource must be a closed object schema: %#v", resource)
+	}
+	if required := toStrings(t, resource["required"]); !equalStringSlices(required, []string{"profile_id", "claimed", "route_families"}) {
+		t.Fatalf("unexpected extension profile required fields: %v", required)
+	}
+	properties := openAPIObjectAt(t, resource, "properties")
+	if len(properties) != 3 {
+		t.Fatalf("extension profile resource must expose only profile_id, claimed, and route_families: %#v", properties)
+	}
+	if profileID := openAPIObjectAt(t, properties, "profile_id"); profileID["$ref"] != "#/components/schemas/ExtensionProfileID" {
+		t.Fatalf("unexpected extension profile_id schema: %#v", profileID)
+	}
+	if claimed := openAPIObjectAt(t, properties, "claimed"); claimed["type"] != "boolean" {
+		t.Fatalf("unexpected extension claimed schema: %#v", claimed)
+	}
+	routeFamilies := openAPIObjectAt(t, properties, "route_families", "items")
+	if routeFamilies["$ref"] != "#/components/schemas/ExtensionRouteFamily" {
+		t.Fatalf("unexpected extension route_families item schema: %#v", routeFamilies)
+	}
+
+	profileIDSchema := openAPIObjectAt(t, schemas, "ExtensionProfileID")
+	if profileIDSchema["type"] != "string" {
+		t.Fatalf("extension profile id schema must be string: %#v", profileIDSchema)
+	}
+	if enum := toStrings(t, profileIDSchema["enum"]); !equalStringSlices(enum, []string{"enterprise_authentication", "import", "incident_portability", "reference_pack", "snapshot_reporting"}) {
+		t.Fatalf("unexpected extension profile id enum: %v", enum)
+	}
+
+	routeFamilySchema := openAPIObjectAt(t, schemas, "ExtensionRouteFamily")
+	if routeFamilySchema["type"] != "string" {
+		t.Fatalf("extension route family schema must be string: %#v", routeFamilySchema)
+	}
+	if enum := toStrings(t, routeFamilySchema["enum"]); !equalStringSlices(enum, []string{
+		"/api/v1/auth/oidc",
+		"/api/v1/auth/providers",
+		"/api/v1/auth/saml",
+		"/api/v1/import-sessions",
+		"/api/v1/incident-bundles",
+		"/api/v1/reference-packs",
+		"/api/v1/releases",
+		"/api/v1/snapshots",
+		"/api/v1/users/{user_id}/auth-bindings",
+	}) {
+		t.Fatalf("unexpected extension route family enum: %v", enum)
+	}
+}
+
 func TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape(t *testing.T) {
 	query := url.Values{"cursor_token": []string{"opaque"}}
 	apiErr := auth.ValidateSingletonReadQuery(query)
@@ -686,10 +768,16 @@ func requireOpenAPIRequestSchemaRef(t testing.TB, operation map[string]any, want
 func requireOpenAPIResponseSchemaRef(t testing.TB, operation map[string]any, wantSchemaName string) {
 	t.Helper()
 
-	schema := openAPIObjectAt(t, operation, "responses", "200", "content", "application/json", "schema")
+	requireOpenAPIStatusResponseSchemaRef(t, operation, "200", wantSchemaName)
+}
+
+func requireOpenAPIStatusResponseSchemaRef(t testing.TB, operation map[string]any, status string, wantSchemaName string) {
+	t.Helper()
+
+	schema := openAPIObjectAt(t, operation, "responses", status, "content", "application/json", "schema")
 	wantRef := "#/components/schemas/" + wantSchemaName
 	if schema["$ref"] != wantRef {
-		t.Fatalf("unexpected response schema ref: got %v want %q", schema["$ref"], wantRef)
+		t.Fatalf("unexpected response %s schema ref: got %v want %q", status, schema["$ref"], wantRef)
 	}
 }
 

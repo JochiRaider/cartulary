@@ -3130,9 +3130,7 @@ export function TimelineWorkbook({
         return { row, accepted: false, stale: false };
       }
       const currentVersion = knownTimelineRowVersion(row.recordId);
-      if (
-        decideWorkbookRecordFreshness(row, currentVersion).stale
-      ) {
+      if (decideWorkbookRecordFreshness(row, currentVersion).stale) {
         return {
           row: currentCommittedTimelineRow(row.recordId) ?? row,
           accepted: false,
@@ -3409,11 +3407,15 @@ export function TimelineWorkbook({
       pendingQueueRef.current.resetRefreshInFlight = true;
       publishPendingQueueState();
       try {
-        await loadRowsRef.current({
+        const retryOptions: LoadRowsOptions = {
           showLoading: false,
           freshnessRetryDepth: nextDepth,
-          viewportContinuityToken: options.viewportContinuityToken,
-        });
+        };
+        if (options.viewportContinuityToken !== undefined) {
+          retryOptions.viewportContinuityToken =
+            options.viewportContinuityToken;
+        }
+        await loadRowsRef.current(retryOptions);
       } finally {
         pendingQueueRef.current.resetRefreshInFlight = false;
         publishPendingQueueState();

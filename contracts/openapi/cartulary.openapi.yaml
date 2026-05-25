@@ -1913,7 +1913,39 @@
           "extensions"
         ],
         "operationId": "listDeploymentExtensions",
-        "summary": "List the deployment-scoped reserved extension profiles and claimed route-family roots."
+        "summary": "List the deployment-scoped reserved extension profiles and claimed route-family roots.",
+        "responses": {
+          "200": {
+            "description": "Deployment extension discovery response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionDiscoveryEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/records/{record_id}": {
@@ -3426,6 +3458,84 @@
         },
         "required": [
           "request_id"
+        ]
+      },
+      "ExtensionDiscoveryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ExtensionDiscoveryData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ExtensionDiscoveryData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtensionProfileResource"
+            }
+          }
+        },
+        "required": [
+          "extensions"
+        ]
+      },
+      "ExtensionProfileResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "profile_id": {
+            "$ref": "#/components/schemas/ExtensionProfileID"
+          },
+          "claimed": {
+            "type": "boolean"
+          },
+          "route_families": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtensionRouteFamily"
+            }
+          }
+        },
+        "required": [
+          "profile_id",
+          "claimed",
+          "route_families"
+        ]
+      },
+      "ExtensionProfileID": {
+        "type": "string",
+        "enum": [
+          "enterprise_authentication",
+          "import",
+          "incident_portability",
+          "reference_pack",
+          "snapshot_reporting"
+        ]
+      },
+      "ExtensionRouteFamily": {
+        "type": "string",
+        "enum": [
+          "/api/v1/auth/oidc",
+          "/api/v1/auth/providers",
+          "/api/v1/auth/saml",
+          "/api/v1/import-sessions",
+          "/api/v1/incident-bundles",
+          "/api/v1/reference-packs",
+          "/api/v1/releases",
+          "/api/v1/snapshots",
+          "/api/v1/users/{user_id}/auth-bindings"
         ]
       },
       "WorkbookQueryMeta": {
