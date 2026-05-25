@@ -154,7 +154,7 @@ Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-280
 
 **REQ-04-023**
-API routes, preview or download handle issuance and redemption, job polling, job cancellation, and WebSocket incident subscriptions MUST re-derive authorization from the caller's current scope membership and role at request time. Incident-scoped jobs MUST use current incident membership and role. Deployment-scoped jobs MUST use the owning route family's deployment-scoped authorization contract.
+API routes, preview or download handle issuance and redemption, job polling, job cancellation, and WebSocket incident subscriptions MUST re-derive authorization from the caller's current scope membership and role at request time. Incident-scoped jobs MUST use current incident membership and role. Deployment-scoped jobs MUST use the owning route family's deployment-scoped authorization contract. Reference Pack deployment-scoped jobs are owned by the `/api/v1/reference-packs` route family and therefore require current `deployment_admin` for polling and cancellation; the submitting user relationship alone is not sufficient unless that caller still holds `deployment_admin`.
 Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-254, AC-255, AC-257, AC-260, AC-261
 
@@ -909,7 +909,7 @@ These criteria provide direct runtime-family verification for substantive base-p
 
 - **AC-033**: Reference-pack import, verification, and refresh run without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
   - Verifies: REQ-01-399, REQ-01-407..REQ-01-413, REQ-01-452..REQ-01-454, REQ-04-040..REQ-04-043
-- **AC-034**: Missing optional reference packs degrade only the affected overlay labels, enrichment semantics, non-canonical analytical widgets, or snapshot/report derivations; timeline capture, entity resolution, and evidence attachment continue to function; and missing packs do not create or remove current-profile workbook `view_schema` surfaces.
+- **AC-034**: Absent, disabled, failed, or missing optional reference packs degrade only the affected overlay labels, enrichment semantics, non-canonical analytical widgets, or snapshot/report derivations; timeline capture, entity resolution, evidence attachment, and core editing continue to function; and optional pack state does not create or remove current-profile workbook `view_schema` surfaces.
   - Verifies: REQ-01-282..REQ-01-284, REQ-01-399, REQ-01-419..REQ-01-422
 - **AC-035**: Pack activation fails closed with `error.code='reference_pack_verification_failed'`; `error.details.reason_code` is limited to `checksum_mismatch`, `signature_mismatch`, `missing_integrity_metadata`, `contract_incompatible`, `path_traversal`, `disallowed_content`, `payload_missing`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, or `archive_member_count_exceeded`; and the previously active version remains active.
   - Verifies: REQ-01-399, REQ-01-409..REQ-01-421, REQ-04-040..REQ-04-043

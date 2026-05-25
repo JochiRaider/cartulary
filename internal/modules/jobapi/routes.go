@@ -166,10 +166,20 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 	submittedByCurrentUser := resource.SubmittedByUserID == principal.User.ID.String()
 	switch resource.Scope.Kind {
 	case jobs.ScopeKindDeployment:
-		if submittedByCurrentUser || principal.User.IsDeploymentAdmin {
-			return nil
+		switch resource.AuthPolicy {
+		case jobs.AuthPolicyDeploymentAdmin:
+			if principal.User.IsDeploymentAdmin {
+				return nil
+			}
+			return jobNotFoundError()
+		case "", jobs.AuthPolicySubmitterOrDeploymentAdmin:
+			if submittedByCurrentUser || principal.User.IsDeploymentAdmin {
+				return nil
+			}
+			return jobNotFoundError()
+		default:
+			return jobNotFoundError()
 		}
-		return jobNotFoundError()
 	case jobs.ScopeKindIncident:
 		if resource.Scope.IncidentID == nil {
 			return jobNotFoundError()

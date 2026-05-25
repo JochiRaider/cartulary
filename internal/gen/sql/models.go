@@ -625,6 +625,7 @@ type Job struct {
 	ResultSummaryJson []byte             `json:"result_summary_json"`
 	ErrorSummaryJson  []byte             `json:"error_summary_json"`
 	Message           pgtype.Text        `json:"message"`
+	AuthPolicy        string             `json:"auth_policy"`
 }
 
 type ObjectBlob struct {

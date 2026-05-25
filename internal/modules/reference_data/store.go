@@ -156,6 +156,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
 		SubmittedByUserID: params.ActorUserID,
+		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
 	}, params.Now)
@@ -417,12 +418,16 @@ func (s *Store) ApplyVerificationResult(ctx context.Context, record VersionRecor
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if verificationErr != nil {
+		status := "failed"
+		if verificationErr.ReasonCode == "payload_missing" {
+			status = "missing"
+		}
 		_, err = tx.Exec(ctx, `
 UPDATE reference_packs
-   SET status = 'failed',
+   SET status = $3,
        verification_result = 'failed'
  WHERE pack_key = $1 AND version = $2
-`, record.PackKey, record.PackVersion)
+`, record.PackKey, record.PackVersion, status)
 		if err != nil {
 			return VersionRecord{}, err
 		}
@@ -561,6 +566,7 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
 		SubmittedByUserID: params.ActorUserID,
+		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
 	}, params.Now)

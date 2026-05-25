@@ -15,7 +15,7 @@
       "`backend-integration` selects request-time authorization re-derivation for incident-scoped and deployment-scoped common jobs.",
       "`backend-integration` selects Import upload-envelope no-durable-state behavior, CSV mapping/select/apply, XLSX used-range discovery evidence, and Snapshot/Reporting snapshot-release lifecycle evidence.",
       "`backend-unit` selects Snapshot/Reporting redaction profile and post-redaction validation fixtures.",
-      "`backend-unit`, `backend-integration`, `frontend-unit`, and `browser-e2e-webserver-backed` select Reference Pack request validation, disconnected bundle verification, archive-limit enforcement, import/list/read, lifecycle, failure, async admission, disconnected seed, refresh replay, admin-gated UI, operator progress/cancel, and contract-registry evidence."
+      "`backend-unit`, `backend-integration`, `frontend-unit`, and `browser-e2e-webserver-backed` select Reference Pack request validation, disconnected bundle verification, archive-limit enforcement, import/list/read, lifecycle, failure, async admission, disconnected seed, refresh replay, optional-pack degradation, Reference Pack-owned job authorization, admin-gated UI, operator progress/cancel, and contract-registry evidence."
     ],
     "support_execution_extras": [
       "Upload-envelope helper unit tests and lower-level durable job manager tests remain support-only substrate outside the direct Phase 11 rows.",
@@ -69,6 +69,8 @@
     "I-11-REFERENCE-PACK-05",
     "I-11-REFERENCE-PACK-06",
     "I-11-REFERENCE-PACK-07",
+    "I-11-REFERENCE-PACK-08",
+    "I-11-REFERENCE-PACK-09",
     "E-11-01"
   ],
   "forbidden_id_files": [],
@@ -489,6 +491,36 @@
       "out_of_scope": "This row does not claim successful bundle verification or UI visibility.",
       "execution_family": "backend-integration-phase11-reference-pack-envelope-authz",
       "execution_label": "backend-integration phase11 reference pack envelope authz"
+    },
+    {
+      "id": "I-11-REFERENCE-PACK-08",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reference_data",
+      "file": "internal/modules/reference_data/reference_pack_integration_test.go",
+      "symbol": "TestPhase11_I_11_REFERENCE_PACK_08_OptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Absent, disabled, failed, and missing optional Reference Packs leave timeline capture, entity resolution, binary evidence attachment, core workbook editing, and the current-profile view-schema inventory functional and stable.",
+      "out_of_scope": "This row does not claim optional overlay, enrichment-widget, or reporting-template rendering behavior.",
+      "execution_family": "backend-integration-phase11-reference-pack-degradation",
+      "execution_label": "backend-integration phase11 reference pack degradation"
+    },
+    {
+      "id": "I-11-REFERENCE-PACK-09",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/reference_data",
+      "file": "internal/modules/reference_data/reference_pack_integration_test.go",
+      "symbol": "TestPhase11_I_11_REFERENCE_PACK_09_JobsRequireDeploymentAdminAtPollAndCancelTime",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Reference Pack import jobs re-derive route-family deployment-admin authorization at poll and cancel time, so a demoted submitter cannot read or cancel the job until deployment-admin status is restored.",
+      "out_of_scope": "This row does not change generic deployment-job submitter access for non-Reference-Pack route families.",
+      "execution_family": "backend-integration-phase11-reference-pack-job-authz",
+      "execution_label": "backend-integration phase11 reference pack job authz"
     }
   ],
   "e2e": [

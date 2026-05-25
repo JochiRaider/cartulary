@@ -21,6 +21,10 @@ const (
 	ScopeKindIncident   = "incident"
 	ScopeKindDeployment = "deployment"
 
+	AuthPolicyIncidentMembership         = "incident_membership"
+	AuthPolicySubmitterOrDeploymentAdmin = "submitter_or_deployment_admin"
+	AuthPolicyDeploymentAdmin            = "deployment_admin"
+
 	StatusQueued          = "queued"
 	StatusRunning         = "running"
 	StatusCancelRequested = "cancel_requested"
@@ -83,6 +87,7 @@ type Resource struct {
 	StatusRoute       string         `json:"status_route"`
 	Status            string         `json:"status"`
 	Cancelable        bool           `json:"cancelable"`
+	AuthPolicy        string         `json:"-"`
 	SubmittedByUserID string         `json:"submitted_by_user_id"`
 	SubmittedAt       time.Time      `json:"submitted_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
@@ -98,6 +103,7 @@ type Resource struct {
 type CreateParams struct {
 	Scope             Scope
 	SubmittedByUserID uuid.UUID
+	AuthPolicy        string
 	Cancelable        bool
 	Progress          Progress
 	Message           *string
@@ -160,19 +166,24 @@ func CreateQueuedTx(ctx context.Context, tx queuedJobInserter, params CreatePara
 	if err := validateScope(params.Scope); err != nil {
 		return Resource{}, err
 	}
+	authPolicy, err := normalizeAuthPolicy(params.Scope, params.AuthPolicy)
+	if err != nil {
+		return Resource{}, err
+	}
 	if params.SubmittedByUserID == uuid.Nil {
 		return Resource{}, fmt.Errorf("%w: missing submitted_by_user_id", ErrInvalidJobDefinition)
 	}
 	record, err := scanJob(tx.QueryRow(ctx, `
 INSERT INTO jobs (
-    scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+    scope_kind, incident_id, status, cancelable, auth_policy, submitted_by_user_id,
     submitted_at, updated_at, progress_completed, progress_total, message
 )
-VALUES ($1, $2, 'queued', $3, $4, $5, $5, $6, $7, $8)
+VALUES ($1, $2, 'queued', $3, $4, $5, $6, $6, $7, $8, $9)
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+          auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
           finished_at, retained_until, result_summary_json, error_summary_json, message
-`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message))
+`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message))
 	if err != nil {
 		return Resource{}, err
 	}
@@ -185,6 +196,7 @@ func (m *Manager) Get(ctx context.Context, jobID uuid.UUID) (Resource, error) {
 	}
 	record, err := scanJob(m.pool.QueryRow(ctx, `
 SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+       auth_policy,
        submitted_at, updated_at, progress_completed, progress_total, started_at,
        finished_at, retained_until, result_summary_json, error_summary_json, message
   FROM jobs
@@ -212,6 +224,7 @@ UPDATE jobs
  WHERE job_id = $1
    AND status = 'queued'
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+          auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
           finished_at, retained_until, result_summary_json, error_summary_json, message
 `, jobID, now, progress.Completed, progress.Total, message))
@@ -325,6 +338,7 @@ UPDATE jobs
  WHERE job_id = $1
    AND status IN ('queued', 'running', 'cancel_requested')
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+          auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
           finished_at, retained_until, result_summary_json, error_summary_json, message
 `, params.JobID, status, now, retainedUntil, params.Progress.Completed, params.Progress.Total, resultJSON, errorJSON, params.Message))
@@ -399,6 +413,7 @@ UPDATE jobs
        updated_at = $2
  WHERE job_id = $1
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+          auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
           finished_at, retained_until, result_summary_json, error_summary_json, message
 `, jobID, now.UTC()))
@@ -408,6 +423,7 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 func getJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (Resource, error) {
 	record, err := scanJob(tx.QueryRow(ctx, `
 SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+       auth_policy,
        submitted_at, updated_at, progress_completed, progress_total, started_at,
        finished_at, retained_until, result_summary_json, error_summary_json, message
   FROM jobs
@@ -435,6 +451,7 @@ func scanJob(row pgx.Row) (Resource, error) {
 		&record.Status,
 		&record.Cancelable,
 		&submittedBy,
+		&record.AuthPolicy,
 		&record.SubmittedAt,
 		&record.UpdatedAt,
 		&record.Progress.Completed,
@@ -484,6 +501,30 @@ func validateScope(scope Scope) error {
 		return fmt.Errorf("%w: unknown scope kind", ErrInvalidJobDefinition)
 	}
 	return nil
+}
+
+func normalizeAuthPolicy(scope Scope, authPolicy string) (string, error) {
+	if authPolicy == "" {
+		switch scope.Kind {
+		case ScopeKindIncident:
+			return AuthPolicyIncidentMembership, nil
+		case ScopeKindDeployment:
+			return AuthPolicySubmitterOrDeploymentAdmin, nil
+		default:
+			return "", fmt.Errorf("%w: unknown scope kind", ErrInvalidJobDefinition)
+		}
+	}
+	switch scope.Kind {
+	case ScopeKindIncident:
+		if authPolicy == AuthPolicyIncidentMembership {
+			return authPolicy, nil
+		}
+	case ScopeKindDeployment:
+		if authPolicy == AuthPolicySubmitterOrDeploymentAdmin || authPolicy == AuthPolicyDeploymentAdmin {
+			return authPolicy, nil
+		}
+	}
+	return "", fmt.Errorf("%w: auth policy %q not valid for %s job", ErrInvalidJobDefinition, authPolicy, scope.Kind)
 }
 
 func marshalSummaries(result *ResultSummary, failure *ErrorSummary, status string) ([]byte, []byte, error) {

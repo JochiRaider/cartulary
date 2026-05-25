@@ -10,17 +10,17 @@ Core 00 through Core 04 own implementation-conformance behavior. Core 05 owns cl
 
 Current remediation state:
 - Import and Snapshot and Reporting are the selected and claimed Phase 11 extension profiles.
-- Reference Pack is selected and claimed for the full `profile:reference_pack` contract after the remediation work added real background jobs, minimum disconnected seed packs, refresh replay stability, operator progress/cancel UI, and direct evidence rows.
+- Reference Pack is selected and claimed for the full `profile:reference_pack` contract after the remediation work added real background jobs, minimum disconnected seed packs, refresh replay stability, optional-pack degradation evidence, Reference Pack-owned job authorization evidence, operator progress/cancel UI, and direct evidence rows.
 - Phase 11 now has an active shared manifest at `tools/phase11_test_map.json` with Import, Snapshot/Reporting, Reference Pack, and common-job rows.
 - Incident Portability and Enterprise Authentication remain reserved and unclaimed.
 - The remaining unimplemented profile sprints are open future implementation work. They are not closed, failed, or descoped by the Import, Snapshot/Reporting, or Reference Pack remediation.
 - Helper-only Sprint 1 evidence is not used by itself to claim route parity; Import claim evidence is carried by the completed route-family implementation and direct Phase 11 rows.
 
 Current validation refresh after Reference Pack claim remediation:
-- Base prerequisite evidence is current: `make check` passed on the current tree at `.cartulary/test-results/20260525T013207Z-p3733199`.
-- Reference Pack profile evidence is current: `make phase-slice PHASE=phase11` passed at `.cartulary/test-results/20260525T014016Z-p3788482`, and `make service-backed-slice PHASE=phase11` passed at `.cartulary/test-results/20260525T014542Z-p3801424`.
-- Generated and migration evidence is current: `make generate-drift`, `make migration-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, and `git diff --check` passed after the OpenAPI extension-discovery contract remediation.
-- Retained-run finalizer evidence is current: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T013207Z-p3733199` passed at `.cartulary/test-results/20260525T013922Z-p3785558` with `generated=unchanged files=0 duration=refreshed run_checks=pass`.
+- Base prerequisite evidence is current: `make check` passed on the current tree at `.cartulary/test-results/20260525T140934Z-p758199` with 156/156 work units and 717 tests.
+- Reference Pack profile evidence is current: `make phase-slice PHASE=phase11` passed at `.cartulary/test-results/20260525T134715Z-p681945`, and `make service-backed-slice PHASE=phase11` passed at `.cartulary/test-results/20260525T135251Z-p697934`.
+- Generated and migration evidence is current: `make generate-drift` passed at `.cartulary/test-results/20260525T141823Z-p819414`, `make migration-drift` passed at `.cartulary/test-results/20260525T141823Z-p819434`, `make phase-ledger-drift` passed at `.cartulary/test-results/20260525T141823Z-p819452`, `make phase-schedule-drift` passed at `.cartulary/test-results/20260525T141823Z-p819450`, and `git diff --check` passed after the claim remediation.
+- Retained-run finalizer evidence is current: `make agent-finalize` passed at `.cartulary/test-results/20260525T140020Z-p717895` with retained-run checks skipped, and `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T140934Z-p758199` passed at `.cartulary/test-results/20260525T141658Z-p815160` with `generated=updated files=3 duration=refreshed run_checks=pass`.
 - Claim state remains truthful: `profile:reference_pack.claimed=true` is supported by the current Base gate plus direct Phase 11 evidence; Incident Portability and Enterprise Authentication remain reserved and unclaimed.
 
 Implemented remediation record:
@@ -32,7 +32,7 @@ Implemented remediation record:
 - Phase 2, process, and browser reserved-extension expectations were adjusted to use an unclaimed profile root instead of Import now that Import is claimed.
 - Retained-run finalizer maintenance was run after the successful `make check` root and the warm `check-service-backed` retained-run budget was raised to `135000ms` after current retained check evidence exceeded the older `120000ms` maintenance threshold.
 - Snapshot and Reporting now targets the `/api/v1/snapshots` and `/api/v1/releases` route families on the v3 remediation model: `cartulary.snapshot_export_model.v3`, `cartulary.source_boundary.v1:<sha256>` source-boundary tokens, explicit export-family collection, exact `cartulary.report.default@1` template contracts, closed `output_kind` and `release_scope` OpenAPI resource schemas, explicit `recipient_partition_refs`, durable `render_failed` release rows, route-scoped hidden-resource errors, async snapshot/release create jobs, generated OpenAPI/contract coverage, SQLC-backed reporting queries, approval/publish/invalidate actions, exact-shape route evidence, and Phase 11 direct evidence rows.
-- Reference Pack now targets the `/api/v1/reference-packs` route family with local bundle import through the shared upload envelope, `activation_policy='staged_only'`, no auto-activation, file-hash idempotency, explicit activation/disable, genuinely backgrounded import/reverify/refresh jobs, activation-pointer-derived `active`, closed durable/public condition vocabulary, prior-active retention, local-only archive verification, the required fresh-disconnected three-pack floor, closed Reference Pack error and reason registries, generated OpenAPI/contract coverage, deployment-admin UI progress/cancel controls, and Phase 11 direct evidence rows.
+- Reference Pack now targets the `/api/v1/reference-packs` route family with local bundle import through the shared upload envelope, `activation_policy='staged_only'`, no auto-activation, file-hash idempotency, explicit activation/disable, genuinely backgrounded import/reverify/refresh jobs, deployment-admin-only job poll/cancel authorization for Reference Pack jobs, activation-pointer-derived `active`, reachable durable `missing` state for unavailable stored payloads, closed durable/public condition vocabulary, prior-active retention, local-only archive verification, the required fresh-disconnected three-pack floor, closed Reference Pack error and reason registries, generated OpenAPI/contract coverage, deployment-admin UI progress/cancel controls, and Phase 11 direct evidence rows.
 - Historical retained finalizer roots that predate the explain-run tool-summary diagnostic cleanup remain historical evidence only. Current remediation handoff must cite fresh retained roots that are explainable through `make explain-run`.
 
 Authority model:
@@ -143,13 +143,13 @@ Optional/profile-selected scope:
 
 ## Evidence Layer Matrix
 
-Phase 11 now has authoritative active rows in `tools/phase11_test_map.json`. Current adopted rows cover common jobs, Import, Snapshot/Reporting, and Reference Pack: `U-11-JOBS-01`, `U-11-JOBS-02`, `I-11-IMPORT-01`, `I-11-IMPORT-02`, `I-11-IMPORT-03`, `U-11-REPORTING-01..06`, `I-11-REPORTING-01..04`, `U-11-REFERENCE-PACK-01..06`, and `I-11-REFERENCE-PACK-01..07`. Other profile evidence categories remain planning-only until future profile rows are explicitly adopted.
+Phase 11 now has authoritative active rows in `tools/phase11_test_map.json`. Current adopted rows cover common jobs, Import, Snapshot/Reporting, and Reference Pack: `U-11-JOBS-01`, `U-11-JOBS-02`, `I-11-IMPORT-01`, `I-11-IMPORT-02`, `I-11-IMPORT-03`, `U-11-REPORTING-01..06`, `I-11-REPORTING-01..04`, `U-11-REFERENCE-PACK-01..06`, and `I-11-REFERENCE-PACK-01..09`. Other profile evidence categories remain planning-only until future profile rows are explicitly adopted.
 
 | Profile | Backend unit evidence | Backend store evidence | Backend integration/process evidence | Browser/E2E evidence | Generated/drift evidence | Claim blockers |
 | --- | --- | --- | --- | --- | --- | --- |
 | Import | Upload-envelope parser, request normalization, mapping fingerprint, error registries, parser isolation guards | Import sessions/units, provenance, source hash, mapping persistence, duplicate-apply and overlap state | Real Postgres import lifecycle, CSV/XLSX bounded discovery, apply jobs, idempotent replay | No browser Import workflow is claimed in the current API-only evidence set | OpenAPI, generated Go/TS contracts, SQL-derived models, phase ledger, phase schedule, and duration baselines refreshed through generators | No open blocker for the current selected Import API route family; future UI evidence is separate and unclaimed |
 | Snapshot and Reporting | Snapshot/release request validation, release-state guards, approval tuple, redaction policy selection, disclosure partition checks, error registries, generated OpenAPI closed enum/resource-shape assertions | Immutable snapshots, release records, approval records, output hashes, invalidation persistence, SQLC-backed reporting queries | Real Postgres snapshot/release lifecycle, self-contained output production, snapshot boundary high-watermark replay, approval/publish idempotency, singleton exact-shape and route-scoped visibility/auth assertions | No browser reporting workflow is claimed in the current API-only evidence set | OpenAPI, generated Go/TS contracts, SQL-derived models and queries, phase ledger, phase schedule, and duration baselines refreshed through generators | No open blocker for the current selected API route family; future UI evidence and richer template packs are separate work |
-| Reference Pack | Upload envelope, activation-policy validation, state conflict registry, closed error/reason registries, verifier failure mapping, derived `active` rules | Pack metadata, verification result, active pointer, prior active version, durable conditions, job payloads and summaries | Bundle staging, verification, activation, disable, reverify, refresh, file-hash replay, divergent replay, disconnected seed fixtures, integrity/archive/path/content-screening failures | Deployment-admin landing/admin panel lists packs, imports bundles, runs actions, polls progress, and cancels non-terminal jobs | Contract/OpenAPI, SQL-derived models, TypeScript contracts, phase ledger, schedules, and duration baselines refreshed through generators/finalizers | No open blocker for the selected full profile |
+| Reference Pack | Upload envelope, activation-policy validation, state conflict registry, closed error/reason registries, verifier failure mapping, derived `active` rules | Pack metadata, verification result, active pointer, prior active version, durable conditions including `missing`, job auth policy, job payloads and summaries | Bundle staging, verification, activation, disable, reverify, refresh, file-hash replay, divergent replay, disconnected seed fixtures, integrity/archive/path/content-screening failures, optional-pack degradation, and Reference Pack job auth re-derivation | Deployment-admin landing/admin panel lists packs, imports bundles, runs actions, polls progress, and cancels non-terminal jobs | Contract/OpenAPI, SQL-derived models, TypeScript contracts, phase ledger, schedules, and duration baselines refreshed through generators/finalizers | No open blocker for the selected full profile |
 | Incident Portability | Export/import request validation, bundle selector canonicalization, error registries, forbidden-mode rejection | Export descriptor, manifest checksum records, staged import bookkeeping, imported actor descriptors | Whole-incident export/import with Postgres/object store, projection rebuild, missing-file/checksum failures | Export/import progress and imported incident open if product UI exists | Contract/OpenAPI, bundle fixture generation, ledgers/schedules through generators | Base claim freshness; destructive import fixture isolation TODO; no route implementation |
 | Enterprise Authentication | Provider discovery, begin validation, callback/ACS rejection, binding request validation, error registries | Provider config, auth transaction, binding lifecycle, active uniqueness, audit lineage | OIDC/SAML protocol simulation, session issuance, session revocation on rotate/retire | Provider sign-in redirect/callback/ACS and post-login landing behavior if harness can simulate IdP | Contract/OpenAPI and generated protocol drift if route schemas change; ledgers/schedules through generators | Base claim freshness; IdP fixture strategy TODO; no route implementation |
 
@@ -161,7 +161,7 @@ Phase 11 now has authoritative active rows in `tools/phase11_test_map.json`. Cur
 | [x] | 1. Common extension substrate and upload-envelope foundation | `go test ./internal/platform/jobs ./internal/modules/jobapi ./internal/modules/imports ./internal/modules/imports/tabularingest ./internal/platform/httpapi ./internal/app`; `make generate`; `make phase-slice PHASE=phase11` | None for common substrate. | Helper evidence remains substrate only; Import route-family evidence in Sprint 2 carries the claim. |
 | [x] | 2. Import Extension Profile | `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make check` | None for the selected API route family. | Import is selected and claimed; no browser Import workflow is claimed. |
 | [x] | 3. Snapshot and Reporting Extension Profile | `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, latest post-remediation `make test-fast`; historical Sprint 3 `make check` root recorded below | None for the selected API route family. | Covers snapshots, releases, approval tuple, state machine, rendering, invalidation, redaction boundary, generated contracts, exact shapes, and route-scoped visibility/auth. |
-| [x] | 4. Reference Pack Extension Profile | `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make check` | None for the selected full profile. | Covers pack import, verification, activation, disable, reverify, refresh, disconnected bundle constraints, operator progress/cancel UI, generated artifacts, and direct evidence rows. |
+| [x] | 4. Reference Pack Extension Profile | `make phase-slice PHASE=phase11`, `make service-backed-slice PHASE=phase11`, `make check` | None for the selected full profile. | Covers pack import, verification, activation, disable, reverify, refresh, disconnected bundle constraints, optional-pack degradation, Reference Pack job authorization, operator progress/cancel UI, generated artifacts, and direct evidence rows. |
 | [ ] | 5. Incident Portability Extension Profile | profile-selected targets | Pending implementation. | Covers export/import bundle layout, checksums, authoritative source state, blob/history preservation, no deployment-local admin import. |
 | [ ] | 6. Enterprise Authentication Extension Profile | profile-selected targets | Pending implementation. | Covers providers, begin/callback/ACS, same session family, binding management, no auto-provisioning. |
 | [ ] | 7. Profile claim gates, generated artifacts, finalizers, and handoff | `make check`, `make agent-finalize`, drift gates, profile wrappers as applicable | Open until remaining profile sprints are implemented or explicitly rescoped. | Import finalizer evidence is recorded below; full Phase 11 closeout remains open. |
@@ -173,7 +173,7 @@ Objective: Establish Phase 11 traceability and profile-selection policy without 
 Relevant IDs:
 - Extension profile selectors: `profile:import`, `profile:snapshot_reporting`, `profile:reference_pack`, `profile:incident_portability`, `profile:enterprise_authentication`.
 - Aggregate claim gates: `AC-232`, `AC-233`, `AC-234`, `AC-235`, `AC-236`.
-- Active authoritative Phase 11 rows now exist for Import, Snapshot/Reporting, Reference Pack, and common jobs: `U-11-JOBS-01`, `U-11-JOBS-02`, `I-11-IMPORT-01`, `I-11-IMPORT-02`, `I-11-IMPORT-03`, `U-11-REPORTING-01..06`, `I-11-REPORTING-01..04`, `U-11-REFERENCE-PACK-01..06`, and `I-11-REFERENCE-PACK-01..07`.
+- Active authoritative Phase 11 rows now exist for Import, Snapshot/Reporting, Reference Pack, and common jobs: `U-11-JOBS-01`, `U-11-JOBS-02`, `I-11-IMPORT-01`, `I-11-IMPORT-02`, `I-11-IMPORT-03`, `U-11-REPORTING-01..06`, `I-11-REPORTING-01..04`, `U-11-REFERENCE-PACK-01..06`, and `I-11-REFERENCE-PACK-01..09`.
 
 Files and areas:
 - `tools/phase_registry.json`
@@ -480,7 +480,7 @@ Exit criteria:
 
 Objective: Implement and prove the Reference Pack Extension Profile only when selected.
 
-Status: complete for the selected full profile after remediation. Reference Pack import, reverify, and refresh are durable background jobs; disconnected deployments receive the required minimum built-in type-registry packs; omitted refresh replay uses the admission-time selector; and the authenticated landing/admin surface exposes deployment-admin progress/cancel controls.
+Status: complete for the selected full profile after remediation. Reference Pack import, reverify, and refresh are durable background jobs; disconnected deployments receive the required minimum built-in type-registry packs; optional pack absence, disablement, failure, and missing payloads do not block core workflows; Reference Pack job polling and cancellation require current deployment-admin authorization; omitted refresh replay uses the admission-time selector; and the authenticated landing/admin surface exposes deployment-admin progress/cancel controls.
 
 Relevant IDs:
 - `AC-033..AC-035`
@@ -492,7 +492,7 @@ Relevant IDs:
 - `AC-369`
 
 Files and areas:
-- Runtime and persistence: `internal/modules/reference_data`, `internal/app/runtime.go`, `internal/platform/httpapi/extensions.go`, `internal/platform/jobs/runner.go`, `db/migrations/00027_phase11_reference_packs.sql`, and `db/migrations/00028_phase11_reference_pack_async_payloads.sql`.
+- Runtime and persistence: `internal/modules/reference_data`, `internal/app/runtime.go`, `internal/platform/httpapi/extensions.go`, `internal/platform/jobs/runner.go`, `internal/platform/jobs`, `db/migrations/00027_phase11_reference_packs.sql`, `db/migrations/00028_phase11_reference_pack_async_payloads.sql`, and `db/migrations/00029_phase11_job_auth_policy.sql`.
 - Owner-derived contracts and registries: `contracts/openapi/cartulary.openapi.yaml` and `contracts/errors/index.json`.
 - Generated artifacts refreshed through canonical commands: `internal/gen/contracts/contracts_gen.go`, `internal/gen/sql/models.go`, `packages/protocol-ts/src/generated/contracts.ts`, `docs/testing/phase11_coverage_ledger.md`, `tools/scheduler_manifest.json`, `tools/execution_topology_render_index.json`, and `tools/go_test_duration_baselines.json`.
 - Support expectation updates: Phase 2 reserved-extension tests use Incident Portability as the unclaimed root and accept Reference Pack as claimed; Reference Pack UI evidence is now carried by frontend-unit panel rows.
@@ -503,11 +503,14 @@ Test-first sequence:
 3. Proved activation, disable, reverify, and refresh validation, route-scoped idempotency, legal transitions, authorization re-derivation, derived `active`, and exact resource refs.
 4. Proved durable metadata: `pack_key`, `pack_kind`, `pack_version`, `manifest_sha256`, canonical `payload_sha256`, verification method/result, source identifier, signer key where applicable, `previous_active_version`, and prior-active retention.
 5. Proved disconnected local-bundle behavior and no-network strategy with in-memory fixture bundles, integrity failure handling, prior-active retention, archive/path/content-screening failures, malformed bundles, missing payloads, signature failures, and refresh no-op behavior.
+6. Proved AC-034 degradation directly: absent, disabled, failed, and missing optional packs leave timeline capture, entity resolution, evidence attachment, core editing, and view-schema inventory stable; Reference Pack jobs also re-derive deployment-admin authorization at poll and cancel time.
 
 Implementation tasks:
 - Added the route family exactly under `/api/v1/reference-packs`: list, read, import, activate, disable, reverify, and refresh.
 - Persisted durable Reference Pack version metadata, activation pointers, attestation rows, and worker-owned job payloads including staged bundle paths and admission-time refresh selectors. Public `active` is derived from `reference_pack_activation_state`.
 - Kept durable/public condition vocabulary limited to `staged`, `verified_available`, `disabled`, `failed`, and `missing`.
+- Added internal common-job authorization policy metadata. Generic deployment jobs keep submitter-or-deployment-admin access; Reference Pack jobs use deployment-admin-only access and are rechecked on each poll or cancel request.
+- Classified unreadable stored pack payloads during reverify/refresh as durable `missing`, clearing any active pointer before later pack-dependent operations can treat the version as active.
 - Implemented local-only archive verification for zip, tar, tar.gz/gzip, and sniffed octet-stream archives with required `manifest.json`, safe relative paths, passive-content allowlist, canonical sorted payload digest summary, integrity checks, and no network fetch path.
 - Maintained closed Reference Pack error and reason-code registries and generated OpenAPI/Go/TypeScript contracts from authored inputs.
 
@@ -530,14 +533,16 @@ Validation commands:
   - `make go-test-duration-baseline-coverage`
   - `make agent-finalize`
 - Required profile and drift gates:
-  - `make check`: latest pass, retained root `.cartulary/test-results/20260525T013207Z-p3733199`
-  - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T013207Z-p3733199`: passed with `generated=unchanged files=0 duration=refreshed run_checks=pass`, retained root `.cartulary/test-results/20260525T013922Z-p3785558`
-  - `make phase-slice PHASE=phase11`: latest pass, retained root `.cartulary/test-results/20260525T014016Z-p3788482`
-  - `make service-backed-slice PHASE=phase11`: latest pass, retained root `.cartulary/test-results/20260525T014542Z-p3801424`
-  - `make generate-drift`: latest pass, retained root `.cartulary/test-results/20260525T015110Z-p3813759`
-  - `make migration-drift`: latest pass, retained root `.cartulary/test-results/20260525T015110Z-p3813867`
-  - `make phase-ledger-drift`: latest pass, retained root `.cartulary/test-results/20260525T015110Z-p3813874`
-  - `make phase-schedule-drift`: latest pass, retained root `.cartulary/test-results/20260525T015110Z-p3813812`
+  - `make check`: latest pass, retained root `.cartulary/test-results/20260525T140934Z-p758199`
+  - `make agent-finalize`: latest no-`RESULTS_DIR` pass, retained root `.cartulary/test-results/20260525T140020Z-p717895`
+  - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T140934Z-p758199`: passed with `generated=updated files=3 duration=refreshed run_checks=pass`, retained root `.cartulary/test-results/20260525T141658Z-p815160`
+  - `make phase-slice PHASE=phase11`: latest pass, retained root `.cartulary/test-results/20260525T134715Z-p681945`
+  - `make service-backed-slice PHASE=phase11`: latest pass, retained root `.cartulary/test-results/20260525T135251Z-p697934`
+  - `make test-fast`: latest pass, retained root `.cartulary/test-results/20260525T140252Z-p730636`
+  - `make generate-drift`: latest pass, retained root `.cartulary/test-results/20260525T141823Z-p819414`
+  - `make migration-drift`: latest pass, retained root `.cartulary/test-results/20260525T141823Z-p819434`
+  - `make phase-ledger-drift`: latest pass, retained root `.cartulary/test-results/20260525T141823Z-p819452`
+  - `make phase-schedule-drift`: latest pass, retained root `.cartulary/test-results/20260525T141823Z-p819450`
   - `git diff --check`: latest pass
 
 Deliverables:
@@ -553,6 +558,8 @@ Deliverables:
   - `I-11-REFERENCE-PACK-02` activation, disable, reverify, refresh, exact refs, authorization re-derivation, and legal lifecycle transitions.
   - `I-11-REFERENCE-PACK-03` disconnected failure coverage, prior-active retention, local storage-root behavior, and no-network bundle processing.
   - `I-11-REFERENCE-PACK-04..07` queued-first admission, pre-commit cancellation, exact minimum disconnected seeding, omitted-selector refresh replay, upload-envelope no-durable-state behavior, and deployment-admin route gating.
+  - `I-11-REFERENCE-PACK-08` optional-pack absent/disabled/failed/missing degradation behavior across timeline capture, entity resolution, binary evidence attachment, core editing, and view-schema inventory stability.
+  - `I-11-REFERENCE-PACK-09` Reference Pack-owned job poll/cancel authorization re-derivation after submitter demotion.
 - Profile claim status: `profile:reference_pack` is claimed in the default extension registry. Import and Snapshot/Reporting claims were preserved. Incident Portability and Enterprise Authentication remain unclaimed.
 
 Risks and assumptions:
@@ -563,7 +570,7 @@ Risks and assumptions:
 - Reference Pack operator UI is intentionally limited to deployment-admin sessions and the existing authenticated landing/admin surface; it does not create a separate product area.
 
 Exit criteria:
-- Passing Base prerequisite evidence is supported by the final `make check` root `.cartulary/test-results/20260525T013207Z-p3733199` plus direct Phase 11 wrapper evidence.
+- Passing Base prerequisite evidence is supported by the final `make check` root `.cartulary/test-results/20260525T140934Z-p758199` plus direct Phase 11 wrapper evidence.
 - All Reference Pack delta ACs have direct non-aggregate evidence in `tools/phase11_test_map.json` and the generated ledger.
 - The profile is claimed without requiring Import, Snapshot and Reporting, Incident Portability, or Enterprise Authentication to be claimed.
 - Skipped checks: no Reference Pack-specific checks were skipped in the latest validation refresh.
@@ -772,16 +779,16 @@ Snapshot and Reporting generated-contract precision remediation record:
 Reference Pack remediation implementation record:
 - Reconnaissance confirmed `profile:reference_pack` owner sections and AC mappings, reusable shared upload-envelope parsing and durable common jobs, the `internal/modules/reference_data` module boundary, authored contract/migration locations, the need for operator progress/cancel controls, and a local archive fixture strategy with no network dependency.
 - Implementation added `internal/modules/reference_data` for request normalization, route handling, durable store access, local archive verification, queued-first worker execution, disconnected seed packs, and direct tests. Runtime assembly registers the module and keeps `profile:reference_pack` claimed after remediation.
-- Persistence added `reference_packs`, `reference_pack_activation_state`, `reference_pack_attestations`, and `reference_pack_job_payloads` in `db/migrations/00027_phase11_reference_packs.sql`; `db/migrations/00028_phase11_reference_pack_async_payloads.sql` adds staged bundle payload storage for worker admission.
+- Persistence added `reference_packs`, `reference_pack_activation_state`, `reference_pack_attestations`, and `reference_pack_job_payloads` in `db/migrations/00027_phase11_reference_packs.sql`; `db/migrations/00028_phase11_reference_pack_async_payloads.sql` adds staged bundle payload storage for worker admission; `db/migrations/00029_phase11_job_auth_policy.sql` adds internal job authorization policy metadata and backfills Reference Pack jobs to deployment-admin-only access.
 - OpenAPI declares list/read/import/activate/disable/reverify/refresh routes, exact `reference_pack_version` resources, closed action request/resource schemas, and job summary refs. `contracts/errors/index.json` declares closed Reference Pack errors and reason-code registries.
-- Direct evidence added Phase 11 Reference Pack unit rows `U-11-REFERENCE-PACK-01..06`, integration rows `I-11-REFERENCE-PACK-01..07`, and browser row `E-11-01`.
-- Generated artifacts refreshed by canonical commands: OpenAPI-derived Go/TypeScript contracts, SQL-derived Go models, generated Phase 11 ledger, generated schedules, and Go duration baselines.
+- Direct evidence added Phase 11 Reference Pack unit rows `U-11-REFERENCE-PACK-01..06`, integration rows `I-11-REFERENCE-PACK-01..09`, and browser row `E-11-01`.
+- Generated artifacts refreshed by canonical commands: OpenAPI-derived Go/TypeScript contracts, SQL-derived Go models, generated Phase 11 ledger, generated schedules, and Go/browser/service-backed/harness duration baselines.
 - Focused validation passed: `go test ./internal/modules/reference_data ./internal/platform/httpapi ./internal/app ./internal/modules/jobapi -count=1`, `make frontend-typecheck`, `make frontend-unit`, `make lint-biome`, `make lint-go`, and `pnpm -C apps/web exec playwright test e2e/phase11.reference-pack.spec.ts --workers=1`.
 - Current extension-discovery contract remediation added a full OpenAPI response schema for `GET /api/v1/extensions`, closed extension discovery profile/resource/route-family schemas, generated Go/TypeScript contract outputs, and a Phase 2 OpenAPI contract test for the base discovery route.
 - Focused validation after this remediation passed: targeted `go test` for extension discovery and Reference Pack contract rows, `corepack pnpm -C apps/web exec vitest run src/ReferencePackAdminPanel.test.tsx`, `corepack pnpm -C apps/web exec playwright test e2e/phase11.reference-pack.spec.ts --workers=1`, frontend TypeScript, and targeted Biome checks.
-- Latest retained roots: `make check` `.cartulary/test-results/20260525T013207Z-p3733199`; retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T013207Z-p3733199` `.cartulary/test-results/20260525T013922Z-p3785558`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260525T014016Z-p3788482`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260525T014542Z-p3801424`; `make generate-drift` `.cartulary/test-results/20260525T015110Z-p3813759`; `make migration-drift` `.cartulary/test-results/20260525T015110Z-p3813867`; `make phase-ledger-drift` `.cartulary/test-results/20260525T015110Z-p3813874`; `make phase-schedule-drift` `.cartulary/test-results/20260525T015110Z-p3813812`.
-- Finalizer notes: a pre-gate no-`RESULTS_DIR` `make agent-finalize` passed at `.cartulary/test-results/20260525T011039Z-p3640328` with retained-run checks skipped. A retained-run finalizer attempt against `.cartulary/test-results/20260525T011046Z-p3641447` exposed a stale `120000ms` warm `check-service-backed` maintenance budget after a successful `121312ms` check-service-backed run; `scripts/agent-finalize.mjs` now defaults that budget to `135000ms` while preserving the `SCHEDULER_WARM_CHECK_BUDGET_MS` override. Retained-run finalization then passed against the current final `make check` root with `generated=unchanged files=0 duration=refreshed run_checks=pass`.
-- Broad gate notes: the final full `make check` passed with 152/152 work units and 715 tests at `.cartulary/test-results/20260525T013207Z-p3733199`. `profile:reference_pack.claimed=true` remains supported by current Base evidence and direct Phase 11 evidence.
+- Latest retained roots: `make check` `.cartulary/test-results/20260525T140934Z-p758199`; retained-run `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T140934Z-p758199` `.cartulary/test-results/20260525T141658Z-p815160`; no-`RESULTS_DIR` `make agent-finalize` `.cartulary/test-results/20260525T140020Z-p717895`; `make phase-slice PHASE=phase11` `.cartulary/test-results/20260525T134715Z-p681945`; `make service-backed-slice PHASE=phase11` `.cartulary/test-results/20260525T135251Z-p697934`; `make test-fast` `.cartulary/test-results/20260525T140252Z-p730636`; `make generate-drift` `.cartulary/test-results/20260525T141823Z-p819414`; `make migration-drift` `.cartulary/test-results/20260525T141823Z-p819434`; `make phase-ledger-drift` `.cartulary/test-results/20260525T141823Z-p819452`; `make phase-schedule-drift` `.cartulary/test-results/20260525T141823Z-p819450`.
+- Finalizer notes: a pre-gate no-`RESULTS_DIR` `make agent-finalize` passed at `.cartulary/test-results/20260525T140020Z-p717895` with retained-run checks skipped. A retained-run finalizer attempt against the Phase 11 service-backed root `.cartulary/test-results/20260525T135251Z-p697934` was rejected by preflight because retained-run finalization requires a passing warm `check` root. Retained-run finalization then passed against the current final `make check` root with `generated=updated files=3 duration=refreshed run_checks=pass`; updated files were the browser, harness-smoke, and service-backed duration baselines.
+- Broad gate notes: the final full `make check` passed with 156/156 work units and 717 tests at `.cartulary/test-results/20260525T140934Z-p758199`. `profile:reference_pack.claimed=true` remains supported by current Base evidence and direct Phase 11 evidence, including AC-034 optional-pack degradation and Reference Pack-owned job authorization rows.
 - Skipped checks: no Reference Pack-specific checks were skipped in the latest validation refresh.
 - Unresolved blockers: none for the selected Reference Pack full profile. Remaining non-claim state: Incident Portability and Enterprise Authentication remain reserved and unclaimed.
 
@@ -825,11 +832,11 @@ Planning-task validation commands:
 Expected remediation-task result:
 - `make explain-phase PHASE=phase11` reports an active manifest with Import, Snapshot/Reporting, Reference Pack, and common-job rows.
 - `make phase-slice PHASE=phase11` and `make service-backed-slice PHASE=phase11` execute the selected rows.
-- Current `make check` passed at retained root `.cartulary/test-results/20260525T013207Z-p3733199`.
-- Current `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T013207Z-p3733199` passed at retained root `.cartulary/test-results/20260525T013922Z-p3785558`.
-- Current `make phase-slice PHASE=phase11` passed at retained root `.cartulary/test-results/20260525T014016Z-p3788482`.
-- Current `make service-backed-slice PHASE=phase11` passed at retained root `.cartulary/test-results/20260525T014542Z-p3801424`.
-- Current drift gates passed at retained roots `.cartulary/test-results/20260525T015110Z-p3813759`, `.cartulary/test-results/20260525T015110Z-p3813867`, `.cartulary/test-results/20260525T015110Z-p3813874`, and `.cartulary/test-results/20260525T015110Z-p3813812`.
+- Current `make check` passed at retained root `.cartulary/test-results/20260525T140934Z-p758199`.
+- Current `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260525T140934Z-p758199` passed at retained root `.cartulary/test-results/20260525T141658Z-p815160`.
+- Current `make phase-slice PHASE=phase11` passed at retained root `.cartulary/test-results/20260525T134715Z-p681945`.
+- Current `make service-backed-slice PHASE=phase11` passed at retained root `.cartulary/test-results/20260525T135251Z-p697934`.
+- Current drift gates passed at retained roots `.cartulary/test-results/20260525T141823Z-p819414`, `.cartulary/test-results/20260525T141823Z-p819434`, `.cartulary/test-results/20260525T141823Z-p819452`, and `.cartulary/test-results/20260525T141823Z-p819450`.
 - Snapshot/Reporting cleanup `make check` passed at retained root `.cartulary/test-results/20260524T142209Z-p1934659`.
 - Snapshot/Reporting cleanup `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260524T142209Z-p1934659` passed at retained root `.cartulary/test-results/20260524T142930Z-p1990229`.
 - Do not fabricate successful retained run roots.

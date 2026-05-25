@@ -1,11 +1,22 @@
 package reference_data_test
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
 	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"sort"
+	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
@@ -322,11 +333,136 @@ func TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableSta
 	requirePackRowCount(t, harness.DB, "type_registry.denied", "1", 0)
 }
 
+func TestPhase11_I_11_REFERENCE_PACK_08_OptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase11-reference-pack-optional-degradation")
+	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+
+	baselineViewSchemas := viewSchemaIDs(t, harness, adminLogin)
+	cases := []struct {
+		name    string
+		packKey string
+		arrange func(t *testing.T, packKey string)
+	}{
+		{
+			name:    "absent",
+			packKey: "framework.attack",
+			arrange: func(t *testing.T, packKey string) {
+				requirePackRowCount(t, harness.DB, packKey, "1", 0)
+			},
+		},
+		{
+			name:    "disabled",
+			packKey: "framework.d3fend",
+			arrange: func(t *testing.T, packKey string) {
+				importReferencePackWithKind(t, harness, adminLogin, packKey, "framework", "1", "txn-rp-degrade-disabled-import")
+				resp := postAction(t, harness, adminLogin, "/api/v1/reference-packs/"+packKey+"/1/disable", "txn-rp-degrade-disabled-disable", "")
+				resource := requireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
+				requireReferencePackResource(t, resource, packKey, "1", reference_data.ConditionDisabled, false)
+			},
+		},
+		{
+			name:    "failed",
+			packKey: "enrichment.tor",
+			arrange: func(t *testing.T, packKey string) {
+				importReferencePackWithKind(t, harness, adminLogin, packKey, "enrichment", "1", "txn-rp-degrade-failed-import")
+				overwriteStoredBundle(t, harness.DB, packKey, "1", referencePackBundle(t, bundleOptions{
+					PackKey:       packKey,
+					PackKind:      "enrichment",
+					PackVersion:   "1",
+					BadPayloadSHA: true,
+				}))
+				requireReverifyFailure(t, harness, adminLogin, packKey, "1", "txn-rp-degrade-failed-reverify", "checksum_mismatch")
+				resource := readReferencePack(t, harness, adminLogin, packKey, "1")
+				requireReferencePackResource(t, resource, packKey, "1", reference_data.ConditionFailed, false)
+			},
+		},
+		{
+			name:    "missing",
+			packKey: "enrichment.cisa_kev",
+			arrange: func(t *testing.T, packKey string) {
+				importReferencePackWithKind(t, harness, adminLogin, packKey, "enrichment", "1", "txn-rp-degrade-missing-import")
+				activate := postAction(t, harness, adminLogin, "/api/v1/reference-packs/"+packKey+"/1/activate", "txn-rp-degrade-missing-activate", "")
+				requireSuccessEnvelope(t, activate, http.StatusOK)
+				removeStoredBundle(t, harness.DB, packKey, "1")
+				requireReverifyFailure(t, harness, adminLogin, packKey, "1", "txn-rp-degrade-missing-reverify", "payload_missing")
+				resource := readReferencePack(t, harness, adminLogin, packKey, "1")
+				requireReferencePackResource(t, resource, packKey, "1", reference_data.ConditionMissing, false)
+				requireActivationState(t, harness.DB, packKey, sql.NullString{}, sql.NullString{String: "1", Valid: true})
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.arrange(t, tc.packKey)
+			exerciseCoreWorkflowDuringOptionalPackDegradation(t, harness, adminLogin, adminID, tc.name)
+			gotViewSchemas := viewSchemaIDs(t, harness, adminLogin)
+			requireStringSlicesEqual(t, gotViewSchemas, baselineViewSchemas, "view schema inventory changed while optional pack was "+tc.name)
+		})
+	}
+}
+
+func TestPhase11_I_11_REFERENCE_PACK_09_JobsRequireDeploymentAdminAtPollAndCancelTime(t *testing.T) {
+	releaseWorker := make(chan struct{})
+	released := false
+	defer func() {
+		if !released {
+			close(releaseWorker)
+		}
+	}()
+	workerStarted := make(chan struct{})
+	restoreHook := reference_data.SetReferencePackWorkerStartHookForTesting(func(jobKind string) {
+		if jobKind != "import" {
+			return
+		}
+		close(workerStarted)
+		<-releaseWorker
+	})
+	defer restoreHook()
+
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase11-reference-pack-job-authz")
+	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+
+	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-job-auth-import"}`, referencePackBundle(t, bundleOptions{
+		PackKey:     "type_registry.job_auth",
+		PackKind:    "type_registry",
+		PackVersion: "1",
+	}), "job-auth.zip", reference_data.MediaTypeZip)
+	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+	jobID := job["job_id"].(string)
+	<-workerStarted
+	queued := requireJobNow(t, harness, adminLogin, jobID)
+	if queued["status"] != "queued" {
+		t.Fatalf("job should be queued before auth mutation, got %#v", queued)
+	}
+
+	setDeploymentAdmin(t, harness.DB, adminID, false)
+	afterDemotionRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, afterDemotionRead, http.StatusNotFound, "job_not_found")
+	afterDemotionCancel := cancelJob(t, harness, adminLogin, jobID, "txn-rp-job-auth-cancel-after-demotion")
+	httptestx.RequireErrorEnvelope(t, afterDemotionCancel, http.StatusNotFound, "job_not_found")
+
+	setDeploymentAdmin(t, harness.DB, adminID, true)
+	close(releaseWorker)
+	released = true
+	done := requireJob(t, harness, adminLogin, jobID)
+	if done["status"] != "succeeded" {
+		t.Fatalf("job should complete after admin restoration: %#v", done)
+	}
+}
+
 func importReferencePack(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, packKey string, packVersion string, clientTxnID string) {
+	t.Helper()
+	importReferencePackWithKind(t, harness, login, packKey, "type_registry", packVersion, clientTxnID)
+}
+
+func importReferencePackWithKind(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, packKey string, packKind string, packVersion string, clientTxnID string) {
 	t.Helper()
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, login, `{"client_txn_id":"`+clientTxnID+`"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     packKey,
-		PackKind:    "type_registry",
+		PackKind:    packKind,
 		PackVersion: packVersion,
 	}), packKey+"-"+packVersion+".zip", reference_data.MediaTypeZip)
 	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
@@ -450,5 +586,208 @@ SELECT pack_kind, source_identifier, manifest_sha256, payload_sha256, pack_contr
 	}
 	if attestations == 0 {
 		t.Fatalf("expected attestation rows for %s/%s", packKey, packVersion)
+	}
+}
+
+func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, adminID string, suffix string) {
+	t.Helper()
+	incident := phase2test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-rp-degrade-" + suffix + "-incident",
+		"incident_key":  "IR-RP-DEGRADE-" + strings.ToUpper(suffix),
+		"title":         "Reference Pack degradation " + suffix,
+	})
+	incidentID := incident["incident_id"].(string)
+
+	hostResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+entities.HostsViewSchemaID+"/rows", map[string]any{
+		"client_txn_id":     "txn-rp-degrade-" + suffix + "-host",
+		"host.display_name": "Reference Pack degradation host " + suffix,
+		"host.hostname":     "rp-" + suffix + "-host",
+	}, csrfOptions(login)...)
+	hostData := requireSuccessEnvelope(t, hostResp, http.StatusCreated)["data"].(map[string]any)
+	hostID := hostData["row"].(map[string]any)["record_id"].(string)
+
+	timelineData := phase2test.CreateTimelineRow(t, harness.Server, login, incidentID, map[string]any{
+		"client_txn_id":    "txn-rp-degrade-" + suffix + "-timeline",
+		"timeline.summary": "Reference Pack degradation timeline " + suffix,
+		"timeline.host_refs": collectionActions(
+			addResolvedRefAction("rp-"+suffix+"-host", hostID),
+		),
+	})
+	timelineRow := timelineData["row"].(map[string]any)
+	timelineID := timelineRow["record_id"].(string)
+	timelineVersion := int(timelineRow["row_version"].(float64))
+	requireResolvedCollectionItem(t, queryViewRow(t, harness, login, incidentID, timeline.TimelineViewSchemaID, timelineID), "timeline.host_refs", hostID)
+
+	patchResp := phase2test.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+timelineID, map[string]any{
+		"view_schema_id":   timeline.TimelineViewSchemaID,
+		"base_row_version": timelineVersion,
+		"client_txn_id":    "txn-rp-degrade-" + suffix + "-timeline-edit",
+		"changes": []map[string]any{{
+			"field_key": "timeline.details",
+			"value":     "Core edit while optional Reference Pack is " + suffix,
+		}},
+	}, csrfOptions(login)...)
+	requireSuccessEnvelope(t, patchResp, http.StatusOK)
+
+	evidenceResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+workbook.EvidenceViewSchemaID+"/rows", map[string]any{
+		"client_txn_id":  "txn-rp-degrade-" + suffix + "-evidence",
+		"evidence.title": "Reference Pack degradation evidence " + suffix,
+	}, csrfOptions(login)...)
+	evidenceData := requireSuccessEnvelope(t, evidenceResp, http.StatusCreated)["data"].(map[string]any)
+	evidenceRow := evidenceData["row"].(map[string]any)
+	evidenceID := evidenceRow["record_id"].(string)
+	evidenceVersion := int(evidenceRow["row_version"].(float64))
+
+	payload := []byte("reference pack degradation evidence " + suffix)
+	sum := sha256.Sum256(payload)
+	blobResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		"incident_id":       incidentID,
+		"client_txn_id":     "txn-rp-degrade-" + suffix + "-blob",
+		"byte_size":         len(payload),
+		"filename_hint":     "rp-" + suffix + ".txt",
+		"content_type_hint": "text/plain",
+		"sha256_hex":        fmt.Sprintf("%x", sum[:]),
+	}, csrfOptions(login)...)
+	blobData := requireSuccessEnvelope(t, blobResp, http.StatusCreated)["data"].(map[string]any)
+	putObject(t, blobData["upload_target"].(map[string]any)["href"].(string), payload, "text/plain")
+	attachResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceID+"/attach-blob", map[string]any{
+		"object_blob_id":   blobData["object_blob_id"],
+		"base_row_version": evidenceVersion,
+		"client_txn_id":    "txn-rp-degrade-" + suffix + "-attach",
+	}, csrfOptions(login)...)
+	attachData := requireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
+	if attachData["object_blob_id"] != blobData["object_blob_id"] {
+		t.Fatalf("attached blob mismatch: attach=%#v blob=%#v", attachData, blobData)
+	}
+
+	if got := queryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE actor_user_id::text = $1 AND incident_id::text = $2`, adminID, incidentID); got < 4 {
+		t.Fatalf("expected core workflow mutations to commit during optional pack %s state, got %d change sets", suffix, got)
+	}
+}
+
+func collectionActions(actions ...map[string]any) map[string]any {
+	return map[string]any{"kind": "collection_actions_v1", "actions": actions}
+}
+
+func addResolvedRefAction(rawText string, resolvedRecordID string) map[string]any {
+	return map[string]any{"op": "add_resolved_ref", "raw_text": rawText, "resolved_record_id": resolvedRecordID}
+}
+
+func requireResolvedCollectionItem(t testing.TB, row map[string]any, fieldKey string, resolvedRecordID string) {
+	t.Helper()
+	cells := row["cells"].(map[string]any)
+	cell := cells[fieldKey].(map[string]any)
+	value := cell["value"].(map[string]any)
+	rawItems := value["items"].([]any)
+	if len(rawItems) != 1 {
+		t.Fatalf("expected one %s item, got %#v", fieldKey, rawItems)
+	}
+	item := rawItems[0].(map[string]any)
+	if item["item_kind"] != "resolved_ref" || item["resolved_record_id"] != resolvedRecordID {
+		t.Fatalf("unexpected resolved collection item for %s: %#v", fieldKey, item)
+	}
+}
+
+func queryViewRow(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, incidentID string, viewSchemaID string, recordID string) map[string]any {
+	t.Helper()
+	resp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query", map[string]any{}, phase2test.WithCookies(login.SessionCookie))
+	body := requireSuccessEnvelope(t, resp, http.StatusOK)
+	rows := body["data"].(map[string]any)["rows"].([]any)
+	for _, rawRow := range rows {
+		row := rawRow.(map[string]any)
+		if row["record_id"] == recordID {
+			return row
+		}
+	}
+	t.Fatalf("expected row %s in %s rows %#v", recordID, viewSchemaID, rows)
+	return nil
+}
+
+func viewSchemaIDs(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult) []string {
+	t.Helper()
+	resp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=100", nil, phase2test.WithCookies(login.SessionCookie))
+	body := requireSuccessEnvelope(t, resp, http.StatusOK)
+	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
+	ids := make([]string, 0, len(rawSchemas))
+	for _, rawSchema := range rawSchemas {
+		ids = append(ids, rawSchema.(map[string]any)["view_schema_id"].(string))
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func requireStringSlicesEqual(t testing.TB, got []string, want []string, message string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s: got %#v want %#v", message, got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("%s: got %#v want %#v", message, got, want)
+		}
+	}
+}
+
+func overwriteStoredBundle(t testing.TB, db *sql.DB, packKey string, packVersion string, bundle []byte) {
+	t.Helper()
+	path := storedBundlePath(t, db, packKey, packVersion)
+	if err := os.WriteFile(path, bundle, 0o600); err != nil {
+		t.Fatalf("overwrite stored bundle: %v", err)
+	}
+}
+
+func removeStoredBundle(t testing.TB, db *sql.DB, packKey string, packVersion string) {
+	t.Helper()
+	path := storedBundlePath(t, db, packKey, packVersion)
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("remove stored bundle: %v", err)
+	}
+}
+
+func storedBundlePath(t testing.TB, db *sql.DB, packKey string, packVersion string) string {
+	t.Helper()
+	var path string
+	if err := db.QueryRow(`SELECT bundle_storage_path FROM reference_packs WHERE pack_key = $1 AND version = $2`, packKey, packVersion).Scan(&path); err != nil {
+		t.Fatalf("query stored bundle path: %v", err)
+	}
+	return path
+}
+
+func requireReverifyFailure(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, packKey string, packVersion string, clientTxnID string, reasonCode string) {
+	t.Helper()
+	resp := postAction(t, harness, login, "/api/v1/reference-packs/"+packKey+"/"+packVersion+"/reverify", clientTxnID, "")
+	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+	done := requireJob(t, harness, login, job["job_id"].(string))
+	if done["status"] != "failed" {
+		t.Fatalf("expected failed reverify job, got %#v", done)
+	}
+	summary := done["error_summary"].(map[string]any)
+	if summary["code"] != "reference_pack_verification_failed" || summary["details"].(map[string]any)["reason_code"] != reasonCode {
+		t.Fatalf("unexpected reverify error summary: %#v", summary)
+	}
+}
+
+func setDeploymentAdmin(t testing.TB, db *sql.DB, userID string, isAdmin bool) {
+	t.Helper()
+	if _, err := db.ExecContext(context.Background(), `UPDATE users SET is_deployment_admin = $2, updated_at = now() WHERE id::text = $1`, userID, isAdmin); err != nil {
+		t.Fatalf("set deployment admin flag: %v", err)
+	}
+}
+
+func putObject(t testing.TB, href string, payload []byte, contentType string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPut, href, bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("create object upload request: %v", err)
+	}
+	req.Header.Set("Content-Type", contentType)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("upload object: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		data, _ := io.ReadAll(resp.Body)
+		t.Fatalf("upload object status %d: %s", resp.StatusCode, string(data))
 	}
 }
