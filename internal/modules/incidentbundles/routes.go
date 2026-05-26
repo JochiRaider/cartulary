@@ -248,6 +248,7 @@ func (s *Service) dispatchIncidentBundleJob(jobIDText string) {
 }
 
 func (s *Service) executeIncidentBundlePayload(ctx context.Context, payload JobPayload) {
+	runIncidentBundleWorkerStartHook(payload.JobKind)
 	switch payload.JobKind {
 	case "export":
 		s.executeExportJob(ctx, payload)

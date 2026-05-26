@@ -59,10 +59,10 @@ var exportSpecs = []exportNDJSONSpec{
 	{"data/compromise_assessments.ndjson", `SELECT to_jsonb(t) FROM assessments t WHERE incident_id = $1 ORDER BY record_id`},
 	{"data/record_links.ndjson", `SELECT to_jsonb(t) FROM record_links t WHERE incident_id = $1 ORDER BY record_link_id`},
 	{"data/tags.ndjson", `SELECT jsonb_build_object('tag_name', tag_name, 'normalized_tag_name', normalized_tag_name) FROM (SELECT DISTINCT tag_name, normalized_tag_name FROM record_tags WHERE incident_id = $1 ORDER BY normalized_tag_name, tag_name) tags`},
-	{"data/record_tags.ndjson", `SELECT to_jsonb(t) FROM record_tags t WHERE incident_id = $1 ORDER BY record_id, normalized_tag_name, record_tag_id`},
-	{"data/change_sets.ndjson", `SELECT to_jsonb(t) FROM change_sets t WHERE incident_id = $1 ORDER BY created_at, change_set_id`},
+	{"data/record_tags.ndjson", `SELECT to_jsonb(t) FROM record_tags t WHERE incident_id = $1 ORDER BY record_id, record_tag_id`},
+	{"data/change_sets.ndjson", `SELECT to_jsonb(t) FROM change_sets t WHERE incident_id = $1 ORDER BY change_set_id`},
 	{"data/change_set_mutations.ndjson", `SELECT to_jsonb(t) FROM change_set_mutations t JOIN change_sets c ON c.change_set_id = t.change_set_id WHERE c.incident_id = $1 ORDER BY t.change_set_id, t.sequence_no`},
-	{"data/record_revisions.ndjson", `SELECT to_jsonb(t) FROM record_revisions t JOIN change_sets c ON c.change_set_id = t.change_set_id WHERE c.incident_id = $1 ORDER BY t.record_id, t.row_version`},
+	{"data/record_revisions.ndjson", `SELECT to_jsonb(t) FROM record_revisions t JOIN change_sets c ON c.change_set_id = t.change_set_id WHERE c.incident_id = $1 ORDER BY t.revision_id`},
 	{"data/saved_views.ndjson", `SELECT to_jsonb(t) FROM saved_views t WHERE incident_id = $1 ORDER BY saved_view_id`},
 }
 
@@ -321,6 +321,9 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 			return uuid.UUID{}, err
 		}
 	}
+	if err := repairImportedSequences(ctx, tx); err != nil {
+		return uuid.UUID{}, err
+	}
 	if err := attributions.flush(ctx, tx); err != nil {
 		return uuid.UUID{}, err
 	}
@@ -351,6 +354,17 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 	}
 	committed = true
 	return incidentID, nil
+}
+
+func repairImportedSequences(ctx context.Context, tx pgx.Tx) error {
+	_, err := tx.Exec(ctx, `
+SELECT setval(
+    pg_get_serial_sequence('record_revisions', 'revision_id'),
+    GREATEST(COALESCE((SELECT MAX(revision_id) FROM record_revisions), 0), 1),
+    true
+)
+`)
+	return err
 }
 
 func (i Importer) importIncident(ctx context.Context, tx pgx.Tx, payload []byte, actorUserID uuid.UUID, attributions *importedAttributionBuffer) error {

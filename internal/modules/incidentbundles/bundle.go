@@ -24,6 +24,11 @@ const (
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 )
 
+var incidentBundleOptionalSectionTokens = map[string]struct{}{
+	"reference_packs": {},
+	"snapshots":       {},
+}
+
 var requiredStructuredFiles = []string{
 	"data/incident.json",
 	"data/actors.ndjson",
@@ -199,6 +204,9 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	if !strings.HasPrefix(manifest.SourceChangeSetHighWatermark, sourceBoundaryTokenPrefix) {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
+	if err := validateManifestVocabularies(manifest); err != nil {
+		return VerifiedBundle{}, err
+	}
 	if signatureBytes, ok := files["integrity/signature.ed25519"]; ok {
 		if len(signatureBytes) == 0 || manifest.SigningKeyID == nil || strings.TrimSpace(*manifest.SigningKeyID) == "" {
 			return VerifiedBundle{}, &VerificationError{ReasonCode: "signature_mismatch"}
@@ -222,7 +230,7 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "checksum_mismatch"}
 	}
 	for pathName, content := range files {
-		if strings.HasPrefix(pathName, "integrity/") {
+		if pathName == "manifest.json" || strings.HasPrefix(pathName, "integrity/") {
 			continue
 		}
 		want, ok := checksums[pathName]
@@ -239,7 +247,7 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 		}
 	}
 	for listedPath := range checksums {
-		if strings.HasPrefix(listedPath, "integrity/") {
+		if listedPath == "manifest.json" || strings.HasPrefix(listedPath, "integrity/") {
 			return VerifiedBundle{}, &VerificationError{ReasonCode: "checksum_mismatch"}
 		}
 		if _, ok := files[listedPath]; !ok {
@@ -247,6 +255,9 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 		}
 	}
 	if !canonicalManifestFilesMatch(files, manifest.Files) {
+		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	if !bundleOptionalSectionsAllowed(files, manifest) {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
 	return VerifiedBundle{
@@ -264,6 +275,69 @@ func canonicalManifestFilesMatch(files map[string][]byte, manifestFiles []Manife
 	}
 	for idx := range expected {
 		if expected[idx] != manifestFiles[idx] {
+			return false
+		}
+	}
+	return true
+}
+
+func validateManifestVocabularies(manifest BundleManifest) error {
+	if manifest.ReferencePackMode != ReferencePackModeRefsOnly && manifest.ReferencePackMode != ReferencePackModeEmbedded {
+		return &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	if !canonicalKnownTokenSet(manifest.OptionalSections, incidentBundleOptionalSectionTokens) {
+		return &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	if !canonicalKnownTokenSet(manifest.RequiredCapabilities, incidentBundleOptionalSectionTokens) {
+		return &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	if len(manifest.RequiredCapabilities) > 0 {
+		return &VerificationError{ReasonCode: "unsupported_required_capability"}
+	}
+	return nil
+}
+
+func canonicalKnownTokenSet(values []string, allowed map[string]struct{}) bool {
+	previous := ""
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		if _, ok := allowed[value]; !ok {
+			return false
+		}
+		if _, exists := seen[value]; exists {
+			return false
+		}
+		if previous != "" && value < previous {
+			return false
+		}
+		seen[value] = struct{}{}
+		previous = value
+	}
+	return true
+}
+
+func bundleOptionalSectionsAllowed(files map[string][]byte, manifest BundleManifest) bool {
+	declared := map[string]struct{}{}
+	for _, section := range manifest.OptionalSections {
+		declared[section] = struct{}{}
+	}
+	if manifest.ReferencePackMode == ReferencePackModeEmbedded {
+		declared["reference_packs"] = struct{}{}
+	}
+	for pathName := range files {
+		if !strings.HasPrefix(pathName, "ext/") {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(pathName, "ext/reference_packs/"):
+			if _, ok := declared["reference_packs"]; !ok {
+				return false
+			}
+		case strings.HasPrefix(pathName, "ext/snapshots/"):
+			if _, ok := declared["snapshots"]; !ok {
+				return false
+			}
+		default:
 			return false
 		}
 	}
@@ -404,7 +478,8 @@ func checkCompressionRatio(extracted int64, compressed int64, limits config.Limi
 	if compressed <= 0 {
 		compressed = 1
 	}
-	if extracted/compressed > max {
+	const maxInt64 = int64(^uint64(0) >> 1)
+	if compressed <= maxInt64/max && extracted > compressed*max {
 		return &VerificationError{ReasonCode: "archive_compression_ratio_exceeded"}
 	}
 	return nil
@@ -434,7 +509,7 @@ func manifestFilesFor(files map[string][]byte, includeIntegrity bool) []Manifest
 func checksumLinesFor(files map[string][]byte) []string {
 	paths := make([]string, 0, len(files))
 	for pathName := range files {
-		if strings.HasPrefix(pathName, "integrity/") {
+		if pathName == "manifest.json" || strings.HasPrefix(pathName, "integrity/") {
 			continue
 		}
 		paths = append(paths, pathName)

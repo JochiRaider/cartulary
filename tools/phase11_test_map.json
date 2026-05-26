@@ -44,6 +44,7 @@
   "expected_ids": [
     "U-11-JOBS-01",
     "U-11-JOBS-02",
+    "U-11-JOBS-03",
     "U-11-REPORTING-01",
     "U-11-REPORTING-02",
     "U-11-REPORTING-03",
@@ -78,6 +79,7 @@
     "U-11-INCIDENT-BUNDLES-04",
     "I-11-INCIDENT-BUNDLES-01",
     "I-11-INCIDENT-BUNDLES-02",
+    "I-11-INCIDENT-BUNDLES-03",
     "E-11-01"
   ],
   "forbidden_id_files": [],
@@ -112,6 +114,21 @@
       "out_of_scope": "This evidence does not claim any unselected extension profile route family.",
       "execution_family": "backend-integration-phase11-jobs-deployment-auth",
       "execution_label": "backend-integration phase11 deployment job authorization"
+    },
+    {
+      "id": "U-11-JOBS-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/jobapi",
+      "file": "internal/modules/jobapi/routes_integration_test.go",
+      "symbol": "TestPhase11_U_11_JOBS_03_DeploymentAdminIncidentMembershipPolicy",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "The reusable deployment-admin incident-membership job policy requires current deployment-admin plus incident membership for reads, denies non-submitter non-admin cancellation, allows current incident admins to cancel, and hides jobs after deployment-admin demotion.",
+      "out_of_scope": "This row proves the generic policy substrate; Incident Bundle route-specific export-job authorization is covered by the Incident Bundle integration rows.",
+      "execution_family": "backend-integration-phase11-jobs-admin-member-auth",
+      "execution_label": "backend-integration phase11 admin-member incident job authorization"
     },
     {
       "id": "U-11-REPORTING-01",
@@ -313,7 +330,7 @@
       "evidence_layer": "backend_unit",
       "claim_status": "implemented",
       "claim": "Incident Bundle archive construction emits deterministic checksum inventory bytes and a strict numeric `bundle_version: 1` manifest with `source_change_set_high_watermark` and `size_bytes` file metadata independent of input map order.",
-      "out_of_scope": "This unit row does not claim database source-state coverage.",
+      "out_of_scope": "Database source-state determinism is covered by the Incident Bundle import integration row.",
       "execution_family": "backend-unit-phase11-incident-bundles-determinism",
       "execution_label": "backend-unit phase11 incident bundle determinism"
     },
@@ -327,7 +344,7 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim_status": "implemented",
-      "claim": "Incident Bundle verification rejects unsafe paths, missing required files, unsupported required capabilities, and unsupported signature material before import visibility.",
+      "claim": "Incident Bundle verification rejects unsafe paths, missing required files, invalid manifest vocabularies, unsupported required capabilities, unsupported signature material, and one-byte-over compression-ratio boundaries before import visibility while known optional embedded sections remain non-blocking unless required.",
       "out_of_scope": "This unit row does not claim object-store-backed blob staging.",
       "execution_family": "backend-unit-phase11-incident-bundles-verifier",
       "execution_label": "backend-unit phase11 incident bundle verifier"
@@ -342,7 +359,7 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim_status": "implemented",
-      "claim": "OpenAPI and error registries expose Incident Bundle routes, resource schema, and closed request/export/import reason registries.",
+      "claim": "OpenAPI and error registries expose Incident Bundle routes, resource schema, exact-token unique descriptor arrays, and closed request/export/import reason registries.",
       "out_of_scope": "Generated contract artifacts remain downstream evidence and do not replace direct route tests.",
       "execution_family": "backend-unit-phase11-incident-bundles-contracts",
       "execution_label": "backend-unit phase11 incident bundle contracts"
@@ -614,10 +631,25 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
       "claim_status": "implemented",
-      "claim": "Incident Bundle import reuses the shared upload envelope, keys idempotency by uploaded file hash, rejects divergent replay, cleans failed staging, emits one imported incident ref, rebuilds projections, opens the imported incident through the normal workbook startup route, preserves record tags, custody events, blob bytes under target-owned storage keys, inert actor descriptors, and imported source actor attribution in history.",
-      "out_of_scope": "This row uses same-deployment round-trip cleanup to avoid importing deployment-local memberships from the bundle; cross-deployment actor mapping remains future explicit admin action.",
+      "claim": "Incident Bundle import reuses the shared upload envelope, exports from an independent source deployment, imports into an empty target deployment, keys idempotency by uploaded file hash, rejects divergent replay, cleans failed staging, emits one imported incident ref, rebuilds projections, opens the imported incident through the normal workbook startup route, preserves IDs, row versions, change-set and revision counts, record links, record tags, custody events, entity mentions, indicator observations, blob bytes under target-owned storage keys, inert actor descriptors, imported source actor attribution in history, stable imported history selectors, and ordinary rollback success and failure semantics. The same test also proves DB-backed source-state export determinism for ordered structured files and checksum inventory.",
+      "out_of_scope": "This row does not claim optional embedded snapshot or reference-pack rendering behavior beyond verifier-level optional-section degradation.",
       "execution_family": "backend-integration-phase11-incident-bundles-import",
       "execution_label": "backend-integration phase11 incident bundle import"
+    },
+    {
+      "id": "I-11-INCIDENT-BUNDLES-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/routes_integration_test.go",
+      "symbol": "TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesIncidentMembership",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle export jobs use the incident-scoped deployment-admin-plus-membership job policy: nonmember deployment admins and non-deployment-admin incident members cannot observe or cancel the export job, deployment-admin incident members can poll it, non-submitter non-admin members cannot cancel, and current incident admins can cancel.",
+      "out_of_scope": "Import jobs remain deployment-scoped because no target incident exists before successful import.",
+      "execution_family": "backend-integration-phase11-incident-bundles-export-auth",
+      "execution_label": "backend-integration phase11 incident bundle export authorization"
     }
   ],
   "e2e": [

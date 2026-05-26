@@ -184,12 +184,21 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 		if resource.Scope.IncidentID == nil {
 			return jobNotFoundError()
 		}
+		if resource.AuthPolicy == jobs.AuthPolicyDeploymentAdminIncidentMembership && !principal.User.IsDeploymentAdmin {
+			return jobNotFoundError()
+		}
 		membership, err := s.incidentStore.GetIncidentMembershipForUser(ctx, *resource.Scope.IncidentID, principal.User.ID)
 		if errors.Is(err, incidents.ErrMembershipNotFound) {
 			return jobNotFoundError()
 		}
 		if err != nil {
 			return internalAPIError(err)
+		}
+		switch resource.AuthPolicy {
+		case "", jobs.AuthPolicyIncidentMembership:
+		case jobs.AuthPolicyDeploymentAdminIncidentMembership:
+		default:
+			return jobNotFoundError()
 		}
 		if !cancel || submittedByCurrentUser || membership.Role == "admin" {
 			return nil

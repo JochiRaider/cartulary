@@ -21,9 +21,10 @@ const (
 	ScopeKindIncident   = "incident"
 	ScopeKindDeployment = "deployment"
 
-	AuthPolicyIncidentMembership         = "incident_membership"
-	AuthPolicySubmitterOrDeploymentAdmin = "submitter_or_deployment_admin"
-	AuthPolicyDeploymentAdmin            = "deployment_admin"
+	AuthPolicyIncidentMembership                = "incident_membership"
+	AuthPolicyDeploymentAdminIncidentMembership = "deployment_admin_incident_membership"
+	AuthPolicySubmitterOrDeploymentAdmin        = "submitter_or_deployment_admin"
+	AuthPolicyDeploymentAdmin                   = "deployment_admin"
 
 	StatusQueued          = "queued"
 	StatusRunning         = "running"
@@ -516,7 +517,7 @@ func normalizeAuthPolicy(scope Scope, authPolicy string) (string, error) {
 	}
 	switch scope.Kind {
 	case ScopeKindIncident:
-		if authPolicy == AuthPolicyIncidentMembership {
+		if authPolicy == AuthPolicyIncidentMembership || authPolicy == AuthPolicyDeploymentAdminIncidentMembership {
 			return authPolicy, nil
 		}
 	case ScopeKindDeployment:

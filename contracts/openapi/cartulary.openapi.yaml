@@ -3743,14 +3743,24 @@
           },
           "optional_sections": {
             "type": "array",
+            "uniqueItems": true,
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "reference_packs",
+                "snapshots"
+              ]
             }
           },
           "required_capabilities": {
             "type": "array",
+            "uniqueItems": true,
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "reference_packs",
+                "snapshots"
+              ]
             }
           }
         },

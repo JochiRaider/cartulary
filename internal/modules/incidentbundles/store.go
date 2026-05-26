@@ -120,9 +120,9 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 		return JobAcceptedResult{}, err
 	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID},
 		SubmittedByUserID: params.ActorUserID,
-		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
+		AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
 	}, params.Now)

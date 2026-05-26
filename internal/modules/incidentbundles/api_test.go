@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"gopkg.in/yaml.v3"
 )
 
 func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRejectsModes(t *testing.T) {
@@ -166,12 +167,98 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapability
 	if !isVerificationReason(err, "signature_mismatch") {
 		t.Fatalf("signature reason mismatch: %v", err)
 	}
+
+	malformedMode := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
+		manifest["reference_pack_mode"] = "floating"
+	})
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: malformedMode,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "malformed_manifest") {
+		t.Fatalf("invalid reference_pack_mode reason mismatch: %v", err)
+	}
+
+	malformedOptionalSection := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
+		manifest["optional_sections"] = []any{"unknown_section"}
+	})
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: malformedOptionalSection,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "malformed_manifest") {
+		t.Fatalf("unknown optional_sections token reason mismatch: %v", err)
+	}
+
+	unsupportedRequired := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
+		manifest["required_capabilities"] = []any{"snapshots"}
+	})
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: unsupportedRequired,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "unsupported_required_capability") {
+		t.Fatalf("unsupported required capability reason mismatch: %v", err)
+	}
+
+	withKnownOptionalSection, err := BuildBundleArchive(ManifestInput{
+		BundleID:             "44444444-4444-4444-4444-444444444444",
+		IncidentID:           "11111111-1111-1111-1111-111111111111",
+		IncidentKey:          "INC-1",
+		ExportedAt:           "2026-05-25T00:00:00Z",
+		ReferencePackMode:    ReferencePackModeRefsOnly,
+		OptionalSections:     []string{"snapshots"},
+		RequiredCapabilities: []string{},
+	}, map[string][]byte{
+		"data/incident.json":            []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n"),
+		"data/records.ndjson":           []byte(""),
+		"data/reference_pack_refs.json": []byte("[]\n"),
+		"ext/snapshots/snapshot.json":   []byte(`{"snapshot_id":"snap-1"}` + "\n"),
+	})
+	if err != nil {
+		t.Fatalf("BuildBundleArchive optional section: %v", err)
+	}
+	if _, err = VerifyBundle(VerificationInput{
+		Bundle: withKnownOptionalSection.Bytes,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	}); err != nil {
+		t.Fatalf("known unsupported optional embedded section must not block core verification: %v", err)
+	}
+}
+
+func TestPhase11_U_11_INCIDENT_BUNDLES_03_CompressionRatioBoundaryUsesThresholdComparison(t *testing.T) {
+	limits := config.LimitConfig{Archives: config.ArchiveLimits{MaxCompressionRatio: 3}}
+	if err := checkCompressionRatio(300, 100, limits); err != nil {
+		t.Fatalf("exact compression ratio limit must pass: %v", err)
+	}
+	err := checkCompressionRatio(301, 100, limits)
+	if !isVerificationReason(err, "archive_compression_ratio_exceeded") {
+		t.Fatalf("one byte over compression ratio limit reason mismatch: %v", err)
+	}
 }
 
 func TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncidentBundleContracts(t *testing.T) {
 	openAPI, err := os.ReadFile("../../../contracts/openapi/cartulary.openapi.yaml")
 	if err != nil {
 		t.Fatalf("read openapi: %v", err)
+	}
+	var openAPIDoc map[string]any
+	if err := yaml.Unmarshal(openAPI, &openAPIDoc); err != nil {
+		t.Fatalf("decode openapi yaml: %v", err)
+	}
+	for _, field := range []string{"optional_sections", "required_capabilities"} {
+		schema := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleResource", "properties", field)
+		if schema["type"] != "array" || schema["uniqueItems"] != true {
+			t.Fatalf("%s must be a unique array schema: %#v", field, schema)
+		}
+		items, ok := schema["items"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s items schema missing: %#v", field, schema)
+		}
+		enumValues, ok := items["enum"].([]any)
+		if !ok || !slices.Equal(enumStrings(enumValues), []string{"reference_packs", "snapshots"}) {
+			t.Fatalf("%s enum tokens mismatch: %#v", field, items["enum"])
+		}
 	}
 	for _, needle := range []string{
 		"/api/v1/incident-bundles/export",
@@ -203,6 +290,100 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncident
 			t.Fatalf("errors registry missing %q", needle)
 		}
 	}
+}
+
+func openAPIObjectAt(t testing.TB, root map[string]any, path ...string) map[string]any {
+	t.Helper()
+	current := any(root)
+	for _, key := range path {
+		object, ok := current.(map[string]any)
+		if !ok {
+			t.Fatalf("openapi path %v reached non-object %#v", path, current)
+		}
+		current, ok = object[key]
+		if !ok {
+			t.Fatalf("openapi path %v missing key %q", path, key)
+		}
+	}
+	object, ok := current.(map[string]any)
+	if !ok {
+		t.Fatalf("openapi path %v reached non-object %#v", path, current)
+	}
+	return object
+}
+
+func enumStrings(values []any) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		text, ok := value.(string)
+		if !ok {
+			return nil
+		}
+		result = append(result, text)
+	}
+	return result
+}
+
+func replaceManifestFields(t testing.TB, bundle []byte, update func(map[string]any)) []byte {
+	t.Helper()
+	files := zipFilesMap(t, bundle)
+	var manifest map[string]any
+	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	update(manifest)
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("encode manifest: %v", err)
+	}
+	files["manifest.json"] = manifestBytes
+	return zipFromFiles(t, files)
+}
+
+func zipFilesMap(t testing.TB, bundle []byte) map[string][]byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	files := map[string][]byte{}
+	for _, member := range reader.File {
+		rc, err := member.Open()
+		if err != nil {
+			t.Fatalf("open member %s: %v", member.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read member %s: %v", member.Name, err)
+		}
+		files[member.Name] = data
+	}
+	return files
+}
+
+func zipFromFiles(t testing.TB, files map[string][]byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	for _, path := range paths {
+		w, err := zw.Create(path)
+		if err != nil {
+			t.Fatalf("create member %s: %v", path, err)
+		}
+		if _, err := w.Write(files[path]); err != nil {
+			t.Fatalf("write member %s: %v", path, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buf.Bytes()
 }
 
 func removeZipMember(t testing.TB, bundle []byte, memberPath string) []byte {
