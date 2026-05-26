@@ -5255,7 +5255,7 @@ Verified by: AC-164, AC-166, AC-169, AC-236
 ```
 
 **REQ-01-429**
-Bundle member paths MUST use relative forward-slash separators. The logical bundle and any outer archive wrapper MUST reject absolute paths, `.` or `..` segments, symlinks, hard links, device nodes, and other member types outside regular files and directories.
+Bundle member paths MUST use relative forward-slash separators. The logical bundle and any outer archive wrapper MUST reject absolute paths, `.` or `..` segments, symlinks, hard links, device nodes, and other member types outside regular files and directories. Directory members in an outer archive wrapper are structural only: they MUST be path-validated and counted against archive member limits, but they MUST NOT satisfy required logical files, appear in the checksum inventory, contribute extracted file bytes, or be materialized as logical bundle files.
 Profiles: incident_portability
 Verified by: AC-164, AC-166, AC-169, AC-236
 

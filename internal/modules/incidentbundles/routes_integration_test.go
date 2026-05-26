@@ -560,12 +560,71 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(
 			}),
 			wantReason: "malformed_manifest",
 		},
+		{
+			name: "unsupported required capability",
+			txn:  "txn-import-unsupported-required-capability",
+			bundle: replaceZipMember(t, bundleBytes, "manifest.json", func(original []byte) []byte {
+				var manifest map[string]any
+				if err := json.Unmarshal(original, &manifest); err != nil {
+					t.Fatalf("decode manifest: %v", err)
+				}
+				manifest["required_capabilities"] = []any{"snapshots"}
+				payload, err := json.Marshal(manifest)
+				if err != nil {
+					t.Fatalf("encode manifest: %v", err)
+				}
+				return append(payload, '\n')
+			}),
+			wantReason: "unsupported_required_capability",
+		},
+		{
+			name:       "signature mismatch",
+			txn:        "txn-import-signature-mismatch",
+			bundle:     appendZipMember(t, bundleBytes, "integrity/signature.ed25519", []byte("not-a-supported-signature")),
+			wantReason: "signature_mismatch",
+		},
+		{
+			name: "unknown optional section",
+			txn:  "txn-import-unknown-optional-section",
+			bundle: replaceZipMember(t, bundleBytes, "manifest.json", func(original []byte) []byte {
+				var manifest map[string]any
+				if err := json.Unmarshal(original, &manifest); err != nil {
+					t.Fatalf("decode manifest: %v", err)
+				}
+				manifest["optional_sections"] = []any{"unknown_section"}
+				payload, err := json.Marshal(manifest)
+				if err != nil {
+					t.Fatalf("encode manifest: %v", err)
+				}
+				return append(payload, '\n')
+			}),
+			wantReason: "malformed_manifest",
+		},
 	}
 	for _, tc := range importCases {
 		t.Run(tc.name, func(t *testing.T) {
 			assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, tc.txn, tc.bundle, tc.wantReason)
 		})
 	}
+
+	t.Run("safe directory entries import", func(t *testing.T) {
+		directoryHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-directory-import")
+		directoryAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, directoryHarness.Server)
+		terminal := importBundleAndWait(t, directoryHarness.Server, directoryAdmin, appendZipDirectoryMembers(t, bundleBytes, "data/", "integrity/", "ext/"), "txn-import-safe-directories")
+		if terminal["status"] != "succeeded" {
+			encoded, _ := json.MarshalIndent(terminal, "", "  ")
+			t.Fatalf("directory-bearing import did not succeed: %s", encoded)
+		}
+		summary := terminal["result_summary"].(map[string]any)
+		if summary["code"] != "incident_bundle_imported" {
+			t.Fatalf("directory-bearing import summary mismatch: %#v", summary)
+		}
+		refs := summary["resource_refs"].([]any)
+		if len(refs) != 1 || refs[0].(map[string]any)["id"] != incidentID {
+			t.Fatalf("directory-bearing import refs mismatch: %#v", refs)
+		}
+		assertNoIncidentBundleStaging(t, directoryHarness.Server)
+	})
 
 	t.Run("archive extracted byte limit", func(t *testing.T) {
 		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "phase11-incident-bundle-extracted-limit", map[string]string{
@@ -1253,6 +1312,54 @@ func replaceZipMember(t testing.TB, bundle []byte, memberPath string, replace fu
 	return rewritten
 }
 
+func appendZipMember(t testing.TB, bundle []byte, memberPath string, payload []byte) []byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	var buf bytes.Buffer
+	writer := zip.NewWriter(&buf)
+	for _, member := range reader.File {
+		rc, err := member.Open()
+		if err != nil {
+			t.Fatalf("open member %s: %v", member.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read member %s: %v", member.Name, err)
+		}
+		w, err := writer.Create(member.Name)
+		if err != nil {
+			t.Fatalf("create member %s: %v", member.Name, err)
+		}
+		if _, err := w.Write(data); err != nil {
+			t.Fatalf("write member %s: %v", member.Name, err)
+		}
+	}
+	w, err := writer.Create(memberPath)
+	if err != nil {
+		t.Fatalf("create appended member %s: %v", memberPath, err)
+	}
+	if _, err := w.Write(payload); err != nil {
+		t.Fatalf("write appended member %s: %v", memberPath, err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func appendZipDirectoryMembers(t testing.TB, bundle []byte, directories ...string) []byte {
+	t.Helper()
+	result := bundle
+	for _, directory := range directories {
+		result = appendZipMember(t, result, directory, nil)
+	}
+	return result
+}
+
 func replaceZipMemberAndChecksum(t testing.TB, bundle []byte, memberPath string, replacement []byte) []byte {
 	t.Helper()
 	replacementSHA := hashHexBytes(replacement)
@@ -1478,6 +1585,11 @@ func assertImportFailureLeavesState(t testing.TB, harness *phase2test.ServerHarn
 	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	terminal := waitFailedJob(t, harness.Server, login, job["job_id"].(string))
 	requireFailedJobReason(t, terminal, "incident_bundle_import_rejected", wantReason)
+	if summary, ok := terminal["result_summary"].(map[string]any); ok {
+		if refs, ok := summary["resource_refs"].([]any); ok && len(refs) != 0 {
+			t.Fatalf("failed import must not expose imported resource refs: %#v", summary)
+		}
+	}
 	var stagingPath string
 	if err := harness.DB.QueryRow(`SELECT bundle_staging_path FROM incident_bundle_job_payloads WHERE job_id = $1`, job["job_id"].(string)).Scan(&stagingPath); err != nil {
 		t.Fatalf("query failed import staging path: %v", err)
@@ -1485,6 +1597,22 @@ func assertImportFailureLeavesState(t testing.TB, harness *phase2test.ServerHarn
 	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
 		t.Fatalf("failed import staging path must be cleaned up, stat err=%v path=%s", err, stagingPath)
 	}
+	if countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_job_payloads WHERE job_id = $1 AND (imported_incident_id IS NOT NULL OR manifest_sha256 IS NOT NULL)`, job["job_id"].(string)) != 0 {
+		t.Fatalf("failed import must not persist imported incident id or manifest sha")
+	}
+	var requestJSON string
+	if err := harness.DB.QueryRow(`SELECT request_json::text FROM incident_bundle_job_payloads WHERE job_id = $1`, job["job_id"].(string)).Scan(&requestJSON); err != nil {
+		t.Fatalf("query failed import request json: %v", err)
+	}
+	var normalized map[string]any
+	if err := json.Unmarshal([]byte(requestJSON), &normalized); err != nil {
+		t.Fatalf("decode failed import request json: %v", err)
+	}
+	fileSHA, ok := normalized["file_sha256"].(string)
+	if len(normalized) != 1 || !ok || fileSHA == "" || strings.Contains(requestJSON, "manifest.json") {
+		t.Fatalf("failed import request payload must retain only upload hash, got %s", requestJSON)
+	}
+	assertNoIncidentBundleStaging(t, harness.Server)
 	after := snapshotImportFailureState(t, harness, incidentID)
 	if !before.equal(after) {
 		t.Fatalf("failed import left partial state: before=%#v after=%#v", before, after)

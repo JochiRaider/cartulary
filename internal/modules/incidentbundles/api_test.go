@@ -1,8 +1,10 @@
 package incidentbundles
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"os"
@@ -158,6 +160,51 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapability
 	})
 	if !isVerificationReason(err, "missing_required_file") {
 		t.Fatalf("missing required file reason mismatch: %v", err)
+	}
+
+	withZipDirectories := appendZipMember(t, appendZipMember(t, validBundle.Bytes, "data/", nil), "integrity/", nil)
+	if _, err = VerifyBundle(VerificationInput{
+		Bundle: withZipDirectories,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	}); err != nil {
+		t.Fatalf("safe ZIP directory members must be ignored as structural entries: %v", err)
+	}
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: withZipDirectories,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "archive_member_count_exceeded") {
+		t.Fatalf("ZIP directory entries must count against member limits: %v", err)
+	}
+	unsafeDirectory := appendZipMember(t, validBundle.Bytes, "../data/", nil)
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: unsafeDirectory,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "invalid_member_path") {
+		t.Fatalf("unsafe ZIP directory reason mismatch: %v", err)
+	}
+	unsupportedZipMember := appendZipSymlink(t, validBundle.Bytes, "data/member-link", "manifest.json")
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: unsupportedZipMember,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "unsupported_member_type") {
+		t.Fatalf("unsupported ZIP member reason mismatch: %v", err)
+	}
+	withTarDirectories := newTarGzip(t, []string{"data", "integrity/"}, zipFilesMap(t, validBundle.Bytes))
+	if _, err = VerifyBundle(VerificationInput{
+		Bundle: withTarDirectories,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	}); err != nil {
+		t.Fatalf("safe TAR directory members must be ignored as structural entries: %v", err)
+	}
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: withTarDirectories,
+		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "archive_member_count_exceeded") {
+		t.Fatalf("TAR directory entries must count against member limits: %v", err)
 	}
 
 	withSignature := appendZipMember(t, validBundle.Bytes, "integrity/signature.ed25519", []byte("not-a-supported-signature"))
@@ -557,6 +604,80 @@ func appendZipMember(t testing.TB, bundle []byte, memberPath string, payload []b
 	}
 	if err := zw.Close(); err != nil {
 		t.Fatalf("close zip: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func appendZipSymlink(t testing.TB, bundle []byte, memberPath string, target string) []byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, member := range reader.File {
+		rc, err := member.Open()
+		if err != nil {
+			t.Fatalf("open member %s: %v", member.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read member %s: %v", member.Name, err)
+		}
+		w, err := zw.Create(member.Name)
+		if err != nil {
+			t.Fatalf("create member %s: %v", member.Name, err)
+		}
+		if _, err := w.Write(data); err != nil {
+			t.Fatalf("write member %s: %v", member.Name, err)
+		}
+	}
+	header := &zip.FileHeader{Name: memberPath}
+	header.SetMode(os.ModeSymlink | 0o777)
+	w, err := zw.CreateHeader(header)
+	if err != nil {
+		t.Fatalf("create symlink member %s: %v", memberPath, err)
+	}
+	if _, err := w.Write([]byte(target)); err != nil {
+		t.Fatalf("write symlink member %s: %v", memberPath, err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func newTarGzip(t testing.TB, directories []string, files map[string][]byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for _, dir := range directories {
+		if err := tw.WriteHeader(&tar.Header{Name: dir, Typeflag: tar.TypeDir, Mode: 0o700}); err != nil {
+			t.Fatalf("write tar directory %s: %v", dir, err)
+		}
+	}
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	for _, path := range paths {
+		data := files[path]
+		if err := tw.WriteHeader(&tar.Header{Name: path, Typeflag: tar.TypeReg, Mode: 0o600, Size: int64(len(data))}); err != nil {
+			t.Fatalf("write tar header %s: %v", path, err)
+		}
+		if _, err := tw.Write(data); err != nil {
+			t.Fatalf("write tar member %s: %v", path, err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("close tar: %v", err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatalf("close gzip: %v", err)
 	}
 	return buf.Bytes()
 }

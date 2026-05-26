@@ -391,7 +391,7 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim_status": "implemented",
-      "claim": "Incident Bundle verification rejects unsafe paths, missing required files, invalid manifest vocabularies, unsupported required capabilities, unsupported signature material, and one-byte-over compression-ratio boundaries before import visibility while known optional embedded sections remain non-blocking unless required.",
+      "claim": "Incident Bundle verification accepts safe ZIP and TAR directory members as structural archive entries, counts those directories against archive member limits, rejects unsafe directory paths, rejects unsupported special member types, rejects missing required files, invalid manifest vocabularies, unsupported required capabilities, unsupported signature material, and one-byte-over compression-ratio boundaries before import visibility while known optional embedded sections remain non-blocking unless required.",
       "out_of_scope": "This unit row does not claim object-store-backed blob staging.",
       "execution_family": "backend-unit-phase11-incident-bundles-verifier",
       "execution_label": "backend-unit phase11 incident bundle verifier"
@@ -738,7 +738,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
       "claim_status": "implemented",
-      "claim": "Incident Bundle missing source blobs, malformed or incomplete import bundles, duplicate incident IDs, checksum and blob-hash failures, extracted-byte limits, and member-count limits fail with closed reason codes while preserving pre-failure incident visibility, projection, membership, imported actor, descriptor, object-store, and staging cleanup boundaries.",
+      "claim": "Incident Bundle missing source blobs, malformed or incomplete import bundles, duplicate incident IDs, checksum and blob-hash failures, unsupported required capabilities, unsupported signature material, invalid optional-section vocabulary, extracted-byte limits, and member-count limits fail with closed reason codes while preserving pre-failure incident visibility, projection, membership, imported actor, descriptor, object-store, job-payload, and staging cleanup boundaries; safe archive directory entries remain importable as structural wrapper members.",
       "out_of_scope": "This row does not add public partial import modes or remote fetch behavior.",
       "execution_family": "backend-integration-phase11-incident-bundles-fail-closed",
       "execution_label": "backend-integration phase11 incident bundle fail closed"

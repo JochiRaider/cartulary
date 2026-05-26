@@ -22,6 +22,7 @@ const (
 	BundleFormat              = "cartulary.incident_bundle"
 	BundleVersion             = 1
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
+	tarTypeRegA               = byte(0)
 )
 
 var incidentBundleOptionalSectionTokens = map[string]struct{}{
@@ -379,16 +380,22 @@ func readZipArchive(bundle []byte, limits config.LimitConfig) (map[string][]byte
 		return nil, err
 	}
 	files := map[string][]byte{}
+	var memberCount int
 	var extracted int64
 	for _, member := range zr.File {
-		if err := checkMemberCount(len(files)+1, limits); err != nil {
+		memberCount++
+		if err := checkMemberCount(memberCount, limits); err != nil {
 			return nil, err
 		}
-		if !safeBundlePath(member.Name) {
-			return nil, &VerificationError{ReasonCode: "invalid_member_path"}
+		kind, err := classifyZipMember(member)
+		if err != nil {
+			return nil, err
 		}
-		if member.FileInfo().IsDir() || member.FileInfo().Mode().Type() != 0 {
-			return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
+		if kind == archiveMemberDirectory {
+			if member.UncompressedSize64 != 0 {
+				return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
+			}
+			continue
 		}
 		extracted += int64(member.UncompressedSize64)
 		if err := checkExtractedSize(extracted, limits); err != nil {
@@ -414,6 +421,7 @@ func readZipArchive(bundle []byte, limits config.LimitConfig) (map[string][]byte
 func readTarArchive(reader io.Reader, compressedSize int64, limits config.LimitConfig) (map[string][]byte, error) {
 	tr := tar.NewReader(reader)
 	files := map[string][]byte{}
+	var memberCount int
 	var extracted int64
 	for {
 		header, err := tr.Next()
@@ -423,14 +431,19 @@ func readTarArchive(reader io.Reader, compressedSize int64, limits config.LimitC
 		if err != nil {
 			return nil, err
 		}
-		if err := checkMemberCount(len(files)+1, limits); err != nil {
+		memberCount++
+		if err := checkMemberCount(memberCount, limits); err != nil {
 			return nil, err
 		}
-		if !safeBundlePath(header.Name) {
-			return nil, &VerificationError{ReasonCode: "invalid_member_path"}
+		kind, err := classifyTarMember(header)
+		if err != nil {
+			return nil, err
 		}
-		if header.Typeflag != tar.TypeReg {
-			return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
+		if kind == archiveMemberDirectory {
+			if header.Size != 0 {
+				return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
+			}
+			continue
 		}
 		extracted += header.Size
 		if err := checkExtractedSize(extracted, limits); err != nil {
@@ -449,6 +462,46 @@ func readTarArchive(reader io.Reader, compressedSize int64, limits config.LimitC
 		return nil, err
 	}
 	return files, nil
+}
+
+type archiveMemberKind int
+
+const (
+	archiveMemberFile archiveMemberKind = iota
+	archiveMemberDirectory
+)
+
+func classifyZipMember(member *zip.File) (archiveMemberKind, error) {
+	isDirectory := member.FileInfo().IsDir() || strings.HasSuffix(member.Name, "/")
+	if !safeArchiveMemberPath(member.Name, isDirectory) {
+		return archiveMemberFile, &VerificationError{ReasonCode: "invalid_member_path"}
+	}
+	modeType := member.FileInfo().Mode().Type()
+	if isDirectory {
+		if modeType != 0 && !member.FileInfo().IsDir() {
+			return archiveMemberFile, &VerificationError{ReasonCode: "unsupported_member_type"}
+		}
+		return archiveMemberDirectory, nil
+	}
+	if modeType != 0 {
+		return archiveMemberFile, &VerificationError{ReasonCode: "unsupported_member_type"}
+	}
+	return archiveMemberFile, nil
+}
+
+func classifyTarMember(header *tar.Header) (archiveMemberKind, error) {
+	isDirectory := header.Typeflag == tar.TypeDir
+	if !safeArchiveMemberPath(header.Name, isDirectory) {
+		return archiveMemberFile, &VerificationError{ReasonCode: "invalid_member_path"}
+	}
+	switch header.Typeflag {
+	case tar.TypeDir:
+		return archiveMemberDirectory, nil
+	case tar.TypeReg, tarTypeRegA:
+		return archiveMemberFile, nil
+	default:
+		return archiveMemberFile, &VerificationError{ReasonCode: "unsupported_member_type"}
+	}
 }
 
 func checkExtractedSize(extracted int64, limits config.LimitConfig) error {
@@ -593,6 +646,13 @@ func safeBundlePath(pathName string) bool {
 		}
 	}
 	return true
+}
+
+func safeArchiveMemberPath(pathName string, isDirectory bool) bool {
+	if !isDirectory {
+		return safeBundlePath(pathName)
+	}
+	return safeBundlePath(strings.TrimSuffix(pathName, "/"))
 }
 
 func canonicalStringSet(values []string) []string {
