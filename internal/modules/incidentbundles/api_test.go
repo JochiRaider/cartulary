@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -288,6 +289,101 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncident
 	} {
 		if !bytes.Contains(errorsDoc, []byte(needle)) {
 			t.Fatalf("errors registry missing %q", needle)
+		}
+	}
+}
+
+func TestPhase11_U_11_INCIDENT_BUNDLES_05_ErrorRegistryUsesExactClosedIncidentBundleSets(t *testing.T) {
+	errorsDoc, err := os.ReadFile("../../../contracts/errors/index.json")
+	if err != nil {
+		t.Fatalf("read errors: %v", err)
+	}
+	var registry struct {
+		Errors []struct {
+			Code string `json:"code"`
+		} `json:"errors"`
+		ReasonRegistries []struct {
+			ErrorCode   string `json:"error_code"`
+			ReasonCodes []struct {
+				Code string `json:"code"`
+			} `json:"reason_codes"`
+		} `json:"reason_registries"`
+	}
+	if err := json.Unmarshal(errorsDoc, &registry); err != nil {
+		t.Fatalf("decode errors registry: %v", err)
+	}
+
+	var incidentBundleCodes []string
+	for _, entry := range registry.Errors {
+		if strings.Contains(entry.Code, "incident_bundle") {
+			incidentBundleCodes = append(incidentBundleCodes, entry.Code)
+		}
+	}
+	slices.Sort(incidentBundleCodes)
+	wantTopLevel := []string{
+		"incident_bundle_export_rejected",
+		"incident_bundle_import_rejected",
+		"incident_bundle_not_found",
+		"invalid_incident_bundle_request",
+	}
+	if !slices.Equal(incidentBundleCodes, wantTopLevel) {
+		t.Fatalf("incident-bundle top-level errors changed: got %#v want %#v", incidentBundleCodes, wantTopLevel)
+	}
+
+	wantReasons := map[string][]string{
+		"invalid_incident_bundle_request": {
+			"blob_mode_not_supported",
+			"duplicate_part",
+			"field_not_nullable",
+			"history_mode_not_supported",
+			"invalid_metadata_encoding",
+			"invalid_optional_sections",
+			"invalid_part_content_type",
+			"invalid_reference_pack_mode",
+			"invalid_required_capabilities",
+			"invalid_value",
+			"malformed_metadata_json",
+			"missing_required_field",
+			"missing_required_part",
+			"request_not_object",
+			"unexpected_part",
+			"unknown_field",
+			"unsupported_upload_envelope",
+		},
+		"incident_bundle_export_rejected": {
+			"missing_required_blob",
+			"missing_required_file",
+		},
+		"incident_bundle_import_rejected": {
+			"archive_compression_ratio_exceeded",
+			"archive_extracted_bytes_exceeded",
+			"archive_member_count_exceeded",
+			"blob_hash_mismatch",
+			"checksum_mismatch",
+			"duplicate_incident_id",
+			"invalid_member_path",
+			"malformed_manifest",
+			"missing_required_blob",
+			"missing_required_file",
+			"remote_fetch_required",
+			"signature_mismatch",
+			"unsupported_member_type",
+			"unsupported_required_capability",
+		},
+	}
+	gotReasons := map[string][]string{}
+	for _, entry := range registry.ReasonRegistries {
+		if _, ok := wantReasons[entry.ErrorCode]; !ok {
+			continue
+		}
+		for _, reason := range entry.ReasonCodes {
+			gotReasons[entry.ErrorCode] = append(gotReasons[entry.ErrorCode], reason.Code)
+		}
+		slices.Sort(gotReasons[entry.ErrorCode])
+	}
+	for errorCode, want := range wantReasons {
+		if !slices.Equal(gotReasons[errorCode], want) {
+			t.Fatalf("%s reason registry changed: got %#v want %#v", errorCode, gotReasons[errorCode], want)
 		}
 	}
 }

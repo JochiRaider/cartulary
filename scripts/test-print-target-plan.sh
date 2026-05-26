@@ -876,6 +876,68 @@ if [[ "$missing_claim_status" -eq 0 ]]; then
 fi
 assert_contains "$missing_claim_output" "must declare a non-empty claim" "missing claim validation output"
 
+blocked_profile_claim_root="$tmp_dir/blocked-profile-claim-root"
+mkdir -p "$blocked_profile_claim_root/tools"
+write_phase_registry "$blocked_profile_claim_root" phase99
+cat >"$blocked_profile_claim_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
+  "note": "Synthetic profile claim validation fixture.",
+  "profile_claims": [
+    {
+      "profile_id": "synthetic_extension",
+      "claimed": true,
+      "claim_ac_id": "AC-999",
+      "required_ac_ids": ["AC-999"],
+      "direct_evidence_ids": ["U-99-01"],
+      "aggregate_ac_ids": ["AC-999"]
+    }
+  ],
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic profile claim validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
+  "expected_ids": ["U-99-01"],
+  "support_go_targets": [],
+  "unit": [
+    {
+      "id": "U-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_store_test.go",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "execution_dependency": "backend_store",
+      "execution_family": "backend-store",
+      "execution_label": "Backend store",
+      "evidence_layer": "store_domain",
+      "claim_status": "blocked",
+      "claim": "blocked profile evidence smoke",
+      "out_of_scope": "blocked profile evidence smoke"
+    }
+  ],
+  "integration": [],
+  "e2e": []
+}
+JSON
+
+set +e
+blocked_profile_claim_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$blocked_profile_claim_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 2>&1
+)"
+blocked_profile_claim_status=$?
+set -e
+if [[ "$blocked_profile_claim_status" -eq 0 ]]; then
+  fail "phase manifest validation must reject claimed profiles with blocked direct evidence"
+fi
+assert_contains "$blocked_profile_claim_output" "direct_evidence_id U-99-01 must have claim_status=implemented" "blocked profile claim validation output"
+
 missing_budget_root="$tmp_dir/missing-budget-root"
 mkdir -p "$missing_budget_root/tools"
 write_phase_registry "$missing_budget_root" phase99

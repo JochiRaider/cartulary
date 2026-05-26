@@ -251,6 +251,9 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 			return VerifiedBundle{}, &VerificationError{ReasonCode: "checksum_mismatch"}
 		}
 		if _, ok := files[listedPath]; !ok {
+			if strings.HasPrefix(listedPath, "blobs/sha256/") {
+				return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_blob"}
+			}
 			return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
 		}
 	}

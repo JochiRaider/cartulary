@@ -22,6 +22,7 @@ export const phaseManifestTopLevelKeys = new Set([
   "schema_id",
   "phase",
   "note",
+  "profile_claims",
   "ledger",
   "shared_harnesses",
   "expected_ids",
@@ -93,6 +94,15 @@ export const supportGoEntryKeys = new Set([
   "migration_scratch_reason",
 ]);
 
+export const profileClaimKeys = new Set([
+  "profile_id",
+  "claimed",
+  "claim_ac_id",
+  "required_ac_ids",
+  "direct_evidence_ids",
+  "aggregate_ac_ids",
+]);
+
 export const sharedHarnessEntryKeys = new Set([
   "id",
   "coverage",
@@ -120,6 +130,26 @@ export function validatePhaseManifestShape(manifest, label) {
       `${label}.forbidden_id_files`,
     );
   }
+  const profileClaims = requireObjectArray(
+    manifest.profile_claims ?? [],
+    `${label}.profile_claims`,
+  );
+  const profileIDs = [];
+  for (const [index, claim] of profileClaims.entries()) {
+    const claimLabel = `${label}.profile_claims[${index + 1}]`;
+    assertObjectKeys(claim, profileClaimKeys, claimLabel);
+    profileIDs.push(requireString(claim.profile_id, `${claimLabel}.profile_id`));
+    if (typeof claim.claimed !== "boolean") {
+      throw new Error(`${claimLabel}.claimed must be a boolean`);
+    }
+    requireString(claim.claim_ac_id, `${claimLabel}.claim_ac_id`);
+    requireStringArray(claim.required_ac_ids, `${claimLabel}.required_ac_ids`, {
+      nonEmpty: true,
+    });
+    requireStringArray(claim.direct_evidence_ids, `${claimLabel}.direct_evidence_ids`);
+    requireStringArray(claim.aggregate_ac_ids, `${claimLabel}.aggregate_ac_ids`);
+  }
+  assertUnique(profileIDs, `${label}.profile_claims.profile_id`);
 
   const sharedHarnesses = requireObjectArray(
     manifest.shared_harnesses ?? [],

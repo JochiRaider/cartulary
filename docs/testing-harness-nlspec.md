@@ -374,6 +374,10 @@ Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-021
 Frontend readiness rows whose identifiers use the `FE-*` namespace MUST be claimed through `tools/frontend_phase_maps/*.json`. `frontend-unit`, browser E2E, visual, and accessibility targets MUST NOT claim `FE-*` row coverage by filename inference, by Playwright/Vitest title text alone, or by generated ledger text. Browser-backed frontend rows MUST declare `scenario_titles[]` in the frontend phase map, and target summaries or target-owned normalized artifacts MUST retain enough row-to-scenario accounting for drift checks to prove the mapping. Generated frontend ledgers are downstream renderings of the frontend registry and maps; they MUST NOT become alternate row owners.
 Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-022
 
+**TH-HARNESS-REQ-110**
+Authoritative phase manifests MAY declare `profile_claims[]` metadata for extension-profile evidence routing. Each row MUST declare `profile_id`, `claimed`, `claim_ac_id`, `required_ac_ids[]`, `direct_evidence_ids[]`, and `aggregate_ac_ids[]`. When `claimed=true`, every `direct_evidence_ids[]` value MUST name an authoritative phase row whose `claim_status` is `implemented`; aggregate claim ACs alone MUST NOT satisfy a claim. This metadata routes evidence only and MUST NOT redefine Core profile behavior.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-013, TH-HARNESS-AC-016
+
 ### 5.1 Precedence
 
 | Precedence | Source                                 | Rule                                                                                                   |

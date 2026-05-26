@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -153,5 +154,43 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 				t.Fatalf("unexpected reserved-route details for %s: %#v", path, details)
 			}
 		}
+	}
+}
+
+func TestCurrentExtensionProfilesMatchPhase11ManifestClaims(t *testing.T) {
+	t.Parallel()
+
+	payload, err := os.ReadFile("../../../tools/phase11_test_map.json")
+	if err != nil {
+		t.Fatalf("read phase11 manifest: %v", err)
+	}
+	var manifest struct {
+		ProfileClaims []struct {
+			ProfileID string `json:"profile_id"`
+			Claimed   bool   `json:"claimed"`
+		} `json:"profile_claims"`
+	}
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatalf("decode phase11 manifest: %v", err)
+	}
+	if len(manifest.ProfileClaims) == 0 {
+		t.Fatal("phase11 manifest must declare profile_claims")
+	}
+	want := map[string]bool{}
+	for _, claim := range manifest.ProfileClaims {
+		want[claim.ProfileID] = claim.Claimed
+	}
+	for _, profile := range CurrentExtensionProfiles() {
+		claimed, ok := want[profile.ProfileID]
+		if !ok {
+			t.Fatalf("phase11 manifest missing profile claim for %s", profile.ProfileID)
+		}
+		if profile.Claimed != claimed {
+			t.Fatalf("profile %s claimed mismatch: runtime=%v manifest=%v", profile.ProfileID, profile.Claimed, claimed)
+		}
+		delete(want, profile.ProfileID)
+	}
+	if len(want) > 0 {
+		t.Fatalf("phase11 manifest declares unknown profile claims: %#v", want)
 	}
 }

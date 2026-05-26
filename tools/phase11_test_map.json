@@ -2,6 +2,48 @@
   "schema_id": "cartulary.phase_test_map.v1",
   "phase": "phase11",
   "note": "Phase 11 manifest for the selected Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, Incident Portability Extension Profile, and shared common-job substrate. Enterprise Authentication remains reserved and unclaimed.",
+  "profile_claims": [
+    {
+      "profile_id": "enterprise_authentication",
+      "claimed": false,
+      "claim_ac_id": "AC-235",
+      "required_ac_ids": ["AC-036", "AC-235", "AC-288", "AC-289", "AC-290", "AC-291", "AC-292", "AC-293", "AC-348", "AC-349", "AC-350", "AC-351", "AC-352"],
+      "direct_evidence_ids": [],
+      "aggregate_ac_ids": ["AC-235"]
+    },
+    {
+      "profile_id": "import",
+      "claimed": true,
+      "claim_ac_id": "AC-232",
+      "required_ac_ids": ["AC-027", "AC-028", "AC-029", "AC-063", "AC-064", "AC-065", "AC-066", "AC-067", "AC-232", "AC-262", "AC-263", "AC-264", "AC-265", "AC-323", "AC-324", "AC-325", "AC-393"],
+      "direct_evidence_ids": ["I-11-IMPORT-01", "I-11-IMPORT-02", "I-11-IMPORT-03"],
+      "aggregate_ac_ids": ["AC-232"]
+    },
+    {
+      "profile_id": "incident_portability",
+      "claimed": true,
+      "claim_ac_id": "AC-236",
+      "required_ac_ids": ["AC-164", "AC-165", "AC-166", "AC-167", "AC-168", "AC-169", "AC-236", "AC-273", "AC-274", "AC-275", "AC-276", "AC-327", "AC-328", "AC-332", "AC-386", "AC-409"],
+      "direct_evidence_ids": ["U-11-INCIDENT-BUNDLES-01", "U-11-INCIDENT-BUNDLES-02", "U-11-INCIDENT-BUNDLES-03", "U-11-INCIDENT-BUNDLES-04", "U-11-INCIDENT-BUNDLES-05", "I-11-INCIDENT-BUNDLES-01", "I-11-INCIDENT-BUNDLES-02", "I-11-INCIDENT-BUNDLES-03", "I-11-INCIDENT-BUNDLES-04", "I-11-INCIDENT-BUNDLES-05", "I-11-INCIDENT-BUNDLES-06", "I-11-INCIDENT-BUNDLES-07"],
+      "aggregate_ac_ids": ["AC-236"]
+    },
+    {
+      "profile_id": "reference_pack",
+      "claimed": true,
+      "claim_ac_id": "AC-234",
+      "required_ac_ids": ["AC-033", "AC-034", "AC-035", "AC-092", "AC-093", "AC-094", "AC-095", "AC-096", "AC-234", "AC-270", "AC-271", "AC-272", "AC-308", "AC-309", "AC-310", "AC-326", "AC-369"],
+      "direct_evidence_ids": ["U-11-REFERENCE-PACK-01", "U-11-REFERENCE-PACK-02", "U-11-REFERENCE-PACK-03", "U-11-REFERENCE-PACK-04", "U-11-REFERENCE-PACK-05", "U-11-REFERENCE-PACK-06", "I-11-REFERENCE-PACK-01", "I-11-REFERENCE-PACK-02", "I-11-REFERENCE-PACK-03", "I-11-REFERENCE-PACK-04", "I-11-REFERENCE-PACK-05", "I-11-REFERENCE-PACK-06", "I-11-REFERENCE-PACK-07", "I-11-REFERENCE-PACK-08", "I-11-REFERENCE-PACK-09", "E-11-01"],
+      "aggregate_ac_ids": ["AC-234"]
+    },
+    {
+      "profile_id": "snapshot_reporting",
+      "claimed": true,
+      "claim_ac_id": "AC-233",
+      "required_ac_ids": ["AC-030", "AC-031", "AC-032", "AC-056", "AC-057", "AC-058", "AC-059", "AC-060", "AC-061", "AC-062", "AC-071", "AC-091", "AC-104", "AC-105", "AC-106", "AC-113", "AC-114", "AC-115", "AC-233", "AC-266", "AC-267", "AC-268", "AC-269", "AC-305", "AC-306", "AC-307", "AC-333"],
+      "direct_evidence_ids": ["U-11-REPORTING-01", "U-11-REPORTING-02", "U-11-REPORTING-03", "U-11-REPORTING-04", "U-11-REPORTING-05", "U-11-REPORTING-06", "I-11-REPORTING-01", "I-11-REPORTING-02", "I-11-REPORTING-03", "I-11-REPORTING-04"],
+      "aggregate_ac_ids": ["AC-233"]
+    }
+  ],
   "ledger": {
     "title": "Phase 11 Coverage Ledger",
     "notes": [
@@ -77,9 +119,14 @@
     "U-11-INCIDENT-BUNDLES-02",
     "U-11-INCIDENT-BUNDLES-03",
     "U-11-INCIDENT-BUNDLES-04",
+    "U-11-INCIDENT-BUNDLES-05",
     "I-11-INCIDENT-BUNDLES-01",
     "I-11-INCIDENT-BUNDLES-02",
     "I-11-INCIDENT-BUNDLES-03",
+    "I-11-INCIDENT-BUNDLES-04",
+    "I-11-INCIDENT-BUNDLES-05",
+    "I-11-INCIDENT-BUNDLES-06",
+    "I-11-INCIDENT-BUNDLES-07",
     "E-11-01"
   ],
   "forbidden_id_files": [],
@@ -359,10 +406,25 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "claim_status": "implemented",
-      "claim": "OpenAPI and error registries expose Incident Bundle routes, resource schema, exact-token unique descriptor arrays, and closed request/export/import reason registries.",
+      "claim": "OpenAPI and error registries expose Incident Bundle routes, resource schema, exact-token unique descriptor arrays, and the documented request/export/import error families.",
       "out_of_scope": "Generated contract artifacts remain downstream evidence and do not replace direct route tests.",
       "execution_family": "backend-unit-phase11-incident-bundles-contracts",
       "execution_label": "backend-unit phase11 incident bundle contracts"
+    },
+    {
+      "id": "U-11-INCIDENT-BUNDLES-05",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/api_test.go",
+      "symbol": "TestPhase11_U_11_INCIDENT_BUNDLES_05_ErrorRegistryUsesExactClosedIncidentBundleSets",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "backend_unit",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle contract registries use exactly the closed top-level error set and exact closed request, export-rejection, and import-rejection reason sets required by Core 04.",
+      "out_of_scope": "This contract test does not prove that every reason is reachable through the runtime routes; route-level failures are covered by Incident Bundle integration rows.",
+      "execution_family": "backend-unit-phase11-incident-bundles-closed-registries",
+      "execution_label": "backend-unit phase11 incident bundle closed registries"
     }
   ],
   "integration": [
@@ -650,6 +712,66 @@
       "out_of_scope": "Import jobs remain deployment-scoped because no target incident exists before successful import.",
       "execution_family": "backend-integration-phase11-incident-bundles-export-auth",
       "execution_label": "backend-integration phase11 incident bundle export authorization"
+    },
+    {
+      "id": "I-11-INCIDENT-BUNDLES-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/routes_integration_test.go",
+      "symbol": "TestPhase11_I_11_INCIDENT_BUNDLES_04_SupersededTimelineReplacementSurvivesImport",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle export and import preserve an active Timeline supersedes relation and rebuild the imported Timeline projection so query rows expose the same hidden replacement_record_id for the superseded row.",
+      "out_of_scope": "This row exercises committed Timeline supersession portability only; broader source-state round-trip counts are covered by the main import row.",
+      "execution_family": "backend-integration-phase11-incident-bundles-supersede-portability",
+      "execution_label": "backend-integration phase11 incident bundle supersede portability"
+    },
+    {
+      "id": "I-11-INCIDENT-BUNDLES-05",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/routes_integration_test.go",
+      "symbol": "TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle missing source blobs, malformed or incomplete import bundles, duplicate incident IDs, checksum and blob-hash failures, extracted-byte limits, and member-count limits fail with closed reason codes while preserving pre-failure incident visibility, projection, membership, imported actor, descriptor, object-store, and staging cleanup boundaries.",
+      "out_of_scope": "This row does not add public partial import modes or remote fetch behavior.",
+      "execution_family": "backend-integration-phase11-incident-bundles-fail-closed",
+      "execution_label": "backend-integration phase11 incident bundle fail closed"
+    },
+    {
+      "id": "I-11-INCIDENT-BUNDLES-06",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/routes_integration_test.go",
+      "symbol": "TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManifest",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle descriptor reads reject singleton pagination members and successful exports serialize descriptor and manifest selector arrays in canonical exact-token order with fixed full history/blob modes and resolved reference_pack_mode.",
+      "out_of_scope": "This row does not claim import of bundles with unsupported required capabilities.",
+      "execution_family": "backend-integration-phase11-incident-bundles-descriptor-canonical",
+      "execution_label": "backend-integration phase11 incident bundle descriptor canonicalization"
+    },
+    {
+      "id": "I-11-INCIDENT-BUNDLES-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/routes_integration_test.go",
+      "symbol": "TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableState",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle import upload-envelope failures, including missing boundary, duplicate or unexpected parts, malformed metadata JSON, duplicate metadata keys, non-object metadata, invalid file content type, and forbidden import-mode fields, return closed request reasons before jobs, job payloads, route idempotency, or staging files are created.",
+      "out_of_scope": "This row proves early route failure durability only; accepted-job import verifier failures are covered by the fail-closed integration row.",
+      "execution_family": "backend-integration-phase11-incident-bundles-upload-envelope",
+      "execution_label": "backend-integration phase11 incident bundle upload envelope"
     }
   ],
   "e2e": [

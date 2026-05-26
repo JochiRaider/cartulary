@@ -585,7 +585,7 @@ Exit criteria:
 
 Objective: Implement and prove the Incident Portability Extension Profile only when selected.
 
-Status: complete for the selected full profile after remediation. Incident Portability is claimed; Enterprise Authentication remains unclaimed and continues to use reserved-family behavior.
+Status: complete for the selected full profile after the May 26, 2026 direct-evidence remediation. Incident Portability is claimed only with manifest-backed direct evidence rows selected by Phase 11; Enterprise Authentication remains unclaimed and continues to use reserved-family behavior.
 
 Relevant IDs:
 - `AC-164..AC-169`
@@ -608,8 +608,9 @@ Test-first sequence:
 1. Added failing unit tests first for export/import request validation, canonical arrays, fixed `history_mode='full'`, fixed `blob_mode='full'`, forbidden user modes, upload-envelope metadata, deterministic manifests, verifier failures, and OpenAPI/error registry precision.
 2. Added service-backed integration tests for export job idempotency, divergent replay, durable descriptor read, import upload-envelope replay, imported incident terminal job summary, projection rebuild, local workbook open, and no durable import-session-style resource.
 3. Implemented the route family, persistence, bundle builder/verifier, importer, and initial claim after direct tests passed.
-4. Reopened remediation after audit identified overclaiming, manifest drift, actor rewriting, placeholder source-state files, stale reserved-route expectations, and late-failure cleanup gaps.
-5. Refreshed contracts, generated code, phase manifest, ledger, schedules, and duration baselines only through canonical targets.
+4. Reopened remediation after audit identified overclaiming risk and direct-evidence gaps for superseded Timeline relations, fail-closed import families, descriptor pagination/canonicalization, route-level upload-envelope durability, and exact closed registries.
+5. Added manifest-backed profile-claim metadata and a phase-map validator gate so claimed extension profiles require implemented authoritative direct evidence rows.
+6. Refreshed generated ledgers, schedules, and duration baselines only through canonical targets.
 
 Implementation tasks:
 - Added the route family exactly under `/api/v1/incident-bundles`.
@@ -646,11 +647,11 @@ Validation commands for current remediation:
   - `make check`
   - `make agent-finalize RESULTS_DIR=<successful make check retained root>`
 - Notable failed/diagnostic attempts:
-  - During the current remediation, `make check` failed at `.cartulary/test-results/20260525T192222Z-p1618345` because a browser support probe still expected `profile:incident_portability.claimed=true` while the temporary truthfulness gate had set it false; the support expectation was corrected for the gate, then restored when reclaim completed, and the final `make check` passed at `.cartulary/test-results/20260525T200309Z-p1797041`.
-  - `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260525T155210Z-p997234 PRUNE_OBSERVED_PACKAGES=1` failed at `.cartulary/test-results/20260525T155909Z-p1014066` because prune mode requires a successful full `test-service-backed` or `check-service-backed` scheduler summary.
-  - `make test-service-backed` failed at `.cartulary/test-results/20260525T155921Z-p1014997`; the product-side Phase 2 process-smoke expectation was corrected, and the remaining browser functional-shard harness invocation issue was superseded by the later passing `make check`.
-  - The first `make check` attempt failed at `.cartulary/test-results/20260525T161308Z-p1065708` on staticcheck findings in the new module; the unused helpers and deprecated `tar.TypeRegA` check were fixed before the final passing check.
-  - A later `make check` attempt failed at `.cartulary/test-results/20260525T165945Z-p1238811` on a transient unrelated Phase 9 frontend paste-dispatch assertion; `make frontend-unit` passed on rerun at `.cartulary/test-results/20260525T170632Z-p1280955`, and the subsequent full `make check` passed at `.cartulary/test-results/20260525T170647Z-p1282476`.
+  - The first focused `go test ./internal/modules/incidentbundles ./internal/platform/httpapi` attempt timed out while `I-11-INCIDENT-BUNDLES-05/export_missing_blob` tried to start a second package-reuse S3 bucket inside the same parent test; the fixture was changed to an isolated bucket and the focused package test later passed.
+  - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260526T162916Z-p345381` failed retained-run preflight because a Phase 11 service-backed slice root is not a full retained-run input for duration maintenance.
+  - `make agent-finalize` then failed duration-baseline coverage because the new Incident Bundle service-backed rows had no timing baselines; `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260526T162916Z-p345381` refreshed additive Go baselines, and `make agent-finalize` passed at `.cartulary/test-results/20260526T163639Z-p357583`.
+  - `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260526T162916Z-p345381 PRUNE_OBSERVED_PACKAGES=1` correctly refused to prune from partial service-backed evidence; the non-pruning refresh was used.
+  - Final developer gate passed at `.cartulary/test-results/20260526T163652Z-p358614`; final retained-run maintenance passed at `.cartulary/test-results/20260526T164424Z-p408727`.
 
 Deliverables:
 - Incident-bundle route family and deterministic bundle format.
@@ -660,10 +661,16 @@ Deliverables:
   - `U-11-INCIDENT-BUNDLES-01` request validation, canonicalization, forbidden modes, upload hash idempotency inputs, and closed request errors.
   - `U-11-INCIDENT-BUNDLES-02` deterministic manifest/checksum serialization.
   - `U-11-INCIDENT-BUNDLES-03` archive verifier path, checksum, blob, and required-capability failures.
-  - `U-11-INCIDENT-BUNDLES-04` OpenAPI and error registry precision.
+  - `U-11-INCIDENT-BUNDLES-04` OpenAPI and derived route/error contract exposure.
+  - `U-11-INCIDENT-BUNDLES-05` exact closed Incident Bundle top-level error and reason registries.
   - `I-11-INCIDENT-BUNDLES-01` export job, idempotency, divergent replay, terminal summary, and descriptor read.
   - `I-11-INCIDENT-BUNDLES-02` import envelope, file-hash idempotency, divergent replay, imported incident ref, projection rebuild, and backend workbook open.
-- Profile claim status: `profile:incident_portability` is claimed in the default extension registry after remediation validation. Import, Snapshot/Reporting, and Reference Pack claims were preserved. Enterprise Authentication remains unclaimed.
+  - `I-11-INCIDENT-BUNDLES-03` export-job authorization re-derived from current deployment-admin incident membership.
+  - `I-11-INCIDENT-BUNDLES-04` superseded Timeline replacement relation export/import and projection rebuild.
+  - `I-11-INCIDENT-BUNDLES-05` missing blob, duplicate incident, malformed manifest, checksum/blob-hash, extracted-byte, and member-count failure cleanup.
+  - `I-11-INCIDENT-BUNDLES-06` descriptor singleton pagination rejection and canonical descriptor/manifest arrays.
+  - `I-11-INCIDENT-BUNDLES-07` route-level upload-envelope failures creating no job, payload, idempotency, or staging state.
+- Profile claim status: `profile:incident_portability` is claimed in the default extension registry after direct evidence, Phase 11 wrapper, `make check`, and retained-run finalization validation. Import, Snapshot/Reporting, and Reference Pack claims were preserved. Enterprise Authentication remains unclaimed.
 
 Risks and assumptions:
 - Operational backup/restore is Phase 10 Base Profile behavior and must not be reinterpreted as incident portability.
