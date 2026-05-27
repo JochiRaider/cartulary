@@ -160,6 +160,7 @@ export function expandServiceBackedScheduleForCheck({
   const serviceWeightMs = parentUnit.weight_ms;
   const parentNeeds = [...(parentUnit.needs ?? [])];
   const serviceNeeds = serviceSessionNeeds(parentNeeds);
+  const serviceCompletePriority = priority(serviceSchedule.service_complete_priority);
   const expanded = [
     {
       id: `${scheduleTarget}:service-session`,
@@ -361,6 +362,7 @@ export function expandServiceBackedScheduleForCheck({
     kind: "service_complete",
     target: scheduleTarget,
     label: `${scheduleTarget}/complete`,
+    priority: serviceCompletePriority,
     weight_ms: 1,
     needs: (serviceSchedule.work_unit_sources ?? []).map((source) => source.target),
     completion_keys: [scheduleTarget],

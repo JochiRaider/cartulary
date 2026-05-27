@@ -1094,6 +1094,7 @@ run_scheduler() {
   CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT="${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-}" \
   CARTULARY_SERVICE_BACKED_GO_IO_LIMIT="${CARTULARY_SERVICE_BACKED_GO_IO_LIMIT:-}" \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT="${CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT:-}" \
+  CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT="${CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT:-}" \
   CARTULARY_BROWSER_E2E_SESSION_SCRIPT="${browser_session_script}" \
   CARTULARY_BROWSER_E2E_GROUP_RUNNER="${browser_group_runner}" \
   MAKE="${dir}/fake-make" \
@@ -1172,6 +1173,7 @@ cat >"${auto_capacity_manifest}.sources" <<'JSON'
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": 1,
+        "postgres_clone": "auto",
         "process": 6,
         "browser_stack": "auto"
       },
@@ -1199,6 +1201,9 @@ if (sources.go_io !== "auto:service_backed_go_io") {
 if (sources.browser_stack !== "auto:service_backed_browser_stack") {
   throw new Error(`browser_stack auto source got ${sources.browser_stack}`);
 }
+if (sources.postgres_clone !== "auto:service_backed_postgres_clone") {
+  throw new Error(`postgres_clone auto source got ${sources.postgres_clone}`);
+}
 if (sources.process !== "registry:service_backed_full") {
   throw new Error(`process registry source got ${sources.process}`);
 }
@@ -1207,6 +1212,7 @@ env_capacity_output="$(
   CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT=3 \
   CARTULARY_SERVICE_BACKED_GO_IO_LIMIT=4 \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
+  CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT=5 \
     run_scheduler "$auto_capacity_dir" "$auto_capacity_manifest" test-service-backed env-capacity 2>&1
 )"
 assert_contains "$env_capacity_output" "[SCHEDULER] test-service-backed start work_units=1 finalizers=0 capacity={go_cpu:3,go_io:4,browser_stack:2" "service-backed env capacity overrides registry policies"
@@ -1223,6 +1229,9 @@ if (sources.go_io !== "env:CARTULARY_SERVICE_BACKED_GO_IO_LIMIT") {
 }
 if (sources.browser_stack !== "env:CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT") {
   throw new Error(`browser_stack env source got ${sources.browser_stack}`);
+}
+if (sources.postgres_clone !== "env:CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
+  throw new Error(`postgres_clone env source got ${sources.postgres_clone}`);
 }
 EOF
 fi
@@ -2101,6 +2110,7 @@ const expectedBrowserTargets = [
   "browser-e2e-stateful",
   "browser-e2e-measurement",
   "browser-e2e-visual",
+  "browser-e2e-a11y",
 ];
 const actualBrowserTargets = (byTarget.get("test-service-backed")?.work_unit_sources ?? [])
   .filter((source) => source.class === "browser")
@@ -2119,7 +2129,7 @@ const functionalShardCount = Math.max(
 if (functionalShardCount !== 4) {
   throw new Error(`browser-e2e-webserver-backed functional shard count got ${functionalShardCount}`);
 }
-if ((webserverSource?.groups ?? []).some((group) => group.priority !== 100)) {
+if ((webserverSource?.groups ?? []).some((group) => group.priority !== 36000)) {
   throw new Error("browser-e2e-webserver-backed groups must carry critical-path scheduler priority");
 }
 for (const target of ["browser-e2e-stateful", "browser-e2e-visual"]) {
@@ -2137,6 +2147,7 @@ const expectedMeasurementNeeds = [
   "browser-e2e-webserver-backed",
   "browser-e2e-stateful",
   "browser-e2e-visual",
+  "browser-e2e-a11y",
 ];
 if (JSON.stringify(measurementSource?.needs ?? []) !== JSON.stringify(expectedMeasurementNeeds)) {
   throw new Error(`browser-e2e-measurement needs got ${JSON.stringify(measurementSource?.needs ?? [])}`);

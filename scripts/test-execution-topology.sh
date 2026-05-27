@@ -368,7 +368,7 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 36, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 37, "check schedule must render the current check work-unit set");
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -404,7 +404,7 @@ assert.deepEqual(
     ["build-migrate", 39000],
     ["build-operator", 38800],
     ["test-service-images", 38000],
-    ["check-service-backed", 30000],
+    ["check-service-backed", 37000],
     ["migration-drift", 27000],
     ["deployable-shape", 26000],
     ["backend-unit", 25000],
@@ -418,6 +418,7 @@ assert.deepEqual(
     ["lint-biome", 13000],
     ["harness-contract-tests", 12980],
     ["frontend-import-boundary-check", 12950],
+    ["otel-conformance", 12940],
     ["json-shape-check", 12925],
     ["lint-scripts", 12900],
     ["lint-shell", 12850],
@@ -451,6 +452,17 @@ assert.deepEqual(
   "check service session must start after service images and before build artifacts finish",
 );
 const webserverStageSession = expandedUnit("check-service-backed:browser-stage-session:webserver-backed");
+const serviceCompleteUnit = expandedUnit("check-service-backed:complete");
+assert.equal(
+  serviceSessionUnit?.priority,
+  37000,
+  "check service-backed session must carry the service-backed readiness priority",
+);
+assert.equal(
+  webserverStageSession?.priority,
+  36000,
+  "check service-backed browser children must outrank static and drift work",
+);
 assert.deepEqual(
   webserverStageSession?.needs,
   ["service_session:check-service-backed", "build-server", "build-migrate"],
@@ -458,6 +470,16 @@ assert.deepEqual(
 );
 const backendShard = expandedCheckSchedule.work_units.find(
   (unit) => unit.kind === "go_shard" && unit.target === "backend-store",
+);
+assert.equal(
+  backendShard?.priority,
+  35000,
+  "check service-backed backend shards must outrank static and drift work",
+);
+assert.equal(
+  serviceCompleteUnit?.priority,
+  34900,
+  "check service-backed completion must remain above post-build local evidence",
 );
 assert.deepEqual(
   backendShard?.needs,

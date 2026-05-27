@@ -38,7 +38,6 @@ const defaultOutputPath = path.join(repoRoot, "tools", "scheduler_service_source
 const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
 const defaultBrowserFunctionalMinShards = 2;
 const defaultBrowserFunctionalMaxShards = 4;
-const browserCriticalPathPriority = 100;
 const measurementIsolationStages = new Set(["webserver-backed", "stateful", "a11y", "visual"]);
 
 function usage() {
@@ -109,6 +108,13 @@ function requireString(value, label) {
 function requireBoolean(value, label) {
   if (typeof value !== "boolean") {
     throw new Error(`${label} must be a boolean`);
+  }
+  return value;
+}
+
+function requirePositiveInteger(value, label) {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${label} must be a positive integer`);
   }
   return value;
 }
@@ -216,6 +222,27 @@ function loadMakeTargetWeightOverrides(profile) {
     overrides.set(target, override.weight_ms);
   }
   return overrides;
+}
+
+function serviceBackedPriorityBands(profile) {
+  const raw = requireObject(
+    profile.defaults.priority_bands,
+    "defaults.priority_bands",
+  );
+  return {
+    browserCriticalPath: requirePositiveInteger(
+      raw.browser_critical_path,
+      "defaults.priority_bands.browser_critical_path",
+    ),
+    backendCriticalPath: requirePositiveInteger(
+      raw.backend_critical_path,
+      "defaults.priority_bands.backend_critical_path",
+    ),
+    serviceComplete: requirePositiveInteger(
+      raw.service_complete,
+      "defaults.priority_bands.service_complete",
+    ),
+  };
 }
 
 function workUnitBaselineKey(scheduleTarget, target) {
@@ -336,7 +363,7 @@ function orderedServiceBackedBackendTargets(scheduleProfile) {
     .sort(compareBackendTargets);
 }
 
-function backendSource(profile, timing, scheduleTarget, target) {
+function backendSource(profile, timing, scheduleTarget, target, priorities) {
   const descriptor = findTargetDescriptor(target, repoRoot);
   if (!descriptor) {
     throw new Error(`unknown backend target ${target}`);
@@ -349,6 +376,7 @@ function backendSource(profile, timing, scheduleTarget, target) {
       type: "go_shards",
       class: "backend",
       target,
+      priority: priorities.backendCriticalPath,
       resource_claims: cloneObject(profile.defaults.go_shards_resource_claims),
     };
   }
@@ -363,6 +391,7 @@ function backendSource(profile, timing, scheduleTarget, target) {
     type: "make_target",
     class: "backend",
     target,
+    priority: priorities.backendCriticalPath,
     weight_ms: makeTargetWeight(timing, scheduleTarget, target),
     resource_claims: cloneObject(claims[target]),
   };
@@ -440,7 +469,7 @@ function browserFunctionalSharding(profile) {
   return { minShards, maxShards };
 }
 
-function browserGroupSources(profile, timing, scheduleTarget, stage) {
+function browserGroupSources(profile, timing, scheduleTarget, stage, priorities) {
   const groups = [];
   const functionalSharding = browserFunctionalSharding(profile);
   for (const group of stage.groups) {
@@ -465,7 +494,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
           shard_count: plan.shard_count,
           phases: shard.phases,
           entry_ids: shard.entries.map((entry) => entry.id),
-          priority: browserCriticalPathPriority,
+          priority: priorities.browserCriticalPath,
           weight_ms: shard.weight_ms,
           resource_claims: browserGroupResourceClaims(profile, stage.name),
         });
@@ -478,7 +507,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
         aggregate_target: stage.target,
         coverage: "supplemental",
         execution_dependency: "browser_support",
-        priority: browserCriticalPathPriority,
+        priority: priorities.browserCriticalPath,
         weight_ms: browserGroupWeight(timing, scheduleTarget, `${stage.target}:support`, stage.target),
         resource_claims: browserGroupResourceClaims(profile, stage.name),
       });
@@ -494,7 +523,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
       aggregate_target: stage.target,
       coverage: group.coverage,
       execution_dependency: group.executionDependency,
-      priority: browserCriticalPathPriority,
+      priority: priorities.browserCriticalPath,
       weight_ms: browserGroupWeight(timing, scheduleTarget, id, stage.target, makeTargetWeight(timing, scheduleTarget, group.target)),
       resource_claims: browserGroupResourceClaims(profile, stage.name),
     });
@@ -502,7 +531,7 @@ function browserGroupSources(profile, timing, scheduleTarget, stage) {
   return groups;
 }
 
-function browserSource(profile, timing, scheduleTarget, stage, selectedTargets, generatedNeeds = []) {
+function browserSource(profile, timing, scheduleTarget, stage, selectedTargets, priorities, generatedNeeds = []) {
   const stageName = stage.name;
   const laneResource = browserStageResource(stageName);
   const claims = {
@@ -513,17 +542,17 @@ function browserSource(profile, timing, scheduleTarget, stage, selectedTargets, 
   const needs = Array.from(
     new Set([...browserStageNeeds(stage, selectedTargets, scheduleTarget), ...generatedNeeds]),
   );
+  const groups = browserGroupSources(profile, timing, scheduleTarget, stage, priorities);
   return {
     type: "browser_stage",
     class: "browser",
     target: stage.target,
     browser_stage: stageName,
     ...(needs.length > 0 ? { needs } : {}),
-    priority: browserCriticalPathPriority,
-    weight_ms: browserGroupSources(profile, timing, scheduleTarget, stage)
-      .reduce((sum, group) => sum + group.weight_ms, 0),
+    priority: priorities.browserCriticalPath,
+    weight_ms: groups.reduce((sum, group) => sum + group.weight_ms, 0),
     resource_claims: claims,
-    groups: browserGroupSources(profile, timing, scheduleTarget, stage),
+    groups,
   };
 }
 
@@ -629,9 +658,10 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
     allowAuto: true,
   });
   const resourceLimits = Object.fromEntries(profileLimits.limits.entries());
+  const priorities = serviceBackedPriorityBands(profile);
   const sources = [];
   for (const backendTarget of orderedServiceBackedBackendTargets(scheduleProfile)) {
-    sources.push(backendSource(profile, timing, target, backendTarget));
+    sources.push(backendSource(profile, timing, target, backendTarget, priorities));
   }
   const backendTargets = sources
     .filter((source) => source.class === "backend")
@@ -652,6 +682,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
       target,
       stage,
       selectedTargets,
+      priorities,
       generatedNeeds,
     );
     sources.push(source);
@@ -660,6 +691,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
     target,
     scheduler_kind: "service_backed",
     capacity_profile: capacityProfile,
+    service_complete_priority: priorities.serviceComplete,
     resource_limits: resourceLimits,
     work_unit_sources: sources,
   };

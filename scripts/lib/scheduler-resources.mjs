@@ -681,6 +681,32 @@ export function estimateBrowserStackAutoLimit(workUnits, resourceLimits, { cpuRe
   return Math.max(1, Math.min(...caps));
 }
 
+function maxPositiveLimit(resourceLimits, resources) {
+  return Math.max(
+    0,
+    ...resources.map((resource) => positiveIntegerLimit(resourceLimits.get(resource)) ?? 0),
+  );
+}
+
+export function estimatePostgresCloneAutoLimit(
+  resourceLimits,
+  {
+    cpuResources = ["host_cpu", "go_cpu"],
+    ioResources = ["host_io", "go_io"],
+    defaultLimit = 4,
+    maxAutoLimit = 6,
+  } = {},
+) {
+  const cpuLimit = maxPositiveLimit(resourceLimits, cpuResources);
+  const ioLimit = maxPositiveLimit(resourceLimits, ioResources);
+  const positiveBounds = [cpuLimit, ioLimit].filter((value) => value > 0);
+  if (positiveBounds.length === 0) {
+    return defaultLimit;
+  }
+  const balancedHostBound = Math.floor(Math.min(...positiveBounds) / 2);
+  return Math.max(1, Math.min(maxAutoLimit, Math.max(defaultLimit, balancedHostBound)));
+}
+
 export function normalizeBoundedLimitClaim(value, label, resource, resourceLimit) {
   const allowedKeys = new Set(["mode", "reserve", "min", "max"]);
   for (const key of Object.keys(value)) {

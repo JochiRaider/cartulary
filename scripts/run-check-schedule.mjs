@@ -21,6 +21,7 @@ import {
   estimateBrowserStackAutoLimit,
   estimateCheckHostCPULimit,
   estimateCheckHostIOLimit,
+  estimatePostgresCloneAutoLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   provisionalResourceLimitsForClaims,
@@ -62,6 +63,7 @@ const schedulerOwnedEnvNames = new Set([
   "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT",
   "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT",
   "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT",
+  "CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT",
 ]);
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const checkInputStampScript = path.join(
@@ -565,6 +567,11 @@ function _findSchedule(manifest, target, overrides) {
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
         estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
           cpuResources: ["host_cpu"],
+        }),
+      service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
+        estimatePostgresCloneAutoLimit(currentLimits, {
+          cpuResources: ["host_cpu"],
+          ioResources: ["host_io"],
         }),
     },
   );
@@ -1526,6 +1533,11 @@ async function main() {
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
         estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
           cpuResources: ["host_cpu"],
+        }),
+      service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
+        estimatePostgresCloneAutoLimit(currentLimits, {
+          cpuResources: ["host_cpu"],
+          ioResources: ["host_io"],
         }),
     }),
   });

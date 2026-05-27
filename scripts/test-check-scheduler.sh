@@ -660,28 +660,29 @@ if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
   process.exit(0);
 }
 
+const serviceTarget = (unit) => unit.service_session?.target ?? unit.serviceSession?.target ?? unit.target;
 const defaultCommand = (unit) => {
   const kind = unit.kind ?? "make_target";
   if (kind === "service_session") {
-    return { type: "service_session_start", target: unit.target };
+    return { type: "service_session_start", service_target: serviceTarget(unit) };
   }
   if (kind === "service_complete") {
-    return { type: "service_complete", target: unit.target };
+    return { type: "service_complete", service_target: serviceTarget(unit) };
   }
   if (kind === "browser_stage_session") {
-    return { type: "browser_stage_session_start", target: unit.target };
+    return { type: "browser_stage_session_start", service_target: serviceTarget(unit), browser_stage: unit.browser_stage };
   }
   if (kind === "browser_group") {
-    return { type: "browser_group", target: unit.target };
+    return { type: "browser_group", service_target: serviceTarget(unit), browser_stage: unit.browser_stage, group_id: unit.browser_group?.id ?? unit.browser_group ?? unit.target };
   }
   if (kind === "browser_stage_complete") {
-    return { type: "browser_stage_complete", target: unit.target };
+    return { type: "browser_stage_complete", service_target: serviceTarget(unit), browser_stage: unit.browser_stage };
   }
   if (kind === "go_shard") {
-    return { type: "go_shard", target: unit.target };
+    return { type: "go_shard", target: unit.target, shard: unit.shard, service_target: serviceTarget(unit) };
   }
-  if (kind === "go_shard_finalize") {
-    return { type: "go_shard_finalize", target: unit.target };
+  if (kind === "go_shard_finalize" || kind === "aggregate_finalize") {
+    return { type: "go_shard_finalize", target: unit.target, service_target: serviceTarget(unit) };
   }
   return { type: "make_target", target: unit.target };
 };
@@ -737,6 +738,10 @@ EOF
   CI_VERBOSE="${CI_VERBOSE:-}" \
   CARTULARY_OUTPUT_MODE="${CARTULARY_OUTPUT_MODE:-}" \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS="${CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS:-}" \
+  CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT="${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-}" \
+  CARTULARY_SERVICE_BACKED_GO_IO_LIMIT="${CARTULARY_SERVICE_BACKED_GO_IO_LIMIT:-}" \
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT="${CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT:-}" \
+  CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT="${CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT:-}" \
   CARTULARY_TEST_RESULTS_DIR="${dir}/results" \
   CARTULARY_TEST_RUN_ID="$run_id" \
     "$NODE_BIN" "$SCRIPT" --target check --manifest "$normalized_manifest" "$@"
@@ -941,6 +946,7 @@ import {
   checkHostCPUMaxAutoLimit,
   estimateCheckHostCPULimit,
   estimateCheckHostIOLimit,
+  estimatePostgresCloneAutoLimit,
   isAutoLimitResource,
   loadSchedulerResourceRegistry,
   normalizeResourceClaims,
@@ -994,10 +1000,10 @@ if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed
 if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,minio,postgres,process,postgres_reset,postgres_clone") {
   fail("check resource display order changed");
 }
-if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT") {
+if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
   fail("check override env names changed");
 }
-if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLimitResource("browser_stack")) {
+if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLimitResource("browser_stack") || !isAutoLimitResource("postgres_clone")) {
   fail("service-backed auto-limit resources are incomplete");
 }
 if (!isAutoLimitResource("host_cpu") || !isAutoLimitResource("host_io")) {
@@ -1031,8 +1037,14 @@ const serviceProfile = resourceLimitsForCapacityProfile("service_backed_full", "
   scheduler: "service_backed",
   allowAuto: true,
 });
-if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get("go_io") !== "auto" || serviceProfile.limits.get("browser_stack") !== "auto") {
+if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get("go_io") !== "auto" || serviceProfile.limits.get("browser_stack") !== "auto" || serviceProfile.limits.get("postgres_clone") !== "auto") {
   fail("service_backed_full auto limits changed");
+}
+if (estimatePostgresCloneAutoLimit(new Map([["host_cpu", 12], ["host_io", 12]])) !== 6) {
+  fail("postgres clone auto limit must resolve to 6 on the supported 12 CPU/IO profile");
+}
+if (estimatePostgresCloneAutoLimit(new Map([["go_cpu", 6], ["go_io", 8]]), { cpuResources: ["go_cpu"], ioResources: ["go_io"] }) !== 4) {
+  fail("postgres clone auto limit must preserve the legacy floor on smaller service-backed profiles");
 }
 const envResolved = normalizeResourceLimits(
   { host_cpu: "auto", host_io: "auto", suite_service_stack: 1, migration_scratch_postgres: 1 },
@@ -1770,6 +1782,7 @@ cat >"$browser_auto_manifest" <<'JSON'
         "suite_service_stack": 1,
         "migration_scratch_postgres": 1,
         "browser_stack": "auto",
+        "postgres_clone": "auto",
         "browser_stage_webserver_backed": 1,
         "browser_stage_stateful": 1,
         "browser_stage_measurement": 1,
@@ -1802,8 +1815,14 @@ if (summary.resource_limits?.browser_stack !== 4) {
 if (summary.resource_limit_sources?.browser_stack !== "auto:service_backed_browser_stack") {
   throw new Error(`browser_stack source got ${summary.resource_limit_sources?.browser_stack}`);
 }
+if (summary.resource_limits?.postgres_clone !== 6) {
+  throw new Error(`postgres_clone limit got ${summary.resource_limits?.postgres_clone}`);
+}
+if (summary.resource_limit_sources?.postgres_clone !== "auto:service_backed_postgres_clone") {
+  throw new Error(`postgres_clone source got ${summary.resource_limit_sources?.postgres_clone}`);
+}
 EOF
-browser_override_output="$(CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=3 CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$browser_auto_dir" "$browser_auto_manifest" browser-override 2>&1)"
+browser_override_output="$(CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=3 CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT=5 CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$browser_auto_dir" "$browser_auto_manifest" browser-override 2>&1)"
 assert_contains "$browser_override_output" "browser_stack:3" "check browser stack env override applies to flattened check schedule"
 "$NODE_BIN" - "${browser_auto_dir}/results/browser-override/check/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
@@ -1811,6 +1830,9 @@ const [summaryFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 if (summary.resource_limit_sources?.browser_stack !== "env:CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT") {
   throw new Error(`browser_stack override source got ${summary.resource_limit_sources?.browser_stack}`);
+}
+if (summary.resource_limit_sources?.postgres_clone !== "env:CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
+  throw new Error(`postgres_clone override source got ${summary.resource_limit_sources?.postgres_clone}`);
 }
 EOF
 
@@ -1862,6 +1884,57 @@ if (!(startAlpha < startLowIO && startLowIO < endLowIO && endLowIO < endAlpha)) 
 }
 if (!(endAlpha < startBuild && startBuild < startLowCPU)) {
   throw new Error("lower-priority host_cpu work must not backfill before build-server starts");
+}
+EOF
+
+service_priority_reservation_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-service-priority-reservation.XXXXXX")"
+cleanup_paths+=("$service_priority_reservation_dir")
+write_fake_make "$service_priority_reservation_dir"
+service_priority_reservation_manifest="${service_priority_reservation_dir}/manifest.json"
+cat >"$service_priority_reservation_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 2, "host_io": 1, "suite_service_stack": 1, "migration_scratch_postgres": 1 },
+      "summary_groups": [
+        { "name": "service-priority-reservation", "summary_targets": ["alpha", "service-child", "static-child", "drift-io"] }
+      ],
+      "work_units": [
+        { "target": "alpha", "priority": 36000, "weight_ms": 50, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "service-child", "priority": 35000, "weight_ms": 40, "needs": [], "produces_summary_targets": ["service-child"], "resource_claims": { "host_cpu": 2 }, "make_jobs": "host_cpu" },
+        { "target": "static-child", "priority": 13000, "weight_ms": 30, "needs": [], "produces_summary_targets": ["static-child"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "drift-io", "priority": 11000, "weight_ms": 20, "needs": [], "produces_summary_targets": ["drift-io"], "resource_claims": { "host_io": 1 }, "make_jobs": 1 }
+      ]
+    }
+  ]
+}
+JSON
+service_priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=0.2 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$service_priority_reservation_dir" "$service_priority_reservation_manifest" service-priority-reservation 2>&1)"
+assert_contains "$service_priority_reservation_output" "[SUMMARY] target=check status=pass work_units=4/4" "service-backed priority reservation scheduler pass summary"
+"$NODE_BIN" - "${service_priority_reservation_dir}/events.log" <<'EOF'
+const fs = require("node:fs");
+const [eventLog] = process.argv.slice(2);
+const lines = fs.readFileSync(eventLog, "utf8").trim().split(/\n/).filter(Boolean);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.startsWith(needle));
+  if (index === -1) {
+    throw new Error(`missing event ${needle}\n${lines.join("\n")}`);
+  }
+  return index;
+};
+const startAlpha = indexOf("start alpha ");
+const startDriftIO = indexOf("start drift-io ");
+const endDriftIO = indexOf("end drift-io ");
+const endAlpha = indexOf("end alpha ");
+const startService = indexOf("start service-child ");
+const startStatic = indexOf("start static-child ");
+if (!(startAlpha < startDriftIO && startDriftIO < endDriftIO && endDriftIO < endAlpha)) {
+  throw new Error("unrelated lower-priority IO work may run while ready service-backed CPU work waits");
+}
+if (!(endAlpha < startService && startService < startStatic)) {
+  throw new Error("lower-priority overlapping host_cpu work must not start before ready service-backed work");
 }
 EOF
 
@@ -2423,6 +2496,7 @@ cat >"$service_skip_manifest" <<'JSON'
         { "target": "browser-e2e-stateful", "weight_ms": 30, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "browser-e2e-measurement", "weight_ms": 20, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "browser-e2e-visual", "weight_ms": 10, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "browser-e2e-a11y", "weight_ms": 10, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         {
           "target": "check-service-backed",
           "weight_ms": 1,
@@ -2434,7 +2508,8 @@ cat >"$service_skip_manifest" <<'JSON'
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",
             "browser-e2e-measurement",
-            "browser-e2e-visual"
+            "browser-e2e-visual",
+            "browser-e2e-a11y"
           ],
           "produces_summary_targets": ["check-service-backed"],
           "resource_claims": {},

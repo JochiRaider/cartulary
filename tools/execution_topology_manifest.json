@@ -7940,7 +7940,7 @@
       "priority_bands": {
         "setup": 50000,
         "build_readiness": 40000,
-        "service_backed": 30000,
+        "service_backed": 37000,
         "duration_baseline": 29000,
         "post_build": 27000,
         "local_evidence": 25000,
@@ -7997,6 +7997,11 @@
       "browser_functional_sharding": {
         "min_shards": 2,
         "max_shards": 4
+      },
+      "priority_bands": {
+        "browser_critical_path": 36000,
+        "backend_critical_path": 35000,
+        "service_complete": 34900
       },
       "make_target_weight_overrides": {},
       "backend_make_target_resource_claims": {

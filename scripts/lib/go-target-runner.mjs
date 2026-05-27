@@ -601,6 +601,68 @@ async function emitTargetTimingSpan(
   });
 }
 
+function timingSpanArtifactPath(ctx, label) {
+  const dir = path.join(targetDir(ctx), "timing-spans");
+  secureMkdir(dir);
+  const slug = slugifyLabel(label) || "timing-span";
+  const timestamp = nowUTC().replace(/[:.]/g, "-");
+  return path.join(dir, `${timestamp}-${process.pid}-${slug}.json`);
+}
+
+function writeTargetTimingSpan(ctx, bucket, label, window, status) {
+  if (!ctx.testTarget) {
+    return;
+  }
+  secureWriteFile(
+    timingSpanArtifactPath(ctx, label),
+    `${JSON.stringify({
+      source: "target",
+      bucket,
+      label,
+      start_time: window.startTime,
+      end_time: window.endTime,
+      duration_ms: window.durationMs,
+      status,
+    })}\n`,
+  );
+}
+
+function resolveFinalizerEmitJobs(ctx, count) {
+  if (count <= 0) {
+    return 0;
+  }
+  const configured = ctx.env.CARTULARY_GO_TARGET_FINALIZER_EMIT_JOBS;
+  if (configured) {
+    const parsed = Number.parseInt(configured, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(
+        `invalid CARTULARY_GO_TARGET_FINALIZER_EMIT_JOBS=${configured}`,
+      );
+    }
+    return Math.min(count, parsed);
+  }
+  return Math.min(count, 4);
+}
+
+async function runBounded(items, jobs, worker) {
+  if (items.length === 0) {
+    return [];
+  }
+  const workerCount = Math.min(items.length, Math.max(1, jobs));
+  const results = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (next < items.length) {
+        const index = next;
+        next += 1;
+        results[index] = await worker(items[index], index);
+      }
+    }),
+  );
+  return results;
+}
+
 async function emitTargetSummary(ctx, status) {
   if (!ctx.testTarget) {
     return 0;
@@ -893,6 +955,16 @@ function readSharedReportMetadata(metadataDir, sharedName) {
   return { reportDir: metadata[0], usage: metadata[1] };
 }
 
+function sharedReportMetadata(metadataDir, sharedName, metadataByShard) {
+  if (!metadataByShard) {
+    return readSharedReportMetadata(metadataDir, sharedName);
+  }
+  if (!metadataByShard.has(sharedName)) {
+    metadataByShard.set(sharedName, readSharedReportMetadata(metadataDir, sharedName));
+  }
+  return metadataByShard.get(sharedName);
+}
+
 function isoWindowDurationMs(start, end) {
   const duration = Date.parse(end) - Date.parse(start);
   return Number.isFinite(duration) && duration > 0 ? duration : 0;
@@ -904,6 +976,7 @@ export function createAggregateReport(
   aggregateName,
   target,
   shardNames,
+  metadataByShard = null,
 ) {
   const aggregateRoot = path.join(metadataDir, "aggregate-reports", target);
   const outputDir = path.join(aggregateRoot, aggregateName);
@@ -924,9 +997,10 @@ export function createAggregateReport(
   let wallDurationMs = 0;
   let exitStatus = 0;
   let hasActual = false;
+  let wroteCommand = false;
 
   for (const shardName of shardNames) {
-    const metadata = readSharedReportMetadata(metadataDir, shardName);
+    const metadata = sharedReportMetadata(metadataDir, shardName, metadataByShard);
     let usage = metadata.usage;
     if (
       usage === "actual" &&
@@ -947,13 +1021,14 @@ export function createAggregateReport(
         readFileSync(path.join(metadata.reportDir, "stderr.log")),
       );
     }
-    if (readFileSync(commandFile, "utf8").length > 0) {
+    if (wroteCommand) {
       appendFileSync(commandFile, "\n");
     }
     appendFileSync(
       commandFile,
       `${shardName}: ${readFileSync(path.join(metadata.reportDir, "command.txt"), "utf8").trimEnd()}\n`,
     );
+    wroteCommand = true;
 
     const shardDuration = clampDurationMs(
       readFileSync(path.join(metadata.reportDir, "duration_ms.txt"), "utf8"),
@@ -1226,27 +1301,78 @@ export async function runUnshardedTarget(ctx, target) {
 
 export async function finalizeScheduledShards(ctx, target, metadataDir) {
   let status = 0;
+  const metadataByShard = new Map();
+  const aggregateReports = [];
   for (const aggregate of targetAggregates(ctx, target)) {
+    const aggregateStarted = captureStart();
+    let report = null;
     try {
-      const report = createAggregateReport(
+      report = createAggregateReport(
         ctx,
         metadataDir,
         aggregate.name,
         target,
         aggregate.shards,
+        metadataByShard,
       );
-      if (status === 0) {
-        status = await emitExecutionFamily(
-          ctx,
-          target,
-          aggregate.name,
-          report.usage,
-          report.reportDir,
-        );
-      }
+      const aggregateWindow = captureFinish(aggregateStarted);
+      writeTargetTimingSpan(
+        ctx,
+        "report_collation",
+        `collate ${target}:${aggregate.name}`,
+        aggregateWindow,
+        "pass",
+      );
     } catch (error) {
+      const aggregateWindow = captureFinish(aggregateStarted);
+      writeTargetTimingSpan(
+        ctx,
+        "report_collation",
+        `collate ${target}:${aggregate.name}`,
+        aggregateWindow,
+        "fail",
+      );
       process.stderr.write(`${error.message}\n`);
       status = 1;
+      continue;
+    }
+    aggregateReports.push({ aggregate, report });
+  }
+  if (status === 0) {
+    const emitStatuses = await runBounded(
+      aggregateReports,
+      resolveFinalizerEmitJobs(ctx, aggregateReports.length),
+      async ({ aggregate, report }) => {
+        let emitStatus = 0;
+        const emitStarted = captureStart();
+        try {
+          emitStatus = await emitExecutionFamily(
+            ctx,
+            target,
+            aggregate.name,
+            report.usage,
+            report.reportDir,
+          );
+        } catch (error) {
+          process.stderr.write(`${error.message}\n`);
+          emitStatus = 1;
+        }
+        const emitWindow = captureFinish(emitStarted);
+        writeTargetTimingSpan(
+          ctx,
+          "report_collation",
+          `emit ${target}:${aggregate.name}`,
+          emitWindow,
+          emitStatus === 0 ? "pass" : "fail",
+        );
+        return emitStatus;
+      },
+    );
+    for (const emitStatus of emitStatuses) {
+      if (emitStatus !== 0) {
+        status = emitStatus;
+        break;
+      }
     }
   }
   return await finishTarget(ctx, status);

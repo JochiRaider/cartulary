@@ -144,7 +144,7 @@ The default local `check` gate MUST keep ordinary browser measurement evidence o
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 
 **TH-HARNESS-REQ-057**
-Warm steady-state `check-service-backed` timing is a harness health contract, not product performance evidence. For the supported WSL2 compatibility profile, a successful warm `check` run used for harness maintenance SHOULD keep `check-service-backed` wall time at or below `120000ms`. Backend and browser scheduler lanes SHOULD remain duration-balanced: no non-isolated peer lane should materially exceed `125%` of its peer median. A lane MAY be excluded from peer balance only when it is explicitly isolated by the shard plan or is the only lane in its peer group, and the checker MAY apply a bounded materiality floor so normal fixture jitter does not fail otherwise healthy retained runs.
+Warm steady-state `check-service-backed` timing is a harness health contract, not product performance evidence. For the supported WSL2 compatibility profile, a successful warm `check` run accepted for harness maintenance MUST keep `check-service-backed` wall time at or below `120000ms` unless the caller explicitly supplies a different maintenance budget to the timing checker. Backend and browser scheduler lanes SHOULD remain duration-balanced: no non-isolated peer lane should materially exceed `125%` of its peer median. A lane MAY be excluded from peer balance only when it is explicitly isolated by the shard plan or is the only lane in its peer group, and the checker MAY apply a bounded materiality floor so normal fixture jitter does not fail otherwise healthy retained runs.
 Verified by: TH-HARNESS-AC-018
 
 ### 4.1 Mechanism Boundary
@@ -893,7 +893,7 @@ For the `check` scheduler, readiness work such as frontend install, pinned tool 
 | `host_io`                    | check                 | auto host IO, override `CHECK_HOST_IO_JOBS`                                              | `1..256` |
 | `suite_service_stack`        | check                 | `1`                                                                                      |   `1..4` |
 | `migration_scratch_postgres` | check                 | `1`                                                                                      |   `1..4` |
-| `postgres_clone`             | check, service-backed | `4`                                                                                      |   `1..8` |
+| `postgres_clone`             | check, service-backed | auto Postgres clone lane capacity, override `CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT` |   `1..8` |
 | `go_cpu`                     | service-backed        | auto Go CPU, override `CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT`                            | `1..256` |
 | `go_io`                      | service-backed        | auto Go IO, override `CARTULARY_SERVICE_BACKED_GO_IO_LIMIT`                              | `1..256` |
 | `browser_stack`              | check, service-backed | auto browser stack, override `CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT`              |   `1..8` |
@@ -967,6 +967,8 @@ exit with selected primary failure
 Finalizer failure becomes primary only when no earlier non-finalizer failure exists.
 
 Dependencies outrank priority: a work unit is not ready until its dependencies are satisfied. Priority affects only ready work and MUST NOT preempt work that is already running.
+
+For the `check` scheduler, priority assignments MUST preserve the service-backed critical path once service readiness exists. A ready `check-service-backed` service session and its expanded browser stage, browser group, Go shard, backend make target, aggregate finalizer, and service-complete child work MUST have higher priority than post-build local evidence, static validation, phase validation, and drift validation work. Build readiness and service-image readiness MAY remain above service-backed child work when those dependencies are still required to create valid service-backed evidence. Lower-priority ready work MAY start only when it does not overlap the resource claims of an earlier ready service-backed child that is resource-blocked.
 
 ### 10.4 Event Ordering
 
@@ -1168,7 +1170,7 @@ Baseline refresh MUST reject contaminated evidence, including failed scheduler r
 
 Duration-baseline drift checks MAY fail only for severe stale planning. Compact drift diagnostics MUST include `subject`, `planned_ms`, `actual_ms`, `ratio`, and `kind`.
 
-Warm scheduler health checks MAY consume retained timing artifacts from a successful warm run. Such checks MUST remain harness-maintenance evidence and MUST NOT be described as claim-bearing product benchmark evidence. When a warm `check` artifact is evaluated, the check MUST fail if default local `check-service-backed` includes ordinary browser measurement work, if `check-service-backed` exceeds the configured warm budget, or if non-isolated backend/browser peer lanes exceed the configured balance ratio.
+Warm scheduler health checks MAY consume retained timing artifacts from a successful warm run. Such checks MUST remain harness-maintenance evidence and MUST NOT be described as claim-bearing product benchmark evidence. When a warm `check` artifact is evaluated, the check MUST fail if default local `check-service-backed` includes ordinary browser measurement work, if `check-service-backed` exceeds the configured warm budget, or if non-isolated backend/browser peer lanes exceed the configured balance ratio. Unless the caller supplies a different value, the supported WSL2 warm-maintenance budget for `check-service-backed` is `120000ms` and the balance ratio is `1.25`.
 
 ## 12. Test-Only Runtime Control Routes
 

@@ -18,6 +18,7 @@ const serviceScheduleEntryKeys = new Set([
   "target",
   "scheduler_kind",
   "capacity_profile",
+  "service_complete_priority",
   "resource_limits",
   "work_unit_sources",
 ]);
@@ -89,6 +90,12 @@ export function validateServiceBackedScheduleManifestShape(
         throw new Error(`${scheduleLabel}.scheduler_kind must be service_backed`);
       }
       requireString(schedule.capacity_profile, `${scheduleLabel}.capacity_profile`);
+      if (schedule.service_complete_priority !== undefined) {
+        requirePositiveInteger(
+          schedule.service_complete_priority,
+          `${scheduleLabel}.service_complete_priority`,
+        );
+      }
       validateObjectArray(
         schedule.work_unit_sources,
         `${scheduleLabel}.work_unit_sources`,

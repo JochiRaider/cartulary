@@ -27,6 +27,7 @@ import {
 import { formatResourceMap } from "./lib/scheduler-reporting.mjs";
 import {
   estimateBrowserStackAutoLimit,
+  estimatePostgresCloneAutoLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   provisionalResourceLimitsForClaims,
@@ -883,6 +884,11 @@ function resolveResourceLimits(
         estimateBrowserStackAutoLimit(workUnits, currentLimits, {
           cpuResources: [goCPUResource],
         }),
+      service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
+        estimatePostgresCloneAutoLimit(currentLimits, {
+          cpuResources: [goCPUResource],
+          ioResources: [goIOResource],
+        }),
     },
   );
 }
@@ -1296,6 +1302,11 @@ async function main() {
         service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
           estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
             cpuResources: [goCPUResource],
+          }),
+        service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
+          estimatePostgresCloneAutoLimit(currentLimits, {
+            cpuResources: [goCPUResource],
+            ioResources: [goIOResource],
           }),
       };
     },
