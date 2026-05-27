@@ -87,7 +87,7 @@ if [[ -e "$repo_root/scripts/check-setup-blockers.sh" ]]; then
   fail "scripts/check-setup-blockers.sh must not remain as a serial setup wrapper"
 fi
 assert_target_exists check-frontend-install "Makefile must define check-frontend-install"
-assert_target_prereq check-frontend-install '$(CHECK_FRONTEND_INSTALL_TARGET)' "check-frontend-install must choose the local or CI frontend install target through Make"
+assert_target_prereq check-frontend-install frontend-install "check-frontend-install must use the unified frontend install target"
 check_prereqs="$(extract_target_prereqs check)"
 if text_matches "$check_prereqs" 'FRONTEND_INSTALL_STAMP'; then
   fail "check must not depend directly on FRONTEND_INSTALL_STAMP"

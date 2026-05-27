@@ -63,6 +63,7 @@ MINIO_BUCKET ?= cartulary
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
 PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/tmp/playwright/chromium.stamp
 FRONTEND_TOOLCHAIN_STAMP ?= $(CURDIR)/tmp/frontend-toolchain/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
+FRONTEND_NODE_MODULES_DIRS ?= $(CURDIR)/node_modules $(CURDIR)/apps/web/node_modules $(CURDIR)/packages/*/node_modules
 PNPM_RUN_ENV := PATH=$(NODE_RUNTIME_DIR)/bin:$$PATH COREPACK_HOME=$(NODE_RUNTIME_DIR)/corepack
 GO_ENV := env $(GO_RUN_ENV)
 PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack"
@@ -150,7 +151,7 @@ EMBEDDED_WEB_ASSET_INDEX := $(EMBEDDED_WEB_ASSET_DIR)/index.html
 EMBEDDED_WEB_ASSET_READY_STAMP := $(EMBEDDED_WEB_ASSET_DIR)/.embedded-assets-ready
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
 CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(OPERATOR_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(DEFAULT_CARTULARY_TEST_RESULTS_DIR) $(RELEASE_ARTIFACT_DIR) $(CURDIR)/test-results $(CURDIR)/apps/web/test-results $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage $(CURDIR)/.vite $(CURDIR)/apps/web/.vite $(CURDIR)/node_modules/.vite* $(CURDIR)/apps/web/node_modules/.vite* $(CURDIR)/packages/*/node_modules/.vite*
-DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(CURDIR)/tmp/node-archives $(TOOLBIN_DIR) $(SHELLCHECK_ARCHIVE_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store
+DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(CURDIR)/tmp/node-archives $(TOOLBIN_DIR) $(SHELLCHECK_ARCHIVE_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(FRONTEND_NODE_MODULES_DIRS) $(CURDIR)/.pnpm-store
 CLEAN_TMP_PRESERVE_NAMES := node-runtime node-archives toolbin shellcheck-archives frontend-install frontend-toolchain playwright frontend-embed
 
 define guarded_remove_paths
@@ -250,9 +251,7 @@ $(FRONTEND_TOOLCHAIN_STAMP): $(NODE_BIN) Makefile
 	printf 'node_path=%s\nnode_version=%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$$node_version" "$(PNPM)" "$$pnpm_version" > $(FRONTEND_TOOLCHAIN_STAMP)
 
 $(FRONTEND_INSTALL_STAMP): $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN_STAMP)
-	$(Q)mkdir -p $(dir $(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_TEST_TARGET=frontend-install CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "frontend install" -- $(PNPM_ENV) $(PNPM) install $(PNPM_INSTALL_FLAGS)
-	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(FRONTEND_INSTALL_STAMP)
+	$(Q)PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" CI=true FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" PNPM="$(PNPM)" PNPM_INSTALL_FLAGS="$(PNPM_INSTALL_FLAGS)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" bash ./scripts/frontend-install.sh
 
 $(SQLC_BIN):
 	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)

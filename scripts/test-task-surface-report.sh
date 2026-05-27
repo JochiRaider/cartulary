@@ -362,13 +362,13 @@ const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const compact = manifest.compact_help;
 compact.entries.push({
-  target: "frontend-install-ci",
+  target: "run-harness-smoke-fast",
   description: "synthetic non-public help tier entry"
 });
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 non_public_help_tier_output="$(assert_fails "non-public compact help target" run_report_copy)"
-assert_contains "$non_public_help_tier_output" "frontend-install-ci appears in compact_help but is not target_class public" "non-public compact help output"
+assert_contains "$non_public_help_tier_output" "run-harness-smoke-fast appears in compact_help but is not target_class public" "non-public compact help output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

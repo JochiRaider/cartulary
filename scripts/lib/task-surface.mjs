@@ -1524,9 +1524,6 @@ export function renderTaskSurfaceMake(manifest) {
     `TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV = ${checkSchedulerOverrideEnvExpression()}`,
   );
   lines.push(
-    "CHECK_FRONTEND_INSTALL_TARGET = $(if $(filter 1,$(CI)),frontend-install-ci,frontend-install)",
-  );
-  lines.push(
     'RUN_MAKE_NODE_TOOL = env NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)',
   );
   lines.push("RUN_PUBLIC_PREFLIGHT = $(RUN_HARNESS_PREFLIGHT) $(1)");

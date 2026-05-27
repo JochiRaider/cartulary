@@ -404,14 +404,14 @@ test("public targets declare command identity and semantic value", () => {
 
   const privateHelperOnly = structuredClone(taskSurface);
   privateHelperOnly.targets.find(
-    (entry) => entry.name === "frontend-install-ci",
+    (entry) => entry.name === "run-harness-smoke-fast",
   ).default_inclusion_sets = ["helper_only"];
   assert.match(
     collectTaskSurfaceManifestErrors(privateHelperOnly, {
       browserBatchManifest: browserBatch,
       serviceBackedScheduleManifest: serviceBacked,
     }).join("\n"),
-    /frontend-install-ci\.default_inclusion_sets helper_only is only valid for public direct-invocation targets/,
+    /run-harness-smoke-fast\.default_inclusion_sets helper_only is only valid for public direct-invocation targets/,
   );
 
   const shallowAlias = structuredClone(taskSurface);

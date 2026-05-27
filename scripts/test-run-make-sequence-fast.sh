@@ -670,6 +670,7 @@ ci_script="$(cat "${ROOT_DIR}/scripts/ci/verify.sh")"
 test_fast_block="$(extract_target_definition test-fast)"
 
 assert_contains "${test_fast_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test-fast' "test-fast sequence runner"
+assert_not_contains "${run_fast_block}" '$(FRONTEND_INSTALL_STAMP)' "fast harness smoke does not require frontend install"
 assert_contains "${run_fast_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"' "fast harness manifest runner"
 assert_contains "${run_extended_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"' "extended harness manifest runner"
 assert_contains "${run_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "full harness manifest runner"

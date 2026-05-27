@@ -378,6 +378,10 @@ Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-022
 Authoritative phase manifests MAY declare `profile_claims[]` metadata for extension-profile evidence routing. Each row MUST declare `profile_id`, `claimed`, `claim_ac_id`, `required_ac_ids[]`, `direct_evidence_ids[]`, and `aggregate_ac_ids[]`. When `claimed=true`, every `direct_evidence_ids[]` value MUST name an authoritative phase row whose `claim_status` is `implemented`; aggregate claim ACs alone MUST NOT satisfy a claim. This metadata routes evidence only and MUST NOT redefine Core profile behavior.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-013, TH-HARNESS-AC-016
 
+**TH-HARNESS-REQ-111**
+Make-owned frontend dependency installation MUST use the pinned repo-local Node and pnpm toolchain, MUST bind pnpm's content-addressable store to the repo-local `.pnpm-store` path through project configuration, MUST run without requiring a TTY or interactive confirmation, and MUST use a frozen lockfile. `frontend-install` is an install/readiness target, not a dependency-update target; if `pnpm-lock.yaml` is out of sync with workspace manifests, the target MUST fail with `failure_class=config`, `failure_reason=configuration_error`, and public exit code `2` rather than mutating the lockfile. A package-manager repair that purges and recreates repo-local `node_modules` is allowed only as part of this non-interactive install contract and only for repo-local workspace dependency roots.
+Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-014, TH-HARNESS-AC-023
+
 ### 5.1 Precedence
 
 | Precedence | Source                                 | Rule                                                                                                   |
@@ -803,6 +807,12 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-024
 **TH-HARNESS-REQ-351**
 Phase selection MUST include a `phase_namespace` value. The default namespace is `base`. `PHASE=phaseN` without an explicit namespace MUST remain base-only and MUST resolve only through `tools/phase_registry.json`. Frontend phase selection MUST use `PHASE_NAMESPACE=frontend PHASE=FE-P<N>` and MUST resolve only through `tools/frontend_phase_registry.json`, where accepted phase IDs are exactly `FE-P0` through `FE-P11`. `task-guide`, `explain-phase`, `phase-slice`, and `service-backed-slice` MUST reject ambiguous or cross-namespace phase identifiers with a bounded usage diagnostic instead of guessing. Executable slice commands MUST reject `planned` or `retired` frontend phases before child work; explanation commands MAY display `planned` frontend phase metadata when they clearly report the planned/non-executable status.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-022
+
+**TH-HARNESS-REQ-352**
+Check-scheduler dependency declarations MUST account for readiness work once, at the scheduler layer. A scheduled work unit whose actual child path requires frontend dependencies MUST depend on `check-frontend-install`; a scheduled work unit whose selected behavior does not require installed frontend packages MUST NOT depend directly or indirectly on `FRONTEND_INSTALL_STAMP`. The default fast `check-harness-smoke` path MUST require only the Node runtime and harness source inputs needed by the selected fast smoke checks.
+Verified by: TH-HARNESS-AC-006
+
+The public `check` wrapper MAY run the unified `frontend-install` readiness target before launching the Node-based scheduler process because the scheduler runtime itself imports workspace JavaScript dependencies for schema and artifact validation. This wrapper bootstrap requirement is distinct from scheduler work-unit dependency closure and MUST NOT be satisfied through a separate CI-only install path.
 
 ### 10.1 Scheduler Manifest Fields
 
@@ -1251,6 +1261,7 @@ Cleanup is destructive. Cleanup commands MUST delete only paths or resources sat
 Verified by: TH-HARNESS-AC-009, TH-HARNESS-AC-010
 
 `make clean` and `make distclean` are repo-local cleanup commands. They MUST NOT remove caller-supplied external result roots.
+Frontend dependency install state is a coupled repo-local artifact set. `make clean` MUST preserve installed dependency roots for local loop speed, while `make distclean` MUST remove the repo-local pnpm store, frontend install stamps, and root/workspace `node_modules` directories together so stale package-manager metadata cannot survive without its store.
 
 ### 13.1 Path Algorithm
 
@@ -1282,6 +1293,8 @@ normalize_cleanup_candidate(path):
 | `make distclean`      | yes, only default registered path |                                           no |                          no |                             no |
 | Service-suite cleanup |        only suite-owned artifacts |                                           no |                          no |                             no |
 | Stale janitor         |        proof-gated resources only |                                           no |                          no |                             no |
+
+`make distclean` owns removal of `.pnpm-store`, the repository-root `node_modules` directory, and workspace package `node_modules` directories under `apps/web` and `packages/*`. Missing workspace dependency roots are not cleanup failures.
 
 ### 13.3 Stale Janitor Thresholds
 

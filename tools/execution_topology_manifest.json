@@ -624,7 +624,7 @@
           },
           {
             "target": "distclean",
-            "description": "also remove repo-local tool/runtime caches"
+            "description": "also remove repo-local tool/runtime caches and dependency installs"
           }
         ]
       }
@@ -862,29 +862,6 @@
           "$(FRONTEND_INSTALL_STAMP)"
         ],
         "type": "alias",
-        "test_target": "self"
-      },
-      "frontend-install-ci": {
-        "prerequisites": [
-          "$(FRONTEND_TOOLCHAIN_STAMP)"
-        ],
-        "type": "phase_command",
-        "mode": "command",
-        "env": {
-          "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
-          "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack",
-          "FRONTEND_INSTALL_STAMP": "$(FRONTEND_INSTALL_STAMP)",
-          "RUN_PHASE_SCRIPT": "$(RUN_PHASE_SCRIPT)",
-          "PNPM": "$(PNPM)",
-          "PNPM_INSTALL_FLAGS": "$(PNPM_INSTALL_FLAGS)",
-          "NODE_BIN": "$(NODE_BIN)",
-          "NODE_VERSION": "$(NODE_VERSION)",
-          "PNPM_VERSION": "$(PNPM_VERSION)"
-        },
-        "command": [
-          "bash",
-          "./scripts/frontend-install-ci.sh"
-        ],
         "test_target": "self"
       },
       "playwright-install": {
@@ -1433,8 +1410,7 @@
       "run-harness-smoke-fast": {
         "type": "phase_command",
         "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)"
+          "$(NODE_BIN)"
         ],
         "mode": "node",
         "env": {
@@ -1958,7 +1934,7 @@
       "check": {
         "type": "check_schedule",
         "prerequisites": [
-          "$(NODE_BIN)"
+          "frontend-install"
         ],
         "target": "check",
         "schedule_manifest": "tools/scheduler_manifest.json",
@@ -1966,7 +1942,7 @@
       },
       "check-frontend-install": {
         "prerequisites": [
-          "$(CHECK_FRONTEND_INSTALL_TARGET)"
+          "frontend-install"
         ],
         "type": "alias"
       },
@@ -2400,6 +2376,9 @@
       },
       {
         "name": "frontend-install",
+        "backing_scripts": [
+          "scripts/frontend-install.sh"
+        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -2448,20 +2427,12 @@
               "tmp/toolchain",
               "tmp/node-runtime",
               "node_modules",
+              ".pnpm-store",
               "browser cache"
             ],
-            "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
+            "cleanup": "repo-local clean preserves installs; distclean removes dependency roots and store according to Section 13"
           }
         ]
-      },
-      {
-        "name": "frontend-install-ci",
-        "backing_scripts": [
-          "scripts/frontend-install-ci.sh"
-        ],
-        "target_class": "internal_helper",
-        "default_inclusion_sets": [],
-        "lifecycle_state": "candidate_child"
       },
       {
         "name": "playwright-install",

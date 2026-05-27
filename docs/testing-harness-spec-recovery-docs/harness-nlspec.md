@@ -416,7 +416,7 @@ Cleanup boundaries:
 | Boundary | Contract |
 |---|---|
 | `make clean` | Removes configured repo-local build, report, coverage, result, release, Vite cache, and selected tmp scratch paths with guarded removal. |
-| `make distclean` | Includes `clean` scope plus repo-local tool/runtime caches such as node runtime, toolbin, frontend install/cache, `.cache`, and `.pnpm-store`. |
+| `make distclean` | Includes `clean` scope plus repo-local tool/runtime caches and dependency install state such as node runtime, toolbin, frontend install/cache, `.cache`, root/workspace `node_modules`, and `.pnpm-store`. |
 | External Go caches | `/tmp/cartulary-go-*` remains outside default `clean` and `distclean`. |
 | Timeout and interrupt | Selected S7 evidence supports only selected scenarios and delayed after-state where recorded. Parent-death cleanup remains source-limited. |
 | Detached reaper | Scheduling and delayed Docker after-state are evidence; hard completion guarantee remains source-limited. |
