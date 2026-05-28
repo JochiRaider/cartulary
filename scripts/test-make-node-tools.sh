@@ -68,54 +68,53 @@ function assertUsage(name, env, usagePart) {
 assert(makeNodeToolNames().includes("task-guide"), "registry must list task-guide");
 const expectedMakeEnvVars = {
   "browser-e2e-duration-baselines": [
-    "BROWSER_E2E_DURATION_BASELINE",
     "RESULTS_DIR",
+    "BROWSER_E2E_DURATION_BASELINE",
   ],
   "browser-e2e-duration-baseline-drift": [
-    "BROWSER_E2E_DURATION_BASELINE",
     "RESULTS_DIR",
+    "BROWSER_E2E_DURATION_BASELINE",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
-  "explain-phase": ["PHASE", "JSON"],
-  "explain-run": ["DETAIL", "RUN_ID", "TARGET", "RESULTS_DIR"],
+  "explain-phase": ["PHASE", "PHASE_NAMESPACE", "JSON"],
+  "explain-run": ["RESULTS_DIR", "RUN_ID", "TARGET", "DETAIL"],
   "explain-target": ["TARGET", "DETAIL", "JSON"],
   "fixture-report": [
-    "FIXTURE_THRESHOLD_MS",
-    "FIXTURE_TOP",
+    "RESULTS_DIR",
     "RUN_ID",
     "TARGET",
     "JSON",
-    "RESULTS_DIR",
+    "FIXTURE_THRESHOLD_MS",
+    "FIXTURE_TOP",
     "CARTULARY_TEST_RESULTS_DIR",
   ],
   "go-test-duration-baseline-coverage": ["GO_TEST_DURATION_BASELINE"],
   "go-test-duration-baseline-drift": [
-    "GO_TEST_DURATION_BASELINE",
     "RESULTS_DIR",
+    "GO_TEST_DURATION_BASELINE",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
   "go-test-duration-baselines": [
+    "RESULTS_DIR",
     "PRUNE_OBSERVED_PACKAGES",
     "ALLOW_COMMAND_OVERHEAD_DECREASE",
     "GO_TEST_DURATION_BASELINE",
-    "RESULTS_DIR",
   ],
   "harness-smoke-duration-baseline-drift": [
-    "HARNESS_SMOKE_DURATION_BASELINE",
-    "TASK_SURFACE_MANIFEST",
     "RESULTS_DIR",
+    "HARNESS_SMOKE_DURATION_BASELINE",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
   "harness-smoke-duration-baselines": [
-    "HARNESS_SMOKE_DURATION_BASELINE",
-    "TASK_SURFACE_MANIFEST",
     "RESULTS_DIR",
+    "HARNESS_SMOKE_DURATION_BASELINE",
   ],
   "phase-slice": [
     "PHASE",
+    "PHASE_NAMESPACE",
     "JSON",
     "MAKE",
     "TEST_OUTPUT_SCRIPT",
@@ -147,33 +146,32 @@ const expectedMakeEnvVars = {
     "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
   ],
   "scheduler-event-order-drift": [
-    "TARGET",
     "RESULTS_DIR",
+    "TARGET",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
   "scheduler-summary-timing-drift": [
+    "RESULTS_DIR",
     "TARGET",
     "SCHEDULER_WARM_CHECK_BUDGET_MS",
     "SCHEDULER_WARM_CHECK_BALANCE_RATIO",
-    "RESULTS_DIR",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
   "service-backed-make-target-duration-baseline-drift": [
-    "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
-    "EXECUTION_TOPOLOGY_MANIFEST",
-    "SCHEDULER_MANIFEST",
     "RESULTS_DIR",
+    "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
   "service-backed-make-target-duration-baselines": [
-    "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
     "RESULTS_DIR",
+    "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
   ],
   "service-backed-slice": [
     "PHASE",
+    "PHASE_NAMESPACE",
     "JSON",
     "MAKE",
     "TEST_OUTPUT_SCRIPT",
@@ -206,7 +204,7 @@ const expectedMakeEnvVars = {
   ],
   "target-plan": [],
   "target-plan-json": [],
-  "task-guide": ["ROLE", "PHASE", "JSON", "CARTULARY_TEST_RESULTS_DIR"],
+  "task-guide": ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON", "CARTULARY_TEST_RESULTS_DIR"],
   "task-surface-report": ["TASK_SURFACE_REPORT_ARGS"],
 };
 assertList("registered make node tools", makeNodeToolNames(), Object.keys(expectedMakeEnvVars).sort());
@@ -253,6 +251,15 @@ assertArgs("task-guide", { ROLE: "feature-dev", PHASE: "phase4", JSON: "1" }, [
   "phase4",
   "--json",
 ]);
+assertArgs("task-guide", { ROLE: "feature-dev", PHASE: "FE-P3", PHASE_NAMESPACE: "frontend", JSON: "1" }, [
+  "--role",
+  "feature-dev",
+  "--phase",
+  "FE-P3",
+  "--phase-namespace",
+  "frontend",
+  "--json",
+]);
 assertArgs("phase-slice", { PHASE: "phase4" }, [
   "--phase",
   "phase4",
@@ -265,6 +272,14 @@ assertArgs("phase-slice", { PHASE: "phase4", JSON: "1" }, [
   "--mode",
   "phase",
   "--json",
+]);
+assertArgs("phase-slice", { PHASE: "FE-P3", PHASE_NAMESPACE: "frontend" }, [
+  "--phase",
+  "FE-P3",
+  "--mode",
+  "phase",
+  "--phase-namespace",
+  "frontend",
 ]);
 assertArgs("service-backed-slice", { PHASE: "phase4" }, [
   "--phase",
@@ -372,18 +387,12 @@ assertArgs(
   {
     CARTULARY_TEST_RESULTS_DIR: "/tmp/cartulary-results",
     CARTULARY_TEST_RUN_ID: "run-a",
-    EXECUTION_TOPOLOGY_MANIFEST: "/tmp/topology.json",
     SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE: "/tmp/service-baseline.json",
-    SCHEDULER_MANIFEST: "/tmp/schedule.json",
   },
   [
     "check-drift",
     "--baseline-file",
     "/tmp/service-baseline.json",
-    "--topology",
-    "/tmp/topology.json",
-    "--schedule-manifest",
-    "/tmp/schedule.json",
     "/tmp/cartulary-results/run-a",
   ],
 );
@@ -392,14 +401,11 @@ assertArgs(
   {
     HARNESS_SMOKE_DURATION_BASELINE: "/tmp/harness-baseline.json",
     RESULTS_DIR: "/tmp/cartulary-results/run-a",
-    TASK_SURFACE_MANIFEST: "/tmp/task-surface.json",
   },
   [
     "update",
     "--baseline-file",
     "/tmp/harness-baseline.json",
-    "--manifest",
-    "/tmp/task-surface.json",
     "/tmp/cartulary-results/run-a",
   ],
 );
@@ -409,14 +415,11 @@ assertArgs(
     CARTULARY_TEST_RESULTS_DIR: "/tmp/cartulary-results",
     CARTULARY_TEST_RUN_ID: "run-a",
     HARNESS_SMOKE_DURATION_BASELINE: "/tmp/harness-baseline.json",
-    TASK_SURFACE_MANIFEST: "/tmp/task-surface.json",
   },
   [
     "check-drift",
     "--baseline-file",
     "/tmp/harness-baseline.json",
-    "--manifest",
-    "/tmp/task-surface.json",
     "/tmp/cartulary-results/run-a",
   ],
 );
@@ -426,8 +429,8 @@ assertArgs("task-surface-report", { TASK_SURFACE_REPORT_ARGS: "--check --all" },
 ]);
 assertArgs("target-plan", { PHASE: "phase4", TARGET: "backend-store", RESULTS_DIR: "/tmp/results" }, []);
 assertUsage("explain-run", {}, "make explain-run RESULTS_DIR=<root|run-dir>");
-assertUsage("phase-slice", {}, "make phase-slice PHASE=<phaseN>");
-assertUsage("service-backed-slice", {}, "make service-backed-slice PHASE=<phaseN>");
+assertUsage("phase-slice", {}, "make phase-slice PHASE=<phaseN|FE-PN>");
+assertUsage("service-backed-slice", {}, "make service-backed-slice PHASE=<phaseN|FE-PN>");
 assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines RESULTS_DIR=<successful results dir> [PRUNE_OBSERVED_PACKAGES=1 requires full service-backed]");
 assertUsage("browser-e2e-duration-baselines", {}, "make browser-e2e-duration-baselines RESULTS_DIR=<successful browser results dir>");
 assertUsage("harness-smoke-duration-baselines", {}, "make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>");
@@ -445,17 +448,20 @@ const targetPlanChildEnv = buildMakeNodeToolChildEnv("target-plan", {
   PATH: "/bin",
   PHASE: "phase4",
   RESULTS_DIR: "/tmp/results",
+  TASK_SURFACE_MANIFEST: "/tmp/task-surface.json",
   TARGET: "backend-store",
 });
 assert(targetPlanChildEnv.PATH === "/bin", "child env must preserve unrelated runtime env");
 assert(!("PHASE" in targetPlanChildEnv), "target-plan child env must not expose undeclared PHASE");
 assert(!("RESULTS_DIR" in targetPlanChildEnv), "target-plan child env must not expose undeclared RESULTS_DIR");
+assert(!("TASK_SURFACE_MANIFEST" in targetPlanChildEnv), "target-plan child env must not expose internal manifest override");
 assert(!("TARGET" in targetPlanChildEnv), "target-plan child env must not expose undeclared TARGET");
 
 const taskGuideChildEnv = buildMakeNodeToolChildEnv("task-guide", {
   CARTULARY_TEST_RESULTS_DIR: "/tmp/results",
   JSON: "1",
   PHASE: "phase4",
+  PHASE_NAMESPACE: "frontend",
   ROLE: "feature-dev",
 });
 assert(
@@ -464,6 +470,7 @@ assert(
 );
 assert(!("JSON" in taskGuideChildEnv), "task-guide child env must not expose JSON after args are built");
 assert(!("PHASE" in taskGuideChildEnv), "task-guide child env must not expose PHASE after args are built");
+assert(!("PHASE_NAMESPACE" in taskGuideChildEnv), "task-guide child env must not expose PHASE_NAMESPACE after args are built");
 assert(!("ROLE" in taskGuideChildEnv), "task-guide child env must not expose ROLE after args are built");
 
 const phaseSliceChildEnv = buildMakeNodeToolChildEnv("phase-slice", {
@@ -494,4 +501,4 @@ set -e
 if [[ "$missing_phase_status" -ne 2 ]]; then
   fail "missing phase launcher validation should exit 2"
 fi
-assert_contains "$missing_phase_output" "usage: make explain-phase PHASE=<phaseN>" "missing phase launcher usage"
+assert_contains "$missing_phase_output" "usage: make explain-phase PHASE=<phaseN|FE-PN>" "missing phase launcher usage"

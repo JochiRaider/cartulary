@@ -57,6 +57,7 @@ const schedulerResourceRegistryPath = path.join(
   "tools",
   "scheduler_resource_registry.json",
 );
+const defaultTaskSurfaceManifestPath = "tools/task_surface_manifest.json";
 const protectedCleanupIdentities = new Set([
   ".cartulary",
   ".git",
@@ -156,6 +157,28 @@ const serviceAttachGroups = Object.freeze([
       validateBooleanToken("CARTULARY_S3TEST_SECURE", values.CARTULARY_S3TEST_SECURE);
     },
   },
+]);
+const restrictedInternalMakeVariables = Object.freeze([
+  "CARTULARY_EXECUTION_TOPOLOGY_MANIFEST",
+  "CARTULARY_TASK_SURFACE_MANIFEST",
+  "EXECUTION_TOPOLOGY_MANIFEST",
+  "SCHEDULER_MANIFEST",
+  "TASK_SURFACE_MANIFEST",
+]);
+const makeOriginPrefix = "CARTULARY_MAKE_ORIGIN_";
+const makeCommandLineOrigins = new Set([
+  "command line",
+  "command line override",
+  "override",
+]);
+const makeEnvironmentOrigins = new Set([
+  "environment",
+  "environment override",
+]);
+const makeDefaultOrigins = new Set([
+  "file",
+  "default",
+  "undefined",
 ]);
 
 let schedulerResourceRegistry = null;
@@ -418,8 +441,19 @@ function prepareRetainedArtifactRunRoot(
 }
 
 function loadTaskSurfaceManifest(manifestPath = process.env.TASK_SURFACE_MANIFEST) {
-  const file = path.resolve(repoRoot, manifestPath || "tools/task_surface_manifest.json");
+  const file = path.resolve(repoRoot, manifestPath || defaultTaskSurfaceManifestPath);
   return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function isMakePreflightEnv(env) {
+  return Object.keys(env).some((name) => name.startsWith(makeOriginPrefix));
+}
+
+function loadResolverTaskSurfaceManifest(env) {
+  if (isMakePreflightEnv(env)) {
+    return loadTaskSurfaceManifest(defaultTaskSurfaceManifestPath);
+  }
+  return loadTaskSurfaceManifest();
 }
 
 export function targetPolicy(target, manifest = loadTaskSurfaceManifest()) {
@@ -554,12 +588,276 @@ function validateServiceAttachGroups(env) {
   return resolved;
 }
 
+function inputContract(entry) {
+  return entry?.input_contract ?? {
+    undeclared_make_command_line: "usage_error",
+    undeclared_inherited_env: "ignore",
+    inputs: [],
+  };
+}
+
+function inputRows(entry) {
+  return inputContract(entry).inputs ?? [];
+}
+
+function inputRowMap(entry) {
+  return new Map(inputRows(entry).map((input) => [input.name, input]));
+}
+
+function publicInputNames(manifest) {
+  const names = new Set(restrictedInternalMakeVariables);
+  for (const entry of manifest.targets ?? []) {
+    if (entry?.target_class !== "public") {
+      continue;
+    }
+    for (const input of inputRows(entry)) {
+      names.add(input.name);
+    }
+  }
+  return Array.from(names).sort((left, right) => left.localeCompare(right));
+}
+
+function makeOrigin(env, name) {
+  return String(env[`${makeOriginPrefix}${name}`] ?? "").trim();
+}
+
+function isMakeCommandLineOrigin(origin) {
+  return makeCommandLineOrigins.has(origin);
+}
+
+function isMakeEnvironmentOrigin(origin) {
+  return makeEnvironmentOrigins.has(origin);
+}
+
+function isMakeDefaultOrigin(origin) {
+  return origin === "" || makeDefaultOrigins.has(origin);
+}
+
+function normalizeInputValue(input, raw) {
+  let value = String(raw ?? "");
+  if (input.normalization === "trim" || input.normalization === "path_token") {
+    value = value.trim();
+  } else if (input.normalization === "trim_lowercase") {
+    value = value.trim().toLowerCase();
+  }
+  return value;
+}
+
+function validatePositiveDecimalInput(name, value, input) {
+  if (!/^(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/u.test(value)) {
+    throw new HarnessConfigError(`${name} must be a positive decimal`, {
+      reason: input.invalid_reason,
+    });
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new HarnessConfigError(`${name} must be a positive decimal`, {
+      reason: input.invalid_reason,
+    });
+  }
+  if (Number.isFinite(input.min) && parsed < input.min) {
+    throw new HarnessConfigError(`${name} must be >= ${input.min}`, {
+      reason: input.invalid_reason,
+    });
+  }
+  if (Number.isFinite(input.max) && parsed > input.max) {
+    throw new HarnessConfigError(`${name} must be <= ${input.max}`, {
+      reason: input.invalid_reason,
+    });
+  }
+  return value;
+}
+
+function validateTargetInputValue(name, value, input, manifest) {
+  if (input.type === "exact_1_bool") {
+    if (value !== "1") {
+      throw new HarnessConfigError(`${name} must be exactly 1 when set`, {
+        reason: input.invalid_reason,
+      });
+    }
+    return value;
+  }
+  if (input.type === "enum") {
+    if (!(input.values ?? []).includes(value)) {
+      throw new HarnessConfigError(
+        `${name} must be one of ${(input.values ?? []).join(", ")}`,
+        { reason: input.invalid_reason },
+      );
+    }
+    return value;
+  }
+  if (input.type === "phase_namespace") {
+    if (!["base", "frontend"].includes(value)) {
+      throw new HarnessConfigError(`${name} must be base or frontend`, {
+        reason: input.invalid_reason,
+      });
+    }
+    return value;
+  }
+  if (input.type === "phase_id") {
+    if (!/^(?:phase[0-9]+|FE-P[0-9]+)$/u.test(value)) {
+      throw new HarnessConfigError(`${name} must be phaseN or FE-PN`, {
+        reason: input.invalid_reason,
+      });
+    }
+    return value;
+  }
+  if (input.type === "target_name") {
+    const knownTargets = new Set((manifest.targets ?? []).map((entry) => entry.name));
+    if (!knownTargets.has(value)) {
+      throw new HarnessConfigError(`${name} must name a declared target`, {
+        reason: input.invalid_reason,
+      });
+    }
+    return value;
+  }
+  if (input.type === "run_id") {
+    try {
+      return validateRunId(value);
+    } catch (error) {
+      if (error instanceof HarnessConfigError) {
+        throw new HarnessConfigError(`${name}: ${error.message}`, {
+          reason: input.invalid_reason,
+        });
+      }
+      throw error;
+    }
+  }
+  if (input.type === "result_selector" || input.type === "path") {
+    try {
+      return validatePathToken(name, value);
+    } catch (error) {
+      if (error instanceof HarnessConfigError) {
+        throw new HarnessConfigError(error.message, { reason: input.invalid_reason });
+      }
+      throw error;
+    }
+  }
+  if (input.type === "positive_integer") {
+    try {
+      return String(
+        validatePositiveInteger(name, value, {
+          min: Number.isInteger(input.min) ? input.min : 1,
+          max: Number.isInteger(input.max) ? input.max : 999999999,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof HarnessConfigError) {
+        throw new HarnessConfigError(error.message, { reason: input.invalid_reason });
+      }
+      throw error;
+    }
+  }
+  if (input.type === "positive_decimal") {
+    return validatePositiveDecimalInput(name, value, input);
+  }
+  if (input.type === "task_surface_report_args") {
+    const allowed = new Set(["--all", "--check", "--check --all", "--all --check"]);
+    if (!allowed.has(value)) {
+      throw new HarnessConfigError(
+        `${name} accepts only --all, --check, or --check --all`,
+        { reason: input.invalid_reason },
+      );
+    }
+    return value;
+  }
+  return value;
+}
+
+function resolveDeclaredTargetInputs(target, entry, manifest, env) {
+  const resolved = {};
+  for (const input of inputRows(entry)) {
+    const origin = makeOrigin(env, input.name);
+    const hasEnvValue = Object.hasOwn(env, input.name);
+    const raw = env[input.name] ?? "";
+    if (!hasEnvValue || isMakeDefaultOrigin(origin)) {
+      if (input.required) {
+        throw new HarnessConfigError(`${input.name} is required for target ${target}`, {
+          reason: input.invalid_reason,
+        });
+      }
+      if (input.default !== null && input.default !== undefined) {
+        resolved[input.name] = {
+          value: String(input.default),
+          source: "default",
+          summary_emission: input.summary_emission,
+        };
+      }
+      continue;
+    }
+    if (isMakeEnvironmentOrigin(origin) && !(input.allowed_sources ?? []).includes("environment")) {
+      continue;
+    }
+    const normalized = normalizeInputValue(input, raw);
+    if (normalized === "") {
+      if (input.empty_string === "invalid" || input.required) {
+        throw new HarnessConfigError(`${input.name} must not be empty`, {
+          reason: input.invalid_reason,
+        });
+      }
+      if (input.empty_string === "false") {
+        resolved[input.name] = {
+          value: "false",
+          source: origin || "omitted",
+          summary_emission: input.summary_emission,
+        };
+      }
+      if (
+        input.empty_string === "omitted" &&
+        input.default !== null &&
+        input.default !== undefined
+      ) {
+        resolved[input.name] = {
+          value: String(input.default),
+          source: "default",
+          summary_emission: input.summary_emission,
+        };
+      }
+      continue;
+    }
+    resolved[input.name] = {
+      value: validateTargetInputValue(input.name, normalized, input, manifest),
+      source: isMakeCommandLineOrigin(origin)
+        ? "make_command_line"
+        : isMakeEnvironmentOrigin(origin)
+          ? "environment"
+          : origin || "environment",
+      summary_emission: input.summary_emission,
+    };
+  }
+  return resolved;
+}
+
+function rejectUndeclaredPublicInputs(target, entry, manifest, env) {
+  const declared = inputRowMap(entry);
+  for (const name of publicInputNames(manifest)) {
+    const origin = makeOrigin(env, name);
+    if (!isMakeCommandLineOrigin(origin)) {
+      continue;
+    }
+    if (restrictedInternalMakeVariables.includes(name)) {
+      throw new HarnessConfigError(
+        `${name} is an internal harness input and cannot be overridden by make ${target}`,
+        { reason: "configuration_error" },
+      );
+    }
+    if (!declared.has(name)) {
+      throw new HarnessConfigError(
+        `${name} is not declared for target ${target}`,
+        { reason: "usage_error" },
+      );
+    }
+  }
+}
+
 export function resolveHarnessConfig(target, env = process.env, options = {}) {
-  const manifest = options.manifest ?? loadTaskSurfaceManifest();
+  const manifest = options.manifest ?? loadResolverTaskSurfaceManifest(env);
   const entry = targetPolicy(target, manifest);
   if (!entry || entry.target_class !== "public") {
     throw new HarnessConfigError(`unknown public target ${JSON.stringify(target)}`);
   }
+  rejectUndeclaredPublicInputs(target, entry, manifest, env);
+  const targetInputs = resolveDeclaredTargetInputs(target, entry, manifest, env);
   const outputMode = resolveOutputModeRecord(env, target);
   const outputClass = entry.output_policy?.output_class ?? "";
   if (outputMode.value === "machine" && machineRejectedOutputClasses.has(outputClass)) {
@@ -605,6 +903,7 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
     run_id_source: runId.source,
     generated_run_id: runId.source === "default",
     variables: {
+      target_inputs: targetInputs,
       booleans: validateExactOneBooleans(env),
       paths: validateOptionalPaths(env),
       versions: validateVersionTokens(env),

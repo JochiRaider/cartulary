@@ -2,19 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-NODE_BIN="${NODE_BIN:-node}"
-cleanup_paths=()
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
-
-cleanup() {
-  local path
-  for path in "${cleanup_paths[@]}"; do
-    rm -rf "${path}"
-  done
-}
-
-trap cleanup EXIT
 
 fail() {
   echo "$*" >&2
@@ -51,141 +40,56 @@ assert_equals() {
   fi
 }
 
-assert_file_present() {
-  local path="$1"
-  local label="$2"
-
-  if [[ ! -f "${path}" ]]; then
-    fail "${label}: expected ${path} to exist"
-  fi
-}
-
-json_field() {
-  local file="$1"
-  local path="$2"
-
-  "${NODE_BIN}" -e '
-const fs = require("node:fs");
-const [file, path] = process.argv.slice(1);
-const value = path.split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(file, "utf8")));
-if (value === undefined || value === null) {
-  process.exit(1);
-}
-process.stdout.write(String(value));
-' "${file}" "${path}"
-}
-
-write_check() {
-  local path="$1"
-  local status="$2"
-  local label="$3"
-
-  cat >"${path}" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\\n' "${label}" >>"\${FAKE_CHECK_LOG:?}"
-exit ${status}
-EOF
-  chmod +x "${path}"
-}
-
-write_manifest() {
-  local source="$1"
-  local destination="$2"
-  local script_dir="$3"
-  local first_status="$4"
-
-  write_check "${script_dir}/public-wrapper.sh" "${first_status}" "fixture-public-wrapper"
-  write_check "${script_dir}/check-scheduler.sh" 0 "fixture-check-scheduler"
-  write_check "${script_dir}/service-backed-scheduler.sh" 0 "fixture-service-backed-scheduler"
-
-  "${NODE_BIN}" - "${source}" "${destination}" "${script_dir#"${ROOT_DIR}"/}" <<'EOF'
-const fs = require("node:fs");
-const [source, destination, scriptDir] = process.argv.slice(2);
-const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
-for (const check of manifest.harness_checks) {
-  delete check.gate_smoke_role;
-}
-const checks = [
-  {
-    name: "fixture-public-wrapper",
-    gate_smoke_role: "public_make_wrapper",
-    backing_scripts: [`${scriptDir}/public-wrapper.sh`],
-  },
-  {
-    name: "fixture-check-scheduler",
-    gate_smoke_role: "check_scheduler_semantic",
-    backing_scripts: [`${scriptDir}/check-scheduler.sh`],
-  },
-  {
-    name: "fixture-service-backed-scheduler",
-    gate_smoke_role: "service_backed_scheduler_semantic",
-    backing_scripts: [`${scriptDir}/service-backed-scheduler.sh`],
-  },
-];
-manifest.harness_tiers.fast = { checks: checks.map((check) => check.name) };
-manifest.harness_checks = manifest.harness_checks.filter(
-  (check) => !checks.some((fixture) => fixture.name === check.name),
-);
-manifest.harness_checks.push(...checks);
-fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
-EOF
-}
-
-run_make_smoke() {
-  local name="$1"
-  local first_status="$2"
-  local expected_status="$3"
-  local dir="$4"
-  local output
-  local status
-
-  mkdir -p "${dir}/scripts"
-  touch "${dir}/frontend-install.stamp"
-  write_manifest "${ROOT_DIR}/tools/task_surface_manifest.json" "${dir}/task_surface_manifest.json" "${dir}/scripts" "${first_status}"
+run_make_capture() {
+  local stdout_file="$1"
+  local stderr_file="$2"
+  shift 2
 
   set +e
-  output="$(
-    FAKE_CHECK_LOG="${dir}/checks.log" \
-    CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
-    NODE_BIN="${NODE_BIN}" \
-    FRONTEND_INSTALL_STAMP="${dir}/frontend-install.stamp" \
-    TASK_SURFACE_MANIFEST="${dir}/task_surface_manifest.json" \
-    CARTULARY_TEST_RESULTS_DIR="${dir}/results" \
-    CARTULARY_TEST_RUN_ID="${name}" \
-    HARNESS_SMOKE_JOBS=1 \
-      make --no-print-directory check-harness-smoke \
-      2>&1
-  )"
-  status=$?
+  "$@" >"${stdout_file}" 2>"${stderr_file}"
+  local status=$?
   set -e
-
-  if [[ "${status}" != "${expected_status}" ]]; then
-    fail "${name} exit status: expected [${expected_status}], got [${status}], output: ${output}"
-  fi
-  assert_file_present "${dir}/results/${name}/run-harness-smoke-fast/target-summary.json" "${name} child target summary"
-  assert_file_present "${dir}/results/${name}/check-harness-smoke/target-summary.json" "${name} projected target summary"
-  assert_contains "$(cat "${dir}/checks.log")" "fixture-public-wrapper" "${name} invoked fast harness child through Make"
-  printf '%s' "${output}"
+  printf '%s' "${status}"
 }
 
-pass_dir="$(mktemp -d "${ROOT_DIR}/tmp/public-make-wrapper-pass.XXXXXX")"
-cleanup_paths+=("${pass_dir}")
-pass_output="$(run_make_smoke pass 0 0 "${pass_dir}")"
-assert_contains "${pass_output}" "[RESULT] target=check-harness-smoke status=pass" "pass projection result"
-assert_contains "${pass_output}" "[ARTIFACTS] target=check-harness-smoke" "pass projection artifacts"
-assert_not_contains "${pass_output}" "[CHILD-MISSING]" "pass projection child accounting"
-assert_equals "$(json_field "${pass_dir}/results/pass/check-harness-smoke/target-summary.json" "target")" "check-harness-smoke" "pass projected target identity"
-assert_equals "$(json_field "${pass_dir}/results/pass/check-harness-smoke/target-summary.json" "status")" "pass" "pass projected target status"
-assert_equals "$(json_field "${pass_dir}/results/pass/run-harness-smoke-fast/target-summary.json" "status")" "pass" "pass child target status"
+tmp_dir="$(mktemp -d "${ROOT_DIR}/tmp/public-make-wrapper.XXXXXX")"
+trap 'rm -rf "${tmp_dir}"' EXIT
 
-failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/public-make-wrapper-failure.XXXXXX")"
-cleanup_paths+=("${failure_dir}")
-failure_output="$(run_make_smoke failure 7 2 "${failure_dir}")"
-assert_contains "${failure_output}" "[FAIL] target=check-harness-smoke" "failure projection result"
-assert_contains "${failure_output}" "[ARTIFACTS] target=check-harness-smoke" "failure projection artifacts"
-assert_not_contains "${failure_output}" "[CHILD-MISSING] check-harness-smoke fixture-check-scheduler" "failure skipped child accounting"
-assert_equals "$(json_field "${failure_dir}/results/failure/check-harness-smoke/tool-run-summary.json" "exit_code")" "1" "failure projected public exit code"
-assert_equals "$(json_field "${failure_dir}/results/failure/check-harness-smoke/target-summary.json" "status")" "fail" "failure projected target status"
-assert_equals "$(json_field "${failure_dir}/results/failure/check-harness-smoke/target-summary.json" "children.skipped.0.target")" "fixture-check-scheduler" "failure projected skipped child"
-assert_equals "$(json_field "${failure_dir}/results/failure/run-harness-smoke-fast/target-summary.json" "children.failed_targets.0")" "fixture-public-wrapper" "failure child failed target"
+success_stdout="${tmp_dir}/target-plan.stdout"
+success_stderr="${tmp_dir}/target-plan.stderr"
+success_status="$(
+  PHASE=phase4 \
+  DETAIL=logs \
+  TASK_SURFACE_MANIFEST=/tmp/cartulary-ignored-task-surface.json \
+    run_make_capture "${success_stdout}" "${success_stderr}" make --no-print-directory target-plan
+)"
+assert_equals "${success_status}" "0" "inherited undeclared env status"
+assert_contains "$(cat "${success_stdout}")" "backend-unit" "target-plan public Make output"
+assert_equals "$(cat "${success_stderr}")" "" "inherited undeclared env stderr"
+
+wrong_target_stdout="${tmp_dir}/wrong-target.stdout"
+wrong_target_stderr="${tmp_dir}/wrong-target.stderr"
+wrong_target_status="$(
+  run_make_capture "${wrong_target_stdout}" "${wrong_target_stderr}" make --no-print-directory target-plan PHASE=phase4
+)"
+assert_equals "${wrong_target_status}" "2" "wrong-target Make variable status"
+assert_contains "$(cat "${wrong_target_stderr}")" "PHASE is not declared for target target-plan" "wrong-target Make variable diagnostic"
+assert_equals "$(cat "${wrong_target_stdout}")" "" "wrong-target Make variable stdout"
+
+internal_stdout="${tmp_dir}/internal.stdout"
+internal_stderr="${tmp_dir}/internal.stderr"
+internal_status="$(
+  run_make_capture "${internal_stdout}" "${internal_stderr}" make --no-print-directory target-plan TASK_SURFACE_MANIFEST=/tmp/cartulary-override.json
+)"
+assert_equals "${internal_status}" "2" "internal manifest override status"
+assert_contains "$(cat "${internal_stderr}")" "TASK_SURFACE_MANIFEST is an internal harness input" "internal manifest override diagnostic"
+assert_equals "$(cat "${internal_stdout}")" "" "internal manifest override stdout"
+
+declared_stdout="${tmp_dir}/declared.stdout"
+declared_stderr="${tmp_dir}/declared.stderr"
+declared_status="$(
+  run_make_capture "${declared_stdout}" "${declared_stderr}" make --no-print-directory task-guide PHASE_NAMESPACE=frontend PHASE=FE-P3
+)"
+assert_equals "${declared_status}" "0" "declared target-local input status"
+assert_contains "$(cat "${declared_stdout}")" "phase_namespace=frontend" "declared phase namespace output"
+assert_not_contains "$(cat "${declared_stderr}")" "[FAIL]" "declared target-local input stderr"

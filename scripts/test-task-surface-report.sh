@@ -135,7 +135,31 @@ import { pathToFileURL } from "node:url";
 const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
 const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
-assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v13", "task surface schema must be v13");
+assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v14", "task surface schema must be v14");
+for (const target of manifest.targets.filter((entry) => entry.target_class === "public")) {
+  assert.ok(target.input_contract, `${target.name} must declare an input contract`);
+  assert.equal(
+    target.input_contract.undeclared_make_command_line,
+    "usage_error",
+    `${target.name} command-line undeclared input policy`,
+  );
+  assert.equal(
+    target.input_contract.undeclared_inherited_env,
+    "ignore",
+    `${target.name} inherited env undeclared input policy`,
+  );
+  assert.ok(Array.isArray(target.input_contract.inputs), `${target.name} inputs must be an array`);
+}
+assert.deepEqual(
+  manifest.targets.find((target) => target.name === "target-plan").input_contract.inputs,
+  [],
+  "target-plan must accept no target-local inputs",
+);
+assert.deepEqual(
+  manifest.targets.find((target) => target.name === "task-guide").input_contract.inputs.map((input) => input.name),
+  ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON"],
+  "task-guide input contract must include phase namespace",
+);
 assert.deepEqual(
   manifest.targets.map((target) => target.name).filter((target) => !manifest.make_recipes[target]),
   [],
@@ -170,10 +194,14 @@ assert.match(
   /phase -> target -> scheduler work unit -> artifact/,
   "help-all must explain the task evidence concept hierarchy",
 );
-assert.match(renderedMake, /^help:\n\t\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m, "help recipe must be generated");
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0\}" != "1" \]; then env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
+  /^help:\n\t\$\(Q\)env [^\n]* \$\(HARNESS_CONTRACT_SCRIPT\) preflight help\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m,
+  "help recipe must be generated",
+);
+assert.match(
+  renderedMake,
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)env [^\n]* \$\(HARNESS_CONTRACT_SCRIPT\) preflight frontend-install\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0\}" != "1" \]; then env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
   "test_target self must render target-specific export and centralized prerequisite prelude",
 );
 assert.match(

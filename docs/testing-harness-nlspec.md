@@ -166,11 +166,11 @@ Target membership for each family is defined only by `### 4.3 Public Target Regi
 
 | Family | Family ID | Required inputs | Optional inputs and defaults | Output class family | Scheduler use | Backing services | Artifact behavior | Failure contract |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| help and discovery | `help_discovery` | Command-specific Make variables such as `ROLE`, `PHASE`, `TARGET`, `RESULTS_DIR`, `RUN_ID`, `DETAIL`, `JSON` | Omitted optional inputs select documented summary views. | `human_summary` or `machine_stdout_json` where declared | None | None | Does not create central run evidence unless a target row declares a summary schema. | Usage/config errors use Section 9. |
+| help and discovery | `help_discovery` | Target-local inputs declared by the Section 5.3 per-target input registry. | Omitted optional inputs select documented summary views according to the target's `input_contract`. | `human_summary` or `machine_stdout_json` where declared | None | None | Does not create central run evidence unless a target row declares a summary schema. | Usage/config errors use Section 9. |
 | bootstrap and toolchain | `bootstrap_toolchain` | Required local tools according to target | Tool paths default from Section 5. | `summary_with_artifacts` | None | May download/install repo-local tools. | Tool-run summary required. | Tool/config failures are `configuration_error` or `preflight_error`. |
 | local services and dev | `local_services_dev` | Docker Compose and local config where required | `CONFIG_FILE=configs/dev/config.toml`, `MINIO_BUCKET=cartulary` where target reads them. | `service_summary` or `interactive_raw` | None | Compose Postgres/MinIO and local processes. | Service summaries where declared; `dev` has no verification artifact contract. | Startup/readiness/config failures are harness operational failures. |
 | generated and drift | `generated_drift` | Owner inputs and manifests | `RESULTS_DIR` only where target reads retained evidence. | `summary_with_artifacts` | Only where child target declares scheduling. | Migration drift may use scratch Postgres when scheduled. | Tool summary and command-specific drift/finalizer files. | Drift mismatch is `artifact_error` or `scheduler_accounting_error`; unsafe retained-run finalization evidence is `artifact_error` or `configuration_error`. |
-| phase and service slices | `phase_service_slices` | `PHASE=phaseN` where required; `PHASE_NAMESPACE=<base|frontend>` where non-base selection is intended | `PHASE_NAMESPACE=base`; `JSON` where the target declares JSON planning output. | `scheduler_summary_with_artifacts` | Uses phase selection and service-backed scheduler. | Service-backed slice requires backing services when phase work does. | Target, run, scheduler, and phase artifacts. | Missing/invalid/ambiguous phase is `usage_error`; child failures retain child class. |
+| phase and service slices | `phase_service_slices` | `PHASE` and any namespace/output selector declared by the Section 5.3 per-target input registry. | `PHASE_NAMESPACE=base`; `JSON` where the target's `input_contract` declares JSON planning output. | `scheduler_summary_with_artifacts` | Uses phase selection and service-backed scheduler. | Service-backed slice requires backing services when phase work does. | Target, run, scheduler, and phase artifacts. | Missing/invalid/ambiguous phase is `usage_error`; child failures retain child class. |
 | backend and frontend leaf tests | `backend_frontend_leaf_tests` | Toolchain, manifests, package inputs | Parallelism and worker variables from Section 5. | `summary_with_artifacts` | Service-backed targets may use a scheduler or testservices. | Store/integration/process targets require Postgres/MinIO when service-backed. | Phase, target, tool, logs, reports. | Product assertion failures are `test_assertion_failure`; setup failures are operational. |
 | browser E2E | `browser_e2e` | Node/pnpm, Playwright browser, backend/migrate/server support, services | `PLAYWRIGHT_WORKERS=3`, `BROWSER_E2E_FUNCTIONAL_SHARDS=auto` unless overridden by Section 5. | `summary_with_artifacts` | Uses browser batch and service-backed scheduler where declared. | Postgres, MinIO, backend, frontend, browser runtime. | Browser stack, Playwright, reset, target, scheduler artifacts. | Product assertions are product failures; stack/readiness/reset failures are operational. |
 | aggregates and gates | `aggregates_gates` | Toolchain and child inputs | `summary` output mode by default; `ci` may default to `ci` mode under `scripts/ci/verify.sh`. | aggregate or scheduler output classes | `check` uses the check scheduler. | Service-backed and browser children require backing services. | Aggregate run, child target, scheduler, and tool summaries. | Exit nonzero if any required child fails or artifact validation fails. |
@@ -398,10 +398,12 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-014, TH-HARNESS-AC-023
 ```text
 resolve_harness_config(target, raw_make_vars, raw_env, wrapper_cli_args):
   assert target is a public Make target or a Make-owned wrapper target
-  declared = global_configuration_table + configuration_table[target]
+  declared = global_configuration_table + per_target_input_registry[target]
   resolved = empty map
 
   reject undeclared wrapper CLI flags
+  reject caller overrides of manifest/internal fields
+  reject undeclared public harness Make variables supplied on the Make command line
 
   for each declared variable in stable table order:
     candidates = [
@@ -423,10 +425,70 @@ resolve_harness_config(target, raw_make_vars, raw_env, wrapper_cli_args):
     record selected value, source layer, and normalized value
 
   ignore undeclared inherited environment variables
+  strip undeclared public harness variables from child process environments
   emit resolved values required by Section 8 summaries
 ```
 
-### 5.3 Empty-String Rules
+### 5.3 Per-Target Input Registry
+
+**TH-HARNESS-REQ-112**
+Every public target MUST declare a closed per-target input contract. The source registry is the public target row in `tools/execution_topology_manifest.json`; the generated `tools/task_surface_manifest.json` mirror MUST use schema `cartulary.task_surface_manifest.v14` or a later adopted schema and MUST contain `input_contract` for every row with `target_class="public"`.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-027
+
+Each `input_contract` MUST contain:
+
+| Field | Required value |
+| --- | --- |
+| `undeclared_make_command_line` | `usage_error` |
+| `undeclared_inherited_env` | `ignore` |
+| `inputs[]` | Stable ordered array of accepted target-local inputs. Empty array means the public target accepts no target-local Make variables. |
+
+Each `inputs[]` row MUST contain `name`, `binding`, `allowed_sources`, `required`, `type`, `default`, `empty_string`, `normalization`, `invalid_reason`, `summary_emission`, and `child_forwarding`. Rows MAY additionally contain bounded type metadata such as `values`, `min`, or `max`.
+
+| Row field | Meaning |
+| --- | --- |
+| `name` | Uppercase Make variable name accepted by this target. |
+| `binding` | Public invocation binding. The current profile accepts `make_variable`; a later profile MAY add wrapper CLI bindings only when Section 5.2 precedence remains preserved. |
+| `allowed_sources` | Subset of `make_command_line`, `environment`, `makefile_default`, `internal_default`, and `manifest`. A source not listed for the row MUST NOT supply the value. |
+| `required` | Whether omission after all allowed sources is a usage/configuration failure. |
+| `type` | One of the Section 5.3 type tokens. |
+| `default` | Default value or `null`; defaults are valid only when their source is declared. |
+| `empty_string` | One of `invalid`, `omitted`, or `false`. |
+| `normalization` | One of `none`, `trim`, `trim_lowercase`, or `path_token`. |
+| `invalid_reason` | `usage_error` for caller selection mistakes or `configuration_error` for invalid paths, retained evidence, internal state, or manifest-derived configuration. |
+| `summary_emission` | One of `none`, `value`, `redacted_value`, or `source_and_value`. |
+| `child_forwarding` | One of `none`, `argv`, `runtime_env`, or `argv_and_runtime_env`; undeclared public harness inputs MUST NOT reach child environments. |
+
+The closed target-local public input set in the current profile consists only of documented uses of `ROLE`, `PHASE`, `PHASE_NAMESPACE`, `TARGET`, `RESULTS_DIR`, `RUN_ID`, `DETAIL`, `JSON`, fixture report limits, duration-maintenance knobs, and scheduler timing knobs. A public target accepts one of these names only when its own `input_contract.inputs[]` declares it.
+
+**TH-HARNESS-REQ-113**
+Undeclared public harness inputs MUST have one shared result:
+
+| Caller input class | Required behavior |
+| --- | --- |
+| Undeclared wrapper CLI flag | Reject before child work with `failure_reason=usage_error`, exit `2`. |
+| Undeclared public harness Make variable supplied on the Make command line | Reject before child work with `failure_reason=usage_error`, exit `2`. |
+| Undeclared inherited environment variable | Ignore for resolution and strip from child process environments. |
+| Caller override of manifest/internal fields | Reject before child work with `failure_reason=configuration_error`, exit `2`. |
+
+Manifest and internal fields include at least `TASK_SURFACE_MANIFEST`, `CARTULARY_TASK_SURFACE_MANIFEST`, `EXECUTION_TOPOLOGY_MANIFEST`, `CARTULARY_EXECUTION_TOPOLOGY_MANIFEST`, and `SCHEDULER_MANIFEST` when supplied through public Make command-line variables. Script-level environment fallbacks such as broad manifest-path overrides, broad passthrough argument strings, or unbounded threshold variables are non-canonical implementation inputs unless a public target row declares a bounded `input_contract` entry.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
+
+| Type token | Valid values |
+| --- | --- |
+| `enum` | One of the row's `values[]` tokens after normalization. |
+| `exact_1_bool` | Exact `1` when true; empty string is false only when the row says `empty_string=false`. |
+| `phase_id` | `phaseN` for the base namespace or `FE-P<N>` for the frontend namespace, subject to Section 10. |
+| `phase_namespace` | `base` or `frontend`. |
+| `target_name` | A target name present in the task-surface manifest. |
+| `run_id` | `run_id_v1` from Section 6.2. |
+| `result_selector` | Existing result root or retained run-root path accepted by the target. |
+| `path` | Filesystem path token; path existence and safety are target-specific unless a later row narrows them. |
+| `positive_integer` | Decimal integer greater than zero and inside row bounds when declared. |
+| `positive_decimal` | Decimal number greater than zero and inside row bounds when declared. |
+| `task_surface_report_args` | Empty string, `--all`, `--check`, `--check --all`, or `--all --check`. |
+
+### 5.4 Empty-String Rules
 
 | Variable family                              | Empty string behavior                                                                |
 | -------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -439,7 +501,7 @@ resolve_harness_config(target, raw_make_vars, raw_env, wrapper_cli_args):
 | Optional config path                         | Treated as omitted.                                                                  |
 | Comma-separated lists                        | Empty string is an empty list only when the variable row says so; otherwise invalid. |
 
-### 5.4 Configuration Variable Table
+### 5.5 Configuration Variable Table
 
 | Name or family                                                                                  | Scope                   | Type and valid values                                                                                                 | Default                                                                                   | Allowed sources                                 | Empty-string behavior                                   | Normalization                                                                                                 | Invalid behavior                                                                   | Summary emission                                   |
 | ----------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------- |

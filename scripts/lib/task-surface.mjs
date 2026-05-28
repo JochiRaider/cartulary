@@ -3,7 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   hasMakeNodeTool,
-  makeNodeToolMakeEnvVars,
+  makeNodeToolResultDirMakeEnvVars,
+  makeNodeToolRuntimeEnvVars,
 } from "./make-node-tools.mjs";
 import { resourceOverrideEnvVariablesForScheduler } from "./scheduler-resources.mjs";
 import {
@@ -24,7 +25,7 @@ export const defaultGeneratedMakePath = path.join(
   "tools",
   "task_surface.generated.mk",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v13";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v14";
 
 const validTargetClasses = new Set([
   "public",
@@ -92,6 +93,59 @@ const validRawStreamPolicies = new Set([
   "machine_json_stdout",
   "never_default",
 ]);
+const validInputBindings = new Set(["make_variable"]);
+const validInputSources = new Set([
+  "make_command_line",
+  "environment",
+  "makefile_default",
+  "internal_default",
+  "manifest",
+]);
+const validInputTypes = new Set([
+  "enum",
+  "exact_1_bool",
+  "path",
+  "phase_id",
+  "phase_namespace",
+  "positive_decimal",
+  "positive_integer",
+  "result_selector",
+  "run_id",
+  "task_surface_report_args",
+  "target_name",
+]);
+const validEmptyStringRules = new Set(["invalid", "omitted", "false"]);
+const validInputNormalizations = new Set([
+  "none",
+  "trim",
+  "trim_lowercase",
+  "path_token",
+]);
+const validInputInvalidReasons = new Set(["usage_error", "configuration_error"]);
+const validInputSummaryEmission = new Set([
+  "none",
+  "value",
+  "redacted_value",
+  "source_and_value",
+]);
+const validInputChildForwarding = new Set([
+  "none",
+  "argv",
+  "runtime_env",
+  "argv_and_runtime_env",
+]);
+export const restrictedInternalMakeVariables = Object.freeze([
+  "CARTULARY_EXECUTION_TOPOLOGY_MANIFEST",
+  "CARTULARY_TASK_SURFACE_MANIFEST",
+  "EXECUTION_TOPOLOGY_MANIFEST",
+  "SCHEDULER_MANIFEST",
+  "TASK_SURFACE_MANIFEST",
+]);
+const canonicalInternalMakeValues = Object.freeze({
+  EXECUTION_TOPOLOGY_MANIFEST: "$(TASK_SURFACE_CANONICAL_EXECUTION_TOPOLOGY_MANIFEST)",
+  SCHEDULER_MANIFEST: "$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)",
+  TASK_SURFACE_MANIFEST: "$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)",
+});
 export const validSemanticBehaviors = new Set([
   "configuration_resolution",
   "evidence_normalization",
@@ -422,6 +476,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       validatePublicSemanticBehaviors(errors, entry);
       validatePublicSideEffects(errors, entry);
       validateOutputPolicy(errors, entry);
+      validatePublicInputContract(errors, entry);
     }
   }
 
@@ -796,6 +851,129 @@ function validateOutputPolicy(errors, entry) {
     `${entry.name}.output_policy.failure_budget`,
     standardFailureBudgetKeys,
   );
+}
+
+function validatePublicInputContract(errors, entry) {
+  const contract = entry.input_contract;
+  if (!contract || typeof contract !== "object" || Array.isArray(contract)) {
+    errors.push(`${entry.name}.input_contract must be declared for public targets`);
+    return;
+  }
+  const allowedKeys = new Set([
+    "undeclared_make_command_line",
+    "undeclared_inherited_env",
+    "inputs",
+  ]);
+  for (const key of Object.keys(contract)) {
+    if (!allowedKeys.has(key)) {
+      errors.push(`${entry.name}.input_contract has unknown key ${key}`);
+    }
+  }
+  if (contract.undeclared_make_command_line !== "usage_error") {
+    errors.push(`${entry.name}.input_contract.undeclared_make_command_line must be usage_error`);
+  }
+  if (contract.undeclared_inherited_env !== "ignore") {
+    errors.push(`${entry.name}.input_contract.undeclared_inherited_env must be ignore`);
+  }
+  if (!Array.isArray(contract.inputs)) {
+    errors.push(`${entry.name}.input_contract.inputs must be an array`);
+    return;
+  }
+  const seen = new Set();
+  for (const [index, input] of contract.inputs.entries()) {
+    const label = `${entry.name}.input_contract.inputs[${index + 1}]`;
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      errors.push(`${label} must be an object`);
+      continue;
+    }
+    const allowedInputKeys = new Set([
+      "name",
+      "binding",
+      "allowed_sources",
+      "required",
+      "type",
+      "values",
+      "min",
+      "max",
+      "default",
+      "empty_string",
+      "normalization",
+      "invalid_reason",
+      "summary_emission",
+      "child_forwarding",
+    ]);
+    for (const key of Object.keys(input)) {
+      if (!allowedInputKeys.has(key)) {
+        errors.push(`${label} has unknown key ${key}`);
+      }
+    }
+    if (typeof input.name !== "string" || !makeVariablePattern.test(input.name)) {
+      errors.push(`${label}.name must be a safe Make variable name`);
+    } else if (seen.has(input.name)) {
+      errors.push(`${entry.name}.input_contract.inputs contains duplicate ${input.name}`);
+    } else {
+      seen.add(input.name);
+    }
+    if (!validInputBindings.has(input.binding)) {
+      errors.push(`${label}.binding must be make_variable`);
+    }
+    if (!Array.isArray(input.allowed_sources) || input.allowed_sources.length === 0) {
+      errors.push(`${label}.allowed_sources must be a non-empty array`);
+    } else {
+      for (const source of input.allowed_sources) {
+        if (!validInputSources.has(source)) {
+          errors.push(`${label}.allowed_sources contains invalid source ${JSON.stringify(source)}`);
+        }
+      }
+    }
+    if (typeof input.required !== "boolean") {
+      errors.push(`${label}.required must be a boolean`);
+    }
+    if (!validInputTypes.has(input.type)) {
+      errors.push(`${label}.type has invalid value ${JSON.stringify(input.type)}`);
+    }
+    if (input.type === "enum") {
+      if (!Array.isArray(input.values) || input.values.length === 0) {
+        errors.push(`${label}.values must be a non-empty array for enum inputs`);
+      } else {
+        for (const value of input.values) {
+          if (typeof value !== "string" || value.trim() === "") {
+            errors.push(`${label}.values contains an invalid enum token`);
+          }
+        }
+      }
+    }
+    if (
+      Object.hasOwn(input, "min") &&
+      (!Number.isFinite(input.min) || input.min < 0)
+    ) {
+      errors.push(`${label}.min must be a non-negative finite number`);
+    }
+    if (
+      Object.hasOwn(input, "max") &&
+      (!Number.isFinite(input.max) || input.max < 0)
+    ) {
+      errors.push(`${label}.max must be a non-negative finite number`);
+    }
+    if (!Object.hasOwn(input, "default")) {
+      errors.push(`${label}.default must be declared, using null when omitted`);
+    }
+    if (!validEmptyStringRules.has(input.empty_string)) {
+      errors.push(`${label}.empty_string has invalid value ${JSON.stringify(input.empty_string)}`);
+    }
+    if (!validInputNormalizations.has(input.normalization)) {
+      errors.push(`${label}.normalization has invalid value ${JSON.stringify(input.normalization)}`);
+    }
+    if (!validInputInvalidReasons.has(input.invalid_reason)) {
+      errors.push(`${label}.invalid_reason must be usage_error or configuration_error`);
+    }
+    if (!validInputSummaryEmission.has(input.summary_emission)) {
+      errors.push(`${label}.summary_emission has invalid value ${JSON.stringify(input.summary_emission)}`);
+    }
+    if (!validInputChildForwarding.has(input.child_forwarding)) {
+      errors.push(`${label}.child_forwarding has invalid value ${JSON.stringify(input.child_forwarding)}`);
+    }
+  }
 }
 
 function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
@@ -1512,19 +1690,34 @@ export function renderTaskSurfaceMake(manifest) {
   lines.push("\t''");
   lines.push("");
   lines.push(
-    'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"',
+    "TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST := $(CURDIR)/tools/task_surface_manifest.json",
+  );
+  lines.push(
+    "TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST := $(CURDIR)/tools/scheduler_manifest.json",
+  );
+  lines.push(
+    "TASK_SURFACE_CANONICAL_EXECUTION_TOPOLOGY_MANIFEST := $(CURDIR)/tools/execution_topology_manifest.json",
+  );
+  lines.push("");
+  lines.push(
+    'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
   );
   lines.push(
     'TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"',
   );
   lines.push(
-    'TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SCHEDULER_MANIFEST="$(SCHEDULER_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
+    'TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SCHEDULER_MANIFEST="$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
   );
   lines.push(
     `TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV = ${checkSchedulerOverrideEnvExpression()}`,
   );
   lines.push(
-    'RUN_MAKE_NODE_TOOL = env NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)',
+    `TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = ${publicMakeInputNames(manifest)
+      .map((name) => `-u ${name}`)
+      .join(" ")}`,
+  );
+  lines.push(
+    'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)',
   );
   lines.push("RUN_PUBLIC_PREFLIGHT = $(RUN_HARNESS_PREFLIGHT) $(1)");
   lines.push(
@@ -1550,7 +1743,7 @@ function checkSchedulerOverrideEnvExpression() {
 function renderMakeRecipe(recipe, manifest) {
   const entry = targetEntryMap(manifest).get(recipe.target);
   const prerequisitePrelude = renderPrerequisitePrelude(recipe, entry);
-  const preflightPrelude = renderPreflightPrelude(recipe, entry);
+  const preflightPrelude = renderPreflightPrelude(recipe, entry, manifest);
   const prerequisites =
     prerequisitePrelude.length > 0 ? "" : (recipe.prerequisites ?? []).join(" ");
   const header = prerequisites
@@ -1598,7 +1791,7 @@ function renderMakeRecipe(recipe, manifest) {
       'MAKE="$(MAKE)"',
       'NODE_BIN="$(NODE_BIN)"',
       'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
-      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"',
+      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
     ];
     for (const step of sequence.steps) {
       if (step.jobsVariable) {
@@ -1610,7 +1803,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...preflightPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)${env.join(" ")} $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ${recipe.sequence}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ${recipe.sequence}`,
     ];
   }
   if (recipe.type === "check_schedule") {
@@ -1619,7 +1812,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...preflightPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env MAKE="$(MAKE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} MAKE="$(MAKE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "${makeVariableValue(recipe.manifest_variable)}"`,
     ];
   }
   if (recipe.type === "go_target") {
@@ -1628,7 +1821,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...preflightPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${goTargetEnv(recipe).join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${goTargetEnv(recipe).join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
     ];
   }
   if (recipe.type === "service_backed_target") {
@@ -1637,7 +1830,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...preflightPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${goTargetEnv(recipe).join(" ")} $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${goTargetEnv(recipe).join(" ")} $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
     ];
   }
   if (recipe.type === "service_backed_schedule") {
@@ -1646,7 +1839,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...preflightPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
     ];
   }
   if (recipe.type === "browser_batch") {
@@ -1659,7 +1852,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...preflightPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ${wrapper}./scripts/run-browser-e2e-target.sh ${recipe.stage}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ${wrapper}./scripts/run-browser-e2e-target.sh ${recipe.stage}`,
     ];
   }
   if (recipe.type === "phase_command") {
@@ -1668,7 +1861,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...preflightPrelude,
       ...prerequisitePrelude,
-      ...renderPhaseCommandRecipe(recipe, entry),
+      ...renderPhaseCommandRecipe(recipe, entry, manifest),
     ];
     if (recipe.success_summary === true) {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
@@ -1686,7 +1879,7 @@ function renderMakeRecipe(recipe, manifest) {
       'MAKE_BIN="$(MAKE)"',
       'NODE_BIN="$(NODE_BIN)"',
       'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
-      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"',
+      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
       'RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)"',
     ];
     return [
@@ -1694,12 +1887,16 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...preflightPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
     ];
   }
   if (recipe.type === "node_tool") {
-    const env = makeNodeToolMakeEnvVars(recipe.target)
-      .map((name) => `${name}="$(${name})"`)
+    const env = uniqueValues([
+      ...inputEntriesForTarget(entry),
+      ...makeNodeToolResultDirMakeEnvVars(recipe.target),
+      ...makeNodeToolRuntimeEnvVars(recipe.target),
+    ])
+      .map((name) => `${name}="${makeVariableValue(name)}"`)
       .join(" ");
     return [
       ...prefix,
@@ -1720,11 +1917,17 @@ function shouldCentralizePrerequisiteOutput(recipe, entry = null) {
   );
 }
 
-function renderPreflightPrelude(recipe, entry = null) {
+function renderPreflightPrelude(recipe, entry = null, manifest = null) {
   if (entry?.target_class !== "public") {
     return [];
   }
-  return [`\t$(call RUN_PUBLIC_PREFLIGHT,${recipe.target})`];
+  const env = publicMakeInputNames(manifest)
+    .flatMap((name) => [
+      `${name}="$(${name})"`,
+      `CARTULARY_MAKE_ORIGIN_${name}="$(origin ${name})"`,
+    ])
+    .join(" ");
+  return [`\t$(Q)env ${env} $(HARNESS_CONTRACT_SCRIPT) preflight ${recipe.target}`];
 }
 
 function renderPrerequisitePrelude(recipe, entry = null) {
@@ -1763,19 +1966,80 @@ function goTargetEnv(recipe) {
     "$(TASK_SURFACE_GO_ENV)",
     "CARTULARY_HARNESS_IDENTITY_PREPARED=1",
     ...Object.entries(recipe.env ?? {}).map(
-      ([name, value]) => `${name}="${value}"`,
+      ([name, value]) => `${name}="${normalizeInternalMakeReferences(value)}"`,
     ),
     'GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)"',
   ];
 }
 
-function renderPhaseCommandRecipe(recipe, entry = null) {
-  const env = Object.entries(recipe.env ?? {}).map(
-    ([name, value]) => `${name}="${value}"`,
+function publicMakeInputNames(manifest) {
+  const names = new Set(restrictedInternalMakeVariables);
+  for (const entry of targetEntries(manifest ?? { targets: [] })) {
+    if (entry.target_class !== "public") {
+      continue;
+    }
+    for (const input of entry.input_contract?.inputs ?? []) {
+      names.add(input.name);
+    }
+  }
+  return Array.from(names).sort((left, right) => left.localeCompare(right));
+}
+
+function inputEntriesForTarget(entry = null) {
+  return (entry?.input_contract?.inputs ?? []).map((input) => input.name);
+}
+
+function uniqueValues(values) {
+  return Array.from(new Set(values));
+}
+
+function makeVariableValue(name) {
+  return canonicalInternalMakeValues[name] ?? `$(${name})`;
+}
+
+function normalizeInternalMakeReferences(value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+  let normalized = value;
+  for (const [name, replacement] of Object.entries(canonicalInternalMakeValues)) {
+    normalized = normalized.replaceAll(`$(${name})`, replacement);
+  }
+  return normalized;
+}
+
+function runtimeForwardedInputNames(entry = null) {
+  return new Set(
+    (entry?.input_contract?.inputs ?? [])
+      .filter((input) =>
+        ["runtime_env", "argv_and_runtime_env"].includes(input.child_forwarding),
+      )
+      .map((input) => input.name),
   );
-  const envPrefix = env.length > 0 ? `${env.join(" ")} ` : "";
-  const args = (recipe.args ?? []).join(" ");
+}
+
+function envStripArgsForTarget(entry = null, manifest = null) {
+  const runtimeForwarded = runtimeForwardedInputNames(entry);
+  return publicMakeInputNames(manifest)
+    .filter((name) => !runtimeForwarded.has(name))
+    .map((name) => `-u ${name}`)
+    .join(" ");
+}
+
+function envCommandPrefixForTarget(entry = null, manifest = null, env = []) {
+  return ["env", envStripArgsForTarget(entry, manifest), ...env]
+    .filter((part) => part && part.trim() !== "")
+    .join(" ");
+}
+
+function renderPhaseCommandRecipe(recipe, entry = null, manifest = null) {
+  const env = Object.entries(recipe.env ?? {}).map(
+    ([name, value]) => `${name}="${normalizeInternalMakeReferences(value)}"`,
+  );
+  const envPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
+  const args = (recipe.args ?? []).map(normalizeInternalMakeReferences).join(" ");
   const argsSuffix = args ? ` ${args}` : "";
+  const command = (recipe.command ?? []).map(normalizeInternalMakeReferences).join(" ");
   if (recipe.mode === "run_phase") {
     const runnerEnv = [];
     if (recipe.success_summary === true) {
@@ -1785,23 +2049,23 @@ function renderPhaseCommandRecipe(recipe, entry = null) {
       runnerEnv.push(`CARTULARY_PHASE_FAILURE_NOTE="${recipe.failure_note}"`);
     }
     const runnerPrefix = runnerEnv.length > 0 ? `${runnerEnv.join(" ")} ` : "";
-    const childPrefix = env.length > 0 ? `env ${env.join(" ")} ` : "";
+    const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
     return [
-      `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${recipe.command.join(" ")}${argsSuffix}`,
+      `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${command}${argsSuffix}`,
     ];
   }
   if (recipe.mode === "node") {
-    return [`\t$(Q)${envPrefix}$(NODE_BIN) ${recipe.script}${argsSuffix}`];
+    return [`\t$(Q)${envPrefix}$(NODE_BIN) ${normalizeInternalMakeReferences(recipe.script)}${argsSuffix}`];
   }
   if (recipe.mode === "command") {
     if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v3") {
-      const childPrefix = env.length > 0 ? `env ${env.join(" ")} ` : "";
+      const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
       const testTarget = `CARTULARY_TEST_TARGET="$\${CARTULARY_TEST_TARGET:-${recipe.target}}"`;
       return [
-        `\t$(Q)${testTarget} $(RUN_PHASE_SCRIPT) "${recipe.target}" -- ${childPrefix}${recipe.command.join(" ")}${argsSuffix}`,
+        `\t$(Q)${testTarget} $(RUN_PHASE_SCRIPT) "${recipe.target}" -- ${childPrefix}${command}${argsSuffix}`,
       ];
     }
-    return [`\t$(Q)${envPrefix}${recipe.command.join(" ")}${argsSuffix}`];
+    return [`\t$(Q)${envPrefix}${command}${argsSuffix}`];
   }
   throw new Error(`unsupported phase command mode ${recipe.mode}`);
 }

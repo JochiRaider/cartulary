@@ -2124,7 +2124,12 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "help-all",
@@ -2164,7 +2169,12 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "doctor",
@@ -2212,7 +2222,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "bootstrap",
@@ -2268,7 +2283,12 @@
             ],
             "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "bootstrap-node-runtime",
@@ -2324,7 +2344,12 @@
             ],
             "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "frontend-toolchain",
@@ -2372,7 +2397,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "frontend-install",
@@ -2432,7 +2462,12 @@
             ],
             "cleanup": "repo-local clean preserves installs; distclean removes dependency roots and store according to Section 13"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "playwright-install",
@@ -2488,7 +2523,12 @@
             ],
             "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "db-up",
@@ -2546,7 +2586,12 @@
             "ownership_mode": "local_dev",
             "lifecycle_machine": "service lifecycle from Section 11"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "db-reset",
@@ -2599,7 +2644,12 @@
             "owner_section": "Section 13",
             "predicates_section": "Section 13"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "services-up",
@@ -2657,7 +2707,12 @@
             "ownership_mode": "local_dev",
             "lifecycle_machine": "service lifecycle from Section 11"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "services-wait",
@@ -2745,7 +2800,12 @@
             ],
             "lifecycle_machine": "fixture and service lifecycle from Section 11"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "dev",
@@ -2790,7 +2850,12 @@
             "ownership_mode": "local_dev",
             "lifecycle_machine": "service lifecycle from Section 11"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "codegen-toolchain",
@@ -2945,7 +3010,12 @@
               "task-surface generated Make outputs"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "generate-artifacts",
@@ -3013,7 +3083,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "generated-artifact-policy-check",
@@ -3073,7 +3148,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "json-shape-check",
@@ -3145,7 +3225,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "toolchain-drift",
@@ -3202,7 +3287,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "migration-drift",
@@ -3279,7 +3369,12 @@
             ],
             "lifecycle_machine": "fixture and service lifecycle from Section 11"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "deployable-shape",
@@ -3380,7 +3475,12 @@
               "phase coverage ledgers"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "phase-ledger-drift",
@@ -3439,7 +3539,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "phase-schedules",
@@ -3497,7 +3602,12 @@
               "execution topology render index"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "phase-schedule-drift",
@@ -3556,7 +3666,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "agent-finalize",
@@ -3613,7 +3728,30 @@
               "duration baseline artifacts when RESULTS_DIR is supplied"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "runtime_env"
+            }
+          ]
+        }
       },
       {
         "name": "benchmark-claim-check",
@@ -3661,7 +3799,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "task-surface-report",
@@ -3705,7 +3848,30 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "TASK_SURFACE_REPORT_ARGS",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "task_surface_report_args",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "task-guide",
@@ -3749,7 +3915,88 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "ROLE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "enum",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv",
+              "values": [
+                "local-dev",
+                "feature-dev",
+                "phase-author",
+                "ci-investigator",
+                "release"
+              ]
+            },
+            {
+              "name": "PHASE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "phase_id",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "PHASE_NAMESPACE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "phase_namespace",
+              "default": "base",
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "JSON",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "exact_1_bool",
+              "default": false,
+              "empty_string": "false",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "phase-slice",
@@ -3826,7 +4073,64 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "PHASE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "phase_id",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "PHASE_NAMESPACE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "phase_namespace",
+              "default": "base",
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "JSON",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "exact_1_bool",
+              "default": false,
+              "empty_string": "false",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "service-backed-slice",
@@ -3903,7 +4207,64 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "PHASE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "phase_id",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "PHASE_NAMESPACE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "phase_namespace",
+              "default": "base",
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "JSON",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "exact_1_bool",
+              "default": false,
+              "empty_string": "false",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "backend-unit",
@@ -3968,7 +4329,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "backend-store",
@@ -4041,7 +4407,12 @@
             ],
             "lifecycle_machine": "fixture and service lifecycle from Section 11"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "backend-integration",
@@ -4114,7 +4485,12 @@
             ],
             "lifecycle_machine": "fixture and service lifecycle from Section 11"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "backend-integration-support",
@@ -4201,7 +4577,12 @@
             ],
             "lifecycle_machine": "fixture and service lifecycle from Section 11"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "otel-conformance",
@@ -4291,7 +4672,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "target-plan",
@@ -4334,7 +4720,12 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "target-plan-json",
@@ -4377,7 +4768,12 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "fixture-report",
@@ -4421,7 +4817,119 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": ".cartulary/test-results",
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "RUN_ID",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "run_id",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "TARGET",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "target_name",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "JSON",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "exact_1_bool",
+              "default": false,
+              "empty_string": "false",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "FIXTURE_THRESHOLD_MS",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "positive_integer",
+              "default": 30000,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv",
+              "min": 1,
+              "max": 999999999
+            },
+            {
+              "name": "FIXTURE_TOP",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "positive_integer",
+              "default": 5,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv",
+              "min": 1,
+              "max": 999999999
+            }
+          ]
+        }
       },
       {
         "name": "explain-run",
@@ -4464,7 +4972,87 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "result_selector",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "RUN_ID",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "run_id",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "TARGET",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "target_name",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "DETAIL",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "enum",
+              "default": "summary",
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv",
+              "values": [
+                "summary",
+                "children",
+                "logs",
+                "progress"
+              ]
+            }
+          ]
+        }
       },
       {
         "name": "explain-phase",
@@ -4508,7 +5096,64 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "PHASE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "phase_id",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "PHASE_NAMESPACE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "phase_namespace",
+              "default": "base",
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "JSON",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "exact_1_bool",
+              "default": false,
+              "empty_string": "false",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "explain-target",
@@ -4553,7 +5198,69 @@
             "class": "none",
             "owner_section": "Section 4"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "TARGET",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "target_name",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "DETAIL",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "enum",
+              "default": "summary",
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv",
+              "values": [
+                "summary",
+                "rows",
+                "artifacts"
+              ]
+            },
+            {
+              "name": "JSON",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "exact_1_bool",
+              "default": false,
+              "empty_string": "false",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "go-test-duration-baselines",
@@ -4608,7 +5315,81 @@
               "Go service-backed duration baselines"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "result_selector",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "PRUNE_OBSERVED_PACKAGES",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "exact_1_bool",
+              "default": false,
+              "empty_string": "false",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "ALLOW_COMMAND_OVERHEAD_DECREASE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "exact_1_bool",
+              "default": false,
+              "empty_string": "false",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "GO_TEST_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "go-test-duration-baseline-coverage",
@@ -4667,7 +5448,30 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "GO_TEST_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "go-test-duration-baseline-drift",
@@ -4715,7 +5519,47 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": "current-run",
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "GO_TEST_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "browser-e2e-duration-baselines",
@@ -4770,7 +5614,47 @@
               "browser E2E duration baselines"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "result_selector",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "BROWSER_E2E_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "browser-e2e-duration-baseline-drift",
@@ -4818,7 +5702,47 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": "current-run",
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "BROWSER_E2E_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "service-backed-make-target-duration-baselines",
@@ -4873,7 +5797,47 @@
               "service-backed Make target duration baselines"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "result_selector",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "service-backed-make-target-duration-baseline-drift",
@@ -4921,7 +5885,47 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": "current-run",
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "harness-smoke-duration-baselines",
@@ -4976,7 +5980,47 @@
               "harness smoke duration baselines"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": true,
+              "type": "result_selector",
+              "default": null,
+              "empty_string": "invalid",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "HARNESS_SMOKE_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "duration-baseline-drift-suite",
@@ -5035,7 +6079,47 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": "current-run",
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "HARNESS_SMOKE_DURATION_BASELINE",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "configuration_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "scheduler-event-order-drift",
@@ -5084,7 +6168,47 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": "current-run",
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "TARGET",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "target_name",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            }
+          ]
+        }
       },
       {
         "name": "scheduler-summary-timing-drift",
@@ -5133,7 +6257,84 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": [
+            {
+              "name": "RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": "current-run",
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "TARGET",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "target_name",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "SCHEDULER_WARM_CHECK_BUDGET_MS",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "positive_integer",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv",
+              "min": 1,
+              "max": 999999999
+            },
+            {
+              "name": "SCHEDULER_WARM_CHECK_BALANCE_RATIO",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "positive_decimal",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv",
+              "min": 1
+            }
+          ]
+        }
       },
       {
         "name": "service-backed-unit-check",
@@ -5284,7 +6485,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "frontend-unit",
@@ -5351,7 +6557,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "frontend-import-boundary-check",
@@ -5410,7 +6621,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "lint-biome",
@@ -5469,7 +6685,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "lint-scripts",
@@ -5528,7 +6749,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "harness-contract-tests",
@@ -5615,7 +6841,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "format",
@@ -5668,7 +6899,12 @@
               "authored frontend source"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "format-go",
@@ -5766,7 +7002,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "browser-e2e-webserver-backed",
@@ -5849,7 +7090,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "browser-e2e-functional",
@@ -5957,7 +7203,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "browser-e2e-resettable",
@@ -6050,7 +7301,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "browser-e2e-a11y",
@@ -6132,7 +7388,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "browser-e2e-visual",
@@ -6213,7 +7474,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "test-local",
@@ -6305,7 +7571,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "test-fast-service-backed",
@@ -6389,7 +7660,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "lint",
@@ -6434,7 +7710,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "lint-go",
@@ -6548,7 +7829,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "go-gosec-targeted",
@@ -6611,7 +7897,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "go-gosec-audit",
@@ -6674,7 +7965,12 @@
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "check",
@@ -6749,7 +8045,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "check-frontend-install",
@@ -6890,7 +8191,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "release-check",
@@ -6961,7 +8267,12 @@
             "owner_section": "Section 12",
             "predicates_section": "Section 12"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "license-report",
@@ -7041,7 +8352,12 @@
               "apps/web/dist"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "build-server",
@@ -7107,7 +8423,12 @@
               "apps/web/dist"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "build-migrate",
@@ -7173,7 +8494,12 @@
               "apps/web/dist"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "build-operator",
@@ -7239,7 +8565,12 @@
               "apps/web/dist"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "build-web",
@@ -7293,7 +8624,12 @@
               "apps/web/dist"
             ]
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "clean",
@@ -7338,7 +8674,12 @@
             "owner_section": "Section 13",
             "predicates_section": "Section 13"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       },
       {
         "name": "distclean",
@@ -7383,7 +8724,12 @@
             "owner_section": "Section 13",
             "predicates_section": "Section 13"
           }
-        ]
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
       }
     ],
     "harness_tiers": {

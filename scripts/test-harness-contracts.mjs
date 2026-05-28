@@ -19,6 +19,10 @@ import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
 } from "./lib/task-surface.mjs";
+import {
+  HarnessConfigError,
+  preflightPublicTarget,
+} from "./lib/harness-contract.mjs";
 import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
@@ -362,6 +366,13 @@ test("public targets declare command identity and semantic value", () => {
       Array.isArray(target.side_effects) && target.side_effects.length > 0,
       `${target.name} must declare side effects`,
     );
+    assert.ok(
+      target.input_contract &&
+        target.input_contract.undeclared_make_command_line === "usage_error" &&
+        target.input_contract.undeclared_inherited_env === "ignore" &&
+        Array.isArray(target.input_contract.inputs),
+      `${target.name} must declare a closed public input contract`,
+    );
     for (const entry of target.semantic_behaviors) {
       assert.match(entry.owner_section, /^Section (?:[1-9]|1[0-9])(?:\.[0-9]+)?$/);
     }
@@ -422,6 +433,28 @@ test("public targets declare command identity and semantic value", () => {
       serviceBackedScheduleManifest: serviceBacked,
     }).join("\n"),
     /help\.side_effects must declare at least one side-effect class/,
+  );
+
+  const missingInputContract = structuredClone(taskSurface);
+  delete missingInputContract.targets.find((entry) => entry.name === "help").input_contract;
+  assert.match(
+    collectTaskSurfaceManifestErrors(missingInputContract, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /help\.input_contract must be declared for public targets/,
+  );
+
+  const misplacedInputPolicy = structuredClone(taskSurface);
+  misplacedInputPolicy.targets.find(
+    (entry) => entry.name === "target-plan",
+  ).input_contract.undeclared_make_command_line = "ignore";
+  assert.match(
+    collectTaskSurfaceManifestErrors(misplacedInputPolicy, {
+      browserBatchManifest: browserBatch,
+      serviceBackedScheduleManifest: serviceBacked,
+    }).join("\n"),
+    /target-plan\.input_contract\.undeclared_make_command_line must be usage_error/,
   );
 
   const invalidSideEffects = structuredClone(taskSurface);
@@ -521,9 +554,11 @@ test("public non-interactive wrappers run preflight before child work", () => {
     const block = targetRecipeBlock(taskSurfaceMake, target.name);
     const recipeLines = block.filter((line) => line.startsWith("\t"));
     assert.ok(recipeLines.length > 0, `${target.name} must render recipe lines`);
-    assert.equal(
+    assert.match(
       recipeLines[0],
-      `\t$(call RUN_PUBLIC_PREFLIGHT,${target.name})`,
+      new RegExp(
+        `^\\t\\$\\(Q\\)env .* \\$\\(HARNESS_CONTRACT_SCRIPT\\) preflight ${target.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+      ),
       `${target.name} must run public preflight first`,
     );
     if ((recipes[target.name]?.prerequisites ?? []).length > 0) {
@@ -534,6 +569,43 @@ test("public non-interactive wrappers run preflight before child work", () => {
       );
     }
   }
+});
+
+test("per-target input contract rejects misplaced Make variables and ignores ambient env", () => {
+  assert.throws(
+    () =>
+      preflightPublicTarget("target-plan", {
+        PHASE: "phase4",
+        CARTULARY_MAKE_ORIGIN_PHASE: "command line",
+      }),
+    (error) =>
+      error instanceof HarnessConfigError &&
+      error.failure_reason === "usage_error" &&
+      /PHASE is not declared for target target-plan/.test(error.message),
+  );
+  assert.doesNotThrow(() =>
+    preflightPublicTarget("target-plan", {
+      PHASE: "phase4",
+      CARTULARY_MAKE_ORIGIN_PHASE: "environment",
+    }),
+  );
+  assert.throws(
+    () =>
+      preflightPublicTarget("target-plan", {
+        TASK_SURFACE_MANIFEST: "/tmp/override.json",
+        CARTULARY_MAKE_ORIGIN_TASK_SURFACE_MANIFEST: "command line",
+      }),
+    (error) =>
+      error instanceof HarnessConfigError &&
+      error.failure_reason === "configuration_error" &&
+      /TASK_SURFACE_MANIFEST is an internal harness input/.test(error.message),
+  );
+  assert.doesNotThrow(() =>
+    preflightPublicTarget("target-plan", {
+      TASK_SURFACE_MANIFEST: "/tmp/override.json",
+      CARTULARY_MAKE_ORIGIN_TASK_SURFACE_MANIFEST: "environment",
+    }),
+  );
 });
 
 test("check schedule includes cheap harness contracts outside fast smoke", () => {

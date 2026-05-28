@@ -1,6 +1,17 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const defaultResultsRoot = ".cartulary/test-results";
+const defaultTaskSurfaceManifest = "tools/task_surface_manifest.json";
+const retiredPublicPassthroughEnvNames = Object.freeze([
+  "CARTULARY_EXECUTION_TOPOLOGY_MANIFEST",
+  "CARTULARY_FIXTURE_THRESHOLD_MS",
+  "CARTULARY_FIXTURE_TOP",
+  "CARTULARY_TASK_SURFACE_MANIFEST",
+  "EXECUTION_TOPOLOGY_MANIFEST",
+  "SCHEDULER_MANIFEST",
+  "TASK_SURFACE_MANIFEST",
+]);
 
 function value(env, name) {
   return env[name] ?? "";
@@ -106,7 +117,7 @@ export const makeNodeTools = {
     inputs: ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON"],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR"],
     script: "./scripts/print-task-guide.mjs",
-    usage: "usage: make task-guide [ROLE=<role>] [PHASE=phaseN] [JSON=1]",
+    usage: "usage: make task-guide [ROLE=<role>] [PHASE=phaseN] [PHASE_NAMESPACE=base|frontend] [JSON=1]",
     buildArgs(env) {
       const args = [];
       optionalFlag(args, env, "ROLE", "--role");
@@ -306,8 +317,6 @@ export const makeNodeTools = {
   "service-backed-make-target-duration-baseline-drift": {
     inputs: [
       "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
-      "EXECUTION_TOPOLOGY_MANIFEST",
-      "SCHEDULER_MANIFEST",
     ],
     script: "./scripts/service-backed-make-target-durations.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
@@ -321,13 +330,11 @@ export const makeNodeTools = {
         "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
         "--baseline-file",
       );
-      optionalFlag(args, env, "EXECUTION_TOPOLOGY_MANIFEST", "--topology");
-      optionalFlag(args, env, "SCHEDULER_MANIFEST", "--schedule-manifest");
       return args;
     },
   },
   "harness-smoke-duration-baselines": {
-    inputs: ["HARNESS_SMOKE_DURATION_BASELINE", "TASK_SURFACE_MANIFEST"],
+    inputs: ["HARNESS_SMOKE_DURATION_BASELINE"],
     script: "./scripts/harness-smoke-durations.mjs",
     resultDir: { mode: "required", positional: true },
     usage:
@@ -335,19 +342,17 @@ export const makeNodeTools = {
     buildArgs(env) {
       const args = ["update"];
       optionalFlag(args, env, "HARNESS_SMOKE_DURATION_BASELINE", "--baseline-file");
-      optionalFlag(args, env, "TASK_SURFACE_MANIFEST", "--manifest");
       return args;
     },
   },
   "harness-smoke-duration-baseline-drift": {
-    inputs: ["HARNESS_SMOKE_DURATION_BASELINE", "TASK_SURFACE_MANIFEST"],
+    inputs: ["HARNESS_SMOKE_DURATION_BASELINE"],
     script: "./scripts/harness-smoke-durations.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage: "usage: make harness-smoke-duration-baseline-drift [RESULTS_DIR=<dir>]",
     buildArgs(env) {
       const args = ["check-drift"];
       optionalFlag(args, env, "HARNESS_SMOKE_DURATION_BASELINE", "--baseline-file");
-      optionalFlag(args, env, "TASK_SURFACE_MANIFEST", "--manifest");
       return args;
     },
   },
@@ -380,6 +385,43 @@ export const makeNodeTools = {
 
 function uniqueNames(names) {
   return Array.from(new Set(names));
+}
+
+function loadTaskSurfaceManifest(env = process.env) {
+  const configured =
+    env.TASK_SURFACE_MANIFEST ||
+    env.CARTULARY_TASK_SURFACE_MANIFEST ||
+    defaultTaskSurfaceManifest;
+  const file = path.isAbsolute(configured)
+    ? configured
+    : path.join(process.cwd(), configured);
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function contractInputNames(name, env = process.env) {
+  const manifest = loadTaskSurfaceManifest(env);
+  const entry = manifest?.targets?.find((candidate) => candidate.name === name);
+  const inputs = entry?.input_contract?.inputs;
+  if (Array.isArray(inputs)) {
+    return inputs.map((input) => input.name);
+  }
+  return makeNodeTool(name).inputs ?? [];
+}
+
+function publicContractInputNames(env = process.env) {
+  const manifest = loadTaskSurfaceManifest(env);
+  if (!manifest?.targets) {
+    return [];
+  }
+  return manifest.targets.flatMap((entry) =>
+    entry?.target_class === "public"
+      ? (entry.input_contract?.inputs ?? []).map((input) => input.name)
+      : [],
+  );
 }
 
 function resultDirMakeEnvVars(resultDir) {
@@ -433,17 +475,25 @@ export function makeNodeToolRuntimeEnvVars(name) {
   return uniqueNames(makeNodeTool(name).runtimeEnv ?? []);
 }
 
+export function makeNodeToolResultDirMakeEnvVars(name) {
+  return resultDirMakeEnvVars(makeNodeTool(name).resultDir);
+}
+
 export function makeNodeToolMakeEnvVars(name) {
   const tool = makeNodeTool(name);
   return uniqueNames([
-    ...(tool.inputs ?? []),
-    ...resultDirMakeEnvVars(tool.resultDir),
+    ...contractInputNames(name),
+    ...makeNodeToolResultDirMakeEnvVars(name),
     ...(tool.runtimeEnv ?? []),
   ]);
 }
 
 export function makeNodeToolKnownEnvVars() {
-  return uniqueNames(makeNodeToolNames().flatMap((name) => makeNodeToolMakeEnvVars(name)));
+  return uniqueNames([
+    ...makeNodeToolNames().flatMap((name) => makeNodeToolMakeEnvVars(name)),
+    ...publicContractInputNames(),
+    ...retiredPublicPassthroughEnvNames,
+  ]);
 }
 
 export function buildMakeNodeToolChildEnv(name, env = process.env) {
@@ -459,8 +509,9 @@ export function buildMakeNodeToolChildEnv(name, env = process.env) {
 
 export function buildMakeNodeToolInvocation(name, env = process.env) {
   const tool = makeNodeTool(name);
+  const declaredInputs = contractInputNames(name, env);
 
-  const args = tool.buildArgs(scopedEnv(env, tool.inputs ?? [], name));
+  const args = tool.buildArgs(scopedEnv(env, declaredInputs, name));
   if (tool.resultDir) {
     const resultsDir = resultDirForMode(
       scopedEnv(env, resultDirMakeEnvVars(tool.resultDir), `${name} result-dir`),
