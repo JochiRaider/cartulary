@@ -7,9 +7,8 @@ import {
   assertRecordFieldMutationAnchor,
   changeGrouping,
   gridAnchorCommandScenarios,
-  scrollGridToBottom,
+  scrollGridCellIntoView,
   scrollGridToOffset,
-  scrollToCell,
   sortByHeader,
 } from "@cartulary/test-utils";
 import {
@@ -335,7 +334,12 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     await changeGrouping(page, "timeline", "timeline.capture_state");
 
     for (const { baseSummary, recordId, scenario, sortLabel } of commandRows) {
-      await scrollToCell(page, recordId, "summary");
+      await scrollGridCellIntoView({
+        cellKey: "summary",
+        page,
+        recordId,
+        surface: "timeline",
+      });
       const input = page.getByTestId(`row-${recordId}-summary`);
       await expect(input).toHaveValue(baseSummary);
 
@@ -371,7 +375,12 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       });
     }
 
-    await scrollGridToBottom(page, "timeline");
+    await scrollGridCellIntoView({
+      cellKey: "summary",
+      page,
+      recordId: alphaId,
+      surface: "timeline",
+    });
     await assertMountedGridRowCountAtMost({
       maxRows: 18,
       page,
@@ -396,7 +405,12 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       "false",
     );
     await changeGrouping(remotePage, "timeline", "timeline.capture_state");
-    await scrollGridToBottom(remotePage, "timeline");
+    await scrollGridCellIntoView({
+      cellKey: "summary",
+      page: remotePage,
+      recordId: alphaId,
+      surface: "timeline",
+    });
     await remotePage.getByTestId(`row-${alphaId}-summary`).focus();
     await socketMonitor.waitForMessage("presence_delta");
     await expect(

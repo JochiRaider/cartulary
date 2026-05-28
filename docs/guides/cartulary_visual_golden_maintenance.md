@@ -98,7 +98,7 @@ Before handoff:
 - inspect the generated diff and confirm it matches the intended visual contract;
 - run `make frontend-unit` or `scripts/check-font-bundle.mjs` when font files, font CSS, manifests, or generated report templates changed;
 - run `make browser-e2e-visual`;
-- run `make agent-finalize`, passing `RESULTS_DIR=<successful retained run root>` when a successful retained run should refresh and validate timing maintenance inputs;
+- run `make agent-finalize`, passing `RESULTS_DIR=<successful full warm check run root>` when a successful retained run should refresh and validate timing maintenance inputs;
 - report whether `agent-finalize` ran unchanged, updated generated artifacts, skipped retained-run maintenance because `RESULTS_DIR` was unset, or failed.
 
-`RESULTS_DIR` must identify a successful, uncontaminated retained run. A failed run, including a `make check` run whose summary reports `failure_class=product`, is invalid finalizer input; running `make agent-finalize` without `RESULTS_DIR` validates only the non-retained-run maintenance path.
+`RESULTS_DIR` must identify a successful, uncontaminated full warm `make check` retained run. Failed runs, service-backed-only runs, browser-only runs, phase-slice runs, and `make check` runs whose summaries report `failure_class=product` are invalid finalizer input; running `make agent-finalize` without `RESULTS_DIR` validates only the non-retained-run maintenance path.

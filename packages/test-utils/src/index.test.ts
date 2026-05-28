@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertGridFocusContinuity,
   assertMarkerAnchoredToGridTarget,
+  scrollGridCellIntoView,
   scrollGridTargetIntoView,
 } from "./index";
 
@@ -165,6 +166,31 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
     ).resolves.toEqual({ left: 0, top: 520 });
 
     expect(grid.scrollTop).toBe(520);
+    expect(scrollIntoViewCalls).toEqual([targetTestId]);
+  });
+
+  it("targets a row cell by stable record id and cell key", async () => {
+    const { grid, page, scrollIntoViewCalls, targetTestId } =
+      installGridTargetFixture({
+        clientHeight: 200,
+        currentScroll: { left: 0, top: 0 },
+        isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 400,
+        scrollHeight: 900,
+        targetTestId: "row-record-1-summary",
+      });
+
+    await expect(
+      scrollGridCellIntoView({
+        cellKey: "summary",
+        intervalMs: 0,
+        page,
+        recordId: "record-1",
+        surface: "timeline",
+        timeoutMs: 1_000,
+      }),
+    ).resolves.toEqual({ left: 0, top: 400 });
+
+    expect(grid.scrollTop).toBe(400);
     expect(scrollIntoViewCalls).toEqual([targetTestId]);
   });
 

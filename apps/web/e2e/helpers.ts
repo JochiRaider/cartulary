@@ -238,19 +238,27 @@ export async function holdBrowserApiRequest(
     },
     dispose: async () => {
       releaseHold?.();
-      if (page.isClosed()) {
-        return;
-      }
-      try {
-        await page.unroute(routePattern, routeHandler);
-      } catch (error: unknown) {
-        if (!isClosedPageRouteCleanupError(error)) {
-          throw error;
-        }
-      }
+      await safeUnroute(page, routePattern, routeHandler);
     },
     hitCount: () => matchingHitCount,
   };
+}
+
+export async function safeUnroute(
+  page: Page,
+  routePattern: Parameters<Page["unroute"]>[0],
+  routeHandler: Parameters<Page["unroute"]>[1],
+) {
+  if (page.isClosed()) {
+    return;
+  }
+  try {
+    await page.unroute(routePattern, routeHandler);
+  } catch (error: unknown) {
+    if (!isClosedPageRouteCleanupError(error)) {
+      throw error;
+    }
+  }
 }
 
 function isClosedPageRouteCleanupError(error: unknown) {

@@ -180,16 +180,6 @@ export async function changeGrouping(
     .selectOption?.(fieldKey);
 }
 
-export async function scrollToCell(
-  page: BrowserPageLike,
-  recordId: string,
-  fieldKey: string,
-) {
-  await page
-    .getByTestId(rowCellTestId(recordId, fieldKey))
-    .scrollIntoViewIfNeeded?.();
-}
-
 export function assertAnchorTestId(recordId: string, fieldKey: string): string {
   return rowCellTestId(recordId, fieldKey);
 }
@@ -261,6 +251,28 @@ export async function scrollGridToOffset(
     `scrollGridToOffset(${surface}) requires locator.evaluate() support`,
   );
   return readScrollSnapshot(evaluate, surface, { kind: "offset", top });
+}
+
+export async function scrollGridCellIntoView(options: {
+  cellKey: string;
+  intervalMs?: number;
+  page: BrowserPageLike;
+  recordId: string;
+  surface: WorkbookSurface;
+  timeoutMs?: number;
+}) {
+  const scanOptions: Parameters<typeof scrollGridTargetIntoView>[0] = {
+    page: options.page,
+    surface: options.surface,
+    targetTestId: rowCellTestId(options.recordId, options.cellKey),
+  };
+  if (options.intervalMs !== undefined) {
+    scanOptions.intervalMs = options.intervalMs;
+  }
+  if (options.timeoutMs !== undefined) {
+    scanOptions.timeoutMs = options.timeoutMs;
+  }
+  return scrollGridTargetIntoView(scanOptions);
 }
 
 export async function scrollGridTargetIntoView(options: {

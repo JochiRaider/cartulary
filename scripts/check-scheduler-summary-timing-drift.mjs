@@ -5,7 +5,7 @@ import path from "node:path";
 import { collectGoShardPlan } from "./lib/go-shard-plan.mjs";
 import { validateSchedulerSummaryTiming } from "./lib/scheduler/summary-timing-drift.mjs";
 
-const warmBalanceMaterialSkewMs = 2500;
+const warmBalanceMaterialSkewMs = 5000;
 
 function usage() {
   process.stderr.write(

@@ -1399,7 +1399,7 @@ function writeWarmRun(name, { serviceMs = 58000, measurement = false, browserSke
     finish("check-service-backed:browser-stage-session:measurement", 13000, 13000);
   }
 
-  const browserDurations = browserSkew ? [20000, 21000, 30000] : [20000, 21000, 22000];
+  const browserDurations = browserSkew ? [20000, 21000, 40000] : [20000, 21000, 22000];
   for (const [index, durationMs] of browserDurations.entries()) {
     start(`check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-${index + 1}`, 0, {
       work_unit_type: "browser_group",

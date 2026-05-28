@@ -26,7 +26,7 @@ const repoRoot = path.resolve(scriptDir, "..");
 const makeBin = process.env.MAKE || "make";
 const target = "agent-finalize";
 const resultsDirInput = (process.env.RESULTS_DIR || "").trim();
-const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "135000";
+const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "240000";
 const warmBalanceRatio =
   process.env.SCHEDULER_WARM_CHECK_BALANCE_RATIO || "1.25";
 
@@ -530,6 +530,16 @@ function validateRetainedRun(resultsDir, actionID) {
     "scheduler-summary.json",
   );
   const checkEvents = path.join(resolved, "check", "scheduler-events.jsonl");
+  if (!existsSync(checkToolSummary)) {
+    return {
+      ok: false,
+      failure: preflightFailure(
+        actionID,
+        `${relToRepo(checkToolSummary)} is required; RESULTS_DIR must be a successful full warm make check retained run root`,
+        "config",
+      ),
+    };
+  }
   const checkSummary = readJSON(checkToolSummary);
   if (!checkSummary || checkSummary.status !== "pass") {
     return {

@@ -132,6 +132,76 @@ JSON
 JSON
 }
 
+write_service_backed_only_run() {
+  local dir="$1"
+  mkdir -p "$dir/check-service-backed"
+  cat >"$dir/check-service-backed/tool-run-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.tool_run_summary.v3",
+  "target": "check-service-backed",
+  "status": "pass"
+}
+JSON
+}
+
+write_incomplete_retained_run() {
+  local dir="$1"
+  mkdir -p "$dir/check"
+  cat >"$dir/check/tool-run-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.tool_run_summary.v3",
+  "target": "check",
+  "status": "pass"
+}
+JSON
+  cat >"$dir/check/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.check_scheduler_summary.v9",
+  "target": "check",
+  "status": "pass"
+}
+JSON
+  cat >"$dir/check/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}
+JSONL
+}
+
+assert_invalid_results_dir() {
+  local label="$1"
+  local retained_root="$2"
+  local expected_class="$3"
+  local expected_reason="$4"
+  local expected_headline="$5"
+  local scenario_dir="$TMP_DIR/invalid-${label}"
+  mkdir -p "$scenario_dir"
+  local scenario_make="$scenario_dir/fake-make"
+  local scenario_log="$scenario_dir/make.log"
+  write_fake_make "$scenario_make"
+  set +e
+  CARTULARY_TEST_RESULTS_DIR="$scenario_dir/results" \
+  CARTULARY_TEST_RUN_ID="$label" \
+  CARTULARY_PHASE_ARTIFACT_DIR="$scenario_dir/results/$label/agent-finalize/agent-finalize" \
+  MAKE="$scenario_make" \
+  FAKE_MAKE_LOG="$scenario_log" \
+  RESULTS_DIR="$retained_root" \
+    "$SCRIPT" >"$scenario_dir/stdout.log" 2>"$scenario_dir/stderr.log"
+  local status=$?
+  set -e
+  if [[ "$status" -eq 0 ]]; then
+    fail "$label invalid RESULTS_DIR unexpectedly passed"
+  fi
+  if [[ -f "$scenario_log" ]]; then
+    fail "$label preflight failure must not run mutating child targets"
+  fi
+  local summary="$scenario_dir/results/$label/agent-finalize/finalize-summary.json"
+  assert_equals "$(json_field "$summary" 'value.results_dir_status')" "invalid" "$label results dir status"
+  assert_equals "$(json_field "$summary" 'value.failures[0].action_id')" "structure_ledger_refresh" "$label failure action"
+  assert_equals "$(json_field "$summary" 'value.failures[0].substep_id')" "retained-run-preflight" "$label failure substep"
+  assert_equals "$(json_field "$summary" 'value.failures[0].failure_class')" "$expected_class" "$label failure class"
+  assert_equals "$(json_field "$summary" 'value.failures[0].failure_reason')" "$expected_reason" "$label failure reason"
+  assert_contains "$(json_field "$summary" 'value.failures[0].headline')" "$expected_headline" "$label failure headline"
+}
+
 success_dir="$TMP_DIR/success"
 mkdir -p "$success_dir"
 success_make="$success_dir/fake-make"
@@ -174,32 +244,76 @@ assert_equals "$(json_field "$results_summary" 'value.duration.status')" "refres
 assert_equals "$(json_field "$results_summary" 'value.run_checks.status')" "pass" "RESULTS_DIR run checks pass"
 assert_equals "$(json_field "$results_summary" 'value.actions.find((action) => action.action_id === "duration_baseline_refresh").substeps.map((substep) => substep.id).slice(-2)')" $'phase-schedules-after-duration-baselines\nphase-schedule-drift-after-duration-baselines' "RESULTS_DIR refreshes schedules after duration baselines"
 
-preflight_dir="$TMP_DIR/preflight-fail"
-mkdir -p "$preflight_dir"
-preflight_make="$preflight_dir/fake-make"
-preflight_log="$preflight_dir/make.log"
-write_fake_make "$preflight_make"
-set +e
-CARTULARY_TEST_RESULTS_DIR="$preflight_dir/results" \
-CARTULARY_TEST_RUN_ID="preflight-fail" \
-CARTULARY_PHASE_ARTIFACT_DIR="$preflight_dir/results/preflight-fail/agent-finalize/agent-finalize" \
-MAKE="$preflight_make" \
-FAKE_MAKE_LOG="$preflight_log" \
-RESULTS_DIR="$TMP_DIR/missing-results" \
-  "$SCRIPT" >"$preflight_dir/stdout.log" 2>"$preflight_dir/stderr.log"
-preflight_status=$?
-set -e
-if [[ "$preflight_status" -eq 0 ]]; then
-  fail "missing RESULTS_DIR unexpectedly passed"
-fi
-if [[ -f "$preflight_log" ]]; then
-  fail "preflight failure must not run mutating child targets"
-fi
-preflight_summary="$preflight_dir/results/preflight-fail/agent-finalize/finalize-summary.json"
-assert_equals "$(json_field "$preflight_summary" 'value.results_dir_status')" "invalid" "preflight status"
-assert_equals "$(json_field "$preflight_summary" 'value.failures[0].action_id')" "structure_ledger_refresh" "preflight failure action"
-assert_equals "$(json_field "$preflight_summary" 'value.failures[0].substep_id')" "retained-run-preflight" "preflight failure substep"
-assert_equals "$(json_field "$preflight_summary" 'value.failures[0].failure_class')" "config" "preflight failure class"
+assert_invalid_results_dir \
+  "missing-results" \
+  "$TMP_DIR/missing-results" \
+  "config" \
+  "configuration_error" \
+  "RESULTS_DIR does not exist"
+
+service_backed_only_dir="$TMP_DIR/service-backed-only"
+write_service_backed_only_run "$service_backed_only_dir"
+assert_invalid_results_dir \
+  "service-backed-only" \
+  "$service_backed_only_dir" \
+  "config" \
+  "configuration_error" \
+  "must be a successful full warm make check retained run root"
+
+failed_retained_dir="$TMP_DIR/failed-retained"
+write_retained_run "$failed_retained_dir"
+cat >"$failed_retained_dir/check/tool-run-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.tool_run_summary.v3",
+  "target": "check",
+  "status": "fail"
+}
+JSON
+assert_invalid_results_dir \
+  "failed-retained" \
+  "$failed_retained_dir" \
+  "artifact" \
+  "artifact_error" \
+  "must identify a passing warm check run"
+
+incomplete_retained_dir="$TMP_DIR/incomplete-retained"
+write_incomplete_retained_run "$incomplete_retained_dir"
+assert_invalid_results_dir \
+  "incomplete-retained" \
+  "$incomplete_retained_dir" \
+  "artifact" \
+  "artifact_error" \
+  "scheduler, target, and phase summary artifact families"
+
+non_warm_retained_dir="$TMP_DIR/non-warm-retained"
+write_retained_run "$non_warm_retained_dir"
+rm "$non_warm_retained_dir/check/scheduler-summary.json"
+assert_invalid_results_dir \
+  "non-warm-retained" \
+  "$non_warm_retained_dir" \
+  "artifact" \
+  "artifact_error" \
+  "required for warm scheduler checks"
+
+contaminated_retained_dir="$TMP_DIR/contaminated-retained"
+write_retained_run "$contaminated_retained_dir"
+mkdir -p "$contaminated_retained_dir/check-service-backed/service-session"
+cat >"$contaminated_retained_dir/check-service-backed/service-session/service-scope.json" <<'JSON'
+{
+  "postgres": {
+    "startup": {
+      "final_status": "pass",
+      "retry_count": 1
+    }
+  }
+}
+JSON
+assert_invalid_results_dir \
+  "contaminated-retained" \
+  "$contaminated_retained_dir" \
+  "artifact" \
+  "artifact_error" \
+  "contaminated timing evidence"
 
 failure_dir="$TMP_DIR/child-fail"
 mkdir -p "$failure_dir"

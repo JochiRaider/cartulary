@@ -15,6 +15,7 @@ import {
   createViewRow,
   csrfHeaders,
   queryViewRows,
+  safeUnroute,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
@@ -608,7 +609,7 @@ export async function installPatchController(page: Page) {
   return {
     calls,
     dispose: async () => {
-      await page.unroute(routePattern, handler);
+      await safeUnroute(page, routePattern, handler);
     },
     failNextPatch: (status: number, code: string) => {
       behaviors.push({ code, status, type: "error" });
@@ -677,7 +678,7 @@ export async function installPatchTransportFailureController(page: Page) {
       connected = false;
     },
     dispose: async () => {
-      await page.unroute(routePattern, handler);
+      await safeUnroute(page, routePattern, handler);
     },
   };
 }
