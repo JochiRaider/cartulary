@@ -2416,8 +2416,35 @@ function schedulerTimingFromSummary(summary) {
   };
 }
 
-function schedulerTimingForTarget(target) {
-  return schedulerTimingFromSummary(loadSchedulerSummary(target));
+function schedulerAccountingFromSummary(summary) {
+  const accounting = summary?.extensions?.["cartulary.scheduler_accounting"];
+  if (!accounting || typeof accounting !== "object") {
+    return null;
+  }
+  return {
+    reused_duration_ms: clampDurationMs(accounting.reused_duration_ms ?? 0),
+    actual_duration_ms: clampDurationMs(accounting.actual_duration_ms ?? 0),
+    accounting_modes: resolveAccountingModes(accounting.accounting_modes, 0),
+    input_stamp_outcomes:
+      accounting.input_stamp_outcomes && typeof accounting.input_stamp_outcomes === "object"
+        ? accounting.input_stamp_outcomes
+        : {},
+    work_unit_accounting: Array.isArray(accounting.work_unit_accounting)
+      ? accounting.work_unit_accounting
+      : [],
+  };
+}
+
+function addSchedulerAccountingDurations(target, accounting) {
+  if (!accounting) {
+    return;
+  }
+  target.reused_duration_ms = clampDurationMs(
+    (target.reused_duration_ms ?? 0) + accounting.reused_duration_ms,
+  );
+  target.logical_duration_ms = clampDurationMs(
+    (target.logical_duration_ms ?? 0) + accounting.reused_duration_ms,
+  );
 }
 
 function schedulerTimingSpan(timing) {
@@ -3281,7 +3308,9 @@ function handleTargetSummary(args) {
       : "PASS";
   const reportCollationEndMs = Date.now();
   const reportCollationEndTime = new Date(reportCollationEndMs).toISOString();
-  const schedulerTiming = schedulerTimingForTarget(target);
+  const schedulerSummary = loadSchedulerSummary(target);
+  const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
+  const schedulerAccounting = schedulerAccountingFromSummary(schedulerSummary);
   const accountableTimingSpans = [
     ...lifecycleSpans,
     schedulerTimingSpan(schedulerTiming),
@@ -3407,7 +3436,12 @@ function handleTargetSummary(args) {
     totalsSection.critical_path_wall_duration_ms =
       ownSection.critical_path_wall_duration_ms;
   }
-  const schedulerSummary = loadSchedulerSummary(target);
+  if (schedulerAccounting) {
+    addSchedulerAccountingDurations(totalsSection, schedulerAccounting);
+    const modes = resolveAccountingModes(totalsSection.accounting_modes, 0);
+    mergeAccountingModes(modes, schedulerAccounting.accounting_modes);
+    totalsSection.accounting_modes = modes;
+  }
   const schedulerFailureOverride =
     status === "FAIL" &&
     schedulerSummary?.status === "fail" &&
@@ -3455,6 +3489,13 @@ function handleTargetSummary(args) {
       ...durationFieldsForJSON(totalsSection),
     },
     scheduler_timing: schedulerTiming,
+    ...(schedulerAccounting
+      ? {
+          extensions: {
+            "cartulary.scheduler_accounting": schedulerAccounting,
+          },
+        }
+      : {}),
   };
   writeValidatedJson(
     path.join(summary.targetDir, "target-summary.json"),
@@ -4108,7 +4149,13 @@ function handleRunSummary(args) {
   );
   const aggregate = summarized.aggregate;
   const accountingModes = summarized.accountingModes;
-  const schedulerTiming = schedulerTimingForTarget(label);
+  const schedulerSummary = loadSchedulerSummary(label);
+  const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
+  const schedulerAccounting = schedulerAccountingFromSummary(schedulerSummary);
+  if (schedulerAccounting) {
+    addSchedulerAccountingDurations(aggregate, schedulerAccounting);
+    mergeAccountingModes(accountingModes, schedulerAccounting.accounting_modes);
+  }
   const wallDurationMs =
     schedulerTiming?.scheduler_total_duration_ms ?? summarized.wallDurationMs;
   const criticalPathWallDurationMs =
@@ -4202,6 +4249,13 @@ function handleRunSummary(args) {
     summary_groups: renderedSummaryGroups,
     shared_execution_groups: sharedExecutionGroups,
     ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
+    ...(schedulerAccounting
+      ? {
+          extensions: {
+            "cartulary.scheduler_accounting": schedulerAccounting,
+          },
+        }
+      : {}),
   };
   writeValidatedJson(
     path.join(resultsRoot, runId, "run-summary.json"),

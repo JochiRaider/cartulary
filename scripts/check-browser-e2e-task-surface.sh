@@ -27,6 +27,7 @@ web_package_json="$repo_root/apps/web/package.json"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
 measurement_script="$repo_root/scripts/run-browser-e2e-measurement.sh"
 visual_script="$repo_root/scripts/run-browser-e2e-visual.sh"
+visual_smoke_script="$repo_root/scripts/run-browser-e2e-visual-smoke.sh"
 resettable_script="$repo_root/scripts/run-browser-e2e-resettable.sh"
 reset_script="$repo_root/scripts/reset-web-e2e-stack.sh"
 webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
@@ -514,9 +515,10 @@ for scheduled_target in \
   gosec-toolchain \
   shell-lint-toolchain \
   check-frontend-install \
-  build-server \
-  build-migrate \
-  test-service-images \
+	  build-server \
+	  build-migrate \
+	  testservices-build \
+	  test-service-images \
   check-service-backed \
   migration-drift \
   deployable-shape \
@@ -681,7 +683,7 @@ for (const session of [sharedSession, statefulSession]) {
     throw new Error(`${session.label} browser stage session must not retain broad Postgres or MinIO claims`);
   }
 }
-for (const resource of ["browser_stage_webserver_backed", "browser_stage_visual", "browser_stage_a11y"]) {
+for (const resource of ["browser_stage_webserver_backed", "browser_stage_visual_smoke", "browser_stage_a11y"]) {
   if (sharedSession.retained_resource_claims?.[resource] !== 1) {
     throw new Error(`shared default browser session must retain ${resource}`);
   }
@@ -844,6 +846,9 @@ fi
 if ! [[ -f "$visual_script" ]]; then
   fail "missing scripts/run-browser-e2e-visual.sh"
 fi
+if ! [[ -x "$visual_smoke_script" ]]; then
+  fail "missing executable scripts/run-browser-e2e-visual-smoke.sh"
+fi
 if ! [[ -f "$resettable_script" ]]; then
   fail "missing scripts/run-browser-e2e-resettable.sh"
 fi
@@ -891,7 +896,7 @@ const byName = new Map((manifest.stages ?? []).map((stage) => [stage.name, stage
 if ((manifest.stages ?? []).some((stage) => stage.scheduler_dependency_policy !== undefined)) {
   throw new Error("browser stages must not use obsolete scheduler_dependency_policy");
 }
-for (const name of ["webserver-backed", "stateful", "visual"]) {
+for (const name of ["webserver-backed", "stateful"]) {
   const stage = byName.get(name);
   if (!stage) {
     throw new Error(`missing ${name} stage`);
@@ -905,6 +910,29 @@ for (const name of ["webserver-backed", "stateful", "visual"]) {
   if ((stage.scheduler_needs ?? []).length !== 0) {
     throw new Error(`${name} must not declare broad service-backed scheduler needs`);
   }
+}
+const visual = byName.get("visual");
+if (!visual) {
+  throw new Error("missing visual stage");
+}
+if (!(visual.schedule_tags ?? []).includes("service_backed_full")) {
+  throw new Error("visual must be tagged service_backed_full");
+}
+if ((visual.schedule_tags ?? []).includes("service_backed_check")) {
+  throw new Error("visual full stage must not be tagged service_backed_check");
+}
+const visualSmoke = byName.get("visual-smoke");
+if (!visualSmoke) {
+  throw new Error("missing visual-smoke stage");
+}
+if (!(visualSmoke.schedule_tags ?? []).includes("service_backed_check")) {
+  throw new Error("visual-smoke must be tagged service_backed_check");
+}
+if ((visualSmoke.schedule_tags ?? []).includes("service_backed_full")) {
+  throw new Error("visual-smoke must not be tagged service_backed_full");
+}
+if ((visualSmoke.groups ?? []).some((group) => group.kind !== "visual_smoke")) {
+  throw new Error("visual-smoke must use visual_smoke groups");
 }
 const measurement = byName.get("measurement");
 if (!measurement) {

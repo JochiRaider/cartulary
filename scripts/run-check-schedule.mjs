@@ -83,6 +83,7 @@ const schedulerReadinessTargets = new Set([
   "build-server",
   "build-migrate",
   "build-operator",
+  "testservices-build",
   "test-service-images",
 ]);
 
@@ -1157,6 +1158,7 @@ function attachRuntime(
           ["measurement", "run-browser-e2e-measurement.sh"],
           ["a11y", "run-browser-e2e-a11y.sh"],
           ["visual", "run-browser-e2e-visual.sh"],
+          ["visual_smoke", "run-browser-e2e-visual-smoke.sh"],
         ]);
         const script = scriptsByKind.get(group.kind);
         if (!script) {

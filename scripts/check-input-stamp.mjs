@@ -41,6 +41,47 @@ const profiles = {
     files: ["Makefile", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"],
     env: ["NODE_BIN"],
   },
+  generate_drift: {
+    prefixes: [
+      "contracts/",
+      "db/migrations/",
+      "db/queries/",
+      "docs/spec/",
+      "internal/gen/",
+      "internal/platform/postgres/",
+      "scripts/",
+      "tools/",
+    ],
+    suffixes: [".go", ".json", ".mjs", ".js", ".sh", ".md", ".sql", ".yaml", ".yml"],
+    files: [
+      "Makefile",
+      "go.mod",
+      "go.sum",
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "sqlc.yaml",
+      "scripts/check-generate-drift.sh",
+      "scripts/generate-artifacts.sh",
+      "tools/generated_artifact_policy.json",
+    ],
+    env: ["GO", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "NODE_BIN", "SQLC_BIN"],
+  },
+  frontend_static: {
+    prefixes: ["apps/web/", "packages/", "scripts/", "tools/"],
+    suffixes: [".css", ".json", ".mjs", ".js", ".sh", ".ts", ".tsx", ".yaml", ".yml"],
+    files: [
+      "Makefile",
+      "biome.json",
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "scripts/check-frontend-import-boundaries.mjs",
+      "scripts/run-frontend-biome.sh",
+      "tools/frontend_import_boundaries.json",
+    ],
+    env: ["BIOME_CHECK_FLAGS", "NODE_BIN", "PNPM"],
+  },
 };
 
 function usage() {
@@ -143,6 +184,18 @@ function writeStamp(file, data) {
   writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
 }
 
+function emitEvidence(options, outcome, { disabled, digest, stampFile }) {
+  console.log(`check input stamp evidence: ${JSON.stringify({
+    schema_id: "cartulary.check_input_stamp.outcome.v1",
+    stamp_id: options.stampID,
+    profile: options.profile,
+    outcome,
+    disabled,
+    stamp_file: path.relative(repoRoot, stampFile),
+    digest,
+  })}`);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const disabled = process.env.CI === "1" || process.env.CARTULARY_CHECK_DISABLE_INPUT_STAMPS === "1";
@@ -155,13 +208,16 @@ function main() {
   const existing = disabled ? null : readStamp(stampFile);
   if (!disabled && existing?.digest === digest) {
     console.log(`check input stamp hit: ${options.stampID}`);
+    emitEvidence(options, "hit", { disabled, digest, stampFile });
     return;
   }
 
   if (disabled) {
     console.log(`check input stamp bypassed: ${options.stampID}`);
+    emitEvidence(options, "bypassed", { disabled, digest, stampFile });
   } else {
     console.log(`check input stamp miss: ${options.stampID}`);
+    emitEvidence(options, "miss", { disabled, digest, stampFile });
   }
   const [command, ...args] = options.command;
   const result = spawnSync(command, args, {

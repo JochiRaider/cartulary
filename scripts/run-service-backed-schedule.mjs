@@ -553,7 +553,7 @@ function schedulerClaimsForShard(shard, resourceLimits) {
       }
       return new Map([
         [goCPUResource, 1],
-        [goIOResource, 3],
+        [goIOResource, 2],
         [postgresResetResource, 1],
       ]);
     case "clone_heavy":
@@ -866,7 +866,7 @@ function estimateGoIOLimit(goShardUnits, goCPULimit) {
     transactionHeavy +
     ioHeavy * 2 +
     cloneHeavy * 2 +
-    resetHeavy * 3 +
+    resetHeavy * 2 +
     Math.ceil(cpuHeavy / 2);
   return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 24);
 }
@@ -1110,6 +1110,7 @@ function attachRuntime(
           ["measurement", "run-browser-e2e-measurement.sh"],
           ["a11y", "run-browser-e2e-a11y.sh"],
           ["visual", "run-browser-e2e-visual.sh"],
+          ["visual_smoke", "run-browser-e2e-visual-smoke.sh"],
         ]);
         const script = scriptsByKind.get(group.kind);
         if (!script) {

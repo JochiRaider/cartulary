@@ -53,7 +53,15 @@ const serviceBrowserGroupKeys = new Set([
   "weight_ms",
   "resource_claims",
 ]);
-const browserGroupKinds = new Set(["functional_shard", "support", "stateful", "measurement", "visual", "a11y"]);
+const browserGroupKinds = new Set([
+  "functional_shard",
+  "support",
+  "stateful",
+  "measurement",
+  "visual",
+  "visual_smoke",
+  "a11y",
+]);
 const serviceGeneratedKeys = new Set([
   "generator",
   "topology",

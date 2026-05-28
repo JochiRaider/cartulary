@@ -1186,9 +1186,15 @@
       ],
       "test_target": "self"
     },
-    "test-service-images": {
+    "testservices-build": {
       "prerequisites": [
         "$(TEST_SERVICES_BIN)"
+      ],
+      "type": "alias"
+    },
+    "test-service-images": {
+      "prerequisites": [
+        "testservices-build"
       ],
       "type": "phase_command",
       "mode": "run_phase",
@@ -5941,6 +5947,14 @@
       "lifecycle_state": "candidate_child"
     },
     {
+      "name": "testservices-build",
+      "target_class": "internal_helper",
+      "default_inclusion_sets": [
+        "check"
+      ],
+      "lifecycle_state": "candidate_child"
+    },
+    {
       "name": "test-service-images",
       "target_class": "internal_helper",
       "default_inclusion_sets": [
@@ -6870,6 +6884,7 @@
         "scripts/run-browser-e2e-batch.sh",
         "scripts/lib/browser-batch-manifest.mjs",
         "scripts/run-browser-e2e-visual.sh",
+        "scripts/run-browser-e2e-visual-smoke.sh",
         "scripts/start-web-e2e.sh"
       ],
       "output_policy": {

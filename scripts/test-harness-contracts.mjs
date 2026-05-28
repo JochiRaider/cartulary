@@ -635,7 +635,7 @@ test("default check service-backed browser work uses declared session groups", (
     new Map(browserSources.map((source) => [source.browser_stage, source.browser_session_group])),
     new Map([
       ["webserver-backed", "default-check-browser-shared"],
-      ["visual", "default-check-browser-shared"],
+      ["visual-smoke", "default-check-browser-shared"],
       ["a11y", "default-check-browser-shared"],
       ["stateful", "default-check-stateful-isolated"],
     ]),

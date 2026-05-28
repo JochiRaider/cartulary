@@ -392,7 +392,7 @@ function defaultGoPostgresFixturePolicy(entry) {
     return postgresFixturePolicyTransaction;
   }
   if (entry.execution_dependency === "backend_integration") {
-    return postgresFixturePolicyPackageReset;
+    return postgresFixturePolicyTemplateClone;
   }
   if (entry.execution_dependency === "backend_process") {
     return postgresFixturePolicyTemplateClone;
@@ -402,7 +402,7 @@ function defaultGoPostgresFixturePolicy(entry) {
 
 function defaultSupportPostgresFixturePolicy(entry) {
   if (entry.target === "backend_integration_support") {
-    return postgresFixturePolicyPackageReset;
+    return postgresFixturePolicyTemplateClone;
   }
   return "";
 }

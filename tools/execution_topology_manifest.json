@@ -1394,9 +1394,15 @@
         ],
         "test_target": "self"
       },
-      "test-service-images": {
+      "testservices-build": {
         "prerequisites": [
           "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "alias"
+      },
+      "test-service-images": {
+        "prerequisites": [
+          "testservices-build"
         ],
         "type": "phase_command",
         "mode": "run_phase",
@@ -3040,7 +3046,10 @@
           "order": 300,
           "needs": [
             "codegen-toolchain"
-          ]
+          ],
+          "local_input_stamp": {
+            "profile": "generate_drift"
+          }
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -6359,6 +6368,25 @@
         "lifecycle_state": "candidate_child"
       },
       {
+        "name": "testservices-build",
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_go_binary",
+          "priority_band": "build_readiness",
+          "order": 1950,
+          "needs": [
+            "toolchain-drift"
+          ]
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
+      },
+      {
         "name": "test-service-images",
         "check_schedule": {
           "schedules": [
@@ -6368,7 +6396,7 @@
           "priority_band": "build_readiness",
           "order": 2000,
           "needs": [
-            "toolchain-drift"
+            "testservices-build"
           ]
         },
         "target_class": "internal_helper",
@@ -6578,7 +6606,10 @@
           "order": 50,
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "local_input_stamp": {
+            "profile": "frontend_static"
+          }
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -6639,7 +6670,10 @@
           "order": 0,
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "local_input_stamp": {
+            "profile": "frontend_static"
+          }
         },
         "backing_scripts": [
           "scripts/run-frontend-biome.sh"
@@ -7402,6 +7436,7 @@
           "scripts/run-browser-e2e-batch.sh",
           "scripts/lib/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-visual.sh",
+          "scripts/run-browser-e2e-visual-smoke.sh",
           "scripts/start-web-e2e.sh"
         ],
         "output_policy": {
@@ -9420,7 +9455,7 @@
                 "stages": [
                   "webserver-backed",
                   "a11y",
-                  "visual"
+                  "visual-smoke"
                 ]
               },
               {
@@ -9538,11 +9573,27 @@
         ]
       },
       {
+        "name": "visual-smoke",
+        "target": "browser-e2e-visual",
+        "schedule_tags": [
+          "service_backed_check"
+        ],
+        "groups": [
+          {
+            "name": "visual-smoke",
+            "target": "browser-e2e-visual",
+            "kind": "visual_smoke",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_visual",
+            "workers": "1"
+          }
+        ]
+      },
+      {
         "name": "visual",
         "target": "browser-e2e-visual",
         "schedule_tags": [
-          "service_backed_full",
-          "service_backed_check"
+          "service_backed_full"
         ],
         "groups": [
           {

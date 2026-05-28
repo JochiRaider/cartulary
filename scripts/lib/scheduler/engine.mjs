@@ -112,6 +112,85 @@ function slowestWork(completedWork) {
     .slice(0, 5);
 }
 
+function parseInputStampOutcome(content) {
+  const prefix = "check input stamp evidence: ";
+  let outcome = null;
+  for (const rawLine of content.split(/\r?\n/u)) {
+    const line = rawLine.trim();
+    if (!line.startsWith(prefix)) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(line.slice(prefix.length));
+      if (parsed?.schema_id === "cartulary.check_input_stamp.outcome.v1") {
+        outcome = parsed;
+      }
+    } catch {
+      // The wrapper's human output is diagnostic-only; malformed evidence is
+      // ignored here and will still be visible in the retained unit log.
+    }
+  }
+  return outcome;
+}
+
+async function inputStampOutcomeFromLog(logFile) {
+  try {
+    return parseInputStampOutcome(await readFile(logFile, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function schedulerAccountingExtension(completedWork) {
+  const workUnits = [];
+  const accountingModes = {
+    actual: 0,
+    reused: 0,
+    derived: 0,
+  };
+  const inputStampOutcomes = {};
+  let actualDurationMs = 0;
+  let reusedDurationMs = 0;
+
+  for (const record of completedWork) {
+    if (!record.input_stamp) {
+      continue;
+    }
+    const accountingMode = record.accounting_mode === "reused" ? "reused" : "actual";
+    accountingModes[accountingMode] += 1;
+    if (accountingMode === "reused") {
+      reusedDurationMs += record.duration_ms;
+    } else {
+      actualDurationMs += record.duration_ms;
+    }
+    const outcome = String(record.input_stamp.outcome ?? "unknown");
+    inputStampOutcomes[outcome] = (inputStampOutcomes[outcome] ?? 0) + 1;
+    workUnits.push({
+      id: record.id,
+      label: record.label,
+      aggregate_target: record.aggregate_target,
+      status: record.status,
+      duration_ms: record.duration_ms,
+      accounting_mode: accountingMode,
+      cache_outcome: outcome,
+      input_stamp: record.input_stamp,
+      log_file: record.log_file,
+    });
+  }
+
+  if (workUnits.length === 0) {
+    return null;
+  }
+  return {
+    schema_id: "cartulary.scheduler_accounting.v1",
+    accounting_modes: accountingModes,
+    actual_duration_ms: actualDurationMs,
+    reused_duration_ms: reusedDurationMs,
+    input_stamp_outcomes: inputStampOutcomes,
+    work_unit_accounting: workUnits,
+  };
+}
+
 function finalizerTimings(completedWork) {
   return completedWork
     .filter((record) => record.kind === "finalizer")
@@ -447,6 +526,14 @@ class SchedulerReporter {
     if (this.schedule.countCompletedUnit(unit, result)) {
       this.completedCount += 1;
     }
+    const accountingMode = result.inputStamp?.outcome === "hit" ? "reused" : "actual";
+    const stampFields = result.inputStamp
+      ? {
+          accounting_mode: accountingMode,
+          cache_outcome: result.inputStamp.outcome,
+          input_stamp: result.inputStamp,
+        }
+      : {};
     const record = {
       label: result.label,
       id: result.id,
@@ -461,6 +548,7 @@ class SchedulerReporter {
       needs: [...(unit.needs ?? [])],
       completion_keys: [...unitCompletionKeys(unit)],
       log_file: relToRepo(this.repoRoot, result.logFile),
+      ...stampFields,
     };
     this.completedWork.push(record);
     if (unit.aggregateTarget && counted(unit)) {
@@ -512,6 +600,17 @@ class SchedulerReporter {
         status: result.status,
         duration_ms: durationMs,
         log_file: relToRepo(this.repoRoot, result.logFile),
+        ...(result.inputStamp
+          ? {
+              extensions: {
+                "cartulary.scheduler_accounting": {
+                  accounting_mode: accountingMode,
+                  cache_outcome: result.inputStamp.outcome,
+                  input_stamp: result.inputStamp,
+                },
+              },
+            }
+          : {}),
       },
     );
   }
@@ -879,9 +978,19 @@ class SchedulerReporter {
       },
     };
     const extra = this.schedule.summaryExtra ? this.schedule.summaryExtra({ reporter: this, started }) : {};
+    const schedulerAccounting = schedulerAccountingExtension(this.completedWork);
     const schedulerSummary = {
       ...baseSummary,
       ...extra,
+      ...(schedulerAccounting
+        ? {
+            extensions: {
+              ...(baseSummary.extensions ?? {}),
+              ...(extra.extensions ?? {}),
+              "cartulary.scheduler_accounting": schedulerAccounting,
+            },
+          }
+        : {}),
     };
     validateSchemaSync(schedulerSummary.schema_id, schedulerSummary);
     await writeFile(this.summaryPath, prettyJSONString(schedulerSummary));
@@ -1038,11 +1147,12 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       commandSpec.args,
       logFile,
       commandSpec.env ?? process.env,
-    ).then((result) => ({
+    ).then(async (result) => ({
       id: unit.id,
       label: unit.label,
       status: result.status,
       logFile,
+      inputStamp: unit.localInputStamp ? await inputStampOutcomeFromLog(logFile) : null,
     }));
     running.set(promise, unit);
     reporter.startUnit(unit, logFile, stateSnapshot());

@@ -86,7 +86,7 @@ function checkClaimsForShard(sourceClaims, shard) {
       break;
     case "reset_heavy":
       addClaim(claims, hostCPUResource, 1);
-      addClaim(claims, hostIOResource, 3);
+      addClaim(claims, hostIOResource, 2);
       addClaim(claims, postgresResetResource, 1);
       break;
     case "clone_heavy":
@@ -514,7 +514,7 @@ function schedulerClaimsForShard(shard) {
     case "reset_heavy":
       return {
         [goCPUResource]: 1,
-        [goIOResource]: 3,
+        [goIOResource]: 2,
         [postgresResetResource]: 1,
       };
     case "clone_heavy":

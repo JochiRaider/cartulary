@@ -101,11 +101,27 @@
       ]
     },
     {
+      "name": "visual-smoke",
+      "target": "browser-e2e-visual",
+      "schedule_tags": [
+        "service_backed_check"
+      ],
+      "groups": [
+        {
+          "name": "visual-smoke",
+          "target": "browser-e2e-visual",
+          "kind": "visual_smoke",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_visual",
+          "workers": "1"
+        }
+      ]
+    },
+    {
       "name": "visual",
       "target": "browser-e2e-visual",
       "schedule_tags": [
-        "service_backed_full",
-        "service_backed_check"
+        "service_backed_full"
       ],
       "groups": [
         {

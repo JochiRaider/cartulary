@@ -1913,7 +1913,7 @@ set -e
 assert_equals "$fixture_shape_status" "3" "postgres fixture shape scheduler status"
 assert_contains "$fixture_shape_output" "postgres-fixture-shape" "fixture shape failure label"
 assert_contains "$fixture_shape_output" "reason=fixture_error" "fixture shape failure reason"
-assert_contains "$fixture_shape_output" "internal/app package database creates got 2, budget 1" "fixture shape failure package diagnostic"
+assert_contains "$fixture_shape_output" "internal/app package database creates got 2, budget 0" "fixture shape failure package diagnostic"
 assert_not_contains "$fixture_shape_output" "package reset duration got" "fixture shape failure does not enforce reset duration"
 
 fi
@@ -2083,11 +2083,11 @@ if (!shard) {
   process.exit(1);
 }
 const claimsByProfile = {
-  balanced: "{go_cpu:1,go_io:1,minio:1,postgres:1}",
-  cpu_heavy: "{go_cpu:2,go_io:1,minio:1,postgres:1}",
-  io_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1}",
-  reset_heavy: "{go_cpu:1,go_io:3,minio:1,postgres:1,postgres_reset:1}",
-  clone_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1,postgres_clone:1}",
+	  balanced: "{go_cpu:1,go_io:1,minio:1,postgres:1}",
+	  cpu_heavy: "{go_cpu:2,go_io:1,minio:1,postgres:1}",
+	  io_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1}",
+	  reset_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1,postgres_reset:1}",
+	  clone_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1,postgres_clone:1}",
   transaction_heavy: "{go_cpu:1,go_io:1,minio:1,postgres:1}",
 };
 process.stdout.write(`backend-store/${shard.name} type=go_shard class=backend profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
@@ -2203,7 +2203,7 @@ const checkBrowserSources = (byTarget.get("check-service-backed")?.work_unit_sou
 const sessionGroups = new Map(checkBrowserSources.map((source) => [source.browser_stage, source.browser_session_group]));
 const expectedSessionGroups = new Map([
   ["webserver-backed", "default-check-browser-shared"],
-  ["visual", "default-check-browser-shared"],
+  ["visual-smoke", "default-check-browser-shared"],
   ["a11y", "default-check-browser-shared"],
   ["stateful", "default-check-stateful-isolated"],
 ]);

@@ -45,6 +45,7 @@ const allowedGroupKinds = new Set([
   "stateful",
   "measurement",
   "visual",
+  "visual_smoke",
   "a11y",
 ]);
 const allowedCoverage = new Set(["authoritative", "supplemental", "raw"]);

@@ -1397,7 +1397,18 @@ function toolSummary(target, durationMs) {
   };
 }
 
-function writeWarmRun(name, { serviceMs = 58000, measurement = false, browserSkew = false } = {}) {
+  function writeWarmRun(
+    name,
+    {
+      serviceMs = 58000,
+      measurement = false,
+      browserSkew = false,
+      coldProvisioning = false,
+      stampHitAccounting = false,
+      fixtureOverBudget = false,
+      visualOverBudget = false,
+    } = {},
+  ) {
   const runDir = path.join(root, name);
   const checkDir = path.join(runDir, "check");
   const serviceDir = path.join(runDir, "check-service-backed");
@@ -1413,7 +1424,7 @@ function writeWarmRun(name, { serviceMs = 58000, measurement = false, browserSke
       work_unit: id,
       ...extra,
     });
-  const finish = (id, monotonicMs, durationMs = monotonicMs) =>
+  const finish = (id, monotonicMs, durationMs = monotonicMs, extra = {}) =>
     push({
       event: "finish",
       monotonic_ms: monotonicMs,
@@ -1422,9 +1433,36 @@ function writeWarmRun(name, { serviceMs = 58000, measurement = false, browserSke
       work_unit: id,
       status: 0,
       duration_ms: durationMs,
+      ...extra,
     });
 
   push({ event: "scheduler-start", monotonic_ms: 0, emitted_at: emittedAt(0) });
+  if (coldProvisioning) {
+    start("testservices-build", 0, {
+      work_unit_type: "make_target",
+      aggregate_target: "testservices-build",
+    });
+    finish("testservices-build", 30000, 30000);
+  }
+  if (stampHitAccounting) {
+    start("lint-shell", 0, {
+      work_unit_type: "make_target",
+      aggregate_target: "lint-shell",
+    });
+    finish("lint-shell", 20, 20, {
+      extensions: {
+        "cartulary.scheduler_accounting": {
+          accounting_mode: "actual",
+          cache_outcome: "hit",
+          input_stamp: {
+            outcome: "hit",
+            stamp_id: "lint-shell",
+            profile: "lint_shell",
+          },
+        },
+      },
+    });
+  }
   start("check-service-backed", 0, {
     work_unit_type: "make_target",
     aggregate_target: "check-service-backed",
@@ -1460,6 +1498,16 @@ function writeWarmRun(name, { serviceMs = 58000, measurement = false, browserSke
       durationMs,
     );
   }
+  const visualDurationMs = visualOverBudget ? 31000 : 20000;
+  start("check-service-backed:browser-e2e-visual:visual-smoke", 0, {
+    work_unit_type: "browser_group",
+    aggregate_target: "browser-e2e-visual",
+  });
+  finish(
+    "check-service-backed:browser-e2e-visual:visual-smoke",
+    visualDurationMs,
+    visualDurationMs,
+  );
 
   finish("check-service-backed", serviceMs, serviceMs);
   push({ event: "scheduler-finish", monotonic_ms: serviceMs, emitted_at: emittedAt(serviceMs) });
@@ -1481,14 +1529,28 @@ function writeWarmRun(name, { serviceMs = 58000, measurement = false, browserSke
   });
   writeJSON(path.join(checkDir, "target-summary.json"), baseSummary("check", serviceMs));
   writeJSON(path.join(checkDir, "tool-run-summary.json"), toolSummary("check", serviceMs));
-  writeJSON(path.join(runDir, "run-summary.json"), {
+  const runSummary = {
     schema_id: "cartulary.test_run_summary.v6",
     label: "check",
     status: "pass",
     end_time: emittedAt(serviceMs),
     wall_duration_ms: serviceMs,
     critical_path_wall_duration_ms: serviceMs,
-  });
+  };
+  if (fixtureOverBudget) {
+    runSummary.fixture = {
+      by_strategy: [
+        {
+          service: "postgres",
+          operation: "database-reset",
+          fixture_policy: "package_reset",
+          count: 31,
+          total_duration_ms: 61000,
+        },
+      ],
+    };
+  }
+  writeJSON(path.join(runDir, "run-summary.json"), runSummary);
   writeJSON(path.join(runDir, "tool-run-summary.json"), toolSummary("check", serviceMs));
   writeJSON(path.join(serviceDir, "target-summary.json"), baseSummary("check-service-backed", serviceMs));
 }
@@ -1497,6 +1559,10 @@ writeWarmRun("valid");
 writeWarmRun("overbudget", { serviceMs: 70000 });
 writeWarmRun("measurement", { measurement: true });
 writeWarmRun("skewed", { browserSkew: true });
+writeWarmRun("cold-provisioning", { coldProvisioning: true });
+writeWarmRun("stamp-unaccounted", { stampHitAccounting: true });
+writeWarmRun("fixture-overbudget", { fixtureOverBudget: true });
+writeWarmRun("visual-overbudget", { visualOverBudget: true });
 EOF
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/valid" 2>&1)" "warm check scheduler health verified" "valid warm check health fixture"
 set +e
@@ -1517,6 +1583,31 @@ warm_skew_status=$?
 set -e
 assert_equals "$warm_skew_status" "1" "warm check skew fixture status"
 assert_contains "$warm_skew_output" "browser-e2e-webserver-backed functional" "warm check skew fixture output"
+set +e
+warm_cold_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/cold-provisioning" 2>&1)"
+warm_cold_status=$?
+set -e
+assert_equals "$warm_cold_status" "1" "warm check cold provisioning fixture status"
+assert_contains "$warm_cold_output" "warm readiness unit testservices-build duration 30000ms exceeds warm threshold 15000ms" "warm check cold provisioning fixture output"
+set +e
+warm_stamp_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/stamp-unaccounted" 2>&1)"
+warm_stamp_status=$?
+set -e
+assert_equals "$warm_stamp_status" "1" "warm check stamp accounting fixture status"
+assert_contains "$warm_stamp_output" "stamp hit lint-shell accounting_mode=actual must be reused" "warm check stamp accounting fixture output"
+set +e
+warm_fixture_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/fixture-overbudget" 2>&1)"
+warm_fixture_status=$?
+set -e
+assert_equals "$warm_fixture_status" "1" "warm check fixture budget fixture status"
+assert_contains "$warm_fixture_output" "package-reset fixture count 31 exceeds warm budget 30" "warm check fixture budget count output"
+assert_contains "$warm_fixture_output" "package-reset fixture duration 61000ms exceeds warm budget 60000ms" "warm check fixture budget duration output"
+set +e
+warm_visual_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/visual-overbudget" 2>&1)"
+warm_visual_status=$?
+set -e
+assert_equals "$warm_visual_status" "1" "warm check visual budget fixture status"
+assert_contains "$warm_visual_output" "default visual browser group check-service-backed:browser-e2e-visual:visual-smoke duration 31000ms exceeds budget 30000ms" "warm check visual budget fixture output"
 mkdir -p "${summary_timing_dir}/critical/linked/check" "${summary_timing_dir}/critical/unlinked/check"
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" <<'JSONL'
 {"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}

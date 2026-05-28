@@ -6,6 +6,22 @@ import { collectGoShardPlan } from "./lib/go-shard-plan.mjs";
 import { validateSchedulerSummaryTiming } from "./lib/scheduler/summary-timing-drift.mjs";
 
 const warmBalanceMaterialSkewMs = 5000;
+const warmBrowserVisualBudgetMs = 30000;
+const warmPackageResetCountBudget = 30;
+const warmPackageResetDurationBudgetMs = 60000;
+const warmReadinessThresholds = new Map([
+  ["codegen-toolchain", 10000],
+  ["go-lint-toolchain", 10000],
+  ["govulncheck-toolchain", 10000],
+  ["gosec-toolchain", 10000],
+  ["shell-lint-toolchain", 10000],
+  ["check-frontend-install", 30000],
+  ["build-server", 15000],
+  ["build-migrate", 15000],
+  ["build-operator", 15000],
+  ["testservices-build", 15000],
+  ["test-service-images", 15000],
+]);
 
 function usage() {
   process.stderr.write(
@@ -143,17 +159,137 @@ function pushBalanceError(errors, label, lanes, ratio) {
   }
 }
 
+function schedulerAccountingExtension(record) {
+  const extension = record?.extensions?.["cartulary.scheduler_accounting"];
+  return extension && typeof extension === "object" ? extension : null;
+}
+
+function inputStampOutcome(record) {
+  const extension = schedulerAccountingExtension(record);
+  return extension?.input_stamp?.outcome ?? extension?.cache_outcome ?? "";
+}
+
+function validateWarmReadinessDurations(eventsFile, events, errors) {
+  for (const event of events) {
+    if (event.event !== "finish" || typeof event.work_unit_id !== "string") {
+      continue;
+    }
+    const thresholdMs = warmReadinessThresholds.get(event.work_unit_id);
+    if (!thresholdMs) {
+      continue;
+    }
+    const durationMs = nonNegativeInteger(event.duration_ms);
+    if (durationMs === null) {
+      errors.push(`${eventsFile}: warm readiness unit ${event.work_unit_id} is missing duration_ms`);
+      continue;
+    }
+    if (durationMs > thresholdMs) {
+      errors.push(
+        `${eventsFile}: warm readiness unit ${event.work_unit_id} duration ${durationMs}ms exceeds warm threshold ${thresholdMs}ms`,
+      );
+    }
+  }
+}
+
+function validateWarmStampAccounting(eventsFile, schedulerSummary, events, errors) {
+  const hitEventIDs = new Set();
+  for (const event of events) {
+    if (event.event !== "finish" || typeof event.work_unit_id !== "string") {
+      continue;
+    }
+    if (inputStampOutcome(event) !== "hit") {
+      continue;
+    }
+    hitEventIDs.add(event.work_unit_id);
+    const accountingMode = schedulerAccountingExtension(event)?.accounting_mode ?? "";
+    if (accountingMode !== "reused") {
+      errors.push(
+        `${eventsFile}: stamp hit ${event.work_unit_id} accounting_mode=${accountingMode || "missing"} must be reused`,
+      );
+    }
+  }
+
+  const accounting = schedulerSummary?.extensions?.["cartulary.scheduler_accounting"];
+  if (!accounting || typeof accounting !== "object") {
+    if (hitEventIDs.size > 0) {
+      errors.push(`${eventsFile}: scheduler summary missing accounting extension for stamp hit work`);
+    }
+    return;
+  }
+  const summaryUnits = Array.isArray(accounting.work_unit_accounting)
+    ? accounting.work_unit_accounting
+    : [];
+  const summaryByID = new Map(summaryUnits.map((unit) => [unit.id, unit]));
+  for (const id of hitEventIDs) {
+    const unit = summaryByID.get(id);
+    if (!unit) {
+      errors.push(`${eventsFile}: scheduler accounting summary missing stamp hit work unit ${id}`);
+      continue;
+    }
+    if (unit.accounting_mode !== "reused") {
+      errors.push(
+        `${eventsFile}: scheduler accounting summary records stamp hit ${id} as ${unit.accounting_mode || "missing"} instead of reused`,
+      );
+    }
+  }
+  const reusedCount = nonNegativeInteger(accounting.accounting_modes?.reused) ?? 0;
+  if (hitEventIDs.size > 0 && reusedCount < hitEventIDs.size) {
+    errors.push(
+      `${eventsFile}: scheduler accounting reused count ${reusedCount} is below stamp hit count ${hitEventIDs.size}`,
+    );
+  }
+}
+
+function validateWarmFixtureBudget(runDir, errors) {
+  const runSummaryFile = path.join(runDir, "run-summary.json");
+  if (!existsSync(runSummaryFile)) {
+    return;
+  }
+  const runSummary = readJSON(runSummaryFile);
+  const strategies = Array.isArray(runSummary.fixture?.by_strategy)
+    ? runSummary.fixture.by_strategy
+    : [];
+  let count = 0;
+  let durationMs = 0;
+  for (const strategy of strategies) {
+    if (
+      strategy?.service !== "postgres" ||
+      strategy?.operation !== "database-reset" ||
+      strategy?.fixture_policy !== "package_reset"
+    ) {
+      continue;
+    }
+    count += nonNegativeInteger(strategy.count) ?? 0;
+    durationMs += nonNegativeInteger(strategy.total_duration_ms) ?? 0;
+  }
+  if (count > warmPackageResetCountBudget) {
+    errors.push(
+      `${runSummaryFile}: package-reset fixture count ${count} exceeds warm budget ${warmPackageResetCountBudget}`,
+    );
+  }
+  if (durationMs > warmPackageResetDurationBudgetMs) {
+    errors.push(
+      `${runSummaryFile}: package-reset fixture duration ${durationMs}ms exceeds warm budget ${warmPackageResetDurationBudgetMs}ms`,
+    );
+  }
+}
+
 function validateWarmCheckStream(eventsFile, options) {
   const errors = [];
   const targetDir = path.dirname(eventsFile);
   const runDir = path.dirname(targetDir);
   const events = readEvents(eventsFile);
+  const schedulerSummaryFile = path.join(targetDir, "scheduler-summary.json");
+  const schedulerSummary = existsSync(schedulerSummaryFile) ? readJSON(schedulerSummaryFile) : null;
   const starts = new Map();
   for (const event of events) {
     if (event.event === "start" && typeof event.work_unit_id === "string") {
       starts.set(event.work_unit_id, event);
     }
   }
+  validateWarmReadinessDurations(eventsFile, events, errors);
+  validateWarmStampAccounting(eventsFile, schedulerSummary, events, errors);
+  validateWarmFixtureBudget(runDir, errors);
 
   const serviceSummaryFile = path.join(runDir, "check-service-backed", "target-summary.json");
   if (!existsSync(serviceSummaryFile)) {
@@ -189,6 +325,7 @@ function validateWarmCheckStream(eventsFile, options) {
   const isolatedGoShards = goShardIsolationIDs();
   const backendByFamily = new Map();
   const browserFunctional = [];
+  const browserVisual = [];
   for (const event of events) {
     if (event.event !== "finish" || typeof event.work_unit_id !== "string") {
       continue;
@@ -224,6 +361,13 @@ function validateWarmCheckStream(eventsFile, options) {
       event.work_unit_id.includes("browser-functional-shard")
     ) {
       browserFunctional.push({ id: event.work_unit_id, durationMs });
+      continue;
+    }
+    if (
+      type === "browser_group" &&
+      aggregateTarget === "browser-e2e-visual"
+    ) {
+      browserVisual.push({ id: event.work_unit_id, durationMs });
     }
   }
 
@@ -236,6 +380,13 @@ function validateWarmCheckStream(eventsFile, options) {
     browserFunctional,
     options.warmCheckBalanceRatio,
   );
+  for (const lane of browserVisual) {
+    if (lane.durationMs > warmBrowserVisualBudgetMs) {
+      errors.push(
+        `${eventsFile}: default visual browser group ${lane.id} duration ${lane.durationMs}ms exceeds budget ${warmBrowserVisualBudgetMs}ms`,
+      );
+    }
+  }
   return errors;
 }
 

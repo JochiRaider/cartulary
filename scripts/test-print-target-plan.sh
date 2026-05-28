@@ -36,7 +36,7 @@ write_phase_registry() {
   local root="$1"
   shift
 
-  mkdir -p "$root/tools"
+  mkdir -p "$root/tools" "$root/internal" "$root/cmd/server"
   {
     printf '{\n  "schema_id": "cartulary.phase_registry.v1",\n  "phases": [\n'
     local first=1
@@ -68,6 +68,19 @@ write_phase_ledger_stub() {
 
   mkdir -p "$root/docs/testing"
   printf '# %s\n' "$phase" >"$root/docs/testing/${phase}_coverage_ledger.md"
+}
+
+write_go_source_symbol() {
+  local root="$1"
+  local file="$2"
+  local package_name="$3"
+  local symbol="$4"
+
+  mkdir -p "$(dirname "$root/$file")"
+  {
+    printf 'package %s\n\n' "$package_name"
+    printf 'func %s() {}\n' "$symbol"
+  } >"$root/$file"
 }
 
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/target-plan-smoke.XXXXXX")"
@@ -265,7 +278,7 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
     "shared_harness": [],
     "support_only": []
   },
-  "expected_ids": ["U-99-01"],
+  "expected_ids": ["U-1-05"],
   "unit": [],
   "integration": [],
   "e2e": [],
@@ -291,6 +304,7 @@ phase_map_discovery_root="$tmp_dir/phase-map-discovery-root"
 mkdir -p "$phase_map_discovery_root/tools"
 write_phase_registry "$phase_map_discovery_root" phase99
 write_phase_ledger_stub "$phase_map_discovery_root" phase99
+write_go_source_symbol "$phase_map_discovery_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -314,7 +328,7 @@ cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_store_test.go",
-      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
       "execution_label": "Backend store",
@@ -328,6 +342,7 @@ cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 phase99_check_maps_output="$(
+  cd "$phase_map_discovery_root"
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_map_discovery_root" \
   NODE_BIN="$NODE_HELPER" \
     "$ROOT_DIR/scripts/check-phase-maps.sh"
@@ -569,7 +584,7 @@ cat >"$missing_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
     "shared_harness": [],
     "support_only": []
   },
-  "expected_ids": ["U-99-01"],
+  "expected_ids": ["U-1-05"],
   "support_go_targets": [],
   "unit": [],
   "integration": [],
@@ -595,7 +610,7 @@ cat >"$wrong_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
     "shared_harness": [],
     "support_only": []
   },
-  "expected_ids": ["U-99-01"],
+  "expected_ids": ["U-1-05"],
   "support_go_targets": [],
   "unit": [],
   "integration": [],
@@ -620,7 +635,7 @@ cat >"$missing_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
     "shared_harness": [],
     "support_only": []
   },
-  "expected_ids": ["U-99-01"],
+  "expected_ids": ["U-1-05"],
   "support_go_targets": [],
   "unit": [],
   "integration": [],
@@ -647,7 +662,7 @@ cat >"$unknown_key_identity_root/tools/phase99_test_map.json" <<'JSON'
     "shared_harness": [],
     "support_only": []
   },
-  "expected_ids": ["U-99-01"],
+  "expected_ids": ["U-1-05"],
   "support_go_targets": [],
   "unit": [],
   "integration": [],
@@ -711,7 +726,7 @@ cat >"$mismatched_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
     "shared_harness": [],
     "support_only": []
   },
-  "expected_ids": ["U-99-01"],
+  "expected_ids": ["U-1-05"],
   "support_go_targets": [],
   "unit": [],
   "integration": [],
@@ -778,6 +793,7 @@ assert_contains "$phase99_shared_command" "TestSupportPhase5_Discovered" "run-go
 invalid_phase_root="$tmp_dir/invalid-phase-root"
 mkdir -p "$invalid_phase_root/tools"
 write_phase_registry "$invalid_phase_root" phase99
+write_go_source_symbol "$invalid_phase_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -801,7 +817,7 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_store_test.go",
-      "symbol": "TestPhase5_Invalid_U_5_01",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
       "execution_label": "Backend store",
@@ -816,13 +832,14 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
+if (cd "$invalid_phase_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject unknown postgres fixture policies"
 fi
 
 missing_policy_root="$tmp_dir/missing-policy-root"
 mkdir -p "$missing_policy_root/tools"
 write_phase_registry "$missing_policy_root" phase99
+write_go_source_symbol "$missing_policy_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -846,7 +863,7 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_store_test.go",
-      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
       "execution_label": "Backend store",
@@ -860,13 +877,14 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if ! CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
+if ! (cd "$missing_policy_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must allow missing service-backed postgres fixture policies when defaults apply"
 fi
 
 missing_claim_root="$tmp_dir/missing-claim-root"
 mkdir -p "$missing_claim_root/tools"
 write_phase_registry "$missing_claim_root" phase99
+write_go_source_symbol "$missing_claim_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -890,7 +908,7 @@ cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_store_test.go",
-      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
       "execution_label": "Backend store",
@@ -905,6 +923,7 @@ JSON
 
 set +e
 missing_claim_output="$(
+  cd "$missing_claim_root"
   CARTULARY_PHASE_MANIFEST_ROOT="$missing_claim_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 2>&1
 )"
 missing_claim_status=$?
@@ -917,6 +936,7 @@ assert_contains "$missing_claim_output" "must declare a non-empty claim" "missin
 blocked_profile_claim_root="$tmp_dir/blocked-profile-claim-root"
 mkdir -p "$blocked_profile_claim_root/tools"
 write_phase_registry "$blocked_profile_claim_root" phase99
+write_go_source_symbol "$blocked_profile_claim_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$blocked_profile_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -950,7 +970,7 @@ cat >"$blocked_profile_claim_root/tools/phase99_test_map.json" <<'JSON'
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_store_test.go",
-      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01",
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
       "execution_label": "Backend store",
@@ -967,6 +987,7 @@ JSON
 
 set +e
 blocked_profile_claim_output="$(
+  cd "$blocked_profile_claim_root"
   CARTULARY_PHASE_MANIFEST_ROOT="$blocked_profile_claim_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 2>&1
 )"
 blocked_profile_claim_status=$?
@@ -979,6 +1000,7 @@ assert_contains "$blocked_profile_claim_output" "direct_evidence_id U-99-01 must
 missing_budget_root="$tmp_dir/missing-budget-root"
 mkdir -p "$missing_budget_root/tools"
 write_phase_registry "$missing_budget_root" phase99
+write_go_source_symbol "$missing_budget_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -1003,7 +1025,7 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_integration_test.go",
-      "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
       "execution_dependency": "backend_integration",
       "execution_family": "backend-integration-auth",
       "execution_label": "Backend integration auth",
@@ -1017,13 +1039,14 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
+if (cd "$missing_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject package_reset without postgres fixture budgets"
 fi
 
 invalid_budget_root="$tmp_dir/invalid-budget-root"
 mkdir -p "$invalid_budget_root/tools"
 write_phase_registry "$invalid_budget_root" phase99
+write_go_source_symbol "$invalid_budget_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -1048,7 +1071,7 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_integration_test.go",
-      "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
       "execution_dependency": "backend_integration",
       "execution_family": "backend-integration-auth",
       "execution_label": "Backend integration auth",
@@ -1068,13 +1091,14 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
+if (cd "$invalid_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject invalid postgres fixture budgets"
 fi
 
 missing_migration_reason_root="$tmp_dir/missing-migration-reason-root"
 mkdir -p "$missing_migration_reason_root/tools"
 write_phase_registry "$missing_migration_reason_root" phase99
+write_go_source_symbol "$missing_migration_reason_root" "internal/platform/bootstrap/bootstrap_phase0_test.go" "bootstrap" "TestPhase0_BootstrapManifestValidation_U_99_01"
 cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -1115,7 +1139,7 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "runner": "go_test",
       "package": "./internal/platform/bootstrap",
       "file": "internal/platform/bootstrap/bootstrap_phase0_test.go",
-      "symbol": "TestPhase0_BootstrapManifestValidation_U_0_07",
+      "symbol": "TestPhase0_BootstrapManifestValidation_U_99_01",
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
@@ -1129,7 +1153,7 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
+if (cd "$missing_migration_reason_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject support migration_scratch without migration_scratch_reason"
 fi
 
