@@ -289,27 +289,27 @@ assert_contains "$discovered_phases" "phase99" "phase registry discovery include
 
 phase_map_discovery_root="$tmp_dir/phase-map-discovery-root"
 mkdir -p "$phase_map_discovery_root/tools"
-write_phase_registry "$phase_map_discovery_root" phase5
-write_phase_ledger_stub "$phase_map_discovery_root" phase5
-cat >"$phase_map_discovery_root/tools/phase5_test_map.json" <<'JSON'
+write_phase_registry "$phase_map_discovery_root" phase99
+write_phase_ledger_stub "$phase_map_discovery_root" phase99
+cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
-  "phase": "phase5",
+  "phase": "phase99",
   "note": "Synthetic phase-map discovery fixture.",
   "ledger": {
-    "title": "Phase 5 Coverage Ledger",
+    "title": "Phase 99 Coverage Ledger",
     "notes": "Synthetic phase-map discovery fixture.",
-    "authoritative_execution": "make phase-slice PHASE=phase5",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
     "support_execution_extras": [],
     "sections": [],
     "shared_harness": [],
     "support_only": []
   },
-  "expected_ids": ["U-5-01"],
+  "expected_ids": ["U-99-01"],
   "support_go_targets": [],
   "unit": [
     {
-      "id": "U-5-01",
+      "id": "U-99-01",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
@@ -327,12 +327,12 @@ cat >"$phase_map_discovery_root/tools/phase5_test_map.json" <<'JSON'
   "e2e": []
 }
 JSON
-phase5_check_maps_output="$(
+phase99_check_maps_output="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_map_discovery_root" \
   NODE_BIN="$NODE_HELPER" \
     "$ROOT_DIR/scripts/check-phase-maps.sh"
 )"
-assert_contains "$phase5_check_maps_output" "phase5 traceability map verified" "check-phase-maps validates registry phase5"
+assert_contains "$phase99_check_maps_output" "phase99 traceability map verified" "check-phase-maps validates registry phase99"
 
 registry_order_root="$tmp_dir/registry-order-root"
 mkdir -p "$registry_order_root/tools"
@@ -655,6 +655,44 @@ cat >"$unknown_key_identity_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 assert_phase_identity_rejected "$unknown_key_identity_root" "phase99" "unknown key legacy_manifest_key" "semantic phase-map path rejects unknown shape key"
+
+stale_title_identity_root="$tmp_dir/identity-stale-title-root"
+mkdir -p "$stale_title_identity_root/tools"
+write_phase_registry "$stale_title_identity_root" phase99
+cat >"$stale_title_identity_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
+  "note": "Synthetic stale authoritative title fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic stale authoritative title fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
+  "expected_ids": ["E-99-01"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [],
+  "e2e": [
+    {
+      "id": "E-99-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase99.spec.ts",
+      "title": "Phase 99 stale browser title",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "future browser evidence",
+      "out_of_scope": "none"
+    }
+  ]
+}
+JSON
+assert_phase_identity_rejected "$stale_title_identity_root" "phase99" "authoritative evidence for E-99-01 must include E-99-01 or E_99_01" "semantic phase-map path rejects stale authoritative title"
 
 mismatched_phase_identity_root="$tmp_dir/identity-mismatched-phase-root"
 mkdir -p "$mismatched_phase_identity_root/tools"

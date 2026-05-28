@@ -947,6 +947,7 @@ import {
   estimateCheckHostCPULimit,
   estimateCheckHostIOLimit,
   estimatePostgresCloneAutoLimit,
+  estimatePostgresResetAutoLimit,
   isAutoLimitResource,
   loadSchedulerResourceRegistry,
   normalizeResourceClaims,
@@ -1000,10 +1001,10 @@ if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed
 if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,minio,postgres,process,postgres_reset,postgres_clone") {
   fail("check resource display order changed");
 }
-if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
+if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
   fail("check override env names changed");
 }
-if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLimitResource("browser_stack") || !isAutoLimitResource("postgres_clone")) {
+if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLimitResource("browser_stack") || !isAutoLimitResource("postgres_reset") || !isAutoLimitResource("postgres_clone")) {
   fail("service-backed auto-limit resources are incomplete");
 }
 if (!isAutoLimitResource("host_cpu") || !isAutoLimitResource("host_io")) {
@@ -1037,14 +1038,20 @@ const serviceProfile = resourceLimitsForCapacityProfile("service_backed_full", "
   scheduler: "service_backed",
   allowAuto: true,
 });
-if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get("go_io") !== "auto" || serviceProfile.limits.get("browser_stack") !== "auto" || serviceProfile.limits.get("postgres_clone") !== "auto") {
+if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get("go_io") !== "auto" || serviceProfile.limits.get("browser_stack") !== "auto" || serviceProfile.limits.get("postgres_reset") !== "auto" || serviceProfile.limits.get("postgres_clone") !== "auto") {
   fail("service_backed_full auto limits changed");
 }
 if (estimatePostgresCloneAutoLimit(new Map([["host_cpu", 12], ["host_io", 12]])) !== 6) {
   fail("postgres clone auto limit must resolve to 6 on the supported 12 CPU/IO profile");
 }
-if (estimatePostgresCloneAutoLimit(new Map([["go_cpu", 6], ["go_io", 8]]), { cpuResources: ["go_cpu"], ioResources: ["go_io"] }) !== 4) {
-  fail("postgres clone auto limit must preserve the legacy floor on smaller service-backed profiles");
+if (estimatePostgresCloneAutoLimit(new Map([["go_cpu", 6], ["go_io", 8]]), { cpuResources: ["go_cpu"], ioResources: ["go_io"] }) !== 6) {
+  fail("postgres clone auto limit must use the calibrated service-backed floor");
+}
+if (estimatePostgresResetAutoLimit(new Map([["host_io", 12]])) !== 4) {
+  fail("postgres reset auto limit must resolve to 4 on the supported 12 IO profile");
+}
+if (estimatePostgresResetAutoLimit(new Map([["go_io", 8]]), { ioResources: ["go_io"] }) !== 2) {
+  fail("postgres reset auto limit must scale with the service-backed IO lane budget");
 }
 const envResolved = normalizeResourceLimits(
   { host_cpu: "auto", host_io: "auto", suite_service_stack: 1, migration_scratch_postgres: 1 },

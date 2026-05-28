@@ -296,6 +296,19 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
       ? JSON.parse(JSON.stringify(unit.service_session))
       : null,
     browserStage: typeof unit.browser_stage === "string" ? unit.browser_stage : "",
+    browserSessionGroup:
+      typeof unit.browser_session_group === "string" && unit.browser_session_group.trim() !== ""
+        ? unit.browser_session_group.trim()
+        : "",
+    browserSessionIsolationReason:
+      typeof unit.browser_session_isolation_reason === "string" &&
+      unit.browser_session_isolation_reason.trim() !== ""
+        ? unit.browser_session_isolation_reason.trim()
+        : "",
+    browserSessionFinalizer:
+      unit.browser_session_finalizer === undefined
+        ? undefined
+        : unit.browser_session_finalizer === true,
     browserGroup: unit.browser_group && typeof unit.browser_group === "object" && !Array.isArray(unit.browser_group)
       ? JSON.parse(JSON.stringify(unit.browser_group))
       : null,

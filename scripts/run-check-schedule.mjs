@@ -22,6 +22,7 @@ import {
   estimateCheckHostCPULimit,
   estimateCheckHostIOLimit,
   estimatePostgresCloneAutoLimit,
+  estimatePostgresResetAutoLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   provisionalResourceLimitsForClaims,
@@ -523,6 +524,20 @@ function _findSchedule(manifest, target, overrides) {
       serviceSession: unit.service_session ?? null,
       browserStage:
         typeof unit.browser_stage === "string" ? unit.browser_stage : "",
+      browserSessionGroup:
+        typeof unit.browser_session_group === "string" &&
+        unit.browser_session_group.trim() !== ""
+          ? unit.browser_session_group.trim()
+          : "",
+      browserSessionIsolationReason:
+        typeof unit.browser_session_isolation_reason === "string" &&
+        unit.browser_session_isolation_reason.trim() !== ""
+          ? unit.browser_session_isolation_reason.trim()
+          : "",
+      browserSessionFinalizer:
+        unit.browser_session_finalizer === undefined
+          ? undefined
+          : unit.browser_session_finalizer === true,
       browserGroup:
         unit.browser_group &&
         typeof unit.browser_group === "object" &&
@@ -571,6 +586,10 @@ function _findSchedule(manifest, target, overrides) {
       service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
         estimatePostgresCloneAutoLimit(currentLimits, {
           cpuResources: ["host_cpu"],
+          ioResources: ["host_io"],
+        }),
+      service_backed_postgres_reset: ({ resourceLimits: currentLimits }) =>
+        estimatePostgresResetAutoLimit(currentLimits, {
           ioResources: ["host_io"],
         }),
     },
@@ -950,27 +969,35 @@ function attachRuntime(
   const serviceSessionCleanupDurationMs = new Map(
     serviceSessionTargets.map((target) => [target, null]),
   );
-  const browserSessionTargets = Array.from(
+  const browserSessionKeyFor = (unit) =>
+    unit.browserSessionGroup || unit.aggregateTarget || unit.target;
+  const browserSessionUnits = schedule.workUnits
+    .filter((unit) => unit.kind === "browser_stage_session")
+    .sort((left, right) => browserSessionKeyFor(left).localeCompare(browserSessionKeyFor(right)));
+  const browserSessionKeys = Array.from(
     new Set(
-      schedule.workUnits
-        .filter((unit) => unit.kind === "browser_stage_session")
-        .map((unit) => unit.target)
+      browserSessionUnits
+        .map((unit) => browserSessionKeyFor(unit))
         .filter((target) => target !== ""),
     ),
   ).sort((left, right) => left.localeCompare(right));
+  const browserSessionUnitByKey = new Map(
+    browserSessionUnits.map((unit) => [browserSessionKeyFor(unit), unit]),
+  );
   const browserSessionFiles = new Map(
-    schedule.workUnits
-      .filter((unit) => unit.kind === "browser_stage_session")
-      .map((unit) => [
-        unit.target,
+    browserSessionKeys.map((sessionKey) => {
+      const fileStem = sessionKey.replaceAll(/[^A-Za-z0-9_.-]/g, "_");
+      return [
+        sessionKey,
         {
-          envFile: path.join(tempDir, `${unit.browserStage}-browser-env.json`),
+          envFile: path.join(tempDir, `${fileStem}-browser-env.json`),
           leaseFile: path.join(
             tempDir,
-            `${unit.browserStage}-browser-lease.json`,
+            `${fileStem}-browser-lease.json`,
           ),
         },
-      ]),
+      ];
+    }),
   );
   const serviceEnvFor = async (target) => {
     const files = serviceSessionFiles.get(target);
@@ -1026,7 +1053,7 @@ function attachRuntime(
       continue;
     }
     if (unit.kind === "browser_stage_session") {
-      const files = browserSessionFiles.get(unit.target);
+      const files = browserSessionFiles.get(browserSessionKeyFor(unit));
       unit.command = async () => ({
         command: browserSessionScript,
         args: [
@@ -1041,6 +1068,8 @@ function attachRuntime(
           ...unit.env,
           CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
           CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
+          CARTULARY_BROWSER_STAGE: unit.browserStage,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         }),
       });
@@ -1048,7 +1077,7 @@ function attachRuntime(
     }
     if (unit.kind === "browser_group") {
       unit.command = async () => {
-        const sessionEnv = await browserEnvFor(unit.aggregateTarget);
+        const sessionEnv = await browserEnvFor(browserSessionKeyFor(unit));
         const serviceEnv = await serviceEnvFor(serviceSessionTarget(unit));
         const group = unit.browserGroup;
         const pnpmBin =
@@ -1060,6 +1089,7 @@ function attachRuntime(
           ...unit.env,
           CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
           CARTULARY_TEST_TARGET: unit.aggregateTarget,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
           CARTULARY_BROWSER_STAGE: unit.browserStage,
           CARTULARY_BROWSER_GROUP_KIND: group.kind,
           CARTULARY_BROWSER_GROUP_NAME: group.name,
@@ -1144,25 +1174,37 @@ function attachRuntime(
       continue;
     }
     if (unit.kind === "browser_stage_complete") {
-      const files = browserSessionFiles.get(unit.target);
+      const files = browserSessionFiles.get(browserSessionKeyFor(unit));
+      const shouldStopSession = unit.browserSessionFinalizer !== false;
+      const commands = [
+        `${testOutputCommand} target-summary ${JSON.stringify(unit.target)} pass --quiet-success`,
+        `summary_status=$?`,
+      ];
+      if (shouldStopSession) {
+        commands.push(
+          `${JSON.stringify(browserSessionScript)} --session-stop --lease-file ${JSON.stringify(files.leaseFile)}`,
+          `stop_status=$?`,
+        );
+      } else {
+        commands.push(`stop_status=0`);
+      }
+      commands.push(
+        `if [[ "$summary_status" -ne 0 ]]; then exit "$summary_status"; fi`,
+        `exit "$stop_status"`,
+      );
       unit.command = () => ({
         command: "bash",
         args: [
           "-c",
-          [
-            `${testOutputCommand} target-summary ${JSON.stringify(unit.target)} pass --quiet-success`,
-            `summary_status=$?`,
-            `${JSON.stringify(browserSessionScript)} --session-stop --lease-file ${JSON.stringify(files.leaseFile)}`,
-            `stop_status=$?`,
-            `if [[ "$summary_status" -ne 0 ]]; then exit "$summary_status"; fi`,
-            `exit "$stop_status"`,
-          ].join("; "),
+          commands.join("; "),
         ],
         env: makeChildEnv({
           ...process.env,
           ...unit.env,
           CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
           CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
+          CARTULARY_BROWSER_STAGE: unit.browserStage,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         }),
       });
@@ -1295,8 +1337,8 @@ function attachRuntime(
     },
     afterWorkComplete: async () => {
       let cleanupFailure = null;
-      for (const target of browserSessionTargets) {
-        const files = browserSessionFiles.get(target);
+      for (const sessionKey of browserSessionKeys) {
+        const files = browserSessionFiles.get(sessionKey);
         if (!files?.leaseFile) {
           continue;
         }
@@ -1381,10 +1423,17 @@ function attachRuntime(
             serviceSessionCleanupDurationMs.get(target) ?? null,
         };
       }),
-      browser_stage_sessions: browserSessionTargets.map((target) => {
-        const files = browserSessionFiles.get(target);
+      browser_stage_sessions: browserSessionKeys.map((sessionKey) => {
+        const unit = browserSessionUnitByKey.get(sessionKey);
+        const files = browserSessionFiles.get(sessionKey);
         return {
-          target,
+          target: unit?.target ?? sessionKey,
+          session_group: sessionKey,
+          aggregate_target: unit?.aggregateTarget ?? unit?.target ?? sessionKey,
+          browser_stage: unit?.browserStage ?? "",
+          ...(unit?.browserSessionIsolationReason
+            ? { isolation_reason: unit.browserSessionIsolationReason }
+            : {}),
           env_file: relToRepoPath(repoRoot, files.envFile),
           lease_file: relToRepoPath(repoRoot, files.leaseFile),
         };
@@ -1537,6 +1586,10 @@ async function main() {
       service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
         estimatePostgresCloneAutoLimit(currentLimits, {
           cpuResources: ["host_cpu"],
+          ioResources: ["host_io"],
+        }),
+      service_backed_postgres_reset: ({ resourceLimits: currentLimits }) =>
+        estimatePostgresResetAutoLimit(currentLimits, {
           ioResources: ["host_io"],
         }),
     }),

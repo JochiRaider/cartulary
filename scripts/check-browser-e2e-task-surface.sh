@@ -606,37 +606,53 @@ if (service.retained_resource_claims?.suite_service_stack !== 1) {
 if ((schedule.work_units ?? []).some((entry) => entry.nested_scheduler)) {
   throw new Error("check schedule must not use nested service-backed scheduler metadata");
 }
-const expectedBrowserEvidence = [
+const expectedBrowserCompletions = [
   "browser-e2e-webserver-backed",
   "browser-e2e-stateful",
   "browser-e2e-visual",
+  "browser-e2e-a11y",
 ];
-for (const expectedLeaf of expectedBrowserEvidence) {
-  const session = (schedule.work_units ?? []).find((entry) =>
-    entry.target === expectedLeaf &&
-    entry.kind === "browser_stage_session" &&
-    entry.service_session?.target === "check-service-backed"
-  );
-  const complete = (schedule.work_units ?? []).find((entry) =>
-    entry.target === expectedLeaf &&
-    entry.kind === "browser_stage_complete" &&
-    entry.service_session?.target === "check-service-backed"
-  );
-  if (!session || !complete) {
-    throw new Error(`check schedule must expose ${expectedLeaf} as browser stage session and completion work`);
-  }
+const browserSessions = (schedule.work_units ?? []).filter((entry) =>
+  entry.kind === "browser_stage_session" &&
+  entry.service_session?.target === "check-service-backed"
+);
+const sessionByGroup = new Map(browserSessions.map((entry) => [entry.browser_session_group, entry]));
+if (browserSessions.length !== 2 || !sessionByGroup.has("default-check-browser-shared") || !sessionByGroup.has("default-check-stateful-isolated")) {
+  throw new Error(`check schedule must expose the shared default browser session and isolated stateful session, got ${browserSessions.map((entry) => entry.browser_session_group).join(",")}`);
+}
+const sharedSession = sessionByGroup.get("default-check-browser-shared");
+const statefulSession = sessionByGroup.get("default-check-stateful-isolated");
+for (const session of [sharedSession, statefulSession]) {
   if (
     !session.needs?.includes("service_session:check-service-backed") ||
     !session.needs?.includes("build-server") ||
     !session.needs?.includes("build-migrate")
   ) {
-    throw new Error(`${expectedLeaf} browser stage session must depend on the service session, build-server, and build-migrate`);
+    throw new Error(`${session.label} browser stage session must depend on the service session, build-server, and build-migrate`);
   }
   if (
     Object.prototype.hasOwnProperty.call(session.retained_resource_claims ?? {}, "postgres") ||
     Object.prototype.hasOwnProperty.call(session.retained_resource_claims ?? {}, "minio")
   ) {
-    throw new Error(`${expectedLeaf} browser stage session must not retain broad Postgres or MinIO claims`);
+    throw new Error(`${session.label} browser stage session must not retain broad Postgres or MinIO claims`);
+  }
+}
+for (const resource of ["browser_stage_webserver_backed", "browser_stage_visual", "browser_stage_a11y"]) {
+  if (sharedSession.retained_resource_claims?.[resource] !== 1) {
+    throw new Error(`shared default browser session must retain ${resource}`);
+  }
+}
+if (statefulSession.retained_resource_claims?.browser_stage_stateful !== 1 || !statefulSession.browser_session_isolation_reason) {
+  throw new Error("stateful browser session must be isolated and declare an isolation reason");
+}
+for (const expectedLeaf of expectedBrowserCompletions) {
+  const complete = (schedule.work_units ?? []).find((entry) =>
+    entry.target === expectedLeaf &&
+    entry.kind === "browser_stage_complete" &&
+    entry.service_session?.target === "check-service-backed"
+  );
+  if (!complete) {
+    throw new Error(`check schedule must expose ${expectedLeaf} as browser stage completion work`);
   }
 }
 const webserverGroups = (schedule.work_units ?? []).filter((entry) =>
@@ -646,14 +662,19 @@ if (webserverGroups.length < 3 || !webserverGroups.some((entry) => entry.browser
   throw new Error("check schedule must split browser-e2e-webserver-backed into functional shard and support browser groups");
 }
 const webserverGroupKeys = new Set(webserverGroups.map((entry) => `browser_group:${entry.browser_group?.id}`));
-const webserverStageSessionKey = "browser_stage_session:browser-e2e-webserver-backed";
+const sharedBrowserGroupKeys = new Set(
+  (schedule.work_units ?? [])
+    .filter((entry) => entry.kind === "browser_group" && entry.browser_session_group === "default-check-browser-shared")
+    .map((entry) => `browser_group:${entry.browser_group?.id}`),
+);
+const webserverStageSessionKey = "browser_stage_session:default-check-browser-shared";
 const functionalShardCount = Math.max(
   ...webserverGroups
     .filter((entry) => entry.browser_group?.kind === "functional_shard")
     .map((entry) => entry.browser_group?.shard_count ?? 0),
 );
-if (functionalShardCount !== 4) {
-  throw new Error(`check schedule must render 4 duration-balanced functional shards, got ${functionalShardCount}`);
+if (functionalShardCount !== 6) {
+  throw new Error(`check schedule must render 6 duration-balanced functional shards, got ${functionalShardCount}`);
 }
 const webserverWorkerCount = functionalShardCount + (
   webserverGroups.some((entry) => entry.browser_group?.kind === "support") ? 1 : 0
@@ -692,7 +713,7 @@ if (measurementSession) {
 const webserverComplete = (schedule.work_units ?? []).find((entry) =>
   entry.target === "browser-e2e-webserver-backed" && entry.kind === "browser_stage_complete"
 );
-const expectedWebserverCompleteNeeds = [...webserverGroupKeys].sort();
+const expectedWebserverCompleteNeeds = [...sharedBrowserGroupKeys].sort();
 const actualWebserverCompleteNeeds = [...(webserverComplete?.needs ?? [])].sort();
 if (JSON.stringify(actualWebserverCompleteNeeds) !== JSON.stringify(expectedWebserverCompleteNeeds)) {
   throw new Error("browser-e2e-webserver-backed completion must depend on every browser group");
@@ -742,6 +763,9 @@ while IFS=$'\t' read -r stage_name group_name group_target _group_kind group_cov
   fi
   if [[ -z "$group_execution_dependency" ]]; then
     fail "browser batch group $stage_name/$group_name must declare execution_dependency for $group_coverage coverage"
+  fi
+  if [[ "$group_execution_dependency" == "browser_a11y" ]]; then
+    continue
   fi
   group_count="$("$node_bin" "$phase_manifest_helper" playwright-count-all "$group_coverage" "$group_execution_dependency")"
   if [[ "$group_count" == "0" ]]; then

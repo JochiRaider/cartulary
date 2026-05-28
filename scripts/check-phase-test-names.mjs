@@ -4,12 +4,10 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import {
+  authoritativeEvidenceNameViolations,
   collectEntries,
-  goEntrySymbols,
   loadManifest,
   phaseManifestNames,
-  playwrightEntryTitles,
-  vitestEntryTitles,
 } from "./lib/phase-manifest.mjs";
 
 const testFunctionPattern = /\bfunc\s+(TestPhase(\d+)[A-Za-z0-9_]*)\s*\(/g;
@@ -64,44 +62,12 @@ function manifestIDFragments(root) {
   return fragmentsByPhase;
 }
 
-function rowIDFragments(id) {
-  return [id, id.replaceAll("-", "_")];
-}
-
-function entryEvidenceNames(entry) {
-  if (entry.runner === "go_test") {
-    return goEntrySymbols(entry);
-  }
-  if (entry.runner === "vitest") {
-    return vitestEntryTitles(entry);
-  }
-  if (entry.runner === "playwright") {
-    return playwrightEntryTitles(entry);
-  }
-  return [];
-}
-
 function validateAuthoritativeManifestNames(root) {
   const invalid = [];
 
   for (const phase of phaseManifestNames(root, { includePlanned: true })) {
     const { manifest } = loadManifest(root, phase, { allowPlanned: true });
-    for (const entry of collectEntries(manifest)) {
-      if (entry.coverage !== "authoritative") {
-        continue;
-      }
-      const fragments = rowIDFragments(entry.id);
-      for (const name of entryEvidenceNames(entry)) {
-        if (!fragments.some((fragment) => name.includes(fragment))) {
-          invalid.push({
-            file: entry.file,
-            phase,
-            symbol: name,
-            reason: `authoritative evidence for ${entry.id} must include ${fragments.join(" or ")}`,
-          });
-        }
-      }
-    }
+    invalid.push(...authoritativeEvidenceNameViolations(manifest, { phase }));
   }
 
   return invalid;

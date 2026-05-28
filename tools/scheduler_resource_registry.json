@@ -112,8 +112,9 @@
       "schedulers": ["check", "service_backed"],
       "display_order": 170,
       "capacity": {
-        "default_limit": 1,
-        "max_limit": 256
+        "auto_policy": "service_backed_postgres_reset",
+        "override_env": "CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT",
+        "max_limit": 8
       }
     },
     {

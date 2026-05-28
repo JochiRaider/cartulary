@@ -660,12 +660,17 @@ export function browserStageLaneCount(workUnits) {
   return lanes.size;
 }
 
+export function browserStackClaimUnitCount(workUnits) {
+  return (workUnits ?? []).filter((unit) => unit.resourceClaims?.has?.("browser_stack")).length;
+}
+
 export function estimateBrowserStackAutoLimit(workUnits, resourceLimits, { cpuResources = ["host_cpu", "go_cpu"] } = {}) {
   const laneCount = browserStageLaneCount(workUnits);
   if (laneCount === 0) {
     return 1;
   }
-  const caps = [laneCount];
+  const stackClaimCount = browserStackClaimUnitCount(workUnits);
+  const caps = [stackClaimCount > 0 ? Math.min(laneCount, stackClaimCount) : laneCount];
   const processLimit = positiveIntegerLimit(resourceLimits.get("process"));
   if (processLimit !== null) {
     caps.push(processLimit);
@@ -693,8 +698,8 @@ export function estimatePostgresCloneAutoLimit(
   {
     cpuResources = ["host_cpu", "go_cpu"],
     ioResources = ["host_io", "go_io"],
-    defaultLimit = 4,
-    maxAutoLimit = 6,
+    defaultLimit = 6,
+    maxAutoLimit = 8,
   } = {},
 ) {
   const cpuLimit = maxPositiveLimit(resourceLimits, cpuResources);
@@ -705,6 +710,21 @@ export function estimatePostgresCloneAutoLimit(
   }
   const balancedHostBound = Math.floor(Math.min(...positiveBounds) / 2);
   return Math.max(1, Math.min(maxAutoLimit, Math.max(defaultLimit, balancedHostBound)));
+}
+
+export function estimatePostgresResetAutoLimit(
+  resourceLimits,
+  {
+    ioResources = ["host_io", "go_io"],
+    defaultLimit = 4,
+    maxAutoLimit = 8,
+  } = {},
+) {
+  const ioLimit = maxPositiveLimit(resourceLimits, ioResources);
+  if (ioLimit <= 0) {
+    return defaultLimit;
+  }
+  return Math.max(1, Math.min(maxAutoLimit, Math.max(1, Math.floor(ioLimit / 3))));
 }
 
 export function normalizeBoundedLimitClaim(value, label, resource, resourceLimit) {

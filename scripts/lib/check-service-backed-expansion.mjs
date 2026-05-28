@@ -142,6 +142,97 @@ function browserGroupClaims(rawClaims) {
   return mapServiceBackedClaimsToCheckClaims(rawClaims ?? {}, { ensureHost: true });
 }
 
+function browserSessionGroupName(source) {
+  const raw = source.browser_session_group ?? source.browserSessionGroup;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    return raw.trim();
+  }
+  return source.target;
+}
+
+function browserSessionIsolationReason(source) {
+  const raw =
+    source.browser_session_isolation_reason ?? source.browserSessionIsolationReason;
+  return typeof raw === "string" && raw.trim() !== "" ? raw.trim() : "";
+}
+
+function browserSessionRetainsOwnTarget(source) {
+  return browserSessionGroupName(source) === source.target;
+}
+
+function browserSessionWorkUnitID(scheduleTarget, source) {
+  const group = browserSessionGroupName(source);
+  if (browserSessionRetainsOwnTarget(source)) {
+    return `${scheduleTarget}:browser-stage-session:${source.browser_stage}`;
+  }
+  return `${scheduleTarget}:browser-stage-session:${group}`;
+}
+
+function mergeSessionClaims(left, right) {
+  const claims = new Map(Object.entries(left ?? {}));
+  for (const [resource, amount] of Object.entries(right ?? {})) {
+    const previous = claims.get(resource);
+    if (amount === "limit" || previous === "limit") {
+      claims.set(resource, "limit");
+      continue;
+    }
+    if (!Number.isInteger(amount) || amount < 1) {
+      throw new Error(`resource claim ${resource} must be a positive integer or "limit"`);
+    }
+    claims.set(resource, Math.max(Number.isInteger(previous) ? previous : 0, amount));
+  }
+  return resourceClaimsObject(Object.fromEntries(claims.entries()));
+}
+
+function unionStrings(left, right) {
+  return Array.from(new Set([...(left ?? []), ...(right ?? [])]));
+}
+
+function browserSessionInfos(sources, { serviceSessionKey, parentNeeds }) {
+  const infos = new Map();
+  for (const [sourceIndex, source] of sources.entries()) {
+    if (source.type !== "browser_stage") {
+      continue;
+    }
+    const group = browserSessionGroupName(source);
+    const sourceClaims = mapServiceBackedClaimsToCheckClaims(source.resource_claims, {
+      ensureHost: true,
+    });
+    const retainedClaims = retainedBrowserStageClaims(source.resource_claims);
+    const needs = sourceNeeds(source, serviceSessionKey, browserStageExtraNeeds(parentNeeds));
+    const groupNeeds = browserStageCompletionNeeds(source.groups);
+    const info = infos.get(group) ?? {
+      group,
+      sessionKey: browserStageSessionKey(group),
+      firstSource: source,
+      firstSourceIndex: sourceIndex,
+      finalizerSource: source,
+      finalizerIndex: sourceIndex,
+      resourceClaims: {},
+      retainedClaims: {},
+      needs: [],
+      groupNeeds: [],
+      priority: 0,
+      weightMs: 0,
+      isolationReason: "",
+      sources: [],
+    };
+    info.sources.push(source);
+    info.resourceClaims = mergeSessionClaims(info.resourceClaims, sourceClaims);
+    info.retainedClaims = mergeSessionClaims(info.retainedClaims, retainedClaims);
+    info.needs = unionStrings(info.needs, needs);
+    info.groupNeeds = unionStrings(info.groupNeeds, groupNeeds);
+    info.priority = Math.max(info.priority, priority(source.priority));
+    info.weightMs = Math.max(info.weightMs, source.weight_ms);
+    const isolationReason = browserSessionIsolationReason(source);
+    if (isolationReason) {
+      info.isolationReason = isolationReason;
+    }
+    infos.set(group, info);
+  }
+  return infos;
+}
+
 function priority(value) {
   return Number.isInteger(value) && value > 0 ? value : defaultSchedulerPriority;
 }
@@ -161,6 +252,10 @@ export function expandServiceBackedScheduleForCheck({
   const parentNeeds = [...(parentUnit.needs ?? [])];
   const serviceNeeds = serviceSessionNeeds(parentNeeds);
   const serviceCompletePriority = priority(serviceSchedule.service_complete_priority);
+  const sessionInfos = browserSessionInfos(serviceSchedule.work_unit_sources ?? [], {
+    serviceSessionKey,
+    parentNeeds,
+  });
   const expanded = [
     {
       id: `${scheduleTarget}:service-session`,
@@ -188,33 +283,39 @@ export function expandServiceBackedScheduleForCheck({
 
   for (const [sourceIndex, source] of (serviceSchedule.work_unit_sources ?? []).entries()) {
     if (source.type === "browser_stage") {
-      const retainedClaims = retainedBrowserStageClaims(source.resource_claims);
-      const stageSessionKey = browserStageSessionKey(source.target);
-      expanded.push({
-        id: `${scheduleTarget}:browser-stage-session:${source.browser_stage}`,
-        kind: "browser_stage_session",
-        target: source.target,
-        label: `${source.target}/stage-session`,
-        aggregate_target: source.target,
-        priority: priority(source.priority),
-        weight_ms: source.weight_ms,
-        needs: sourceNeeds(source, serviceSessionKey, browserStageExtraNeeds(parentNeeds)),
-        completion_keys: [stageSessionKey],
-        failure_keys: [stageSessionKey],
-        resource_claims: mapServiceBackedClaimsToCheckClaims(source.resource_claims, {
-          ensureHost: true,
-        }),
-        retained_resource_claims: retainedClaims,
-        service_session: {
-          target: scheduleTarget,
-        },
-        browser_stage: source.browser_stage,
-        command: command("browser_stage_session_start", {
-          service_target: scheduleTarget,
+      const sessionGroup = browserSessionGroupName(source);
+      const sessionInfo = sessionInfos.get(sessionGroup);
+      const isSessionOwner = sessionInfo?.firstSource === source;
+      const isSessionFinalizer = sessionInfo?.finalizerSource === source;
+      if (isSessionOwner) {
+        expanded.push({
+          id: browserSessionWorkUnitID(scheduleTarget, source),
+          kind: "browser_stage_session",
+          target: source.target,
+          label: `${sessionGroup}/stage-session`,
+          aggregate_target: source.target,
+          priority: sessionInfo.priority,
+          weight_ms: sessionInfo.weightMs,
+          needs: sessionInfo.needs,
+          completion_keys: [sessionInfo.sessionKey],
+          failure_keys: [sessionInfo.sessionKey],
+          resource_claims: sessionInfo.resourceClaims,
+          retained_resource_claims: sessionInfo.retainedClaims,
+          service_session: {
+            target: scheduleTarget,
+          },
           browser_stage: source.browser_stage,
-        }),
-        order: sourceIndex,
-      });
+          browser_session_group: sessionGroup,
+          ...(sessionInfo.isolationReason
+            ? { browser_session_isolation_reason: sessionInfo.isolationReason }
+            : {}),
+          command: command("browser_stage_session_start", {
+            service_target: scheduleTarget,
+            browser_stage: source.browser_stage,
+          }),
+          order: sourceIndex,
+        });
+      }
       expanded.push({
         id: `${scheduleTarget}:browser-stage-complete:${source.browser_stage}`,
         kind: "browser_stage_complete",
@@ -223,17 +324,24 @@ export function expandServiceBackedScheduleForCheck({
         aggregate_target: source.target,
         priority: priority(source.priority),
         weight_ms: 1,
-        needs: browserStageCompletionNeeds(source.groups),
+        needs: sessionInfo?.groupNeeds ?? browserStageCompletionNeeds(source.groups),
         completion_keys: [source.target],
         failure_keys: [source.target],
         count_in_total: false,
         counts_started: false,
         resource_claims: {},
-        release_retained_resource_claims: retainedClaims,
+        release_retained_resource_claims: isSessionFinalizer
+          ? (sessionInfo?.retainedClaims ?? {})
+          : {},
         service_session: {
           target: scheduleTarget,
         },
         browser_stage: source.browser_stage,
+        browser_session_group: sessionGroup,
+        browser_session_finalizer: isSessionFinalizer,
+        ...(sessionInfo?.isolationReason
+          ? { browser_session_isolation_reason: sessionInfo.isolationReason }
+          : {}),
         command: command("browser_stage_complete", {
           service_target: scheduleTarget,
           browser_stage: source.browser_stage,
@@ -249,7 +357,7 @@ export function expandServiceBackedScheduleForCheck({
           aggregate_target: source.target,
           priority: priority(group.priority ?? source.priority),
           weight_ms: group.weight_ms,
-          needs: browserGroupNeeds(stageSessionKey),
+          needs: browserGroupNeeds(sessionInfo?.sessionKey ?? browserStageSessionKey(source.target)),
           completion_keys: [browserGroupCompletionKey(group.id)],
           failure_keys: [browserGroupCompletionKey(group.id)],
           resource_claims: browserGroupClaims(group.resource_claims),
@@ -257,6 +365,7 @@ export function expandServiceBackedScheduleForCheck({
             target: scheduleTarget,
           },
           browser_stage: source.browser_stage,
+          browser_session_group: sessionGroup,
           browser_group: clone(group),
           env: browserGroupWorkerEnv(source.groups, group),
           command: command("browser_group", {
@@ -437,6 +546,49 @@ function directRetainedBrowserStageClaims(rawClaims) {
   return retainedBrowserStageClaimsFromEntries(Object.entries(rawClaims ?? {}));
 }
 
+function directBrowserSessionInfos(sources) {
+  const infos = new Map();
+  for (const [sourceIndex, source] of sources.entries()) {
+    if (source.type !== "browser_stage") {
+      continue;
+    }
+    const group = browserSessionGroupName(source);
+    const info = infos.get(group) ?? {
+      group,
+      sessionKey: browserStageSessionKey(group),
+      firstSource: source,
+      firstSourceIndex: sourceIndex,
+      finalizerSource: source,
+      finalizerIndex: sourceIndex,
+      resourceClaims: {},
+      retainedClaims: {},
+      needs: [],
+      groupNeeds: [],
+      priority: 0,
+      weightMs: 0,
+      isolationReason: "",
+    };
+    info.resourceClaims = mergeSessionClaims(
+      info.resourceClaims,
+      resourceClaimsObject(source.resource_claims ?? {}),
+    );
+    info.retainedClaims = mergeSessionClaims(
+      info.retainedClaims,
+      directRetainedBrowserStageClaims(source.resource_claims),
+    );
+    info.needs = unionStrings(info.needs, source.needs ?? []);
+    info.groupNeeds = unionStrings(info.groupNeeds, browserStageCompletionNeeds(source.groups));
+    info.priority = Math.max(info.priority, priority(source.priority));
+    info.weightMs = Math.max(info.weightMs, source.weight_ms);
+    const isolationReason = browserSessionIsolationReason(source);
+    if (isolationReason) {
+      info.isolationReason = isolationReason;
+    }
+    infos.set(group, info);
+  }
+  return infos;
+}
+
 export function expandServiceBackedSchedule({
   repoRoot,
   serviceSchedule,
@@ -445,32 +597,43 @@ export function expandServiceBackedSchedule({
   const counted = [];
   const aggregate = [];
   const shardWorkByName = new Map();
+  const sessionInfos = directBrowserSessionInfos(serviceSchedule.work_unit_sources ?? []);
 
   for (const [sourceIndex, source] of (serviceSchedule.work_unit_sources ?? []).entries()) {
     if (source.type === "browser_stage") {
-      const retainedClaims = directRetainedBrowserStageClaims(source.resource_claims);
-      const stageSessionKey = browserStageSessionKey(source.target);
-      counted.push({
-        id: `browser-stage-session:${source.browser_stage}`,
-        kind: "browser_stage_session",
-        class: source.class,
-        target: source.target,
-        label: `${source.target}/stage-session`,
-        aggregate_target: source.target,
-        priority: priority(source.priority),
-        weight_ms: source.weight_ms,
-        needs: source.needs ?? [],
-        completion_keys: [stageSessionKey],
-        failure_keys: [stageSessionKey],
-        resource_claims: resourceClaimsObject(source.resource_claims ?? {}),
-        retained_resource_claims: retainedClaims,
-        browser_stage: source.browser_stage,
-        command: command("browser_stage_session_start", {
-          service_target: scheduleTarget,
+      const sessionGroup = browserSessionGroupName(source);
+      const sessionInfo = sessionInfos.get(sessionGroup);
+      const isSessionOwner = sessionInfo?.firstSource === source;
+      const isSessionFinalizer = sessionInfo?.finalizerSource === source;
+      if (isSessionOwner) {
+        counted.push({
+          id: browserSessionRetainsOwnTarget(source)
+            ? `browser-stage-session:${source.browser_stage}`
+            : `browser-stage-session:${sessionGroup}`,
+          kind: "browser_stage_session",
+          class: source.class,
+          target: source.target,
+          label: `${sessionGroup}/stage-session`,
+          aggregate_target: source.target,
+          priority: sessionInfo.priority,
+          weight_ms: sessionInfo.weightMs,
+          needs: sessionInfo.needs,
+          completion_keys: [sessionInfo.sessionKey],
+          failure_keys: [sessionInfo.sessionKey],
+          resource_claims: sessionInfo.resourceClaims,
+          retained_resource_claims: sessionInfo.retainedClaims,
           browser_stage: source.browser_stage,
-        }),
-        order: sourceIndex,
-      });
+          browser_session_group: sessionGroup,
+          ...(sessionInfo.isolationReason
+            ? { browser_session_isolation_reason: sessionInfo.isolationReason }
+            : {}),
+          command: command("browser_stage_session_start", {
+            service_target: scheduleTarget,
+            browser_stage: source.browser_stage,
+          }),
+          order: sourceIndex,
+        });
+      }
       aggregate.push({
         id: `browser-stage-complete:${source.browser_stage}`,
         kind: "browser_stage_complete",
@@ -480,14 +643,21 @@ export function expandServiceBackedSchedule({
         aggregate_target: source.target,
         priority: priority(source.priority),
         weight_ms: 1,
-        needs: browserStageCompletionNeeds(source.groups),
+        needs: sessionInfo?.groupNeeds ?? browserStageCompletionNeeds(source.groups),
         completion_keys: [source.target],
         failure_keys: [source.target],
         count_in_total: false,
         counts_started: false,
         resource_claims: {},
-        release_retained_resource_claims: retainedClaims,
+        release_retained_resource_claims: isSessionFinalizer
+          ? (sessionInfo?.retainedClaims ?? {})
+          : {},
         browser_stage: source.browser_stage,
+        browser_session_group: sessionGroup,
+        browser_session_finalizer: isSessionFinalizer,
+        ...(sessionInfo?.isolationReason
+          ? { browser_session_isolation_reason: sessionInfo.isolationReason }
+          : {}),
         command: command("browser_stage_complete", {
           service_target: scheduleTarget,
           browser_stage: source.browser_stage,
@@ -504,11 +674,12 @@ export function expandServiceBackedSchedule({
           aggregate_target: source.target,
           priority: priority(group.priority ?? source.priority),
           weight_ms: group.weight_ms,
-          needs: browserGroupNeeds(stageSessionKey),
+          needs: browserGroupNeeds(sessionInfo?.sessionKey ?? browserStageSessionKey(source.target)),
           completion_keys: [browserGroupCompletionKey(group.id)],
           failure_keys: [browserGroupCompletionKey(group.id)],
           resource_claims: resourceClaimsObject(group.resource_claims ?? {}),
           browser_stage: source.browser_stage,
+          browser_session_group: sessionGroup,
           browser_group: clone(group),
           env: browserGroupWorkerEnv(source.groups, group),
           command: command("browser_group", {

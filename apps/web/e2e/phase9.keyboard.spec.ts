@@ -136,14 +136,14 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
   expect(page.url()).toBe(initialURL);
 });
 
-test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbook cells", async ({
+test("Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across workbook cells", async ({
   page,
   workerAdmin,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E9GRID01"),
-    "Phase 9 E-9-GRID-01 keyboard anchor semantics",
+    "Phase 9 E-9-GRIDANCHORS-01 keyboard anchor semantics",
   );
   const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e9grid01"),
@@ -485,13 +485,13 @@ test("Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbo
   );
 });
 
-test("Phase 9 E-9-GRID-01 Host entity-origin clipboard paste reuses exact matches and creates stubs", async ({
+test("Phase 9 E-9-GRIDHOST-01 Host entity-origin clipboard paste reuses exact matches and creates stubs", async ({
   page,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E9GRIDHOSTPASTE"),
-    "Phase 9 E-9-GRID-01 host paste",
+    "Phase 9 E-9-GRIDHOST-01 host paste",
   );
   const existing = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e9grid-host-existing"),
@@ -574,13 +574,13 @@ test("Phase 9 E-9-GRID-01 Host entity-origin clipboard paste reuses exact matche
   expect(postURLs.some((url) => url.includes("/imports"))).toBeFalsy();
 });
 
-test("Phase 9 E-9-GRID-01 Identity entity-origin clipboard paste reuses exact matches and creates stubs", async ({
+test("Phase 9 E-9-GRIDIDENTITY-01 Identity entity-origin clipboard paste reuses exact matches and creates stubs", async ({
   page,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E9GRIDIDENTITYPASTE"),
-    "Phase 9 E-9-GRID-01 identity paste",
+    "Phase 9 E-9-GRIDIDENTITY-01 identity paste",
   );
   const existing = await createViewRow(
     page,

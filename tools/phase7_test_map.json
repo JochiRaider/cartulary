@@ -266,16 +266,7 @@
       "claim": "Sprint 4 covers delete, restore, single-entry rollback, direct attached-evidence create/delete association rollback, executable whole-change-set rollback for reversible non-merge substrate, and whole-row restore across source rows, projections, history rows, record revisions, affected_record_ids, and ordinary record_changed collaboration events.",
       "out_of_scope": "Reviewer workbook UI, browser workflows, and typed tag rollback remain unclaimed.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 1
-        }
-      },
-      "template_clone_reason": "Atomic consequence coverage requires real runtime state across source tables, projections, history tables, and collaboration publication."
+      "execution_label": "backend-integration phase7 revisions"
     },
     {
       "id": "I-7-02",
@@ -289,16 +280,7 @@
       "claim": "History pagination remains bound to `record_id`, rejects cross-record cursor replay, and preserves deterministic item ordering across pages.",
       "out_of_scope": "General pagination registry behavior remains existing platform support evidence.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 1
-        }
-      },
-      "template_clone_reason": "Record-bound cursor coverage requires persisted multi-record history and real HTTP cursor handling."
+      "execution_label": "backend-integration phase7 revisions"
     },
     {
       "id": "I-7-03",
@@ -312,16 +294,7 @@
       "claim": "Sprint 4 covers stale restore plus stale or non-reversible single-entry, whole-change-set, and row-restore rollback failure as closed transactions: no envelope/source state, projection, history, idempotency, or collaboration event changes.",
       "out_of_scope": "Merge-specific stale base-version rollback is covered by `I-7-05`; later dependent merge graph edits remain closed by the shared rollback precondition substrate.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 1
-        }
-      },
-      "template_clone_reason": "Stale-precondition coverage requires committed current state and HTTP rollback or restore behavior."
+      "execution_label": "backend-integration phase7 revisions"
     },
     {
       "id": "I-7-04",
@@ -335,16 +308,7 @@
       "claim": "Sprint 4 retained-history evidence for an extant record remains fully paginatable and stable across the explicit restart, incident-closure, and later-change sequence covered by this test, with prior `history_entry_ref` values preserved.",
       "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7; Sprint 5 browser rows own reviewer workbook UI evidence.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 1
-        }
-      },
-      "template_clone_reason": "Restart and closure coverage requires durable runtime-backed history evidence."
+      "execution_label": "backend-integration phase7 revisions"
     },
     {
       "id": "I-7-05",
@@ -358,16 +322,7 @@
       "claim": "Merge-aware change-set rollback restores survivor and loser entity rows, carried aliases and preserved identifiers, repointed or deduped mentions, links, tags, assessments, projections, canonical affected records, append-only rollback history, idempotent replay, and stale base-version failure through the existing rollback route.",
       "out_of_scope": "Browser-visible merge rollback remains hidden unless the server supplies legal row-history rollback metadata for that merge change set; typed tag rollback remains a Phase 8 owner dependency.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 1
-        }
-      },
-      "template_clone_reason": "Merge rollback evidence requires real runtime state across merge substrate, source tables, projections, history tables, and rollback idempotency."
+      "execution_label": "backend-integration phase7 revisions"
     }
   ],
   "e2e": [

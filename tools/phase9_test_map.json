@@ -70,14 +70,18 @@
     "I-9-03",
     "I-9-GRID-01",
     "E-9-01",
-    "E-9-02",
+    "E-9-PASTE-02",
+    "E-9-CONFLICT-02",
     "E-9-03",
     "E-9-04",
     "E-9-05",
-    "E-9-06",
+    "E-9-TASKDECISION-06",
+    "E-9-COORDINATION-06",
     "E-9-07",
     "E-9-08",
-    "E-9-GRID-01"
+    "E-9-GRIDANCHORS-01",
+    "E-9-GRIDHOST-01",
+    "E-9-GRIDIDENTITY-01"
   ],
   "forbidden_id_files": [
     "apps/web/e2e/phase4.workbook.assessments.spec.ts",
@@ -457,7 +461,7 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "frontend_unit",
       "claim": "Sorted and filtered paste translation uses stable Cartulary anchors, excludes group and presentation-only rows, creates explicit create-row anchors for overflow, rejects vendor coordinates alone, treats single-line comma-only clipboard text as scalar default input, and rendered WorkbookShell dispatch posts stable record_id/base_row_version/create anchors with quote-aware clipboard dimensions.",
-      "out_of_scope": "File-based import and Host/Identity browser paste behavior remain owned by E-9-GRID-01.",
+      "out_of_scope": "File-based import and Host/Identity browser paste behavior remain owned by the E-9-GRID-01 browser rows.",
       "claim_status": "implemented"
     }
   ],
@@ -475,19 +479,28 @@
       "claim_status": "implemented"
     },
     {
-      "id": "E-9-02",
+      "id": "E-9-PASTE-02",
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+      "title": "Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
-      "claim": "Live workbook Timeline grid accepts a representative 20x5 clipboard paste, creates or updates rows, applies visible field effects including collection chips, preserves focus identity and row selection, and presents grouped same-surface paste conflict navigation without losing workbook selection continuity.",
-      "out_of_scope": "Storage-only raw-capture provenance is backend-integration evidence; file-based CSV/XLSX import, Host/Identity entity-origin paste, and later Phase 9 browser workflows remain unclaimed by this Timeline row.",
-      "claim_status": "implemented",
-      "titles": [
-        "Phase 9 E-9-02 pastes a representative 20x5 Timeline clipboard range",
-        "Phase 9 E-9-02 groups paste conflicts and preserves selection continuity"
-      ]
+      "claim": "Live workbook Timeline grid accepts a representative 20x5 clipboard paste, creates or updates rows, applies visible field effects including collection chips, and preserves focus identity and row selection.",
+      "out_of_scope": "Storage-only raw-capture provenance is backend-integration evidence; grouped same-surface paste conflict navigation is owned by E-9-CONFLICT-02; file-based CSV/XLSX import, Host/Identity entity-origin paste, and later Phase 9 browser workflows remain unclaimed by this Timeline row.",
+      "claim_status": "implemented"
+    },
+    {
+      "id": "E-9-CONFLICT-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+      "title": "Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection continuity",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser_functional",
+      "claim": "Live workbook Timeline grid presents grouped same-surface paste conflict navigation without losing workbook selection continuity.",
+      "out_of_scope": "Storage-only raw-capture provenance is backend-integration evidence; representative 20x5 paste creation/update behavior is owned by E-9-PASTE-02; file-based CSV/XLSX import, Host/Identity entity-origin paste, and later Phase 9 browser workflows remain unclaimed by this Timeline row.",
+      "claim_status": "implemented"
     },
     {
       "id": "E-9-03",
@@ -526,19 +539,28 @@
       "claim_status": "implemented"
     },
     {
-      "id": "E-9-06",
+      "id": "E-9-TASKDECISION-06",
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+      "title": "Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows stay native",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
-      "claim": "The browser workbook opens Task Requests, Decisions, Communications Log, Handoff, Status Review, and Lesson by canonical view_schema_id; creates and edits Task Request queue fields, priority, due date, blocked reason, owner-filterable rows, linked records, and direct decision links; creates Decision support refs, patches Decision affected-record refs, executes explicit Decision supersession, clears task.decision_record_id through the ordinary PATCH body, and creates Communications Log, Handoff, Status Review, and Lesson through workbook-native controls, including explicit Handoff incoming-owner input before submit, then edits and queries coordination fields for comm-log references, handoff next checks and risk refs, derived acknowledgment state, status-review blocked work, pending evidence, open decisions, next report filtering, and lesson follow-up/evidence closure.",
-      "out_of_scope": "Optional standardized surface, import, and reporting browser workflows remain later Phase 9 rows.",
-      "claim_status": "implemented",
-      "titles": [
-        "Phase 9 E-9-06 Task Request and Decision workbook workflows stay native",
-        "Phase 9 E-9-06 coordination workbook workflows stay native"
-      ]
+      "claim": "The browser workbook opens Task Requests and Decisions by canonical view_schema_id; creates and edits Task Request queue fields, priority, due date, blocked reason, owner-filterable rows, linked records, and direct decision links; creates Decision support refs, patches Decision affected-record refs, executes explicit Decision supersession, and clears task.decision_record_id through the ordinary PATCH body.",
+      "out_of_scope": "Communications Log, Handoff, Status Review, and Lesson browser workflows are owned by E-9-COORDINATION-06. Optional standardized surface, import, and reporting browser workflows remain later Phase 9 rows.",
+      "claim_status": "implemented"
+    },
+    {
+      "id": "E-9-COORDINATION-06",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase9.sentinel.spec.ts",
+      "title": "Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser_functional",
+      "claim": "The browser workbook opens Communications Log, Handoff, Status Review, and Lesson by canonical view_schema_id; creates them through workbook-native controls including explicit Handoff incoming-owner input before submit; then edits and queries coordination fields for comm-log references, handoff next checks and risk refs, derived acknowledgment state, status-review blocked work, pending evidence, open decisions, next report filtering, and lesson follow-up/evidence closure.",
+      "out_of_scope": "Task Request and Decision browser workflows are owned by E-9-TASKDECISION-06. Optional standardized surface, import, and reporting browser workflows remain later Phase 9 rows.",
+      "claim_status": "implemented"
     },
     {
       "id": "E-9-07",
@@ -565,20 +587,40 @@
       "claim_status": "implemented"
     },
     {
-      "id": "E-9-GRID-01",
+      "id": "E-9-GRIDANCHORS-01",
       "coverage": "authoritative",
       "runner": "playwright",
       "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+      "title": "Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across workbook cells",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser_functional",
-      "claim": "The E-9-GRID-01 browser evidence proves the explicitly visited shared-grid keyboard-anchor path keeps stable record_id and field_key anchors across Timeline, Hosts, Identities, Assessments, Task Requests, Decisions, Notes, Communications Log, Handoff, Status Review, Lesson, and Indicators; it also proves Host and Identity entity-origin clipboard paste uses the shared grid paste dispatcher and backend exact-match/stub contract without routing through file import.",
-      "out_of_scope": "This row does not claim a general certification for every renderer-family surface or every shared-grid behavior. Timeline paste remains owned by E-9-02; browser-level bulk-edit, presence, save-state, conflict-marker, and optional standardized surface behavior remain owned by later browser-functional evidence rows.",
-      "claim_status": "implemented",
-      "titles": [
-        "Phase 9 E-9-GRID-01 shared grid keyboard anchors stay stable across workbook cells",
-        "Phase 9 E-9-GRID-01 Host entity-origin clipboard paste reuses exact matches and creates stubs",
-        "Phase 9 E-9-GRID-01 Identity entity-origin clipboard paste reuses exact matches and creates stubs"
-      ]
+      "claim": "The explicitly visited shared-grid keyboard-anchor path keeps stable record_id and field_key anchors across Timeline, Hosts, Identities, Assessments, Task Requests, Decisions, Notes, Communications Log, Handoff, Status Review, Lesson, and Indicators.",
+      "out_of_scope": "This row does not claim a general certification for every renderer-family surface or every shared-grid behavior. Timeline paste remains owned by the E-9 paste rows; Host and Identity entity-origin clipboard paste are owned by the E-9 grid paste rows; browser-level bulk-edit, presence, save-state, conflict-marker, and optional standardized surface behavior remain owned by later browser-functional evidence rows.",
+      "claim_status": "implemented"
+    },
+    {
+      "id": "E-9-GRIDHOST-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+      "title": "Phase 9 E-9-GRIDHOST-01 Host entity-origin clipboard paste reuses exact matches and creates stubs",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser_functional",
+      "claim": "Host entity-origin clipboard paste uses the shared grid paste dispatcher and backend exact-match/stub contract without routing through file import.",
+      "out_of_scope": "Shared-grid keyboard anchors are owned by E-9-GRIDANCHORS-01. Identity entity-origin clipboard paste is owned by E-9-GRIDIDENTITY-01. Timeline paste remains owned by the E-9 paste rows.",
+      "claim_status": "implemented"
+    },
+    {
+      "id": "E-9-GRIDIDENTITY-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+      "title": "Phase 9 E-9-GRIDIDENTITY-01 Identity entity-origin clipboard paste reuses exact matches and creates stubs",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser_functional",
+      "claim": "Identity entity-origin clipboard paste uses the shared grid paste dispatcher and backend exact-match/stub contract without routing through file import.",
+      "out_of_scope": "Shared-grid keyboard anchors are owned by E-9-GRIDANCHORS-01. Host entity-origin clipboard paste is owned by E-9-GRIDHOST-01. Timeline paste remains owned by the E-9 paste rows.",
+      "claim_status": "implemented"
     }
   ]
 }

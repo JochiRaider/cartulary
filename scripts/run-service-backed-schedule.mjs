@@ -28,6 +28,7 @@ import { formatResourceMap } from "./lib/scheduler-reporting.mjs";
 import {
   estimateBrowserStackAutoLimit,
   estimatePostgresCloneAutoLimit,
+  estimatePostgresResetAutoLimit,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   provisionalResourceLimitsForClaims,
@@ -889,6 +890,10 @@ function resolveResourceLimits(
           cpuResources: [goCPUResource],
           ioResources: [goIOResource],
         }),
+      service_backed_postgres_reset: ({ resourceLimits: currentLimits }) =>
+        estimatePostgresResetAutoLimit(currentLimits, {
+          ioResources: [goIOResource],
+        }),
     },
   );
 }
@@ -945,22 +950,29 @@ function attachRuntime(
     process.env.CARTULARY_TEST_SERVICES_BIN ||
     process.env.TEST_SERVICES_BIN ||
     "";
+  const browserSessionKeyFor = (unit) =>
+    unit.browserSessionGroup || unit.aggregateTarget || unit.target;
+  const browserSessionUnits = schedule.workUnits
+    .filter((unit) => unit.kind === "browser_stage_session")
+    .sort((left, right) => browserSessionKeyFor(left).localeCompare(browserSessionKeyFor(right)));
   const browserSessionFiles = new Map(
-    schedule.workUnits
-      .filter((unit) => unit.kind === "browser_stage_session")
-      .map((unit) => [
-        unit.target,
+    browserSessionUnits.map((unit) => {
+      const sessionKey = browserSessionKeyFor(unit);
+      const fileStem = sessionKey.replaceAll(/[^A-Za-z0-9_.-]/g, "_");
+      return [
+        sessionKey,
         {
           envFile: path.join(
             metadataDir,
-            `${unit.browserStage}-browser-env.json`,
+            `${fileStem}-browser-env.json`,
           ),
           leaseFile: path.join(
             metadataDir,
-            `${unit.browserStage}-browser-lease.json`,
+            `${fileStem}-browser-lease.json`,
           ),
         },
-      ]),
+      ];
+    }),
   );
   const browserSessionEnvFor = async (target) => {
     const files = browserSessionFiles.get(target);
@@ -985,7 +997,7 @@ function attachRuntime(
       continue;
     }
     if (unit.kind === "browser_stage_session") {
-      const files = browserSessionFiles.get(unit.target);
+      const files = browserSessionFiles.get(browserSessionKeyFor(unit));
       unit.command = () => ({
         command: browserSessionScript,
         args: [
@@ -999,6 +1011,8 @@ function attachRuntime(
           ...process.env,
           CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
           CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
+          CARTULARY_BROWSER_STAGE: unit.browserStage,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         },
       });
@@ -1006,7 +1020,7 @@ function attachRuntime(
     }
     if (unit.kind === "browser_group") {
       unit.command = async () => {
-        const sessionEnv = await browserSessionEnvFor(unit.aggregateTarget);
+        const sessionEnv = await browserSessionEnvFor(browserSessionKeyFor(unit));
         const group = unit.browserGroup;
         const pnpmBin =
           process.env.PNPM ||
@@ -1017,6 +1031,7 @@ function attachRuntime(
           ...unit.browserWorkerEnv,
           CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
           CARTULARY_TEST_TARGET: unit.aggregateTarget,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
           CARTULARY_BROWSER_STAGE: unit.browserStage,
           CARTULARY_BROWSER_GROUP_KIND: group.kind,
           CARTULARY_BROWSER_GROUP_NAME: group.name,
@@ -1102,24 +1117,36 @@ function attachRuntime(
       continue;
     }
     if (unit.kind === "browser_stage_complete") {
-      const files = browserSessionFiles.get(unit.target);
+      const files = browserSessionFiles.get(browserSessionKeyFor(unit));
+      const shouldStopSession = unit.browserSessionFinalizer !== false;
+      const commands = [
+        `${testOutputCommand} target-summary ${JSON.stringify(unit.target)} pass --quiet-success`,
+        `summary_status=$?`,
+      ];
+      if (shouldStopSession) {
+        commands.push(
+          `${JSON.stringify(browserSessionScript)} --session-stop --lease-file ${JSON.stringify(files.leaseFile)}`,
+          `stop_status=$?`,
+        );
+      } else {
+        commands.push(`stop_status=0`);
+      }
+      commands.push(
+        `if [[ "$summary_status" -ne 0 ]]; then exit "$summary_status"; fi`,
+        `exit "$stop_status"`,
+      );
       unit.command = () => ({
         command: "bash",
         args: [
           "-c",
-          [
-            `${testOutputCommand} target-summary ${JSON.stringify(unit.target)} pass --quiet-success`,
-            `summary_status=$?`,
-            `${JSON.stringify(browserSessionScript)} --session-stop --lease-file ${JSON.stringify(files.leaseFile)}`,
-            `stop_status=$?`,
-            `if [[ "$summary_status" -ne 0 ]]; then exit "$summary_status"; fi`,
-            `exit "$stop_status"`,
-          ].join("; "),
+          commands.join("; "),
         ],
         env: {
           ...process.env,
           CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
           CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
+          CARTULARY_BROWSER_STAGE: unit.browserStage,
           TEST_OUTPUT_SCRIPT: testOutputScript,
         },
       });
@@ -1306,6 +1333,10 @@ async function main() {
         service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
           estimatePostgresCloneAutoLimit(currentLimits, {
             cpuResources: [goCPUResource],
+            ioResources: [goIOResource],
+          }),
+        service_backed_postgres_reset: ({ resourceLimits: currentLimits }) =>
+          estimatePostgresResetAutoLimit(currentLimits, {
             ioResources: [goIOResource],
           }),
       };

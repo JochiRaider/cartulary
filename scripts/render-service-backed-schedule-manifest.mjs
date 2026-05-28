@@ -37,7 +37,7 @@ const scheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
 const defaultOutputPath = path.join(repoRoot, "tools", "scheduler_service_sources.json");
 const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
 const defaultBrowserFunctionalMinShards = 2;
-const defaultBrowserFunctionalMaxShards = 4;
+const defaultBrowserFunctionalMaxShards = 6;
 const measurementIsolationStages = new Set(["webserver-backed", "stateful", "a11y", "visual"]);
 
 function usage() {
@@ -331,7 +331,60 @@ function browserSelector(scheduleProfile) {
   if (tags.length === 0) {
     throw new Error(`${scheduleProfile.target}.selectors.browser.schedule_tags must not be empty`);
   }
-  return { scheduleTags: tags };
+  return {
+    scheduleTags: tags,
+    sessionGroups: browserSessionGroups(
+      selector.session_groups,
+      `${scheduleProfile.target}.selectors.browser.session_groups`,
+    ),
+  };
+}
+
+function browserSessionGroups(value, label) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array when present`);
+  }
+  const groups = [];
+  const seenNames = new Set();
+  const seenStages = new Set();
+  for (const [index, raw] of value.entries()) {
+    const groupLabel = `${label}[${index}]`;
+    const group = requireObject(raw, groupLabel);
+    const name = requireString(group.name, `${groupLabel}.name`);
+    if (seenNames.has(name)) {
+      throw new Error(`${label} contains duplicate session group ${name}`);
+    }
+    seenNames.add(name);
+    const stages = requireStringArray(group.stages, `${groupLabel}.stages`);
+    if (stages.length === 0) {
+      throw new Error(`${groupLabel}.stages must not be empty`);
+    }
+    for (const stage of stages) {
+      if (seenStages.has(stage)) {
+        throw new Error(`${label} assigns browser stage ${stage} to multiple session groups`);
+      }
+      seenStages.add(stage);
+    }
+    const isolationReason =
+      group.isolation_reason === undefined
+        ? ""
+        : requireString(group.isolation_reason, `${groupLabel}.isolation_reason`);
+    groups.push({ name, stages, isolationReason });
+  }
+  return groups;
+}
+
+function browserSessionGroupByStage(groups) {
+  const byStage = new Map();
+  for (const group of groups ?? []) {
+    for (const stage of group.stages) {
+      byStage.set(stage, group);
+    }
+  }
+  return byStage;
 }
 
 function orderedServiceBackedBackendTargets(scheduleProfile) {
@@ -531,7 +584,16 @@ function browserGroupSources(profile, timing, scheduleTarget, stage, priorities)
   return groups;
 }
 
-function browserSource(profile, timing, scheduleTarget, stage, selectedTargets, priorities, generatedNeeds = []) {
+function browserSource(
+  profile,
+  timing,
+  scheduleTarget,
+  stage,
+  selectedTargets,
+  priorities,
+  generatedNeeds = [],
+  sessionGroup = null,
+) {
   const stageName = stage.name;
   const laneResource = browserStageResource(stageName);
   const claims = {
@@ -548,6 +610,14 @@ function browserSource(profile, timing, scheduleTarget, stage, selectedTargets, 
     class: "browser",
     target: stage.target,
     browser_stage: stageName,
+    ...(sessionGroup
+      ? {
+          browser_session_group: sessionGroup.name,
+          ...(sessionGroup.isolationReason
+            ? { browser_session_isolation_reason: sessionGroup.isolationReason }
+            : {}),
+        }
+      : {}),
     ...(needs.length > 0 ? { needs } : {}),
     priority: priorities.browserCriticalPath,
     weight_ms: groups.reduce((sum, group) => sum + group.weight_ms, 0),
@@ -667,6 +737,25 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
     .filter((source) => source.class === "backend")
     .map((source) => source.target);
   const stages = selectedBrowserStages(scheduleProfile, browserStages);
+  const selector = browserSelector(scheduleProfile);
+  const sessionGroupsByStage = browserSessionGroupByStage(selector?.sessionGroups ?? []);
+  if (selector?.sessionGroups?.length > 0) {
+    const selectedStageNames = new Set(stages.map((stage) => stage.name));
+    for (const [stageName, group] of sessionGroupsByStage.entries()) {
+      if (!selectedStageNames.has(stageName)) {
+        throw new Error(
+          `${target}.selectors.browser.session_groups.${group.name} references unselected browser stage ${stageName}`,
+        );
+      }
+    }
+    for (const stage of stages) {
+      if (!sessionGroupsByStage.has(stage.name)) {
+        throw new Error(
+          `${target}.selectors.browser.session_groups must assign selected browser stage ${stage.name}`,
+        );
+      }
+    }
+  }
   const selectedTargets = new Set([
     ...backendTargets,
     ...stages.map((stage) => stage.target),
@@ -684,6 +773,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
       selectedTargets,
       priorities,
       generatedNeeds,
+      sessionGroupsByStage.get(stage.name) ?? null,
     );
     sources.push(source);
   }

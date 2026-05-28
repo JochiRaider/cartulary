@@ -11,6 +11,7 @@ import {
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./lib/execution-topology.mjs";
+import { expandServiceBackedScheduleForCheck } from "./lib/check-service-backed-expansion.mjs";
 import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
@@ -39,6 +40,10 @@ function renderedArtifacts() {
     browserBatch,
     serviceBacked,
     checkSchedule: renderCheckScheduleManifest(topology),
+    expandedCheckSchedule: renderCheckScheduleManifest(topology, {
+      serviceBackedScheduleManifest: serviceBacked,
+      expandServiceBackedScheduleForCheck,
+    }),
     taskSurfaceMake: renderTaskSurfaceMake(taskSurface),
   };
 }
@@ -485,4 +490,53 @@ test("check schedule includes cheap harness contracts outside fast smoke", () =>
   assert.ok(harnessContracts, "check schedule must include harness-contract-tests");
   assert.equal(harnessContracts.priority, 12980);
   assert.deepEqual(harnessContracts.needs, ["toolchain-drift"]);
+});
+
+test("default check service-backed browser work uses declared session groups", () => {
+  const { serviceBacked, expandedCheckSchedule } = renderedArtifacts();
+  const serviceCheck = serviceBacked.schedules.find(
+    (schedule) => schedule.target === "check-service-backed",
+  );
+  assert.ok(serviceCheck, "service-backed sources must include check-service-backed");
+  const browserSources = serviceCheck.work_unit_sources.filter(
+    (source) => source.type === "browser_stage",
+  );
+  assert.deepEqual(
+    new Map(browserSources.map((source) => [source.browser_stage, source.browser_session_group])),
+    new Map([
+      ["webserver-backed", "default-check-browser-shared"],
+      ["visual", "default-check-browser-shared"],
+      ["a11y", "default-check-browser-shared"],
+      ["stateful", "default-check-stateful-isolated"],
+    ]),
+  );
+  assert.equal(
+    browserSources.find((source) => source.browser_stage === "stateful")
+      ?.browser_session_isolation_reason,
+    "stateful browser evidence mutates persisted runtime state and remains isolated from shared default-check browser work",
+  );
+
+  const check = expandedCheckSchedule.schedules.find(
+    (schedule) => schedule.target === "check",
+  );
+  const browserSessions = check.work_units.filter(
+    (unit) => unit.kind === "browser_stage_session",
+  );
+  assert.equal(browserSessions.length, 2);
+  assert.deepEqual(
+    browserSessions.map((unit) => unit.browser_session_group).sort(),
+    ["default-check-browser-shared", "default-check-stateful-isolated"],
+  );
+  assert.equal(
+    check.work_units.filter(
+      (unit) =>
+        unit.kind === "browser_group" &&
+        unit.aggregate_target === "browser-e2e-webserver-backed",
+    ).length,
+    7,
+  );
+  assert.equal(
+    check.work_units.some((unit) => unit.aggregate_target === "browser-e2e-measurement"),
+    false,
+  );
 });

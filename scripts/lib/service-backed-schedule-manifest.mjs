@@ -31,6 +31,8 @@ const serviceSourceKeys = new Set([
   "weight_ms",
   "resource_claims",
   "browser_stage",
+  "browser_session_group",
+  "browser_session_isolation_reason",
   "groups",
 ]);
 const serviceBrowserGroupKeys = new Set([
@@ -50,7 +52,7 @@ const serviceBrowserGroupKeys = new Set([
   "weight_ms",
   "resource_claims",
 ]);
-const browserGroupKinds = new Set(["functional_shard", "support", "stateful", "measurement", "visual"]);
+const browserGroupKinds = new Set(["functional_shard", "support", "stateful", "measurement", "visual", "a11y"]);
 const serviceGeneratedKeys = new Set([
   "generator",
   "topology",
@@ -121,6 +123,18 @@ export function validateServiceBackedScheduleManifestShape(
             requireInteger(source.priority, `${sourceLabel}.priority`, { min: 0 });
           }
           if (source.type === "browser_stage") {
+            if (source.browser_session_group !== undefined) {
+              requireString(
+                source.browser_session_group,
+                `${sourceLabel}.browser_session_group`,
+              );
+            }
+            if (source.browser_session_isolation_reason !== undefined) {
+              requireString(
+                source.browser_session_isolation_reason,
+                `${sourceLabel}.browser_session_isolation_reason`,
+              );
+            }
             validateObjectArray(
               source.groups,
               `${sourceLabel}.groups`,

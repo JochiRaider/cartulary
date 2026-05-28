@@ -1,4 +1,7 @@
+import { existsSync } from "node:fs";
+
 import {
+  frontendRegistryPath,
   frontendLedgerOutputPath,
   loadFrontendPhaseRegistry,
   renderFrontendPhaseLedger,
@@ -38,11 +41,13 @@ export function phaseLedgerOutputs(root = process.cwd()) {
     }
     return { phase, outputPath: registryEntry.ledger_path };
   });
-  const frontendOutputs = loadFrontendPhaseRegistry(root).phases.map((entry) => ({
-    phase: entry.phase_id,
-    outputPath: frontendLedgerOutputPath(entry),
-    namespace: "frontend",
-  }));
+  const frontendOutputs = existsSync(frontendRegistryPath(root))
+    ? loadFrontendPhaseRegistry(root).phases.map((entry) => ({
+        phase: entry.phase_id,
+        outputPath: frontendLedgerOutputPath(entry),
+        namespace: "frontend",
+      }))
+    : [];
   return [...baseOutputs, ...frontendOutputs];
 }
 

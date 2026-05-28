@@ -167,6 +167,58 @@ export function playwrightEntryTitles(entry) {
   return [entry.title];
 }
 
+export function rowIDFragments(id) {
+  return [id, id.replaceAll("-", "_")];
+}
+
+export function entryEvidenceNames(entry) {
+  if (entry.runner === "go_test") {
+    return goEntrySymbols(entry);
+  }
+  if (entry.runner === "vitest") {
+    return vitestEntryTitles(entry);
+  }
+  if (entry.runner === "playwright") {
+    return playwrightEntryTitles(entry);
+  }
+  return [];
+}
+
+export function authoritativeEvidenceNameViolations(manifest, { phase = manifest.phase ?? "" } = {}) {
+  const invalid = [];
+
+  for (const entry of collectEntries(manifest)) {
+    if (entry.coverage !== "authoritative") {
+      continue;
+    }
+    const fragments = rowIDFragments(entry.id);
+    for (const name of entryEvidenceNames(entry)) {
+      if (!fragments.some((fragment) => name.includes(fragment))) {
+        invalid.push({
+          file: entry.file,
+          phase,
+          symbol: name,
+          reason: `authoritative evidence for ${entry.id} must include ${fragments.join(" or ")}`,
+        });
+      }
+    }
+  }
+
+  return invalid;
+}
+
+export function assertAuthoritativeEvidenceNames(manifest, options = {}) {
+  const invalid = authoritativeEvidenceNameViolations(manifest, options);
+  if (invalid.length === 0) {
+    return;
+  }
+  throw new Error(
+    `authoritative phase evidence names must include manifest-owned row IDs: ${invalid
+      .map((entry) => `${entry.file}::${entry.symbol} (${entry.reason})`)
+      .join("; ")}`,
+  );
+}
+
 export function entryClaimStatus(entry) {
   return entry.claim_status ?? "implemented";
 }
@@ -343,7 +395,7 @@ function defaultGoPostgresFixturePolicy(entry) {
     return postgresFixturePolicyTransaction;
   }
   if (entry.execution_dependency === "backend_integration") {
-    return postgresFixturePolicyTemplateClone;
+    return postgresFixturePolicyPackageReset;
   }
   if (entry.execution_dependency === "backend_process") {
     return postgresFixturePolicyTemplateClone;
@@ -353,7 +405,7 @@ function defaultGoPostgresFixturePolicy(entry) {
 
 function defaultSupportPostgresFixturePolicy(entry) {
   if (entry.target === "backend_integration_support") {
-    return postgresFixturePolicyTemplateClone;
+    return postgresFixturePolicyPackageReset;
   }
   return "";
 }
@@ -1142,6 +1194,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
     );
   }
   validateProfileClaims(manifest, entries, manifestPath);
+  assertAuthoritativeEvidenceNames(manifest, { phase: phaseName });
 
   const guideExpectedIDs = process.env.CARTULARY_PHASE_MANIFEST_ROOT
     ? []

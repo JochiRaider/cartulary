@@ -318,6 +318,27 @@ EOF
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --phase phase2 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/phase2-plan.json"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "phase")" "phase2" "phase-filtered plan records selected phase"
+
+stale_metadata_baseline="$tmp_dir/browser-stale-metadata-plan.json"
+cp "$tmp_dir/baseline.json" "$stale_metadata_baseline"
+"$node_cmd" - "$stale_metadata_baseline" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+baseline.entries["E-1-01"].title = "E-1-01 stale title";
+fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+set +e
+stale_plan_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$PLANNER" plan --baseline-file "$stale_metadata_baseline" --max-shards 3 2>&1
+)"
+stale_plan_status=$?
+set -e
+if [[ "$stale_plan_status" -eq 0 ]]; then
+  fail "browser baseline planning should reject stale title metadata"
+fi
+assert_contains "$stale_plan_output" "entries.E-1-01 must match active manifest file/title" "browser baseline planning stale metadata"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "entry_count")" "1" "phase-filtered plan keeps only selected functional entries"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "entries.0.file")" "apps/web/e2e/gamma.spec.ts" "phase-filtered plan selects phase2 functional file"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "shards.0.entries.0.id")" "E-2-01" "phase-filtered plan selects phase2 row"
@@ -441,7 +462,18 @@ cat >"$tmp_dir/browser-refresh-baseline.json" <<'JSON'
   "retained_metadata": {
     "owner": "browser"
   },
-  "entries": {}
+  "entries": {
+    "E-1-01": {
+      "file": "apps/web/e2e/stale-alpha.spec.ts",
+      "title": "E-1-01 stale alpha title",
+      "weight_ms": 1
+    },
+    "E-99-01": {
+      "file": "apps/web/e2e/retired.spec.ts",
+      "title": "E-99-01 retired row",
+      "weight_ms": 1
+    }
+  }
 }
 JSON
 refresh_output="$(
@@ -469,7 +501,7 @@ if (baseline.entries["E-1-01"].weight_ms !== 32000) {
   throw new Error(`failed timing artifact leaked into refresh, got E-1-01=${baseline.entries["E-1-01"].weight_ms}`);
 }
 if (baseline.entries["E-1-01"].file !== "apps/web/e2e/alpha.spec.ts" || baseline.entries["E-1-01"].title !== "E-1-01 alpha one") {
-  throw new Error("baseline refresh must retain manifest file/title metadata");
+  throw new Error("baseline refresh must rewrite stale file/title metadata from the active manifest");
 }
 if (baseline.default_entry_weight_ms !== 7000 || baseline.shard_target_ms !== 8000) {
   throw new Error("baseline refresh must preserve durable weighting metadata");

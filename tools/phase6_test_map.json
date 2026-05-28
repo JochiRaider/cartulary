@@ -188,16 +188,7 @@
       "symbol": "TestSupportPhase6_IncidentSocketRevocationSources",
       "selection_pattern": "TestSupportPhase6_IncidentSocketRevocationSources",
       "execution_family": "backend-integration-collaboration",
-      "execution_label": "backend-integration support phase6 socket revocations",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 1
-        }
-      },
-      "template_clone_reason": "The supplemental socket revocation-source test starts a real HTTP server runtime and verifies route-owned close behavior across persisted session and membership state."
+      "execution_label": "backend-integration support phase6 socket revocations"
     },
     {
       "target": "backend_integration_support",
@@ -210,16 +201,7 @@
       ],
       "selection_pattern": "TestSupportPhase6SharedHarness_",
       "execution_family": "backend-integration-workbook",
-      "execution_label": "backend-integration support phase6 shared harness",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 1
-        }
-      },
-      "template_clone_reason": "The shared workbook route harness starts a real HTTP server and exercises replay, authorization, and conflict-resolution surfaces through committed state."
+      "execution_label": "backend-integration support phase6 shared harness"
     }
   ],
   "unit": [

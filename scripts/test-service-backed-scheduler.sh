@@ -1172,7 +1172,7 @@ cat >"${auto_capacity_manifest}.sources" <<'JSON'
         "minio": 32,
         "go_cpu": "auto",
         "go_io": "auto",
-        "postgres_reset": 1,
+        "postgres_reset": "auto",
         "postgres_clone": "auto",
         "process": 6,
         "browser_stack": "auto"
@@ -1201,6 +1201,9 @@ if (sources.go_io !== "auto:service_backed_go_io") {
 if (sources.browser_stack !== "auto:service_backed_browser_stack") {
   throw new Error(`browser_stack auto source got ${sources.browser_stack}`);
 }
+if (sources.postgres_reset !== "auto:service_backed_postgres_reset") {
+  throw new Error(`postgres_reset auto source got ${sources.postgres_reset}`);
+}
 if (sources.postgres_clone !== "auto:service_backed_postgres_clone") {
   throw new Error(`postgres_clone auto source got ${sources.postgres_clone}`);
 }
@@ -1212,6 +1215,7 @@ env_capacity_output="$(
   CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT=3 \
   CARTULARY_SERVICE_BACKED_GO_IO_LIMIT=4 \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
+  CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT=3 \
   CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT=5 \
     run_scheduler "$auto_capacity_dir" "$auto_capacity_manifest" test-service-backed env-capacity 2>&1
 )"
@@ -1229,6 +1233,9 @@ if (sources.go_io !== "env:CARTULARY_SERVICE_BACKED_GO_IO_LIMIT") {
 }
 if (sources.browser_stack !== "env:CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT") {
   throw new Error(`browser_stack env source got ${sources.browser_stack}`);
+}
+if (sources.postgres_reset !== "env:CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT") {
+  throw new Error(`postgres_reset env source got ${sources.postgres_reset}`);
 }
 if (sources.postgres_clone !== "env:CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
   throw new Error(`postgres_clone env source got ${sources.postgres_clone}`);
@@ -2126,7 +2133,7 @@ const functionalShardCount = Math.max(
     .filter((group) => group.kind === "functional_shard")
     .map((group) => group.shard_count ?? 0)),
 );
-if (functionalShardCount !== 4) {
+if (functionalShardCount !== 6) {
   throw new Error(`browser-e2e-webserver-backed functional shard count got ${functionalShardCount}`);
 }
 if ((webserverSource?.groups ?? []).some((group) => group.priority !== 36000)) {
@@ -2139,6 +2146,27 @@ for (const target of ["browser-e2e-stateful", "browser-e2e-visual"]) {
   if (JSON.stringify(source?.needs ?? []) !== JSON.stringify([])) {
     throw new Error(`${target} needs got ${JSON.stringify(source?.needs ?? [])}`);
   }
+}
+const checkBrowserSources = (byTarget.get("check-service-backed")?.work_unit_sources ?? [])
+  .filter((source) => source.class === "browser");
+const sessionGroups = new Map(checkBrowserSources.map((source) => [source.browser_stage, source.browser_session_group]));
+const expectedSessionGroups = new Map([
+  ["webserver-backed", "default-check-browser-shared"],
+  ["visual", "default-check-browser-shared"],
+  ["a11y", "default-check-browser-shared"],
+  ["stateful", "default-check-stateful-isolated"],
+]);
+for (const [stage, expectedGroup] of expectedSessionGroups.entries()) {
+  if (sessionGroups.get(stage) !== expectedGroup) {
+    throw new Error(`check-service-backed ${stage} session group got ${sessionGroups.get(stage)} want ${expectedGroup}`);
+  }
+}
+if (checkBrowserSources.some((source) => source.browser_stage === "measurement")) {
+  throw new Error("check-service-backed must not include measurement browser session work");
+}
+const statefulSource = checkBrowserSources.find((source) => source.browser_stage === "stateful");
+if (!statefulSource?.browser_session_isolation_reason) {
+  throw new Error("check-service-backed isolated stateful browser session must declare an isolation reason");
 }
 const measurementSource = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
   (candidate) => candidate.target === "browser-e2e-measurement",

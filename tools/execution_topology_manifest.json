@@ -7996,7 +7996,7 @@
       "make_target_duration_baseline": "service_backed_make_target_duration_baselines.json",
       "browser_functional_sharding": {
         "min_shards": 2,
-        "max_shards": 4
+        "max_shards": 6
       },
       "priority_bands": {
         "browser_critical_path": 36000,
@@ -8067,6 +8067,23 @@
           "browser": {
             "schedule_tags": [
               "service_backed_check"
+            ],
+            "session_groups": [
+              {
+                "name": "default-check-browser-shared",
+                "stages": [
+                  "webserver-backed",
+                  "a11y",
+                  "visual"
+                ]
+              },
+              {
+                "name": "default-check-stateful-isolated",
+                "stages": [
+                  "stateful"
+                ],
+                "isolation_reason": "stateful browser evidence mutates persisted runtime state and remains isolated from shared default-check browser work"
+              }
             ]
           }
         }

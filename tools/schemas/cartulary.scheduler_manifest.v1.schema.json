@@ -94,6 +94,9 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
+        "browser_session_group": { "type": "string", "minLength": 1 },
+        "browser_session_isolation_reason": { "type": "string", "minLength": 1 },
+        "browser_session_finalizer": { "type": "boolean" },
         "command": {
           "oneOf": [
             { "$ref": "#/$defs/command_make_target" },

@@ -106,13 +106,13 @@ async function disableWorkbookSockets(page: Page) {
   });
 }
 
-test("Phase 9 E-9-02 pastes a representative 20x5 Timeline clipboard range", async ({
+test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range", async ({
   page,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E902"),
-    "Phase 9 E-9-02 clipboard paste",
+    "Phase 9 E-9-PASTE-02 clipboard paste",
   );
   const seed = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-seed"),
@@ -213,13 +213,13 @@ test("Phase 9 E-9-02 pastes a representative 20x5 Timeline clipboard range", asy
   ).toContain("phase9-tag-20");
 });
 
-test("Phase 9 E-9-02 groups paste conflicts and preserves selection continuity", async ({
+test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection continuity", async ({
   page,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E902-CONFLICT"),
-    "Phase 9 E-9-02 grouped paste conflicts",
+    "Phase 9 E-9-CONFLICT-02 grouped paste conflicts",
   );
   const first = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-conflict-first"),
@@ -975,13 +975,13 @@ test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", 
   await expectAssessmentGridOrder(page, [createdCleared.record_id]);
 });
 
-test("Phase 9 E-9-06 Task Request and Decision workbook workflows stay native", async ({
+test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows stay native", async ({
   page,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E906"),
-    "Phase 9 E-9-06 Task and Decision workflows",
+    "Phase 9 E-9-TASKDECISION-06 Task and Decision workflows",
   );
   const support = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("e906-support"),
@@ -1393,14 +1393,14 @@ test("Phase 9 E-9-06 Task Request and Decision workbook workflows stay native", 
   ).toBe(targetDecision.record_id);
 });
 
-test("Phase 9 E-9-06 coordination workbook workflows stay native", async ({
+test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", async ({
   page,
   workerAdmin,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E906COORD"),
-    "Phase 9 E-9-06 coordination workflows",
+    "Phase 9 E-9-COORDINATION-06 coordination workflows",
   );
   const party = await createViewRow(page, incidentId, partiesViewSchemaId, {
     client_txn_id: uniqueTxn("e906coord-party"),

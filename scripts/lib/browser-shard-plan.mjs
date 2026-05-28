@@ -497,7 +497,6 @@ function updateBaselines(argv) {
   const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
   const baseline = readBaselineDocument(baselineFile, { allowMissing: true });
   const authoritativeEntries = browserFunctionalEntries(repoRoot);
-  readBaseline(baselineFile, authoritativeEntries);
   const observed = collectObservedBrowserEntryDurations(resultsDir);
   const missingObserved = authoritativeEntries.filter((entry) => !observed.has(entry.id));
   if (missingObserved.length > 0) {
