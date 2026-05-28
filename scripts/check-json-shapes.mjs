@@ -7,6 +7,7 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "./lib/browser-batch-manifest.mjs";
+import { browserGroupWorkerSlotCount } from "./lib/browser-scheduler-dependencies.mjs";
 import { validateFrontendPhaseArtifacts } from "./lib/frontend-phase-manifest.mjs";
 import { validateSchemaSync } from "./lib/harness-contract.mjs";
 import {
@@ -256,6 +257,7 @@ const toolRunFailureReasons = new Set([
   "scheduler_accounting_error",
   "artifact_error",
   "cleanup_error",
+  "duration_baseline_drift",
   "timeout_failure",
   "cancelled_or_interrupted",
   "unknown_failure",
@@ -566,6 +568,76 @@ function validateSchedulerCommandShape(command, label) {
   }
 }
 
+function schedulerWorkerEnvInteger(value, label, { min }) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${label} must be declared`);
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < min || String(parsed) !== value) {
+    throw new Error(
+      `${label} must be ${min === 0 ? "a non-negative" : "a positive"} integer`,
+    );
+  }
+  return parsed;
+}
+
+function validateSchedulerBrowserWorkerSlots(units, label) {
+  const groupsByRuntime = new Map();
+  for (const unit of units ?? []) {
+    if (unit?.kind !== "browser_group") {
+      continue;
+    }
+    const runtime =
+      typeof unit.service_session?.target === "string" &&
+      unit.service_session.target.trim() !== ""
+        ? unit.service_session.target.trim()
+        : label;
+    const groups = groupsByRuntime.get(runtime) ?? [];
+    groups.push(unit);
+    groupsByRuntime.set(runtime, groups);
+  }
+  for (const [runtime, groups] of groupsByRuntime.entries()) {
+    const total = groups.reduce(
+      (sum, unit) => sum + browserGroupWorkerSlotCount(unit.browser_group),
+      0,
+    );
+    const occupied = new Set();
+    for (const unit of groups) {
+      const unitID = unit.id ?? unit.target;
+      const count = schedulerWorkerEnvInteger(
+        unit.env?.CARTULARY_PLAYWRIGHT_WORKER_COUNT,
+        `${label}.${unitID}.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT`,
+        { min: 1 },
+      );
+      if (count !== total) {
+        throw new Error(
+          `${label}.${unitID} worker count must equal ${total} for ${runtime}`,
+        );
+      }
+      const offset = schedulerWorkerEnvInteger(
+        unit.env?.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET,
+        `${label}.${unitID}.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET`,
+        { min: 0 },
+      );
+      const slots = browserGroupWorkerSlotCount(unit.browser_group);
+      if (offset + slots > total) {
+        throw new Error(
+          `${label}.${unitID} worker slot range exceeds ${total} for ${runtime}`,
+        );
+      }
+      for (let slot = offset; slot < offset + slots; slot += 1) {
+        if (occupied.has(slot)) {
+          throw new Error(`${label} ${runtime} has overlapping worker-admin slot ${slot}`);
+        }
+        occupied.add(slot);
+      }
+    }
+    if (occupied.size !== total) {
+      throw new Error(`${label} ${runtime} worker-admin slots must be contiguous`);
+    }
+  }
+}
+
 function validateSchedulerManifestShape(file) {
   const manifest = readShapeFile(file, file);
   assertObjectKeys(manifest, schedulerManifestKeys, file);
@@ -632,6 +704,7 @@ function validateSchedulerManifestShape(file) {
         }
       }
     });
+    validateSchedulerBrowserWorkerSlots(schedule.work_units, label);
     if (schedule.finalizers !== undefined) {
       requireArray(schedule.finalizers, `${label}.finalizers`);
     }

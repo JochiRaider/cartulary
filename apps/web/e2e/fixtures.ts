@@ -80,8 +80,9 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
     workerAdmin: [
       async ({ browserName }, use, workerInfo) => {
         void browserName;
-        const workerAdminIndex =
-          workerInfo.parallelIndex + workerAdminIndexOffset();
+        const workerAdminIndex = workerAdminIndexForParallelIndex(
+          workerInfo.parallelIndex,
+        );
         const manifest = loadWorkerAdminManifest();
         const entry = manifest.worker_admins.find(
           (candidate) => candidate.parallel_index === workerAdminIndex,
@@ -237,16 +238,61 @@ async function pageAuthStorageState(page: Page): Promise<StorageState> {
   return page.context().storageState();
 }
 
-function workerAdminIndexOffset() {
-  const value = process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET;
+function isScheduledBrowserGroupInvocation() {
+  return Boolean(
+    process.env.CARTULARY_BROWSER_SESSION_GROUP ||
+      process.env.CARTULARY_BROWSER_GROUP_KIND,
+  );
+}
+
+function integerEnv(name: string, options: { min: number; required: boolean }) {
+  const value = process.env[name];
   if (value === undefined || value.trim() === "") {
-    return 0;
+    if (options.required) {
+      throw new Error(`${name} is required for scheduled browser groups`);
+    }
+    return null;
   }
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed < 0 || String(parsed) !== value) {
-    throw new Error(
-      "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET must be a non-negative integer",
-    );
+  if (
+    !Number.isInteger(parsed) ||
+    parsed < options.min ||
+    String(parsed) !== value
+  ) {
+    const description =
+      options.min === 0 ? "a non-negative integer" : "a positive integer";
+    throw new Error(`${name} must be ${description}`);
   }
   return parsed;
+}
+
+function workerAdminIndexOffset(scheduled: boolean) {
+  return (
+    integerEnv("CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET", {
+      min: 0,
+      required: scheduled,
+    }) ?? 0
+  );
+}
+
+export function workerAdminIndexForParallelIndex(parallelIndex: number) {
+  if (!Number.isInteger(parallelIndex) || parallelIndex < 0) {
+    throw new Error("Playwright parallelIndex must be a non-negative integer");
+  }
+  const scheduled = isScheduledBrowserGroupInvocation();
+  const offset = workerAdminIndexOffset(scheduled);
+  if (!scheduled) {
+    return parallelIndex + offset;
+  }
+  const workerCount = integerEnv("CARTULARY_PLAYWRIGHT_WORKER_COUNT", {
+    min: 1,
+    required: true,
+  });
+  const workerAdminIndex = parallelIndex + offset;
+  if (workerCount === null || workerAdminIndex >= workerCount) {
+    throw new Error(
+      `scheduled browser group worker slot ${workerAdminIndex} is outside CARTULARY_PLAYWRIGHT_WORKER_COUNT=${workerCount}`,
+    );
+  }
+  return workerAdminIndex;
 }

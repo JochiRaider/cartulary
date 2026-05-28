@@ -29,7 +29,6 @@ const harnessPackageResetBudgets = [
     test: "TestPreparePackageDatabaseTTargetedResetReusesCachedStatement",
     maxPackageResetCreates: 1,
     maxPackageResets: 2,
-    maxResetDurationMS: 3000,
   },
   {
     target: "backend-integration",
@@ -37,7 +36,6 @@ const harnessPackageResetBudgets = [
     test: "TestPreparePackageDatabaseTFullResetPreservesMigrationMetadata",
     maxPackageResetCreates: 1,
     maxPackageResets: 1,
-    maxResetDurationMS: 7000,
   },
 ];
 const harnessGroupCloneBudgets = [
@@ -126,7 +124,6 @@ function emptyBudget() {
     groupClones: 0,
     packageResetCreates: 0,
     packageResetEvents: 0,
-    packageResetDurationMS: 0,
     transactions: 0,
     migrationScratchCreates: 0,
     packageResetTests: new Set(),
@@ -143,7 +140,6 @@ function emptyPackageBudget() {
   return {
     packageResetCreates: 0,
     packageResetEvents: 0,
-    packageResetDurationMS: 0,
     packageResetTests: new Set(),
   };
 }
@@ -188,13 +184,11 @@ function addBudgetValue(targetBudget, policy, budget, item) {
       break;
     case "package_reset":
       targetBudget.packageResetEvents += budget.max_package_resets ?? 0;
-      targetBudget.packageResetDurationMS += budget.max_reset_duration_ms ?? 0;
       if (symbol) targetBudget.packageResetTests.add(symbol);
       for (const pkg of packages) {
         targetBudget.packageResetPackages.add(pkg);
         const packageBudget = packageBudgetFor(targetBudget, pkg);
         packageBudget.packageResetEvents += budget.max_package_resets ?? 0;
-        packageBudget.packageResetDurationMS += budget.max_reset_duration_ms ?? 0;
         if (symbol) packageBudget.packageResetTests.add(symbol);
       }
       break;
@@ -278,13 +272,11 @@ function addHarnessSelfTestBudgets(budget, target) {
     const pkg = normalizePackage(item.package);
     budget.packageResetCreates += item.maxPackageResetCreates;
     budget.packageResetEvents += item.maxPackageResets;
-    budget.packageResetDurationMS += item.maxResetDurationMS;
     budget.packageResetTests.add(item.test);
     budget.packageResetPackages.add(pkg);
     const packageBudget = packageBudgetFor(budget, pkg);
     packageBudget.packageResetCreates += item.maxPackageResetCreates;
     packageBudget.packageResetEvents += item.maxPackageResets;
-    packageBudget.packageResetDurationMS += item.maxResetDurationMS;
     packageBudget.packageResetTests.add(item.test);
   }
   for (const item of harnessGroupCloneBudgets) {
@@ -453,15 +445,15 @@ function failIfPackageBudgetsOver(target, stats, budget) {
         `${pkg} package reset events got ${actual.packageResetEvents}, budget ${planned.packageResetEvents}`,
       );
     }
-    if (actual.packageResetDurationMS > planned.packageResetDurationMS) {
-      failures.push(
-        `${pkg} package reset duration got ${actual.packageResetDurationMS}ms, budget ${planned.packageResetDurationMS}ms`,
-      );
-    }
   }
   if (failures.length === 0) {
     return;
   }
+  const failingPackages = [...stats.packageStats.entries()]
+    .filter(([pkg]) => failures.some((failure) => failure.startsWith(`${pkg} `)))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([pkg, value]) => `${pkg}: ${value.details.slice(0, 3).join(", ")}`)
+    .join("; ");
   const topPackages = [...stats.packageStats.entries()]
     .sort(
       ([, left], [, right]) =>
@@ -472,7 +464,7 @@ function failIfPackageBudgetsOver(target, stats, budget) {
     .map(([pkg, value]) => `${pkg}: ${value.details.slice(0, 3).join(", ")}`)
     .join("; ");
   throw new Error(
-    `${target} exceeded postgres package-level fixture budgets: ${failures.join("; ")}; top_activity=${topPackages || "none"}`,
+    `${target} exceeded postgres package-level fixture shape budgets: ${failures.join("; ")}; failing_activity=${failingPackages || "none"}; top_fixture_activity=${topPackages || "none"}`,
   );
 }
 
@@ -483,7 +475,6 @@ function checkTarget(events, target) {
   failIfOver(target, "group clone", stats.groupClones, budget.groupClones);
   failIfOver(target, "package database create", stats.packageResetCreates, budget.packageResetCreates);
   failIfOver(target, "package reset event", stats.packageResetEvents, budget.packageResetEvents);
-  failIfOver(target, "package reset duration", stats.packageResetDurationMS, budget.packageResetDurationMS);
   failIfOver(target, "transaction", stats.transactions, budget.transactions);
   failIfMigrationScratchOver(target, stats, budget);
   failIfPackageBudgetsOver(target, stats, budget);

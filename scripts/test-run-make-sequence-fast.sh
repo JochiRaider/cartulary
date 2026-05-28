@@ -751,6 +751,7 @@ assert.equal(publicExitCodeForFailure({ failure_reason: "resource_conflict" }), 
 assert.equal(publicExitCodeForFailure({ failure_reason: "test_assertion_failure" }), 10);
 assert.equal(publicExitCodeForFailure({ failure_reason: "artifact_error" }), 11);
 assert.equal(publicExitCodeForFailure({ failure_reason: "cleanup_error" }), 12);
+assert.equal(publicExitCodeForFailure({ failure_reason: "duration_baseline_drift" }), 13);
 assert.equal(publicExitCodeForFailure({ failure_reason: "timeout_failure" }), 13);
 assert.equal(publicExitCodeForFailure({ failure_reason: "cancelled_or_interrupted" }, { signal: "SIGINT" }), 130);
 assert.equal(publicExitCodeForFailures([

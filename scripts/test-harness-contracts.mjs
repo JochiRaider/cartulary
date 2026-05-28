@@ -11,7 +11,10 @@ import {
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./lib/execution-topology.mjs";
-import { expandServiceBackedScheduleForCheck } from "./lib/check-service-backed-expansion.mjs";
+import {
+  expandServiceBackedSchedule,
+  expandServiceBackedScheduleForCheck,
+} from "./lib/check-service-backed-expansion.mjs";
 import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
@@ -24,6 +27,61 @@ const repoRoot = path.resolve(scriptDir, "..");
 
 function readJSON(relativePath) {
   return JSON.parse(readFileSync(path.join(repoRoot, relativePath), "utf8"));
+}
+
+function browserWorkerSlotCount(group) {
+  if (group?.kind === "functional_shard" || group?.kind === "support") {
+    return 1;
+  }
+  const workers = group?.workers ?? "1";
+  if (workers === "default") {
+    return 1;
+  }
+  const parsed = Number.parseInt(String(workers), 10);
+  assert.ok(
+    Number.isInteger(parsed) && parsed > 0 && String(parsed) === String(workers),
+    `browser group ${group?.id} workers must be a positive integer or default`,
+  );
+  return parsed;
+}
+
+function assertBrowserWorkerSlots(units, label) {
+  assert.ok(units.length > 0, `${label} must include browser groups`);
+  const expectedTotal = units.reduce(
+    (sum, unit) => sum + browserWorkerSlotCount(unit.browser_group),
+    0,
+  );
+  const occupied = new Set();
+  for (const unit of units) {
+    const env = unit.env ?? {};
+    assert.equal(
+      env.CARTULARY_PLAYWRIGHT_WORKER_COUNT,
+      String(expectedTotal),
+      `${label} ${unit.id} must receive the service-session worker count`,
+    );
+    assert.match(
+      env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET ?? "",
+      /^(0|[1-9][0-9]*)$/,
+      `${label} ${unit.id} must receive an explicit worker offset`,
+    );
+    const offset = Number.parseInt(
+      env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET,
+      10,
+    );
+    const slots = browserWorkerSlotCount(unit.browser_group);
+    for (let slot = offset; slot < offset + slots; slot += 1) {
+      assert.ok(!occupied.has(slot), `${label} worker slot ${slot} overlaps`);
+      occupied.add(slot);
+    }
+    if (unit.browser_group?.kind === "support") {
+      assert.equal(env.PLAYWRIGHT_WORKERS, "1");
+    }
+  }
+  assert.deepEqual(
+    [...occupied].sort((left, right) => left - right),
+    Array.from({ length: expectedTotal }, (_value, index) => index),
+    `${label} worker slots must be contiguous`,
+  );
 }
 
 function renderedArtifacts() {
@@ -538,5 +596,28 @@ test("default check service-backed browser work uses declared session groups", (
   assert.equal(
     check.work_units.some((unit) => unit.aggregate_target === "browser-e2e-measurement"),
     false,
+  );
+  assertBrowserWorkerSlots(
+    check.work_units.filter(
+      (unit) =>
+        unit.kind === "browser_group" &&
+        unit.service_session?.target === "check-service-backed",
+    ),
+    "default check service-backed browser groups",
+  );
+  const serviceBackedCheckSource = serviceBacked.schedules.find(
+    (schedule) => schedule.target === "check-service-backed",
+  );
+  assert.ok(
+    serviceBackedCheckSource,
+    "rendered service-backed artifact must include check-service-backed",
+  );
+  const serviceBackedCheckUnits = expandServiceBackedSchedule({
+    repoRoot,
+    serviceSchedule: serviceBackedCheckSource,
+  });
+  assertBrowserWorkerSlots(
+    serviceBackedCheckUnits.filter((unit) => unit.kind === "browser_group"),
+    "direct check-service-backed browser groups",
   );
 });

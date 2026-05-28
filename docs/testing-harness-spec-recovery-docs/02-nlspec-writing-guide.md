@@ -301,6 +301,7 @@ retryability, and owner.
 | `timeout` | Configured timeout elapsed. |
 | `cancelled` | Caller, CI, or controlling process cancelled execution. |
 | `cleanup_error` | Cleanup failed or left ambiguous state. |
+| `duration_baseline_drift` | Explicit timing-maintenance validation found stale or materially drifted duration evidence. |
 | `unsupported_platform` | Current platform cannot satisfy the declared harness contract. |
 | `missing_secret` | Required secret or credential is unavailable. |
 | `manifest_or_accounting_mismatch` | Harness manifests, generated task surfaces, schemas, or accounting reports disagree. |

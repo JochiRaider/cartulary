@@ -83,7 +83,6 @@ const validFixtureBudgetPostgresKeys = new Set([
   "max_template_clones",
   "max_group_clones",
   "max_package_resets",
-  "max_reset_duration_ms",
   "max_transactions",
   "max_migration_scratch",
   "dirty_tables",
@@ -91,7 +90,6 @@ const validFixtureBudgetPostgresKeys = new Set([
 ]);
 const defaultPackageResetBudget = Object.freeze({
   max_package_resets_per_symbol: 8,
-  max_reset_duration_ms_per_symbol: 10000,
 });
 const defaultProcessTemplateCloneBudget = Object.freeze({
   max_template_clones_per_symbol: 4,
@@ -332,7 +330,6 @@ function explicitPostgresFixtureBudget(entry, label) {
     "max_template_clones",
     "max_group_clones",
     "max_package_resets",
-    "max_reset_duration_ms",
     "max_transactions",
     "max_migration_scratch",
   ]) {
@@ -435,8 +432,6 @@ function defaultPostgresFixtureBudget(policy, symbols) {
     case postgresFixturePolicyPackageReset:
       return {
         max_package_resets: count * defaultPackageResetBudget.max_package_resets_per_symbol,
-        max_reset_duration_ms:
-          count * defaultPackageResetBudget.max_reset_duration_ms_per_symbol,
       };
     case postgresFixturePolicyTemplateClone:
       return {
@@ -492,9 +487,6 @@ function validatePostgresFixtureBudget(entry, policy, budget, label) {
     }
     if (budget.max_package_resets === undefined) {
       throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_package_resets`);
-    }
-    if (budget.max_reset_duration_ms === undefined) {
-      throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_reset_duration_ms`);
     }
     if (
       entry.fixture_policy?.postgres === postgresFixturePolicyPackageReset &&

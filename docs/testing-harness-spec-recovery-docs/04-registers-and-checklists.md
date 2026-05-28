@@ -182,7 +182,7 @@ The following tables are templates for new follow-up rows or new recovery sessio
 
 | Failure ID | Failure class | Phase | Trigger | Observable result | Exit/report behavior | Side effects | Cleanup behavior | Retryable | Owner | Evidence | Evidence status | Spec treatment | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| FAIL-0001 | `usage_error/configuration_error/preflight_error/service_start_error/service_readiness_timeout/fixture_error/resource_conflict/test_assertion_failure/harness_internal_error/timeout/cancelled/cleanup_error/unsupported_platform/missing_secret/unknown_failure` | `TODO:` | `TODO:` | `TODO:` | `TODO:` | `TODO:` | `TODO:` | `yes/no/conditional/unknown` | `TODO:` | `TODO:` | `TODO:` | `TODO:` | `TODO:` |
+| FAIL-0001 | `usage_error/configuration_error/preflight_error/service_start_error/service_readiness_timeout/fixture_error/resource_conflict/test_assertion_failure/harness_internal_error/timeout/cancelled/cleanup_error/duration_baseline_drift/unsupported_platform/missing_secret/unknown_failure` | `TODO:` | `TODO:` | `TODO:` | `TODO:` | `TODO:` | `TODO:` | `yes/no/conditional/unknown` | `TODO:` | `TODO:` | `TODO:` | `TODO:` | `TODO:` |
 
 ## Ambiguity register template
 

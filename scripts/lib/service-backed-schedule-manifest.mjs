@@ -48,6 +48,7 @@ const serviceBrowserGroupKeys = new Set([
   "shard_count",
   "phases",
   "entry_ids",
+  "workers",
   "priority",
   "weight_ms",
   "resource_claims",
@@ -152,6 +153,9 @@ export function validateServiceBackedScheduleManifestShape(
                 requirePositiveInteger(group.weight_ms, `${groupLabel}.weight_ms`);
                 if (group.priority !== undefined) {
                   requireInteger(group.priority, `${groupLabel}.priority`, { min: 0 });
+                }
+                if (group.workers !== undefined) {
+                  requireString(group.workers, `${groupLabel}.workers`);
                 }
                 if (group.kind === "functional_shard") {
                   requireString(group.shard_name, `${groupLabel}.shard_name`);

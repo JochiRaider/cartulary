@@ -24,6 +24,7 @@
         "scheduler_accounting_error",
         "artifact_error",
         "cleanup_error",
+        "duration_baseline_drift",
         "timeout_failure",
         "cancelled_or_interrupted",
         "unknown_failure"

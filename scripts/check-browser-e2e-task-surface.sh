@@ -606,6 +606,50 @@ if (service.retained_resource_claims?.suite_service_stack !== 1) {
 if ((schedule.work_units ?? []).some((entry) => entry.nested_scheduler)) {
   throw new Error("check schedule must not use nested service-backed scheduler metadata");
 }
+function browserWorkerSlotCount(unit) {
+  const group = unit.browser_group ?? {};
+  if (group.kind === "functional_shard" || group.kind === "support") {
+    return 1;
+  }
+  const workers = group.workers ?? "1";
+  if (workers === "default") {
+    return 1;
+  }
+  const parsed = Number.parseInt(String(workers), 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || String(parsed) !== String(workers)) {
+    throw new Error(`${unit.label} workers must be a positive integer or default`);
+  }
+  return parsed;
+}
+function assertBrowserWorkerSlots(units, label) {
+  const expectedTotal = units.reduce((sum, unit) => sum + browserWorkerSlotCount(unit), 0);
+  const occupied = new Set();
+  for (const unit of units) {
+    const env = unit.env ?? {};
+    if (env.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== String(expectedTotal)) {
+      throw new Error(`${unit.label} must use service-session worker count ${expectedTotal}`);
+    }
+    if (!/^(0|[1-9][0-9]*)$/.test(env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET ?? "")) {
+      throw new Error(`${unit.label} must declare an explicit worker offset`);
+    }
+    const offset = Number.parseInt(env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET, 10);
+    for (let slot = offset; slot < offset + browserWorkerSlotCount(unit); slot += 1) {
+      if (occupied.has(slot)) {
+        throw new Error(`${label} has overlapping worker-admin slot ${slot}`);
+      }
+      occupied.add(slot);
+    }
+    if (unit.browser_group?.kind === "support" && env.PLAYWRIGHT_WORKERS !== "1") {
+      throw new Error(`${unit.label} support group must run with one Playwright worker`);
+    }
+  }
+  const actualSlots = [...occupied].sort((left, right) => left - right);
+  const expectedSlots = Array.from({ length: expectedTotal }, (_value, index) => index);
+  if (JSON.stringify(actualSlots) !== JSON.stringify(expectedSlots)) {
+    throw new Error(`${label} worker-admin slots must be contiguous`);
+  }
+  return expectedTotal;
+}
 const expectedBrowserCompletions = [
   "browser-e2e-webserver-backed",
   "browser-e2e-stateful",
@@ -676,8 +720,12 @@ const functionalShardCount = Math.max(
 if (functionalShardCount !== 6) {
   throw new Error(`check schedule must render 6 duration-balanced functional shards, got ${functionalShardCount}`);
 }
-const webserverWorkerCount = functionalShardCount + (
-  webserverGroups.some((entry) => entry.browser_group?.kind === "support") ? 1 : 0
+const serviceBrowserWorkerCount = assertBrowserWorkerSlots(
+  (schedule.work_units ?? []).filter((entry) =>
+    entry.kind === "browser_group" &&
+    entry.service_session?.target === "check-service-backed"
+  ),
+  "check-service-backed browser groups",
 );
 for (const group of webserverGroups) {
   if (JSON.stringify(group.needs ?? []) !== JSON.stringify([webserverStageSessionKey])) {
@@ -688,7 +736,7 @@ for (const group of webserverGroups) {
   }
   if (group.browser_group?.kind === "functional_shard") {
     if (
-      group.env?.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== String(webserverWorkerCount) ||
+      group.env?.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== String(serviceBrowserWorkerCount) ||
       group.env?.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== String(group.browser_group.shard_index)
     ) {
       throw new Error(`${group.label} must use its functional shard worker slot`);
@@ -696,7 +744,7 @@ for (const group of webserverGroups) {
   }
   if (group.browser_group?.kind === "support") {
     if (
-      group.env?.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== String(webserverWorkerCount) ||
+      group.env?.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== String(serviceBrowserWorkerCount) ||
       group.env?.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== String(functionalShardCount) ||
       group.env?.PLAYWRIGHT_WORKERS !== "1"
     ) {

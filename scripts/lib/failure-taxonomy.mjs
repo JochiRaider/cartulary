@@ -22,6 +22,7 @@ export const failureReasonOrder = [
   "scheduler_accounting_error",
   "artifact_error",
   "cleanup_error",
+  "duration_baseline_drift",
   "timeout_failure",
   "cancelled_or_interrupted",
   "unknown_failure",
@@ -49,6 +50,7 @@ const reasonClassMap = new Map([
   ["scheduler_accounting_error", "harness"],
   ["artifact_error", "artifact"],
   ["cleanup_error", "harness"],
+  ["duration_baseline_drift", "timing"],
   ["timeout_failure", "timing"],
   ["cancelled_or_interrupted", "interrupted"],
   ["unknown_failure", "unknown"],
@@ -77,6 +79,7 @@ const reasonPublicExitCodeMap = new Map([
   ["scheduler_accounting_error", 11],
   ["artifact_error", 11],
   ["cleanup_error", 12],
+  ["duration_baseline_drift", 13],
   ["timeout_failure", 13],
   ["unknown_failure", 1],
 ]);
@@ -337,10 +340,31 @@ export function classifyExecutionFailure(target = "", label = "", command = "") 
   if (joined.includes("deployable-shape")) {
     return "artifact";
   }
-  if (joined.includes("duration-baseline-drift") || joined.includes("duration baseline drift")) {
+  if (
+    joined.includes("duration-baseline-drift") ||
+    joined.includes("duration baseline drift") ||
+    joined.includes("scheduler-summary-timing-drift") ||
+    joined.includes("scheduler summary timing drift")
+  ) {
     return "timing";
   }
   return "harness";
+}
+
+export function classifyExecutionFailureReason(target = "", label = "", command = "") {
+  const joined = `${target} ${label} ${command}`.toLowerCase();
+  if (
+    joined.includes("duration-baseline-drift") ||
+    joined.includes("duration baseline drift") ||
+    joined.includes("scheduler-summary-timing-drift") ||
+    joined.includes("scheduler summary timing drift")
+  ) {
+    return "duration_baseline_drift";
+  }
+  if (joined.includes("postgres-fixture-shape")) {
+    return "fixture_error";
+  }
+  return defaultReasonForFailureClass(classifyExecutionFailure(target, label, command));
 }
 
 export function classifyTimingFailure(span = {}) {

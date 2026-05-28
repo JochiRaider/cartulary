@@ -30,6 +30,7 @@ import {
 import {
   classifyExecutionFailure,
   failureFieldsForJSON,
+  normalizeFailureRecord,
   primaryPublicFailure,
 } from "../failure-taxonomy.mjs";
 import {
@@ -287,6 +288,7 @@ class SchedulerReporter {
     this.completedCount = 0;
     this.failedWorkUnit = null;
     this.failedWorkUnitDetail = null;
+    this.schedulerFailureRecord = null;
     this.finalizerFailures = 0;
     this.blockedReasonsSeen = new Set();
     this.blockedResourcesSeen = new Set();
@@ -504,6 +506,29 @@ class SchedulerReporter {
         status: result.status,
         duration_ms: durationMs,
         log_file: relToRepo(this.repoRoot, result.logFile),
+      },
+    );
+  }
+
+  recordSchedulerFailure(failure = {}) {
+    const label = String(failure.label ?? this.schedule.target);
+    this.failedWorkUnit = label;
+    this.schedulerFailureRecord = normalizeFailureRecord(
+      {
+        ...failure,
+        kind: failure.kind ?? "scheduler",
+        source: failure.source ?? "scheduler",
+        target: this.schedule.target,
+        label,
+        message:
+          failure.message ??
+          (label
+            ? `scheduler work unit failed: ${label}`
+            : `scheduler target failed: ${this.schedule.target}`),
+      },
+      {
+        failure_class: "harness",
+        failure_reason: "unknown_failure",
       },
     );
   }
@@ -743,7 +768,7 @@ class SchedulerReporter {
     const fallbackFailureRecord =
       status === "pass"
         ? null
-        : {
+        : this.schedulerFailureRecord ?? {
             failure_class: classifyExecutionFailure(
               failed ?? this.schedule.target,
               this.schedule.target,
@@ -1221,6 +1246,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       if (hookFailure?.status && firstFailure === 0) {
         firstFailure = hookFailure.status;
         firstFailureLabel = hookFailure.label;
+        reporter.recordSchedulerFailure(hookFailure);
       }
     }
     releaseRetainedClaims();

@@ -355,6 +355,7 @@
             "aggregate_target": "browser-e2e-visual",
             "coverage": "authoritative",
             "execution_dependency": "browser_visual",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 58856,
             "resource_claims": {
@@ -362,7 +363,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "8"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "check-service-backed",
@@ -404,6 +408,7 @@
             "aggregate_target": "browser-e2e-stateful",
             "coverage": "authoritative",
             "execution_dependency": "browser_stateful",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 28251,
             "resource_claims": {
@@ -411,7 +416,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "7"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "check-service-backed",
@@ -501,6 +509,7 @@
             "shard_name": "browser-functional-shard-05",
             "shard_index": 4,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase2",
@@ -529,7 +538,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "4"
           },
           "command": {
@@ -576,6 +585,7 @@
             "shard_name": "browser-functional-shard-03",
             "shard_index": 2,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase4",
@@ -602,7 +612,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "2"
           },
           "command": {
@@ -649,6 +659,7 @@
             "shard_name": "browser-functional-shard-02",
             "shard_index": 1,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase2",
               "phase3",
@@ -673,7 +684,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "1"
           },
           "command": {
@@ -720,6 +731,7 @@
             "shard_name": "browser-functional-shard-04",
             "shard_index": 3,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase3",
@@ -748,7 +760,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "3"
           },
           "command": {
@@ -795,6 +807,7 @@
             "shard_name": "browser-functional-shard-06",
             "shard_index": 5,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase2",
@@ -822,7 +835,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "5"
           },
           "command": {
@@ -869,6 +882,7 @@
             "shard_name": "browser-functional-shard-01",
             "shard_index": 0,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase4",
@@ -894,7 +908,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
           },
           "command": {
@@ -938,6 +952,7 @@
             "aggregate_target": "browser-e2e-a11y",
             "coverage": "authoritative",
             "execution_dependency": "browser_a11y",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 19465,
             "resource_claims": {
@@ -945,7 +960,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "9"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "check-service-backed",
@@ -987,6 +1005,7 @@
             "aggregate_target": "browser-e2e-webserver-backed",
             "coverage": "supplemental",
             "execution_dependency": "browser_support",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 17722,
             "resource_claims": {
@@ -995,7 +1014,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "6",
             "PLAYWRIGHT_WORKERS": "1"
           },
@@ -6568,6 +6587,7 @@
             "shard_name": "browser-functional-shard-05",
             "shard_index": 4,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase2",
@@ -6596,7 +6616,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "4"
           },
           "command": {
@@ -6641,6 +6661,7 @@
             "shard_name": "browser-functional-shard-03",
             "shard_index": 2,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase4",
@@ -6667,7 +6688,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "2"
           },
           "command": {
@@ -6712,6 +6733,7 @@
             "shard_name": "browser-functional-shard-02",
             "shard_index": 1,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase2",
               "phase3",
@@ -6736,7 +6758,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "1"
           },
           "command": {
@@ -6781,6 +6803,7 @@
             "shard_name": "browser-functional-shard-04",
             "shard_index": 3,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase3",
@@ -6809,7 +6832,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "3"
           },
           "command": {
@@ -6854,6 +6877,7 @@
             "shard_name": "browser-functional-shard-06",
             "shard_index": 5,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase2",
@@ -6881,7 +6905,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "5"
           },
           "command": {
@@ -6926,6 +6950,7 @@
             "shard_name": "browser-functional-shard-01",
             "shard_index": 0,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase4",
@@ -6951,7 +6976,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
           },
           "command": {
@@ -6993,6 +7018,7 @@
             "aggregate_target": "browser-e2e-webserver-backed",
             "coverage": "supplemental",
             "execution_dependency": "browser_support",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 10000,
             "resource_claims": {
@@ -7001,7 +7027,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "6",
             "PLAYWRIGHT_WORKERS": "1"
           },
@@ -7044,6 +7070,7 @@
             "aggregate_target": "browser-e2e-stateful",
             "coverage": "authoritative",
             "execution_dependency": "browser_stateful",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 10000,
             "resource_claims": {
@@ -7051,7 +7078,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "7"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "test-service-backed",
@@ -7129,6 +7159,7 @@
             "aggregate_target": "browser-e2e-measurement",
             "coverage": "authoritative",
             "execution_dependency": "browser_measurement",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 10000,
             "resource_claims": {
@@ -7138,7 +7169,10 @@
               "minio": "limit"
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "8"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "test-service-backed",
@@ -7221,6 +7255,7 @@
             "aggregate_target": "browser-e2e-visual",
             "coverage": "authoritative",
             "execution_dependency": "browser_visual",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 10000,
             "resource_claims": {
@@ -7228,7 +7263,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "9"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "test-service-backed",
@@ -7304,6 +7342,7 @@
             "aggregate_target": "browser-e2e-a11y",
             "coverage": "authoritative",
             "execution_dependency": "browser_a11y",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 10000,
             "resource_claims": {
@@ -7311,7 +7350,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "11",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "10"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "test-service-backed",
@@ -16355,6 +16397,7 @@
             "aggregate_target": "browser-e2e-visual",
             "coverage": "authoritative",
             "execution_dependency": "browser_visual",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 58856,
             "resource_claims": {
@@ -16362,7 +16405,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "8"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "check-service-backed",
@@ -16402,6 +16448,7 @@
             "aggregate_target": "browser-e2e-stateful",
             "coverage": "authoritative",
             "execution_dependency": "browser_stateful",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 28251,
             "resource_claims": {
@@ -16409,7 +16456,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "7"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "check-service-backed",
@@ -16489,6 +16539,7 @@
             "shard_name": "browser-functional-shard-05",
             "shard_index": 4,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase2",
@@ -16517,7 +16568,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "4"
           },
           "command": {
@@ -16562,6 +16613,7 @@
             "shard_name": "browser-functional-shard-03",
             "shard_index": 2,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase4",
@@ -16588,7 +16640,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "2"
           },
           "command": {
@@ -16633,6 +16685,7 @@
             "shard_name": "browser-functional-shard-02",
             "shard_index": 1,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase2",
               "phase3",
@@ -16657,7 +16710,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "1"
           },
           "command": {
@@ -16702,6 +16755,7 @@
             "shard_name": "browser-functional-shard-04",
             "shard_index": 3,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase3",
@@ -16730,7 +16784,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "3"
           },
           "command": {
@@ -16775,6 +16829,7 @@
             "shard_name": "browser-functional-shard-06",
             "shard_index": 5,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase2",
@@ -16802,7 +16857,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "5"
           },
           "command": {
@@ -16847,6 +16902,7 @@
             "shard_name": "browser-functional-shard-01",
             "shard_index": 0,
             "shard_count": 6,
+            "workers": "1",
             "phases": [
               "phase1",
               "phase4",
@@ -16872,7 +16928,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
           },
           "command": {
@@ -16914,6 +16970,7 @@
             "aggregate_target": "browser-e2e-a11y",
             "coverage": "authoritative",
             "execution_dependency": "browser_a11y",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 19465,
             "resource_claims": {
@@ -16921,7 +16978,10 @@
               "go_io": 1
             }
           },
-          "env": {},
+          "env": {
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "9"
+          },
           "command": {
             "type": "browser_group",
             "service_target": "check-service-backed",
@@ -16961,6 +17021,7 @@
             "aggregate_target": "browser-e2e-webserver-backed",
             "coverage": "supplemental",
             "execution_dependency": "browser_support",
+            "workers": "1",
             "priority": 36000,
             "weight_ms": 17722,
             "resource_claims": {
@@ -16969,7 +17030,7 @@
             }
           },
           "env": {
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "10",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "6",
             "PLAYWRIGHT_WORKERS": "1"
           },

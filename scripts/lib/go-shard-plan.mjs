@@ -410,8 +410,7 @@ function schedulerProfileForShard(items, weightMs) {
     (item) =>
       item.postgres_fixture_budget?.reset_conformance === true ||
       (item.postgres_fixture_policy === "package_reset" &&
-        ((item.postgres_fixture_budget?.max_package_resets ?? 0) > 0 ||
-          (item.postgres_fixture_budget?.max_reset_duration_ms ?? 0) > 0)),
+        (item.postgres_fixture_budget?.max_package_resets ?? 0) > 0),
   );
   if (hasResetHeavyFixture) {
     return "reset_heavy";

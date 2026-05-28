@@ -575,6 +575,56 @@ const mutations = {
       "not-safe": "1",
     };
   },
+  "check-schedule-browser-worker-overlap": (fixture) => {
+    fixture.schedules[0].work_units = [
+      {
+        id: "browser-visual",
+        kind: "browser_group",
+        target: "browser-e2e-visual",
+        weight_ms: 1,
+        resource_claims: {},
+        service_session: { target: "check-service-backed" },
+        browser_group: {
+          id: "browser-e2e-visual:visual",
+          kind: "visual",
+          workers: "1",
+        },
+        env: {
+          CARTULARY_PLAYWRIGHT_WORKER_COUNT: "2",
+          CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET: "0",
+        },
+        command: {
+          type: "browser_group",
+          service_target: "check-service-backed",
+          browser_stage: "visual",
+          group_id: "browser-e2e-visual:visual",
+        },
+      },
+      {
+        id: "browser-a11y",
+        kind: "browser_group",
+        target: "browser-e2e-a11y",
+        weight_ms: 1,
+        resource_claims: {},
+        service_session: { target: "check-service-backed" },
+        browser_group: {
+          id: "browser-e2e-a11y:a11y",
+          kind: "a11y",
+          workers: "1",
+        },
+        env: {
+          CARTULARY_PLAYWRIGHT_WORKER_COUNT: "2",
+          CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET: "0",
+        },
+        command: {
+          type: "browser_group",
+          service_target: "check-service-backed",
+          browser_stage: "a11y",
+          group_id: "browser-e2e-a11y:a11y",
+        },
+      },
+    ];
+  },
   "check-schedule-command-missing-required": (fixture) => {
     delete fixture.schedules[0].work_units[0].command.target;
   },
@@ -741,6 +791,12 @@ write_valid_check_schedule "$invalid_check_env"
 mutate_json_fixture check-schedule-invalid-env-name "$invalid_check_env"
 invalid_check_env_output="$(assert_fails "invalid scheduler env name" run_shape_check scheduler-manifest "$invalid_check_env")"
 assert_contains "$invalid_check_env_output" "env key has invalid value" "invalid check schedule env name"
+
+browser_worker_overlap="$tmp_dir/check_schedule_browser_worker_overlap.json"
+write_valid_check_schedule "$browser_worker_overlap"
+mutate_json_fixture check-schedule-browser-worker-overlap "$browser_worker_overlap"
+browser_worker_overlap_output="$(assert_fails "overlapping browser worker slots" run_shape_check scheduler-manifest "$browser_worker_overlap")"
+assert_contains "$browser_worker_overlap_output" "overlapping worker-admin slot" "overlapping browser worker slots"
 
 missing_command_required="$tmp_dir/check_schedule_command_missing_required.json"
 write_valid_check_schedule "$missing_command_required"

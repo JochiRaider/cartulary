@@ -35,7 +35,11 @@ import {
   toolRunSummarySchemaID,
   toolSummaryPath,
 } from "./lib/tool-output.mjs";
-import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
+import {
+  classifyExecutionFailure,
+  classifyExecutionFailureReason,
+  publicExitCodeForSummary,
+} from "./lib/failure-taxonomy.mjs";
 
 function nowUTC() {
   return new Date().toISOString();
@@ -156,8 +160,12 @@ async function runWrapped(target, invocation) {
   const outputText = `${child.stdout ?? ""}\n${child.stderr ?? ""}`;
   const plannedPhaseNonExecutable =
     status !== 0 && /phase phase[0-9]+ is planned and is not executable/.test(outputText);
-  const fallbackFailureClass = plannedPhaseNonExecutable ? "config" : "harness";
-  const fallbackFailureReason = plannedPhaseNonExecutable ? "usage_error" : "unknown_failure";
+  const fallbackFailureClass = plannedPhaseNonExecutable
+    ? "config"
+    : classifyExecutionFailure(target, target, invocation.script);
+  const fallbackFailureReason = plannedPhaseNonExecutable
+    ? "usage_error"
+    : classifyExecutionFailureReason(target, target, invocation.script);
   const fallbackFailureHeadline = plannedPhaseNonExecutable
     ? `${target} requested a planned non-executable phase`
     : `${target} failed`;

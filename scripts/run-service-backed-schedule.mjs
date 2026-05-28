@@ -10,7 +10,8 @@ import { loadBrowserBatchStages as loadBrowserBatchStagesFromManifest } from "./
 import {
   browserGroupCompletionKey,
   browserGroupNeeds,
-  browserGroupWorkerEnv,
+  browserGroupWorkerEnvFromPlan,
+  browserGroupWorkerSlotPlan,
   browserStageCompletionNeeds,
   browserStageSessionKey,
 } from "./lib/browser-scheduler-dependencies.mjs";
@@ -75,6 +76,7 @@ const validBrowserGroupKinds = new Set([
   "stateful",
   "measurement",
   "visual",
+  "a11y",
 ]);
 const measurementIsolationStages = new Set([
   "webserver-backed",
@@ -305,6 +307,7 @@ function validateBrowserGroup(
       : [],
     priority: group.priority ?? 0,
     weightMs: group.weight_ms,
+    workers: group.workers === undefined ? "" : String(group.workers).trim(),
     resourceClaims: normalizeResourceClaims(
       group.resource_claims ?? {},
       groupLabel,
@@ -601,6 +604,7 @@ function _expandSchedule(schedule) {
   const countedWorkUnits = [];
   const finalizerUnits = [];
   const shardWorkByName = new Map();
+  const browserWorkerSlotPlan = browserGroupWorkerSlotPlan(schedule.sources);
 
   for (const source of schedule.sources) {
     if (source.type === "browser_stage") {
@@ -656,7 +660,7 @@ function _expandSchedule(schedule) {
           group: source.target,
           browserStage: source.browserStage,
           browserGroup: group,
-          browserWorkerEnv: browserGroupWorkerEnv(source.groups, group),
+          browserWorkerEnv: browserGroupWorkerEnvFromPlan(browserWorkerSlotPlan, group),
           needs: browserGroupNeeds(browserStageSessionKey(source.target)),
           completionKeys: [browserGroupCompletionKey(group.id)],
           failureKeys: [browserGroupCompletionKey(group.id)],
@@ -900,6 +904,7 @@ function resolveResourceLimits(
 
 function runPostgresFixtureBudgetCheck(targets) {
   return new Promise((resolve, reject) => {
+    let stderr = "";
     const child = spawn(
       process.execPath,
       [
@@ -914,14 +919,17 @@ function runPostgresFixtureBudgetCheck(targets) {
       },
     );
     child.stdout.pipe(process.stdout, { end: false });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString("utf8");
+    });
     child.stderr.pipe(process.stderr, { end: false });
     child.on("error", reject);
     child.on("close", (status) => {
       if (status === 0) {
-        resolve(0);
+        resolve({ status: 0, stderr });
         return;
       }
-      resolve(status ?? 1);
+      resolve({ status: status ?? 1, stderr });
     });
   });
 }
@@ -1028,7 +1036,7 @@ function attachRuntime(
         const commonEnv = {
           ...process.env,
           ...sessionEnv,
-          ...unit.browserWorkerEnv,
+          ...(unit.env ?? unit.browserWorkerEnv ?? {}),
           CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
           CARTULARY_TEST_TARGET: unit.aggregateTarget,
           CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
@@ -1046,6 +1054,9 @@ function attachRuntime(
           };
         }
         if (group.kind === "functional_shard") {
+          const shardName = group.shardName ?? group.shard_name;
+          const shardIndex = group.shardIndex ?? group.shard_index;
+          const shardCount = group.shardCount ?? group.shard_count;
           return {
             command: path.join(
               repoRoot,
@@ -1055,9 +1066,9 @@ function attachRuntime(
             ),
             args: [
               "functional-shard",
-              group.shardName,
-              String(group.shardIndex),
-              String(group.shardCount),
+              shardName,
+              String(shardIndex),
+              String(shardCount),
               "--",
               pnpmBin,
               "--dir",
@@ -1245,10 +1256,20 @@ function attachRuntime(
           files.leaseFile,
         ]).catch(() => {});
       }
-      const status = await runPostgresFixtureBudgetCheck(
+      const fixtureCheck = await runPostgresFixtureBudgetCheck(
         schedule.backendChildren,
       );
-      return status === 0 ? null : { status, label: "postgres-fixture-budget" };
+      return fixtureCheck.status === 0
+        ? null
+        : {
+            status: fixtureCheck.status,
+            label: "postgres-fixture-shape",
+            failure_class: "harness",
+            failure_reason: "fixture_error",
+            message:
+              fixtureCheck.stderr.trim().split(/\r?\n/u).find(Boolean) ??
+              "postgres fixture shape check failed",
+          };
     },
     summaryExtra: ({ started }) => ({
       started_count: started,

@@ -102,7 +102,7 @@ if (serviceBackedGoRows.length === 0 || !serviceBackedGoRows.every((row) => vali
   process.exit(1);
 }
 const packageResetRows = serviceBackedGoRows.filter((row) => row.fixture_policy?.postgres === "package_reset" && row.coverage !== "raw");
-if (!packageResetRows.every((row) => Number.isInteger(row.fixture_budget?.postgres?.max_package_resets) && Number.isInteger(row.fixture_budget?.postgres?.max_reset_duration_ms))) {
+if (!packageResetRows.every((row) => Number.isInteger(row.fixture_budget?.postgres?.max_package_resets))) {
   process.exit(1);
 }
 const transactionRows = serviceBackedGoRows.filter((row) => row.fixture_policy?.postgres === "transaction");
@@ -150,7 +150,7 @@ if (authoritative.length === 0 || !authoritative.every((item) => validPolicies.h
   process.exit(1);
 }
 const packageReset = authoritative.filter((item) => item.postgres_fixture_policy === "package_reset");
-if (!packageReset.every((item) => Number.isInteger(item.postgres_fixture_budget?.max_package_resets) && Number.isInteger(item.postgres_fixture_budget?.max_reset_duration_ms))) {
+if (!packageReset.every((item) => Number.isInteger(item.postgres_fixture_budget?.max_package_resets))) {
   process.exit(1);
 }
 const rawTestutilItems = plan.shards
@@ -1057,7 +1057,6 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
       "fixture_budget": {
         "postgres": {
           "max_package_resets": 1,
-          "max_reset_duration_ms": 10000,
           "dirty_tables": ["users", "users"]
         }
       },

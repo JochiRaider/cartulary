@@ -1865,6 +1865,57 @@ set -e
 assert_equals "$empty_budget_status" "0" "empty postgres fixture budget target list status"
 assert_equals "$empty_budget_output" "" "empty postgres fixture budget target list output"
 
+fixture_shape_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-fixture-shape.XXXXXX")"
+cleanup_paths+=("$fixture_shape_dir")
+write_fake_make "$fixture_shape_dir"
+fixture_shape_manifest="${fixture_shape_dir}/manifest.json"
+write_manifest "$fixture_shape_manifest" test-fast-service-backed \
+  'make_target|backend-integration|10|"postgres": 1, "minio": 1'
+fixture_events_dir="${fixture_shape_dir}/results/fixture-shape-fail/_shared/test-services/suite/events"
+mkdir -p "$fixture_events_dir"
+cat >"${fixture_events_dir}/001-postgres-db-created.json" <<'JSON'
+{
+  "type": "postgres-db-created",
+  "kind": "template-clone",
+  "timestamp": "2026-05-28T00:00:00Z",
+  "name": "fixture_shape_1",
+  "details": {
+    "target": "backend-integration",
+    "fixture_policy": "package_reset",
+    "reuse_scope": "package-reused",
+    "caller_package": "internal/app",
+    "test_name": "SyntheticFixtureShapeFailure"
+  }
+}
+JSON
+cat >"${fixture_events_dir}/002-postgres-db-created.json" <<'JSON'
+{
+  "type": "postgres-db-created",
+  "kind": "template-clone",
+  "timestamp": "2026-05-28T00:00:01Z",
+  "name": "fixture_shape_2",
+  "details": {
+    "target": "backend-integration",
+    "fixture_policy": "package_reset",
+    "reuse_scope": "package-reused",
+    "caller_package": "internal/app",
+    "test_name": "SyntheticFixtureShapeFailure"
+  }
+}
+JSON
+set +e
+fixture_shape_output="$(
+  FAKE_SCHEDULER_SLEEP=0.01 \
+    run_scheduler "$fixture_shape_dir" "$fixture_shape_manifest" test-fast-service-backed fixture-shape-fail 2>&1
+)"
+fixture_shape_status=$?
+set -e
+assert_equals "$fixture_shape_status" "3" "postgres fixture shape scheduler status"
+assert_contains "$fixture_shape_output" "postgres-fixture-shape" "fixture shape failure label"
+assert_contains "$fixture_shape_output" "reason=fixture_error" "fixture shape failure reason"
+assert_contains "$fixture_shape_output" "internal/app package database creates got 2, budget 1" "fixture shape failure package diagnostic"
+assert_not_contains "$fixture_shape_output" "package reset duration got" "fixture shape failure does not enforce reset duration"
+
 fi
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failure.XXXXXX")"

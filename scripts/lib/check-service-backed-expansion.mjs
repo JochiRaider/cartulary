@@ -1,7 +1,8 @@
 import {
   browserGroupCompletionKey,
   browserGroupNeeds,
-  browserGroupWorkerEnv,
+  browserGroupWorkerEnvFromPlan,
+  browserGroupWorkerSlotPlan,
   browserStageCompletionNeeds,
   browserStageSessionKey,
 } from "./browser-scheduler-dependencies.mjs";
@@ -256,6 +257,7 @@ export function expandServiceBackedScheduleForCheck({
     serviceSessionKey,
     parentNeeds,
   });
+  const browserWorkerSlotPlan = browserGroupWorkerSlotPlan(serviceSchedule.work_unit_sources ?? []);
   const expanded = [
     {
       id: `${scheduleTarget}:service-session`,
@@ -367,7 +369,7 @@ export function expandServiceBackedScheduleForCheck({
           browser_stage: source.browser_stage,
           browser_session_group: sessionGroup,
           browser_group: clone(group),
-          env: browserGroupWorkerEnv(source.groups, group),
+          env: browserGroupWorkerEnvFromPlan(browserWorkerSlotPlan, group),
           command: command("browser_group", {
             service_target: scheduleTarget,
             browser_stage: source.browser_stage,
@@ -598,6 +600,7 @@ export function expandServiceBackedSchedule({
   const aggregate = [];
   const shardWorkByName = new Map();
   const sessionInfos = directBrowserSessionInfos(serviceSchedule.work_unit_sources ?? []);
+  const browserWorkerSlotPlan = browserGroupWorkerSlotPlan(serviceSchedule.work_unit_sources ?? []);
 
   for (const [sourceIndex, source] of (serviceSchedule.work_unit_sources ?? []).entries()) {
     if (source.type === "browser_stage") {
@@ -681,7 +684,7 @@ export function expandServiceBackedSchedule({
           browser_stage: source.browser_stage,
           browser_session_group: sessionGroup,
           browser_group: clone(group),
-          env: browserGroupWorkerEnv(source.groups, group),
+          env: browserGroupWorkerEnvFromPlan(browserWorkerSlotPlan, group),
           command: command("browser_group", {
             service_target: scheduleTarget,
             browser_stage: source.browser_stage,
