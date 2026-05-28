@@ -14,6 +14,7 @@ import {
   collectionItems,
   createTimelineFillers,
   ensureTimelineGridTargetVisible,
+  expectNoPendingQueueAuthPause,
   expectTimelineContinuity,
   findRow,
   hostRefsFieldKey,
@@ -120,6 +121,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   await expect(page.getByTestId("timeline-inspector")).toContainText("WS-023?");
 
   const resolveScroll = await scrollGridToBottom(page, "timeline");
+  await expectNoPendingQueueAuthPause(page, "before resolving host mention");
   const resolveResponsePromise = waitForTimelinePatch(page, mainRow.record_id);
   await page
     .getByTestId("inspector-resolve-target")
@@ -148,6 +150,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   );
 
   const createScroll = await scrollGridToBottom(page, "timeline");
+  await expectNoPendingQueueAuthPause(page, "before creating identity mention");
   const createResponsePromise = waitForTimelinePatch(page, mainRow.record_id);
   await page.getByRole("button", { name: "Create identity" }).click();
   const createEnvelope = await readTimelineMutation(

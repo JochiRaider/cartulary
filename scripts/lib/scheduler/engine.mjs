@@ -216,9 +216,15 @@ async function readSchedulerChildFailureRecord({
   scheduleTarget,
 }) {
   const childTarget =
-    typeof failedDetail?.aggregate_target === "string"
-      ? failedDetail.aggregate_target
-      : "";
+    [
+      failedDetail?.aggregate_target,
+      failedDetail?.target,
+      failedDetail?.label,
+      failedDetail?.id,
+      failed,
+    ]
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .find((value) => value && value !== scheduleTarget) ?? "";
   if (!childTarget || childTarget === scheduleTarget) {
     return null;
   }

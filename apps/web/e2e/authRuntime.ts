@@ -62,6 +62,10 @@ type PatchUserBody = {
   is_deployment_admin?: boolean;
 };
 
+type ReconcileWorkerAdminManifestOptions = {
+  trustExistingManifestPasswords?: boolean;
+};
+
 export type WorkerAdminControlPlane = {
   canLogin: (email: string, password: string) => Promise<boolean>;
   createUser: (blueprint: WorkerAdminBlueprint) => Promise<UserResource>;
@@ -111,6 +115,10 @@ export async function prepareWorkerAdminSuite(workerCount: number) {
         controlPlaneClient(controlPlane.request),
         buildWorkerAdminBlueprints(manifestWorkerCount),
         existingManifest,
+        {
+          trustExistingManifestPasswords:
+            sharedExternalHarness && existingManifest !== null,
+        },
       ),
     );
   } finally {
@@ -524,6 +532,7 @@ export async function reconcileWorkerAdminManifest(
   controlPlane: WorkerAdminControlPlane,
   blueprints: WorkerAdminBlueprint[],
   existingManifest: WorkerAdminManifest | null,
+  options: ReconcileWorkerAdminManifestOptions = {},
 ) {
   const existingByIndex = new Map(
     (existingManifest?.worker_admins ?? []).map((entry) => [
@@ -549,6 +558,7 @@ export async function reconcileWorkerAdminManifest(
       usersByEmail.get(blueprint.email) ??
       (manifestUser?.email === blueprint.email ? manifestUser : null) ??
       null;
+    let patched = false;
 
     if (user === null) {
       user = await controlPlane.createUser(blueprint);
@@ -556,10 +566,22 @@ export async function reconcileWorkerAdminManifest(
       const patchBody = patchBodyForWorkerAdmin(blueprint, user);
       if (patchBody !== null) {
         user = await controlPlane.patchUser(user.user_id, patchBody);
+        patched = true;
       }
     }
 
-    if (!(await controlPlane.canLogin(blueprint.email, blueprint.password))) {
+    const canTrustExistingPassword =
+      options.trustExistingManifestPasswords === true &&
+      !patched &&
+      manifestEntry !== null &&
+      manifestEntry.user_id === user.user_id &&
+      manifestEntry.email === blueprint.email &&
+      manifestEntry.password === blueprint.password;
+
+    if (
+      !canTrustExistingPassword &&
+      !(await controlPlane.canLogin(blueprint.email, blueprint.password))
+    ) {
       user = await controlPlane.resetUserPassword(
         user.user_id,
         user.user_version,

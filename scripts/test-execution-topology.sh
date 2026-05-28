@@ -451,7 +451,7 @@ assert.deepEqual(
   ["test-service-images"],
   "check service session must start after service images and before build artifacts finish",
 );
-const webserverStageSession = expandedUnit("check-service-backed:browser-stage-session:webserver-backed");
+const webserverStageSession = expandedUnit("check-service-backed:browser-stage-session:default-check-browser-shared");
 const serviceCompleteUnit = expandedUnit("check-service-backed:complete");
 assert.equal(
   serviceSessionUnit?.priority,
@@ -490,6 +490,8 @@ assert.deepEqual(
   webserverStageSession?.retained_resource_claims,
   {
     browser_stack: 1,
+    browser_stage_a11y: 1,
+    browser_stage_visual: 1,
     browser_stage_webserver_backed: 1,
     process: 1,
   },

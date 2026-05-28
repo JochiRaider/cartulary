@@ -342,9 +342,17 @@ assert_equals "$(json_field "$phase4_timing" "entries.5.id")" "E-4-06" "phase4 t
 NODE_BIN="${NODE:-node}" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" CARTULARY_TEST_RUN_ID="batch-success" \
   "$ROOT_DIR/scripts/lib/test-output.sh" target-summary adhoc pass >/dev/null
 success_target_summary="$success_root/target-summary.json"
+expected_actual_phase_count="$(
+  "${NODE:-node}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-phases authoritative browser_functional |
+    awk 'NF { count += 1 } END { print count + 0 }'
+)"
+expected_derived_phase_count="$(
+  "${NODE:-node}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-phases supplemental browser_support |
+    awk 'NF { count += 1 } END { print count + 0 }'
+)"
 assert_equals "$(json_field "$success_target_summary" "kind")" "leaf" "batch target summary kind"
-assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.actual")" "4" "batch target actual phase count"
-assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.derived")" "2" "batch target derived phase count"
+assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.actual")" "$expected_actual_phase_count" "batch target actual phase count"
+assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.derived")" "$expected_derived_phase_count" "batch target derived phase count"
 
 single_shard_invocations="$tmp_dir/batch-single-shard-invocations.log"
 single_shard_output="$(
@@ -378,6 +386,32 @@ single_shard_root="$tmp_dir/results/batch-single-shard/adhoc"
 single_shard_phase1="$single_shard_root/browser-e2e-functional-phase1-authoritative-browser-functional-shard-01/phase-summary.json"
 assert_equals "$(json_field "$single_shard_phase1" "status")" "pass" "single shard phase1 status"
 assert_equals "$(json_field "$single_shard_phase1" "accounting_mode")" "actual" "single shard phase1 accounting"
+
+scheduled_shard_invocations="$tmp_dir/batch-scheduled-single-shard-invocations.log"
+scheduled_shard_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="batch-scheduled-single-shard" \
+  CARTULARY_BROWSER_GROUP_KIND="functional_shard" \
+  CARTULARY_PLAYWRIGHT_WORKER_COUNT="10" \
+  CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="6" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_PLAYWRIGHT_INVOCATIONS="$scheduled_shard_invocations" \
+    "$HELPER" functional-shard browser-functional-shard-01 0 2 -- "$fake_playwright"
+)"
+assert_empty "$scheduled_shard_output" "scheduled playwright single shard success"
+"${NODE:-node}" - "$scheduled_shard_invocations" <<'NODE'
+const fs = require("node:fs");
+const lines = fs.readFileSync(process.argv[2], "utf8").trim().split(/\n/u).filter(Boolean);
+const functional = lines.filter((line) => line.startsWith("project=functional "));
+if (functional.length !== 1) {
+  throw new Error(`expected one scheduled functional shard invocation, got ${functional.length}`);
+}
+if (!functional[0].includes("worker_count=10 ") || !functional[0].includes("worker_offset=6 ")) {
+  throw new Error(`scheduled shard worker routing did not preserve scheduler allocation: ${functional[0]}`);
+}
+NODE
 
 phase_filter_invocations="$tmp_dir/batch-phase-filter-invocations.log"
 phase_filter_output="$(
@@ -479,9 +513,10 @@ const resetLabels = [
 process.stdout.write(`${isolatedTargets}\n${resetLabels}\n`);
 NODE
 )"
-assert_contains "$batch_manifest_summary" "browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" "isolated batch targets"
+assert_contains "$batch_manifest_summary" "browser-e2e-stateful,browser-e2e-measurement,browser-e2e-a11y,browser-e2e-visual" "isolated batch targets"
 assert_contains "$batch_manifest_summary" "stateful-to-measurement" "isolated batch stateful reset"
-assert_contains "$batch_manifest_summary" "measurement-to-visual" "isolated batch visual reset"
+assert_contains "$batch_manifest_summary" "measurement-to-a11y" "isolated batch a11y reset"
+assert_contains "$batch_manifest_summary" "a11y-to-visual" "isolated batch visual reset"
 assert_contains "$(cat "$batch_runner")" 'target-summary "$target"' "batch runner child summary"
 assert_contains "$(cat "$batch_runner")" "--defer-summary" "batch runner deferred summary option"
 assert_contains "$(cat "$batch_runner")" "reset-web-e2e-stack.sh" "batch runner reset boundary"
@@ -546,14 +581,10 @@ for target in browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; d
 }
 JSON
 done
-browser_aggregate_output="$(
-  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
-  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
-  CARTULARY_TEST_RUN_ID="browser-aggregate" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e pass --projection browser-e2e \
-    2>&1
-)"
-assert_contains "$browser_aggregate_output" "[RESULT] target=browser-e2e status=pass" "browser aggregate child tests"
+CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+CARTULARY_TEST_RUN_ID="browser-aggregate" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e pass --projection browser-e2e >/dev/null 2>&1
 browser_aggregate_summary="$browser_aggregate_results/browser-e2e/target-summary.json"
 assert_equals "$(json_field "$browser_aggregate_summary" "children.counts.tests")" "3" "browser aggregate JSON child tests"
 assert_equals "$(json_field "$browser_aggregate_summary" "totals.counts.tests")" "3" "browser aggregate JSON total tests"

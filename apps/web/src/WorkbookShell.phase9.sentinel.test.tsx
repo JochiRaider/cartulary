@@ -20,6 +20,7 @@ import {
   timelineRow,
   timelineViewSchemaId,
   waitForTimelineWorkbookReady,
+  waitForVisibleGridRowRecordIds,
 } from "./timelineWorkbookTestSupport";
 import { clipboardTextLooksTabular, TimelineWorkbook } from "./WorkbookShell";
 
@@ -535,7 +536,11 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
     await screen.findByTestId("save-state");
-    await waitForTimelineWorkbookReady(container, 3);
+    await waitForVisibleGridRowRecordIds(container, [
+      "record-3",
+      "record-1",
+      "record-2",
+    ]);
 
     const summary = gridScalarInput(
       container,
@@ -661,7 +666,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
     await screen.findByTestId("save-state");
-    await waitForTimelineWorkbookReady(container, 2);
+    await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
 
     const summary = gridScalarInput(
       container,

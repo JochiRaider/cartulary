@@ -558,6 +558,51 @@ write_summary() {
 JSON
 }
 
+write_failure_summary() {
+  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+  mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
+  cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/target-summary.json" <<JSON
+{
+  "target": "${target}",
+  "status": "fail",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": 1,
+  "logical_duration_ms": 1,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1,
+  "critical_path_wall_duration_ms": 1,
+  "teardown_duration_ms": 0,
+  "counts": {
+    "phases": 1,
+    "tests": 1,
+    "failed": 1,
+    "authoritative": 1,
+    "support": 0,
+    "unmapped": 0,
+    "non_test": 0,
+    "authoritative_failed": 1,
+    "support_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 0,
+    "packages": 1
+  },
+  "failure_class": "product",
+  "failure_reason": "test_assertion_failure",
+  "failure_classes": { "product": 1, "config": 0, "infra": 0, "harness": 1, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failure_reasons": { "usage_error": 0, "configuration_error": 0, "preflight_error": 0, "service_start_error": 0, "service_readiness_timeout": 0, "fixture_error": 0, "resource_conflict": 0, "test_assertion_failure": 1, "child_target_failure": 0, "scheduler_accounting_error": 0, "artifact_error": 0, "cleanup_error": 0, "duration_baseline_drift": 0, "timeout_failure": 0, "cancelled_or_interrupted": 0, "unknown_failure": 1 },
+  "failures": [
+    { "failure_class": "harness", "failure_reason": "unknown_failure", "kind": "failure", "source": "shell", "target": "${target}", "runner": "shell", "label": "(shell command)", "message": "command exited with status 1", "artifact": ".cartulary/test-results/${CARTULARY_TEST_RUN_ID}/${target}/${target}/stderr.log" },
+    { "failure_class": "product", "failure_reason": "test_assertion_failure", "kind": "failure", "source": "vitest", "target": "${target}", "runner": "vitest", "label": "synthetic runner assertion", "message": "synthetic product failure", "artifact": ".cartulary/test-results/${CARTULARY_TEST_RUN_ID}/${target}/raw/runner.json" }
+  ],
+  "failure_headline": "vitest synthetic runner assertion: synthetic product failure"
+}
+JSON
+}
+
 write_phase_summary() {
   if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
     return 0
@@ -631,6 +676,9 @@ write_nested_scheduler_progress
 sleep "$sleep_duration"
 if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
   echo "fake failure for $target" >&2
+  if [[ "${FAKE_FAIL_WITH_SUMMARY_TARGET:-}" == "$target" ]]; then
+    write_failure_summary
+  fi
   change_active -1
   exit 7
 fi
@@ -729,6 +777,7 @@ EOF
   FAKE_SLEEP_MIGRATION_DRIFT="${FAKE_SLEEP_MIGRATION_DRIFT:-}" \
   FAKE_SLEEP_PARTIAL_SERVICE="${FAKE_SLEEP_PARTIAL_SERVICE:-}" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
+  FAKE_FAIL_WITH_SUMMARY_TARGET="${FAKE_FAIL_WITH_SUMMARY_TARGET:-}" \
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
@@ -2477,6 +2526,52 @@ for (const [label, expectedText] of [
   }
 }
 EOF
+
+classified_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-classified-failure.XXXXXX")"
+cleanup_paths+=("$classified_failure_dir")
+write_fake_make "$classified_failure_dir"
+classified_failure_manifest="${classified_failure_dir}/manifest.json"
+cat >"$classified_failure_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 2 },
+      "work_units": [
+        { "target": "alpha", "weight_ms": 30, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "beta", "weight_ms": 20, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "gamma", "weight_ms": 10, "needs": ["beta"], "produces_summary_targets": ["gamma"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+set +e
+classified_failure_output="$(
+  FAKE_FAIL_TARGET=beta
+  FAKE_FAIL_WITH_SUMMARY_TARGET=beta
+  FAKE_SLEEP_ALPHA=0.08
+  FAKE_SLEEP_BETA=0.01
+  run_scheduler "$classified_failure_dir" "$classified_failure_manifest" classified-failure --resource-limit host_cpu=2 2>&1
+)"
+classified_failure_status=$?
+set -e
+assert_equals "$classified_failure_status" "10" "classified child failure exit status"
+assert_contains "$classified_failure_output" "[SUMMARY] target=check status=fail failure_class=product reason=test_assertion_failure" "classified child scheduler output"
+assert_contains "$classified_failure_output" "failed=beta" "classified child failed work unit"
+classified_failure_scheduler_summary="${classified_failure_dir}/results/classified-failure/check/scheduler-summary.json"
+classified_failure_target_summary="${classified_failure_dir}/results/classified-failure/check/target-summary.json"
+classified_failure_tool_summary="${classified_failure_dir}/results/classified-failure/check/tool-run-summary.json"
+assert_equals "$(json_field "$classified_failure_scheduler_summary" "failure_class")" "product" "classified scheduler summary class"
+assert_equals "$(json_field "$classified_failure_scheduler_summary" "failure_reason")" "test_assertion_failure" "classified scheduler summary reason"
+assert_equals "$(json_field "$classified_failure_scheduler_summary" "failure_headline")" "product reason=test_assertion_failure failure: synthetic product failure" "classified scheduler summary headline"
+assert_equals "$(json_field "$classified_failure_scheduler_summary" "failed_work_unit")" "beta" "classified scheduler failed work unit"
+assert_equals "$(json_field "$classified_failure_target_summary" "failure_class")" "product" "classified target summary class"
+assert_equals "$(json_field "$classified_failure_target_summary" "failure_reason")" "test_assertion_failure" "classified target summary reason"
+assert_equals "$(json_field "$classified_failure_target_summary" "failure_headline")" "product reason=test_assertion_failure failure: synthetic product failure" "classified target summary headline"
+assert_equals "$(json_field "$classified_failure_tool_summary" "failure_class")" "product" "classified tool summary class"
+assert_equals "$(json_field "$classified_failure_tool_summary" "failure_reason")" "test_assertion_failure" "classified tool summary reason"
 
 service_skip_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-service-skip.XXXXXX")"
 cleanup_paths+=("$service_skip_dir")

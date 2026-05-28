@@ -1015,8 +1015,11 @@ fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_COUNT="$playwright_worker_count"' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must pass the resolved worker-admin count to Playwright"
 fi
-if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index"' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must offset each parallel shard to a distinct worker-admin slot"
+if ! grep -Fq 'resolve_functional_worker_offset' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must resolve scheduled functional shard worker-admin offsets"
+fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$worker_offset"' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must pass the resolved worker-admin offset to Playwright"
 fi
 if ! grep -Fq 'merge-reports' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must merge functional shard reports before phase summaries"

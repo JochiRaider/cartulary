@@ -1142,6 +1142,22 @@ function validateToolRunSummaryShape(file) {
     `${file}.failure_reason`,
     toolRunFailureReasons,
   );
+  if (summary.status === "fail") {
+    if (summary.failure_class === null) {
+      throw new Error(`${file}.failure_class must be non-null when status is fail`);
+    }
+    if (summary.failure_reason === null) {
+      throw new Error(`${file}.failure_reason must be non-null when status is fail`);
+    }
+  }
+  if (summary.status === "pass") {
+    if (summary.failure_class !== null) {
+      throw new Error(`${file}.failure_class must be null when status is pass`);
+    }
+    if (summary.failure_reason !== null) {
+      throw new Error(`${file}.failure_reason must be null when status is pass`);
+    }
+  }
   requireSorted(
     requireObjectArray(summary.failures, `${file}.failures`),
     `${file}.failures`,

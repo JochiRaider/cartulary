@@ -237,12 +237,34 @@ export function primaryPublicFailure(failures = [], fallback = null) {
     .filter(Boolean)
     .map((failure) => normalizeFailureRecord(failure))
     .filter((failure) => failure.failure_class);
-  const nonCleanup = normalized.find((failure) => failure.failure_reason !== "cleanup_error");
-  if (nonCleanup) {
-    return nonCleanup;
+  const selectByClassPrecedence = (candidates) => {
+    let selected = null;
+    let selectedIndex = Number.MAX_SAFE_INTEGER;
+    let selectedClassRank = Number.MAX_SAFE_INTEGER;
+    for (const [index, failure] of candidates.entries()) {
+      const classRank = failureClassOrder.indexOf(failure.failure_class);
+      const normalizedRank =
+        classRank === -1 ? Number.MAX_SAFE_INTEGER : classRank;
+      if (
+        selected === null ||
+        normalizedRank < selectedClassRank ||
+        (normalizedRank === selectedClassRank && index < selectedIndex)
+      ) {
+        selected = failure;
+        selectedIndex = index;
+        selectedClassRank = normalizedRank;
+      }
+    }
+    return selected;
+  };
+  const nonCleanup = normalized.filter(
+    (failure) => failure.failure_reason !== "cleanup_error",
+  );
+  if (nonCleanup.length > 0) {
+    return selectByClassPrecedence(nonCleanup);
   }
   if (normalized.length > 0) {
-    return normalized[0];
+    return selectByClassPrecedence(normalized);
   }
   if (fallback?.failure_reason || fallback?.failure_class) {
     return normalizeFailureRecord(fallback);

@@ -2028,6 +2028,41 @@ function summarizeTargetTiming(
   return { timing, timingPath, accountableWindow: summaryWindow };
 }
 
+function isDiagnosticWrapperFailure(failure) {
+  return (
+    failure?.source === "shell" &&
+    failure?.runner === "shell" &&
+    failure?.label === "(shell command)" &&
+    failure?.failure_class === "harness" &&
+    failure?.failure_reason === "unknown_failure" &&
+    String(failure?.message ?? "").startsWith("command exited with status ")
+  );
+}
+
+function demoteDiagnosticWrapperFailures(failures) {
+  const hasRicherFailure = failures.some(
+    (failure) =>
+      !isDiagnosticWrapperFailure(failure) &&
+      failure?.failure_class &&
+      failure?.failure_reason,
+  );
+  if (!hasRicherFailure) {
+    return 0;
+  }
+  let writeIndex = 0;
+  let demoted = 0;
+  for (const failure of failures) {
+    if (isDiagnosticWrapperFailure(failure)) {
+      demoted += 1;
+      continue;
+    }
+    failures[writeIndex] = failure;
+    writeIndex += 1;
+  }
+  failures.length = writeIndex;
+  return demoted;
+}
+
 function summarizeTargetDir(target) {
   const targetDir = path.join(resultsRoot, runId, target);
   const summaries = [];
@@ -2116,6 +2151,15 @@ function summarizeTargetDir(target) {
     if (summary.status !== "pass") {
       failed = true;
     }
+  }
+  const demotedFailureCount = demoteDiagnosticWrapperFailures(failures);
+  if (demotedFailureCount > 0) {
+    counts.failed = Math.max(0, counts.failed - demotedFailureCount);
+    counts.non_test = Math.max(0, counts.non_test - demotedFailureCount);
+    counts.non_test_failed = Math.max(
+      0,
+      counts.non_test_failed - demotedFailureCount,
+    );
   }
   counts.packages = owners.size;
 
@@ -2469,7 +2513,10 @@ function sectionFromFlatSummary(summary, fallbackTarget) {
     ),
     counts,
     failure_class: summary?.failure_class ?? failureFields.failure_class,
+    failure_reason: summary?.failure_reason ?? failureFields.failure_reason,
     failure_classes: summary?.failure_classes ?? failureFields.failure_classes,
+    failure_reasons:
+      summary?.failure_reasons ?? failureFields.failure_reasons,
     failures: summary?.failures ?? failureFields.failures,
     failure_headline:
       summary?.failure_headline ?? failureFields.failure_headline,
@@ -2522,7 +2569,9 @@ function toTargetSummaryReference(summary, fallbackTarget) {
     ...durationFieldsForJSON(totals),
     counts: totals.counts,
     failure_class: totals.failure_class,
+    failure_reason: totals.failure_reason,
     failure_classes: totals.failure_classes,
+    failure_reasons: totals.failure_reasons,
     failures: totals.failures,
     failure_headline: totals.failure_headline,
     accounting_modes: totals.accounting_modes,
@@ -3324,7 +3373,9 @@ function handleTargetSummary(args) {
     accounting_modes: childrenRollup.accounting_modes,
     counts: childrenRollup.counts,
     failure_class: childrenRollup.failure_class,
+    failure_reason: childrenRollup.failure_reason,
     failure_classes: childrenRollup.failure_classes,
+    failure_reasons: childrenRollup.failure_reasons,
     failures: childrenRollup.failures,
     failure_headline: childrenRollup.failure_headline,
     slowest_lifecycle_bucket: childrenRollup.slowest_lifecycle_bucket,
@@ -3356,6 +3407,14 @@ function handleTargetSummary(args) {
     totalsSection.critical_path_wall_duration_ms =
       ownSection.critical_path_wall_duration_ms;
   }
+  const schedulerSummary = loadSchedulerSummary(target);
+  const schedulerFailureOverride =
+    status === "FAIL" &&
+    schedulerSummary?.status === "fail" &&
+    schedulerSummary.failure_class &&
+    schedulerSummary.failure_reason
+      ? schedulerSummary
+      : null;
   const topLevelTiming = {
     start_time:
       totalsSection.start_time ??
@@ -3376,10 +3435,16 @@ function handleTargetSummary(args) {
     status: status.toLowerCase(),
     ...topLevelTiming,
     accounting_modes: totalsSection.accounting_modes,
-    failure_class: totalsSection.failure_class,
+    failure_class:
+      schedulerFailureOverride?.failure_class ?? totalsSection.failure_class,
+    failure_reason:
+      schedulerFailureOverride?.failure_reason ?? totalsSection.failure_reason,
     failure_classes: totalsSection.failure_classes,
+    failure_reasons: totalsSection.failure_reasons,
     failures: totalsSection.failures,
-    failure_headline: totalsSection.failure_headline,
+    failure_headline:
+      schedulerFailureOverride?.failure_headline ??
+      totalsSection.failure_headline,
     artifacts: ownSection.artifacts,
     own: ownSection,
     children: childrenSection,

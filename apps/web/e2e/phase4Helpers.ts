@@ -5,6 +5,7 @@ import {
 import {
   gridSavedRowsSelector,
   gridShellTestId,
+  pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   relationshipItemsTestId,
   rowInspectButtonTestId,
@@ -237,6 +238,17 @@ export async function waitForSaveState(
   await expect(page.getByTestId("save-state")).toHaveText(value);
 }
 
+export async function expectNoPendingQueueAuthPause(
+  page: Page,
+  context: string,
+) {
+  const snapshot = await pendingQueueDiagnosticSnapshot(page);
+  if (!snapshot.authPaused) {
+    return;
+  }
+  throw new Error(formatPendingQueueAuthPause(context, snapshot));
+}
+
 export async function ensureTimelineGridTargetVisible(
   page: Page,
   targetTestId: string,
@@ -328,11 +340,15 @@ export async function openTimelineInspector(page: Page, recordId: string) {
 }
 
 export function waitForTimelinePatch(page: Page, recordId: string) {
-  return page.waitForResponse(
+  const responsePromise = page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&
       response.url().endsWith(`/api/v1/records/${recordId}`),
   );
+  return Promise.race([
+    responsePromise,
+    waitForPendingQueueAuthPause(page, `timeline PATCH ${recordId}`),
+  ]);
 }
 
 export function waitForMergeResponse(page: Page, survivorRecordId: string) {
@@ -378,6 +394,88 @@ function readRequestPayload(response: Response): TimelinePatchRequestPayload {
   } catch {
     return {};
   }
+}
+
+async function waitForPendingQueueAuthPause(
+  page: Page,
+  context: string,
+): Promise<Response> {
+  const notice = page
+    .getByTestId(pendingQueueNoticeTestId())
+    .filter({ hasText: "Authentication is required before queued edits" });
+  return notice
+    .waitFor({ state: "visible", timeout: 60_000 })
+    .then(async () => {
+      throw new Error(
+        formatPendingQueueAuthPause(
+          context,
+          await pendingQueueDiagnosticSnapshot(page),
+        ),
+      );
+    })
+    .catch((error: unknown) => {
+      if (String(error).includes("Timeout")) {
+        return new Promise<Response>(() => undefined);
+      }
+      throw error;
+    });
+}
+
+async function pendingQueueDiagnosticSnapshot(page: Page) {
+  const notice = page.getByTestId(pendingQueueNoticeTestId());
+  const noticeCount = await notice.count().catch(() => -1);
+  const noticeText =
+    noticeCount > 0
+      ? await notice
+          .first()
+          .textContent()
+          .then((value) => value ?? "")
+          .catch((error: unknown) => {
+            return `<<failed to read pending queue notice: ${String(error)}>>`;
+          })
+      : "";
+  const pendingUnits =
+    noticeCount > 0
+      ? await page
+          .getByTestId(pendingQueueCountTestId())
+          .textContent()
+          .then((value) => value ?? "")
+          .catch((error: unknown) => {
+            return `<<failed to read pending queue count: ${String(error)}>>`;
+          })
+      : "";
+  const saveState = await page
+    .getByTestId("save-state")
+    .textContent()
+    .then((value) => value ?? "")
+    .catch((error: unknown) => {
+      return `<<failed to read save state: ${String(error)}>>`;
+    });
+  return {
+    authPaused: noticeText.includes(
+      "Authentication is required before queued edits",
+    ),
+    noticeCount,
+    noticeText,
+    pendingUnits,
+    saveState,
+    url: page.url(),
+  };
+}
+
+function formatPendingQueueAuthPause(
+  context: string,
+  snapshot: Awaited<ReturnType<typeof pendingQueueDiagnosticSnapshot>>,
+) {
+  return [
+    "pending queue entered auth-paused state before timeline mutation completed",
+    `context=${context}`,
+    `url=${snapshot.url}`,
+    `save_state=${JSON.stringify(snapshot.saveState)}`,
+    `pending_queue_notice_count=${snapshot.noticeCount}`,
+    `pending_queue_notice=${truncateDiagnostic(snapshot.noticeText)}`,
+    `pending_queue_units=${truncateDiagnostic(snapshot.pendingUnits)}`,
+  ].join("\n");
 }
 
 function truncateDiagnostic(value: string) {

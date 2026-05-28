@@ -70,6 +70,19 @@ write_fake_make() {
 set -euo pipefail
 target="${@: -1}"
 printf '%s\n' "$target" >>"$FAKE_MAKE_LOG"
+if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
+  printf '%s\tRESULTS_DIR=%s\n' "$target" "${RESULTS_DIR:-}" >>"$FAKE_MAKE_ENV_LOG"
+fi
+if [[ "${FAKE_REJECT_RESULTS_DIR_LEAK:-}" == "1" ]]; then
+  case "$target" in
+    phase-ledgers | phase-ledger-drift | phase-schedules | phase-schedule-drift | json-shape-check | go-test-duration-baseline-coverage)
+      if [[ -n "${RESULTS_DIR:-}" || " ${MAKEFLAGS:-} " == *" RESULTS_DIR="* ]]; then
+        printf 'RESULTS_DIR leaked into non-retained substep %s\n' "$target" >&2
+        exit 2
+      fi
+      ;;
+  esac
+fi
 if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
   if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]; then
     mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
@@ -228,12 +241,16 @@ results_dir="$TMP_DIR/with-results"
 mkdir -p "$results_dir"
 results_make="$results_dir/fake-make"
 results_log="$results_dir/make.log"
+results_env_log="$results_dir/make-env.log"
 write_fake_make "$results_make"
 CARTULARY_TEST_RESULTS_DIR="$results_dir/results" \
 CARTULARY_TEST_RUN_ID="with-results" \
 CARTULARY_PHASE_ARTIFACT_DIR="$results_dir/results/with-results/agent-finalize/agent-finalize" \
 MAKE="$results_make" \
 FAKE_MAKE_LOG="$results_log" \
+FAKE_MAKE_ENV_LOG="$results_env_log" \
+FAKE_REJECT_RESULTS_DIR_LEAK=1 \
+MAKEFLAGS="--no-print-directory -- RESULTS_DIR=$retained_dir" \
 RESULTS_DIR="$retained_dir" \
   "$SCRIPT"
 results_summary="$results_dir/results/with-results/agent-finalize/finalize-summary.json"
@@ -243,6 +260,9 @@ assert_equals "$(json_field "$results_summary" 'value.results_dir_status')" "val
 assert_equals "$(json_field "$results_summary" 'value.duration.status')" "refreshed" "RESULTS_DIR duration refreshed"
 assert_equals "$(json_field "$results_summary" 'value.run_checks.status')" "pass" "RESULTS_DIR run checks pass"
 assert_equals "$(json_field "$results_summary" 'value.actions.find((action) => action.action_id === "duration_baseline_refresh").substeps.map((substep) => substep.id).slice(-2)')" $'phase-schedules-after-duration-baselines\nphase-schedule-drift-after-duration-baselines' "RESULTS_DIR refreshes schedules after duration baselines"
+assert_contains "$(cat "$results_env_log")" $'go-test-duration-baselines\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR substep receives retained run"
+assert_contains "$(cat "$results_env_log")" $'phase-schedules\tRESULTS_DIR=' "RESULTS_DIR is stripped from non-retained substeps"
+assert_not_contains "$(cat "$results_env_log")" $'phase-schedules\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR must not leak into non-retained phase-schedules substep"
 
 assert_invalid_results_dir \
   "missing-results" \

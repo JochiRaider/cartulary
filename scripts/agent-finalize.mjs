@@ -711,6 +711,10 @@ function runMakeSubstep(definition, substep) {
     ...(definition.env ?? {}),
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
+  if (!definition.requiresResultsDir) {
+    delete childEnv.RESULTS_DIR;
+    scrubMakeCommandVariable(childEnv, "RESULTS_DIR");
+  }
   delete childEnv.CARTULARY_TEST_TARGET;
   const result = spawnSync(
     makeBin,
@@ -745,6 +749,27 @@ function runMakeSubstep(definition, substep) {
     status: substep.exit_code,
     stderr: result.stderr || result.stdout || "",
   };
+}
+
+function scrubMakeCommandVariable(env, name) {
+  for (const key of ["MAKEFLAGS", "MFLAGS", "GNUMAKEFLAGS", "MAKEOVERRIDES"]) {
+    if (!env[key]) {
+      continue;
+    }
+    const stripped = stripMakeVariable(env[key], name);
+    if (stripped) {
+      env[key] = stripped;
+    } else {
+      delete env[key];
+    }
+  }
+}
+
+function stripMakeVariable(value, name) {
+  return value
+    .split(/\s+/u)
+    .filter((part) => part && part !== name && !part.startsWith(`${name}=`))
+    .join(" ");
 }
 
 function markSubstepSkipped(substep, reason = "skipped-after-failure") {

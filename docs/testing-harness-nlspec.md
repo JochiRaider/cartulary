@@ -794,6 +794,8 @@ rules in this section, not from the raw process status of a child command.
 
 Scheduler summaries MUST propagate the normalized primary failure from a failed child target summary when that retained child summary is available. The scheduler's own fallback classification is used only when no child summary exists, the child summary is unreadable, or the failure belongs to scheduler orchestration rather than completed child target work. A child target assertion failure therefore remains `failure_class=product` and `failure_reason=test_assertion_failure` at the scheduler summary layer.
 
+Every failed retained summary that carries the standard failure fields MUST expose both a non-null `failure_class` and a non-null `failure_reason`. Passing summaries MUST expose no primary failure. A generic shell-wrapper exit such as `command exited with status 1` is diagnostic wrapper evidence when a tool runner has already emitted a classified failure for the same target; it MUST NOT become the primary failure and SHOULD NOT be counted as an independent primary harness failure.
+
 Failure classification uses two layers:
 
 - `failure_class`: coarse stable grouping for humans and automation.
@@ -845,11 +847,12 @@ select_primary_failure(failures):
   if failures is empty:
     return success
   if any non-cleanup failure exists:
-    return earliest non-cleanup failure by:
-      1. top-level command lifecycle order,
-      2. scheduler event sequence if scheduler-owned,
-      3. child target registry order if aggregate-owned,
-      4. artifact path lexical order
+    return non-cleanup failure by:
+      1. failure-class precedence from the failure-class table,
+      2. top-level command lifecycle order within the selected class,
+      3. scheduler event sequence if scheduler-owned,
+      4. child target registry order if aggregate-owned,
+      5. artifact path lexical order
   return earliest cleanup failure by cleanup step order
 ```
 
@@ -859,7 +862,13 @@ Verified by: TH-HARNESS-AC-014
 
 **TH-HARNESS-REQ-302**
 Harness setup, readiness, fixture, artifact, scheduler, timeout, and cleanup failures MUST NOT use `failure_class=product`. A failing assertion after successful harness setup MUST be classified with `failure_class=product` and `failure_reason=test_assertion_failure`.
+
+Vitest and Playwright per-test timeouts after the test runner has reached product execution are product test failures and MUST be classified as `failure_class=product` with `failure_reason=test_assertion_failure`. Harness-owned watchdogs, command deadlines, lock deadlines, service readiness deadlines, and cleanup deadlines remain operational failures and MUST use `failure_reason=timeout_failure` or `failure_reason=service_readiness_timeout` according to the failure-reason table.
 Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-014
+
+**TH-HARNESS-REQ-303**
+A scheduler MUST preserve the first failed work unit and its retained detail as `failed_work_unit` and `failed_work_unit_detail` even when later sibling work drains and also fails. Later drained failures MAY be retained as additional failure records, but they MUST NOT rewrite the first failed work unit. Human failure output, scheduler summaries, target summaries, and tool-run summaries MUST choose a primary headline and public exit code from the primary-failure rules without contradicting `failed_work_unit` when the failed work unit has retained classified child evidence.
+Verified by: TH-HARNESS-AC-014, TH-HARNESS-AC-024
 
 ## 10. Scheduler Contract
 

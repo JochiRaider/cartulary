@@ -549,6 +549,12 @@ const mutations = {
       scheduler_total_duration_ms: 1000,
     };
   },
+  "tool-run-summary-failed-null-reason": (fixture) => {
+    fixture.status = "fail";
+    fixture.exit_code = 1;
+    fixture.failure_class = "product";
+    fixture.failure_reason = null;
+  },
   "tool-run-summary-missing-scheduler-timing": (fixture) => {
     delete fixture.scheduler_timing;
   },
@@ -941,6 +947,12 @@ write_valid_tool_run_summary "$invalid_extension_key"
 mutate_json_fixture tool-run-summary-invalid-extension-key "$invalid_extension_key"
 invalid_extension_output="$(assert_fails "invalid tool run extension key" run_shape_check tool-run-summary "$invalid_extension_key")"
 assert_contains "$invalid_extension_output" "invalid extension key scheduler_timing" "invalid tool run extension key"
+
+failed_null_reason="$tmp_dir/tool-run-summary-failed-null-reason.json"
+write_valid_tool_run_summary "$failed_null_reason"
+mutate_json_fixture tool-run-summary-failed-null-reason "$failed_null_reason"
+failed_null_reason_output="$(assert_fails "failed tool run null failure reason" run_shape_check tool-run-summary "$failed_null_reason")"
+assert_contains "$failed_null_reason_output" "failure_reason must be non-null when status is fail" "failed tool run null failure reason"
 
 missing_scheduler_timing="$tmp_dir/tool-run-summary-missing-scheduler-timing.json"
 write_valid_tool_run_summary "$missing_scheduler_timing"

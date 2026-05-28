@@ -18,6 +18,7 @@ type FakeControlPlane = {
   controlPlane: Parameters<typeof reconcileWorkerAdminManifest>[0] &
     DeploymentAdminMutationClient;
   stats: {
+    canLoginCount: number;
     createCount: number;
     patchCount: number;
     resetPasswordCount: number;
@@ -116,6 +117,55 @@ describe("reconcileWorkerAdminManifest", () => {
     expect(fake.stats.patchCount).toBe(0);
     expect(fake.stats.resetPasswordCount).toBe(1);
     expect(manifest.worker_admins[0]?.user_id).toBe("worker-0");
+  });
+
+  it("trusts existing shared-harness manifest passwords without creating probe sessions", async () => {
+    const blueprints = buildBlueprints(2);
+    const first = requireBlueprint(blueprints, 0);
+    const second = requireBlueprint(blueprints, 1);
+    const fake = createFakeControlPlane([
+      fakeUser("worker-0", {
+        email: first.email,
+        display_name: first.displayName,
+        is_deployment_admin: true,
+        password: "rotated-password",
+      }),
+      fakeUser("worker-1", {
+        email: second.email,
+        display_name: second.displayName,
+        is_deployment_admin: true,
+        password: "rotated-password",
+      }),
+    ]);
+
+    const manifest = await reconcileWorkerAdminManifest(
+      fake.controlPlane,
+      blueprints,
+      {
+        worker_admins: [
+          {
+            parallel_index: 0,
+            user_id: "worker-0",
+            email: first.email,
+            password: first.password,
+          },
+          {
+            parallel_index: 1,
+            user_id: "worker-1",
+            email: second.email,
+            password: second.password,
+          },
+        ],
+      },
+      { trustExistingManifestPasswords: true },
+    );
+
+    expect(fake.stats.canLoginCount).toBe(0);
+    expect(fake.stats.resetPasswordCount).toBe(0);
+    expect(manifest.worker_admins.map((entry) => entry.user_id)).toEqual([
+      "worker-0",
+      "worker-1",
+    ]);
   });
 });
 
@@ -219,6 +269,7 @@ function createFakeControlPlane(
   let nextID = initialUsers.length + 1;
   const users = new Map(initialUsers.map((user) => [user.user_id, user]));
   const stats = {
+    canLoginCount: 0,
     createCount: 0,
     patchCount: 0,
     resetPasswordCount: 0,
@@ -227,6 +278,7 @@ function createFakeControlPlane(
   return {
     controlPlane: {
       canLogin: async (email, password) => {
+        stats.canLoginCount += 1;
         const user = [...users.values()].find(
           (candidate) => candidate.email === email,
         );

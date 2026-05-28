@@ -105,6 +105,15 @@ else
 fi
 playwright_worker_count="${CARTULARY_PLAYWRIGHT_WORKER_COUNT:-$functional_shard_limit}"
 
+resolve_functional_worker_offset() {
+  local shard_index="$1"
+  if [[ "$mode" == "functional-shard" && -n "${CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET:-}" ]]; then
+    printf '%s\n' "$CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET"
+    return 0
+  fi
+  printf '%s\n' "$shard_index"
+}
+
 if [[ "$mode" != "support" ]]; then
   shard_plan_command=("$node_bin" "$shard_plan_script" plan --max-shards "$functional_shard_limit")
   if [[ -n "$phase_filter" ]]; then
@@ -303,11 +312,13 @@ run_functional_shard() {
   local shard_stderr
   local shard_output_dir
   local selected_ids
+  local worker_offset
   local -a run_command
   local status
 
   grep="$(shard_grep "$shard")"
   files="$(shard_files "$shard")"
+  worker_offset="$(resolve_functional_worker_offset "$shard_index")"
   selected_ids="$("$node_bin" - "$shard_plan" "$shard" <<'EOF'
 const fs = require("node:fs");
 const [planPath, shardName] = process.argv.slice(2);
@@ -335,7 +346,7 @@ EOF
   CARTULARY_PLAYWRIGHT_SUPPORT_GREP="$all_support_grep" \
   CARTULARY_PLAYWRIGHT_SUPPORT_FILES="$all_support_files" \
   CARTULARY_PLAYWRIGHT_WORKER_COUNT="$playwright_worker_count" \
-  CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index" \
+  CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$worker_offset" \
   CARTULARY_MANIFEST_SELECTED_IDS="$selected_ids" \
   PLAYWRIGHT_WORKERS=1 \
   PLAYWRIGHT_JSON_OUTPUT_FILE="$shard_report" \

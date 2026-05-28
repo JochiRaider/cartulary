@@ -48,7 +48,6 @@ assert_text_order() {
   fi
 }
 
-assert_target_exists frontend-task-surface-check "Makefile must define frontend-task-surface-check"
 assert_target_exists frontend-import-boundary-check "Makefile must define frontend-import-boundary-check"
 if [[ ! -f "$frontend_import_boundary_script" ]]; then
   fail "missing scripts/check-frontend-import-boundaries.mjs"
@@ -68,7 +67,9 @@ assert_target_prereq go-lint-toolchain '$(STATICCHECK_BIN)' "go-lint-toolchain m
 assert_target_prereq govulncheck-toolchain '$(GOVULNCHECK_BIN)' "govulncheck-toolchain must own pinned Govulncheck readiness"
 assert_target_prereq gosec-toolchain '$(GOSEC_BIN)' "gosec-toolchain must own pinned Gosec readiness"
 assert_target_prereq shell-lint-toolchain '$(SHELLCHECK_BIN)' "shell-lint-toolchain must own pinned ShellCheck readiness"
-assert_target_prereq generate codegen-toolchain "generate must prepare the codegen toolchain before generating artifacts"
+generate_block="$(extract_target_block generate)"
+assert_text_contains "generate recipe" "$generate_block" "codegen-toolchain" "generate must prepare the codegen toolchain before generating artifacts"
+assert_text_order "generate recipe" "$generate_block" "codegen-toolchain" "generate-artifacts" "generate must prepare the codegen toolchain before generating artifacts"
 assert_target_recipe_invokes generate generate-artifacts "generate must delegate to generate-artifacts"
 generate_artifacts_block="$(extract_target_block generate-artifacts)"
 if [[ -z "$generate_artifacts_block" ]]; then
@@ -80,7 +81,9 @@ fi
 if ! grep -Fq '"generate sqlc"' "$repo_root/scripts/generate-artifacts.sh"; then
   fail "scripts/generate-artifacts.sh must run sqlc generation"
 fi
-assert_target_prereq generate-drift codegen-toolchain "generate-drift must prepare the codegen toolchain outside the drift body"
+generate_drift_block="$(extract_target_block generate-drift)"
+assert_text_contains "generate-drift recipe" "$generate_drift_block" "codegen-toolchain" "generate-drift must prepare the codegen toolchain outside the drift body"
+assert_text_order "generate-drift recipe" "$generate_drift_block" "codegen-toolchain" "./scripts/check-generate-drift.sh" "generate-drift must prepare the codegen toolchain outside the drift body"
 assert_target_absent check-preflight "check-preflight must not remain as a legacy alias; use scheduler-visible readiness targets"
 assert_target_absent check-setup-blockers "check-setup-blockers must not remain after setup readiness fanout"
 if [[ -e "$repo_root/scripts/check-setup-blockers.sh" ]]; then
@@ -104,7 +107,7 @@ if (Array.isArray(topology.check_schedules)) {
   throw new Error("execution topology must own check schedule profiles, not flat schedules");
 }
 const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
-for (const required of ["frontend-typecheck", "frontend-unit", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell"]) {
+for (const required of ["frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell"]) {
   const metadata = topologyTargets.get(required)?.check_schedule;
   if (!metadata?.schedules?.includes("check")) {
     throw new Error(`execution topology must schedule ${required} through check_schedule metadata`);
@@ -126,7 +129,7 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
     throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
   }
 }
-for (const required of ["toolchain-drift", "check-frontend-install", "frontend-typecheck", "frontend-unit", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "harness-contract-tests", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
+for (const required of ["toolchain-drift", "check-frontend-install", "frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "harness-contract-tests", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
   if (!targets.has(required)) {
     throw new Error(`check schedule must include ${required}`);
   }
@@ -138,11 +141,11 @@ for (const target of ["frontend-typecheck", "frontend-unit", "frontend-import-bo
   }
 }
 const frontendUnit = unitByTarget.get("frontend-unit");
-if (frontendUnit?.env && Object.hasOwn(frontendUnit.env, "VITEST_MAX_WORKERS")) {
-  throw new Error("scheduled frontend-unit must inherit VITEST_MAX_WORKERS instead of overriding it");
+if (JSON.stringify(frontendUnit?.env ?? {}) !== JSON.stringify({ VITEST_MAX_WORKERS: "2" })) {
+  throw new Error("scheduled frontend-unit must pin VITEST_MAX_WORKERS=2");
 }
-if (JSON.stringify(frontendUnit?.resource_claims ?? {}) !== JSON.stringify({ host_cpu: 1 })) {
-  throw new Error("scheduled frontend-unit must claim exactly host_cpu=1");
+if (JSON.stringify(frontendUnit?.resource_claims ?? {}) !== JSON.stringify({ host_cpu: 2 })) {
+  throw new Error("scheduled frontend-unit must claim exactly host_cpu=2");
 }
 if ((unitByTarget.get("check-frontend-install")?.needs ?? []).join(",") !== "toolchain-drift") {
   throw new Error("check-frontend-install must depend on toolchain-drift");
@@ -233,8 +236,9 @@ fi
 
 assert_target_absent lint-typecheck "lint-typecheck must not remain as a legacy alias; use frontend-typecheck"
 
-assert_target_prereq format format-go "format must delegate to format-go and format-frontend"
-assert_target_prereq format format-frontend "format must delegate to format-go and format-frontend"
+format_block="$(extract_target_block format)"
+assert_text_contains "format recipe" "$format_block" "format-go" "format must delegate to format-go and format-frontend"
+assert_text_contains "format recipe" "$format_block" "format-frontend" "format must delegate to format-go and format-frontend"
 format_go_block="$(extract_target_block format-go)"
 if ! text_contains "$format_go_block" 'scripts/run-go-format.sh --write'; then
   fail "format-go must run the curated Go formatter wrapper in write mode"
@@ -256,10 +260,11 @@ fi
 if ! text_contains "$frontend_import_boundary_block" './scripts/check-frontend-import-boundaries.mjs'; then
   fail "frontend-import-boundary-check must run the repo-local import boundary checker"
 fi
-assert_target_prereq frontend-import-boundary-check '$(NODE_BIN)' "frontend-import-boundary-check must depend on NODE_BIN"
-assert_target_prereq frontend-import-boundary-check '$(FRONTEND_INSTALL_STAMP)' "frontend-import-boundary-check must depend on frontend install"
-assert_target_prereq lint frontend-import-boundary-check "lint must include frontend-import-boundary-check"
-assert_target_prereq lint lint-shell "lint must include lint-shell"
+assert_text_contains "frontend-import-boundary-check recipe" "$frontend_import_boundary_block" '$(NODE_BIN)' "frontend-import-boundary-check must depend on NODE_BIN"
+assert_text_contains "frontend-import-boundary-check recipe" "$frontend_import_boundary_block" '$(FRONTEND_INSTALL_STAMP)' "frontend-import-boundary-check must depend on frontend install"
+lint_block="$(extract_target_block lint)"
+assert_text_contains "lint recipe" "$lint_block" "frontend-import-boundary-check" "lint must include frontend-import-boundary-check"
+assert_text_contains "lint recipe" "$lint_block" "lint-shell" "lint must include lint-shell"
 if ! grep -Fq 'exec biome check --error-on-warnings' "$frontend_biome_script"; then
   fail "frontend Biome check mode must fail on warnings"
 fi

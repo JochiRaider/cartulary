@@ -10,6 +10,7 @@ import {
   failureReasonOrder,
   normalizeFailureClass,
   normalizeFailureReason,
+  primaryPublicFailure,
   publicExitCodeForFailures,
 } from "./failure-taxonomy.mjs";
 
@@ -281,11 +282,22 @@ export function buildToolRunSummary({
   schedulerTiming = null,
   extensions = {},
 }) {
-  const normalizedFailureClass = normalizeFailureClass(failureClass, "");
+  const primaryFailure = primaryPublicFailure(
+    failures,
+    failureClass || failureReason
+      ? {
+          failure_class: failureClass,
+          failure_reason: failureReason,
+        }
+      : null,
+  );
+  const normalizedFailureClass = normalizeFailureClass(
+    failureClass ?? primaryFailure?.failure_class,
+    "",
+  );
   const normalizedFailureReason = normalizedFailureClass
     ? normalizeFailureReason(
-        failureReason ??
-          failures.find((failure) => failure?.failure_reason)?.failure_reason,
+        failureReason ?? primaryFailure?.failure_reason,
         defaultReasonForFailureClass(normalizedFailureClass),
       )
     : null;
