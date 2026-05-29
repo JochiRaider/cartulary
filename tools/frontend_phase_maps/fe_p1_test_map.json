@@ -87,6 +87,10 @@
         "FE-I-P1-01 route-boundary client helpers keep auth and account requests under /api/v1/ with cookie-backed session defaults",
         "FE-I-P1-01 route-boundary bootstrap token authorization is limited to TOTP begin and complete",
         "FE-I-P1-01 route-boundary CSRF headers follow cookie-backed mutating request rules",
+        "FE-I-P1-01 route-boundary auth login errors render public envelopes without private details",
+        "FE-I-P1-01 route-boundary credential-state errors render public envelopes on landing and account surfaces without private details",
+        "FE-I-P1-01 route-boundary account password and TOTP errors render public envelopes without private details",
+        "FE-I-P1-01 route-boundary deployment-admin action errors render public envelopes without private details",
         "FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors"
       ],
       "claim_status": "implemented",

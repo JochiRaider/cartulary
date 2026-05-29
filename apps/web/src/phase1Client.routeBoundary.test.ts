@@ -104,16 +104,17 @@ describe("Phase 1 API route boundaries", () => {
     ]);
 
     for (const request of requests) {
-      expect(request.url.startsWith("/api/v1/")).toBe(true);
-      expect(request.init?.credentials).toBe("include");
-      expect(readHeader(request.init, "Authorization")).toBe("");
+      expectCookieBackedAPIRequest(request);
     }
 
-    expect(requests[2]?.body).toEqual({
+    expectClosedJSONBody(requests[0], null);
+    expectClosedJSONBody(requests[1], null);
+    expectClosedJSONBody(requests[2], {
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
-    expect(requests[4]?.body).toEqual({
+    expectClosedJSONBody(requests[3], {});
+    expectClosedJSONBody(requests[4], {
       client_txn_id: "txn-password-change",
       current_password: "CurrentPass1!",
       new_password: "ReplacementPass1!",
@@ -124,7 +125,7 @@ describe("Phase 1 API route boundaries", () => {
         },
       },
     });
-    expect(requests[5]?.body).toEqual({
+    expectClosedJSONBody(requests[5], {
       client_txn_id: "txn-user-create",
       auth_kind: "local",
       email: "phase1-user@example.test",
@@ -133,14 +134,26 @@ describe("Phase 1 API route boundaries", () => {
       mfa_required: true,
       is_deployment_admin: false,
     });
-    expect(requests[7]?.body).toEqual({
+    expectClosedJSONBody(requests[6], null);
+    expectClosedJSONBody(requests[7], {
       base_user_version: 7,
       display_name: "Updated User",
       mfa_required: true,
       is_active: true,
       is_deployment_admin: false,
     });
-    expect(requests[10]?.body).toEqual({
+    expectClosedJSONBody(requests[8], {
+      base_user_version: 7,
+      client_txn_id: "txn-admin-password-reset",
+      new_password: "AdminResetPass1!",
+      reason: "routine reset",
+    });
+    expectClosedJSONBody(requests[9], {
+      base_user_version: 7,
+      client_txn_id: "txn-admin-totp-reset",
+      reason: "routine reset",
+    });
+    expectClosedJSONBody(requests[10], {
       client_txn_id: "txn-admin-revoke-all",
       reason: "routine revoke",
     });
@@ -202,15 +215,15 @@ describe("Phase 1 API route boundaries", () => {
     expect(readHeader(requests[2]?.init, csrfHeaderName)).toBe("session-csrf");
     expect(readHeader(requests[3]?.init, csrfHeaderName)).toBe("session-csrf");
 
-    expect(requests[0]?.body).toEqual({
+    expectClosedJSONBody(requests[0], {
       client_txn_id: "txn-bootstrap-begin",
     });
-    expect(requests[1]?.body).toEqual({
+    expectClosedJSONBody(requests[1], {
       client_txn_id: "txn-bootstrap-complete",
       enrollment_id: "enrollment-1",
       code: "123456",
     });
-    expect(requests[2]?.body).toEqual({
+    expectClosedJSONBody(requests[2], {
       client_txn_id: "txn-session-begin",
       current_password: "CurrentPass1!",
       second_factor: {
@@ -219,6 +232,11 @@ describe("Phase 1 API route boundaries", () => {
           code: "654321",
         },
       },
+    });
+    expectClosedJSONBody(requests[3], {
+      client_txn_id: "txn-session-complete",
+      enrollment_id: "enrollment-2",
+      code: "654321",
     });
   });
 });
@@ -245,6 +263,25 @@ function capturedRequests(fetchMock: ReturnType<typeof vi.fn>) {
       url: String(input),
     };
   });
+}
+
+function expectCookieBackedAPIRequest(request: CapturedRequest | undefined) {
+  expect(request).toBeDefined();
+  expect(request?.url.startsWith("/api/v1/")).toBe(true);
+  expect(request?.init?.credentials).toBe("include");
+  expect(readHeader(request?.init, "Authorization")).toBe("");
+}
+
+function expectClosedJSONBody(
+  request: CapturedRequest | undefined,
+  expected: Record<string, unknown> | null,
+) {
+  expect(request).toBeDefined();
+  expect(request?.body).toEqual(expected);
+  const actualKeys =
+    request?.body === null ? null : Object.keys(request?.body ?? {}).sort();
+  const expectedKeys = expected === null ? null : Object.keys(expected).sort();
+  expect(actualKeys).toEqual(expectedKeys);
 }
 
 function jsonResponse(payload: unknown, status = 200) {

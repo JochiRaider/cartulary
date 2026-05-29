@@ -16,6 +16,7 @@ vi.mock("./WorkbookShell", () => ({
 }));
 
 import { AppRoot } from "./AppRoot";
+import { csrfHeaderName } from "./browserApi";
 import {
   credentialStateResource,
   installLandingShellFetch,
@@ -42,6 +43,7 @@ describe("Phase 1 ordinary app shell", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -175,6 +177,90 @@ describe("Phase 1 ordinary app shell", () => {
     );
     expect(credentialErrorText).not.toContain("req-private-credential-detail");
     expect(credentialErrorText).not.toContain("/var/lib/cartulary");
+    await expectStableFetchCount(fetchMock, 3);
+  });
+
+  it("FE-I-P1-01 route-boundary auth login errors render public envelopes without private details", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: errorResponse("session_required", 401),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/login",
+          handler: () =>
+            publicErrorResponse("invalid_auth_request", 400, {
+              message: "Login request is invalid.",
+              publicDetails: {
+                reason_code: "malformed_second_factor",
+                field: "second_factor.assertion.code",
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId("auth-login-username");
+    fireEvent.change(screen.getByTestId("auth-login-username"), {
+      target: { value: "operator@example.test" },
+    });
+    fireEvent.change(screen.getByTestId("auth-login-password"), {
+      target: { value: "OperatorPass1!" },
+    });
+    fireEvent.click(screen.getByTestId("auth-login-submit"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error-code").textContent).toBe(
+        "invalid_auth_request",
+      );
+    });
+    expect(screen.getByTestId("auth-error-message").textContent).toBe(
+      "Login request is invalid.",
+    );
+    expect(screen.getByTestId("auth-error-details").textContent).toContain(
+      "Reason: malformed_second_factor",
+    );
+    expect(screen.getByTestId("auth-error-details").textContent).toContain(
+      "Field: second_factor.assertion.code",
+    );
+    expectPrivateErrorProbeNotRendered();
+    await expectStableFetchCount(fetchMock, 2);
+  });
+
+  it("FE-I-P1-01 route-boundary credential-state errors render public envelopes on landing and account surfaces without private details", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Phase 1 Operator",
+      }),
+      credentialState: () =>
+        publicErrorResponse("credential_bootstrap_rejected", 409, {
+          message: "Credential bootstrap rejected.",
+          publicDetails: {
+            reason_code: "not_allowed_for_route",
+          },
+        }),
+    });
+
+    renderApp();
+
+    await screen.findByTestId("landing-current-user");
+    expect(
+      screen.getByTestId("app-shell").getAttribute("data-bootstrap-state"),
+    ).toBe("public_error_envelope");
+    expect(screen.getByTestId("landing-error-code").textContent).toBe(
+      "credential_bootstrap_rejected",
+    );
+    expect(screen.getByTestId("landing-error-message").textContent).toBe(
+      "Credential bootstrap rejected.",
+    );
+    expect(screen.getByTestId("account-error-code").textContent).toBe(
+      "credential_bootstrap_rejected",
+    );
+    expect(screen.getByTestId("account-error-details").textContent).toContain(
+      "Reason: not_allowed_for_route",
+    );
+    expectPrivateErrorProbeNotRendered();
     await expectStableFetchCount(fetchMock, 3);
   });
 
@@ -512,6 +598,104 @@ describe("Phase 1 ordinary app shell", () => {
     await expectStableFetchCount(fetchMock, 7);
   });
 
+  it("FE-I-P1-01 route-boundary account password and TOTP errors render public envelopes without private details", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Phase 1 Operator",
+        mfa_state: "satisfied",
+      }),
+      credentialState: credentialStateResource({
+        totp: {
+          state: "active",
+          enrolled_at: "2026-04-20T11:00:00Z",
+          pending_expires_at: null,
+        },
+      }),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/mfa/totp/begin",
+          handler: () =>
+            publicErrorResponse("invalid_second_factor", 401, {
+              message: "Second factor rejected.",
+              publicDetails: {
+                reason_code: "totp_code_invalid",
+                field: "second_factor.assertion.code",
+              },
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/auth/password/change",
+          handler: () =>
+            publicErrorResponse("invalid_current_password", 409, {
+              message: "Current password rejected.",
+              publicDetails: {
+                reason_code: "password_mismatch",
+                field: "current_password",
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId("account-session-user-id");
+
+    fireEvent.change(screen.getByTestId("account-totp-current-password"), {
+      target: { value: "Current Phase 1 Password!" },
+    });
+    fireEvent.change(screen.getByTestId("account-totp-current-factor"), {
+      target: { value: "111111" },
+    });
+    fireEvent.click(screen.getByTestId("account-totp-begin"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("account-error-code").textContent).toBe(
+        "invalid_second_factor",
+      );
+    });
+    expect(screen.getByTestId("account-error-message").textContent).toBe(
+      "Second factor rejected.",
+    );
+    expect(screen.getByTestId("account-error-details").textContent).toContain(
+      "Reason: totp_code_invalid",
+    );
+    expect(screen.getByTestId("account-error-details").textContent).toContain(
+      "Field: second_factor.assertion.code",
+    );
+    expectPrivateErrorProbeNotRendered();
+
+    fireEvent.change(screen.getByTestId("account-password-current"), {
+      target: { value: "Wrong Current Phase 1 Password!" },
+    });
+    fireEvent.change(screen.getByTestId("account-password-next"), {
+      target: { value: "Replacement Phase 1 Password!" },
+    });
+    fireEvent.change(screen.getByTestId("account-password-factor-code"), {
+      target: { value: "654321" },
+    });
+    fireEvent.click(screen.getByTestId("account-password-change"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("account-error-code").textContent).toBe(
+        "invalid_current_password",
+      );
+    });
+    expect(screen.getByTestId("account-error-message").textContent).toBe(
+      "Current password rejected.",
+    );
+    expect(screen.getByTestId("account-error-details").textContent).toContain(
+      "Reason: password_mismatch",
+    );
+    expect(screen.getByTestId("account-error-details").textContent).toContain(
+      "Field: current_password",
+    );
+    expectPrivateErrorProbeNotRendered();
+    await expectStableFetchCount(fetchMock, 5);
+  });
+
   it("Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
     const createdUser = userResource({
       user_id: "user-2",
@@ -819,7 +1003,187 @@ describe("Phase 1 ordinary app shell", () => {
     );
   });
 
+  it("FE-I-P1-01 route-boundary deployment-admin action errors render public envelopes without private details", async () => {
+    const loadedUser = userResource({
+      user_id: "user-2",
+      email: "loaded-target@example.test",
+      display_name: "Loaded Target",
+      user_version: 7,
+    });
+    let resetAttempt = 0;
+
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/users",
+          handler: () =>
+            publicErrorResponse("invalid_user_create", 400, {
+              message: "User create request is invalid.",
+              publicDetails: {
+                reason_code: "email_not_allowed",
+                field: "email",
+              },
+            }),
+        },
+        {
+          method: "GET",
+          url: "/api/v1/users/user-2",
+          handler: () =>
+            jsonResponse({
+              data: loadedUser,
+            }),
+        },
+        {
+          method: "PATCH",
+          url: "/api/v1/users/user-2",
+          handler: () =>
+            publicErrorResponse("invalid_user_patch", 400, {
+              message: "User patch request is invalid.",
+              publicDetails: {
+                reason_code: "display_name_invalid",
+                field: "display_name",
+              },
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/users/user-2/password/reset",
+          handler: () =>
+            publicErrorResponse("user_version_conflict", 409, {
+              message: "User version conflict.",
+              publicDetails: {
+                reason_code: "stale_user_version",
+                field: "base_user_version",
+              },
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/users/user-2/mfa/totp/reset",
+          handler: () => {
+            resetAttempt += 1;
+            return publicErrorResponse("invalid_mutation_payload", 400, {
+              message: "TOTP reset request is invalid.",
+              publicDetails: {
+                reason_code: `totp_reset_invalid_${resetAttempt}`,
+                field: "reason",
+              },
+            });
+          },
+        },
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId("landing-current-user");
+    fireEvent.change(screen.getByTestId("admin-create-email"), {
+      target: { value: "invalid-admin-target@example.test" },
+    });
+    fireEvent.change(screen.getByTestId("admin-create-display-name"), {
+      target: { value: "Invalid Admin Target" },
+    });
+    fireEvent.change(screen.getByTestId("admin-create-password"), {
+      target: { value: "AdminCreatePass1!" },
+    });
+    fireEvent.click(screen.getByTestId("admin-create-user"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-error-code").textContent).toBe(
+        "invalid_user_create",
+      );
+    });
+    expect(screen.getByTestId("admin-error-message").textContent).toBe(
+      "User create request is invalid.",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Reason: email_not_allowed",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Field: email",
+    );
+    expectPrivateErrorProbeNotRendered();
+
+    fireEvent.change(screen.getByTestId("admin-target-user-id-input"), {
+      target: { value: "user-2" },
+    });
+    fireEvent.click(screen.getByTestId("admin-load-user"));
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-target-user-version").textContent).toBe(
+        "7",
+      );
+    });
+    fireEvent.click(screen.getByTestId("admin-patch-user"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-error-code").textContent).toBe(
+        "invalid_user_patch",
+      );
+    });
+    expect(screen.getByTestId("admin-error-message").textContent).toBe(
+      "User patch request is invalid.",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Reason: display_name_invalid",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Field: display_name",
+    );
+    expectPrivateErrorProbeNotRendered();
+
+    fireEvent.change(screen.getByTestId("admin-new-password"), {
+      target: { value: "AdminResetPass1!" },
+    });
+    fireEvent.change(screen.getByTestId("admin-reason"), {
+      target: { value: "row-owned public error check" },
+    });
+    fireEvent.click(screen.getByTestId("admin-password-reset"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-error-code").textContent).toBe(
+        "user_version_conflict",
+      );
+    });
+    expect(screen.getByTestId("admin-error-message").textContent).toBe(
+      "User version conflict.",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Reason: stale_user_version",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Field: base_user_version",
+    );
+    expectPrivateErrorProbeNotRendered();
+
+    fireEvent.click(screen.getByTestId("admin-totp-reset"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-error-code").textContent).toBe(
+        "invalid_mutation_payload",
+      );
+    });
+    expect(screen.getByTestId("admin-error-message").textContent).toBe(
+      "TOTP reset request is invalid.",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Reason: totp_reset_invalid_1",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Field: reason",
+    );
+    expectPrivateErrorProbeNotRendered();
+    await expectStableFetchCount(fetchMock, 8);
+  });
+
   it("FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors", async () => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue(
+      "cartulary_csrf=incident-csrf",
+    );
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Phase 1 Operator",
@@ -863,6 +1227,14 @@ describe("Phase 1 ordinary app shell", () => {
     expect(findFetchCalls(fetchMock, "/api/v1/incidents", "GET")).toHaveLength(
       1,
     );
+    const listIncidentRequest = findFetchCalls(
+      fetchMock,
+      "/api/v1/incidents",
+      "GET",
+    )[0]?.[1];
+    expect(listIncidentRequest?.credentials).toBe("include");
+    expect(readHeader(listIncidentRequest, "Authorization")).toBe("");
+    expect(readHeader(listIncidentRequest, csrfHeaderName)).toBe("");
 
     fireEvent.change(screen.getByTestId("landing-incident-key"), {
       target: { value: "IR-2026-003" },
@@ -893,6 +1265,11 @@ describe("Phase 1 ordinary app shell", () => {
       incident_key: "IR-2026-003",
       title: "Phase 1 boundary incident",
     });
+    expect(createRequest.init?.credentials).toBe("include");
+    expect(readHeader(createRequest.init, "Authorization")).toBe("");
+    expect(readHeader(createRequest.init, csrfHeaderName)).toBe(
+      "incident-csrf",
+    );
     for (const call of fetchMock.mock.calls) {
       expect(String(call[0]).startsWith("/api/v1/")).toBe(true);
     }
@@ -945,4 +1322,59 @@ function userResource(
     is_deployment_admin: false,
     ...overrides,
   };
+}
+
+const privateErrorProbeDetails = {
+  request_id: "req-private-detail",
+  internal_path: "/var/lib/cartulary/private.go",
+  sql: "select * from sessions",
+  bootstrap_token: "private-bootstrap-token",
+  secret_base32: "PRIVATESECRETBASE32",
+  otpauth_uri: "otpauth://private-secret",
+  stack: "Error: private stack at /var/lib/cartulary/private.go:12",
+  unknown_private_detail: "private-rendering-detail",
+};
+
+const privateErrorProbeTokens = [
+  "req-private-envelope",
+  "req-private-detail",
+  "/var/lib/cartulary",
+  "select * from sessions",
+  "private-bootstrap-token",
+  "PRIVATESECRETBASE32",
+  "otpauth://private-secret",
+  "private stack",
+  "private-rendering-detail",
+];
+
+function publicErrorResponse(
+  code: string,
+  status: number,
+  options: {
+    message: string;
+    publicDetails: Record<string, unknown>;
+  },
+) {
+  return jsonResponse(
+    {
+      error: {
+        code,
+        status,
+        message: options.message,
+        request_id: "req-private-envelope",
+        details: {
+          ...options.publicDetails,
+          ...privateErrorProbeDetails,
+        },
+      },
+    },
+    status,
+  );
+}
+
+function expectPrivateErrorProbeNotRendered() {
+  const renderedText = document.body.textContent ?? "";
+  for (const token of privateErrorProbeTokens) {
+    expect(renderedText).not.toContain(token);
+  }
 }
