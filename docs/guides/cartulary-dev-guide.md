@@ -642,6 +642,8 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 | `/packages/ui-contracts`   | Runtime-safe selector and test-id contracts shared by frontend runtime code and test harnesses                                                                                                                                                                                |
 | `/packages/test-utils`     | Shared browser test helper choreography, including sort, filter, grouping, scroll, paste, anchor assertions, keyboard traversal, focus restoration, accessible-name checks, and accessibility state assertions                                                                 |
 
+Selector and test-id builders in `/packages/ui-contracts` are the shared frontend automation contract. Builder inputs that represent required stable IDs, including `view_schema_id`, `field_key`, `record_id`, item refs, and closed-vocabulary action or status tokens, MUST fail closed when the value is empty, whitespace-only, malformed, or outside the declared vocabulary. Variable selector segments MUST use lossless encoding rather than lossy replacement so distinct stable IDs cannot collapse to the same `data-testid`. Runtime code and tests MUST consume these builders instead of duplicating selector template strings in `/apps/web` or E2E helpers.
+
 ### 6.5 Frontend configuration
 
 - `pnpm-workspace.yaml` MUST keep workspace package membership limited to `/apps/web` and `/packages/*` unless the repository intentionally changes the workspace shape; repo-local pnpm project settings such as store policy may also live there.

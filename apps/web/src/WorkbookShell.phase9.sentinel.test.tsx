@@ -4,7 +4,12 @@ import {
   type GridRow,
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
-import { conflictMarkerTestId } from "@cartulary/ui-contracts";
+import {
+  conflictMarkerTestId,
+  gridShellTestId,
+  rowCellTestId,
+  timelineCollectionInputTestId,
+} from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -111,43 +116,53 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     const summary = gridScalarInput(
       container,
       "record-1",
-      "summary",
+      "timeline.summary",
     ) as HTMLInputElement;
     summary.focus();
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-1:timeline.summary",
+        `${timelineViewSchemaId}:record-1:timeline.summary`,
       );
     });
 
     fireEvent.keyDown(summary, { key: "ArrowDown" });
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-2:timeline.summary",
+        `${timelineViewSchemaId}:record-2:timeline.summary`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId("row-record-2-summary"),
+        screen.getByTestId(rowCellTestId("record-2", "timeline.summary")),
       );
     });
 
-    fireEvent.keyDown(screen.getByTestId("row-record-2-summary"), {
-      key: "ArrowRight",
-    });
+    fireEvent.keyDown(
+      screen.getByTestId(rowCellTestId("record-2", "timeline.summary")),
+      {
+        key: "ArrowRight",
+      },
+    );
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-2:timeline.host_refs",
+        `${timelineViewSchemaId}:record-2:timeline.host_refs`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId("row-record-2-hostRefs-input"),
+        screen.getByTestId(
+          timelineCollectionInputTestId("record-2", "timeline.host_refs"),
+        ),
       );
     });
 
-    fireEvent.keyDown(screen.getByTestId("row-record-2-hostRefs-input"), {
-      key: "ArrowLeft",
-    });
+    fireEvent.keyDown(
+      screen.getByTestId(
+        timelineCollectionInputTestId("record-2", "timeline.host_refs"),
+      ),
+      {
+        key: "ArrowLeft",
+      },
+    );
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-2:timeline.summary",
+        `${timelineViewSchemaId}:record-2:timeline.summary`,
       );
     });
   });
@@ -194,7 +209,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     const summary = gridScalarInput(
       container,
       "record-1",
-      "summary",
+      "timeline.summary",
     ) as HTMLInputElement;
     await changeInputValue(summary, "Draft before movement");
     fireEvent.keyDown(summary, { key: "ArrowDown" });
@@ -208,16 +223,23 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-2:timeline.summary",
+        `${timelineViewSchemaId}:record-2:timeline.summary`,
       );
       expect(
-        (screen.getByTestId("row-record-1-summary") as HTMLInputElement).value,
+        (
+          screen.getByTestId(
+            rowCellTestId("record-1", "timeline.summary"),
+          ) as HTMLInputElement
+        ).value,
       ).toBe("Draft before movement");
     });
 
-    fireEvent.keyDown(screen.getByTestId("row-record-1-summary"), {
-      key: "ArrowUp",
-    });
+    fireEvent.keyDown(
+      screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+      {
+        key: "ArrowUp",
+      },
+    );
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
         "cleared",
@@ -255,47 +277,55 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     const summary = gridScalarInput(
       container,
       "record-1",
-      "summary",
+      "timeline.summary",
     ) as HTMLInputElement;
     summary.focus();
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-1:timeline.summary",
+        `${timelineViewSchemaId}:record-1:timeline.summary`,
       );
     });
 
     fireEvent.keyDown(summary, { key: "Enter" });
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-2:timeline.summary",
+        `${timelineViewSchemaId}:record-2:timeline.summary`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId("row-record-2-summary"),
+        screen.getByTestId(rowCellTestId("record-2", "timeline.summary")),
       );
     });
 
-    fireEvent.keyDown(screen.getByTestId("row-record-2-summary"), {
-      key: "Enter",
-      shiftKey: true,
-    });
+    fireEvent.keyDown(
+      screen.getByTestId(rowCellTestId("record-2", "timeline.summary")),
+      {
+        key: "Enter",
+        shiftKey: true,
+      },
+    );
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-1:timeline.summary",
+        `${timelineViewSchemaId}:record-1:timeline.summary`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId("row-record-1-summary"),
+        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
       );
     });
 
-    fireEvent.keyDown(screen.getByTestId("row-record-1-summary"), {
-      key: "Tab",
-    });
+    fireEvent.keyDown(
+      screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+      {
+        key: "Tab",
+      },
+    );
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-1:timeline.host_refs",
+        `${timelineViewSchemaId}:record-1:timeline.host_refs`,
       );
       expect(document.activeElement).toBe(
-        screen.getByTestId("row-record-1-hostRefs-input"),
+        screen.getByTestId(
+          timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+        ),
       );
     });
   });
@@ -342,7 +372,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     const summary = gridScalarInput(
       container,
       "record-1",
-      "summary",
+      "timeline.summary",
     ) as HTMLInputElement;
     await changeInputValue(summary, "Enter draft before movement");
     fireEvent.keyDown(summary, { key: "Enter" });
@@ -356,14 +386,17 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     });
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-2:timeline.summary",
+        `${timelineViewSchemaId}:record-2:timeline.summary`,
       );
     });
 
-    fireEvent.keyDown(screen.getByTestId("row-record-1-summary"), {
-      key: "Enter",
-      shiftKey: true,
-    });
+    fireEvent.keyDown(
+      screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+      {
+        key: "Enter",
+        shiftKey: true,
+      },
+    );
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
         "cleared",
@@ -395,7 +428,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     const summary = gridScalarInput(
       container,
       "record-1",
-      "summary",
+      "timeline.summary",
     ) as HTMLInputElement;
     summary.focus();
 
@@ -406,7 +439,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-        "timeline:record-1:timeline.summary",
+        `${timelineViewSchemaId}:record-1:timeline.summary`,
       );
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -545,7 +578,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     const summary = gridScalarInput(
       container,
       "record-1",
-      "summary",
+      "timeline.summary",
     ) as HTMLInputElement;
     summary.focus();
     fireEvent.paste(summary, {
@@ -570,7 +603,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       ],
     });
     expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-      "timeline:record-1:timeline.summary",
+      `${timelineViewSchemaId}:record-1:timeline.summary`,
     );
   });
 
@@ -671,7 +704,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     const summary = gridScalarInput(
       container,
       "record-1",
-      "summary",
+      "timeline.summary",
     ) as HTMLInputElement;
     summary.focus();
     fireEvent.paste(summary, {
@@ -684,9 +717,11 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
-    expect(screen.getByTestId("timeline-grid-shell")).toBeTruthy();
+    expect(
+      screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeTruthy();
     expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-      "timeline:record-1:timeline.summary",
+      `${timelineViewSchemaId}:record-1:timeline.summary`,
     );
     expect(
       screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),

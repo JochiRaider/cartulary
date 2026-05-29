@@ -1,4 +1,10 @@
-import { gridShellTestId } from "@cartulary/ui-contracts";
+import {
+  cellPresenceMarkerTestId,
+  conflictMarkerTestId,
+  gridShellTestId,
+  rowCellTestId,
+  timelineRowVersionTestId,
+} from "@cartulary/ui-contracts";
 import {
   cleanup,
   fireEvent,
@@ -77,7 +83,12 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
     });
@@ -143,7 +154,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "OA",
     );
     expect(
-      screen.getByTestId("presence-cell-record-1-timeline-summary").textContent,
+      screen.getByTestId(
+        cellPresenceMarkerTestId("record-1", "timeline.summary"),
+      ).textContent,
     ).toContain("OA");
     expect(screen.getByTestId("save-state").textContent).toBe("Saved");
 
@@ -181,9 +194,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     input.focus();
     await changeInputValue(input, "Unsaved local");
@@ -212,9 +225,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "2",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("2");
     });
     expect(input.value).toBe("Unsaved local");
     expect(document.activeElement).toBe(input);
@@ -256,16 +269,18 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     const input = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Unsaved local value");
     fireEvent.blur(input);
 
     expect(await screen.findByTestId("conflict-resolver")).toBeTruthy();
-    expect(screen.getByTestId(gridShellTestId("timeline"))).toBeTruthy();
+    expect(
+      screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeTruthy();
     expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
     expect(screen.getByTestId("conflict-field-key")).toHaveProperty(
       "value",
@@ -290,7 +305,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
       expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
       expect(
-        screen.getByTestId("conflict-marker-record-1-timeline-summary"),
+        screen.getByTestId(
+          conflictMarkerTestId("record-1", "timeline.summary"),
+        ),
       ).toBeTruthy();
       expect(document.activeElement).toBe(input);
     });
@@ -342,9 +359,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     const input = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Local");
@@ -408,9 +425,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
     const secondInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     fireEvent.focus(secondInput);
     await changeInputValue(secondInput, "Use local");
@@ -421,9 +438,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "5",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("5");
     });
     expect(extractTimelineJSONBody(fetchMock, 2)).toEqual({
       conflict_token: "conflict-token-use",
@@ -478,9 +495,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
     const mergedInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     fireEvent.focus(mergedInput);
     await changeInputValue(mergedInput, "Merge local");
@@ -498,9 +515,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "8",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("8");
     });
     expect(extractTimelineJSONBody(fetchMock, 2)).toEqual({
       conflict_token: "conflict-token-merged",
@@ -540,15 +557,15 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     const firstInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     const secondInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-2",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
 
     await changeQueuedCellValue(firstInput, "One in flight");
@@ -667,15 +684,15 @@ describe("Phase 6 workbook collaboration coverage", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
     const firstInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     const secondInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-2",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
@@ -764,12 +781,17 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fetchMock.mockResolvedValueOnce(errorEnvelope("session_required", 401));
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
 
     for (let index = 1; index <= pendingReplayCapacity + 1; index += 1) {
       const recordID = index % 2 === 0 ? "record-2" : "record-1";
       const input = screen.getByTestId(
-        `row-${recordID}-summary`,
+        rowCellTestId(recordID, "timeline.summary"),
       ) as HTMLInputElement;
       await changeQueuedCellValue(input, `Queue ${index} local`);
       fireEvent.blur(input);
@@ -791,7 +813,12 @@ describe("Phase 6 workbook collaboration coverage", () => {
       );
     });
     expect(
-      await findWorkbookCell(document.body, "timeline", "record-1", "summary"),
+      await findWorkbookCell(
+        document.body,
+        timelineViewSchemaId,
+        "record-1",
+        "timeline.summary",
+      ),
     ).toHaveProperty("value", "Queue 65 local");
     expect(
       fetchMock.mock.calls.filter(([url]) =>
@@ -831,9 +858,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
@@ -899,15 +926,15 @@ describe("Phase 6 workbook collaboration coverage", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
     const firstInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     const secondInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-2",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
 
     await changeQueuedCellValue(firstInput, "Conflict local");

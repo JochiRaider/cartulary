@@ -1,3 +1,5 @@
+import { draftCellTestId } from "@cartulary/ui-contracts";
+
 import { expect, test } from "../fixtures";
 
 import {
@@ -13,6 +15,7 @@ import {
 } from "../helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const draftSummaryTestId = draftCellTestId("timeline.summary");
 
 test("E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope", async ({
   page,
@@ -27,7 +30,7 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
   await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
 
-  const draftSummary = page.getByTestId("draft-row-summary");
+  const draftSummary = page.getByTestId(draftSummaryTestId);
   const visibleSaveStateSummary = `Visible save state ${uniqueTxn("save-state")}`;
   const heldCreate = await holdBrowserApiRequest(page, {
     method: "POST",
@@ -41,7 +44,7 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
     expect(heldCreate.hitCount()).toBe(1);
     heldCreate.release();
     await expect(page.getByTestId("save-state")).toHaveText("Saved");
-    await expect(page.getByTestId("draft-row-summary")).toBeFocused();
+    await expect(page.getByTestId(draftSummaryTestId)).toBeFocused();
   } finally {
     heldCreate.release();
     await heldCreate.dispose();
@@ -55,7 +58,7 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
   ) {
     const appendedCharacter = String.fromCharCode(97 + (sampleIndex % 26));
     typingSamples.push(
-      await measureTypingAck(page, "draft-row-summary", appendedCharacter),
+      await measureTypingAck(page, draftSummaryTestId, appendedCharacter),
     );
   }
   const typingP95 = percentile95(
@@ -89,7 +92,7 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
       sampleIndex,
       summary,
     });
-    await expect(page.getByTestId("draft-row-summary")).toBeFocused();
+    await expect(page.getByTestId(draftSummaryTestId)).toBeFocused();
   }
   const blankRowCreateP95 = percentile95(
     blankRowCreateSamples

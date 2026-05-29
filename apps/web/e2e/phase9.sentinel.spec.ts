@@ -5,12 +5,21 @@ import {
 } from "@cartulary/test-utils";
 import {
   conflictMarkerTestId,
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
+  genericEditActionSelectTestId,
+  genericEditFieldSelectTestId,
+  genericEditRecordSelectTestId,
+  genericEditSubmitTestId,
+  genericEditValueTestId,
   gridFilterChipTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
+  surfaceTabTestId,
+  systemViewSelectorTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Request } from "@playwright/test";
 
@@ -123,11 +132,11 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
 
   const seedSummary = page.getByTestId(
-    rowCellTestId(seed.record_id as string, "summary"),
+    rowCellTestId(seed.record_id as string, "timeline.summary"),
   );
   await seedSummary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${seed.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${seed.record_id}:timeline.summary`,
   );
 
   const pasteRows = Array.from({ length: 20 }, (_, index) => {
@@ -165,13 +174,17 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   await expect((await pasteResponse).ok()).toBeTruthy();
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${seed.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${seed.record_id}:timeline.summary`,
   );
   await expect(page.getByText(`Timeline row ${seed.record_id}`)).toBeVisible();
   await expect(
-    page.getByTestId(rowCellTestId(seed.record_id as string, "summary")),
+    page.getByTestId(
+      rowCellTestId(seed.record_id as string, "timeline.summary"),
+    ),
   ).toHaveValue("Phase 9 paste summary 1");
-  await expect(page.getByTestId("timeline-grid-shell")).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
 
   const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
   const matchingRows = rows.filter((row) => {
@@ -235,11 +248,11 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
   await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
 
   const firstSummary = page.getByTestId(
-    rowCellTestId(first.record_id as string, "summary"),
+    rowCellTestId(first.record_id as string, "timeline.summary"),
   );
   await firstSummary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${first.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${first.record_id}:timeline.summary`,
   );
 
   await patchTimelineRecord(page, first.record_id as string, {
@@ -294,10 +307,12 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
   });
   await expect((await pasteResponse).ok()).toBeTruthy();
 
-  await expect(page.getByTestId("timeline-grid-shell")).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
   await expect(page.getByTestId("save-state")).toHaveText("Conflict");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${first.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${first.record_id}:timeline.summary`,
   );
   await expect(
     page.getByTestId(
@@ -371,7 +386,7 @@ test("Phase 9 E-9-03 Notes tab creates artifact-backed linked notes", async ({
         .url()
         .endsWith(`/api/v1/records/${source.record_id}/linked-notes`),
   );
-  await page.getByTestId(`generic-create-submit-${notesViewSchemaId}`).click();
+  await page.getByTestId(genericCreateSubmitTestId(notesViewSchemaId)).click();
   const response = await responsePromise;
   expect(response.ok()).toBeTruthy();
   const envelope = (await response.json()) as {
@@ -415,7 +430,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
 
   await openGenericSurface(page, incidentId, evidenceViewSchemaId, "Evidence");
   await page
-    .getByTestId(`generic-edit-record-${evidenceViewSchemaId}`)
+    .getByTestId(genericEditRecordSelectTestId(evidenceViewSchemaId))
     .selectOption(evidence.record_id as string);
   const typedCollectorText = "Browser Collector Raw <collector@example.test>";
   await editGenericCell(
@@ -455,7 +470,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     ).toBeVisible();
     await expect(
-      page.getByTestId(`generic-edit-record-${evidenceViewSchemaId}`),
+      page.getByTestId(genericEditRecordSelectTestId(evidenceViewSchemaId)),
     ).toHaveValue(evidence.record_id as string);
     await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
       `${evidenceViewSchemaId}:${evidence.record_id}:evidence.title`,
@@ -577,7 +592,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     "Task Requests",
   );
   await page
-    .getByTestId(`generic-edit-record-${taskRequestsViewSchemaId}`)
+    .getByTestId(genericEditRecordSelectTestId(taskRequestsViewSchemaId))
     .selectOption(task.record_id as string);
   const typedRequesterText = "Browser Requester Raw <requester@example.test>";
   await editGenericCell(
@@ -614,7 +629,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
       page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
     ).toBeVisible();
     await expect(
-      page.getByTestId(`generic-edit-record-${taskRequestsViewSchemaId}`),
+      page.getByTestId(genericEditRecordSelectTestId(taskRequestsViewSchemaId)),
     ).toHaveValue(task.record_id as string);
     await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
       `${taskRequestsViewSchemaId}:${task.record_id}:task.title`,
@@ -723,7 +738,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     "Communications Log",
   );
   await page
-    .getByTestId(`generic-edit-record-${commLogViewSchemaId}`)
+    .getByTestId(genericEditRecordSelectTestId(commLogViewSchemaId))
     .selectOption(commLog.record_id as string);
   await page
     .getByTestId(rowCellTestId(commLog.record_id as string, "comm_log.summary"))
@@ -743,7 +758,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
       page.getByTestId(gridShellTestId(commLogViewSchemaId)),
     ).toBeVisible();
     await expect(
-      page.getByTestId(`generic-edit-record-${commLogViewSchemaId}`),
+      page.getByTestId(genericEditRecordSelectTestId(commLogViewSchemaId)),
     ).toHaveValue(commLog.record_id as string);
     await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
       `${commLogViewSchemaId}:${commLog.record_id}:comm_log.summary`,
@@ -752,16 +767,16 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   };
   const addAndRemoveCommPartyRef = async (fieldKey: string) => {
     await page
-      .getByTestId(`generic-edit-field-${commLogViewSchemaId}`)
+      .getByTestId(genericEditFieldSelectTestId(commLogViewSchemaId))
       .selectOption(fieldKey);
     await page
-      .getByTestId(`generic-edit-action-${commLogViewSchemaId}`)
+      .getByTestId(genericEditActionSelectTestId(commLogViewSchemaId))
       .selectOption("add");
     await page
-      .getByTestId(`generic-edit-value-${commLogViewSchemaId}`)
+      .getByTestId(genericEditValueTestId(commLogViewSchemaId))
       .selectOption(existingParty.record_id as string);
     await page
-      .getByTestId(`generic-edit-submit-${commLogViewSchemaId}`)
+      .getByTestId(genericEditSubmitTestId(commLogViewSchemaId))
       .click();
     await assertCommContextStable();
 
@@ -775,13 +790,13 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     );
 
     await page
-      .getByTestId(`generic-edit-action-${commLogViewSchemaId}`)
+      .getByTestId(genericEditActionSelectTestId(commLogViewSchemaId))
       .selectOption("remove");
     await page
-      .getByTestId(`generic-edit-value-${commLogViewSchemaId}`)
+      .getByTestId(genericEditValueTestId(commLogViewSchemaId))
       .selectOption(`party_ref:${existingParty.record_id}`);
     await page
-      .getByTestId(`generic-edit-submit-${commLogViewSchemaId}`)
+      .getByTestId(genericEditSubmitTestId(commLogViewSchemaId))
       .click();
     await assertCommContextStable();
 
@@ -1090,21 +1105,21 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
     collectionItems(refreshedSuperseding, "decision.support_refs"),
   ).toHaveLength(1);
   await page
-    .getByTestId(`generic-edit-record-${decisionsViewSchemaId}`)
+    .getByTestId(genericEditRecordSelectTestId(decisionsViewSchemaId))
     .selectOption(supersedingDecision.record_id as string);
   await page
-    .getByTestId(`generic-edit-field-${decisionsViewSchemaId}`)
+    .getByTestId(genericEditFieldSelectTestId(decisionsViewSchemaId))
     .selectOption("decision.affected_record_ids");
   await waitForPhase9GenericOption(
     page,
-    `generic-edit-value-${decisionsViewSchemaId}`,
+    genericEditValueTestId(decisionsViewSchemaId),
     support.record_id as string,
   );
   await page
-    .getByTestId(`generic-edit-value-${decisionsViewSchemaId}`)
+    .getByTestId(genericEditValueTestId(decisionsViewSchemaId))
     .selectOption(support.record_id as string);
   await page
-    .getByTestId(`generic-edit-submit-${decisionsViewSchemaId}`)
+    .getByTestId(genericEditSubmitTestId(decisionsViewSchemaId))
     .click();
   await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
   decisionRows = await queryViewRows(page, incidentId, decisionsViewSchemaId);
@@ -1166,7 +1181,7 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
     support.record_id as string,
   );
   await page
-    .getByTestId(`generic-create-submit-${taskRequestsViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(taskRequestsViewSchemaId))
     .click();
   const task = await waitForViewRowByCell(
     page,
@@ -1193,7 +1208,7 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
   await setPhase9GenericCreateField(page, "task.task_kind", "follow_up");
   await setPhase9GenericCreateField(page, "task.priority", "urgent");
   await page
-    .getByTestId(`generic-create-submit-${taskRequestsViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(taskRequestsViewSchemaId))
     .click();
   const urgentTask = await waitForViewRowByCell(
     page,
@@ -1485,7 +1500,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     party.record_id as string,
   );
   await page
-    .getByTestId(`generic-create-submit-${commLogViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(commLogViewSchemaId))
     .click();
   const comm = await waitForViewRowByCell(
     page,
@@ -1511,7 +1526,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "E-9-06 handoff state",
   );
   await page
-    .getByTestId(`generic-create-submit-${handoffViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(handoffViewSchemaId))
     .click();
   await expect(page.getByTestId("generic-mutation-error")).toContainText(
     "Incoming owner",
@@ -1522,7 +1537,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     workerAdmin.user_id,
   );
   await page
-    .getByTestId(`generic-create-submit-${handoffViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(handoffViewSchemaId))
     .click();
   const handoff = await waitForViewRowByCell(
     page,
@@ -1600,7 +1615,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "E-9-06 status review state",
   );
   await page
-    .getByTestId(`generic-create-submit-${statusReviewViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(statusReviewViewSchemaId))
     .click();
   const status = await waitForViewRowByCell(
     page,
@@ -1692,7 +1707,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "lesson.summary",
     "E-9-06 lesson workflow",
   );
-  await page.getByTestId(`generic-create-submit-${lessonViewSchemaId}`).click();
+  await page.getByTestId(genericCreateSubmitTestId(lessonViewSchemaId)).click();
   const lesson = await waitForViewRowByCell(
     page,
     incidentId,
@@ -1783,7 +1798,7 @@ test("Phase 9 E-9-07 optional standardized surfaces are workbook-native when exp
   await setPhase9GenericCreateField(page, "finding.kind", "hypothesis");
   await setPhase9GenericCreateField(page, "finding.confidence_score", "72");
   await page
-    .getByTestId(`generic-create-submit-${findingsViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(findingsViewSchemaId))
     .click();
   const finding = await waitForViewRowByCell(
     page,
@@ -1870,7 +1885,7 @@ test("Phase 9 E-9-07 optional standardized surfaces are workbook-native when exp
     "DeviceFileEvents | where FileName endswith '.zip'",
   );
   await page
-    .getByTestId(`generic-create-submit-${investigativeQueriesViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(investigativeQueriesViewSchemaId))
     .click();
   const investigativeQuery = await waitForViewRowByCell(
     page,
@@ -1925,7 +1940,7 @@ test("Phase 9 E-9-07 optional standardized surfaces are workbook-native when exp
     "true",
   );
   await page
-    .getByTestId(`generic-create-submit-${forensicKeywordsViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(forensicKeywordsViewSchemaId))
     .click();
   const forensicKeyword = await waitForViewRowByCell(
     page,
@@ -1942,7 +1957,7 @@ test("Phase 9 E-9-07 optional standardized surfaces are workbook-native when exp
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByTestId("system-view-selector")).toBeVisible();
+  await expect(page.getByTestId(systemViewSelectorTestId())).toBeVisible();
 
   const optionValues = await systemViewSelectorValues(page);
   for (const viewSchemaId of optionalStandardizedSurfaceIds) {
@@ -2000,7 +2015,9 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
       notesViewSchemaId,
     )}`,
   );
-  await expect(page.getByTestId("surface-tab-notes")).toBeVisible();
+  await expect(
+    page.getByTestId(surfaceTabTestId(notesViewSchemaId)),
+  ).toBeVisible();
   await expect(
     page.getByTestId(gridShellTestId(notesViewSchemaId)),
   ).toBeVisible();
@@ -2009,7 +2026,7 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
   );
 
   await page
-    .getByTestId("system-view-selector")
+    .getByTestId(systemViewSelectorTestId())
     .selectOption(indicatorsViewSchemaId);
   await expect(
     page.getByTestId(gridShellTestId(indicatorsViewSchemaId)),
@@ -2024,7 +2041,7 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
   ).toHaveText("203.0.113.92");
 
   await page
-    .getByTestId("system-view-selector")
+    .getByTestId(systemViewSelectorTestId())
     .selectOption(commLogViewSchemaId);
   await expect(
     page.getByTestId(gridShellTestId(commLogViewSchemaId)),
@@ -2078,7 +2095,7 @@ async function expectOptionalStandardizedSurfacesExposed(page: Page) {
 
 async function systemViewSelectorValues(page: Page) {
   return page
-    .getByTestId("system-view-selector")
+    .getByTestId(systemViewSelectorTestId())
     .locator("option")
     .evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value),
@@ -2144,7 +2161,7 @@ async function setPhase9GenericCreateField(
   fieldKey: string,
   value: string | string[],
 ) {
-  const input = page.getByTestId(`generic-create-field-${fieldKey}`);
+  const input = page.getByTestId(genericCreateFieldTestId(fieldKey));
   const tagName = await input.evaluate((element) => element.tagName);
   const inputType = await input.getAttribute("type");
   if (inputType === "checkbox") {
@@ -2170,12 +2187,12 @@ async function editPhase9GenericCell(
   value: string | string[],
 ) {
   await page
-    .getByTestId(`generic-edit-record-${viewSchemaId}`)
+    .getByTestId(genericEditRecordSelectTestId(viewSchemaId))
     .selectOption(recordId);
   await page
-    .getByTestId(`generic-edit-field-${viewSchemaId}`)
+    .getByTestId(genericEditFieldSelectTestId(viewSchemaId))
     .selectOption(fieldKey);
-  const input = page.getByTestId(`generic-edit-value-${viewSchemaId}`);
+  const input = page.getByTestId(genericEditValueTestId(viewSchemaId));
   const tagName = await input.evaluate((element) => element.tagName);
   const inputType = await input.getAttribute("type");
   if (inputType === "checkbox") {
@@ -2184,14 +2201,14 @@ async function editPhase9GenericCell(
     } else {
       await input.uncheck();
     }
-    await page.getByTestId(`generic-edit-submit-${viewSchemaId}`).click();
+    await page.getByTestId(genericEditSubmitTestId(viewSchemaId)).click();
     return;
   }
   if (tagName === "SELECT") {
     if (typeof value === "string") {
       await waitForPhase9GenericOption(
         page,
-        `generic-edit-value-${viewSchemaId}`,
+        genericEditValueTestId(viewSchemaId),
         value,
       );
     }
@@ -2199,7 +2216,7 @@ async function editPhase9GenericCell(
   } else {
     await input.fill(Array.isArray(value) ? value.join("\n") : value);
   }
-  await page.getByTestId(`generic-edit-submit-${viewSchemaId}`).click();
+  await page.getByTestId(genericEditSubmitTestId(viewSchemaId)).click();
 }
 
 async function waitForPhase9GenericOption(

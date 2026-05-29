@@ -338,7 +338,7 @@ export function requiredGridRow(
 export async function waitForVisibleGridRowRecordIds(
   container: HTMLElement,
   expectedRecordIds: string[],
-  surface: WorkbookSurface = "timeline",
+  surface: WorkbookSurface = timelineViewSchemaId,
 ) {
   await waitFor(
     () => {
@@ -435,7 +435,7 @@ export async function waitForTimelineWorkbookReady(
   return waitForWorkbookReady({
     container,
     expectedVisibleRows,
-    surface: "timeline",
+    surface: timelineViewSchemaId,
   });
 }
 

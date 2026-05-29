@@ -1,4 +1,7 @@
-import { rowCellTestId } from "@cartulary/ui-contracts";
+import {
+  rowCellTestId,
+  timelineCollectionInputTestId,
+} from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
 import {
@@ -54,53 +57,62 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
   await expect(
-    page.getByTestId(rowCellTestId(alpha.record_id as string, "summary")),
+    page.getByTestId(
+      rowCellTestId(alpha.record_id as string, "timeline.summary"),
+    ),
   ).toHaveValue("Phase 9 alpha");
   const initialURL = page.url();
 
   const alphaSummary = page.getByTestId(
-    rowCellTestId(alpha.record_id as string, "summary"),
+    rowCellTestId(alpha.record_id as string, "timeline.summary"),
   );
   await alphaSummary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${alpha.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
   );
 
   await alphaSummary.press("ArrowDown");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${beta.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${beta.record_id}:timeline.summary`,
   );
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id as string, "summary")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id as string, "timeline.summary"),
+    ),
   ).toBeFocused();
 
   await page.keyboard.press("ArrowUp");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${alpha.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
   );
   await expect(alphaSummary).toBeFocused();
 
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${beta.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${beta.record_id}:timeline.summary`,
   );
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id as string, "summary")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id as string, "timeline.summary"),
+    ),
   ).toBeFocused();
 
   await page.keyboard.press("Shift+Enter");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${alpha.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
   );
   await expect(alphaSummary).toBeFocused();
 
   await page.keyboard.press("Tab");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${alpha.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
   );
   await expect(
     page.getByTestId(
-      rowCellTestId(alpha.record_id as string, "hostRefs-input"),
+      timelineCollectionInputTestId(
+        alpha.record_id as string,
+        hostRefsFieldKey,
+      ),
     ),
   ).toBeFocused();
 
@@ -115,7 +127,7 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
     "Linked evidence preview",
   );
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${alpha.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
   );
 
   await page.keyboard.press("Alt+H");
@@ -126,12 +138,12 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
 
   await page.keyboard.press("Control+V");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${alpha.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
   );
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("row-history-panel")).toHaveCount(0);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${alpha.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
   );
   expect(page.url()).toBe(initialURL);
 });
@@ -154,24 +166,26 @@ test("Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across
   await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
 
   const summary = page.getByTestId(
-    rowCellTestId(row.record_id as string, "summary"),
+    rowCellTestId(row.record_id as string, "timeline.summary"),
   );
   await summary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${row.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${row.record_id}:timeline.summary`,
   );
 
   await summary.press("ArrowRight");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${row.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${row.record_id}:timeline.host_refs`,
   );
   await expect(
-    page.getByTestId(rowCellTestId(row.record_id as string, "hostRefs-input")),
+    page.getByTestId(
+      timelineCollectionInputTestId(row.record_id as string, hostRefsFieldKey),
+    ),
   ).toBeFocused();
 
   await page.keyboard.press("ArrowLeft");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `timeline:${row.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${row.record_id}:timeline.summary`,
   );
   await expect(summary).toBeFocused();
 
@@ -191,11 +205,11 @@ test("Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across
   await expect(hostName).toHaveText("Phase 9 host anchor");
   await hostName.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `hosts:${host.record_id}:host.display_name`,
+    `${hostsViewSchemaId}:${host.record_id}:host.display_name`,
   );
   await page.keyboard.press("ArrowRight");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `hosts:${host.record_id}:host.hostname`,
+    `${hostsViewSchemaId}:${host.record_id}:host.hostname`,
   );
 
   const identity = await createViewRow(
@@ -219,11 +233,11 @@ test("Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across
   await expect(identityName).toHaveText("Phase 9 identity anchor");
   await identityName.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `identities:${identity.record_id}:identity.display_name`,
+    `${identitiesViewSchemaId}:${identity.record_id}:identity.display_name`,
   );
   await page.keyboard.press("ArrowRight");
   await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
-    `identities:${identity.record_id}:`,
+    `${identitiesViewSchemaId}:${identity.record_id}:`,
   );
 
   const assessment = await createViewRow(
@@ -516,7 +530,7 @@ test("Phase 9 E-9-GRIDHOST-01 Host entity-origin clipboard paste reuses exact ma
   await expect(displayName).toHaveText("Phase 9 reusable host");
   await displayName.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `hosts:${existing.record_id}:host.display_name`,
+    `${hostsViewSchemaId}:${existing.record_id}:host.display_name`,
   );
 
   const pasteResponse = page.waitForResponse(
@@ -547,7 +561,7 @@ test("Phase 9 E-9-GRIDHOST-01 Host entity-origin clipboard paste reuses exact ma
   });
   await expect((await pasteResponse).ok()).toBeTruthy();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `hosts:${existing.record_id}:host.display_name`,
+    `${hostsViewSchemaId}:${existing.record_id}:host.display_name`,
   );
   await expect(
     page.getByTestId(
@@ -610,7 +624,7 @@ test("Phase 9 E-9-GRIDIDENTITY-01 Identity entity-origin clipboard paste reuses 
   await expect(displayName).toHaveText("Phase 9 reusable identity");
   await displayName.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `identities:${existing.record_id}:identity.display_name`,
+    `${identitiesViewSchemaId}:${existing.record_id}:identity.display_name`,
   );
 
   const pasteResponse = page.waitForResponse(
@@ -641,7 +655,7 @@ test("Phase 9 E-9-GRIDIDENTITY-01 Identity entity-origin clipboard paste reuses 
   });
   await expect((await pasteResponse).ok()).toBeTruthy();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `identities:${existing.record_id}:identity.display_name`,
+    `${identitiesViewSchemaId}:${existing.record_id}:identity.display_name`,
   );
   await expect(
     page.getByTestId(

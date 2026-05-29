@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type ContractArtifact,
+  type ExtensionRegistryContract,
   getContractArtifact,
   getErrorRegistryContract,
   getExtensionProfile,
@@ -16,8 +18,6 @@ import {
   requireExtensionProfile,
   requireReasonCodeRegistry,
   requireViewSchemaRegistryEntry,
-  type ContractArtifact,
-  type ExtensionRegistryContract,
   type ViewSchemaRegistryContract,
 } from "./index";
 
@@ -48,15 +48,15 @@ describe("@cartulary/protocol-ts facade", () => {
     expect(families.wsArtifacts.map((artifact) => artifact.path)).toEqual([
       "contracts/ws/index.schema.json",
     ]);
-    expect(families.viewSchemaArtifacts.map((artifact) => artifact.path)).toContain(
-      "contracts/view-schemas/index.json",
-    );
+    expect(
+      families.viewSchemaArtifacts.map((artifact) => artifact.path),
+    ).toContain("contracts/view-schemas/index.json");
     expect(families.errorArtifacts.map((artifact) => artifact.path)).toEqual([
       "contracts/errors/index.json",
     ]);
-    expect(families.extensionArtifacts.map((artifact) => artifact.path)).toEqual([
-      "contracts/extensions/index.json",
-    ]);
+    expect(
+      families.extensionArtifacts.map((artifact) => artifact.path),
+    ).toEqual(["contracts/extensions/index.json"]);
 
     const artifact: ContractArtifact = requireContractArtifact(
       "contracts/view-schemas/index.json",
@@ -77,9 +77,7 @@ describe("@cartulary/protocol-ts facade", () => {
 
     expect(() =>
       requireContractArtifact("contracts/view-schemas/missing.json"),
-    ).toThrow(
-      "missing contract artifact contracts/view-schemas/missing.json",
-    );
+    ).toThrow("missing contract artifact contracts/view-schemas/missing.json");
   });
 
   it("exposes stable current-profile view schema identifiers", () => {
@@ -89,15 +87,15 @@ describe("@cartulary/protocol-ts facade", () => {
     );
 
     expect(registry.registry_id).toBe("cartulary.view_schemas.base.v1");
-    expect(ids).toEqual(
-      expect.arrayContaining([...requiredBaseViewSchemaIds]),
-    );
+    expect(ids).toEqual(expect.arrayContaining([...requiredBaseViewSchemaIds]));
     for (const viewSchemaId of requiredBaseViewSchemaIds) {
       expect(requireViewSchemaRegistryEntry(viewSchemaId).artifact_path).toBe(
         `contracts/view-schemas/${viewSchemaId}.json`,
       );
     }
-    expect(getViewSchemaRegistryEntry("cartulary.view.missing.v1")).toBeUndefined();
+    expect(
+      getViewSchemaRegistryEntry("cartulary.view.missing.v1"),
+    ).toBeUndefined();
     expect(() =>
       requireViewSchemaRegistryEntry("cartulary.view.missing.v1"),
     ).toThrow(
@@ -109,7 +107,9 @@ describe("@cartulary/protocol-ts facade", () => {
     expect(getErrorRegistryContract().registry_id).toBe(
       "cartulary.errors.phase3.v1",
     );
-    expect(requireReasonCodeRegistry("invalid_mutation_payload").reason_codes).toEqual(
+    expect(
+      requireReasonCodeRegistry("invalid_mutation_payload").reason_codes,
+    ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "unknown_view_schema" }),
         expect.objectContaining({ code: "unknown_field_key" }),
@@ -127,7 +127,9 @@ describe("@cartulary/protocol-ts facade", () => {
     );
 
     expect(getExtensionRegistryContract()).toEqual(registry);
-    expect(listExtensionProfiles().map((profile) => profile.profile_id)).toEqual([
+    expect(
+      listExtensionProfiles().map((profile) => profile.profile_id),
+    ).toEqual([
       "enterprise_authentication",
       "import",
       "incident_portability",

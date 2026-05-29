@@ -111,7 +111,7 @@
       "evidence_class": "product_conformance",
       "owner_refs": [
         "Core 01 Section 7.4",
-        "Core 02 Section 5.3",
+        "Core 02 Section 18",
         "development guide Section 6.4"
       ],
       "core_req_ids": [
@@ -167,7 +167,7 @@
         "make frontend-unit"
       ],
       "scenario_titles": [],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },

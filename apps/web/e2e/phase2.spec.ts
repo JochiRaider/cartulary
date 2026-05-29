@@ -1,3 +1,5 @@
+import { surfaceTabTestId } from "@cartulary/ui-contracts";
+
 import { expect, test } from "./fixtures";
 import {
   createIncident,
@@ -7,6 +9,8 @@ import {
   uniqueEmail,
   uniqueIncidentKey,
 } from "./helpers";
+
+const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
 test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface", async ({
   page,
@@ -19,7 +23,9 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await page.getByTestId("landing-create-button").click();
 
   await expect(page).toHaveURL(/incident_id=/);
-  await expect(page.getByTestId("surface-tab-timeline")).toBeVisible();
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeVisible();
   await expect(page.getByText("Current incident role: admin")).toBeVisible();
   await expect(page.getByTestId("incident-summary-key")).toHaveText(
     incidentKey,

@@ -1,4 +1,8 @@
-import { rowCellTestId } from "@cartulary/ui-contracts";
+import {
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
+  rowCellTestId,
+} from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -43,7 +47,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
   await setGenericCreateField(page, "party.display_name", "Browser Party");
   await setGenericCreateField(page, "party.party_kind", "organization");
   await page
-    .getByTestId(`generic-create-submit-${partiesViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(partiesViewSchemaId))
     .click();
   const party = await waitForViewRowByCell(
     page,
@@ -73,7 +77,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     "Created from generic workbook UI",
   );
   await setGenericCreateField(page, "note.tags", "browser");
-  await page.getByTestId(`generic-create-submit-${notesViewSchemaId}`).click();
+  await page.getByTestId(genericCreateSubmitTestId(notesViewSchemaId)).click();
   const note = await waitForViewRowByCell(
     page,
     incidentId,
@@ -121,7 +125,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
   );
   await setGenericCreateField(page, "decision.support_refs", support.record_id);
   await page
-    .getByTestId(`generic-create-submit-${decisionsViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(decisionsViewSchemaId))
     .click();
   const decision = await waitForViewRowByCell(
     page,
@@ -177,7 +181,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     support.record_id,
   );
   await page
-    .getByTestId(`generic-create-submit-${taskRequestsViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(taskRequestsViewSchemaId))
     .click();
   const task = await waitForViewRowByCell(
     page,
@@ -225,7 +229,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     party.record_id,
   );
   await page
-    .getByTestId(`generic-create-submit-${evidenceViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId))
     .click();
   const evidence = await waitForViewRowByCell(
     page,
@@ -260,7 +264,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     party.record_id,
   );
   await page
-    .getByTestId(`generic-create-submit-${commLogViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(commLogViewSchemaId))
     .click();
   const commLog = await waitForViewRowByCell(
     page,
@@ -310,7 +314,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
   );
   await setGenericCreateField(page, "handoff.open_risk_refs", "Browser risk");
   await page
-    .getByTestId(`generic-create-submit-${handoffViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(handoffViewSchemaId))
     .click();
   const handoff = await waitForViewRowByCell(
     page,
@@ -357,7 +361,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     task.record_id,
   );
   await page
-    .getByTestId(`generic-create-submit-${statusReviewViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(statusReviewViewSchemaId))
     .click();
   const statusReview = await waitForViewRowByCell(
     page,
@@ -389,7 +393,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     "lesson.follow_up_task_ids",
     task.record_id,
   );
-  await page.getByTestId(`generic-create-submit-${lessonViewSchemaId}`).click();
+  await page.getByTestId(genericCreateSubmitTestId(lessonViewSchemaId)).click();
   const lesson = await waitForViewRowByCell(
     page,
     incidentId,
@@ -428,7 +432,7 @@ async function expectGenericCreateMinimum(
   viewSchemaId: string,
   message: string,
 ) {
-  await page.getByTestId(`generic-create-submit-${viewSchemaId}`).click();
+  await page.getByTestId(genericCreateSubmitTestId(viewSchemaId)).click();
   await expect(page.getByTestId("generic-mutation-error")).toContainText(
     message,
   );
@@ -439,7 +443,7 @@ async function setGenericCreateField(
   fieldKey: string,
   value: string | string[],
 ) {
-  const input = page.getByTestId(`generic-create-field-${fieldKey}`);
+  const input = page.getByTestId(genericCreateFieldTestId(fieldKey));
   const tagName = await input.evaluate((element) => element.tagName);
   if (tagName === "SELECT") {
     await input.selectOption(value);

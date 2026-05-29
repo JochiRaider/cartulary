@@ -12,21 +12,67 @@ import {
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
 import {
+  assessmentCreatePanelTestId,
+  autoResolutionNoticeTestId,
+  autoResolutionReviewButtonTestId,
+  autoResolutionUndoButtonTestId,
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   draftCellTestId,
+  draftRelationshipItemsTestId,
+  draftRowCreateButtonTestId,
+  draftTimelineCollectionInputTestId,
+  entityInspectButtonTestId,
+  entityInspectorTestId,
+  evidenceAccessMessageTestId,
+  evidenceAttachFileInputTestId,
+  evidenceDownloadButtonTestId,
+  evidencePreviewButtonTestId,
+  evidencePreviewFrameTestId,
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
+  genericEditActionSelectTestId,
+  genericEditFieldSelectTestId,
+  genericEditRecordSelectTestId,
+  genericEditSubmitTestId,
+  genericEditValueTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
+  gridRowTestId,
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  mentionCreateEntityButtonTestId,
+  mentionDismissButtonTestId,
+  mentionItemTestId,
+  mentionResolveExistingButtonTestId,
+  mentionResolveTargetSelectTestId,
+  mentionRestoreUnresolvedButtonTestId,
+  pasteConflictItemTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
+  rowHistoryActionTestId,
+  rowHistoryItemTestId,
+  rowHistoryOpenButtonTestId,
+  rowHistoryOpenInspectorButtonTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
   saveStateTestId,
+  surfaceTabTestId,
+  systemViewSelectorTestId,
+  timelineCollectionInputTestId,
+  timelineDraftEvidenceAttachSectionTestId,
+  timelineDraftEvidenceFileInputTestId,
+  timelineEvidenceAttachSectionTestId,
+  timelineEvidenceFileInputTestId,
+  timelinePreviewRowTestId,
+  timelineRowMarkReviewedButtonTestId,
+  timelineRowReplacementInputTestId,
+  timelineRowSupersedeButtonTestId,
+  timelineRowVersionTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import {
@@ -1988,10 +2034,6 @@ function inputFocusKey(
   return `${rowKey}:${field}:${surface}`;
 }
 
-function sanitizeTestId(value: string) {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
-}
-
 function focusTestIdForKey(focusKey: string) {
   const [rowKey, fieldKey, surface = "grid"] = focusKey.split(":");
   if (!rowKey || !fieldKey) {
@@ -2182,7 +2224,7 @@ function RelationshipChip({
   return onSelect ? (
     <button
       aria-label={`${labelPrefix} ${label}`}
-      data-testid={`chip-${sanitizeTestId(item.itemRef)}`}
+      data-testid={relationshipChipTestId(item.itemRef)}
       style={chipStyle}
       type="button"
       onClick={onSelect}
@@ -2196,7 +2238,7 @@ function RelationshipChip({
   ) : (
     <span
       aria-label={`${labelPrefix} ${label}`}
-      data-testid={`chip-${sanitizeTestId(item.itemRef)}`}
+      data-testid={relationshipChipTestId(item.itemRef)}
       role="note"
       style={chipStyle}
     >
@@ -2228,7 +2270,7 @@ function DraftRowCreateButton({
 
   return (
     <button
-      data-testid="draft-row-create"
+      data-testid={draftRowCreateButtonTestId()}
       disabled={row.pendingSignature !== null}
       style={actionButtonStyle}
       type="button"
@@ -2627,7 +2669,7 @@ export function TimelineWorkbook({
       updateWorkbookFocusAnchor({
         fieldKey,
         recordId,
-        surface: "timeline",
+        surface: timelineViewSchemaId,
       });
     },
     [updateWorkbookFocusAnchor],
@@ -2958,9 +3000,9 @@ export function TimelineWorkbook({
       }
       const testId =
         anchor.fieldKey === "timeline.capture_state"
-          ? rowCellTestId(anchor.recordId, "capture-state")
+          ? rowCellTestId(anchor.recordId, "timeline.capture_state")
           : anchor.fieldKey === "row_version"
-            ? rowCellTestId(anchor.recordId, "row-version")
+            ? timelineRowVersionTestId(anchor.recordId)
             : rowCellTestId(anchor.recordId, anchor.fieldKey);
       return document.querySelector<HTMLElement>(
         `[data-testid="${CSS.escape(testId)}"]`,
@@ -5280,7 +5322,7 @@ export function TimelineWorkbook({
       if (
         surface === "inspector" &&
         event.key === "Escape" &&
-        priorGridAnchor?.surface === "timeline"
+        priorGridAnchor?.surface === timelineViewSchemaId
       ) {
         event.preventDefault();
         restoreTimelineFocusAnchor(priorGridAnchor);
@@ -5964,8 +6006,8 @@ export function TimelineWorkbook({
           : undefined;
       const gridDataTestId =
         row.recordId === null
-          ? draftCellTestId(binding.key)
-          : rowCellTestId(row.recordId, binding.key);
+          ? draftCellTestId(binding.fieldKey)
+          : rowCellTestId(row.recordId, binding.fieldKey);
       const dataTestId =
         surface === "grid" ? gridDataTestId : `${gridDataTestId}-inspector`;
       const conflictKey =
@@ -6095,8 +6137,8 @@ export function TimelineWorkbook({
           <div
             data-testid={
               row.recordId === null
-                ? draftCellTestId(`${binding.draftKey}-items`)
-                : relationshipItemsTestId(row.recordId, binding.draftKey)
+                ? draftRelationshipItemsTestId(binding.fieldKey)
+                : relationshipItemsTestId(row.recordId, binding.fieldKey)
             }
             style={relationshipItemsWrapStyle}
           >
@@ -6129,8 +6171,8 @@ export function TimelineWorkbook({
             aria-label={`${label} ${row.recordId ?? "draft row"}`}
             data-testid={
               row.recordId === null
-                ? draftCellTestId(`${binding.draftKey}-input`)
-                : rowCellTestId(row.recordId, `${binding.draftKey}-input`)
+                ? draftTimelineCollectionInputTestId(binding.fieldKey)
+                : timelineCollectionInputTestId(row.recordId, binding.fieldKey)
             }
             key={`${row.key}:${binding.draftKey}:${row.rowVersion ?? "draft"}`}
             ref={(element) => {
@@ -6192,7 +6234,7 @@ export function TimelineWorkbook({
       {
         fieldKey: "timeline.capture_state",
         headerTestId: gridSortHeaderTestId(
-          "timeline",
+          timelineViewSchemaId,
           "timeline.capture_state",
         ),
         label: "State",
@@ -6222,8 +6264,8 @@ export function TimelineWorkbook({
               <span
                 data-testid={
                   row.recordId === null
-                    ? "draft-row-capture-state"
-                    : rowCellTestId(row.recordId, "capture-state")
+                    ? draftCellTestId("timeline.capture_state")
+                    : rowCellTestId(row.recordId, "timeline.capture_state")
                 }
               >
                 {row.captureState}
@@ -6241,8 +6283,8 @@ export function TimelineWorkbook({
           <span
             data-testid={
               row.recordId === null
-                ? "draft-row-version"
-                : rowCellTestId(row.recordId, "row-version")
+                ? draftCellTestId("row_version")
+                : rowCellTestId(row.recordId, "row_version")
             }
           >
             {row.rowVersion ?? "new"}
@@ -6252,7 +6294,10 @@ export function TimelineWorkbook({
       ...timelineVisibleBindings.map(
         (binding): GridColumn<WorkbookRow> => ({
           fieldKey: binding.fieldKey,
-          headerTestId: gridSortHeaderTestId("timeline", binding.fieldKey),
+          headerTestId: gridSortHeaderTestId(
+            timelineViewSchemaId,
+            binding.fieldKey,
+          ),
           label: timelineBindingLabel(binding.fieldKey),
           width: timelineColumnWidth(binding.fieldKey),
           renderCell: (row) => {
@@ -6336,7 +6381,7 @@ export function TimelineWorkbook({
 
   const timelineActionsColumn = useMemo<GridActionsColumn<WorkbookRow>>(
     () => ({
-      headerTestId: gridActionsHeaderTestId("timeline"),
+      headerTestId: gridActionsHeaderTestId(timelineViewSchemaId),
       label: "Actions",
       minWidth: 296,
       width: 296,
@@ -6362,7 +6407,7 @@ export function TimelineWorkbook({
                 Inspect
               </button>
               <button
-                data-testid={`row-history-open-${row.recordId}`}
+                data-testid={rowHistoryOpenButtonTestId(row.recordId ?? "")}
                 style={timelineActionButtonStyle}
                 type="button"
                 onClick={() => {
@@ -6373,7 +6418,7 @@ export function TimelineWorkbook({
               </button>
             </div>
             <button
-              data-testid={`row-${row.recordId}-mark-reviewed`}
+              data-testid={timelineRowMarkReviewedButtonTestId(row.recordId)}
               disabled={
                 row.captureState === "reviewed" ||
                 row.captureState === "superseded"
@@ -6387,7 +6432,7 @@ export function TimelineWorkbook({
               Mark reviewed
             </button>
             <input
-              data-testid={`row-${row.recordId}-replacement-id`}
+              data-testid={timelineRowReplacementInputTestId(row.recordId)}
               placeholder="Replacement record id"
               style={timelineReplacementInputStyle}
               type="text"
@@ -6401,7 +6446,7 @@ export function TimelineWorkbook({
               }}
             />
             <button
-              data-testid={`row-${row.recordId}-supersede`}
+              data-testid={timelineRowSupersedeButtonTestId(row.recordId)}
               disabled={
                 row.captureState === "superseded" ||
                 normalizeValue(replacementDrafts[row.key] ?? "") === ""
@@ -6439,7 +6484,9 @@ export function TimelineWorkbook({
         },
         selected: row.recordId !== null && row.recordId === selectedRowId,
         testId:
-          row.recordId === null ? undefined : `timeline-row-${row.recordId}`,
+          row.recordId === null
+            ? undefined
+            : gridRowTestId(timelineViewSchemaId, row.recordId),
         variant: row.recordId === null ? "draft" : "default",
       })),
     [handleSelectRow, rows, selectedRowId],
@@ -6456,7 +6503,7 @@ export function TimelineWorkbook({
   );
   const getTimelineGroupRowTestId = useCallback(
     (fieldKey: string, value: string) =>
-      gridGroupRowTestId("timeline", fieldKey, value),
+      gridGroupRowTestId(timelineViewSchemaId, fieldKey, value),
     [],
   );
 
@@ -6476,8 +6523,8 @@ export function TimelineWorkbook({
   function renderEvidenceAttachSection(row: WorkbookRow) {
     const inputTestId =
       row.recordId === null
-        ? "timeline-evidence-file-draft"
-        : `timeline-evidence-file-${row.recordId}`;
+        ? timelineDraftEvidenceFileInputTestId()
+        : timelineEvidenceFileInputTestId(row.recordId);
     const evidenceCount = stringifyGridValue(
       readCellValue(row.rawRow, "timeline.evidence_count"),
     );
@@ -6485,8 +6532,8 @@ export function TimelineWorkbook({
       <section
         data-testid={
           row.recordId === null
-            ? "timeline-evidence-attach-draft"
-            : `timeline-evidence-attach-${row.recordId}`
+            ? timelineDraftEvidenceAttachSectionTestId()
+            : timelineEvidenceAttachSectionTestId(row.recordId)
         }
         style={inspectorSectionStyle}
         aria-label="Timeline evidence attachment"
@@ -6542,7 +6589,9 @@ export function TimelineWorkbook({
           <h3 style={sectionTitleStyle}>Row history</h3>
           {selectedActiveRow !== null ? (
             <button
-              data-testid={`row-history-open-${selectedActiveRow.recordId}-inspector`}
+              data-testid={rowHistoryOpenInspectorButtonTestId(
+                selectedActiveRow.recordId ?? "",
+              )}
               style={secondaryActionButtonStyle}
               type="button"
               onClick={() => {
@@ -6619,10 +6668,16 @@ export function TimelineWorkbook({
               ) : null}
             </div>
             <ol style={historyListStyle}>
-              {historyData.items.map((item, index) => {
+              {historyData.items.map((item) => {
                 const itemKey =
                   item.history_entry_ref ??
                   `${item.change_set_id}:${item.revision_no}:${item.operation}`;
+                const itemAnchor = {
+                  changeSetId: item.change_set_id,
+                  historyEntryRef: item.history_entry_ref,
+                  operation: item.operation,
+                  revisionNo: item.revision_no ?? null,
+                };
                 const actionButtons = item.available_rollback_actions.flatMap(
                   (action) => {
                     const target = buildRecordRollbackTargetFromHistoryAction(
@@ -6640,7 +6695,10 @@ export function TimelineWorkbook({
                           : "Restore row fields";
                     return [
                       <button
-                        data-testid={`row-history-action-${index}-${action}`}
+                        data-testid={rowHistoryActionTestId({
+                          ...itemAnchor,
+                          action,
+                        })}
                         key={action}
                         style={
                           action === "row_restore"
@@ -6659,7 +6717,7 @@ export function TimelineWorkbook({
                 );
                 return (
                   <li
-                    data-testid={`row-history-item-${index}`}
+                    data-testid={rowHistoryItemTestId(itemAnchor)}
                     key={itemKey}
                     style={historyItemStyle}
                   >
@@ -6928,7 +6986,7 @@ export function TimelineWorkbook({
           {autoResolutionNotices.map((notice) => (
             <div
               key={notice.itemRef}
-              data-testid={`auto-resolution-notice-${sanitizeTestId(notice.itemRef)}`}
+              data-testid={autoResolutionNoticeTestId(notice.itemRef)}
               style={noticeCardStyle}
             >
               <p style={noticeTitleStyle}>Auto-resolved mention</p>
@@ -6948,6 +7006,7 @@ export function TimelineWorkbook({
               </p>
               <div style={inlineButtonRowStyle}>
                 <button
+                  data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
                   style={secondaryActionButtonStyle}
                   type="button"
                   onClick={() => {
@@ -6993,6 +7052,7 @@ export function TimelineWorkbook({
                   Undo
                 </button>
                 <button
+                  data-testid={autoResolutionReviewButtonTestId(notice.itemRef)}
                   style={secondaryActionButtonStyle}
                   type="button"
                   onClick={() => {
@@ -7057,12 +7117,12 @@ export function TimelineWorkbook({
               setQueryState((current) => removeFilterField(current, fieldKey));
             }}
             queryState={queryState}
-            surface="timeline"
+            surface={timelineViewSchemaId}
           />
           <GridViewport
             ref={gridShellRef}
             style={gridShellStyle}
-            testId={gridShellTestId("timeline")}
+            testId={gridShellTestId(timelineViewSchemaId)}
           >
             <GridTable
               actionsColumn={timelineActionsColumn}
@@ -7147,7 +7207,7 @@ export function TimelineWorkbook({
                           aria-current={
                             key === activeConflictKey ? "true" : undefined
                           }
-                          data-testid={`paste-conflict-item-${sanitizeTestId(key)}`}
+                          data-testid={pasteConflictItemTestId(key)}
                           key={key}
                           onClick={() => setActiveConflictKey(key)}
                           style={
@@ -7327,7 +7387,7 @@ export function TimelineWorkbook({
                           group.map((item) => (
                             <button
                               key={item.itemRef}
-                              data-testid={`mention-${sanitizeTestId(item.itemRef)}`}
+                              data-testid={mentionItemTestId(item.itemRef)}
                               style={{
                                 ...mentionListButtonStyle,
                                 ...(selectedMention?.itemRef === item.itemRef
@@ -7395,7 +7455,7 @@ export function TimelineWorkbook({
                       <label style={labelStyle}>
                         Resolve to existing
                         <select
-                          data-testid="inspector-resolve-target"
+                          data-testid={mentionResolveTargetSelectTestId()}
                           style={selectStyle}
                           value={selectedResolveTargetId}
                           onChange={(event) => {
@@ -7422,6 +7482,7 @@ export function TimelineWorkbook({
                       </label>
                       <div style={inlineButtonRowStyle}>
                         <button
+                          data-testid={mentionResolveExistingButtonTestId()}
                           style={secondaryActionButtonStyle}
                           type="button"
                           onClick={() => {
@@ -7439,6 +7500,9 @@ export function TimelineWorkbook({
                           Resolve to existing
                         </button>
                         <button
+                          data-testid={mentionCreateEntityButtonTestId(
+                            selectedMention.entityType,
+                          )}
                           style={secondaryActionButtonStyle}
                           type="button"
                           onClick={() => {
@@ -7460,6 +7524,7 @@ export function TimelineWorkbook({
                     <div style={inlineButtonRowStyle}>
                       {canManageMentions ? (
                         <button
+                          data-testid={mentionDismissButtonTestId()}
                           style={secondaryActionButtonStyle}
                           type="button"
                           onClick={() => {
@@ -7474,6 +7539,7 @@ export function TimelineWorkbook({
                       ) : null}
                       {canManageMentions ? (
                         <button
+                          data-testid={mentionRestoreUnresolvedButtonTestId()}
                           style={secondaryActionButtonStyle}
                           type="button"
                           onClick={() => {
@@ -7492,6 +7558,7 @@ export function TimelineWorkbook({
                   {selectedMention.status === "dismissed" ? (
                     <div style={inlineButtonRowStyle}>
                       <button
+                        data-testid={mentionRestoreUnresolvedButtonTestId()}
                         style={secondaryActionButtonStyle}
                         type="button"
                         onClick={() => {
@@ -7587,9 +7654,8 @@ function EntityWorkbookSurface({
   const canMerge =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const survivorLabel = selectedEntity?.label ?? "Select a record";
-  const surface: WorkbookSurface =
-    entityType === "host" ? "hosts" : "identities";
   const contract = entityType === "host" ? hostsContract : identitiesContract;
+  const surface: WorkbookSurface = contract.viewSchemaId;
   const loserEntity =
     rows.find((row) => row.recordId === mergeCandidateId) ?? null;
   const mergePlan =
@@ -7672,7 +7738,7 @@ function EntityWorkbookSurface({
     recordId: row.recordId,
     data: row,
     selected: row.recordId === selectedEntity?.recordId,
-    testId: `${entityType}-row-${row.recordId}`,
+    testId: gridRowTestId(contract.viewSchemaId, row.recordId),
   }));
   const entityFocus = useWorkbookGridFocus({
     columns: entityAnchorColumns,
@@ -7776,7 +7842,7 @@ function EntityWorkbookSurface({
     width: 176,
     renderCell: ({ data: row }) => (
       <button
-        data-testid={`inspect-${entityType}-${row.recordId}`}
+        data-testid={entityInspectButtonTestId(entityType, row.recordId)}
         style={actionButtonStyle}
         type="button"
         onClick={() => {
@@ -7907,7 +7973,7 @@ function EntityWorkbookSurface({
         </div>
 
         <aside
-          data-testid={`${entityType}-inspector`}
+          data-testid={entityInspectorTestId(entityType)}
           style={inspectorShellStyle}
         >
           <div style={inspectorHeaderStyle}>
@@ -8049,7 +8115,11 @@ function EntityWorkbookSurface({
                     {timelinePreviewRows.map((row) => (
                       <article
                         key={row.recordId ?? row.key}
-                        data-testid={`timeline-preview-row-${row.recordId ?? row.key}`}
+                        data-testid={
+                          row.recordId === null
+                            ? undefined
+                            : timelinePreviewRowTestId(row.recordId)
+                        }
                         style={timelinePreviewCardStyle}
                       >
                         <p style={noticeTitleStyle}>
@@ -8159,7 +8229,7 @@ function AssessmentWorkbookSurface({
       key: row.record_id,
       recordId: row.record_id,
       data: row,
-      testId: `assessment-row-${row.record_id}`,
+      testId: gridRowTestId(assessmentsViewSchemaId, row.record_id),
     }),
   );
   const assessmentFocus = useWorkbookGridFocus({
@@ -8317,7 +8387,7 @@ function AssessmentWorkbookSurface({
         </div>
 
         <aside
-          data-testid="assessment-create-panel"
+          data-testid={assessmentCreatePanelTestId()}
           style={inspectorShellStyle}
         >
           <div style={inspectorHeaderStyle}>
@@ -8870,7 +8940,7 @@ function GenericWorkbookSurface({
     key: row.record_id,
     recordId: row.record_id,
     data: row,
-    testId: `generic-row-${contract.viewSchemaId}-${row.record_id}`,
+    testId: gridRowTestId(contract.viewSchemaId, row.record_id),
   }));
   const genericFocus = useWorkbookGridFocus({
     columns: anchorColumns,
@@ -8921,7 +8991,7 @@ function GenericWorkbookSurface({
           <div style={actionStackStyle}>
             <div style={inlineButtonRowStyle}>
               <button
-                data-testid={`evidence-preview-${row.record_id}`}
+                data-testid={evidencePreviewButtonTestId(row.record_id)}
                 disabled={!canAccess}
                 style={actionButtonStyle}
                 type="button"
@@ -8932,7 +9002,7 @@ function GenericWorkbookSurface({
                 Preview
               </button>
               <button
-                data-testid={`evidence-download-${row.record_id}`}
+                data-testid={evidenceDownloadButtonTestId(row.record_id)}
                 disabled={!canAccess}
                 style={actionButtonStyle}
                 type="button"
@@ -8946,7 +9016,7 @@ function GenericWorkbookSurface({
             <label style={labelStyle}>
               Attach file
               <input
-                data-testid={`evidence-attach-file-${row.record_id}`}
+                data-testid={evidenceAttachFileInputTestId(row.record_id)}
                 style={inputStyle}
                 type="file"
                 accept="image/*,.txt,.pdf,text/plain,application/pdf"
@@ -8961,7 +9031,7 @@ function GenericWorkbookSurface({
             </label>
             {message ? (
               <span
-                data-testid={`evidence-access-message-${row.record_id}`}
+                data-testid={evidenceAccessMessageTestId(row.record_id)}
                 style={evidenceAccessMessageStyle}
               >
                 {message}
@@ -9339,7 +9409,7 @@ function GenericWorkbookSurface({
                   field={field}
                   id={`generic-create-input-${field.fieldKey}`}
                   referenceOptions={referenceOptions}
-                  testId={`generic-create-field-${field.fieldKey}`}
+                  testId={genericCreateFieldTestId(field.fieldKey)}
                   value={createDraft[field.fieldKey] ?? ""}
                   onChange={(value) => {
                     setCreateDraft((current) => ({
@@ -9376,7 +9446,7 @@ function GenericWorkbookSurface({
             ) : null}
           </div>
           <button
-            data-testid={`generic-create-submit-${contract.viewSchemaId}`}
+            data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
             disabled={mutationState === "Syncing"}
             style={actionButtonStyle}
             type="button"
@@ -9390,7 +9460,9 @@ function GenericWorkbookSurface({
           {rows.length > 0 && selectedEditField !== null ? (
             <div style={genericEditRowStyle}>
               <select
-                data-testid={`generic-edit-record-${contract.viewSchemaId}`}
+                data-testid={genericEditRecordSelectTestId(
+                  contract.viewSchemaId,
+                )}
                 style={selectStyle}
                 value={editRecordId}
                 onChange={(event) => {
@@ -9405,7 +9477,9 @@ function GenericWorkbookSurface({
                 ))}
               </select>
               <select
-                data-testid={`generic-edit-field-${contract.viewSchemaId}`}
+                data-testid={genericEditFieldSelectTestId(
+                  contract.viewSchemaId,
+                )}
                 style={selectStyle}
                 value={editFieldKey}
                 onChange={(event) => {
@@ -9423,7 +9497,9 @@ function GenericWorkbookSurface({
               genericCollectionSupportsRemove(selectedEditField.fieldKey) ? (
                 <select
                   aria-label="Collection edit action"
-                  data-testid={`generic-edit-action-${contract.viewSchemaId}`}
+                  data-testid={genericEditActionSelectTestId(
+                    contract.viewSchemaId,
+                  )}
                   style={selectStyle}
                   value={editCollectionMode}
                   onChange={(event) => {
@@ -9442,12 +9518,12 @@ function GenericWorkbookSurface({
                 collectionMode={editCollectionMode}
                 field={selectedEditField}
                 referenceOptions={referenceOptions}
-                testId={`generic-edit-value-${contract.viewSchemaId}`}
+                testId={genericEditValueTestId(contract.viewSchemaId)}
                 value={editValue}
                 onChange={setEditValue}
               />
               <button
-                data-testid={`generic-edit-submit-${contract.viewSchemaId}`}
+                data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
                 disabled={mutationState === "Syncing"}
                 style={actionButtonStyle}
                 type="button"
@@ -9722,7 +9798,7 @@ function GenericWorkbookSurface({
             </button>
           </div>
           <iframe
-            data-testid={`evidence-preview-frame-${evidencePreview.recordId}`}
+            data-testid={evidencePreviewFrameTestId(evidencePreview.recordId)}
             src={evidencePreview.href}
             style={evidencePreviewFrameStyle}
             title={`Evidence preview ${evidencePreview.title}`}
@@ -10585,10 +10661,6 @@ function supportRowLabel(row: TimelineApiRow): string {
   return row.record_id;
 }
 
-function surfaceSlug(viewSchemaID: string): string {
-  return viewSchemaID.replace(/^cartulary\.view\./, "").replace(/\.v1$/, "");
-}
-
 function knownWorkbookViewSchemaID(viewSchemaID: string): string {
   return allWorkbookContracts.some(
     (contract) => contract.viewSchemaId === viewSchemaID,
@@ -11032,7 +11104,7 @@ export function WorkbookShell({
             return (
               <button
                 key={viewSchemaID}
-                data-testid={`surface-tab-${surfaceSlug(viewSchemaID)}`}
+                data-testid={surfaceTabTestId(viewSchemaID)}
                 style={{
                   ...surfaceTabStyle,
                   ...(surface === viewSchemaID ? surfaceTabActiveStyle : null),
@@ -11049,7 +11121,7 @@ export function WorkbookShell({
           <label style={systemViewSelectLabelStyle}>
             System view
             <select
-              data-testid="system-view-selector"
+              data-testid={systemViewSelectorTestId()}
               style={selectStyle}
               value={
                 builtInSurfaceIDs.includes(

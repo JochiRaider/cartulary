@@ -1,4 +1,8 @@
 import {
+  draftCellTestId,
+  timelineRowVersionTestId,
+} from "@cartulary/ui-contracts";
+import {
   cleanup,
   fireEvent,
   render,
@@ -69,9 +73,9 @@ describe("Phase 3 Timeline workbook", () => {
 
     const summaryInput = (await findWorkbookCell(
       document.body,
-      "timeline",
+      timelineViewSchemaId,
       "record-1",
-      "summary",
+      "timeline.summary",
     )) as HTMLInputElement;
     summaryInput.focus();
     fireEvent.change(summaryInput, { target: { value: "Alpha enter" } });
@@ -106,15 +110,15 @@ describe("Phase 3 Timeline workbook", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "2",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("2");
     });
     await new Promise((resolve) => window.setTimeout(resolve, 0));
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(document.activeElement).not.toBe(
-      screen.getByTestId("draft-row-summary"),
+      screen.getByTestId(draftCellTestId("timeline.summary")),
     );
   });
 });

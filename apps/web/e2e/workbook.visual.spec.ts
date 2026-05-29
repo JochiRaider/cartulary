@@ -8,16 +8,23 @@ import {
 import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  evidenceAccessMessageTestId,
+  evidenceAttachFileInputTestId,
+  evidencePreviewButtonTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
   pendingQueueNoticeTestId,
+  relationshipItemsTestId,
   rowCellTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
   saveStateTestId,
+  timelineEvidenceFileInputTestId,
+  timelineRowMarkReviewedButtonTestId,
+  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -37,17 +44,14 @@ import {
   evidenceViewSchemaId,
   hostRefsFieldKey,
   hostsViewSchemaId,
-  timelineViewSchemaId as phase4TimelineViewSchemaId,
   taskRequestsViewSchemaId,
+  timelineViewSchemaId,
 } from "./phase4Helpers";
 import {
   driveRealTimelineSummaryConflict,
   editTimelineSummary,
   installPatchController,
 } from "./phase6Harness";
-
-const timelineViewSchemaId = "timeline";
-const timelineApiViewSchemaId = "cartulary.view.timeline.v1";
 
 type ViewRow = {
   record_id: string;
@@ -96,7 +100,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     const timelineRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V3GRID01-ROW"),
         "timeline.occurred_at": "2025-02-17T09:12:00Z",
@@ -109,10 +113,12 @@ test.describe("Phase 3 workbook visual evidence", () => {
 
     await expect(page.getByTestId("save-state")).toHaveText("Saved");
     await expect(
-      page.getByTestId(`row-${timelineRow.record_id}-row-version`),
+      page.getByTestId(timelineRowVersionTestId(timelineRow.record_id)),
     ).toHaveText(String(timelineRow.row_version));
     await expect(
-      page.getByTestId(`row-${timelineRow.record_id}-summary`),
+      page.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.summary"),
+      ),
     ).toHaveValue("Default visual row");
 
     await assertVisualRegression(
@@ -134,7 +140,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     const timelineRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V3GRID02-ROW"),
         "timeline.occurred_at": "2025-01-01T00:00:00Z",
@@ -148,7 +154,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     const saveState = page.getByTestId("save-state");
     const saveStateStrip = saveState.locator("..");
     const summaryInput = page.getByTestId(
-      `row-${timelineRow.record_id}-summary`,
+      rowCellTestId(timelineRow.record_id, "timeline.summary"),
     );
 
     await expect(saveState).toHaveText("Saved");
@@ -243,14 +249,14 @@ test.describe("Phase 3 workbook visual evidence", () => {
     const firstRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V3GRID03-ROWA"),
         "timeline.occurred_at": "2025-02-17T11:00:00Z",
         "timeline.summary": "Alpha grouped row",
       },
     )) as ViewRow;
-    await createViewRow(page, incidentId, timelineApiViewSchemaId, {
+    await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("V3GRID03-ROWB"),
       "timeline.occurred_at": "2025-02-17T11:05:00Z",
       "timeline.summary": "Beta grouped row",
@@ -258,9 +264,13 @@ test.describe("Phase 3 workbook visual evidence", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
-    await page.getByTestId(`row-${firstRow.record_id}-mark-reviewed`).click();
+    await page
+      .getByTestId(timelineRowMarkReviewedButtonTestId(firstRow.record_id))
+      .click();
     await expect(
-      page.getByTestId(`row-${firstRow.record_id}-capture-state`),
+      page.getByTestId(
+        rowCellTestId(firstRow.record_id, "timeline.capture_state"),
+      ),
     ).toHaveText("reviewed");
 
     await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
@@ -315,7 +325,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
     const unresolvedRow = (await createViewRow(
       page,
       incidentId,
-      phase4TimelineViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V4GRID01-UNRESOLVED"),
         "timeline.summary": "Unresolved mention visual row",
@@ -325,7 +335,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
     const resolvedRow = (await createViewRow(
       page,
       incidentId,
-      phase4TimelineViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V4GRID01-RESOLVED"),
         "timeline.summary": "Resolved mention visual row",
@@ -336,7 +346,9 @@ test.describe("Phase 4 workbook visual evidence", () => {
     await maskIncidentIdentity(page, incidentId);
     await expect(
       page
-        .getByTestId(`row-${unresolvedRow.record_id}-hostRefs-items`)
+        .getByTestId(
+          relationshipItemsTestId(unresolvedRow.record_id, hostRefsFieldKey),
+        )
         .getByLabel("Unresolved WS-023?"),
     ).toBeVisible();
     await addRelationshipTokenViaUI(
@@ -347,7 +359,9 @@ test.describe("Phase 4 workbook visual evidence", () => {
     );
     await expect(
       page
-        .getByTestId(`row-${resolvedRow.record_id}-hostRefs-items`)
+        .getByTestId(
+          relationshipItemsTestId(resolvedRow.record_id, hostRefsFieldKey),
+        )
         .getByLabel("Resolved WS-023"),
     ).toBeVisible();
 
@@ -389,10 +403,10 @@ test.describe("Phase 4 workbook visual evidence", () => {
       page.getByTestId(rowCellTestId(evidenceRow.record_id, "evidence.title")),
     ).toHaveText("Visual evidence package");
     await expect(
-      page.getByTestId(`evidence-preview-${evidenceRow.record_id}`),
+      page.getByTestId(evidencePreviewButtonTestId(evidenceRow.record_id)),
     ).toBeVisible();
     await expect(
-      page.getByTestId(`evidence-access-message-${evidenceRow.record_id}`),
+      page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
     ).toContainText("Blocked");
 
     await assertWorkbookGridVisualRegression(
@@ -485,7 +499,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
     );
 
     await page
-      .getByTestId(`evidence-attach-file-${evidenceRow.record_id}`)
+      .getByTestId(evidenceAttachFileInputTestId(evidenceRow.record_id))
       .setInputFiles({
         name: "visual-request.txt",
         mimeType: "text/plain",
@@ -531,7 +545,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
     const timelineRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V5GRID02-TIMELINE"),
         "timeline.summary": "Visual evidence badge row",
@@ -545,7 +559,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
     );
     await maskIncidentIdentity(page, incidentId);
     await expect(
-      page.getByTestId(`evidence-access-message-${blocked.record_id}`),
+      page.getByTestId(evidenceAccessMessageTestId(blocked.record_id)),
     ).toContainText("Blocked");
     await assertWorkbookGridVisualRegression(
       page,
@@ -556,7 +570,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
 
     await page.goto(
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
-        timelineApiViewSchemaId,
+        timelineViewSchemaId,
       )}`,
     );
     await expect(
@@ -566,7 +580,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
       .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
       .click();
     await page
-      .getByTestId(`timeline-evidence-file-${timelineRow.record_id}`)
+      .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
       .setInputFiles({
         name: "visual-badge.png",
         mimeType: "image/png",
@@ -628,7 +642,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
     const timelineRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID01-ROW"),
         "timeline.summary": "Presence visual row",
@@ -640,7 +654,9 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await page.goto(`/?incident_id=${incidentId}`);
       await maskIncidentIdentity(page, incidentId);
       await expect(
-        page.getByTestId(`row-${timelineRow.record_id}-summary`),
+        page.getByTestId(
+          rowCellTestId(timelineRow.record_id, "timeline.summary"),
+        ),
       ).toHaveValue("Presence visual row");
 
       remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
@@ -652,7 +668,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
         userId: remote.user_id,
       });
       await remotePage
-        .getByTestId(`row-${timelineRow.record_id}-summary`)
+        .getByTestId(rowCellTestId(timelineRow.record_id, "timeline.summary"))
         .focus();
       await expect(
         page.getByTestId(rowPresenceMarkerTestId(timelineRow.record_id)),
@@ -667,7 +683,10 @@ test.describe("Phase 6 workbook visual evidence", () => {
         markerTestId: rowPresenceMarkerTestId(timelineRow.record_id),
         page,
         surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(timelineRow.record_id, "capture-state"),
+        targetTestId: rowCellTestId(
+          timelineRow.record_id,
+          "timeline.capture_state",
+        ),
       });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "cell",
@@ -677,7 +696,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
         ),
         page,
         surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(timelineRow.record_id, "summary"),
+        targetTestId: rowCellTestId(timelineRow.record_id, "timeline.summary"),
       });
 
       await assertWorkbookGridVisualRegression(
@@ -703,7 +722,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
     const timelineRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID02-ROW"),
         "timeline.summary": "Conflict visual base",
@@ -736,7 +755,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
         ),
         page,
         surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(timelineRow.record_id, "summary"),
+        targetTestId: rowCellTestId(timelineRow.record_id, "timeline.summary"),
       });
 
       await assertVisualRegression(
@@ -761,7 +780,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
     const syncRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-ROW"),
         "timeline.occurred_at": "2025-03-06T10:00:00Z",
@@ -771,7 +790,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
     const conflictRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-CONFLICT-ROW"),
         "timeline.occurred_at": "2025-03-06T10:05:00Z",
@@ -781,7 +800,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
     const queuedRow = (await createViewRow(
       page,
       incidentId,
-      timelineApiViewSchemaId,
+      timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-QUEUED-ROW"),
         "timeline.occurred_at": "2025-03-06T10:10:00Z",
@@ -791,7 +810,9 @@ test.describe("Phase 6 workbook visual evidence", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
-    const summaryInput = page.getByTestId(`row-${syncRow.record_id}-summary`);
+    const summaryInput = page.getByTestId(
+      rowCellTestId(syncRow.record_id, "timeline.summary"),
+    );
     const saveState = page.getByTestId(saveStateTestId());
     const saveStateStrip = saveState.locator("..");
     const hold = await holdBrowserApiRequest(page, {

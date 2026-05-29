@@ -1,6 +1,12 @@
 import {
+  draftCellTestId,
+  draftRowCreateButtonTestId,
   rowCellTestId,
   rowInspectorFieldTestId,
+  timelineRowMarkReviewedButtonTestId,
+  timelineRowReplacementInputTestId,
+  timelineRowSupersedeButtonTestId,
+  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import type { Route } from "@playwright/test";
 
@@ -38,22 +44,24 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
 
-  const draftSummary = page.getByTestId("draft-row-summary");
+  const draftSummary = page.getByTestId(draftCellTestId("timeline.summary"));
   await draftSummary.fill("First browser fact");
   await draftSummary.press("Enter");
 
   const committedRow = await waitForCommittedRowSummary(page, {
     expectedSummary: "First browser fact",
-    surface: "timeline",
+    surface: timelineViewSchemaId,
     timeoutMs: 5_000,
   });
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
-  await expect(gridSavedRows(page, "timeline")).toHaveCount(1);
-  await expect(gridDraftRows(page, "timeline")).toHaveCount(1);
+  await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
+  await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(
-    page.getByTestId(rowCellTestId(committedRow.recordId, "summary")),
+    page.getByTestId(rowCellTestId(committedRow.recordId, "timeline.summary")),
   ).toHaveValue("First browser fact");
-  await expect(page.getByTestId("draft-row-summary")).toBeFocused();
+  await expect(
+    page.getByTestId(draftCellTestId("timeline.summary")),
+  ).toBeFocused();
 });
 
 test("E-3-01 supports explicit blank Timeline row creation with only client_txn_id", async ({
@@ -79,21 +87,23 @@ test("E-3-01 supports explicit blank Timeline row creation with only client_txn_
   await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
 
-  await page.getByTestId("draft-row-create").click();
+  await page.getByTestId(draftRowCreateButtonTestId()).click();
   const committedRow = await waitForCommittedRowSummary(page, {
     expectedSummary: "",
-    surface: "timeline",
+    surface: timelineViewSchemaId,
     timeoutMs: 5_000,
   });
 
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
-  await expect(gridSavedRows(page, "timeline")).toHaveCount(1);
-  await expect(gridDraftRows(page, "timeline")).toHaveCount(1);
+  await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
+  await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(
-    page.getByTestId(rowCellTestId(committedRow.recordId, "summary")),
+    page.getByTestId(rowCellTestId(committedRow.recordId, "timeline.summary")),
   ).toHaveValue("");
   await expect(
-    page.getByTestId(rowCellTestId(committedRow.recordId, "capture-state")),
+    page.getByTestId(
+      rowCellTestId(committedRow.recordId, "timeline.capture_state"),
+    ),
   ).toHaveText("rough");
   expect(createBodies).toHaveLength(1);
   expect(Object.keys(createBodies[0] ?? {})).toEqual(["client_txn_id"]);
@@ -158,48 +168,52 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     reviewerPage.getByText("Current incident role: reviewer"),
   ).toBeVisible();
 
-  await reviewerPage.getByTestId(`row-${recordId}-mark-reviewed`).click();
+  await reviewerPage
+    .getByTestId(timelineRowMarkReviewedButtonTestId(recordId))
+    .click();
   await expect(
-    reviewerPage.getByTestId(`row-${recordId}-capture-state`),
+    reviewerPage.getByTestId(rowCellTestId(recordId, "timeline.capture_state")),
   ).toHaveText("reviewed");
   await expect(
-    reviewerPage.getByTestId(`row-${recordId}-row-version`),
+    reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
   ).toHaveText("2");
 
   const detailsInput = reviewerPage.getByTestId(
-    rowInspectorFieldTestId(recordId, "details"),
+    rowInspectorFieldTestId(recordId, "timeline.details"),
   );
   await detailsInput.fill("Material edit after review");
   await reviewerPage.getByTestId("timeline-blur-surface").click();
   await expect(
-    reviewerPage.getByTestId(`row-${recordId}-capture-state`),
+    reviewerPage.getByTestId(rowCellTestId(recordId, "timeline.capture_state")),
   ).toHaveText("enriched");
   await expect(
-    reviewerPage.getByTestId(`row-${recordId}-row-version`),
+    reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
   ).toHaveText("3");
 
   await reviewerPage
-    .getByTestId(`row-${recordId}-replacement-id`)
+    .getByTestId(timelineRowReplacementInputTestId(recordId))
     .fill(replacementId);
   const supersedeRequest = reviewerPage.waitForRequest(
     (request) =>
       request.method() === "POST" &&
       request.url().endsWith(`/api/v1/records/${recordId}/supersede`),
   );
-  await reviewerPage.getByTestId(`row-${recordId}-supersede`).click();
+  await reviewerPage
+    .getByTestId(timelineRowSupersedeButtonTestId(recordId))
+    .click();
   const supersedeBody = (await supersedeRequest).postDataJSON() as Record<
     string,
     unknown
   >;
   expect(supersedeBody.base_row_version).toBe(3);
   await expect(
-    reviewerPage.getByTestId(`row-${recordId}-capture-state`),
+    reviewerPage.getByTestId(rowCellTestId(recordId, "timeline.capture_state")),
   ).toHaveText("superseded");
   await expect(
-    reviewerPage.getByTestId(`row-${recordId}-row-version`),
+    reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
   ).toHaveText("4");
   await expect(
-    reviewerPage.getByTestId(`row-${recordId}-mark-reviewed`),
+    reviewerPage.getByTestId(timelineRowMarkReviewedButtonTestId(recordId)),
   ).toBeDisabled();
   await reviewerPage.context().close();
 });
@@ -240,9 +254,9 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
   });
 
   await observer.goto(`${webBase}/?incident_id=${incidentId}`);
-  await expect(observer.getByTestId(`row-${recordId}-row-version`)).toHaveText(
-    "1",
-  );
+  await expect(
+    observer.getByTestId(timelineRowVersionTestId(recordId)),
+  ).toHaveText("1");
   const baselineObserverQueries = observerQueryCount;
   const baselineRecordChangeCount = await fetchTimelineRecordChangeCount(
     page,
@@ -250,7 +264,9 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  const summaryInput = page.getByTestId(`row-${recordId}-summary`);
+  const summaryInput = page.getByTestId(
+    rowCellTestId(recordId, "timeline.summary"),
+  );
   const firstPatchResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&
@@ -267,13 +283,15 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
     (await patchResponse.json()) as { data: { change_set_id: string } }
   ).data;
 
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("2");
+  await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
+    "2",
+  );
   await expect
     .poll(() => observerQueryCount, { timeout: 5_000 })
     .toBeGreaterThan(baselineObserverQueries);
-  await expect(observer.getByTestId(`row-${recordId}-row-version`)).toHaveText(
-    "2",
-  );
+  await expect(
+    observer.getByTestId(timelineRowVersionTestId(recordId)),
+  ).toHaveText("2");
   const substrateAfterFirstPatch = await fetchTimelineRecordSubstrate(
     page,
     recordId,
@@ -315,8 +333,8 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
   expect(await fetchTimelineRecordChangeCount(page, recordId)).toBe(
     recordChangeCountAfterFirstPatch,
   );
-  await expect(observer.getByTestId(`row-${recordId}-row-version`)).toHaveText(
-    "2",
-  );
+  await expect(
+    observer.getByTestId(timelineRowVersionTestId(recordId)),
+  ).toHaveText("2");
   await observerContext.close();
 });

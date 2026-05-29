@@ -1,3 +1,9 @@
+import {
+  entityInspectButtonTestId,
+  gridRowTestId,
+  timelinePreviewRowTestId,
+} from "@cartulary/ui-contracts";
+
 import { expect, test } from "./fixtures";
 import {
   createIncident,
@@ -141,11 +147,15 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
   await expect(page.getByText("Current incident role: admin")).toBeVisible();
   await expect(
-    page.getByTestId(`host-row-${survivor.record_id}`),
+    page.getByTestId(gridRowTestId(hostsViewSchemaId, survivor.record_id)),
   ).toBeVisible();
-  await expect(page.getByTestId(`host-row-${loser.record_id}`)).toBeVisible();
+  await expect(
+    page.getByTestId(gridRowTestId(hostsViewSchemaId, loser.record_id)),
+  ).toBeVisible();
 
-  await page.getByTestId(`inspect-host-${survivor.record_id}`).click();
+  await page
+    .getByTestId(entityInspectButtonTestId("host", survivor.record_id))
+    .click();
   await expect(page.getByTestId("host-inspector")).toContainText("WS-023");
   await expect(page.getByTestId("merge-start")).toBeVisible();
   await page.getByTestId("merge-start").click();
@@ -164,17 +174,19 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
   await page.getByTestId("merge-confirm").click();
   const mergeEnvelope = await readMergeEnvelope(await mergeResponsePromise);
 
-  await expect(page.getByTestId(`host-row-${loser.record_id}`)).toHaveCount(0);
+  await expect(
+    page.getByTestId(gridRowTestId(hostsViewSchemaId, loser.record_id)),
+  ).toHaveCount(0);
   await expect(page.getByTestId("host-inspector")).toContainText("WS-023");
   await expect(page.getByTestId("merge-message")).toContainText(
     "Merged WS-023 duplicate into WS-023",
   );
   await expect(
-    page.getByTestId(`timeline-preview-row-${dependentRow.record_id}`),
+    page.getByTestId(timelinePreviewRowTestId(dependentRow.record_id)),
   ).toBeVisible();
   await expect(
     page
-      .getByTestId(`timeline-preview-row-${dependentRow.record_id}`)
+      .getByTestId(timelinePreviewRowTestId(dependentRow.record_id))
       .getByLabel("Resolved WS-023"),
   ).toBeVisible();
 
@@ -223,14 +235,20 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
   );
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
   await expect(
-    page.getByTestId(`identity-row-${identitySurvivor.record_id}`),
+    page.getByTestId(
+      gridRowTestId(identitiesViewSchemaId, identitySurvivor.record_id),
+    ),
   ).toBeVisible();
   await expect(
-    page.getByTestId(`identity-row-${identityLoser.record_id}`),
+    page.getByTestId(
+      gridRowTestId(identitiesViewSchemaId, identityLoser.record_id),
+    ),
   ).toBeVisible();
 
   await page
-    .getByTestId(`inspect-identity-${identitySurvivor.record_id}`)
+    .getByTestId(
+      entityInspectButtonTestId("identity", identitySurvivor.record_id),
+    )
     .click();
   await expect(page.getByTestId("identity-inspector")).toContainText(
     "Alex Analyst",
@@ -266,7 +284,9 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
   );
 
   await expect(
-    page.getByTestId(`identity-row-${identityLoser.record_id}`),
+    page.getByTestId(
+      gridRowTestId(identitiesViewSchemaId, identityLoser.record_id),
+    ),
   ).toHaveCount(0);
   await expect(page.getByTestId("identity-inspector")).toContainText(
     "Alex Analyst",
@@ -275,11 +295,11 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
     "Merged Alex Analyst duplicate into Alex Analyst",
   );
   await expect(
-    page.getByTestId(`timeline-preview-row-${identityDependentRow.record_id}`),
+    page.getByTestId(timelinePreviewRowTestId(identityDependentRow.record_id)),
   ).toBeVisible();
   await expect(
     page
-      .getByTestId(`timeline-preview-row-${identityDependentRow.record_id}`)
+      .getByTestId(timelinePreviewRowTestId(identityDependentRow.record_id))
       .getByLabel("Resolved Alex Analyst"),
   ).toBeVisible();
 

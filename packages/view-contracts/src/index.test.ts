@@ -366,14 +366,16 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
           ...fixtureRawContract(),
           default_visible_fields: ["fixture.unknown"],
         },
-        pattern: /default_visible_fields references unknown field_key fixture\.unknown/,
+        pattern:
+          /default_visible_fields references unknown field_key fixture\.unknown/,
       },
       {
         raw: {
           ...fixtureRawContract(),
           default_hidden_fields: ["fixture.unknown"],
         },
-        pattern: /default_hidden_fields references unknown field_key fixture\.unknown/,
+        pattern:
+          /default_hidden_fields references unknown field_key fixture\.unknown/,
       },
       {
         raw: { ...fixtureRawContract(), sort_fields: ["fixture.unknown"] },
@@ -385,14 +387,16 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
       },
       {
         raw: { ...fixtureRawContract(), grouping_fields: ["fixture.unknown"] },
-        pattern: /grouping_fields references unknown field_key fixture\.unknown/,
+        pattern:
+          /grouping_fields references unknown field_key fixture\.unknown/,
       },
       {
         raw: {
           ...fixtureRawContract(),
           default_sort: [{ field_key: "fixture.unknown", direction: "asc" }],
         },
-        pattern: /default_sort\[1\]\.field_key references unknown field_key fixture\.unknown/,
+        pattern:
+          /default_sort\[1\]\.field_key references unknown field_key fixture\.unknown/,
       },
       {
         raw: {
@@ -403,7 +407,8 @@ describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
               : field,
           ),
         },
-        pattern: /fields\[2\]\.header_sort_field_key references unknown field_key fixture\.unknown/,
+        pattern:
+          /fields\[2\]\.header_sort_field_key references unknown field_key fixture\.unknown/,
       },
     ];
 

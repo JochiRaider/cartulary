@@ -1,9 +1,16 @@
 import { Buffer } from "node:buffer";
 
 import {
+  evidenceAccessMessageTestId,
+  evidenceAttachFileInputTestId,
+  evidencePreviewButtonTestId,
+  evidencePreviewFrameTestId,
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
   gridShellTestId,
   rowCellTestId,
   rowInspectButtonTestId,
+  timelineEvidenceFileInputTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -46,14 +53,16 @@ test("E-5-01 attaches a screenshot to a selected Timeline row without leaving th
   await openTimelineSurface(page, incidentId);
   await page.getByTestId(rowInspectButtonTestId(timelineRow.record_id)).click();
   await page
-    .getByTestId(`timeline-evidence-file-${timelineRow.record_id}`)
+    .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
     .setInputFiles({
       name: "selected-screenshot.png",
       mimeType: "image/png",
       buffer: tinyPNG(),
     });
 
-  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
   await expect
     .poll(async () => {
       const rows = (await queryViewRows(
@@ -118,7 +127,9 @@ test("E-5-02 persists a screenshot-only Timeline row through the two-step eviden
   expect(row).toBeTruthy();
   expect(row?.cells["timeline.summary"]?.value ?? "").toBe("");
   expect(row?.cells["timeline.capture_state"]?.value).toBe("rough");
-  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
 });
 
 test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview outcomes", async ({
@@ -146,19 +157,21 @@ test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview out
   });
 
   await openEvidenceSurface(page, incidentId);
-  await page.getByTestId(`evidence-preview-${safe.record_id}`).click();
+  await page.getByTestId(evidencePreviewButtonTestId(safe.record_id)).click();
   await expect(
-    page.getByTestId(`evidence-preview-frame-${safe.record_id}`),
+    page.getByTestId(evidencePreviewFrameTestId(safe.record_id)),
   ).toBeVisible();
   await expect(
     page
-      .frameLocator(`[data-testid="evidence-preview-frame-${safe.record_id}"]`)
+      .frameLocator(
+        `[data-testid="${evidencePreviewFrameTestId(safe.record_id)}"]`,
+      )
       .locator("body"),
   ).toContainText("safe preview body");
 
-  await page.getByTestId(`evidence-preview-${unsafe.record_id}`).click();
+  await page.getByTestId(evidencePreviewButtonTestId(unsafe.record_id)).click();
   await expect(
-    page.getByTestId(`evidence-access-message-${unsafe.record_id}`),
+    page.getByTestId(evidenceAccessMessageTestId(unsafe.record_id)),
   ).toContainText("unsupported_preview");
 });
 
@@ -184,7 +197,7 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
   await setGenericCreateField(page, "evidence.title", "Requested package");
   await setGenericCreateField(page, "evidence.storage_ref", "ticket://E5-04");
   await page
-    .getByTestId(`generic-create-submit-${evidenceViewSchemaId}`)
+    .getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId))
     .click();
 
   const requested = await waitForEvidenceRow(
@@ -267,7 +280,7 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
 
   await openEvidenceSurface(page, incidentId);
   await page
-    .getByTestId(`evidence-attach-file-${requested.record_id}`)
+    .getByTestId(evidenceAttachFileInputTestId(requested.record_id))
     .setInputFiles({
       name: "requested.txt",
       mimeType: "text/plain",
@@ -311,7 +324,9 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
     })
     .toEqual([1, true]);
   await openTimelineSurface(page, incidentId);
-  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
   await expect(
     page.getByTestId(
       rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
@@ -374,7 +389,7 @@ test("E-5-05 refreshes a second live workbook from the real evidence attach stre
       .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
       .click();
     await page
-      .getByTestId(`timeline-evidence-file-${timelineRow.record_id}`)
+      .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
       .setInputFiles({
         name: "socket-refresh.png",
         mimeType: "image/png",
@@ -413,7 +428,9 @@ async function openTimelineSurface(page: Page, incidentId: string) {
       timelineViewSchemaId,
     )}`,
   );
-  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
 }
 
 async function setGenericCreateField(
@@ -421,7 +438,7 @@ async function setGenericCreateField(
   fieldKey: string,
   value: string,
 ) {
-  await page.getByTestId(`generic-create-field-${fieldKey}`).fill(value);
+  await page.getByTestId(genericCreateFieldTestId(fieldKey)).fill(value);
 }
 
 async function waitForEvidenceRow(

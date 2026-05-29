@@ -53,7 +53,7 @@ test("Phase 10 E-10-02 restore recovers workbook surface and executes a built-in
     await expect(page.getByText("Timeline workbook shell")).toBeVisible();
     await waitForCommittedRowSummary(page, {
       expectedSummary: summary,
-      surface: "timeline",
+      surface: timelineViewSchemaId,
       timeoutMs: 5_000,
     });
 

@@ -3,7 +3,13 @@ import {
   changeGrouping,
   sortByHeader,
 } from "@cartulary/test-utils";
-import { gridGroupRowTestId } from "@cartulary/ui-contracts";
+import {
+  gridGroupRowTestId,
+  gridRowTestId,
+  rowCellTestId,
+  timelineRowMarkReviewedButtonTestId,
+  timelineRowVersionTestId,
+} from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -38,22 +44,31 @@ test("support Phase 3 grid controls submit sort, filter, and group query members
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
-    page.getByTestId(`row-${alphaRow.record_id}-summary`),
+    page.getByTestId(rowCellTestId(alphaRow.record_id, "timeline.summary")),
   ).toHaveValue("Alpha summary");
 
-  await page.getByTestId(`row-${betaRow.record_id}-mark-reviewed`).click();
+  await page
+    .getByTestId(timelineRowMarkReviewedButtonTestId(betaRow.record_id))
+    .click();
   await expect(
-    page.getByTestId(`row-${betaRow.record_id}-capture-state`),
+    page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.capture_state"),
+    ),
   ).toHaveText("reviewed");
 
   const sortRequest = waitForTimelineQuery(page, incidentId);
-  await sortByHeader(page, "timeline", "timeline.summary");
+  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
   expect(readPostBody(await sortRequest)).toEqual({
     sort: [{ direction: "asc", field_key: "timeline.summary" }],
   });
 
   const filterRequest = waitForTimelineQuery(page, incidentId);
-  await applyFilterChip(page, "timeline", "timeline.capture_state", "reviewed");
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
   expect(readPostBody(await filterRequest)).toEqual({
     filters: [
       {
@@ -65,11 +80,11 @@ test("support Phase 3 grid controls submit sort, filter, and group query members
     sort: [{ direction: "asc", field_key: "timeline.summary" }],
   });
   await expect(
-    page.getByTestId(`row-${betaRow.record_id}-summary`),
+    page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
   ).toHaveValue("Beta summary");
 
   const groupRequest = waitForTimelineQuery(page, incidentId);
-  await changeGrouping(page, "timeline", "timeline.capture_state");
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await groupRequest)).toEqual({
     filters: [
       {
@@ -86,7 +101,11 @@ test("support Phase 3 grid controls submit sort, filter, and group query members
   });
   await expect(
     page.getByTestId(
-      gridGroupRowTestId("timeline", "timeline.capture_state", "reviewed"),
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
     ),
   ).toBeVisible();
 });
@@ -109,14 +128,23 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await page.getByTestId(`row-${betaRow.record_id}-mark-reviewed`).click();
+  await page
+    .getByTestId(timelineRowMarkReviewedButtonTestId(betaRow.record_id))
+    .click();
   await expect(
-    page.getByTestId(`row-${betaRow.record_id}-capture-state`),
+    page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.capture_state"),
+    ),
   ).toHaveText("reviewed");
 
-  await sortByHeader(page, "timeline", "timeline.summary");
-  await applyFilterChip(page, "timeline", "timeline.has_evidence", "false");
-  await changeGrouping(page, "timeline", "timeline.capture_state");
+  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.has_evidence",
+    "false",
+  );
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
 
   const heldPatch = await holdBrowserApiRequest(page, {
     method: "PATCH",
@@ -124,7 +152,9 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
   });
 
   try {
-    const alphaSummary = page.getByTestId(`row-${alphaRow.record_id}-summary`);
+    const alphaSummary = page.getByTestId(
+      rowCellTestId(alphaRow.record_id, "timeline.summary"),
+    );
     await alphaSummary.fill("Zulu anchored");
     await alphaSummary.press("Enter");
     await heldPatch.waitForHit;
@@ -132,7 +162,7 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
 
     const betaVersion = Number.parseInt(
       (await page
-        .getByTestId(`row-${betaRow.record_id}-row-version`)
+        .getByTestId(timelineRowVersionTestId(betaRow.record_id))
         .textContent()) ?? "0",
       10,
     );
@@ -162,21 +192,21 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
     await heldPatch.dispose();
   }
   await expect(
-    page.getByTestId(`row-${alphaRow.record_id}-row-version`),
+    page.getByTestId(timelineRowVersionTestId(alphaRow.record_id)),
   ).toHaveText("2");
   await expect(
-    page.getByTestId(`row-${alphaRow.record_id}-summary`),
+    page.getByTestId(rowCellTestId(alphaRow.record_id, "timeline.summary")),
   ).toHaveValue("Zulu anchored");
   const alphaCaptureState = (
     (await page
-      .getByTestId(`row-${alphaRow.record_id}-capture-state`)
+      .getByTestId(rowCellTestId(alphaRow.record_id, "timeline.capture_state"))
       .textContent()) ?? ""
   ).trim();
   expect(alphaCaptureState).not.toBe("");
   await expect(
     page.getByTestId(
       gridGroupRowTestId(
-        "timeline",
+        timelineViewSchemaId,
         "timeline.capture_state",
         alphaCaptureState,
       ),
@@ -203,15 +233,24 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
   const recordId = row.record_id as string;
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
-    "RDG edit row",
+  await expect(
+    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+  ).toHaveValue("RDG edit row");
+  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.has_evidence",
+    "false",
   );
-  await sortByHeader(page, "timeline", "timeline.summary");
-  await applyFilterChip(page, "timeline", "timeline.has_evidence", "false");
-  await changeGrouping(page, "timeline", "timeline.capture_state");
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
   await expect(
     page.getByTestId(
-      gridGroupRowTestId("timeline", "timeline.capture_state", "rough"),
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "rough",
+      ),
     ),
   ).toBeVisible();
 
@@ -222,10 +261,14 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
       "RDG edit row patched 3",
       "RDG edit row final",
     ]) {
-      const summaryInput = page.getByTestId(`row-${recordId}-summary`);
+      const summaryInput = page.getByTestId(
+        rowCellTestId(recordId, "timeline.summary"),
+      );
       await summaryInput.fill(value);
       await expect(summaryInput).toHaveValue(value);
-      await expect(page.getByTestId(`timeline-row-${recordId}`)).toBeAttached();
+      await expect(
+        page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
+      ).toBeAttached();
     }
 
     const patchResponse = page.waitForResponse(
@@ -233,14 +276,18 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
         response.request().method() === "PATCH" &&
         response.url().endsWith(`/api/v1/records/${recordId}`),
     );
-    await page.getByTestId(`row-${recordId}-summary`).press("Enter");
+    await page
+      .getByTestId(rowCellTestId(recordId, "timeline.summary"))
+      .press("Enter");
     await patchResponse;
   });
 
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("2");
-  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
-    "RDG edit row final",
+  await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
+    "2",
   );
+  await expect(
+    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+  ).toHaveValue("RDG edit row final");
 });
 
 function waitForTimelineQuery(page: Page, incidentId: string) {

@@ -1,4 +1,10 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
+import {
+  mentionDismissButtonTestId,
+  mentionItemTestId,
+  mentionRestoreUnresolvedButtonTestId,
+  relationshipItemsTestId,
+} from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
 import {
@@ -20,7 +26,6 @@ import {
   openTimelineInspector,
   readTimelineMutation,
   requireItemByRawText,
-  sanitizeTestId,
   timelineFixtureOccurredAt,
   timelineViewSchemaId,
   type ViewRow,
@@ -87,7 +92,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
   await expect(
     page
-      .getByTestId(`row-${row.record_id}-hostRefs-items`)
+      .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
       .getByLabel("Resolved WS-023"),
   ).toBeVisible();
   const initialTimelineRows = (await queryViewRows(
@@ -104,23 +109,23 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
 
   await openTimelineInspector(page, row.record_id);
   await page
-    .getByTestId(`mention-${sanitizeTestId(String(seededMention.item_ref))}`)
+    .getByTestId(mentionItemTestId(String(seededMention.item_ref)))
     .click();
 
-  const dismissScroll = await scrollGridToBottom(page, "timeline");
+  const dismissScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   expect(dismissScroll.top).toBeGreaterThan(0);
   const dismissResponsePromise = waitForTimelinePatch(page, row.record_id);
-  await page.getByRole("button", { name: "Dismiss" }).click();
+  await page.getByTestId(mentionDismissButtonTestId()).click();
   const dismissEnvelope = await readTimelineMutation(
     await dismissResponsePromise,
   );
 
   await expect(
-    page.getByTestId(`row-${row.record_id}-hostRefs-items`),
+    page.getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey)),
   ).toContainText("No items");
   await expect(
     page
-      .getByTestId(`mention-${sanitizeTestId(String(seededMention.item_ref))}`)
+      .getByTestId(mentionItemTestId(String(seededMention.item_ref)))
       .getByLabel("Dismissed WS-023?"),
   ).toBeVisible();
   await expectTimelineContinuity(page, row.record_id, dismissScroll, {
@@ -130,9 +135,9 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     collectionItems(dismissEnvelope.data.row, hostRefsFieldKey),
   ).toHaveLength(0);
 
-  const restoreScroll = await scrollGridToBottom(page, "timeline");
+  const restoreScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   const restoreResponsePromise = waitForTimelinePatch(page, row.record_id);
-  await page.getByRole("button", { name: "Restore to unresolved" }).click();
+  await page.getByTestId(mentionRestoreUnresolvedButtonTestId()).click();
   const restoreResponse = await restoreResponsePromise;
   const restoreEnvelope = await readTimelineMutation(restoreResponse);
   const restoreBody = JSON.parse(
@@ -151,12 +156,12 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
 
   await expect(
     page
-      .getByTestId(`row-${row.record_id}-hostRefs-items`)
+      .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
       .getByLabel("Unresolved WS-023?"),
   ).toBeVisible();
   await expect(
     page
-      .getByTestId(`row-${row.record_id}-hostRefs-items`)
+      .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
       .getByLabel(/^Resolved WS-023$/),
   ).toHaveCount(0);
   await expectTimelineContinuity(page, row.record_id, restoreScroll, {

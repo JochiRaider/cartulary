@@ -16,9 +16,11 @@ import {
   updateGroupBy,
 } from "./workbookQuery";
 
+const timelineViewSchemaId = "cartulary.view.timeline.v1";
+
 describe("Phase 8 workbook query controls", () => {
   it("Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls", () => {
-    const contract = requireViewContract("cartulary.view.timeline.v1");
+    const contract = requireViewContract(timelineViewSchemaId);
 
     const sortedByHeader = toggleSortField(
       contract,
@@ -178,7 +180,7 @@ describe("Phase 8 workbook query controls", () => {
           fieldKey === "timeline.capture_state" ? row.state : null
         }
         getGroupRowTestId={(fieldKey, value) =>
-          gridGroupRowTestId("timeline", fieldKey, value)
+          gridGroupRowTestId(timelineViewSchemaId, fieldKey, value)
         }
         groupBy="timeline.capture_state"
         rows={rows}
@@ -187,7 +189,11 @@ describe("Phase 8 workbook query controls", () => {
 
     const groupHeader = screen
       .getByTestId(
-        gridGroupRowTestId("timeline", "timeline.capture_state", "rough"),
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          "rough",
+        ),
       )
       .closest("tr");
     expect(groupHeader).not.toBeNull();

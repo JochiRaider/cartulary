@@ -1,23 +1,88 @@
 // @vitest-environment jsdom
 
 import {
+  gridFilterApplyTestId,
+  gridFilterChipTestId,
+  gridFilterFieldTestId,
+  gridFilterValueTestId,
+  gridGroupingSelectTestId,
   gridScrollportClassName,
   gridShellTestId,
+  gridSortHeaderTestId,
+  rowCellTestId,
   rowInspectButtonTestId,
 } from "@cartulary/ui-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  applyFilterChip,
+  assertAnchorTestId,
   assertGridFocusContinuity,
   assertMarkerAnchoredToGridTarget,
+  changeGrouping,
+  removeFilterChip,
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
+  sortByHeader,
 } from "./index";
 
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   document.body.innerHTML = "";
+});
+
+const testTimelineViewSchemaId = "cartulary.view.timeline.v1";
+
+describe("@cartulary/test-utils selector choreography", () => {
+  it("returns row-cell anchors from the shared selector builder", () => {
+    expect(assertAnchorTestId("record-1", "timeline.summary")).toBe(
+      rowCellTestId("record-1", "timeline.summary"),
+    );
+  });
+
+  it("targets sort, filter, and grouping controls through shared builders", async () => {
+    const observed: string[] = [];
+    const selected: Record<string, string | readonly string[]> = {};
+    const filled: Record<string, string> = {};
+    const page = {
+      getByTestId(value: string) {
+        observed.push(value);
+        return {
+          click: async () => undefined,
+          fill: async (nextValue: string) => {
+            filled[value] = nextValue;
+          },
+          selectOption: async (nextValue: string | readonly string[]) => {
+            selected[value] = nextValue;
+          },
+        };
+      },
+    };
+    const surface = testTimelineViewSchemaId;
+
+    await sortByHeader(page, surface, "timeline.summary");
+    await applyFilterChip(page, surface, "timeline.capture_state", "rough");
+    await removeFilterChip(page, surface, "timeline.capture_state");
+    await changeGrouping(page, surface, "timeline.capture_state");
+
+    expect(observed).toEqual([
+      gridSortHeaderTestId(surface, "timeline.summary"),
+      gridFilterFieldTestId(surface),
+      gridFilterValueTestId(surface),
+      gridFilterApplyTestId(surface),
+      gridFilterChipTestId(surface, "timeline.capture_state"),
+      gridGroupingSelectTestId(surface),
+    ]);
+    expect(selected[gridFilterFieldTestId(surface)]).toBe(
+      "timeline.capture_state",
+    );
+    expect(selected[gridFilterValueTestId(surface)]).toBe("rough");
+    expect(selected[gridGroupingSelectTestId(surface)]).toBe(
+      "timeline.capture_state",
+    );
+    expect(filled).toEqual({});
+  });
 });
 
 describe("@cartulary/test-utils grid continuity", () => {
@@ -34,7 +99,7 @@ describe("@cartulary/test-utils grid continuity", () => {
         intervalMs: 0,
         page,
         preservedScroll: { left: 18, top: 240 },
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         timeoutMs: 10,
       }),
     ).resolves.toBeUndefined();
@@ -55,10 +120,12 @@ describe("@cartulary/test-utils grid continuity", () => {
         page,
         preservedScroll: { left: 18, top: 240 },
         requireExactVerticalScroll: true,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         timeoutMs: 10,
       }),
-    ).rejects.toThrow("Expected timeline vertical scroll 240, received 180");
+    ).rejects.toThrow(
+      `Expected ${testTimelineViewSchemaId} vertical scroll 240, received 180`,
+    );
   });
 
   it("retries until the preserved vertical scroll converges", async () => {
@@ -71,7 +138,7 @@ describe("@cartulary/test-utils grid continuity", () => {
       },
       {
         onEvaluate(testId, element) {
-          if (testId !== gridShellTestId("timeline")) {
+          if (testId !== gridShellTestId(testTimelineViewSchemaId)) {
             return;
           }
           gridEvaluateCount += 1;
@@ -92,7 +159,7 @@ describe("@cartulary/test-utils grid continuity", () => {
         page,
         preservedScroll: { left: 18, top: 240 },
         requireExactVerticalScroll: true,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         timeoutMs: 250,
       }),
     ).resolves.toBeUndefined();
@@ -114,10 +181,12 @@ describe("@cartulary/test-utils grid continuity", () => {
         page,
         preservedScroll: { left: 18, top: 240 },
         requireExactHorizontalScroll: true,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         timeoutMs: 10,
       }),
-    ).rejects.toThrow("Expected timeline horizontal scroll 18, received 10");
+    ).rejects.toThrow(
+      `Expected ${testTimelineViewSchemaId} horizontal scroll 18, received 10`,
+    );
   });
 });
 
@@ -133,7 +202,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
         timeoutMs: 50,
       }),
@@ -159,7 +228,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
         timeoutMs: 1_000,
       }),
@@ -176,16 +245,16 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
         currentScroll: { left: 0, top: 0 },
         isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 400,
         scrollHeight: 900,
-        targetTestId: "row-record-1-summary",
+        targetTestId: rowCellTestId("record-1", "timeline.summary"),
       });
 
     await expect(
       scrollGridCellIntoView({
-        cellKey: "summary",
+        cellKey: "timeline.summary",
         intervalMs: 0,
         page,
         recordId: "record-1",
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         timeoutMs: 1_000,
       }),
     ).resolves.toEqual({ left: 0, top: 400 });
@@ -207,7 +276,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 1,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
         timeoutMs: 0,
       }),
@@ -238,7 +307,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
         timeoutMs: 1_000,
       }),
@@ -269,7 +338,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
         timeoutMs: 1_000,
       }),
@@ -298,7 +367,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
         timeoutMs: 1_000,
       }),
@@ -321,7 +390,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
         timeoutMs: 1_000,
       }),
@@ -332,7 +401,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
   });
 
   it("fails explicitly when the grid shell has no owned scrollport", async () => {
-    const gridTestId = gridShellTestId("timeline");
+    const gridTestId = gridShellTestId(testTimelineViewSchemaId);
     document.body.innerHTML = `<div data-testid="${gridTestId}"></div>`;
     const shell = document.querySelector(`[data-testid="${gridTestId}"]`);
     if (!(shell instanceof HTMLDivElement)) {
@@ -345,12 +414,12 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId: "missing-target",
         timeoutMs: 50,
       }),
     ).rejects.toThrow(
-      "Expected timeline grid shell to contain exactly one .cartulary-grid-scrollport scrollport, received 0",
+      `Expected ${testTimelineViewSchemaId} grid shell to contain exactly one .cartulary-grid-scrollport scrollport, received 0`,
     );
   });
 
@@ -364,12 +433,12 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId: "missing-target",
         timeoutMs: 50,
       }),
     ).rejects.toThrow(
-      /missing-target.*timeline.*scrollHeight=900.*mountedRowIds=record-a,record-b.*completedScanCycles=.*scrollRangeGrowths=.*observedMaxTop=700.*completedScanMaxTop=700.*observedMountedRowIds=record-a,record-b/,
+      /missing-target.*cartulary\.view\.timeline\.v1.*scrollHeight=900.*mountedRowIds=record-a,record-b.*completedScanCycles=.*scrollRangeGrowths=.*observedMaxTop=700.*completedScanMaxTop=700.*observedMountedRowIds=record-a,record-b/,
     );
   });
 
@@ -389,7 +458,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
       scrollGridTargetIntoView({
         intervalMs: 0,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
         timeoutMs: 1_000,
       }),
@@ -408,7 +477,7 @@ describe("@cartulary/test-utils marker anchoring", () => {
         anchorKind: "cell",
         markerTestId,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
       }),
     ).rejects.toThrow("to be geometrically inside target cell");
@@ -426,11 +495,11 @@ describe("@cartulary/test-utils marker anchoring", () => {
         anchorKind: "cell",
         markerTestId,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
       }),
     ).rejects.toThrow(
-      "Expected marker marker-record-1 to share row record_id record-1 with target row-record-1-summary, received record-2",
+      "Expected marker marker-record-1 to share row record_id record-1 with target row-record-1-timeline.summary, received record-2",
     );
   });
 
@@ -446,11 +515,11 @@ describe("@cartulary/test-utils marker anchoring", () => {
         anchorKind: "cell",
         markerTestId,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
       }),
     ).rejects.toThrow(
-      "Expected marker marker-record-1 to share cell field_key timeline.summary with target row-record-1-summary, received timeline.details",
+      "Expected marker marker-record-1 to share cell field_key timeline.summary with target row-record-1-timeline.summary, received timeline.details",
     );
   });
 
@@ -464,7 +533,7 @@ describe("@cartulary/test-utils marker anchoring", () => {
         anchorKind: "cell",
         markerTestId,
         page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId,
       }),
     ).resolves.toBeUndefined();
@@ -476,7 +545,7 @@ describe("@cartulary/test-utils marker anchoring", () => {
       markerRect: { height: 18, left: 16, top: 54, width: 34 },
       targetCellFieldKey: "timeline.capture_state",
       targetCellRect: { height: 60, left: 0, top: 40, width: 90 },
-      targetTestId: "row-record-1-capture-state",
+      targetTestId: rowCellTestId("record-1", "timeline.capture_state"),
     });
 
     await expect(
@@ -484,7 +553,7 @@ describe("@cartulary/test-utils marker anchoring", () => {
         anchorKind: "row-gutter",
         markerTestId: anchored.markerTestId,
         page: anchored.page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId: anchored.targetTestId,
       }),
     ).resolves.toBeUndefined();
@@ -495,7 +564,7 @@ describe("@cartulary/test-utils marker anchoring", () => {
       markerRect: { height: 18, left: 16, top: 154, width: 34 },
       targetCellFieldKey: "timeline.capture_state",
       targetCellRect: { height: 60, left: 0, top: 40, width: 90 },
-      targetTestId: "row-record-1-capture-state",
+      targetTestId: rowCellTestId("record-1", "timeline.capture_state"),
     });
 
     await expect(
@@ -503,7 +572,7 @@ describe("@cartulary/test-utils marker anchoring", () => {
         anchorKind: "row-gutter",
         markerTestId: detached.markerTestId,
         page: detached.page,
-        surface: "timeline",
+        surface: testTimelineViewSchemaId,
         targetTestId: detached.targetTestId,
       }),
     ).rejects.toThrow("to be vertically anchored to row record-1");
@@ -521,7 +590,7 @@ function installGridContinuityFixture(
   } = {},
 ) {
   const focusTestId = rowInspectButtonTestId("record-1");
-  const gridTestId = gridShellTestId("timeline");
+  const gridTestId = gridShellTestId(testTimelineViewSchemaId);
   document.body.innerHTML = `
     <div data-testid="${gridTestId}">
       <div class="${gridScrollportClassName()}">
@@ -587,7 +656,7 @@ function installGridTargetFixture(
     targetTestId?: string;
   } = {},
 ) {
-  const gridTestId = gridShellTestId("timeline");
+  const gridTestId = gridShellTestId(testTimelineViewSchemaId);
   const targetTestId = options.targetTestId ?? "target-control";
   const mountedRows = (options.mountedRowIds ?? ["record-1"])
     .map(
@@ -715,9 +784,10 @@ function installMarkerAnchorFixture(options: {
   targetRowRect?: { height: number; left: number; top: number; width: number };
   targetTestId?: string;
 }) {
-  const gridTestId = gridShellTestId("timeline");
+  const gridTestId = gridShellTestId(testTimelineViewSchemaId);
   const markerTestId = "marker-record-1";
-  const targetTestId = options.targetTestId ?? "row-record-1-summary";
+  const targetTestId =
+    options.targetTestId ?? rowCellTestId("record-1", "timeline.summary");
   const targetRecordId = options.targetRecordId ?? "record-1";
   const markerRecordId = options.markerRecordId ?? targetRecordId;
   const targetCellFieldKey = options.targetCellFieldKey ?? "timeline.summary";

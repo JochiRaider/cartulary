@@ -8,6 +8,8 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   rowCellTestId,
+  surfaceTabTestId,
+  timelineRowMarkReviewedButtonTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -198,7 +200,9 @@ test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit
   });
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
-  await expect(page.getByTestId("surface-tab-timeline")).toBeVisible();
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeVisible();
   await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
   expect(
     (await getDefaultWorkbookPreferences(page, incidentId)).default_sheet_ref,
@@ -257,16 +261,20 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
-    page.getByTestId(rowCellTestId(alpha.record_id as string, "summary")),
+    page.getByTestId(
+      rowCellTestId(alpha.record_id as string, "timeline.summary"),
+    ),
   ).toHaveValue("Alpha Phase 8");
 
-  await page.getByTestId(`row-${beta.record_id}-mark-reviewed`).click();
+  await page
+    .getByTestId(timelineRowMarkReviewedButtonTestId(beta.record_id as string))
+    .click();
   await expect(
-    page.getByTestId(`row-${beta.record_id}-capture-state`),
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");
 
   const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
-  await sortByHeader(page, "timeline", "timeline.summary");
+  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
   expect(readPostBody(await sortRequest)).toEqual({
     sort: [{ direction: "asc", field_key: "timeline.summary" }],
   });
@@ -282,7 +290,12 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
     incidentId,
     timelineViewSchemaId,
   );
-  await applyFilterChip(page, "timeline", "timeline.capture_state", "reviewed");
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
   expect(readPostBody(await filterRequest)).toEqual({
     filters: [
       {
@@ -301,13 +314,13 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
     incidentId,
     timelineViewSchemaId,
   );
-  await removeFilterChip(page, "timeline", "timeline.capture_state");
+  await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await removeFilterRequest)).toEqual({
     sort: [{ direction: "asc", field_key: "timeline.summary" }],
   });
 
   const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
-  await changeGrouping(page, "timeline", "timeline.capture_state");
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await groupRequest)).toEqual({
     group_by: "timeline.capture_state",
     sort: [
@@ -315,24 +328,36 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
       { direction: "asc", field_key: "timeline.summary" },
     ],
   });
-  const timelineGrid = page.getByTestId(gridShellTestId("timeline"));
+  const timelineGrid = page.getByTestId(gridShellTestId(timelineViewSchemaId));
   await expect
     .poll(async () => visibleGroupLabels(page))
     .toEqual(["reviewed", "rough"]);
   await expect(
     timelineGrid.getByTestId(
-      gridGroupRowTestId("timeline", "timeline.capture_state", "reviewed"),
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
     ),
   ).toHaveCount(1);
   await expect(
     timelineGrid.getByTestId(
-      gridGroupRowTestId("timeline", "timeline.capture_state", "rough"),
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "rough",
+      ),
     ),
   ).toHaveCount(1);
   const groupTestIds = await visibleGroupTestIds(page);
   expect(groupTestIds).toEqual([
-    gridGroupRowTestId("timeline", "timeline.capture_state", "reviewed"),
-    gridGroupRowTestId("timeline", "timeline.capture_state", "rough"),
+    gridGroupRowTestId(
+      timelineViewSchemaId,
+      "timeline.capture_state",
+      "reviewed",
+    ),
+    gridGroupRowTestId(timelineViewSchemaId, "timeline.capture_state", "rough"),
   ]);
   expect(new Set(groupTestIds).size).toBe(groupTestIds.length);
   expect(await visibleRecordIds(page)).toEqual([
@@ -343,7 +368,11 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
   for (const state of ["reviewed", "rough"]) {
     const groupRow = timelineGrid
       .getByTestId(
-        gridGroupRowTestId("timeline", "timeline.capture_state", state),
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          state,
+        ),
       )
       .locator("xpath=ancestor::*[@role='row'][1]");
     await expect(groupRow).toHaveCount(1);
@@ -782,7 +811,7 @@ async function getWorkbookStartup(page: Page, incidentId: string, query = "") {
 
 async function visibleRecordIds(page: Page) {
   return page
-    .getByTestId(gridShellTestId("timeline"))
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
     .locator('[role="row"][data-grid-record-id]:not([data-grid-record-id=""])')
     .evaluateAll((rows) =>
       rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),
@@ -791,8 +820,10 @@ async function visibleRecordIds(page: Page) {
 
 async function visibleGroupLabels(page: Page) {
   return page
-    .getByTestId(gridShellTestId("timeline"))
-    .locator('[data-testid^="timeline-group-timeline-capture_state-"]')
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .locator(
+      '[data-testid^="cartulary.view.timeline.v1-group-timeline.capture_state-"]',
+    )
     .evaluateAll((nodes) =>
       nodes.map((node) => (node.textContent ?? "").trim()),
     );
@@ -800,8 +831,10 @@ async function visibleGroupLabels(page: Page) {
 
 async function visibleGroupTestIds(page: Page) {
   return page
-    .getByTestId(gridShellTestId("timeline"))
-    .locator('[data-testid^="timeline-group-timeline-capture_state-"]')
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .locator(
+      '[data-testid^="cartulary.view.timeline.v1-group-timeline.capture_state-"]',
+    )
     .evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute("data-testid") ?? ""),
     );

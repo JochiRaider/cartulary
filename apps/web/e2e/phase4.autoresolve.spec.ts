@@ -1,5 +1,13 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
-import { rowInspectButtonTestId } from "@cartulary/ui-contracts";
+import {
+  autoResolutionNoticeTestId,
+  autoResolutionReviewButtonTestId,
+  autoResolutionUndoButtonTestId,
+  relationshipChipTestId,
+  relationshipItemsTestId,
+  rowInspectButtonTestId,
+  timelineCollectionInputTestId,
+} from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
 import {
@@ -21,7 +29,6 @@ import {
   hostsViewSchemaId,
   readTimelineMutation,
   requireItemByRawText,
-  sanitizeTestId,
   timelineViewSchemaId,
   type ViewRow,
   waitForTimelinePatch,
@@ -76,7 +83,10 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
-  const eligibleHostRefsInputTestId = `row-${eligibleRow.record_id}-hostRefs-input`;
+  const eligibleHostRefsInputTestId = timelineCollectionInputTestId(
+    eligibleRow.record_id,
+    hostRefsFieldKey,
+  );
   const autoScroll = await ensureTimelineGridTargetVisible(
     page,
     eligibleHostRefsInputTestId,
@@ -100,12 +110,12 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     collectionItems(eligibleEnvelope.data.row, hostRefsFieldKey),
     " vpn   gateway ",
   );
-  const eligibleChipId = `chip-${sanitizeTestId(String(eligibleItem.item_ref))}`;
+  const eligibleChipId = relationshipChipTestId(String(eligibleItem.item_ref));
   const eligibleRowItems = page.getByTestId(
-    `row-${eligibleRow.record_id}-hostRefs-items`,
+    relationshipItemsTestId(eligibleRow.record_id, hostRefsFieldKey),
   );
   const autoNotice = page.getByTestId(
-    `auto-resolution-notice-${sanitizeTestId(String(eligibleItem.item_ref))}`,
+    autoResolutionNoticeTestId(String(eligibleItem.item_ref)),
   );
 
   await expect(eligibleRowItems.getByTestId(eligibleChipId)).toContainText(
@@ -114,18 +124,26 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   await expect(autoNotice).toContainText("vpn gateway");
   await expect(autoNotice).toContainText("Gateway node");
   await expect(autoNotice).toContainText("VPN Gateway");
-  await expect(autoNotice.getByRole("button", { name: "Undo" })).toBeVisible();
   await expect(
-    autoNotice.getByRole("button", { name: "Review" }),
+    autoNotice.getByTestId(
+      autoResolutionUndoButtonTestId(String(eligibleItem.item_ref)),
+    ),
+  ).toBeVisible();
+  await expect(
+    autoNotice.getByTestId(
+      autoResolutionReviewButtonTestId(String(eligibleItem.item_ref)),
+    ),
   ).toBeVisible();
   await expect(
     page.getByTestId(rowInspectButtonTestId(eligibleRow.record_id)),
   ).toBeFocused();
   await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
 
-  const undoScroll = await scrollGridToBottom(page, "timeline");
+  const undoScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   const undoResponsePromise = waitForTimelinePatch(page, eligibleRow.record_id);
-  await autoNotice.getByRole("button", { name: "Undo" }).click();
+  await autoNotice
+    .getByTestId(autoResolutionUndoButtonTestId(String(eligibleItem.item_ref)))
+    .click();
   const undoEnvelope = await readTimelineMutation(await undoResponsePromise);
   const undoneItem = requireItemByRawText(
     collectionItems(undoEnvelope.data.row, hostRefsFieldKey),

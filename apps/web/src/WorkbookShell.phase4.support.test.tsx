@@ -1,7 +1,19 @@
 import {
+  autoResolutionNoticeTestId,
+  autoResolutionUndoButtonTestId,
   gridScrollportSelector,
   gridShellTestId,
+  mentionCreateEntityButtonTestId,
+  mentionDismissButtonTestId,
+  mentionItemTestId,
+  mentionResolveExistingButtonTestId,
+  mentionResolveTargetSelectTestId,
+  mentionRestoreUnresolvedButtonTestId,
+  relationshipChipTestId,
+  relationshipItemsTestId,
   rowInspectButtonTestId,
+  timelineCollectionInputTestId,
+  timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -391,8 +403,12 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
-    const autoChip = await screen.findByTestId("chip-mention-host-auto");
-    const manualChip = screen.getByTestId("chip-mention-identity-manual");
+    const autoChip = await screen.findByTestId(
+      relationshipChipTestId("mention-host-auto"),
+    );
+    const manualChip = screen.getByTestId(
+      relationshipChipTestId("mention-identity-manual"),
+    );
     expect(autoChip.textContent).toContain("Auto");
     expect(manualChip.textContent).not.toContain("Auto");
   });
@@ -473,14 +489,12 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(
       await screen.findByTestId(rowInspectButtonTestId("record-1")),
     );
-    fireEvent.click(screen.getByTestId("mention-host-unresolved"));
+    fireEvent.click(screen.getByTestId(mentionItemTestId("host-unresolved")));
     const preservedScroll = setTimelineGridScroll(240, 140);
-    fireEvent.change(screen.getByTestId("inspector-resolve-target"), {
+    fireEvent.change(screen.getByTestId(mentionResolveTargetSelectTestId()), {
       target: { value: "host-1" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Resolve to existing" }),
-    );
+    fireEvent.click(screen.getByTestId(mentionResolveExistingButtonTestId()));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -488,7 +502,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     await expectTimelineFocusAndScroll("record-1", preservedScroll);
     expect(
       screen
-        .getByTestId("row-record-1-hostRefs-items")
+        .getByTestId(relationshipItemsTestId("record-1", "timeline.host_refs"))
         .querySelector('[aria-label="Resolved WS-023"]'),
     ).toBeTruthy();
   });
@@ -601,10 +615,12 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     });
 
     fireEvent.click(inspectButton);
-    fireEvent.click(screen.getByTestId("mention-identity-create"));
+    fireEvent.click(screen.getByTestId(mentionItemTestId("identity-create")));
     const preservedScroll = setTimelineGridScroll(400, 175);
     expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(true);
-    fireEvent.click(screen.getByText("Create identity"));
+    fireEvent.click(
+      screen.getByTestId(mentionCreateEntityButtonTestId("identity")),
+    );
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -670,7 +686,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     const relationshipInput = (await screen.findByTestId(
-      "row-record-1-hostRefs-input",
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
     installTimelineInspectGeometry("record-1", {
       containerHeight: 300,
@@ -700,7 +716,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       requireVisibleWithinGrid: true,
     });
     expect(
-      await screen.findByTestId("auto-resolution-notice-mention-host-auto"),
+      await screen.findByTestId(
+        autoResolutionNoticeTestId("mention-host-auto"),
+      ),
     ).toBeTruthy();
   });
 
@@ -769,7 +787,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     const relationshipInput = (await screen.findByTestId(
-      "row-record-1-hostRefs-input",
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, {
       target: { value: " vpn   gateway " },
@@ -777,15 +795,19 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
 
     const notice = await screen.findByTestId(
-      "auto-resolution-notice-mention-host-auto",
+      autoResolutionNoticeTestId("mention-host-auto"),
     );
-    fireEvent.click(within(notice).getByRole("button", { name: "Undo" }));
+    fireEvent.click(
+      within(notice).getByTestId(
+        autoResolutionUndoButtonTestId("mention-host-auto"),
+      ),
+    );
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     expect(
-      screen.queryByTestId("auto-resolution-notice-mention-host-auto"),
+      screen.queryByTestId(autoResolutionNoticeTestId("mention-host-auto")),
     ).toBeNull();
     expect(extractTimelineJSONBody(fetchMock, 2)).toMatchObject({
       base_row_version: 2,
@@ -846,7 +868,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     const relationshipInput = (await screen.findByTestId(
-      "row-record-1-hostRefs-input",
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
@@ -858,10 +880,18 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
 
-    expect(screen.getByTestId(gridShellTestId("timeline"))).toBeTruthy();
-    expect(screen.getByTestId("row-record-1-hostRefs-input")).toBeTruthy();
     expect(
-      screen.getByTestId("row-record-1-hostRefs-items").textContent,
+      screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(
+        timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(
+        relationshipItemsTestId("record-1", "timeline.host_refs"),
+      ).textContent,
     ).toContain("WS-023");
     expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
   });
@@ -930,19 +960,19 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     const firstInput = (await screen.findByTestId(
-      "row-record-1-hostRefs-input",
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
     fireEvent.change(firstInput, { target: { value: "WS-023" } });
     fireEvent.keyDown(firstInput, { key: "Enter" });
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "2",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("2");
     });
 
     const secondInput = screen.getByTestId(
-      "row-record-1-hostRefs-input",
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     ) as HTMLInputElement;
     fireEvent.change(secondInput, { target: { value: "WS-024" } });
     fireEvent.keyDown(secondInput, { key: "Enter" });
@@ -950,18 +980,22 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "3",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("3");
     });
 
     expectHostRefAddRequest(fetchMock, 1, 1, "WS-023");
     expectHostRefAddRequest(fetchMock, 2, 2, "WS-024");
     expect(
-      screen.getByTestId("row-record-1-hostRefs-items").textContent,
+      screen.getByTestId(
+        relationshipItemsTestId("record-1", "timeline.host_refs"),
+      ).textContent,
     ).toContain("WS-023");
     expect(
-      screen.getByTestId("row-record-1-hostRefs-items").textContent,
+      screen.getByTestId(
+        relationshipItemsTestId("record-1", "timeline.host_refs"),
+      ).textContent,
     ).toContain("WS-024");
     expect(
       document.querySelector('[data-testid^="auto-resolution-notice-"]'),
@@ -1008,7 +1042,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     const relationshipInput = (await screen.findByTestId(
-      "row-record-1-hostRefs-input",
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
@@ -1049,7 +1083,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     const relationshipInput = (await screen.findByTestId(
-      "row-record-1-hostRefs-input",
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
@@ -1118,7 +1152,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     await waitFor(() => {
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
       expect(
-        screen.getByTestId("row-record-1-hostRefs-items").textContent,
+        screen.getByTestId(
+          relationshipItemsTestId("record-1", "timeline.host_refs"),
+        ).textContent,
       ).toContain("WS-024");
     });
   });
@@ -1191,19 +1227,21 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(
       await screen.findByTestId(rowInspectButtonTestId("record-1")),
     );
-    await screen.findByText("Dismiss");
+    await screen.findByTestId(mentionDismissButtonTestId());
     const dismissScroll = setTimelineGridScroll(320, 180);
-    fireEvent.click(screen.getByText("Dismiss"));
+    fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     await expectTimelineFocusAndScroll("record-1", dismissScroll);
-    expect(screen.getByText("Restore to unresolved")).toBeTruthy();
+    expect(
+      screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
+    ).toBeTruthy();
     expect(screen.getByText("Dismissed")).toBeTruthy();
 
     const restoreScroll = setTimelineGridScroll(360, 90);
-    fireEvent.click(screen.getByText("Restore to unresolved"));
+    fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -1211,7 +1249,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     await expectTimelineFocusAndScroll("record-1", restoreScroll);
     expect(
       screen
-        .getByTestId("row-record-1-hostRefs-items")
+        .getByTestId(relationshipItemsTestId("record-1", "timeline.host_refs"))
         .querySelector('[aria-label="Unresolved WS-023"]'),
     ).toBeTruthy();
   });
@@ -1296,11 +1334,11 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     });
 
     fireEvent.click(inspectButton);
-    await screen.findByText("Dismiss");
+    await screen.findByTestId(mentionDismissButtonTestId());
 
     const dismissScroll = setTimelineGridScroll(320, 18);
     expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
-    fireEvent.click(screen.getByText("Dismiss"));
+    fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -1309,11 +1347,13 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       expectedTop: 350,
       requireVisibleWithinGrid: true,
     });
-    expect(screen.getByText("Restore to unresolved")).toBeTruthy();
+    expect(
+      screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
+    ).toBeTruthy();
 
     const restoreScroll = setTimelineGridScroll(340, 18);
     expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
-    fireEvent.click(screen.getByText("Restore to unresolved"));
+    fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -1324,7 +1364,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     });
     expect(
       screen
-        .getByTestId("row-record-1-hostRefs-items")
+        .getByTestId(relationshipItemsTestId("record-1", "timeline.host_refs"))
         .querySelector('[aria-label="Unresolved WS-023"]'),
     ).toBeTruthy();
   });
@@ -1390,7 +1430,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     const relationshipInput = (await screen.findByTestId(
-      "row-record-1-hostRefs-input",
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
     fireEvent.blur(relationshipInput);
@@ -1617,7 +1657,7 @@ function isInspectButtonFullyVisibleWithinGrid(recordId: string) {
 
 function timelineGridScrollport() {
   const grid = screen
-    .getByTestId(gridShellTestId("timeline"))
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
     .querySelector(gridScrollportSelector());
   if (!(grid instanceof HTMLDivElement)) {
     throw new Error("Expected timeline grid scrollport to exist");

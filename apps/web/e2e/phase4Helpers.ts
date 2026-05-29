@@ -3,12 +3,19 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils";
 import {
+  genericEditFieldSelectTestId,
+  genericEditRecordSelectTestId,
+  genericEditSubmitTestId,
+  genericEditValueTestId,
+  gridRowTestId,
   gridSavedRowsSelector,
   gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  relationshipChipTestId,
   relationshipItemsTestId,
   rowInspectButtonTestId,
+  timelineCollectionInputTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
@@ -148,7 +155,9 @@ export async function createAssessmentViaUI(
   await page.getByTestId("assessment-create-submit").click();
   const envelope = await readTimelineMutation(await responsePromise);
   await expect(
-    page.getByTestId(`assessment-row-${envelope.data.row.record_id}`),
+    page.getByTestId(
+      gridRowTestId(assessmentsViewSchemaId, envelope.data.row.record_id),
+    ),
   ).toBeVisible();
   return envelope.data.row;
 }
@@ -227,10 +236,6 @@ export function requireItemByRawText(items: CollectionItem[], rawText: string) {
   return item;
 }
 
-export function sanitizeTestId(value: string) {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
-}
-
 export async function waitForSaveState(
   page: Page,
   value: "Saved" | "Syncing" | "Conflict",
@@ -255,7 +260,7 @@ export async function ensureTimelineGridTargetVisible(
 ) {
   return scrollGridTargetIntoView({
     page,
-    surface: "timeline",
+    surface: timelineViewSchemaId,
     targetTestId,
   });
 }
@@ -269,7 +274,9 @@ export async function addRelationshipTokenViaUI(
     onPatchRequest?: (payload: TimelinePatchRequestPayload) => void;
   } = {},
 ) {
-  const inputTestId = `row-${recordId}-${draftKey}-input`;
+  const fieldKey =
+    draftKey === "identityRefs" ? identityRefsFieldKey : hostRefsFieldKey;
+  const inputTestId = timelineCollectionInputTestId(recordId, fieldKey);
   await ensureTimelineGridTargetVisible(page, inputTestId);
   const input = page.getByTestId(inputTestId);
   const responsePromise = waitForTimelinePatch(page, recordId);
@@ -279,16 +286,14 @@ export async function addRelationshipTokenViaUI(
   const requestPayload = readRequestPayload(response);
   const envelope = await readTimelineMutation(response);
   options.onPatchRequest?.(requestPayload);
-  const fieldKey =
-    draftKey === "identityRefs" ? identityRefsFieldKey : hostRefsFieldKey;
   const item = requireItemByRawText(
     collectionItems(envelope.data.row, fieldKey),
     rawText,
   );
   await expect(
     page
-      .getByTestId(relationshipItemsTestId(recordId, draftKey))
-      .getByTestId(`chip-${sanitizeTestId(String(item.item_ref))}`),
+      .getByTestId(relationshipItemsTestId(recordId, fieldKey))
+      .getByTestId(relationshipChipTestId(String(item.item_ref))),
   ).toBeVisible();
   await expect
     .poll(
@@ -509,7 +514,7 @@ export async function expectTimelineContinuity(
     preservedScroll,
     requireExactHorizontalScroll: options.requireExactHorizontalScroll ?? false,
     requireExactVerticalScroll: options.requireExactVerticalScroll ?? false,
-    surface: "timeline",
+    surface: timelineViewSchemaId,
   });
 }
 
@@ -583,17 +588,17 @@ export async function editGenericCell(
   value: string | string[],
 ) {
   await page
-    .getByTestId(`generic-edit-record-${viewSchemaId}`)
+    .getByTestId(genericEditRecordSelectTestId(viewSchemaId))
     .selectOption(recordId);
   await page
-    .getByTestId(`generic-edit-field-${viewSchemaId}`)
+    .getByTestId(genericEditFieldSelectTestId(viewSchemaId))
     .selectOption(fieldKey);
-  const input = page.getByTestId(`generic-edit-value-${viewSchemaId}`);
+  const input = page.getByTestId(genericEditValueTestId(viewSchemaId));
   const tagName = await input.evaluate((element) => element.tagName);
   if (tagName === "SELECT") {
     await input.selectOption(value);
   } else {
     await input.fill(Array.isArray(value) ? value.join("\n") : value);
   }
-  await page.getByTestId(`generic-edit-submit-${viewSchemaId}`).click();
+  await page.getByTestId(genericEditSubmitTestId(viewSchemaId)).click();
 }

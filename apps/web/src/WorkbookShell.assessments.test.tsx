@@ -5,6 +5,7 @@ import {
   gridFilterValueTestId,
   gridSavedRowsSelector,
   gridShellTestId,
+  surfaceTabTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -478,15 +479,17 @@ describe("Assessment workbook surface", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
-    fireEvent.click(await screen.findByTestId("surface-tab-hosts"));
-    await expectRecordIds("hosts", ["host-initial"]);
+    fireEvent.click(
+      await screen.findByTestId(surfaceTabTestId(hostsViewSchemaId)),
+    );
+    await expectRecordIds(hostsViewSchemaId, ["host-initial"]);
 
     applyHostStateFilter("older");
     await waitFor(() => {
       expect(staleHostQueryStarted).toBe(true);
     });
     applyHostStateFilter("newer");
-    await expectRecordIds("hosts", ["host-newer"]);
+    await expectRecordIds(hostsViewSchemaId, ["host-newer"]);
 
     staleHostQuery.resolve(
       successEnvelope({
@@ -497,7 +500,7 @@ describe("Assessment workbook surface", () => {
     );
     await flushMicrotasks();
 
-    expect(currentRecordIds("hosts")).toEqual(["host-newer"]);
+    expect(currentRecordIds(hostsViewSchemaId)).toEqual(["host-newer"]);
   });
 });
 
@@ -601,13 +604,19 @@ function applyAssessmentStateFilter(value: string) {
 }
 
 function applyHostStateFilter(value: string) {
-  fireEvent.change(screen.getByTestId(gridFilterFieldTestId("hosts")), {
-    target: { value: "host.host_state" },
-  });
-  fireEvent.change(screen.getByTestId(gridFilterValueTestId("hosts")), {
-    target: { value },
-  });
-  fireEvent.click(screen.getByTestId(gridFilterApplyTestId("hosts")));
+  fireEvent.change(
+    screen.getByTestId(gridFilterFieldTestId(hostsViewSchemaId)),
+    {
+      target: { value: "host.host_state" },
+    },
+  );
+  fireEvent.change(
+    screen.getByTestId(gridFilterValueTestId(hostsViewSchemaId)),
+    {
+      target: { value },
+    },
+  );
+  fireEvent.click(screen.getByTestId(gridFilterApplyTestId(hostsViewSchemaId)));
 }
 
 async function expectAssessmentRecordIds(expected: string[]) {

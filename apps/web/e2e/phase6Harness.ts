@@ -4,6 +4,7 @@ import {
   conflictMarkerTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  rowCellTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, Route, WebSocket } from "@playwright/test";
@@ -94,7 +95,7 @@ export async function openIncidentAsTrackedUserReady(
   await page.goto(`/?incident_id=${options.incidentId}`);
   const acceptedSocket = await socketMonitor.waitForAcceptedSocket();
   await expect(
-    page.getByTestId(`row-${options.readyRecordId}-summary`),
+    page.getByTestId(rowCellTestId(options.readyRecordId, "timeline.summary")),
   ).toBeVisible();
   return { acceptedSocket, page, socketMonitor };
 }
@@ -132,7 +133,7 @@ export async function editTimelineSummary(
   recordId: string,
   value: string,
 ) {
-  const input = page.getByTestId(`row-${recordId}-summary`);
+  const input = page.getByTestId(rowCellTestId(recordId, "timeline.summary"));
   await input.fill(value);
   await input.press("Enter");
   await expect(input).toHaveValue(value);
@@ -217,9 +218,9 @@ export async function driveRealTimelineSummaryConflict({
   }
   await expect(page.getByTestId("conflict-resolver")).toBeVisible();
   if (expectEditedCellMounted) {
-    await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
-      localValue,
-    );
+    await expect(
+      page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    ).toHaveValue(localValue);
   }
   await expect(page.getByTestId("conflict-server-value")).toHaveValue(
     remoteValue,
@@ -290,7 +291,9 @@ export async function exerciseRevokedPendingReplay({
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForAcceptedSocket();
     await expect(
-      page.getByTestId(`row-${firstReplayItem.recordId}-summary`),
+      page.getByTestId(
+        rowCellTestId(firstReplayItem.recordId, "timeline.summary"),
+      ),
     ).toHaveValue(`Phase 6 ${createdBy} ${scenario} 1 base`);
     await expect(page.getByText("Current incident role: editor")).toBeVisible();
 
@@ -321,7 +324,7 @@ export async function exerciseRevokedPendingReplay({
     }
     for (const item of replayItems) {
       await expect(
-        page.getByTestId(`row-${item.recordId}-summary`),
+        page.getByTestId(rowCellTestId(item.recordId, "timeline.summary")),
       ).toHaveValue(item.value);
     }
     await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(

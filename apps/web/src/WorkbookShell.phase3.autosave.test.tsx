@@ -1,4 +1,10 @@
 import {
+  rowCellTestId,
+  rowInspectButtonTestId,
+  rowInspectorFieldTestId,
+  timelineRowVersionTestId,
+} from "@cartulary/ui-contracts";
+import {
   cleanup,
   fireEvent,
   render,
@@ -163,7 +169,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
 
     const summaryInput = (await screen.findByTestId(
-      "row-record-1-summary",
+      rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "Updated via enter");
     fireEvent.keyDown(summaryInput, { key: "Enter" });
@@ -177,14 +183,14 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       value: "Updated via enter",
     });
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "2",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("2");
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
 
     const tabInput = (await screen.findByTestId(
-      "row-record-1-summary",
+      rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
     await changeInputValue(tabInput, "Updated via tab");
     fireEvent.keyDown(tabInput, { key: "Tab" });
@@ -198,14 +204,14 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       value: "Updated via tab",
     });
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "3",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("3");
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
 
     const blurInput = (await screen.findByTestId(
-      "row-record-1-summary",
+      rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
     await changeInputValue(blurInput, "Updated via blur");
     fireEvent.blur(blurInput);
@@ -235,13 +241,15 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       }),
     );
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "4",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("4");
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
 
-    fireEvent.click(await screen.findByTestId("row-record-1-inspect"));
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("record-1")),
+    );
     const sourceText = (await screen.findByLabelText(
       "Source Text",
     )) as HTMLTextAreaElement;
@@ -257,9 +265,9 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       value: "Pasted transcript",
     });
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "4",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("4");
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
 
@@ -293,7 +301,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
 
     const conflictInput = (await screen.findByTestId(
-      "row-record-1-summary",
+      rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
     fireEvent.focus(conflictInput);
     await changeInputValue(conflictInput, "Conflict value");
@@ -341,7 +349,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     await screen.findByTestId("save-state");
     const summaryInput = (await screen.findByTestId(
-      "row-record-1-summary",
+      rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
 
     setInputValueWithoutEvent(summaryInput, `Stale-proof ${key}`);
@@ -396,7 +404,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     await screen.findByTestId("save-state");
     const summaryInput = (await screen.findByTestId(
-      "row-record-1-summary",
+      rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
 
     setInputValueWithoutEvent(summaryInput, "Pasted stale-proof summary");
@@ -535,14 +543,16 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "2",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("2");
     });
 
-    fireEvent.click(await screen.findByTestId("row-record-1-inspect"));
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("record-1")),
+    );
     const detailsInput = (await screen.findByTestId(
-      "row-record-1-details-inspector",
+      rowInspectorFieldTestId("record-1", "timeline.details"),
     )) as HTMLTextAreaElement;
     await changeInputValue(detailsInput, "Material edit after review");
     fireEvent.blur(detailsInput);
@@ -561,9 +571,9 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "3",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("3");
     });
 
     fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
@@ -646,9 +656,11 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       />,
     );
 
-    fireEvent.click(await screen.findByTestId("row-record-1-inspect"));
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("record-1")),
+    );
     const detailsInput = (await screen.findByTestId(
-      "row-record-1-details-inspector",
+      rowInspectorFieldTestId("record-1", "timeline.details"),
     )) as HTMLTextAreaElement;
     await changeInputValue(detailsInput, "Material edit after review");
     fireEvent.blur(detailsInput);
@@ -696,12 +708,13 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       replacement_record_id: "record-2",
     });
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-capture-state").textContent).toBe(
-        "superseded",
-      );
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "4",
-      );
+      expect(
+        screen.getByTestId(rowCellTestId("record-1", "timeline.capture_state"))
+          .textContent,
+      ).toBe("superseded");
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("4");
     });
   });
 
@@ -863,7 +876,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     await screen.findByTestId("save-state");
 
     const summaryInput = (await screen.findByTestId(
-      "row-record-1-summary",
+      rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "Pending deduplicated summary");
     fireEvent.keyDown(summaryInput, { key: "Enter" });
@@ -899,9 +912,9 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "2",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("2");
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
     await new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -944,7 +957,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     await screen.findByTestId("save-state");
 
     const summaryInput = (await screen.findByTestId(
-      "row-record-1-summary",
+      rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "First pending summary");
     fireEvent.keyDown(summaryInput, { key: "Enter" });
@@ -992,9 +1005,9 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       ],
     });
     await waitFor(() => {
-      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
-        "3",
-      );
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("3");
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
   });

@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   changeInputValue,
+  timelineViewSchemaId,
   waitForWorkbookRows,
 } from "./timelineWorkbookTestSupport";
 
@@ -24,8 +25,8 @@ function DelayedWorkbookRows() {
 
   return (
     <section>
-      <select data-testid={gridFilterFieldTestId("timeline")} />
-      <table data-testid={gridShellTestId("timeline")}>
+      <select data-testid={gridFilterFieldTestId(timelineViewSchemaId)} />
+      <table data-testid={gridShellTestId(timelineViewSchemaId)}>
         <tbody>
           {mounted ? (
             // biome-ignore lint/a11y/noRedundantRoles: shared grid selectors intentionally target explicit row roles.
@@ -57,7 +58,7 @@ describe("timeline workbook test support", () => {
     await waitForWorkbookRows({
       container,
       expectedRecordIds: ["record-delayed"],
-      surface: "timeline",
+      surface: timelineViewSchemaId,
     });
   });
 

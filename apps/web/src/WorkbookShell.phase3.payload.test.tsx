@@ -1,4 +1,11 @@
-import { gridDraftRowSelector, gridShellTestId } from "@cartulary/ui-contracts";
+import {
+  draftCellTestId,
+  draftRowCreateButtonTestId,
+  gridDraftRowSelector,
+  gridShellTestId,
+  rowCellTestId,
+  timelineRowVersionTestId,
+} from "@cartulary/ui-contracts";
 import {
   act,
   fireEvent,
@@ -76,14 +83,14 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
 
     expect((await screen.findByTestId("save-state")).textContent).toBe("Saved");
 
-    const gridShell = screen.getByTestId(gridShellTestId("timeline"));
+    const gridShell = screen.getByTestId(gridShellTestId(timelineViewSchemaId));
     const draftRows = Array.from(
       gridShell.querySelectorAll<HTMLDivElement>(gridDraftRowSelector()),
     );
     const draftGridRow = draftRows.at(-1);
     expect(draftGridRow).toBeTruthy();
     const createButton = within(draftGridRow as HTMLDivElement).getByTestId(
-      "draft-row-create",
+      draftRowCreateButtonTestId(),
     );
     fireEvent.mouseDown(createButton);
     fireEvent.mouseDown(createButton);
@@ -119,16 +126,19 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
     });
 
     const committedSummary = (await screen.findByTestId(
-      "row-record-zero-summary",
+      rowCellTestId("record-zero", "timeline.summary"),
     )) as HTMLInputElement;
     expect(committedSummary.value).toBe("");
     expect(
-      screen.getByTestId("row-record-zero-capture-state").textContent,
+      screen.getByTestId(rowCellTestId("record-zero", "timeline.capture_state"))
+        .textContent,
     ).toBe("rough");
-    expect(screen.getByTestId("row-record-zero-row-version").textContent).toBe(
-      "1",
-    );
-    expect(screen.getByTestId("draft-row-summary")).toBeTruthy();
+    expect(
+      screen.getByTestId(timelineRowVersionTestId("record-zero")).textContent,
+    ).toBe("1");
+    expect(
+      screen.getByTestId(draftCellTestId("timeline.summary")),
+    ).toBeTruthy();
     await waitFor(() => {
       expect(screen.getByTestId("save-state").textContent).toBe("Saved");
       expect(visibleGridRows(document.body)).toHaveLength(1);

@@ -47,7 +47,7 @@ export type GridAnchorCommandScenario = {
 };
 
 export function gridAnchorCommandScenarios(
-  surface: WorkbookSurface = "timeline",
+  surface: WorkbookSurface,
 ): readonly GridAnchorCommandScenario[] {
   return [
     {

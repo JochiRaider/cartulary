@@ -1,7 +1,49 @@
 export type WorkbookSurface = string;
 
-export function gridShellTestId(surface: WorkbookSurface): string {
-  return `${surface}-grid-shell`;
+export type EntityType = "host" | "identity";
+
+export const entityTypes = [
+  "host",
+  "identity",
+] as const satisfies readonly EntityType[];
+
+export type EntityMentionResolutionStatus =
+  | "dismissed"
+  | "resolved"
+  | "unresolved";
+
+export const entityMentionResolutionStatuses = [
+  "unresolved",
+  "resolved",
+  "dismissed",
+] as const satisfies readonly EntityMentionResolutionStatus[];
+
+export type RowHistoryRollbackAction =
+  | "change_set"
+  | "history_entry"
+  | "row_restore";
+
+export type RowHistoryItemAnchor = {
+  readonly changeSetId: string;
+  readonly historyEntryRef?: string | null | undefined;
+  readonly operation: string;
+  readonly revisionNo?: number | null;
+};
+
+export type RowHistoryActionAnchor = RowHistoryItemAnchor & {
+  readonly action: RowHistoryRollbackAction;
+};
+
+export function gridShellTestId(viewSchemaId: WorkbookSurface): string {
+  return `${requireViewSchemaId(viewSchemaId)}-grid-shell`;
+}
+
+export function surfaceTabTestId(viewSchemaId: string): string {
+  return `surface-tab-${requireViewSchemaId(viewSchemaId)}`;
+}
+
+export function systemViewSelectorTestId(): string {
+  return "system-view-selector";
 }
 
 export function gridScrollportClassName(): string {
@@ -12,8 +54,8 @@ export function gridScrollportSelector(): string {
   return `.${gridScrollportClassName()}`;
 }
 
-export function gridActionsHeaderTestId(surface: WorkbookSurface): string {
-  return `${surface}-actions-header`;
+export function gridActionsHeaderTestId(viewSchemaId: WorkbookSurface): string {
+  return `${requireViewSchemaId(viewSchemaId)}-actions-header`;
 }
 
 /**
@@ -22,6 +64,12 @@ export function gridActionsHeaderTestId(surface: WorkbookSurface): string {
  */
 export function gridSavedRowsSelector(): string {
   return '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])';
+}
+
+export function gridSavedRowSelector(recordId: string): string {
+  return `[role="row"][data-grid-record-id="${cssAttributeValue(
+    requireNonEmptySelectorValue(recordId, "record_id"),
+  )}"]`;
 }
 
 /**
@@ -36,18 +84,18 @@ export function conflictMarkerTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return `conflict-marker-${sanitizeToken(`${recordId}:${fieldKey}`)}`;
+  return `conflict-marker-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}`;
 }
 
 export function rowPresenceMarkerTestId(recordId: string): string {
-  return `presence-row-${sanitizeToken(recordId)}`;
+  return `presence-row-${requireRecordId(recordId)}`;
 }
 
 export function cellPresenceMarkerTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return `presence-cell-${sanitizeToken(`${recordId}:${fieldKey}`)}`;
+  return `presence-cell-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}`;
 }
 
 export function saveStateTestId(): string {
@@ -63,45 +111,54 @@ export function pendingQueueCountTestId(): string {
 }
 
 export function gridSortHeaderTestId(
-  surface: WorkbookSurface,
+  viewSchemaId: WorkbookSurface,
   fieldKey: string,
 ): string {
-  return `${surface}-sort-${sanitizeToken(fieldKey)}`;
+  return `${requireViewSchemaId(viewSchemaId)}-sort-${requireFieldKey(fieldKey)}`;
 }
 
 export function gridFilterChipTestId(
-  surface: WorkbookSurface,
+  viewSchemaId: WorkbookSurface,
   fieldKey: string,
 ): string {
-  return `${surface}-filter-chip-${sanitizeToken(fieldKey)}`;
+  return `${requireViewSchemaId(viewSchemaId)}-filter-chip-${requireFieldKey(fieldKey)}`;
 }
 
-export function gridFilterFieldTestId(surface: WorkbookSurface): string {
-  return `${surface}-filter-field`;
+export function gridFilterFieldTestId(viewSchemaId: WorkbookSurface): string {
+  return `${requireViewSchemaId(viewSchemaId)}-filter-field`;
 }
 
-export function gridFilterValueTestId(surface: WorkbookSurface): string {
-  return `${surface}-filter-value`;
+export function gridFilterValueTestId(viewSchemaId: WorkbookSurface): string {
+  return `${requireViewSchemaId(viewSchemaId)}-filter-value`;
 }
 
-export function gridFilterApplyTestId(surface: WorkbookSurface): string {
-  return `${surface}-filter-apply`;
+export function gridFilterApplyTestId(viewSchemaId: WorkbookSurface): string {
+  return `${requireViewSchemaId(viewSchemaId)}-filter-apply`;
 }
 
-export function gridGroupingSelectTestId(surface: WorkbookSurface): string {
-  return `${surface}-group-by`;
+export function gridGroupingSelectTestId(
+  viewSchemaId: WorkbookSurface,
+): string {
+  return `${requireViewSchemaId(viewSchemaId)}-group-by`;
 }
 
 export function gridGroupRowTestId(
-  surface: WorkbookSurface,
+  viewSchemaId: WorkbookSurface,
   fieldKey: string,
   value: string,
 ): string {
-  return `${surface}-group-${sanitizeToken(fieldKey)}-${sanitizeToken(value)}`;
+  return `${requireViewSchemaId(viewSchemaId)}-group-${requireFieldKey(fieldKey)}-${encodeSelectorSegment(value, "group value")}`;
+}
+
+export function gridRowTestId(
+  viewSchemaId: WorkbookSurface,
+  recordId: string,
+): string {
+  return `grid-row-${requireViewSchemaId(viewSchemaId)}-${requireRecordId(recordId)}`;
 }
 
 export function rowCellTestId(recordId: string, fieldKey: string): string {
-  return `row-${recordId}-${fieldKey}`;
+  return `row-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}`;
 }
 
 export function rowInspectorFieldTestId(
@@ -112,24 +169,312 @@ export function rowInspectorFieldTestId(
 }
 
 export function rowInspectButtonTestId(recordId: string): string {
-  return `row-${recordId}-inspect`;
+  return `row-${requireRecordId(recordId)}-inspect`;
+}
+
+export function rowHistoryOpenButtonTestId(recordId: string): string {
+  return `row-history-open-${requireRecordId(recordId)}`;
+}
+
+export function rowHistoryOpenInspectorButtonTestId(recordId: string): string {
+  return `${rowHistoryOpenButtonTestId(recordId)}-inspector`;
+}
+
+export function rowHistoryItemTestId(anchor: RowHistoryItemAnchor): string {
+  return `row-history-item-${encodeSelectorSegment(
+    rowHistoryItemIdentity(anchor),
+    "row history item identity",
+  )}`;
+}
+
+export function rowHistoryActionTestId(anchor: RowHistoryActionAnchor): string {
+  const action = requireRowHistoryRollbackAction(anchor.action);
+  return `row-history-action-${encodeSelectorSegment(
+    rowHistoryActionIdentity(anchor),
+    "row history action identity",
+  )}-${action}`;
 }
 
 export function draftCellTestId(fieldKey: string): string {
-  return `draft-row-${fieldKey}`;
+  return `draft-row-${requireFieldKey(fieldKey)}`;
+}
+
+export function draftRowCreateButtonTestId(): string {
+  return "draft-row-create";
 }
 
 export function relationshipItemsTestId(
   recordId: string,
-  relationshipKey: string,
+  fieldKey: string,
 ): string {
-  return `row-${recordId}-${relationshipKey}-items`;
+  return `row-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}-items`;
+}
+
+export function draftRelationshipItemsTestId(fieldKey: string): string {
+  return `draft-row-${requireFieldKey(fieldKey)}-items`;
+}
+
+export function timelineCollectionInputTestId(
+  recordId: string,
+  fieldKey: string,
+): string {
+  return `row-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}-input`;
+}
+
+export function draftTimelineCollectionInputTestId(fieldKey: string): string {
+  return `draft-row-${requireFieldKey(fieldKey)}-input`;
 }
 
 export function timelineRowVersionTestId(recordId: string): string {
-  return `row-${recordId}-row-version`;
+  return rowCellTestId(recordId, "row_version");
 }
 
-function sanitizeToken(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
+export function timelineRowMarkReviewedButtonTestId(recordId: string): string {
+  return `row-${requireRecordId(recordId)}-mark-reviewed`;
+}
+
+export function timelineRowReplacementInputTestId(recordId: string): string {
+  return `row-${requireRecordId(recordId)}-replacement-id`;
+}
+
+export function timelineRowSupersedeButtonTestId(recordId: string): string {
+  return `row-${requireRecordId(recordId)}-supersede`;
+}
+
+export function timelineEvidenceFileInputTestId(recordId: string): string {
+  return `timeline-evidence-file-${requireRecordId(recordId)}`;
+}
+
+export function timelineDraftEvidenceFileInputTestId(): string {
+  return "timeline-evidence-file-draft";
+}
+
+export function timelineEvidenceAttachSectionTestId(recordId: string): string {
+  return `timeline-evidence-attach-${requireRecordId(recordId)}`;
+}
+
+export function timelineDraftEvidenceAttachSectionTestId(): string {
+  return "timeline-evidence-attach-draft";
+}
+
+export function timelinePreviewRowTestId(recordId: string): string {
+  return `timeline-preview-row-${requireRecordId(recordId)}`;
+}
+
+export function relationshipChipTestId(itemRef: string): string {
+  return `chip-${requireItemRef(itemRef)}`;
+}
+
+export function mentionItemTestId(itemRef: string): string {
+  return `mention-${requireItemRef(itemRef)}`;
+}
+
+export function autoResolutionNoticeTestId(itemRef: string): string {
+  return `auto-resolution-notice-${requireItemRef(itemRef)}`;
+}
+
+export function autoResolutionUndoButtonTestId(itemRef: string): string {
+  return `${autoResolutionNoticeTestId(itemRef)}-undo`;
+}
+
+export function autoResolutionReviewButtonTestId(itemRef: string): string {
+  return `${autoResolutionNoticeTestId(itemRef)}-review`;
+}
+
+export function pasteConflictItemTestId(itemKey: string): string {
+  return `paste-conflict-item-${encodeSelectorSegment(itemKey, "paste conflict key")}`;
+}
+
+export function entityMentionResolutionStatusTestId(value: string): string {
+  return `entity-mention-resolution-status-${requireEntityMentionResolutionStatus(value)}`;
+}
+
+export function entityInspectButtonTestId(
+  entityType: EntityType,
+  recordId: string,
+): string {
+  return `inspect-${requireEntityType(entityType)}-${requireRecordId(recordId)}`;
+}
+
+export function entityInspectorTestId(entityType: EntityType): string {
+  return `${requireEntityType(entityType)}-inspector`;
+}
+
+export function assessmentCreatePanelTestId(): string {
+  return "assessment-create-panel";
+}
+
+export function evidencePreviewButtonTestId(recordId: string): string {
+  return `evidence-preview-${requireRecordId(recordId)}`;
+}
+
+export function evidenceDownloadButtonTestId(recordId: string): string {
+  return `evidence-download-${requireRecordId(recordId)}`;
+}
+
+export function evidenceAttachFileInputTestId(recordId: string): string {
+  return `evidence-attach-file-${requireRecordId(recordId)}`;
+}
+
+export function evidenceAccessMessageTestId(recordId: string): string {
+  return `evidence-access-message-${requireRecordId(recordId)}`;
+}
+
+export function evidencePreviewFrameTestId(recordId: string): string {
+  return `evidence-preview-frame-${requireRecordId(recordId)}`;
+}
+
+export function genericCreateFieldTestId(fieldKey: string): string {
+  return `generic-create-field-${requireFieldKey(fieldKey)}`;
+}
+
+export function genericCreateSubmitTestId(viewSchemaId: string): string {
+  return `generic-create-submit-${requireViewSchemaId(viewSchemaId)}`;
+}
+
+export function genericEditRecordSelectTestId(viewSchemaId: string): string {
+  return `generic-edit-record-${requireViewSchemaId(viewSchemaId)}`;
+}
+
+export function genericEditFieldSelectTestId(viewSchemaId: string): string {
+  return `generic-edit-field-${requireViewSchemaId(viewSchemaId)}`;
+}
+
+export function genericEditActionSelectTestId(viewSchemaId: string): string {
+  return `generic-edit-action-${requireViewSchemaId(viewSchemaId)}`;
+}
+
+export function genericEditValueTestId(viewSchemaId: string): string {
+  return `generic-edit-value-${requireViewSchemaId(viewSchemaId)}`;
+}
+
+export function genericEditSubmitTestId(viewSchemaId: string): string {
+  return `generic-edit-submit-${requireViewSchemaId(viewSchemaId)}`;
+}
+
+export function mentionResolveTargetSelectTestId(): string {
+  return "inspector-resolve-target";
+}
+
+export function mentionResolveExistingButtonTestId(): string {
+  return "inspector-resolve-existing";
+}
+
+export function mentionCreateEntityButtonTestId(
+  entityType: EntityType,
+): string {
+  return `inspector-create-${requireEntityType(entityType)}`;
+}
+
+export function mentionDismissButtonTestId(): string {
+  return "inspector-dismiss-mention";
+}
+
+export function mentionRestoreUnresolvedButtonTestId(): string {
+  return "inspector-restore-unresolved";
+}
+
+function requireViewSchemaId(value: string): string {
+  const encoded = encodeSelectorSegment(value, "view_schema_id");
+  if (
+    !/^cartulary\.view\.[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*\.v[1-9][0-9]*$/u.test(
+      value,
+    )
+  ) {
+    throw new Error(`Invalid view_schema_id selector token: ${value}`);
+  }
+  return encoded;
+}
+
+function requireFieldKey(value: string): string {
+  const encoded = encodeSelectorSegment(value, "field_key");
+  if (!/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/u.test(value)) {
+    throw new Error(`Invalid field_key selector token: ${value}`);
+  }
+  return encoded;
+}
+
+function requireRecordId(value: string): string {
+  return encodeSelectorSegment(value, "record_id");
+}
+
+function requireItemRef(value: string): string {
+  return encodeSelectorSegment(value, "item_ref");
+}
+
+function encodeSelectorSegment(value: string, label: string): string {
+  return encodeURIComponent(requireNonEmptySelectorValue(value, label));
+}
+
+function requireNonEmptySelectorValue(value: string, label: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Invalid ${label} selector token: ${value}`);
+  }
+  return value;
+}
+
+function cssAttributeValue(value: string): string {
+  return value.replace(/\\/gu, "\\\\").replace(/"/gu, '\\"');
+}
+
+function requireEntityType(value: EntityType): EntityType {
+  if (value === "host" || value === "identity") {
+    return value;
+  }
+  throw new Error(`Invalid entity type selector token: ${value}`);
+}
+
+function requireEntityMentionResolutionStatus(
+  value: string,
+): EntityMentionResolutionStatus {
+  if (value === "unresolved" || value === "resolved" || value === "dismissed") {
+    return value;
+  }
+  throw new Error(`Invalid entity_mentions.resolution_status token: ${value}`);
+}
+
+function requireRowHistoryRollbackAction(
+  value: string,
+): RowHistoryRollbackAction {
+  if (
+    value === "change_set" ||
+    value === "history_entry" ||
+    value === "row_restore"
+  ) {
+    return value;
+  }
+  throw new Error(`Invalid row history rollback action token: ${value}`);
+}
+
+function rowHistoryItemIdentity(anchor: RowHistoryItemAnchor): string {
+  if (
+    typeof anchor.historyEntryRef === "string" &&
+    anchor.historyEntryRef !== ""
+  ) {
+    requireNonEmptySelectorValue(anchor.historyEntryRef, "history_entry_ref");
+    return `history-entry:${anchor.historyEntryRef}`;
+  }
+  return rowHistoryChangeSetIdentity(anchor);
+}
+
+function rowHistoryActionIdentity(anchor: RowHistoryActionAnchor): string {
+  if (
+    anchor.action === "history_entry" &&
+    typeof anchor.historyEntryRef === "string" &&
+    anchor.historyEntryRef !== ""
+  ) {
+    requireNonEmptySelectorValue(anchor.historyEntryRef, "history_entry_ref");
+    return `history-entry:${anchor.historyEntryRef}`;
+  }
+  return rowHistoryChangeSetIdentity(anchor);
+}
+
+function rowHistoryChangeSetIdentity(anchor: RowHistoryItemAnchor): string {
+  requireNonEmptySelectorValue(anchor.changeSetId, "change_set_id");
+  requireNonEmptySelectorValue(anchor.operation, "operation");
+  const revision =
+    typeof anchor.revisionNo === "number"
+      ? String(anchor.revisionNo)
+      : "unversioned";
+  return `change-set:${anchor.changeSetId}:revision:${revision}:operation:${anchor.operation}`;
 }

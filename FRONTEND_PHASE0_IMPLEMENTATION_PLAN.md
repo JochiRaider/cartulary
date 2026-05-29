@@ -27,7 +27,7 @@ The following facts were verified in the local repository during FE-P0 planning,
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md` exists as a generated companion ledger for the FE-P0 phase map.
 - `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P0` passes and reports `FE-P0` as `planned`; planned frontend phases are explainable but not executable.
 - `FE-U-P0-01`, `FE-U-P0-02`, and `FE-S-P0-03` have `claim_status=implemented` in the current phase map.
-- `FE-U-P0-03`, `FE-S-P0-01`, and `FE-S-P0-02` remain blocked.
+- `FE-S-P0-01` and `FE-S-P0-02` remain blocked under their support-row owners.
 - Package manifests exist for `/packages/protocol-ts`, `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/grid-adapter`, `/packages/test-utils`, and `/apps/web`.
 - `/packages/ui` exists only as a directory with `.gitkeep`; no `/packages/ui/package.json` was verified.
 - Target discovery verified these targets: `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, and `make phase-ledger-drift`.
@@ -43,8 +43,8 @@ Source limits:
 - `make frontend-import-boundary-check` was not run for this planning artifact and remains owned by `FE-S-P0-02`.
 - `make phase-ledgers` and `make phase-ledger-drift` passed during Sprint 2 closure after the `FE-U-P0-02` status change; generated ledgers were refreshed by the generator.
 - `make agent-finalize` passed during Sprint 2 closure and refreshed `tools/execution_topology_render_index.json` for the changed frontend phase manifest helper.
-- `TODO: owner lookup required` remains for the exact `Core 02 Section 5.3` anchor before using `FE-U-P0-03` for authoritative product-conformance completion.
-- The current FE-P0 phase map is generated-ledger-consistent. Product-row owner lookup remains unresolved for `FE-U-P0-03`; blocked rows require their own row-owned evidence before completion.
+- `FE-U-P0-03` now cites Core 02 Section 18 for `REQ-02-222` and `REQ-02-223`.
+- The current FE-P0 phase map is generated-ledger-consistent after running the ledger generator; blocked support rows require their own row-owned evidence before completion.
 
 ## Phase Objective
 
@@ -89,10 +89,10 @@ FE-P0 must introduce no user-observable product behavior by itself.
 
 | Done | Sprint | Primary validation | Blockers | Follow-up notes |
 | ---- | ------ | ------------------ | -------- | --------------- |
-| [x] | 0. Frontend phase manifest and ownership setup; owns `FE-S-P0-03` | `make phase-ledger-drift` | None for `FE-S-P0-03`; other FE-P0 rows remain blocked under their row owners | Use `PHASE_NAMESPACE=frontend PHASE=FE-P0`; never append FE rows to base `phaseN` maps |
+| [x] | 0. Frontend phase manifest and ownership setup; owns `FE-S-P0-03` | `make phase-ledger-drift` | None for `FE-S-P0-03`; remaining blocked FE-P0 rows are support rows under their owners | Use `PHASE_NAMESPACE=frontend PHASE=FE-P0`; never append FE rows to base `PHASE=phaseN` maps |
 | [x] | 1. Generated protocol facade and type-consumption baseline; owns `FE-U-P0-01` | `make frontend-typecheck`; `make frontend-unit` | None for `FE-U-P0-01`; Sprint 1 audit passed | Generated outputs were not hand-edited; generated-artifact checks were supporting evidence only |
 | [x] | 2. View-schema and `field_key` adapter contract; owns `FE-U-P0-02` | `make frontend-unit`; `make frontend-typecheck` | None for `FE-U-P0-02`; owner trace corrected to Core 03 Section 14 | Adapters key fields by `field_key`, not labels, indexes, or visible order; duplicate-label coverage is present |
-| [ ] | 3. Stable selector and test-id builders; owns `FE-U-P0-03` | `make frontend-unit` | Row blocked; `TODO: owner lookup required` for exact Core 02 Section 5.3 heading before product-conformance completion | Builders must derive from stable IDs and closed vocabularies |
+| [x] | 3. Stable selector and test-id builders; owns `FE-U-P0-03` | `make frontend-unit` | None for `FE-U-P0-03`; owner trace corrected to Core 02 Section 18 | Builders derive from stable IDs, canonical `view_schema_id`, `field_key`, item refs, and closed vocabularies |
 | [ ] | 4. Generated-artifact policy, drift, and codegen hygiene; owns `FE-S-P0-01` | `make generated-artifact-policy-check`; `make generate-drift` | Row remains blocked under Sprint 4 ownership; Sprint 1 audit recorded passing supporting evidence only | Support-only evidence |
 | [ ] | 5. RDG import boundary and stylesheet ownership; owns `FE-S-P0-02` | `make frontend-import-boundary-check` | Row blocked; `/packages/ui` package surface is not fully present | `/apps/web` must consume `/packages/grid-adapter` and must not import RDG directly |
 | [ ] | 6. Frontend namespace, ledger drift, and phase-gate handoff; supports all FE-P0 rows | `make phase-ledger-drift`; row-specific commands above | No primary row ownership; handoff remains blocked until row owners complete or record precise blockers | Generated ledgers must be produced, not hand-edited |
@@ -102,8 +102,7 @@ FE-P0 must introduce no user-observable product behavior by itself.
 - Controlling FE-P0 guide: `docs/guides/cartulary_frontend_implementation_testing_guide.md`, Phase `FE-P0`.
 - FE-P0 rows: `FE-U-P0-01`, `FE-U-P0-02`, `FE-U-P0-03`, `FE-S-P0-01`, `FE-S-P0-02`, `FE-S-P0-03`.
 - Core owner documents: `docs/spec/00_document_set_status_and_precedence.md`, `docs/spec/01_architecture_storage_and_view_contracts.md`, `docs/spec/02_domain_model_schema_and_history.md`, `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`, `docs/spec/04_security_deployment_and_conformance.md`, and `docs/spec/05_claim_publication_and_benchmark_reproducibility.md`.
-- FE-P0 owner anchors cited by the frontend guide include Core 00 Section 1; Core 01 Sections 3.3.1, 3.3.4, and 7.4; Core 02 Section 5.3; Core 03 Section 14; development-guide Sections 2, 6.1, 6.2, 6.3, 6.4, 6.6, 6.8, 6.10, and 7.1; and implementation-guide Sections 14.8, 15, and 16.
-- `TODO: owner lookup required` applies to the exact Core 02 Section 5.3 anchor until that heading is located or corrected by owner text.
+- FE-P0 owner anchors cited by the frontend guide include Core 00 Section 1; Core 01 Sections 3.3.1, 3.3.4, and 7.4; Core 02 Section 18; Core 03 Section 14; development-guide Sections 2, 6.1, 6.2, 6.3, 6.4, 6.6, 6.8, 6.10, and 7.1; and implementation-guide Sections 14.8, 15, and 16.
 - Package surfaces: `/packages/protocol-ts`, `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/grid-adapter`, `/packages/test-utils`, `/packages/ui`, and `/apps/web`.
 - Generated boundaries: `/packages/protocol-ts/src/generated/**`, `/internal/gen/**`, generated frontend ledgers under `/docs/testing/frontend_phase_coverage_ledgers/**`, generated schedules, generated Make includes, `pnpm-lock.yaml`, and `go.sum`.
 - Command surface: `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, `make phase-ledger-drift`, and `git diff --check`.
@@ -114,7 +113,7 @@ FE-P0 must introduce no user-observable product behavior by itself.
 | --- | -------------- | -------------- | ------------ |
 | `FE-U-P0-01` | Unit | Product conformance | Generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code; completion must cite confirmed Core owners and ACs |
 | `FE-U-P0-02` | Unit | Product conformance | View-schema adapters key editable and queryable fields by `field_key`, not labels, indexes, or visible column order; completion evidence is recorded under Sprint 2 |
-| `FE-U-P0-03` | Unit | Product conformance | Stable selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels; completion is blocked until exact owner lookup is resolved |
+| `FE-U-P0-03` | Unit | Product conformance | Stable selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels; completion evidence is recorded under Sprint 3 |
 | `FE-S-P0-01` | Support | Implementation support | Generated protocol policy and generated contract drift are enforced; this must not be represented as product conformance |
 | `FE-S-P0-02` | Support | Implementation support | `/apps/web` consumes `/packages/grid-adapter` and does not import `react-data-grid` directly; this must not be represented as product conformance |
 | `FE-S-P0-03` | Support | Implementation support | Frontend phase rows are recorded in namespace-specific registry, map, and generated ledger mechanics before any phase-enforced completion claim; this must not be represented as product conformance |
@@ -127,7 +126,7 @@ FE-P0 must introduce no user-observable product behavior by itself.
 - Development-guide package boundaries govern `/apps/web`, `/packages/grid-adapter`, `/packages/ui-contracts`, `/packages/view-contracts`, `/packages/protocol-ts`, `/packages/test-utils`, and `/packages/ui`.
 - Make target availability was verified by target discovery; passing validation is not claimed for targets that were not run.
 - Phase-map and ledger machinery exists for the frontend namespace; `FE-U-P0-01`, `FE-U-P0-02`, and `FE-S-P0-03` are implemented.
-- FE-P0 remains blocked by the remaining row-owner work.
+- FE-P0 remains blocked only by the remaining support-row owner work.
 - Existing generated-artifact policy tooling exists; FE-P0 completion must run and record `make generated-artifact-policy-check` and `make generate-drift`.
 
 ## Public Interfaces and Deliverables
@@ -138,7 +137,7 @@ Deliverables are repository artifacts and validation surfaces:
 
 - `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md`, this planning artifact.
 - `tools/frontend_phase_registry.json`, existing frontend phase registry; any future update must preserve `phase_namespace="frontend"`.
-- `tools/frontend_phase_maps/fe_p0_test_map.json`, existing FE-P0 row map; `FE-U-P0-01`, `FE-U-P0-02`, and `FE-S-P0-03` are implemented, while product-row owner lookup remains TODO for `FE-U-P0-03` before product-conformance completion.
+- `tools/frontend_phase_maps/fe_p0_test_map.json`, existing FE-P0 row map; `FE-U-P0-01`, `FE-U-P0-02`, `FE-U-P0-03`, and `FE-S-P0-03` are implemented, while support rows `FE-S-P0-01` and `FE-S-P0-02` remain blocked under their owners.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md`, existing generated companion ledger; must not be hand-edited.
 - Package-boundary validation through `make frontend-import-boundary-check`.
 - Generated-artifact validation through `make generated-artifact-policy-check` and `make generate-drift`.
@@ -156,7 +155,7 @@ Deliverables are repository artifacts and validation surfaces:
 - Validation commands: `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P0`; `make phase-ledger-drift`; `git diff --check`.
 - Deliverables: Namespace-aware FE-P0 representation and generated ledger are present; remaining blockers belong to row-owner sprints outside Sprint 0.
 - Risks and assumptions: A drift pass only proves ledger/map agreement; it does not prove row completion.
-- Blockers and follow-up notes: No blocker remains for `FE-S-P0-03`. `FE-U-P0-03` still carries an owner-lookup TODO, and all incomplete non-Sprint 0 rows require their row-owned validation evidence before completion.
+- Blockers and follow-up notes: No blocker remains for `FE-S-P0-03`. Incomplete non-Sprint 0 support rows require their row-owned validation evidence before completion.
 
 ## Sprint 1: Generated Protocol Facade And Type-Consumption Baseline
 
@@ -187,15 +186,15 @@ Deliverables are repository artifacts and validation surfaces:
 ## Sprint 3: Stable Selector And Test-ID Builders
 
 - Objective: Ensure selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels.
-- Status: Not started; row remains blocked.
+- Status: Implemented for `FE-U-P0-03`.
 - Relevant IDs: Owns `FE-U-P0-03`.
 - Files and areas: `/packages/ui-contracts`, `/packages/test-utils`, frontend tests, and any consumer selectors in `/apps/web`.
-- Test-first sequence: Add or identify unit coverage proving stable IDs and closed vocabularies drive selectors; run `make frontend-unit`.
-- Implementation tasks: Keep selector/test-id construction deterministic; prohibit visible-label-derived selectors; use stable identifiers such as `record_id`, `field_key`, `view_schema_id`, and closed vocabularies where applicable.
+- Test-first sequence: Unit coverage proves stable IDs, strict validation, lossless variable encoding, and closed vocabularies drive selectors; run `make frontend-unit`.
+- Implementation tasks: Completed: selector/test-id construction is centralized in `/packages/ui-contracts`; workbook runtime and tests consume canonical `view_schema_id`, `field_key`, `record_id`, item refs, and closed vocabularies where applicable.
 - Validation commands: `make frontend-unit`.
-- Deliverables: Selector/test-id contract evidence, or exact blocker records.
-- Risks and assumptions: Existing selector helpers were observed, but FE-P0 row completion needs current unit evidence.
-- Blockers and follow-up notes: `TODO: owner lookup required` for exact Core 02 Section 5.3 heading before product-conformance completion.
+- Deliverables: Selector/test-id contract evidence and migrated workbook selector consumers.
+- Risks and assumptions: `data-testid` strings are internal test contracts, not public compatibility commitments.
+- Blockers and follow-up notes: No blocker remains for `FE-U-P0-03`.
 
 ## Sprint 4: Generated-Artifact Policy, Drift, And Codegen Hygiene
 
@@ -254,10 +253,10 @@ For every failed validation command or missing prerequisite, record:
 | Criterion | Current status |
 | --------- | -------------- |
 | The plan file exists and states that it is not behavior authority | Satisfied by this file once committed or otherwise accepted |
-| FE-P0 is represented in the frontend phase namespace or a precise blocker prevents that representation | Present: registry, map, and ledger exist; three rows are implemented and remaining rows stay blocked |
-| `tools/frontend_phase_maps/fe_p0_test_map.json` or equivalent planned manifest covers every FE-P0 row exactly once | Present by local inspection; owner lookup remains TODO for `FE-U-P0-03` |
+| FE-P0 is represented in the frontend phase namespace or a precise blocker prevents that representation | Present: registry, map, and ledger exist; four rows are implemented and remaining support rows stay blocked |
+| `tools/frontend_phase_maps/fe_p0_test_map.json` or equivalent planned manifest covers every FE-P0 row exactly once | Present by local inspection; `FE-U-P0-03` owner refs point to Core 01 Section 7.4, Core 02 Section 18, and development guide Section 6.4 |
 | Generated frontend ledger behavior is present or explicitly blocked; any generated ledger is produced by a generator and not hand-edited | Present; `make phase-ledger-drift` passed during Sprint 0 audit inspection |
-| `FE-U-P0-01`, `FE-U-P0-02`, and `FE-U-P0-03` have direct unit/typecheck evidence or explicit blockers | Partially satisfied: the first two unit rows have direct passing unit/typecheck evidence; `FE-U-P0-03` remains blocked |
+| `FE-U-P0-01`, `FE-U-P0-02`, and `FE-U-P0-03` have direct unit/typecheck evidence or explicit blockers | Satisfied for all three FE-P0 unit rows |
 | `FE-S-P0-01`, `FE-S-P0-02`, and `FE-S-P0-03` have implementation-support validation or explicit blockers | Partially satisfied: `FE-S-P0-03` is implemented with phase-ledger drift evidence; `FE-S-P0-01` and `FE-S-P0-02` remain blocked under later sprints |
 | `/apps/web` direct `react-data-grid` imports are prohibited or the absence of an enforcement target is recorded as a blocker | Target exists; completion requires `make frontend-import-boundary-check` |
 | Generated protocol artifacts are not hand-edited | Satisfied for Sprint 1: generated markers observed, no generated protocol diff found, and policy/drift checks passed |

@@ -109,7 +109,9 @@ describe("Phase 5 workbook evidence coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(screen.getByTestId(gridShellTestId("timeline"))).toBeTruthy();
+    expect(
+      screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeTruthy();
     await waitFor(() => {
       const committedRow = visibleGridRows(container).find(
         (row) => row.getAttribute("data-grid-record-id") === "timeline-1",

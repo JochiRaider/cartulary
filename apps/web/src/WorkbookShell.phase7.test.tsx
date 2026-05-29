@@ -1,4 +1,9 @@
 import {
+  rowHistoryActionTestId,
+  rowHistoryItemTestId,
+  rowHistoryOpenButtonTestId,
+} from "@cartulary/ui-contracts";
+import {
   cleanup,
   fireEvent,
   render,
@@ -66,6 +71,28 @@ function historyEnvelope(options: {
   });
 }
 
+function historyItemTestId(item: RecordHistoryItem) {
+  return rowHistoryItemTestId({
+    changeSetId: item.change_set_id,
+    historyEntryRef: item.history_entry_ref,
+    operation: item.operation,
+    revisionNo: item.revision_no ?? null,
+  });
+}
+
+function historyActionTestId(
+  item: RecordHistoryItem,
+  action: "change_set" | "history_entry" | "row_restore",
+) {
+  return rowHistoryActionTestId({
+    action,
+    changeSetId: item.change_set_id,
+    historyEntryRef: item.history_entry_ref,
+    operation: item.operation,
+    revisionNo: item.revision_no ?? null,
+  });
+}
+
 describe("Phase 7 workbook history support coverage", () => {
   let fetchMock: TimelineWorkbookFetchMock;
 
@@ -79,6 +106,11 @@ describe("Phase 7 workbook history support coverage", () => {
   });
 
   it("opens row-centric history from a selected workbook row and renders server metadata only", async () => {
+    const historyRecord = historyItem({
+      available_rollback_actions: ["change_set", "row_restore"],
+      history_entry_ref: "href_hidden_because_not_advertised",
+      revision_no: 3,
+    });
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
@@ -96,21 +128,20 @@ describe("Phase 7 workbook history support coverage", () => {
       )
       .mockResolvedValueOnce(
         historyEnvelope({
-          items: [
-            historyItem({
-              available_rollback_actions: ["change_set", "row_restore"],
-              history_entry_ref: "href_hidden_because_not_advertised",
-              revision_no: 3,
-            }),
-          ],
+          items: [historyRecord],
         }),
       );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
-    fireEvent.click(screen.getByTestId("row-history-open-record-1"));
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
+    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
 
-    await screen.findByTestId("row-history-item-0");
+    await screen.findByTestId(historyItemTestId(historyRecord));
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/records/record-1/history",
       expect.objectContaining({ headers: expect.any(Object) }),
@@ -125,10 +156,28 @@ describe("Phase 7 workbook history support coverage", () => {
       "field_update timeline_record",
     );
     expect(
-      screen.queryByTestId("row-history-action-0-history_entry"),
+      screen.queryByTestId(
+        historyActionTestId(
+          historyItem({
+            available_rollback_actions: ["change_set", "row_restore"],
+            history_entry_ref: "href_hidden_because_not_advertised",
+            revision_no: 3,
+          }),
+          "history_entry",
+        ),
+      ),
     ).toBeNull();
-    expect(screen.getByTestId("row-history-action-0-change_set")).toBeTruthy();
-    expect(screen.getByTestId("row-history-action-0-row_restore")).toBeTruthy();
+    const advertisedItem = historyItem({
+      available_rollback_actions: ["change_set", "row_restore"],
+      history_entry_ref: "href_hidden_because_not_advertised",
+      revision_no: 3,
+    });
+    expect(
+      screen.getByTestId(historyActionTestId(advertisedItem, "change_set")),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(historyActionTestId(advertisedItem, "row_restore")),
+    ).toBeTruthy();
   });
 
   it("builds rollback targets only from advertised server actions and selectors", () => {
@@ -203,10 +252,20 @@ describe("Phase 7 workbook history support coverage", () => {
       );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
-    fireEvent.click(screen.getByTestId("row-history-open-record-1"));
-    await screen.findByTestId("row-history-action-0-history_entry");
-    fireEvent.click(screen.getByTestId("row-history-action-0-history_entry"));
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
+    const rollbackItem = historyItem();
+    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await screen.findByTestId(
+      historyActionTestId(rollbackItem, "history_entry"),
+    );
+    fireEvent.click(
+      screen.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
+    );
 
     await waitFor(() => {
       expect(
@@ -296,8 +355,13 @@ describe("Phase 7 workbook history support coverage", () => {
       );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
-    fireEvent.click(screen.getByTestId("row-history-open-record-1"));
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
+    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
     await screen.findByTestId("row-history-delete");
     fireEvent.click(screen.getByTestId("row-history-delete"));
 
@@ -315,7 +379,12 @@ describe("Phase 7 workbook history support coverage", () => {
     });
 
     fireEvent.click(screen.getByTestId("row-history-restore"));
-    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
     const restoreCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
       String(url).endsWith("/api/v1/records/record-1/restore"),
     );
@@ -325,6 +394,7 @@ describe("Phase 7 workbook history support coverage", () => {
   });
 
   it("keeps workbook continuity through ordinary remove and invalidate socket updates", async () => {
+    const historyRecord = historyItem();
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
@@ -340,7 +410,9 @@ describe("Phase 7 workbook history support coverage", () => {
           ],
         }),
       )
-      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 1 }))
+      .mockResolvedValueOnce(
+        historyEnvelope({ items: [historyRecord], rowVersion: 1 }),
+      )
       .mockResolvedValueOnce(
         successEnvelope({
           incident_id: "incident-1",
@@ -364,9 +436,14 @@ describe("Phase 7 workbook history support coverage", () => {
       );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await findWorkbookCell(document.body, "timeline", "record-1", "summary");
-    fireEvent.click(screen.getByTestId("row-history-open-record-1"));
-    await screen.findByTestId("row-history-item-0");
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
+    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await screen.findByTestId(historyItemTestId(historyRecord));
 
     latestTimelineWebSocket()?.emit({
       type: "record_changed",
@@ -410,12 +487,17 @@ describe("Phase 7 workbook history support coverage", () => {
     });
 
     await waitFor(() => {
-      expect(visibleGridRowRecordIds(container, "timeline")).toEqual([
+      expect(visibleGridRowRecordIds(container, timelineViewSchemaId)).toEqual([
         "record-1",
       ]);
     });
     expect(
-      await findWorkbookCell(container, "timeline", "record-1", "summary"),
+      await findWorkbookCell(
+        container,
+        timelineViewSchemaId,
+        "record-1",
+        "timeline.summary",
+      ),
     ).toBeTruthy();
   });
 });

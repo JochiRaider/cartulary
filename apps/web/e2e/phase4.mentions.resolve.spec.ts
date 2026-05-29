@@ -1,4 +1,12 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
+import {
+  mentionCreateEntityButtonTestId,
+  mentionItemTestId,
+  mentionResolveExistingButtonTestId,
+  mentionResolveTargetSelectTestId,
+  relationshipItemsTestId,
+  rowCellTestId,
+} from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
 import {
@@ -24,7 +32,6 @@ import {
   openTimelineInspector,
   readTimelineMutation,
   requireItemByRawText,
-  sanitizeTestId,
   timelineViewSchemaId,
   type ViewRow,
   waitForTimelinePatch,
@@ -73,7 +80,10 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
-  const mainSummaryTestId = `row-${mainRow.record_id}-summary`;
+  const mainSummaryTestId = rowCellTestId(
+    mainRow.record_id,
+    "timeline.summary",
+  );
   await ensureTimelineGridTargetVisible(page, mainSummaryTestId);
   await expect(page.getByTestId(mainSummaryTestId)).toHaveValue(
     "E-4-01 workbook row",
@@ -102,31 +112,33 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
 
   await expect(
     page
-      .getByTestId(`row-${mainRow.record_id}-hostRefs-items`)
+      .getByTestId(relationshipItemsTestId(mainRow.record_id, hostRefsFieldKey))
       .getByLabel("Unresolved WS-023?"),
   ).toBeVisible();
   await expect(
     page
-      .getByTestId(`row-${mainRow.record_id}-identityRefs-items`)
+      .getByTestId(
+        relationshipItemsTestId(mainRow.record_id, identityRefsFieldKey),
+      )
       .getByLabel("Unresolved vpn.user@example.test"),
   ).toBeVisible();
 
   await openTimelineInspector(page, mainRow.record_id);
   await page
-    .getByTestId(`mention-${sanitizeTestId(String(hostMention.item_ref))}`)
+    .getByTestId(mentionItemTestId(String(hostMention.item_ref)))
     .click();
   await expect(page.getByTestId("timeline-inspector")).toContainText(
     "Raw token",
   );
   await expect(page.getByTestId("timeline-inspector")).toContainText("WS-023?");
 
-  const resolveScroll = await scrollGridToBottom(page, "timeline");
+  const resolveScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   await expectNoPendingQueueAuthPause(page, "before resolving host mention");
   const resolveResponsePromise = waitForTimelinePatch(page, mainRow.record_id);
   await page
-    .getByTestId("inspector-resolve-target")
+    .getByTestId(mentionResolveTargetSelectTestId())
     .selectOption(existingHost.record_id);
-  await page.getByRole("button", { name: "Resolve to existing" }).click();
+  await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const resolveEnvelope = await readTimelineMutation(
     await resolveResponsePromise,
   );
@@ -137,22 +149,22 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
 
   await expect(
     page
-      .getByTestId(`row-${mainRow.record_id}-hostRefs-items`)
+      .getByTestId(relationshipItemsTestId(mainRow.record_id, hostRefsFieldKey))
       .getByLabel("Resolved WS-023"),
   ).toBeVisible();
   await expectTimelineContinuity(page, mainRow.record_id, resolveScroll);
 
   await page
-    .getByTestId(`mention-${sanitizeTestId(String(identityMention.item_ref))}`)
+    .getByTestId(mentionItemTestId(String(identityMention.item_ref)))
     .click();
   await expect(page.getByTestId("timeline-inspector")).toContainText(
     "vpn.user@example.test",
   );
 
-  const createScroll = await scrollGridToBottom(page, "timeline");
+  const createScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   await expectNoPendingQueueAuthPause(page, "before creating identity mention");
   const createResponsePromise = waitForTimelinePatch(page, mainRow.record_id);
-  await page.getByRole("button", { name: "Create identity" }).click();
+  await page.getByTestId(mentionCreateEntityButtonTestId("identity")).click();
   const createEnvelope = await readTimelineMutation(
     await createResponsePromise,
   );
@@ -166,7 +178,9 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
 
   await expect(
     page
-      .getByTestId(`row-${mainRow.record_id}-identityRefs-items`)
+      .getByTestId(
+        relationshipItemsTestId(mainRow.record_id, identityRefsFieldKey),
+      )
       .getByLabel("Resolved vpn.user@example.test"),
   ).toBeVisible();
   await expectTimelineContinuity(page, mainRow.record_id, createScroll);

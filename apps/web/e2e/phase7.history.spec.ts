@@ -1,4 +1,10 @@
-import { gridShellTestId, rowCellTestId } from "@cartulary/ui-contracts";
+import {
+  gridRowTestId,
+  gridShellTestId,
+  rowCellTestId,
+  rowHistoryActionTestId,
+  rowHistoryOpenButtonTestId,
+} from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -46,6 +52,19 @@ type HistoryData = {
   items: HistoryItem[];
 };
 
+function historyActionTestId(
+  item: HistoryItem,
+  action: HistoryItem["available_rollback_actions"][number],
+) {
+  return rowHistoryActionTestId({
+    action,
+    changeSetId: item.change_set_id,
+    historyEntryRef: item.history_entry_ref,
+    operation: item.operation,
+    revisionNo: item.revision_no ?? null,
+  });
+}
+
 test("E-7-01 opens row history from the workbook surface with legal rollback actions", async ({
   page,
 }) => {
@@ -72,7 +91,7 @@ test("E-7-01 opens row history from the workbook surface with legal rollback act
   const visibleItem = history.items[visibleItemIndex] as HistoryItem;
 
   await openTimelineSurface(page, incidentId);
-  await page.getByTestId(`row-history-open-${row.record_id}`).click();
+  await page.getByTestId(rowHistoryOpenButtonTestId(row.record_id)).click();
   await expect(page.getByTestId("row-history-panel")).toContainText(
     visibleItem.actor_user_id,
   );
@@ -88,7 +107,7 @@ test("E-7-01 opens row history from the workbook surface with legal rollback act
 
   for (const action of visibleItem.available_rollback_actions) {
     await expect(
-      page.getByTestId(`row-history-action-${visibleItemIndex}-${action}`),
+      page.getByTestId(historyActionTestId(visibleItem, action)),
     ).toBeVisible();
   }
 });
@@ -160,9 +179,9 @@ test("E-7-02 rolls back one attached-evidence mutation without reverting later u
     await openTimelineSurface(listener, incidentId);
     await socketMonitor.waitForMessage("hello_ack");
     await openTimelineSurface(page, incidentId);
-    await page.getByTestId(`row-history-open-${row.record_id}`).click();
+    await page.getByTestId(rowHistoryOpenButtonTestId(row.record_id)).click();
     await expect(
-      page.getByTestId(`row-history-action-${rollbackIndex}-history_entry`),
+      page.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
     ).toBeVisible();
     const rollbackResponse = page.waitForResponse(
       (response) =>
@@ -170,7 +189,7 @@ test("E-7-02 rolls back one attached-evidence mutation without reverting later u
         response.url().endsWith(`/api/v1/records/${row.record_id}/rollback`),
     );
     await page
-      .getByTestId(`row-history-action-${rollbackIndex}-history_entry`)
+      .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
       .click();
     const response = await rollbackResponse;
     expect(response.ok()).toBeTruthy();
@@ -234,7 +253,7 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
   await openTimelineSurface(listener, incidentId);
   await socketMonitor.waitForMessage("hello_ack");
   await openTimelineSurface(page, incidentId);
-  await page.getByTestId(`row-history-open-${row.record_id}`).click();
+  await page.getByTestId(rowHistoryOpenButtonTestId(row.record_id)).click();
   await expect(page.getByTestId("row-history-delete")).toBeVisible();
 
   const deleteResponse = page.waitForResponse(
@@ -280,7 +299,7 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
 
   await openTimelineSurface(page, incidentId);
   await expect(
-    page.getByTestId(rowCellTestId(row.record_id, "summary")),
+    page.getByTestId(rowCellTestId(row.record_id, "timeline.summary")),
   ).toHaveValue("E-7-03 delete restore row");
   await listener.close();
 });
@@ -329,9 +348,9 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
   const restoreItem = historyBefore.items[restoreIndex] as HistoryItem;
 
   await openTimelineSurface(page, incidentId);
-  await page.getByTestId(`row-history-open-${row.record_id}`).click();
+  await page.getByTestId(rowHistoryOpenButtonTestId(row.record_id)).click();
   await expect(
-    page.getByTestId(`row-history-action-${restoreIndex}-row_restore`),
+    page.getByTestId(historyActionTestId(restoreItem, "row_restore")),
   ).toBeVisible();
   const restoreResponse = page.waitForResponse(
     (response) =>
@@ -339,7 +358,7 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
       response.url().endsWith(`/api/v1/records/${row.record_id}/rollback`),
   );
   await page
-    .getByTestId(`row-history-action-${restoreIndex}-row_restore`)
+    .getByTestId(historyActionTestId(restoreItem, "row_restore"))
     .click();
   const response = await restoreResponse;
   expect(response.ok()).toBeTruthy();
@@ -351,7 +370,7 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
 
   await openTimelineSurface(page, incidentId);
   await expect(
-    page.getByTestId(rowCellTestId(row.record_id, "summary")),
+    page.getByTestId(rowCellTestId(row.record_id, "timeline.summary")),
   ).toHaveValue("E-7-04 historical snapshot");
   const historyAfter = await fetchRecordHistory(page, row.record_id);
   expect(historyAfter.items.length).toBeGreaterThan(historyBefore.items.length);
@@ -461,9 +480,16 @@ test("E-7-05 rolls back a merge change set from row history", async ({
   expect(mergeIndex).toBeGreaterThanOrEqual(0);
 
   await openTimelineSurface(page, incidentId);
-  await page.getByTestId(`row-history-open-${timeline.record_id}`).click();
+  await page
+    .getByTestId(rowHistoryOpenButtonTestId(timeline.record_id))
+    .click();
   await expect(
-    page.getByTestId(`row-history-action-${mergeIndex}-change_set`),
+    page.getByTestId(
+      historyActionTestId(
+        history.items[mergeIndex] as HistoryItem,
+        "change_set",
+      ),
+    ),
   ).toBeVisible();
 
   const rollbackResponse = page.waitForResponse(
@@ -471,7 +497,14 @@ test("E-7-05 rolls back a merge change set from row history", async ({
       response.request().method() === "POST" &&
       response.url().endsWith(`/api/v1/records/${timeline.record_id}/rollback`),
   );
-  await page.getByTestId(`row-history-action-${mergeIndex}-change_set`).click();
+  await page
+    .getByTestId(
+      historyActionTestId(
+        history.items[mergeIndex] as HistoryItem,
+        "change_set",
+      ),
+    )
+    .click();
   const response = await rollbackResponse;
   expect(response.ok()).toBeTruthy();
   const rollbackBody = JSON.parse(response.request().postData() ?? "{}");
@@ -494,7 +527,9 @@ test("E-7-05 rolls back a merge change set from row history", async ({
   expect(survivorAfter.cells["host.fqdn"]?.value ?? "").toBe("");
   expect(loserAfter.cells["host.fqdn"]?.value).toBe("e705-loser.example.test");
   await openHostSurface(page, incidentId);
-  await expect(page.getByTestId(`host-row-${loser.record_id}`)).toBeVisible();
+  await expect(
+    page.getByTestId(gridRowTestId(hostsViewSchemaId, loser.record_id)),
+  ).toBeVisible();
 });
 
 async function openTimelineSurface(page: Page, incidentId: string) {
@@ -503,7 +538,9 @@ async function openTimelineSurface(page: Page, incidentId: string) {
       timelineViewSchemaId,
     )}`,
   );
-  await expect(page.getByTestId(gridShellTestId("timeline"))).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
 }
 
 async function openHostSurface(page: Page, incidentId: string) {
@@ -512,7 +549,9 @@ async function openHostSurface(page: Page, incidentId: string) {
       hostsViewSchemaId,
     )}`,
   );
-  await expect(page.getByTestId(gridShellTestId("hosts"))).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(hostsViewSchemaId)),
+  ).toBeVisible();
 }
 
 async function fetchRecordHistory(

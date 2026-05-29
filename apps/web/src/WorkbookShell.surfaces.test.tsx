@@ -5,6 +5,8 @@ import {
   gridSavedRowsSelector,
   gridShellTestId,
   rowInspectButtonTestId,
+  surfaceTabTestId,
+  systemViewSelectorTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -247,7 +249,9 @@ describe("WorkbookShell surface selection", () => {
   it("selects required built-in and system view surfaces by view_schema_id", async () => {
     render(<WorkbookShell incidentId="incident-1" />);
 
-    fireEvent.click(await screen.findByTestId("surface-tab-evidence"));
+    fireEvent.click(
+      await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
+    );
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -259,7 +263,7 @@ describe("WorkbookShell surface selection", () => {
       screen.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     ).toBeTruthy();
 
-    fireEvent.change(screen.getByTestId("system-view-selector"), {
+    fireEvent.change(screen.getByTestId(systemViewSelectorTestId()), {
       target: { value: indicatorsViewSchemaId },
     });
 
@@ -379,7 +383,9 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
-    fireEvent.click(await screen.findByTestId("surface-tab-evidence"));
+    fireEvent.click(
+      await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
+    );
     await expectRecordIds(evidenceViewSchemaId, ["evidence-initial"]);
 
     applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "older");
@@ -427,7 +433,9 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
-    fireEvent.click(await screen.findByTestId("surface-tab-evidence"));
+    fireEvent.click(
+      await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
+    );
     fireEvent.click(await screen.findByTestId("evidence-preview-evidence-1"));
 
     const frame = await screen.findByTestId(
@@ -461,7 +469,9 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
-    fireEvent.click(await screen.findByTestId("surface-tab-timeline"));
+    fireEvent.click(
+      await screen.findByTestId(surfaceTabTestId(timelineViewSchemaId)),
+    );
     fireEvent.click(
       await screen.findByTestId(rowInspectButtonTestId("timeline-1")),
     );
@@ -513,7 +523,9 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
-    fireEvent.click(await screen.findByTestId("surface-tab-timeline"));
+    fireEvent.click(
+      await screen.findByTestId(surfaceTabTestId(timelineViewSchemaId)),
+    );
     fireEvent.click(
       await screen.findByTestId(rowInspectButtonTestId("timeline-1")),
     );
