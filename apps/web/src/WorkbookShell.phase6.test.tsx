@@ -3,6 +3,7 @@ import {
   conflictMarkerTestId,
   gridShellTestId,
   rowCellTestId,
+  saveStateTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -158,7 +159,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         cellPresenceMarkerTestId("record-1", "timeline.summary"),
       ).textContent,
     ).toContain("OA");
-    expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
 
     socket?.emit({
       type: "presence_delta",
@@ -281,7 +282,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     expect(
       screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeTruthy();
-    expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
     expect(screen.getByTestId("conflict-field-key")).toHaveProperty(
       "value",
       "timeline.summary",
@@ -303,7 +304,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fireEvent.click(screen.getByTestId("conflict-close"));
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
-      expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
       expect(
         screen.getByTestId(
           conflictMarkerTestId("record-1", "timeline.summary"),
@@ -371,7 +374,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect(extractTimelineJSONBody(fetchMock, 2)).toEqual({
       conflict_token: "conflict-token-keep",
@@ -437,7 +440,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("5");
@@ -514,7 +517,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("8");
@@ -572,7 +575,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fireEvent.blur(firstInput);
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     });
 
     await changeQueuedCellValue(secondInput, "Two queued first");
@@ -619,7 +622,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
   });
 
@@ -711,7 +714,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     expect(screen.getByTestId("pending-queue-count").textContent).toContain(
       "3",
     );
@@ -725,7 +728,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(4);
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
       "/api/v1/records/record-1",
@@ -798,13 +801,17 @@ describe("Phase 6 workbook collaboration coverage", () => {
       if (index === 1) {
         await waitFor(() => {
           expect(screen.getByTestId("pending-queue-notice")).toBeTruthy();
-          expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+          expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+            "Syncing",
+          );
         });
       }
     }
 
     await waitFor(() => {
-      expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
       expect(screen.getByTestId("pending-queue-notice").textContent).toContain(
         "Local pending queue is full",
       );
@@ -874,7 +881,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fireEvent.blur(input);
     await new Promise((resolve) => window.setTimeout(resolve, 0));
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     expect(screen.getByTestId("pending-queue-notice")).toBeTruthy();
     expect(input.value).toBe("Auth replay");
 
@@ -895,7 +902,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       },
     ]);
     await waitFor(() => {
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
   });
 
@@ -958,7 +965,9 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
       expect(screen.getByTestId("conflict-resolver")).toBeTruthy();
       expect(screen.getByTestId("pending-queue-count").textContent).toContain(
         "1",

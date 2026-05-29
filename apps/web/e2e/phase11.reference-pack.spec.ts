@@ -1,3 +1,10 @@
+import {
+  referencePackAdminPanelTestId,
+  referencePackCancelButtonTestId,
+  referencePackJobStatusTestId,
+  referencePackRefreshAllButtonTestId,
+} from "@cartulary/ui-contracts";
+
 import { expect, test } from "./fixtures";
 
 const jobID = "phase11-reference-pack-browser-job";
@@ -46,25 +53,27 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
   );
 
   await page.goto("/");
-  await expect(page.getByTestId("reference-pack-admin-panel")).toBeVisible();
+  await expect(page.getByTestId(referencePackAdminPanelTestId())).toBeVisible();
   await expect(page.getByTestId("landing-incident-key")).toBeVisible();
 
-  await page.getByTestId("reference-pack-refresh-all").click();
-  await expect(page.getByTestId("reference-pack-job-status")).toContainText(
+  await page.getByTestId(referencePackRefreshAllButtonTestId()).click();
+  await expect(page.getByTestId(referencePackJobStatusTestId())).toContainText(
     "running",
     { timeout: 1000 },
   );
-  await expect(page.getByTestId("reference-pack-cancel")).toBeVisible({
-    timeout: 1000,
-  });
+  await expect(page.getByTestId(referencePackCancelButtonTestId())).toBeVisible(
+    {
+      timeout: 1000,
+    },
+  );
 
   await page.getByTestId("landing-incident-key").fill("IR-E-11-01");
   await expect(page.getByTestId("landing-incident-key")).toHaveValue(
     "IR-E-11-01",
   );
 
-  await page.getByTestId("reference-pack-cancel").click();
-  await expect(page.getByTestId("reference-pack-job-status")).toContainText(
+  await page.getByTestId(referencePackCancelButtonTestId()).click();
+  await expect(page.getByTestId(referencePackJobStatusTestId())).toContainText(
     "cancel_requested",
   );
   expect(jobReads).toBeGreaterThanOrEqual(1);

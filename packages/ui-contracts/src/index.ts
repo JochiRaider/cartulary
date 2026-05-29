@@ -39,10 +39,7 @@ export const timelineScalarEditorSurfaces = [
 ] as const satisfies readonly TimelineScalarEditorSurface[];
 
 export type RowHistoryItemAnchor = {
-  readonly changeSetId: string;
-  readonly historyEntryRef?: string | null | undefined;
-  readonly operation: string;
-  readonly revisionNo?: number | null;
+  readonly historyItemRef: string;
 };
 
 export type RowHistoryActionAnchor = RowHistoryItemAnchor & {
@@ -223,6 +220,52 @@ export function pendingQueueNoticeTestId(): string {
 
 export function pendingQueueCountTestId(): string {
   return "pending-queue-count";
+}
+
+export function referencePackAdminPanelTestId(): string {
+  return "reference-pack-admin-panel";
+}
+
+export function referencePackFileInputTestId(): string {
+  return "reference-pack-file";
+}
+
+export function referencePackImportButtonTestId(): string {
+  return "reference-pack-import";
+}
+
+export function referencePackJobStatusTestId(): string {
+  return "reference-pack-job-status";
+}
+
+export function referencePackReloadButtonTestId(): string {
+  return "reference-pack-reload";
+}
+
+export function referencePackCancelButtonTestId(): string {
+  return "reference-pack-cancel";
+}
+
+export function referencePackRefreshAllButtonTestId(): string {
+  return "reference-pack-refresh-all";
+}
+
+export function referencePackRefreshSelectedButtonTestId(): string {
+  return "reference-pack-refresh-selected";
+}
+
+export function referencePackRowTestId(
+  packKey: string,
+  packVersion: string,
+): string {
+  return `reference-pack-row-${encodeSelectorSegment(
+    packKey,
+    "pack_key",
+  )}-${encodeSelectorSegment(packVersion, "pack_version")}`;
+}
+
+export function referencePackErrorTestId(): string {
+  return "reference-pack-error";
 }
 
 export function gridSortHeaderTestId(
@@ -589,34 +632,15 @@ function requireRowHistoryRollbackAction(
 }
 
 function rowHistoryItemIdentity(anchor: RowHistoryItemAnchor): string {
-  if (
-    typeof anchor.historyEntryRef === "string" &&
-    anchor.historyEntryRef !== ""
-  ) {
-    requireNonEmptySelectorValue(anchor.historyEntryRef, "history_entry_ref");
-    return `history-entry:${anchor.historyEntryRef}`;
-  }
-  return rowHistoryChangeSetIdentity(anchor);
+  return requireNonEmptySelectorValue(
+    anchor.historyItemRef,
+    "history_item_ref",
+  );
 }
 
 function rowHistoryActionIdentity(anchor: RowHistoryActionAnchor): string {
-  if (
-    anchor.action === "history_entry" &&
-    typeof anchor.historyEntryRef === "string" &&
-    anchor.historyEntryRef !== ""
-  ) {
-    requireNonEmptySelectorValue(anchor.historyEntryRef, "history_entry_ref");
-    return `history-entry:${anchor.historyEntryRef}`;
-  }
-  return rowHistoryChangeSetIdentity(anchor);
-}
-
-function rowHistoryChangeSetIdentity(anchor: RowHistoryItemAnchor): string {
-  requireNonEmptySelectorValue(anchor.changeSetId, "change_set_id");
-  requireNonEmptySelectorValue(anchor.operation, "operation");
-  const revision =
-    typeof anchor.revisionNo === "number"
-      ? String(anchor.revisionNo)
-      : "unversioned";
-  return `change-set:${anchor.changeSetId}:revision:${revision}:operation:${anchor.operation}`;
+  return requireNonEmptySelectorValue(
+    anchor.historyItemRef,
+    "history_item_ref",
+  );
 }

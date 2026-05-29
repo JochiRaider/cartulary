@@ -449,17 +449,25 @@ async function waitForEvidenceRow(
   incidentId: string,
   title: string,
 ): Promise<ViewRow> {
-  await expect(page.locator("span", { hasText: title })).toBeVisible();
-  const rows = (await queryViewRows(
-    page,
-    incidentId,
-    evidenceViewSchemaId,
-  )) as unknown as ViewRow[];
-  const row = rows.find(
-    (candidate) => candidate.cells["evidence.title"]?.value === title,
-  );
-  expect(row).toBeTruthy();
-  return row as ViewRow;
+  const deadline = Date.now() + 5_000;
+  while (Date.now() <= deadline) {
+    const rows = (await queryViewRows(
+      page,
+      incidentId,
+      evidenceViewSchemaId,
+    )) as unknown as ViewRow[];
+    const row = rows.find(
+      (candidate) => candidate.cells["evidence.title"]?.value === title,
+    );
+    if (row !== undefined) {
+      await expect(
+        page.getByTestId(rowCellTestId(row.record_id, "evidence.title")),
+      ).toBeVisible();
+      return row;
+    }
+    await page.waitForTimeout(50);
+  }
+  throw new Error(`timed out waiting for evidence row ${title}`);
 }
 
 function tinyPNG() {

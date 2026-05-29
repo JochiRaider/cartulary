@@ -13,7 +13,10 @@ const scannedRoots = [
   "packages/test-utils/src",
 ] as const;
 
-const ignoredFilePatterns = [/\.d\.ts$/u] as const;
+const ignoredFilePatterns = [
+  /\.d\.ts$/u,
+  /selectorContractPolicy\.test\.ts$/u,
+] as const;
 
 const ignoredPathSegments = new Set(["node_modules", "dist", "coverage"]);
 
@@ -31,6 +34,20 @@ const forbiddenPatterns = [
     pattern: /\[data-testid(?:[*^$|~]?=)"?\$\{/u,
   },
   {
+    message: "raw data-testid prefix or suffix selector",
+    pattern: /\[data-testid(?:[*^$|~]=)["'][^"']+["']\]/u,
+  },
+  {
+    message: "shared selector literal outside ui-contracts builder",
+    pattern:
+      /\b(?:getByTestId|findByTestId|queryByTestId)\(\s*["'](?:save-state|reference-pack-(?:admin-panel|file|import|job-status|reload|cancel|refresh-all|refresh-selected|row|error))["']\s*\)/u,
+  },
+  {
+    message: "shared data-testid literal outside ui-contracts builder",
+    pattern:
+      /data-testid=["'](?:save-state|reference-pack-(?:admin-panel|file|import|job-status|reload|cancel|refresh-all|refresh-selected|row|error))["']/u,
+  },
+  {
     message: "Timeline workbook shell readiness text",
     pattern: /getByText\(\s*["']Timeline workbook shell["']/u,
   },
@@ -45,6 +62,35 @@ const forbiddenPatterns = [
   {
     message: "heading-name readiness wait",
     pattern: /getByRole\(\s*["']heading["']\s*,\s*\{\s*name:/u,
+  },
+] as const;
+
+const localOnlySelectorAllowlist = [
+  {
+    file: "apps/web/e2e/phase8.workbook.spec.ts",
+    message: "raw data-testid prefix or suffix selector",
+    pattern: "[data-testid*='saved-view']",
+  },
+  {
+    file: "apps/web/e2e/phase8.workbook.spec.ts",
+    message: "raw data-testid prefix or suffix selector",
+    pattern:
+      '[data-testid^="cartulary.view.timeline.v1-group-timeline.capture_state-"]',
+  },
+  {
+    file: "apps/web/e2e/phase4.autoresolve.spec.ts",
+    message: "raw data-testid prefix or suffix selector",
+    pattern: '[data-testid^="auto-resolution-notice-"]',
+  },
+  {
+    file: "apps/web/src/WorkbookShell.phase4.support.test.tsx",
+    message: "raw data-testid prefix or suffix selector",
+    pattern: '[data-testid^="auto-resolution-notice-"]',
+  },
+  {
+    file: "apps/web/src/WorkbookShell.phase8.query.test.tsx",
+    message: "raw data-testid prefix or suffix selector",
+    pattern: "[data-testid^='action-']",
   },
 ] as const;
 
@@ -99,8 +145,17 @@ describe("selector contract policy", () => {
       }
       const content = readFileSync(absolutePath, "utf8");
       for (const { message, pattern } of forbiddenPatterns) {
-        const match = pattern.exec(content);
-        if (match?.index !== undefined) {
+        const flags = pattern.flags.includes("g")
+          ? pattern.flags
+          : `${pattern.flags}g`;
+        const globalPattern = new RegExp(pattern.source, flags);
+        for (const match of content.matchAll(globalPattern)) {
+          if (match.index === undefined) {
+            continue;
+          }
+          if (isAllowedLocalOnlySelector(file, message, content, match.index)) {
+            continue;
+          }
           violations.push(
             `${file}:${lineNumberForOffset(content, match.index)} ${message}`,
           );
@@ -111,3 +166,18 @@ describe("selector contract policy", () => {
     expect(violations).toEqual([]);
   });
 });
+
+function isAllowedLocalOnlySelector(
+  file: string,
+  message: string,
+  content: string,
+  offset: number,
+): boolean {
+  return localOnlySelectorAllowlist.some((entry) => {
+    if (entry.file !== file || entry.message !== message) {
+      return false;
+    }
+    const patternOffset = content.indexOf(entry.pattern, offset);
+    return patternOffset !== -1 && patternOffset === offset;
+  });
+}

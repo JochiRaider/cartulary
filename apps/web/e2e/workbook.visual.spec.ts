@@ -116,7 +116,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
 
-    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expect(
       page.getByTestId(timelineRowVersionTestId(timelineRow.record_id)),
     ).toHaveText(String(timelineRow.row_version));
@@ -156,7 +156,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
 
-    const saveState = page.getByTestId("save-state");
+    const saveState = page.getByTestId(saveStateTestId());
     const saveStateStrip = saveState.locator("..");
     const summaryInput = page.getByTestId(
       rowCellTestId(timelineRow.record_id, "timeline.summary"),

@@ -43,6 +43,7 @@ function historyItem(
   return {
     actor_user_id: actorUserId,
     committed_at: "2026-05-11T12:00:00Z",
+    history_item_ref: "hitem_server_selector",
     operation: "field_update",
     diff_summary: {
       summary: "field_update timeline_record",
@@ -73,10 +74,7 @@ function historyEnvelope(options: {
 
 function historyItemTestId(item: RecordHistoryItem) {
   return rowHistoryItemTestId({
-    changeSetId: item.change_set_id,
-    historyEntryRef: item.history_entry_ref,
-    operation: item.operation,
-    revisionNo: item.revision_no ?? null,
+    historyItemRef: item.history_item_ref,
   });
 }
 
@@ -86,10 +84,7 @@ function historyActionTestId(
 ) {
   return rowHistoryActionTestId({
     action,
-    changeSetId: item.change_set_id,
-    historyEntryRef: item.history_entry_ref,
-    operation: item.operation,
-    revisionNo: item.revision_no ?? null,
+    historyItemRef: item.history_item_ref,
   });
 }
 
@@ -178,6 +173,107 @@ describe("Phase 7 workbook history support coverage", () => {
     expect(
       screen.getByTestId(historyActionTestId(advertisedItem, "row_restore")),
     ).toBeTruthy();
+    const renamedHistoryRecord = {
+      ...advertisedItem,
+      operation: "Localized rollback label",
+    };
+    expect(historyItemTestId(renamedHistoryRecord)).toBe(
+      historyItemTestId(advertisedItem),
+    );
+    expect(historyActionTestId(renamedHistoryRecord, "change_set")).toBe(
+      historyActionTestId(advertisedItem, "change_set"),
+    );
+  });
+
+  it.each([
+    [
+      "missing history_item_ref",
+      [
+        {
+          ...historyItem(),
+          history_item_ref: undefined,
+        } as unknown as RecordHistoryItem,
+      ],
+    ],
+    [
+      "non-string history_item_ref",
+      [
+        {
+          ...historyItem(),
+          history_item_ref: 42,
+        } as unknown as RecordHistoryItem,
+      ],
+    ],
+    [
+      "duplicate history_item_ref",
+      [
+        historyItem({ change_set_id: "change-set-a" }),
+        historyItem({ change_set_id: "change-set-b" }),
+      ],
+    ],
+    [
+      "invalid revision_no",
+      [
+        historyItem({
+          available_rollback_actions: ["row_restore"],
+          revision_no: 0,
+        }),
+      ],
+    ],
+    [
+      "non-canonical action order",
+      [
+        historyItem({
+          available_rollback_actions: ["change_set", "history_entry"],
+        }),
+      ],
+    ],
+    [
+      "missing history_entry rollback selector",
+      [
+        {
+          ...historyItem({
+            available_rollback_actions: ["history_entry"],
+          }),
+          history_entry_ref: undefined,
+        } as unknown as RecordHistoryItem,
+      ],
+    ],
+  ])("fails closed for %s", async (_caseName, items) => {
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 4,
+              summary: "History base",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        historyEnvelope({
+          items: items as RecordHistoryItem[],
+        }),
+      );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
+    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+
+    expect((await screen.findByTestId("row-history-message")).textContent).toBe(
+      "Invalid row history response.",
+    );
+    expect(screen.queryByTestId("row-history-delete")).toBeNull();
   });
 
   it("builds rollback targets only from advertised server actions and selectors", () => {

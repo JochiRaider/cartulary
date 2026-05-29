@@ -3,12 +3,14 @@ package revisions
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -68,6 +70,7 @@ type RecordHistoryItem struct {
 	ActorUserID              uuid.UUID
 	SourceActorID            *string
 	CommittedAt              time.Time
+	HistoryItemRef           string
 	Operation                string
 	DiffSummary              map[string]any
 	ChangeSetID              uuid.UUID
@@ -438,6 +441,7 @@ SELECT cs.change_set_id,
 			value := revisionNo.Int64
 			item.RevisionNo = &value
 		}
+		item.HistoryItemRef = historyItemRefForMutation(record.RecordID, item.ChangeSetID, item.sequenceNo)
 		item.Operation = historyOperation(source, operationKind)
 		item.DiffSummary = mutationDiffSummary(targetKind, targetID, operationKind, item.sequenceNo, beforeValue, afterValue)
 		item.AvailableRollbackActions = nil
@@ -519,6 +523,7 @@ SELECT cs.change_set_id,
 		if changeSetsWithMutation[item.ChangeSetID] {
 			continue
 		}
+		item.HistoryItemRef = historyItemRefForRevision(record.RecordID, item.ChangeSetID, revisionNo)
 		item.Operation = historyOperation(source, "row_revision")
 		item.DiffSummary = revisionDiffSummary(record.RecordID, revisionNo, beforeValue, afterValue)
 		item.RevisionNo = &revisionNo
@@ -542,6 +547,7 @@ func (item RecordHistoryItem) Resource() map[string]any {
 	resource := map[string]any{
 		"actor_user_id":              item.ActorUserID.String(),
 		"committed_at":               item.CommittedAt.UTC().Format(time.RFC3339Nano),
+		"history_item_ref":           item.HistoryItemRef,
 		"operation":                  item.Operation,
 		"diff_summary":               item.DiffSummary,
 		"change_set_id":              item.ChangeSetID.String(),
@@ -601,6 +607,19 @@ func generateHistoryEntryRef() (string, error) {
 		return "", fmt.Errorf("generate history entry ref: %w", err)
 	}
 	return "href_" + base64.RawURLEncoding.EncodeToString(payload[:]), nil
+}
+
+func historyItemRefForMutation(recordID uuid.UUID, changeSetID uuid.UUID, sequenceNo int) string {
+	return historyItemRef("mutation", recordID.String(), changeSetID.String(), fmt.Sprintf("%d", sequenceNo))
+}
+
+func historyItemRefForRevision(recordID uuid.UUID, changeSetID uuid.UUID, revisionNo int64) string {
+	return historyItemRef("revision", recordID.String(), changeSetID.String(), fmt.Sprintf("%d", revisionNo))
+}
+
+func historyItemRef(parts ...string) string {
+	digest := sha256.Sum256([]byte(strings.Join(parts, ":")))
+	return "hitem_" + base64.RawURLEncoding.EncodeToString(digest[:])
 }
 
 func singleEntryAddressable(targetKind string, targetID string, recordID uuid.UUID, beforeValue []byte, afterValue []byte) bool {

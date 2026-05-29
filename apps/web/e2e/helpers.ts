@@ -8,6 +8,7 @@ import {
   gridShellTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
+  rowCellTestId,
   timelineRowVersionTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
@@ -1191,58 +1192,34 @@ async function findCommittedRowSummary(
   if (gridCount === 0) {
     return null;
   }
-  const candidates = grid.locator(
-    'input[data-testid$="-timeline.summary"], textarea[data-testid$="-timeline.summary"]',
-  );
-  const candidateCount = await candidates.count().catch(() => 0);
-  for (let index = 0; index < candidateCount; index += 1) {
-    const candidate = candidates.nth(index);
+  const rows = grid.locator(gridSavedRowsSelector());
+  const rowCount = await rows.count().catch(() => 0);
+  for (let index = 0; index < rowCount; index += 1) {
+    const row = rows.nth(index);
+    const recordId = await row
+      .getAttribute("data-grid-record-id", { timeout: 100 })
+      .catch(() => null);
+    if (recordId === null || recordId.trim() === "") {
+      continue;
+    }
+    const candidate = row.getByTestId(
+      rowCellTestId(recordId, "timeline.summary"),
+    );
     const value = await candidate.inputValue({ timeout: 100 }).catch(() => {
       return null;
     });
     if (value !== options.expectedSummary) {
       continue;
     }
-    const rowInfo = await candidate
-      .evaluate(
-        (
-          node,
-          selectors: {
-            draftRowSelector: string;
-            savedRowsSelector: string;
-          },
-        ) => {
-          if (node.closest(selectors.draftRowSelector) !== null) {
-            return null;
-          }
-          const savedRow = node.closest(selectors.savedRowsSelector);
-          if (!(savedRow instanceof HTMLElement)) {
-            return null;
-          }
-          const recordId = savedRow.getAttribute("data-grid-record-id")?.trim();
-          return recordId ? { recordId } : null;
-        },
-        {
-          draftRowSelector: gridDraftRowSelector(),
-          savedRowsSelector: gridSavedRowsSelector(),
-        },
-      )
-      .catch(() => null);
-    if (rowInfo === null) {
-      continue;
-    }
-    const row = candidate.locator(
-      'xpath=ancestor::*[@role="row" and @data-grid-record-id][1]',
-    );
     const rowVersionText = await row
-      .getByTestId(timelineRowVersionTestId(rowInfo.recordId))
+      .getByTestId(timelineRowVersionTestId(recordId))
       .textContent({ timeout: 100 })
       .catch(() => null);
     const rowVersion = Number.parseInt(rowVersionText ?? "", 10);
     if (!Number.isInteger(rowVersion) || rowVersion < 1) {
       continue;
     }
-    return { recordId: rowInfo.recordId, rowVersion };
+    return { recordId, rowVersion };
   }
   return null;
 }

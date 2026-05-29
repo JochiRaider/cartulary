@@ -1,7 +1,7 @@
 import {
   rowCellTestId,
-  timelineMutationSubstrateReadyTestId,
   timelineCollectionInputTestId,
+  timelineMutationSubstrateReadyTestId,
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";

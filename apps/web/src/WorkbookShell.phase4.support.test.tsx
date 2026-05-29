@@ -12,6 +12,7 @@ import {
   relationshipChipTestId,
   relationshipItemsTestId,
   rowInspectButtonTestId,
+  saveStateTestId,
   timelineCollectionInputTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
@@ -877,7 +878,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
 
     expect(
@@ -979,7 +980,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("3");
@@ -1050,7 +1051,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     await new Promise((resolve) => window.setTimeout(resolve, 50));
 
@@ -1089,7 +1090,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     });
 
     fireEvent.change(relationshipInput, { target: { value: "WS-024" } });
@@ -1150,7 +1151,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
         screen.getByTestId(
           relationshipItemsTestId("record-1", "timeline.host_refs"),

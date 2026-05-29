@@ -110,11 +110,16 @@
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
+        "Core 01 Section 3.3.4.2",
         "Core 01 Section 7.4",
         "Core 02 Section 18",
         "development guide Section 6.4"
       ],
       "core_req_ids": [
+        "REQ-01-052",
+        "REQ-01-053",
+        "REQ-01-053A",
+        "REQ-01-054",
         "REQ-01-307",
         "REQ-01-308",
         "REQ-01-309",
@@ -168,8 +173,8 @@
       ],
       "scenario_titles": [],
       "claim_status": "implemented",
-      "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs, registry-backed view_schema_id values, and selector-relevant closed vocabularies rather than visible labels.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs, including row-history history_item_ref, registry-backed view_schema_id values, and selector-relevant closed vocabularies rather than visible labels.",
+      "out_of_scope": "This frontend readiness row does not change Core 05 publication authority; row-history response identity changes remain owned by Core 01 and Core 02."
     },
     {
       "id": "FE-S-P0-01",

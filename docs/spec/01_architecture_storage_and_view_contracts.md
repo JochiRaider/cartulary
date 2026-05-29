@@ -958,7 +958,8 @@ Examples:
 | --- | --- | --- |
 | `actor_user_id` | Required on every item | Attributed actor of the committed change |
 | `committed_at` | Required on every item | Newest-first committed ordering anchor |
-| `operation` | Required on every item | Displayable history operation label |
+| `history_item_ref` | Required on every item | Stable opaque display-item anchor for the retained-history lifetime of the record in the current deployment |
+| `operation` | Required on every item | Displayable history operation label only; not a selector or rollback target |
 | `diff_summary` | Required on every item | Row-centric summary only |
 | `change_set_id` | Required on every item | Stable change-set anchor |
 | `reversible` | Required on every item | Current reversibility state, not historical omission |
@@ -998,6 +999,7 @@ Each `items[]` entry MUST include at minimum:
 
 - `actor_user_id`,
 - `committed_at`,
+- `history_item_ref`,
 - `operation`,
 - `diff_summary`,
 - `change_set_id`,
@@ -1007,6 +1009,11 @@ Profiles: base
 Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
 
 **REQ-01-053**
+The client MUST treat `history_item_ref` as opaque display-item identity. For the retained-history lifetime of that record in the current deployment, the same logical history item MUST keep the same `history_item_ref` across repeated reads. `operation` is display text and MUST NOT be used as selector identity, rollback target identity, or a substitute for `history_item_ref`.
+Profiles: base
+Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
+
+**REQ-01-053A**
 `available_rollback_actions[]` MUST draw only from `history_entry`, `change_set`, and `row_restore`. The server MUST serialize `available_rollback_actions[]` in that canonical order with unavailable actions omitted. If `reversible=false`, `available_rollback_actions[]` MUST be empty.
 Profiles: base
 Verified by: AC-124, AC-127, AC-184, AC-185, AC-231

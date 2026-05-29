@@ -7327,6 +7327,9 @@
             "type": "string",
             "format": "date-time"
           },
+          "history_item_ref": {
+            "type": "string"
+          },
           "operation": {
             "type": "string"
           },
@@ -7361,6 +7364,7 @@
         "required": [
           "actor_user_id",
           "committed_at",
+          "history_item_ref",
           "operation",
           "diff_summary",
           "change_set_id",

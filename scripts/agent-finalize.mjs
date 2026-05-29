@@ -711,6 +711,11 @@ function runMakeSubstep(definition, substep) {
     ...(definition.env ?? {}),
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
+  if (definition.requiresResultsDir && resultsDirInput) {
+    childEnv.CARTULARY_RETAINED_RESULTS_DIR = resultsDirInput;
+  } else {
+    delete childEnv.CARTULARY_RETAINED_RESULTS_DIR;
+  }
   if (!definition.requiresResultsDir) {
     delete childEnv.RESULTS_DIR;
     scrubMakeCommandVariable(childEnv, "RESULTS_DIR");

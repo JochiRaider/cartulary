@@ -2,6 +2,7 @@ import {
   rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
+  saveStateTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -165,7 +166,9 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    expect((await screen.findByTestId("save-state")).textContent).toBe("Saved");
+    expect((await screen.findByTestId(saveStateTestId())).textContent).toBe(
+      "Saved",
+    );
     expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
 
     const summaryInput = (await screen.findByTestId(
@@ -186,7 +189,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("2");
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
 
     const tabInput = (await screen.findByTestId(
@@ -207,7 +210,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("3");
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
 
     const blurInput = (await screen.findByTestId(
@@ -225,7 +228,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       value: "Updated via blur",
     });
     await waitFor(() => {
-      expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     });
 
     pendingBlurPatch.resolve(
@@ -244,7 +247,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("4");
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
 
     fireEvent.click(
@@ -268,7 +271,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("4");
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
 
     cleanup();
@@ -309,7 +312,9 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
       expect(conflictInput.value).toBe("Conflict value");
     });
   });
@@ -347,7 +352,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     const summaryInput = (await screen.findByTestId(
       rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
@@ -402,7 +407,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     const summaryInput = (await screen.findByTestId(
       rowCellTestId("record-1", "timeline.summary"),
     )) as HTMLInputElement;
@@ -531,7 +536,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       />,
     );
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     fireEvent.click(await screen.findByTestId("row-record-1-mark-reviewed"));
 
     await waitFor(() => {
@@ -873,7 +878,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
 
     const summaryInput = (await screen.findByTestId(
       rowCellTestId("record-1", "timeline.summary"),
@@ -915,7 +920,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("2");
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     await new Promise((resolve) => window.setTimeout(resolve, 0));
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -954,7 +959,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
 
     const summaryInput = (await screen.findByTestId(
       rowCellTestId("record-1", "timeline.summary"),
@@ -1008,7 +1013,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("3");
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
   });
 });

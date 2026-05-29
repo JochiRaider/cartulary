@@ -1,14 +1,14 @@
 import {
+  landingIncidentCardTestId,
+  landingIncidentOpenButtonTestId,
+} from "@cartulary/ui-contracts";
+import {
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react";
-import {
-  landingIncidentCardTestId,
-  landingIncidentOpenButtonTestId,
-} from "@cartulary/ui-contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./WorkbookShell", async () => {

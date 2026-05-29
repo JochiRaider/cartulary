@@ -728,13 +728,19 @@ func TestPhase7_RetainedHistoryAcrossRestartAndClosure_I_7_04(t *testing.T) {
 		CreatedAt: base, Source: "workbook.records.patch", SequenceNo: 1,
 		TargetKind: "host", Operation: "field_update", RowVersion: 2,
 	})
-	refBefore := stringField(t, historyItems(getHistory(t, server.HTTP.URL, login, recordID, ""))[0], "history_entry_ref")
+	beforeItem := historyItems(getHistory(t, server.HTTP.URL, login, recordID, ""))[0]
+	refBefore := stringField(t, beforeItem, "history_entry_ref")
+	itemRefBefore := stringField(t, beforeItem, "history_item_ref")
 	server.Close()
 
 	restarted := httptestx.StartServer(t, httptestx.ServerOptions{Env: env})
-	refAfterRestart := stringField(t, historyItems(getHistory(t, restarted.HTTP.URL, login, recordID, ""))[0], "history_entry_ref")
+	afterRestartItem := historyItems(getHistory(t, restarted.HTTP.URL, login, recordID, ""))[0]
+	refAfterRestart := stringField(t, afterRestartItem, "history_entry_ref")
 	if refAfterRestart != refBefore {
 		t.Fatalf("history_entry_ref changed across restart: before=%q after=%q", refBefore, refAfterRestart)
+	}
+	if itemRefAfterRestart := stringField(t, afterRestartItem, "history_item_ref"); itemRefAfterRestart != itemRefBefore {
+		t.Fatalf("history_item_ref changed across restart: before=%q after=%q", itemRefBefore, itemRefAfterRestart)
 	}
 	if _, err := db.Exec(`
 UPDATE incidents
@@ -754,6 +760,9 @@ UPDATE incidents
 	}
 	if stringField(t, items[1], "history_entry_ref") != refBefore {
 		t.Fatalf("older selector changed after closure and later change: %#v", items[1])
+	}
+	if stringField(t, items[1], "history_item_ref") != itemRefBefore {
+		t.Fatalf("older display selector changed after closure and later change: %#v", items[1])
 	}
 }
 

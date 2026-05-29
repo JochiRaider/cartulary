@@ -4,6 +4,7 @@ import {
   gridDraftRowSelector,
   gridShellTestId,
   rowCellTestId,
+  saveStateTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -81,7 +82,9 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
-    expect((await screen.findByTestId("save-state")).textContent).toBe("Saved");
+    expect((await screen.findByTestId(saveStateTestId())).textContent).toBe(
+      "Saved",
+    );
 
     const gridShell = screen.getByTestId(gridShellTestId(timelineViewSchemaId));
     const draftRows = Array.from(
@@ -140,7 +143,7 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
       screen.getByTestId(draftCellTestId("timeline.summary")),
     ).toBeTruthy();
     await waitFor(() => {
-      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(visibleGridRows(document.body)).toHaveLength(1);
     });
   });

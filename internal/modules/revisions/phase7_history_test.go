@@ -108,6 +108,17 @@ func TestPhase7_RecordHistoryOpenAPIContract_U_7_01(t *testing.T) {
 			t.Fatalf("RecordHistoryEnvelopeMeta missing required field %q: %v", field, required)
 		}
 	}
+	itemSchema := historyOpenAPIObjectAt(t, schemas, "RecordHistoryItem")
+	itemRequired := historyOpenAPIStringArrayAt(t, itemSchema, "required")
+	for _, field := range []string{"actor_user_id", "committed_at", "history_item_ref", "operation", "diff_summary", "change_set_id", "reversible", "available_rollback_actions"} {
+		if !slices.Contains(itemRequired, field) {
+			t.Fatalf("RecordHistoryItem missing required field %q: %v", field, itemRequired)
+		}
+	}
+	historyItemRef := historyOpenAPIObjectAt(t, itemSchema, "properties", "history_item_ref")
+	if historyItemRef["type"] != "string" {
+		t.Fatalf("RecordHistoryItem.history_item_ref type = %v, want string", historyItemRef["type"])
+	}
 }
 
 func TestPhase7_HistoryEntryRefStability_U_7_02(t *testing.T) {
@@ -132,6 +143,8 @@ func TestPhase7_HistoryEntryRefStability_U_7_02(t *testing.T) {
 	first := historyItems(getHistory(t, harness.Server.HTTP.URL, login, recordID, ""))
 	second := historyItems(getHistory(t, harness.Server.HTTP.URL, login, recordID, ""))
 	ref := stringField(t, first[0], "history_entry_ref")
+	itemRef := stringField(t, first[0], "history_item_ref")
+	unsupportedItemRef := stringField(t, first[1], "history_item_ref")
 	if ref == "" || !strings.HasPrefix(ref, "href_") {
 		t.Fatalf("expected opaque href_ selector, got %q", ref)
 	}
@@ -140,6 +153,18 @@ func TestPhase7_HistoryEntryRefStability_U_7_02(t *testing.T) {
 	}
 	if ref != stringField(t, second[0], "history_entry_ref") {
 		t.Fatalf("history_entry_ref changed across repeated reads: first=%q second=%q", ref, stringField(t, second[0], "history_entry_ref"))
+	}
+	if itemRef == "" || !strings.HasPrefix(itemRef, "hitem_") {
+		t.Fatalf("expected opaque hitem_ display selector, got %q", itemRef)
+	}
+	if _, err := uuid.Parse(itemRef); err == nil {
+		t.Fatalf("history_item_ref must not be a raw uuid: %q", itemRef)
+	}
+	if itemRef != stringField(t, second[0], "history_item_ref") {
+		t.Fatalf("history_item_ref changed across repeated reads: first=%q second=%q", itemRef, stringField(t, second[0], "history_item_ref"))
+	}
+	if unsupportedItemRef == "" || !strings.HasPrefix(unsupportedItemRef, "hitem_") || unsupportedItemRef == itemRef {
+		t.Fatalf("unsupported item history_item_ref missing or not unique: supported=%q unsupported=%q", itemRef, unsupportedItemRef)
 	}
 	if _, ok := first[1].(map[string]any)["history_entry_ref"]; ok {
 		t.Fatalf("unsupported multi-target-style item must not expose history_entry_ref: %#v", first[1])
@@ -240,6 +265,9 @@ func assertHistoryItem(t testing.TB, raw any, changeSetID uuid.UUID, operation s
 	item := raw.(map[string]any)
 	if item["change_set_id"] != changeSetID.String() || item["operation"] != operation {
 		t.Fatalf("unexpected history item identity: %#v", item)
+	}
+	if ref := stringField(t, raw, "history_item_ref"); ref == "" || !strings.HasPrefix(ref, "hitem_") {
+		t.Fatalf("history item missing opaque display selector: %#v", item)
 	}
 	if item["actor_user_id"] == "" || item["committed_at"] == "" {
 		t.Fatalf("history item missing actor or timestamp: %#v", item)

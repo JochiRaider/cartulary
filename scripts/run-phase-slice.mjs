@@ -114,7 +114,10 @@ function targetPublicExitCode(context, target, fallbackStatus) {
 
 function makeTarget(context, target) {
   return runWithContext(context.makeBin, ["--no-print-directory", target], {
-    env: runnerEnv(context, { CARTULARY_SUPPRESS_CHILD_SUCCESS: "1" }),
+    env: runnerEnv(context, {
+      CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+      MAKEFLAGS: "",
+    }),
   });
 }
 

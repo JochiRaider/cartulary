@@ -1,4 +1,12 @@
 import {
+  referencePackAdminPanelTestId,
+  referencePackCancelButtonTestId,
+  referencePackJobStatusTestId,
+  referencePackRefreshAllButtonTestId,
+  referencePackReloadButtonTestId,
+  referencePackRowTestId,
+} from "@cartulary/ui-contracts";
+import {
   cleanup,
   fireEvent,
   render,
@@ -26,7 +34,7 @@ describe("ReferencePackAdminPanel", () => {
 
   it("Phase 11 U-11-REFERENCE-PACK-04 hides deployment Reference Pack controls from non-admin sessions", () => {
     render(<ReferencePackAdminPanel session={session(false)} />);
-    expect(screen.queryByTestId("reference-pack-admin-panel")).toBeNull();
+    expect(screen.queryByTestId(referencePackAdminPanelTestId())).toBeNull();
   });
 
   it("Phase 11 U-11-REFERENCE-PACK-06 shows job progress and cancel controls for deployment-admin Reference Pack work", async () => {
@@ -76,15 +84,26 @@ describe("ReferencePackAdminPanel", () => {
     });
 
     render(<ReferencePackAdminPanel session={session(true)} />);
-    fireEvent.click(screen.getByText("Refresh"));
-    await screen.findByText("type_registry.host@1");
+    fireEvent.click(screen.getByTestId(referencePackReloadButtonTestId()));
+    const packRow = await screen.findByTestId(
+      referencePackRowTestId("type_registry.host", "1"),
+    );
+    expect(packRow.textContent).toContain("type_registry.host@1");
 
-    fireEvent.click(screen.getByTestId("reference-pack-refresh-all"));
-    await screen.findByText("running · 0/1");
-    expect(screen.getByTestId("reference-pack-cancel")).toBeTruthy();
+    fireEvent.click(screen.getByTestId(referencePackRefreshAllButtonTestId()));
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(referencePackJobStatusTestId()).textContent,
+      ).toContain("running · 0/1");
+    });
+    expect(screen.getByTestId(referencePackCancelButtonTestId())).toBeTruthy();
 
-    fireEvent.click(screen.getByTestId("reference-pack-cancel"));
-    await screen.findByText("Cancel requested");
+    fireEvent.click(screen.getByTestId(referencePackCancelButtonTestId()));
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(referencePackJobStatusTestId()).textContent,
+      ).toContain("Cancel requested");
+    });
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/v1/jobs/job-1/cancel",

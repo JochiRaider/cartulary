@@ -34,6 +34,7 @@ import { installIncidentSocketMonitor } from "./phase6Harness";
 type HistoryItem = {
   actor_user_id: string;
   committed_at: string;
+  history_item_ref: string;
   operation: string;
   diff_summary: { summary: string; units: Array<Record<string, unknown>> };
   change_set_id: string;
@@ -58,10 +59,7 @@ function historyActionTestId(
 ) {
   return rowHistoryActionTestId({
     action,
-    changeSetId: item.change_set_id,
-    historyEntryRef: item.history_entry_ref,
-    operation: item.operation,
-    revisionNo: item.revision_no ?? null,
+    historyItemRef: item.history_item_ref,
   });
 }
 

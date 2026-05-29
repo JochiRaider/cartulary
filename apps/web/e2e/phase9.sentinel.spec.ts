@@ -19,6 +19,7 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
+  saveStateTestId,
   surfaceTabTestId,
   systemViewSelectorTestId,
   timelineMutationSubstrateReadyTestId,
@@ -177,7 +178,7 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
     );
   }, pastePayload);
   await expect((await pasteResponse).ok()).toBeTruthy();
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${seed.record_id}:timeline.summary`,
   );
@@ -317,7 +318,7 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  await expect(page.getByTestId("save-state")).toHaveText("Conflict");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${first.record_id}:timeline.summary`,
   );
@@ -347,7 +348,7 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
   );
   await page.getByTestId("conflict-close").click();
   await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
-  await expect(page.getByTestId("save-state")).toHaveText("Conflict");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
 });
 
 test("Phase 9 E-9-03 Notes tab creates artifact-backed linked notes", async ({

@@ -12,15 +12,15 @@ import {
   draftTimelineCollectionInputTestId,
   entityInspectButtonTestId,
   entityInspectorTestId,
-  entityMentionResolutionStatusTestId,
   entityMentionResolutionStatuses,
+  entityMentionResolutionStatusTestId,
   entityTypes,
-  extensionProfileRowTestId,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
+  extensionProfileRowTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   genericEditActionSelectTestId,
@@ -69,6 +69,16 @@ import {
   phase2MembershipRowTestId,
   phase2MembershipVersionTestId,
   phase2SelectIncidentButtonTestId,
+  referencePackAdminPanelTestId,
+  referencePackCancelButtonTestId,
+  referencePackErrorTestId,
+  referencePackFileInputTestId,
+  referencePackImportButtonTestId,
+  referencePackJobStatusTestId,
+  referencePackRefreshAllButtonTestId,
+  referencePackRefreshSelectedButtonTestId,
+  referencePackReloadButtonTestId,
+  referencePackRowTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -96,6 +106,13 @@ import {
   timelineScalarEditorTestId,
   workbookShellReadyTestId,
 } from "./index";
+
+const requireFixtureValue = <T>(value: T | undefined, label: string): T => {
+  if (value === undefined) {
+    throw new Error(`Missing fixture value: ${label}`);
+  }
+  return value;
+};
 
 describe("@cartulary/ui-contracts workbook row selectors", () => {
   it("returns deterministic selectors for identical stable identifiers", () => {
@@ -148,11 +165,11 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       { displayName: "Alpha", recordId: "record-alpha" },
       { displayName: "Beta", recordId: "record-beta" },
     ];
-    const timelineSurface = surfaces[0]!;
-    const evidenceSurface = surfaces[1]!;
-    const summaryField = fields[0]!;
-    const detailsField = fields[1]!;
-    const betaRow = rows[1]!;
+    const timelineSurface = requireFixtureValue(surfaces[0], "timeline");
+    const evidenceSurface = requireFixtureValue(surfaces[1], "evidence");
+    const summaryField = requireFixtureValue(fields[0], "summary");
+    const detailsField = requireFixtureValue(fields[1], "details");
+    const betaRow = requireFixtureValue(rows[1], "beta row");
 
     const selectors = {
       betaCell: rowCellTestId(betaRow.recordId, summaryField.fieldKey),
@@ -264,34 +281,27 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     const historyItems = [
       {
         action: "change_set" as const,
-        changeSetId: "change-set-1",
-        historyEntryRef: "entry-1",
-        operation: "patch",
-        revisionNo: 3,
+        historyItemRef: "hitem_change_set_1",
       },
       {
         action: "row_restore" as const,
-        changeSetId: "change-set-2",
-        operation: "row_restore",
-        revisionNo: 4,
+        historyItemRef: "hitem_change_set_2",
       },
     ];
-    const restoreItem = historyItems[1]!;
+    const restoreItem = requireFixtureValue(historyItems[1], "restore item");
     const restoreItemId = rowHistoryItemTestId(restoreItem);
     const restoreActionId = rowHistoryActionTestId(restoreItem);
 
-    expect(restoreItemId).toBe(
-      "row-history-item-change-set%3Achange-set-2%3Arevision%3A4%3Aoperation%3Arow_restore",
-    );
+    expect(restoreItemId).toBe("row-history-item-hitem_change_set_2");
     expect(restoreActionId).toBe(
-      "row-history-action-change-set%3Achange-set-2%3Arevision%3A4%3Aoperation%3Arow_restore-row_restore",
+      "row-history-action-hitem_change_set_2-row_restore",
     );
-    expect(rowHistoryItemTestId([...historyItems].reverse()[0]!)).toBe(
-      restoreItemId,
+    const reversedRestoreItem = requireFixtureValue(
+      [...historyItems].reverse()[0],
+      "reversed restore item",
     );
-    expect(rowHistoryActionTestId([...historyItems].reverse()[0]!)).toBe(
-      restoreActionId,
-    );
+    expect(rowHistoryItemTestId(reversedRestoreItem)).toBe(restoreItemId);
+    expect(rowHistoryActionTestId(reversedRestoreItem)).toBe(restoreActionId);
   });
 
   it("validates closed-vocabulary-derived selector tokens", () => {
@@ -309,9 +319,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       expect(
         rowHistoryActionTestId({
           action,
-          changeSetId: "change-set-1",
-          historyEntryRef: "entry-1",
-          operation: "patch",
+          historyItemRef: "hitem_change_set_1",
         }),
       ).toContain(`-${action}`);
     }
@@ -350,6 +358,25 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "presence-cell-record-1-timeline.summary",
     );
     expect(saveStateTestId()).toBe("save-state");
+    expect(referencePackAdminPanelTestId()).toBe("reference-pack-admin-panel");
+    expect(referencePackFileInputTestId()).toBe("reference-pack-file");
+    expect(referencePackImportButtonTestId()).toBe("reference-pack-import");
+    expect(referencePackJobStatusTestId()).toBe("reference-pack-job-status");
+    expect(referencePackReloadButtonTestId()).toBe("reference-pack-reload");
+    expect(referencePackCancelButtonTestId()).toBe("reference-pack-cancel");
+    expect(referencePackRefreshAllButtonTestId()).toBe(
+      "reference-pack-refresh-all",
+    );
+    expect(referencePackRefreshSelectedButtonTestId()).toBe(
+      "reference-pack-refresh-selected",
+    );
+    expect(referencePackErrorTestId()).toBe("reference-pack-error");
+    expect(referencePackRowTestId("type_registry.host", "1")).toBe(
+      "reference-pack-row-type_registry.host-1",
+    );
+    expect(referencePackRowTestId("pack/key", "v 1")).toBe(
+      "reference-pack-row-pack%2Fkey-v%201",
+    );
     expect(pendingQueueNoticeTestId()).toBe("pending-queue-notice");
     expect(pendingQueueCountTestId()).toBe("pending-queue-count");
   });
@@ -478,8 +505,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(() =>
       rowHistoryActionTestId({
         action: "restore" as never,
-        changeSetId: "change-set-1",
-        operation: "patch",
+        historyItemRef: "hitem_change_set_1",
       }),
     ).toThrow("Invalid row history rollback action token: restore");
     expect(() => mentionCreateEntityButtonTestId("account" as never)).toThrow(
@@ -488,10 +514,12 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(() =>
       rowHistoryActionTestId({
         action: "rollback" as never,
-        changeSetId: "change-set-1",
-        operation: "patch",
+        historyItemRef: "hitem_change_set_1",
       }),
     ).toThrow("Invalid row history rollback action token: rollback");
+    expect(() => rowHistoryItemTestId({ historyItemRef: "" })).toThrow(
+      "Invalid history_item_ref selector token: ",
+    );
 
     expect(relationshipChipTestId("a:b")).not.toBe(
       relationshipChipTestId("a-b"),

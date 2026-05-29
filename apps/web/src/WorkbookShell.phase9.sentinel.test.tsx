@@ -8,6 +8,7 @@ import {
   conflictMarkerTestId,
   gridShellTestId,
   rowCellTestId,
+  saveStateTestId,
   timelineCollectionInputTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -110,7 +111,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
 
     const summary = gridScalarInput(
@@ -203,7 +204,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
 
     const summary = gridScalarInput(
@@ -271,7 +272,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
 
     const summary = gridScalarInput(
@@ -366,7 +367,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
 
     const summary = gridScalarInput(
@@ -422,7 +423,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
 
     const summary = gridScalarInput(
@@ -568,7 +569,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForVisibleGridRowRecordIds(container, [
       "record-3",
       "record-1",
@@ -698,7 +699,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
 
     const summary = gridScalarInput(
@@ -716,7 +717,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
-    expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
     expect(
       screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeTruthy();
@@ -749,7 +750,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     fireEvent.click(screen.getByTestId("conflict-close"));
     expect(screen.queryByTestId("conflict-resolver")).toBeNull();
-    expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
     expect(
       screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),
     ).toBeTruthy();

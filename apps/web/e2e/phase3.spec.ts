@@ -4,6 +4,7 @@ import {
   draftRowCreateButtonTestId,
   rowCellTestId,
   rowInspectorFieldTestId,
+  saveStateTestId,
   timelineMutationSubstrateReadyTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowReplacementInputTestId,
@@ -57,7 +58,7 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
     surface: timelineViewSchemaId,
     timeoutMs: 5_000,
   });
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(
@@ -91,7 +92,7 @@ test("E-3-01 supports explicit blank Timeline row creation with only client_txn_
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   await page.getByTestId(draftRowCreateButtonTestId()).click();
   const committedRow = await waitForCommittedRowSummary(page, {
@@ -100,7 +101,7 @@ test("E-3-01 supports explicit blank Timeline row creation with only client_txn_
     timeoutMs: 5_000,
   });
 
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(

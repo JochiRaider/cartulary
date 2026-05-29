@@ -77,8 +77,8 @@ import {
   timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
-  workbookShellReadyTestId,
   type WorkbookSurface,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
   listViewContracts,
@@ -395,6 +395,7 @@ export type RecordHistoryRollbackAction =
 export type RecordHistoryItem = {
   actor_user_id: string;
   committed_at: string;
+  history_item_ref: string;
   operation: string;
   diff_summary: {
     summary: string;
@@ -450,6 +451,12 @@ type RecordHistoryState = {
   message: string | null;
 };
 
+const rowHistoryRollbackActionOrder = [
+  "history_entry",
+  "change_set",
+  "row_restore",
+] as const satisfies readonly RecordHistoryRollbackAction[];
+
 export function buildRecordRollbackTargetFromHistoryAction(
   item: RecordHistoryItem,
   action: RecordHistoryRollbackAction,
@@ -459,16 +466,92 @@ export function buildRecordRollbackTargetFromHistoryAction(
   }
   if (action === "history_entry") {
     return typeof item.history_entry_ref === "string" &&
-      item.history_entry_ref !== ""
+      item.history_entry_ref.trim() !== ""
       ? { kind: "history_entry", history_entry_ref: item.history_entry_ref }
       : null;
   }
   if (action === "change_set") {
-    return { kind: "change_set", change_set_id: item.change_set_id };
+    return typeof item.change_set_id === "string" &&
+      item.change_set_id.trim() !== ""
+      ? { kind: "change_set", change_set_id: item.change_set_id }
+      : null;
   }
-  return typeof item.revision_no === "number"
+  return isPositiveInteger(item.revision_no)
     ? { kind: "row_restore", restore_to_revision_no: item.revision_no }
     : null;
+}
+
+function normalizeRecordHistoryData(
+  data: RecordHistoryData,
+): RecordHistoryData {
+  if (!Array.isArray(data.items)) {
+    throw new Error("row history items must be an array");
+  }
+  const seenItemRefs = new Set<string>();
+  for (const item of data.items) {
+    if (!isNonEmptyString(item.history_item_ref)) {
+      throw new Error("row history item is missing history_item_ref");
+    }
+    if (seenItemRefs.has(item.history_item_ref)) {
+      throw new Error("row history item has duplicate history_item_ref");
+    }
+    seenItemRefs.add(item.history_item_ref);
+    if (!isNonEmptyString(item.change_set_id)) {
+      throw new Error("row history item is missing change_set_id");
+    }
+    if (
+      item.history_entry_ref !== undefined &&
+      !isNonEmptyString(item.history_entry_ref)
+    ) {
+      throw new Error("row history item has invalid history_entry_ref");
+    }
+    if (
+      item.revision_no !== undefined &&
+      !isPositiveInteger(item.revision_no)
+    ) {
+      throw new Error("row history item has invalid revision_no");
+    }
+    validateRowHistoryActions(item);
+  }
+  return data;
+}
+
+function validateRowHistoryActions(item: RecordHistoryItem) {
+  if (!Array.isArray(item.available_rollback_actions)) {
+    throw new Error("row history actions must be an array");
+  }
+  let previousIndex = -1;
+  for (const action of item.available_rollback_actions as unknown[]) {
+    if (!isRowHistoryRollbackAction(action)) {
+      throw new Error("row history action token is invalid");
+    }
+    const actionIndex = rowHistoryRollbackActionOrder.indexOf(action);
+    if (actionIndex <= previousIndex) {
+      throw new Error("row history actions are not canonical");
+    }
+    previousIndex = actionIndex;
+    if (buildRecordRollbackTargetFromHistoryAction(item, action) === null) {
+      throw new Error("row history action is missing its selector");
+    }
+  }
+}
+
+function isRowHistoryRollbackAction(
+  value: unknown,
+): value is RecordHistoryRollbackAction {
+  return (
+    value === "history_entry" ||
+    value === "change_set" ||
+    value === "row_restore"
+  );
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 type SessionEnvelope = {
@@ -4890,15 +4973,27 @@ export function TimelineWorkbook({
         });
         return null;
       }
-      const envelope = readEnvelope<RecordHistoryEnvelope>(result.payload);
-      acceptTimelineRecordVersion(recordId, envelope.data.row_version);
+      let historyData: RecordHistoryData;
+      try {
+        const envelope = readEnvelope<RecordHistoryEnvelope>(result.payload);
+        historyData = normalizeRecordHistoryData(envelope.data);
+      } catch {
+        setRowHistory({
+          recordId,
+          status: "error",
+          data: null,
+          message: "Invalid row history response.",
+        });
+        return null;
+      }
+      acceptTimelineRecordVersion(recordId, historyData.row_version);
       setRowHistory({
         recordId,
         status: "ready",
-        data: envelope.data,
+        data: historyData,
         message: null,
       });
-      return envelope.data;
+      return historyData;
     },
     [acceptTimelineRecordVersion, apiBase],
   );
@@ -6662,14 +6757,8 @@ export function TimelineWorkbook({
             </div>
             <ol style={historyListStyle}>
               {historyData.items.map((item) => {
-                const itemKey =
-                  item.history_entry_ref ??
-                  `${item.change_set_id}:${item.revision_no}:${item.operation}`;
                 const itemAnchor = {
-                  changeSetId: item.change_set_id,
-                  historyEntryRef: item.history_entry_ref,
-                  operation: item.operation,
-                  revisionNo: item.revision_no ?? null,
+                  historyItemRef: item.history_item_ref,
                 };
                 const actionButtons = item.available_rollback_actions.flatMap(
                   (action) => {
@@ -6711,7 +6800,7 @@ export function TimelineWorkbook({
                 return (
                   <li
                     data-testid={rowHistoryItemTestId(itemAnchor)}
-                    key={itemKey}
+                    key={item.history_item_ref}
                     style={historyItemStyle}
                   >
                     <div style={historyItemHeaderStyle}>

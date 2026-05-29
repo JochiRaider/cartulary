@@ -1,5 +1,6 @@
 import {
   draftCellTestId,
+  saveStateTestId,
   timelineMutationSubstrateReadyTestId,
 } from "@cartulary/ui-contracts";
 
@@ -33,7 +34,7 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   const draftSummary = page.getByTestId(draftSummaryTestId);
   const visibleSaveStateSummary = `Visible save state ${uniqueTxn("save-state")}`;
@@ -45,10 +46,10 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
     await draftSummary.fill(visibleSaveStateSummary);
     await draftSummary.press("Enter");
     await heldCreate.waitForHit;
-    await expect(page.getByTestId("save-state")).toHaveText("Syncing");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
     expect(heldCreate.hitCount()).toBe(1);
     heldCreate.release();
-    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expect(page.getByTestId(draftSummaryTestId)).toBeFocused();
   } finally {
     heldCreate.release();

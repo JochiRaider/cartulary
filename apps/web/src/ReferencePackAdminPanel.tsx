@@ -1,3 +1,15 @@
+import {
+  referencePackAdminPanelTestId,
+  referencePackCancelButtonTestId,
+  referencePackErrorTestId,
+  referencePackFileInputTestId,
+  referencePackImportButtonTestId,
+  referencePackJobStatusTestId,
+  referencePackRefreshAllButtonTestId,
+  referencePackRefreshSelectedButtonTestId,
+  referencePackReloadButtonTestId,
+  referencePackRowTestId,
+} from "@cartulary/ui-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -239,13 +251,14 @@ export function ReferencePackAdminPanel({
   }
 
   return (
-    <section data-testid="reference-pack-admin-panel" style={panelStyle}>
+    <section data-testid={referencePackAdminPanelTestId()} style={panelStyle}>
       <div style={panelHeaderStyle}>
         <div>
           <p style={eyebrowStyle}>Reference packs</p>
           <h2 style={titleStyle}>Pack operations</h2>
         </div>
         <button
+          data-testid={referencePackReloadButtonTestId()}
           type="button"
           style={buttonStyle}
           onClick={() => void loadPacks()}
@@ -256,14 +269,14 @@ export function ReferencePackAdminPanel({
 
       <div style={uploadRowStyle}>
         <input
-          data-testid="reference-pack-file"
+          data-testid={referencePackFileInputTestId()}
           type="file"
           onChange={(event) => {
             setFile(event.currentTarget.files?.[0] ?? null);
           }}
         />
         <button
-          data-testid="reference-pack-import"
+          data-testid={referencePackImportButtonTestId()}
           type="button"
           style={primaryButtonStyle}
           onClick={() => void submitUpload()}
@@ -272,7 +285,7 @@ export function ReferencePackAdminPanel({
         </button>
       </div>
 
-      <div style={jobStyle} data-testid="reference-pack-job-status">
+      <div style={jobStyle} data-testid={referencePackJobStatusTestId()}>
         <span>{status}</span>
         {job !== null ? (
           <span>
@@ -283,7 +296,7 @@ export function ReferencePackAdminPanel({
         !terminalJobStates.has(job.status) &&
         job.cancelable ? (
           <button
-            data-testid="reference-pack-cancel"
+            data-testid={referencePackCancelButtonTestId()}
             type="button"
             style={buttonStyle}
             onClick={() => void cancelJob()}
@@ -295,7 +308,7 @@ export function ReferencePackAdminPanel({
 
       <div style={actionBarStyle}>
         <button
-          data-testid="reference-pack-refresh-all"
+          data-testid={referencePackRefreshAllButtonTestId()}
           type="button"
           style={buttonStyle}
           onClick={() => void refreshSelected(true)}
@@ -303,7 +316,7 @@ export function ReferencePackAdminPanel({
           Refresh all
         </button>
         <button
-          data-testid="reference-pack-refresh-selected"
+          data-testid={referencePackRefreshSelectedButtonTestId()}
           type="button"
           style={buttonStyle}
           disabled={selectedKeys.size === 0}
@@ -318,7 +331,10 @@ export function ReferencePackAdminPanel({
           <div
             key={`${pack.pack_key}/${pack.pack_version}`}
             style={packRowStyle}
-            data-testid="reference-pack-row"
+            data-testid={referencePackRowTestId(
+              pack.pack_key,
+              pack.pack_version,
+            )}
           >
             <label style={packLabelStyle}>
               <input
@@ -369,7 +385,7 @@ export function ReferencePackAdminPanel({
         {packs.length === 0 ? <p style={emptyStyle}>No packs loaded</p> : null}
       </div>
 
-      <p data-testid="reference-pack-error" style={errorStyle}>
+      <p data-testid={referencePackErrorTestId()} style={errorStyle}>
         {error?.code ?? ""}
       </p>
       <p style={emptyStyle}>{activePackKeys.length} pack keys visible</p>

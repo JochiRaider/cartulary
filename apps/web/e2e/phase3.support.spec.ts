@@ -7,6 +7,7 @@ import {
   gridGroupRowTestId,
   gridRowTestId,
   rowCellTestId,
+  saveStateTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
@@ -158,7 +159,7 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
     await alphaSummary.fill("Zulu anchored");
     await alphaSummary.press("Enter");
     await heldPatch.waitForHit;
-    await expect(page.getByTestId("save-state")).toHaveText("Syncing");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
 
     const betaVersion = Number.parseInt(
       (await page
@@ -187,7 +188,7 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
 
     expect(heldPatch.hitCount()).toBe(1);
     heldPatch.release();
-    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   } finally {
     await heldPatch.dispose();
   }

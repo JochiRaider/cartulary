@@ -8,6 +8,7 @@ import {
   gridGroupRowTestId,
   gridSortHeaderTestId,
   rowCellTestId,
+  saveStateTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
@@ -108,7 +109,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     const grid = await waitForTimelineWorkbookReady(container, 1);
     const headerFields = Array.from(
       grid.querySelectorAll('[role="columnheader"] [data-grid-field-key]'),
@@ -195,7 +196,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
     const firstVisibleRow = requiredGridRow(container, 0);
     const secondVisibleRow = requiredGridRow(container, 1);
@@ -257,7 +258,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 0);
 
     const initialDraftSummary = screen.getByTestId(
@@ -331,7 +332,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 0);
 
     const draftSummary = screen.getByTestId(
@@ -426,7 +427,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
 
     fireEvent.click(
@@ -494,7 +495,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
 
     fireEvent.click(
@@ -570,7 +571,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
 
     emitRecordChanged(
@@ -704,7 +705,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
 
     emitRecordChanged(
@@ -765,7 +766,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
 
     emitRecordChanged(latestTimelineWebSocket(), {
@@ -912,7 +913,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
 
-    await screen.findByTestId("save-state");
+    await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
 
     fireEvent.click(

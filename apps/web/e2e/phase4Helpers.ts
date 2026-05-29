@@ -15,6 +15,7 @@ import {
   relationshipChipTestId,
   relationshipItemsTestId,
   rowInspectButtonTestId,
+  saveStateTestId,
   timelineCollectionInputTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
@@ -240,7 +241,7 @@ export async function waitForSaveState(
   page: Page,
   value: "Saved" | "Syncing" | "Conflict",
 ) {
-  await expect(page.getByTestId("save-state")).toHaveText(value);
+  await expect(page.getByTestId(saveStateTestId())).toHaveText(value);
 }
 
 export async function expectNoPendingQueueAuthPause(
@@ -311,7 +312,7 @@ export async function addRelationshipTokenViaUI(
             return `<<failed to read row version: ${String(error)}>>`;
           }),
         saveState: await page
-          .getByTestId("save-state")
+          .getByTestId(saveStateTestId())
           .textContent()
           .catch((error: unknown) => {
             return `<<failed to read save state: ${String(error)}>>`;
@@ -450,7 +451,7 @@ async function pendingQueueDiagnosticSnapshot(page: Page) {
           })
       : "";
   const saveState = await page
-    .getByTestId("save-state")
+    .getByTestId(saveStateTestId())
     .textContent()
     .then((value) => value ?? "")
     .catch((error: unknown) => {
