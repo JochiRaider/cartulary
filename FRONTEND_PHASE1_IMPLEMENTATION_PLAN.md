@@ -27,11 +27,11 @@ The following facts were verified by local inspection, non-mutating command exec
 - `tools/frontend_phase_registry.json` exists and includes `FE-P1` in the `frontend` namespace with `status="planned"`, manifest path `tools/frontend_phase_maps/fe_p1_test_map.json`, ledger path `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`, and dependency on `FE-P0`.
 - `tools/frontend_phase_maps/fe_p1_test_map.json` exists with schema `cartulary.frontend_phase_test_map.v1`, `phase_namespace="frontend"`, and `phase_id="FE-P1"`.
 - The FE-P1 phase map contains exactly these row IDs once each: `FE-U-P1-01`, `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01`.
-- All FE-P1 rows currently have `claim_status="blocked"` in the phase map and generated ledger.
+- After Sprint 2, `FE-U-P1-01` has `claim_status="implemented"` in the phase map and generated ledger. `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01` remain `claim_status="blocked"`, and the FE-P1 registry `status` remains `planned`.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md` exists and states that it is generated from `tools/frontend_phase_maps/fe_p1_test_map.json`; it must not be hand-edited for FE-P1 closure.
 - `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1` passed during Sprint 1 readiness validation and reported FE-P1 as planned, explainable, and non-executable.
 - Sprint 1 registry and map invariant checks passed with `jq -e`; the registry tuple is exact and the FE-P1 map contains no missing or duplicate row IDs.
-- `make phase-ledger-drift` passed during Sprint 1 readiness validation with final summary `.cartulary/test-results/20260529T211122Z-p2095159/phase-ledger-drift/tool-run-summary.json`.
+- `make phase-ledger-drift` passed during Sprint 2 validation with final summary `.cartulary/test-results/20260529T222417Z-p2204673/phase-ledger-drift/tool-run-summary.json`.
 - FE-P0 handoff regressions were rerun during Sprint 1 readiness validation: `make frontend-typecheck`, `make frontend-unit`, `make generated-artifact-policy-check`, `make generate-drift`, `make frontend-import-boundary-check`, and `make phase-ledger-drift` all passed.
 - Target dry-run discovery found these candidate targets available: `make explain-phase`, `make frontend-typecheck`, `make frontend-unit`, `make browser-e2e-webserver-backed`, `make browser-e2e-a11y`, `make browser-e2e-support`, `make phase-ledgers`, `make phase-ledger-drift`, `make generated-artifact-policy-check`, `make generate-drift`, `make frontend-import-boundary-check`, and `make check`.
 - `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md` exists and records FE-P0 handoff state. FE-P1 may consume that handoff, but FE-P0 closure claims are not FE-P1 completion evidence.
@@ -93,7 +93,7 @@ FE-P1 must not treat existing FE-P0 closure claims, generated ledgers, retained 
 | Done | Sprint | Primary validation | Blockers | Follow-up notes |
 | ---- | ------ | ------------------ | -------- | --------------- |
 | [x] | 1. Frontend phase manifest, FE-P1 map, ledger, and P0 handoff validation | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1`; `make phase-ledger-drift`; FE-P0 handoff regression set | None for Sprint 1 metadata readiness | Planned frontend phases are explainable but not executable; no FE-P1 row is complete |
-| [ ] | 2. App bootstrap state model and public error-envelope rendering; owns `FE-U-P1-01` | `make frontend-unit` | Unit evidence not run during guide creation | Keep public error envelopes separate from private server diagnostics |
+| [x] | 2. App bootstrap state model and public error-envelope rendering; owns `FE-U-P1-01` | `make frontend-unit`; `make frontend-typecheck`; `make phase-ledgers`; `make phase-ledger-drift` | None for Sprint 2 unit scope | `FE-U-P1-01` promoted only; FE-I/E/A11Y/S rows remain blocked |
 | [ ] | 3. API client and route-boundary integration baseline; owns `FE-I-P1-01` | `make frontend-unit`; supporting `make frontend-typecheck` | Integration/unit evidence not run during guide creation | Public-route behavior stays under `/api/v1/` |
 | [ ] | 4. Login, session bootstrap, incident entry, authorization, and revocation E2E flow; owns `FE-E-P1-01` | `make browser-e2e-webserver-backed` | Browser E2E evidence not run during guide creation | Browser-observed authorization is product-conformance only when Core-owned |
 | [ ] | 5. Accessibility coverage for session, MFA, incident, forbidden, loading, and error states; owns `FE-A11Y-P1-01` | `make browser-e2e-a11y` | Accessibility evidence not run during guide creation | Design-direction evidence must not be counted as product conformance |
@@ -258,7 +258,7 @@ Status: Complete for Sprint 1 readiness and traceability. This sprint does not c
 
 ## Sprint 2: App Bootstrap State Model And Public Error-Envelope Rendering
 
-Status: Planned.
+Status: Complete for `FE-U-P1-01` unit implementation and row-owned unit evidence. FE-P1 overall remains planned because `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01` remain blocked.
 Relevant IDs: owns `FE-U-P1-01` only.
 
 ### 1. Objective and non-goals
@@ -362,6 +362,24 @@ Relevant IDs: owns `FE-U-P1-01` only.
 - `make frontend-typecheck` passes when type surfaces change, or a precise blocker is recorded.
 - No `FE-U-P1-01` completion claim is made from prohibited evidence sources or from this plan.
 
+### 12. Sprint 2 completion evidence
+
+Sprint 2 implementation completed only the `FE-U-P1-01` unit row. The phase registry remains `status="planned"`, and no `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, `FE-S-P1-01`, or Core 05 publication evidence is claimed.
+
+Validation artifacts:
+
+| Command | Status | Artifact |
+| ------- | ------ | -------- |
+| `make frontend-unit` | Passed | `.cartulary/test-results/20260529T222359Z-p2202982/frontend-unit/tool-run-summary.json` |
+| `make frontend-typecheck` | Passed | `.cartulary/test-results/20260529T222359Z-p2202985/frontend-typecheck/tool-run-summary.json` |
+| `make phase-ledgers` | Passed | `.cartulary/test-results/20260529T221959Z-p2192852/phase-ledgers/tool-run-summary.json` |
+| `make phase-ledger-drift` | Passed | `.cartulary/test-results/20260529T222417Z-p2204673/phase-ledger-drift/tool-run-summary.json` |
+
+Generated artifacts:
+
+- `tools/frontend_phase_maps/fe_p1_test_map.json` now marks only `FE-U-P1-01` as `claim_status="implemented"` and records the exact existing `App.phase1.test.tsx` Vitest titles used as `scenario_titles`.
+- `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md` was regenerated through `make phase-ledgers`; it was not hand-edited.
+
 ## Sprint 3: API Client And Route-Boundary Integration Baseline
 
 - Objective: Ensure the frontend API client and route-boundary tests preserve public `/api/v1/` routing, server-managed sessions, and public error-envelope rendering.
@@ -450,20 +468,20 @@ Do not replace blockers with guesses. If a command is not run, state that it was
 | The guide file exists and states that it is not behavior authority | Satisfied by this file once committed or otherwise accepted |
 | FE-P1 phase registry, phase map, and generated ledger are present or a precise blocker is recorded | Satisfied by Sprint 1 readiness inspection: registry, map, and ledger exist |
 | Every FE-P1 row is represented exactly once in the phase map | Satisfied by Sprint 1 duplicate-row inspection: all five requested rows appear once |
-| Generated ledgers are produced by generator, not hand-edited | Satisfied for Sprint 1 metadata: ledger states it is generated from the map and `make phase-ledger-drift` passed |
-| `FE-U-P1-01` has direct unit evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 unit evidence was promoted; `make frontend-unit` passed only as FE-P0 handoff regression |
-| `FE-I-P1-01` has direct integration/unit evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 integration evidence was promoted; `make frontend-unit` passed only as FE-P0 handoff regression |
+| Generated ledgers are produced by generator, not hand-edited | Satisfied for Sprint 2 metadata: `make phase-ledgers` regenerated the FE-P1 ledger and `make phase-ledger-drift` passed |
+| `FE-U-P1-01` has direct unit evidence or a blocker | Satisfied for Sprint 2 unit scope: `make frontend-unit` passed with `.cartulary/test-results/20260529T222359Z-p2202982/frontend-unit/tool-run-summary.json` and only `FE-U-P1-01` was promoted |
+| `FE-I-P1-01` has direct integration/unit evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 integration scenario titles or claim were promoted; Sprint 2 `make frontend-unit` evidence is scoped only to `FE-U-P1-01` |
 | `FE-E-P1-01` has browser E2E evidence or a blocker | Blocked: `make browser-e2e-webserver-backed` was not run for guide creation |
 | `FE-A11Y-P1-01` has accessibility evidence or a blocker | Blocked: `make browser-e2e-a11y` was not run for guide creation |
-| `FE-S-P1-01` has selector-builder support evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 selector-builder evidence was promoted; `make frontend-unit` passed only as FE-P0 handoff regression and `make browser-e2e-support` was not run |
+| `FE-S-P1-01` has selector-builder support evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 selector-builder evidence was promoted; Sprint 2 selector accounting remains app-local and `make browser-e2e-support` was not run |
 | Public-route behavior stays under `/api/v1/` | Required for closure; source inspection found existing `/api/v1/` usage but row-owned evidence is still blocked |
-| Frontend error rendering uses public error envelopes and not private server details | Required for closure; direct row-owned evidence is still blocked |
-| Server-managed session state is respected | Required for closure; direct row-owned evidence is still blocked |
+| Frontend error rendering uses public error envelopes and not private server details | Satisfied for `FE-U-P1-01` unit scope; broader FE-I/E validation remains blocked |
+| Server-managed session state is respected | Satisfied for `FE-U-P1-01` unit scope; broader FE-I/E validation remains blocked |
 | Unknown closed request members are tested where route owners require closure | Required for closure; exact route-owner coverage must be verified during implementation |
 | P0 regression checks remain green or exact blockers are recorded | Satisfied for Sprint 1 readiness: `make frontend-typecheck`, `make frontend-unit`, `make generated-artifact-policy-check`, `make generate-drift`, `make frontend-import-boundary-check`, and `make phase-ledger-drift` passed |
 | Support-only and design-direction evidence are not represented as product-conformance evidence | Satisfied for Sprint 1 metadata; current FE-P1 map separates product conformance, design direction, and implementation support |
 | No Core 05 claim-publication review is activated unless explicitly requested | Satisfied for Sprint 1; this guide does not activate Core 05 publication review |
-| Whitespace checks pass | Satisfied for Sprint 1: `git diff --check` and `git diff --cached --check` passed after the plan edit |
+| Whitespace checks pass | Satisfied for Sprint 2: `git diff --check` passed; no staged changes, so `git diff --cached --check` was skipped |
 
 FE-P1 must not be marked complete until every criterion is satisfied with direct evidence or an explicit blocker.
 

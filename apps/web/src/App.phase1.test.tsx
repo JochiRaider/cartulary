@@ -47,10 +47,18 @@ describe("Phase 1 ordinary app shell", () => {
 
   it("Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions", async () => {
     let authenticated = false;
+    let sessionProbeCount = 0;
+    const pendingInitialSession = deferred<Response>();
     installLandingShellFetch(fetchMock, {
       session: () => {
+        sessionProbeCount += 1;
+        if (sessionProbeCount === 1) {
+          return pendingInitialSession.promise;
+        }
         if (!authenticated) {
-          return errorResponse("session_required", 401);
+          return errorResponse("session_required", 401, {
+            reason_code: "no_session",
+          });
         }
         return sessionResource({
           display_name: "Phase 1 Operator",
@@ -74,7 +82,24 @@ describe("Phase 1 ordinary app shell", () => {
 
     renderApp();
 
+    expect(
+      (await screen.findByTestId("auth-shell")).getAttribute(
+        "data-bootstrap-state",
+      ),
+    ).toBe("loading");
+    expect(screen.getByTestId("auth-status").textContent).toBe(
+      "Checking current session…",
+    );
+    pendingInitialSession.resolve(
+      errorResponse("session_required", 401, {
+        reason_code: "no_session",
+      }),
+    );
+
     expect(await screen.findByTestId("auth-login-username")).toBeTruthy();
+    expect(
+      screen.getByTestId("auth-shell").getAttribute("data-bootstrap-state"),
+    ).toBe("anonymous");
     expect(screen.getByTestId("auth-shell-message").textContent).toContain(
       "Sign in with your local account",
     );
@@ -91,6 +116,9 @@ describe("Phase 1 ordinary app shell", () => {
         "Phase 1 Operator",
       );
     });
+    expect(
+      screen.getByTestId("app-shell").getAttribute("data-bootstrap-state"),
+    ).toBe("authenticated");
     expect(screen.getByTestId("account-session-user-id").textContent).toBe(
       "user-1",
     );
@@ -109,19 +137,87 @@ describe("Phase 1 ordinary app shell", () => {
     await expectStableFetchCount(fetchMock, 5);
   });
 
+  it("Phase 1 U-1-14 ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Phase 1 Operator",
+      }),
+      credentialState: () =>
+        errorResponse("credential_bootstrap_rejected", 409, {
+          reason_code: "not_allowed_for_route",
+          bootstrap_token: "credential-bootstrap-token-must-not-render",
+          request_id: "req-private-credential-detail",
+          internal_path: "/var/lib/cartulary/credential.go",
+        }),
+    });
+
+    renderApp();
+
+    await screen.findByTestId("landing-current-user");
+    expect(
+      screen.getByTestId("app-shell").getAttribute("data-bootstrap-state"),
+    ).toBe("public_error_envelope");
+    expect(screen.getByTestId("landing-current-user").textContent).toContain(
+      "Phase 1 Operator",
+    );
+    expect(screen.getByTestId("landing-error-code").textContent).toBe(
+      "credential_bootstrap_rejected",
+    );
+    expect(screen.getByTestId("landing-error-details").textContent).toContain(
+      "Reason: not_allowed_for_route",
+    );
+    expect(screen.getByTestId("account-error-code").textContent).toBe(
+      "credential_bootstrap_rejected",
+    );
+    const credentialErrorText = document.body.textContent ?? "";
+    expect(credentialErrorText).not.toContain(
+      "credential-bootstrap-token-must-not-render",
+    );
+    expect(credentialErrorText).not.toContain("req-private-credential-detail");
+    expect(credentialErrorText).not.toContain("/var/lib/cartulary");
+    await expectStableFetchCount(fetchMock, 3);
+  });
+
   it("Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
+    let loginAttempts = 0;
     installLandingShellFetch(fetchMock, {
       session: errorResponse("session_required", 401),
       extraRoutes: [
         {
           method: "POST",
           url: "/api/v1/auth/login",
-          handler: () =>
-            errorResponse("mfa_setup_required", 401, {
-              required_setup_kinds: ["totp"],
-              bootstrap_token: "bootstrap-token-123",
-              bootstrap_expires_at: "2026-04-17T12:10:00Z",
-            }),
+          handler: () => {
+            loginAttempts += 1;
+            if (loginAttempts === 1) {
+              return errorResponse("mfa_required", 401, {
+                required_second_factor_kinds: ["totp"],
+                bootstrap_token: "mfa-required-token-must-not-render",
+                secret_base32: "MFAREQUIREDSECRET",
+                otpauth_uri: "otpauth://mfa-required-private",
+              });
+            }
+            return jsonResponse(
+              {
+                error: {
+                  code: "mfa_setup_required",
+                  status: 401,
+                  message: "TOTP setup is required.",
+                  request_id: "req-private-setup",
+                  details: {
+                    required_setup_kinds: ["totp"],
+                    bootstrap_token: "bootstrap-token-123",
+                    bootstrap_expires_at: "2026-04-17T12:10:00Z",
+                    secret_base32: "ERRORSECRETBASE32",
+                    otpauth_uri: "otpauth://private-error",
+                    request_id: "req-private-detail",
+                    stack:
+                      "Error: private stack at /var/lib/cartulary/auth.go:12",
+                  },
+                },
+              },
+              401,
+            );
+          },
         },
         {
           method: "POST",
@@ -157,12 +253,51 @@ describe("Phase 1 ordinary app shell", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("auth-error-code").textContent).toBe(
+        "mfa_required",
+      );
+    });
+    expect(
+      screen.getByTestId("auth-shell").getAttribute("data-bootstrap-state"),
+    ).toBe("mfa_required");
+    expect(screen.getByTestId("auth-error-details").textContent).toContain(
+      "Required second factor kinds: totp",
+    );
+    expect(document.body.textContent ?? "").not.toContain(
+      "mfa-required-token-must-not-render",
+    );
+    expect(document.body.textContent ?? "").not.toContain(
+      "otpauth://mfa-required-private",
+    );
+
+    fireEvent.click(screen.getByTestId("auth-login-submit"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error-code").textContent).toBe(
         "mfa_setup_required",
       );
     });
-    expect(screen.getByTestId("auth-bootstrap-token").textContent).toBe(
-      "bootstrap-token-123",
+    expect(
+      screen.getByTestId("auth-shell").getAttribute("data-bootstrap-state"),
+    ).toBe("mfa_setup_required");
+    expect(screen.getByTestId("auth-error-message").textContent).toBe(
+      "TOTP setup is required.",
     );
+    expect(screen.getByTestId("auth-error-details").textContent).toContain(
+      "Required setup kinds: totp",
+    );
+    expect(screen.getByTestId("auth-error-details").textContent).toContain(
+      "Bootstrap expires at: 2026-04-17T12:10:00Z",
+    );
+    expect(screen.getByTestId("auth-bootstrap-token").textContent).toBe(
+      "Stored for TOTP setup requests.",
+    );
+    const preBeginText = document.body.textContent ?? "";
+    expect(preBeginText).not.toContain("bootstrap-token-123");
+    expect(preBeginText).not.toContain("ERRORSECRETBASE32");
+    expect(preBeginText).not.toContain("otpauth://private-error");
+    expect(preBeginText).not.toContain("req-private-setup");
+    expect(preBeginText).not.toContain("/var/lib/cartulary");
+    expect(preBeginText).not.toContain("private stack");
 
     fireEvent.click(screen.getByTestId("auth-bootstrap-begin"));
     await waitFor(() => {
@@ -209,7 +344,7 @@ describe("Phase 1 ordinary app shell", () => {
       findFetchCalls(fetchMock, "/api/v1/auth/session", "GET"),
     ).toHaveLength(1);
     expect(screen.queryByTestId("landing-current-user")).toBeNull();
-    await expectStableFetchCount(fetchMock, 4);
+    await expectStableFetchCount(fetchMock, 5);
   });
 
   it("Phase 1 U-1-16 ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success", async () => {
@@ -309,6 +444,12 @@ describe("Phase 1 ordinary app shell", () => {
     await waitFor(() => {
       expect(screen.getByTestId("auth-login-username")).toBeTruthy();
     });
+    expect(
+      screen.getByTestId("auth-shell").getAttribute("data-bootstrap-state"),
+    ).toBe("revoked");
+    expect(screen.getByTestId("auth-error-code").textContent).toBe(
+      "session_required",
+    );
     expect(screen.getByTestId("auth-shell-message").textContent).toContain(
       "Password changed. Sign in again.",
     );
@@ -391,6 +532,26 @@ describe("Phase 1 ordinary app shell", () => {
         display_name: "Deployment Admin",
         is_deployment_admin: true,
       }),
+      incidents: () =>
+        jsonResponse(
+          {
+            error: {
+              code: "authorization_denied",
+              status: 403,
+              message: "Membership required.",
+              request_id: "req-private-landing",
+              details: {
+                reason_code: "incident_membership_required",
+                required_role: "viewer",
+                request_id: "req-private-detail",
+                internal_path: "/var/lib/cartulary/server.go",
+                sql: "select * from sessions",
+                bootstrap_token: "forbidden-bootstrap-token",
+              },
+            },
+          },
+          403,
+        ),
       extraRoutes: [
         {
           method: "POST",
@@ -432,6 +593,30 @@ describe("Phase 1 ordinary app shell", () => {
     renderApp();
 
     await screen.findByTestId("landing-current-user");
+    await waitFor(() => {
+      expect(screen.getByTestId("landing-error-code").textContent).toBe(
+        "authorization_denied",
+      );
+    });
+    expect(
+      screen
+        .getByTestId("incident-landing")
+        .getAttribute("data-bootstrap-state"),
+    ).toBe("forbidden");
+    expect(screen.getByTestId("landing-error-message").textContent).toBe(
+      "Membership required.",
+    );
+    expect(screen.getByTestId("landing-error-details").textContent).toContain(
+      "Reason: incident_membership_required",
+    );
+    expect(screen.getByTestId("landing-error-details").textContent).toContain(
+      "Required role: viewer",
+    );
+    const forbiddenText = document.body.textContent ?? "";
+    expect(forbiddenText).not.toContain("req-private-landing");
+    expect(forbiddenText).not.toContain("/var/lib/cartulary");
+    expect(forbiddenText).not.toContain("select * from sessions");
+    expect(forbiddenText).not.toContain("forbidden-bootstrap-token");
     fireEvent.change(screen.getByTestId("admin-create-email"), {
       target: { value: createdUser.email },
     });

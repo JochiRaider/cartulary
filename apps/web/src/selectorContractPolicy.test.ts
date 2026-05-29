@@ -44,7 +44,7 @@ const appLocalSelectorOwnership = [
   {
     owner: "apps/web landing and route shell",
     pattern:
-      /^(?:landing-|workbook-(?:current-user|loading|focus-anchor)$|debug-harness-loading$)/u,
+      /^(?:app-shell$|incident-landing$|landing-|workbook-(?:current-user|loading|focus-anchor)$|debug-harness-loading$)/u,
     reason:
       "Landing and route-shell selectors are app-local until FE-P1/FE-P2 promote shared shell builders.",
     scope: "apps/web App landing, route handoff, and keyboard focus coverage",

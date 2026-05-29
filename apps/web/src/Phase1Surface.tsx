@@ -1,6 +1,6 @@
 import { type CSSProperties, useRef, useState } from "react";
 
-import { type APIError, extractError } from "./browserApi";
+import { type APIError, extractError, publicErrorView } from "./browserApi";
 import {
   adminResetPassword,
   adminResetTotp,
@@ -22,10 +22,17 @@ type RefreshOptions = {
   anonymousMessage?: string;
 };
 
+type AuthSurfaceBootstrapState =
+  | "loading"
+  | "anonymous"
+  | "revoked"
+  | "public_error_envelope";
+
 type Phase1AuthSurfaceProps = {
-  isCheckingSession: boolean;
+  bootstrapState: AuthSurfaceBootstrapState;
   message: string;
   onAuthenticated: () => Promise<void> | void;
+  publicError?: APIError | null;
 };
 
 type Phase1AccountPanelProps = {
@@ -42,13 +49,18 @@ type Phase1AdminPanelProps = {
 
 type TargetAdminOperation = "loading" | "mutating";
 
+type AuthChallengeState = "mfa_required" | "mfa_setup_required";
+
 export function Phase1AuthSurface({
-  isCheckingSession,
+  bootstrapState,
   message,
   onAuthenticated,
+  publicError = null,
 }: Phase1AuthSurfaceProps) {
   const [statusText, setStatusText] = useState("Ready to sign in.");
   const [error, setError] = useState<APIError | null>(null);
+  const [authChallengeState, setAuthChallengeState] =
+    useState<AuthChallengeState | null>(null);
   const [bootstrapToken, setBootstrapToken] = useState("");
   const [bootstrapEnrollmentId, setBootstrapEnrollmentId] = useState("");
   const [bootstrapSecretBase32, setBootstrapSecretBase32] = useState("");
@@ -60,6 +72,7 @@ export function Phase1AuthSurface({
 
   async function handleLogin() {
     setStatusText("Signing in");
+    setAuthChallengeState(null);
     const result = await loginLocal({
       username,
       password,
@@ -73,9 +86,23 @@ export function Phase1AuthSurface({
         if (typeof token === "string") {
           setBootstrapToken(token);
         }
+        setBootstrapEnrollmentId("");
+        setBootstrapSecretBase32("");
+        setAuthChallengeState("mfa_setup_required");
         setStatusText("TOTP enrollment is required before sign-in.");
         return;
       }
+      if (nextError?.code === "mfa_required") {
+        setBootstrapToken("");
+        setBootstrapEnrollmentId("");
+        setBootstrapSecretBase32("");
+        setAuthChallengeState("mfa_required");
+        setStatusText("TOTP code is required before sign-in.");
+        return;
+      }
+      setBootstrapToken("");
+      setBootstrapEnrollmentId("");
+      setBootstrapSecretBase32("");
       setStatusText("Sign in failed");
       return;
     }
@@ -83,6 +110,7 @@ export function Phase1AuthSurface({
     setBootstrapToken("");
     setBootstrapEnrollmentId("");
     setBootstrapSecretBase32("");
+    setAuthChallengeState(null);
     setError(null);
     setStatusText("Signed in");
     await onAuthenticated();
@@ -131,12 +159,21 @@ export function Phase1AuthSurface({
     setBootstrapSecretBase32("");
     setBootstrapCompleteCode("");
     setTotpCode("");
+    setAuthChallengeState(null);
     setError(null);
     setStatusText("TOTP enrollment completed. Sign in with your TOTP code.");
   }
 
+  const displayedError = error ?? publicError;
+  const displayedBootstrapState = authChallengeState ?? bootstrapState;
+
   return (
-    <main className="cartulary-shell" style={shellStyle}>
+    <main
+      className="cartulary-shell"
+      data-bootstrap-state={displayedBootstrapState}
+      data-testid="auth-shell"
+      style={shellStyle}
+    >
       <section style={shellPanelStyle}>
         <header style={sectionHeaderStyle}>
           <div>
@@ -149,7 +186,9 @@ export function Phase1AuthSurface({
           <div style={statusCardStyle}>
             <span style={labelStyle}>Status</span>
             <strong data-testid="auth-status">
-              {isCheckingSession ? "Checking current session…" : statusText}
+              {bootstrapState === "loading"
+                ? "Checking current session…"
+                : statusText}
             </strong>
           </div>
         </header>
@@ -215,8 +254,16 @@ export function Phase1AuthSurface({
             </button>
           </div>
           <p data-testid="auth-error-code" style={errorStyle}>
-            {error?.code ?? ""}
+            {publicErrorView(displayedError)?.code ?? ""}
           </p>
+          <PublicErrorSummary
+            error={displayedError}
+            testIds={{
+              container: "auth-error-public",
+              details: "auth-error-details",
+              message: "auth-error-message",
+            }}
+          />
         </section>
 
         {bootstrapToken !== "" ? (
@@ -233,9 +280,9 @@ export function Phase1AuthSurface({
             </p>
             <div style={detailGridStyle}>
               <div>
-                <span style={labelStyle}>Bootstrap token</span>
+                <span style={labelStyle}>Setup token</span>
                 <div data-testid="auth-bootstrap-token" style={monoTextStyle}>
-                  {bootstrapToken}
+                  Stored for TOTP setup requests.
                 </div>
               </div>
               <div>
@@ -671,8 +718,16 @@ export function Phase1AccountPanel({
         {statusText}
       </p>
       <p data-testid="account-error-code" style={errorStyle}>
-        {error?.code ?? credentialStateError?.code ?? ""}
+        {publicErrorView(error ?? credentialStateError)?.code ?? ""}
       </p>
+      <PublicErrorSummary
+        error={error ?? credentialStateError}
+        testIds={{
+          container: "account-error-public",
+          details: "account-error-details",
+          message: "account-error-message",
+        }}
+      />
     </section>
   );
 }
@@ -1332,9 +1387,43 @@ export function Phase1AdminPanel({
         {statusText}
       </p>
       <p data-testid="admin-error-code" style={errorStyle}>
-        {error?.code ?? ""}
+        {publicErrorView(error)?.code ?? ""}
       </p>
+      <PublicErrorSummary
+        error={error}
+        testIds={{
+          container: "admin-error-public",
+          details: "admin-error-details",
+          message: "admin-error-message",
+        }}
+      />
     </section>
+  );
+}
+
+function PublicErrorSummary({
+  error,
+  testIds,
+}: {
+  error: APIError | null;
+  testIds: {
+    readonly container: string;
+    readonly details: string;
+    readonly message: string;
+  };
+}) {
+  const view = publicErrorView(error);
+  return (
+    <div data-testid={testIds.container} style={publicErrorStyle}>
+      <p data-testid={testIds.message} style={errorMessageStyle}>
+        {view?.statusText ?? ""}
+      </p>
+      <p data-testid={testIds.details} style={errorDetailStyle}>
+        {view?.details
+          .map((detail) => `${detail.label}: ${detail.value}`)
+          .join(" · ") ?? ""}
+      </p>
+    </div>
   );
 }
 
@@ -1531,4 +1620,21 @@ const errorStyle: CSSProperties = {
   minHeight: "1.25rem",
   color: "rgb(147 47 47)",
   fontWeight: 600,
+};
+
+const publicErrorStyle: CSSProperties = {
+  marginTop: "0.25rem",
+};
+
+const errorMessageStyle: CSSProperties = {
+  margin: 0,
+  minHeight: "1.25rem",
+  color: "rgb(126 45 45)",
+};
+
+const errorDetailStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  minHeight: "1.25rem",
+  color: "rgb(126 45 45)",
+  overflowWrap: "anywhere",
 };

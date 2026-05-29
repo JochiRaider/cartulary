@@ -19,6 +19,7 @@ import {
   clientTxnID,
   extractError,
   fetchJSON,
+  publicErrorView,
 } from "./browserApi";
 import {
   Phase1AccountPanel,
@@ -66,11 +67,18 @@ type ShellRefreshOptions = {
   routeSnapshot: RouteState;
 };
 
-type AuthShellState = "checking_session" | "anonymous" | "authenticated";
+type AppBootstrapState =
+  | "loading"
+  | "anonymous"
+  | "authenticated"
+  | "forbidden"
+  | "revoked"
+  | "public_error_envelope";
 
 type LandingRefreshState = "idle" | "loading" | "failed";
 
 type IncidentLandingProps = {
+  bootstrapState: AppBootstrapState;
   createIncidentKey: string;
   createIncidentTitle: string;
   currentUserLabel: string;
@@ -91,6 +99,8 @@ const defaultStaleIncidentMessage =
   "The requested incident is no longer visible.";
 const accessLostLandingNotice =
   "The current incident is no longer visible. Returned to the landing screen.";
+const defaultRevokedSessionMessage =
+  "The current session ended. Sign in again to continue.";
 
 function readRouteState(): RouteState {
   const params = new URLSearchParams(window.location.search);
@@ -148,7 +158,18 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
+function isSessionRequiredError(status: number, error: APIError | null) {
+  return (
+    status === 401 && (error === null || error.code === "session_required")
+  );
+}
+
+function isForbiddenError(status: number, error: APIError | null) {
+  return status === 403 || error?.code === "authorization_denied";
+}
+
 export function IncidentLanding({
+  bootstrapState,
   createIncidentKey,
   createIncidentTitle,
   currentUserLabel,
@@ -167,7 +188,11 @@ export function IncidentLanding({
   const hasIncidents = incidents.length > 0;
 
   return (
-    <section style={landingPanelStyle}>
+    <section
+      data-bootstrap-state={bootstrapState}
+      data-testid="incident-landing"
+      style={landingPanelStyle}
+    >
       <div style={landingHeroStyle}>
         <p style={landingEyebrowStyle}>Cartulary</p>
         <h1 style={landingHeadlineStyle}>Incident landing</h1>
@@ -310,8 +335,16 @@ export function IncidentLanding({
         {statusText}
       </p>
       <p data-testid="landing-error-code" style={landingErrorStyle}>
-        {error?.code ?? ""}
+        {publicErrorView(error)?.code ?? ""}
       </p>
+      <PublicErrorSummary
+        error={error}
+        testIds={{
+          container: "landing-error-public",
+          details: "landing-error-details",
+          message: "landing-error-message",
+        }}
+      />
     </section>
   );
 }
@@ -323,8 +356,8 @@ export function App() {
     useState<CredentialState | null>(null);
   const [credentialError, setCredentialError] = useState<APIError | null>(null);
   const [incidents, setIncidents] = useState<IncidentData[]>([]);
-  const [authShellState, setAuthShellState] =
-    useState<AuthShellState>("checking_session");
+  const [appBootstrapState, setAppBootstrapState] =
+    useState<AppBootstrapState>("loading");
   const [landingRefreshState, setLandingRefreshState] =
     useState<LandingRefreshState>("idle");
   const [landingNotice, setLandingNotice] = useState<string | null>(null);
@@ -360,11 +393,13 @@ export function App() {
       activeRefreshRef.current.controller === controller &&
       !controller.signal.aborted;
 
-    if (sessionRef.current === null) {
-      setAuthShellState("checking_session");
+    const hadSessionAtRefreshStart = sessionRef.current !== null;
+
+    if (!hadSessionAtRefreshStart) {
+      setAppBootstrapState("loading");
       setLandingRefreshState("idle");
     } else {
-      setAuthShellState("authenticated");
+      setAppBootstrapState("authenticated");
       setLandingRefreshState("loading");
     }
     setError(null);
@@ -379,14 +414,31 @@ export function App() {
       }
 
       if (!sessionResult.ok) {
+        const sessionError = extractError(sessionResult.payload);
         setSession(null);
         setCredentialState(null);
         setCredentialError(null);
         setIncidents([]);
         setLandingNotice(null);
-        setError(null);
-        setAuthPrompt(options.anonymousMessage ?? defaultAuthPrompt);
-        setAuthShellState("anonymous");
+        setError(
+          hadSessionAtRefreshStart ||
+            !isSessionRequiredError(sessionResult.status, sessionError)
+            ? sessionError
+            : null,
+        );
+        setAuthPrompt(
+          options.anonymousMessage ??
+            (hadSessionAtRefreshStart
+              ? defaultRevokedSessionMessage
+              : defaultAuthPrompt),
+        );
+        setAppBootstrapState(
+          isSessionRequiredError(sessionResult.status, sessionError)
+            ? hadSessionAtRefreshStart
+              ? "revoked"
+              : "anonymous"
+            : "public_error_envelope",
+        );
         setLandingRefreshState("idle");
         return;
       }
@@ -410,6 +462,27 @@ export function App() {
       const nextCredentialError = extractError(credentialResult.payload);
       const nextSession = (sessionResult.payload as { data: SessionData }).data;
 
+      if (
+        (!credentialResult.ok &&
+          isSessionRequiredError(
+            credentialResult.status,
+            nextCredentialError,
+          )) ||
+        (!incidentsResult.ok &&
+          isSessionRequiredError(incidentsResult.status, incidentsError))
+      ) {
+        setSession(null);
+        setCredentialState(null);
+        setCredentialError(null);
+        setIncidents([]);
+        setLandingNotice(null);
+        setError(nextCredentialError ?? incidentsError);
+        setAuthPrompt(options.anonymousMessage ?? defaultRevokedSessionMessage);
+        setAppBootstrapState("revoked");
+        setLandingRefreshState("idle");
+        return;
+      }
+
       if (!incidentsResult.ok) {
         setSession(nextSession);
         setCredentialState(
@@ -422,7 +495,24 @@ export function App() {
         setLandingNotice(options.landingNotice ?? null);
         setError(incidentsError);
         setAuthPrompt(defaultAuthPrompt);
-        setAuthShellState("authenticated");
+        setAppBootstrapState(
+          isForbiddenError(incidentsResult.status, incidentsError)
+            ? "forbidden"
+            : "public_error_envelope",
+        );
+        setLandingRefreshState("failed");
+        return;
+      }
+
+      if (!credentialResult.ok) {
+        setSession(nextSession);
+        setCredentialState(null);
+        setCredentialError(nextCredentialError);
+        setIncidents([]);
+        setLandingNotice(options.landingNotice ?? null);
+        setError(nextCredentialError);
+        setAuthPrompt(defaultAuthPrompt);
+        setAppBootstrapState("public_error_envelope");
         setLandingRefreshState("failed");
         return;
       }
@@ -457,7 +547,7 @@ export function App() {
       setLandingNotice(nextLandingNotice);
       setError(null);
       setAuthPrompt(defaultAuthPrompt);
-      setAuthShellState("authenticated");
+      setAppBootstrapState("authenticated");
       setLandingRefreshState("idle");
 
       if (nextRoute !== null) {
@@ -478,14 +568,14 @@ export function App() {
         setLandingNotice(null);
         setError(null);
         setAuthPrompt(options.anonymousMessage ?? defaultAuthPrompt);
-        setAuthShellState("anonymous");
+        setAppBootstrapState("anonymous");
         setLandingRefreshState("idle");
         return;
       }
 
       setError(null);
       setAuthPrompt(defaultAuthPrompt);
-      setAuthShellState("authenticated");
+      setAppBootstrapState("public_error_envelope");
       setLandingRefreshState("failed");
     }
   }, []);
@@ -539,13 +629,18 @@ export function App() {
   }, [session]);
   const landingStatusText =
     landingNotice ??
-    (landingRefreshState === "loading"
-      ? "Loading visible incidents…"
-      : landingRefreshState === "failed" || error !== null
-        ? "Failed to load visible incidents."
-        : incidents.length === 0
-          ? "No visible incidents yet."
-          : `Loaded ${incidents.length} visible incident${incidents.length === 1 ? "" : "s"}.`);
+    (appBootstrapState === "forbidden"
+      ? "Access to visible incidents is denied."
+      : appBootstrapState === "public_error_envelope" && error !== null
+        ? (publicErrorView(error)?.statusText ??
+          "Failed to load visible incidents.")
+        : landingRefreshState === "loading"
+          ? "Loading visible incidents…"
+          : landingRefreshState === "failed" || error !== null
+            ? "Failed to load visible incidents."
+            : incidents.length === 0
+              ? "No visible incidents yet."
+              : `Loaded ${incidents.length} visible incident${incidents.length === 1 ? "" : "s"}.`);
 
   const openIncident = useCallback(
     (incidentId: string) => {
@@ -581,7 +676,22 @@ export function App() {
       },
     );
     if (!response.ok) {
-      setError(extractError(response.payload));
+      const nextError = extractError(response.payload);
+      setError(nextError);
+      setAppBootstrapState(
+        isSessionRequiredError(response.status, nextError)
+          ? "revoked"
+          : isForbiddenError(response.status, nextError)
+            ? "forbidden"
+            : "public_error_envelope",
+      );
+      if (isSessionRequiredError(response.status, nextError)) {
+        setSession(null);
+        setCredentialState(null);
+        setCredentialError(null);
+        setIncidents([]);
+        setAuthPrompt(defaultRevokedSessionMessage);
+      }
       setLandingNotice("Incident create failed.");
       return;
     }
@@ -592,6 +702,7 @@ export function App() {
     setIncidents((current) => upsertIncident(current, incident));
     setLandingNotice(null);
     setError(null);
+    setAppBootstrapState("authenticated");
     openIncident(incident.incident_id);
   }, [createIncidentKey, createIncidentTitle, openIncident]);
 
@@ -608,7 +719,12 @@ export function App() {
 
   if (route.incidentId !== "" && session !== null) {
     return (
-      <main className="cartulary-shell" style={pageStyle}>
+      <main
+        className="cartulary-shell"
+        data-bootstrap-state={appBootstrapState}
+        data-testid="app-shell"
+        style={pageStyle}
+      >
         <section style={workbookFrameStyle}>
           <div style={workbookToolbarStyle}>
             <div>
@@ -689,7 +805,14 @@ export function App() {
   if (session === null) {
     return (
       <Phase1AuthSurface
-        isCheckingSession={authShellState === "checking_session"}
+        bootstrapState={
+          appBootstrapState === "revoked" ||
+          appBootstrapState === "public_error_envelope"
+            ? appBootstrapState
+            : appBootstrapState === "loading"
+              ? "loading"
+              : "anonymous"
+        }
         message={authPrompt}
         onAuthenticated={async () => {
           await refreshShell({
@@ -697,14 +820,21 @@ export function App() {
             landingNotice: null,
           });
         }}
+        publicError={error}
       />
     );
   }
 
   return (
-    <main className="cartulary-shell" style={pageStyle}>
+    <main
+      className="cartulary-shell"
+      data-bootstrap-state={appBootstrapState}
+      data-testid="app-shell"
+      style={pageStyle}
+    >
       <div style={shellStackStyle}>
         <IncidentLanding
+          bootstrapState={appBootstrapState}
           createIncidentKey={createIncidentKey}
           createIncidentTitle={createIncidentTitle}
           currentUserLabel={currentUserLabel}
@@ -738,6 +868,32 @@ export function App() {
         </section>
       </div>
     </main>
+  );
+}
+
+function PublicErrorSummary({
+  error,
+  testIds,
+}: {
+  error: APIError | null;
+  testIds: {
+    readonly container: string;
+    readonly details: string;
+    readonly message: string;
+  };
+}) {
+  const view = publicErrorView(error);
+  return (
+    <div data-testid={testIds.container} style={publicErrorStyle}>
+      <p data-testid={testIds.message} style={errorMessageStyle}>
+        {view?.statusText ?? ""}
+      </p>
+      <p data-testid={testIds.details} style={errorDetailStyle}>
+        {view?.details
+          .map((detail) => `${detail.label}: ${detail.value}`)
+          .join(" · ") ?? ""}
+      </p>
+    </div>
   );
 }
 
@@ -970,4 +1126,21 @@ const landingErrorStyle = {
   minHeight: "1.25rem",
   color: "rgb(147 47 47)",
   fontWeight: 600,
+};
+
+const publicErrorStyle = {
+  marginTop: "0.25rem",
+};
+
+const errorMessageStyle = {
+  margin: 0,
+  minHeight: "1.25rem",
+  color: "rgb(126 45 45)",
+};
+
+const errorDetailStyle = {
+  margin: "0.2rem 0 0",
+  minHeight: "1.25rem",
+  color: "rgb(126 45 45)",
+  overflowWrap: "anywhere" as const,
 };
