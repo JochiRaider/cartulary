@@ -6,6 +6,7 @@ import {
   mentionResolveTargetSelectTestId,
   relationshipItemsTestId,
   rowCellTestId,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
@@ -79,7 +80,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   const mainSummaryTestId = rowCellTestId(
     mainRow.record_id,
     "timeline.summary",

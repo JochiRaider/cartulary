@@ -1,6 +1,7 @@
 import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
+  gridShellTestId,
   rowCellTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
@@ -68,7 +69,9 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
   ).toHaveText("ir@example.test");
 
   await openGenericSurface(page, incidentId, notesViewSchemaId, "Notes");
-  await expect(page.getByRole("heading", { name: "Notes" })).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(notesViewSchemaId)),
+  ).toBeVisible();
   await expectGenericCreateMinimum(page, notesViewSchemaId, "Title or body");
   await setGenericCreateField(page, "note.title", "Browser note");
   await setGenericCreateField(
@@ -105,7 +108,9 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     decisionsViewSchemaId,
     "Decisions",
   );
-  await expect(page.getByRole("heading", { name: "Decisions" })).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(decisionsViewSchemaId)),
+  ).toBeVisible();
   await expectGenericCreateMinimum(
     page,
     decisionsViewSchemaId,
@@ -155,7 +160,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
     "Task Requests",
   );
   await expect(
-    page.getByRole("heading", { name: "Task Requests" }),
+    page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
   ).toBeVisible();
   await expectGenericCreateMinimum(page, taskRequestsViewSchemaId, "Title");
   await setGenericCreateField(page, "task.title", "Browser task");
@@ -424,7 +429,8 @@ async function openGenericSurface(
       viewSchemaId,
     )}`,
   );
-  await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+  void heading;
+  await expect(page.getByTestId(gridShellTestId(viewSchemaId))).toBeVisible();
 }
 
 async function expectGenericCreateMinimum(

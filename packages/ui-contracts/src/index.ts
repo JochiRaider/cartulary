@@ -1,3 +1,5 @@
+import { listViewSchemaRegistryEntries } from "@cartulary/protocol-ts";
+
 export type WorkbookSurface = string;
 
 export type EntityType = "host" | "identity";
@@ -23,6 +25,19 @@ export type RowHistoryRollbackAction =
   | "history_entry"
   | "row_restore";
 
+export const rowHistoryRollbackActions = [
+  "change_set",
+  "history_entry",
+  "row_restore",
+] as const satisfies readonly RowHistoryRollbackAction[];
+
+export type TimelineScalarEditorSurface = "grid" | "inspector";
+
+export const timelineScalarEditorSurfaces = [
+  "grid",
+  "inspector",
+] as const satisfies readonly TimelineScalarEditorSurface[];
+
 export type RowHistoryItemAnchor = {
   readonly changeSetId: string;
   readonly historyEntryRef?: string | null | undefined;
@@ -34,6 +49,10 @@ export type RowHistoryActionAnchor = RowHistoryItemAnchor & {
   readonly action: RowHistoryRollbackAction;
 };
 
+const registeredViewSchemaIds = Object.freeze(
+  new Set(listViewSchemaRegistryEntries().map((entry) => entry.view_schema_id)),
+);
+
 export function gridShellTestId(viewSchemaId: WorkbookSurface): string {
   return `${requireViewSchemaId(viewSchemaId)}-grid-shell`;
 }
@@ -44,6 +63,102 @@ export function surfaceTabTestId(viewSchemaId: string): string {
 
 export function systemViewSelectorTestId(): string {
   return "system-view-selector";
+}
+
+export function workbookShellReadyTestId(): string {
+  return "workbook-shell-ready";
+}
+
+export function timelineMutationSubstrateReadyTestId(): string {
+  return "timeline-mutation-substrate-ready";
+}
+
+export function currentIncidentRoleTestId(): string {
+  return "current-incident-role";
+}
+
+export function landingIncidentCardTestId(incidentId: string): string {
+  return `landing-incident-${encodeSelectorSegment(incidentId, "incident_id")}`;
+}
+
+export function landingIncidentOpenButtonTestId(incidentId: string): string {
+  return `landing-open-${encodeSelectorSegment(incidentId, "incident_id")}`;
+}
+
+export function incidentMembershipEmailInputTestId(): string {
+  return "incident-membership-email";
+}
+
+export function incidentMembershipRoleSelectTestId(): string {
+  return "incident-membership-role";
+}
+
+export function incidentMembershipCreateButtonTestId(): string {
+  return "incident-membership-create";
+}
+
+export function incidentMembershipAdminNoteTestId(): string {
+  return "incident-membership-admin-note";
+}
+
+export function incidentMembershipListTestId(): string {
+  return "incident-membership-list";
+}
+
+export function incidentMembershipRowTestId(userId: string): string {
+  return `incident-membership-row-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function incidentMembershipVersionTestId(userId: string): string {
+  return `incident-membership-version-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function incidentMembershipRoleInputTestId(userId: string): string {
+  return `incident-membership-role-input-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function incidentMembershipPatchButtonTestId(userId: string): string {
+  return `incident-membership-patch-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function incidentMembershipDeleteButtonTestId(userId: string): string {
+  return `incident-membership-delete-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function incidentMembershipRoleDisplayTestId(userId: string): string {
+  return `incident-membership-role-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function phase2IncidentRowTestId(incidentId: string): string {
+  return `incident-row-${encodeSelectorSegment(incidentId, "incident_id")}`;
+}
+
+export function phase2SelectIncidentButtonTestId(incidentId: string): string {
+  return `select-incident-${encodeSelectorSegment(incidentId, "incident_id")}`;
+}
+
+export function phase2MembershipRowTestId(userId: string): string {
+  return `membership-row-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function phase2MembershipRoleInputTestId(userId: string): string {
+  return `membership-role-input-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function phase2MembershipVersionTestId(userId: string): string {
+  return `membership-version-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function phase2MembershipPatchButtonTestId(userId: string): string {
+  return `patch-membership-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function phase2MembershipDeleteButtonTestId(userId: string): string {
+  return `delete-membership-${encodeSelectorSegment(userId, "user_id")}`;
+}
+
+export function extensionProfileRowTestId(profileId: string): string {
+  return `extension-${encodeSelectorSegment(profileId, "extension_profile_id")}`;
 }
 
 export function gridScrollportClassName(): string {
@@ -159,6 +274,18 @@ export function gridRowTestId(
 
 export function rowCellTestId(recordId: string, fieldKey: string): string {
   return `row-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}`;
+}
+
+export function timelineScalarEditorTestId(options: {
+  readonly fieldKey: string;
+  readonly recordId: string | null;
+  readonly surface?: TimelineScalarEditorSurface | undefined;
+}): string {
+  const base =
+    options.recordId === null
+      ? draftCellTestId(options.fieldKey)
+      : rowCellTestId(options.recordId, options.fieldKey);
+  return options.surface === "inspector" ? `${base}-inspector` : base;
 }
 
 export function rowInspectorFieldTestId(
@@ -374,15 +501,25 @@ export function mentionRestoreUnresolvedButtonTestId(): string {
   return "inspector-restore-unresolved";
 }
 
+export function dataTestIdSelector(testId: string): string {
+  return `[data-testid="${cssAttributeValue(
+    requireNonEmptySelectorValue(testId, "data-testid"),
+  )}"]`;
+}
+
 function requireViewSchemaId(value: string): string {
-  const encoded = encodeSelectorSegment(value, "view_schema_id");
+  const token = requireNonEmptySelectorValue(value, "view_schema_id");
   if (
     !/^cartulary\.view\.[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*\.v[1-9][0-9]*$/u.test(
-      value,
+      token,
     )
   ) {
     throw new Error(`Invalid view_schema_id selector token: ${value}`);
   }
+  if (!registeredViewSchemaIds.has(token)) {
+    throw new Error(`Unknown view_schema_id selector token: ${value}`);
+  }
+  const encoded = encodeSelectorSegment(token, "view_schema_id");
   return encoded;
 }
 
@@ -414,7 +551,12 @@ function requireNonEmptySelectorValue(value: string, label: string): string {
 }
 
 function cssAttributeValue(value: string): string {
-  return value.replace(/\\/gu, "\\\\").replace(/"/gu, '\\"');
+  return value
+    .replace(/\\/gu, "\\\\")
+    .replace(/\n/gu, "\\a ")
+    .replace(/\r/gu, "\\d ")
+    .replace(/\f/gu, "\\c ")
+    .replace(/"/gu, '\\"');
 }
 
 function requireEntityType(value: EntityType): EntityType {

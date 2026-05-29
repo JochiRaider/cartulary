@@ -1,8 +1,10 @@
 import {
+  currentIncidentRoleTestId,
   draftCellTestId,
   draftRowCreateButtonTestId,
   rowCellTestId,
   rowInspectorFieldTestId,
+  timelineMutationSubstrateReadyTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowReplacementInputTestId,
   timelineRowSupersedeButtonTestId,
@@ -42,7 +44,9 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
 
   const draftSummary = page.getByTestId(draftCellTestId("timeline.summary"));
   await draftSummary.fill("First browser fact");
@@ -84,7 +88,9 @@ test("E-3-01 supports explicit blank Timeline row creation with only client_txn_
   await page.route(createRoute, routeHandler);
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
 
   await page.getByTestId(draftRowCreateButtonTestId()).click();
@@ -165,8 +171,8 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
   );
 
   await expect(
-    reviewerPage.getByText("Current incident role: reviewer"),
-  ).toBeVisible();
+    reviewerPage.getByTestId(currentIncidentRoleTestId()),
+  ).toHaveText("Current incident role: reviewer");
 
   await reviewerPage
     .getByTestId(timelineRowMarkReviewedButtonTestId(recordId))

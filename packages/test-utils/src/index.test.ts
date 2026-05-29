@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  dataTestIdSelector,
   gridFilterApplyTestId,
   gridFilterChipTestId,
   gridFilterFieldTestId,
@@ -403,7 +404,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
   it("fails explicitly when the grid shell has no owned scrollport", async () => {
     const gridTestId = gridShellTestId(testTimelineViewSchemaId);
     document.body.innerHTML = `<div data-testid="${gridTestId}"></div>`;
-    const shell = document.querySelector(`[data-testid="${gridTestId}"]`);
+    const shell = document.querySelector(dataTestIdSelector(gridTestId));
     if (!(shell instanceof HTMLDivElement)) {
       throw new Error("Expected missing-scrollport fixture shell to exist");
     }
@@ -599,9 +600,9 @@ function installGridContinuityFixture(
     </div>
   `;
 
-  const grid = document.querySelector(`[data-testid="${gridTestId}"]`);
+  const grid = document.querySelector(dataTestIdSelector(gridTestId));
   const scrollport = grid?.querySelector(`.${gridScrollportClassName()}`);
-  const focusTarget = document.querySelector(`[data-testid="${focusTestId}"]`);
+  const focusTarget = document.querySelector(dataTestIdSelector(focusTestId));
   if (
     !(grid instanceof HTMLDivElement) ||
     !(scrollport instanceof HTMLDivElement) ||
@@ -676,9 +677,9 @@ function installGridTargetFixture(
     </div>
   `;
 
-  const shell = document.querySelector(`[data-testid="${gridTestId}"]`);
+  const shell = document.querySelector(dataTestIdSelector(gridTestId));
   const grid = shell?.querySelector(`.${gridScrollportClassName()}`);
-  const target = document.querySelector(`[data-testid="${targetTestId}"]`);
+  const target = document.querySelector(dataTestIdSelector(targetTestId));
   if (!(shell instanceof HTMLDivElement) || !(grid instanceof HTMLDivElement)) {
     throw new Error("Expected grid targeting fixture grid to exist");
   }
@@ -873,9 +874,9 @@ function installMarkerAnchorFixture(options: {
       </div>
     </div>
   `;
-  const shell = document.querySelector(`[data-testid="${gridTestId}"]`);
-  const marker = document.querySelector(`[data-testid="${markerTestId}"]`);
-  const target = document.querySelector(`[data-testid="${targetTestId}"]`);
+  const shell = document.querySelector(dataTestIdSelector(gridTestId));
+  const marker = document.querySelector(dataTestIdSelector(markerTestId));
+  const target = document.querySelector(dataTestIdSelector(targetTestId));
   if (
     !(shell instanceof HTMLDivElement) ||
     !(marker instanceof HTMLElement) ||

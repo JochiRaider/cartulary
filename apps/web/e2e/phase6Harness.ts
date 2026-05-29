@@ -2,6 +2,7 @@ import { performance } from "node:perf_hooks";
 
 import {
   conflictMarkerTestId,
+  currentIncidentRoleTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
@@ -295,7 +296,9 @@ export async function exerciseRevokedPendingReplay({
         rowCellTestId(firstReplayItem.recordId, "timeline.summary"),
       ),
     ).toHaveValue(`Phase 6 ${createdBy} ${scenario} 1 base`);
-    await expect(page.getByText("Current incident role: editor")).toBeVisible();
+    await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+      "Current incident role: editor",
+    );
 
     const heldPatch = patchController.holdNextPatch();
     await editTimelineSummary(

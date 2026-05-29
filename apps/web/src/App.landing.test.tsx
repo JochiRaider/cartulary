@@ -5,6 +5,10 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import {
+  landingIncidentCardTestId,
+  landingIncidentOpenButtonTestId,
+} from "@cartulary/ui-contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./WorkbookShell", async () => {
@@ -144,10 +148,10 @@ describe("Incident landing", () => {
     expect(await screen.findByTestId("landing-incident-list")).toBeTruthy();
     expect(screen.getByTestId("landing-incidents-count").textContent).toBe("2");
     expect(
-      screen.getByTestId("landing-incident-incident-1").textContent,
+      screen.getByTestId(landingIncidentCardTestId("incident-1")).textContent,
     ).toContain("First Incident");
     expect(
-      screen.getByTestId("landing-incident-incident-2").textContent,
+      screen.getByTestId(landingIncidentCardTestId("incident-2")).textContent,
     ).toContain("Second Incident");
     await expectStableFetchCount(fetchMock, 3);
   });
@@ -216,6 +220,9 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByTestId("landing-incident-list")).toBeTruthy();
+    expect(
+      screen.getByTestId(landingIncidentOpenButtonTestId("incident-live")),
+    ).toBeTruthy();
     expect(screen.getByTestId("landing-status").textContent).toContain(
       "no longer visible",
     );

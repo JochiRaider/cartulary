@@ -1,3 +1,13 @@
+import {
+  extensionProfileRowTestId,
+  phase2IncidentRowTestId,
+  phase2MembershipDeleteButtonTestId,
+  phase2MembershipPatchButtonTestId,
+  phase2MembershipRoleInputTestId,
+  phase2MembershipRowTestId,
+  phase2MembershipVersionTestId,
+  phase2SelectIncidentButtonTestId,
+} from "@cartulary/ui-contracts";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 
 const csrfCookieName = "cartulary_csrf";
@@ -615,14 +625,18 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
             <tbody data-testid="incident-discovery">
               {incidents.map((incident) => (
                 <tr key={incident.incident_id}>
-                  <td data-testid={`incident-row-${incident.incident_id}`}>
+                  <td
+                    data-testid={phase2IncidentRowTestId(incident.incident_id)}
+                  >
                     {incident.incident_key}
                   </td>
                   <td>{incident.title}</td>
                   <td>{incident.incident_version}</td>
                   <td>
                     <button
-                      data-testid={`select-incident-${incident.incident_id}`}
+                      data-testid={phase2SelectIncidentButtonTestId(
+                        incident.incident_id,
+                      )}
                       style={secondaryButtonStyle}
                       type="button"
                       onClick={() => {
@@ -825,12 +839,18 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                 <tbody data-testid="membership-list">
                   {memberships.map((membership) => (
                     <tr key={membership.user_id}>
-                      <td data-testid={`membership-row-${membership.user_id}`}>
+                      <td
+                        data-testid={phase2MembershipRowTestId(
+                          membership.user_id,
+                        )}
+                      >
                         {membership.display_name}
                       </td>
                       <td>
                         <select
-                          data-testid={`membership-role-input-${membership.user_id}`}
+                          data-testid={phase2MembershipRoleInputTestId(
+                            membership.user_id,
+                          )}
                           style={inputStyle}
                           value={
                             membershipRoleDrafts[membership.user_id] ??
@@ -850,13 +870,17 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                         </select>
                       </td>
                       <td
-                        data-testid={`membership-version-${membership.user_id}`}
+                        data-testid={phase2MembershipVersionTestId(
+                          membership.user_id,
+                        )}
                       >
                         {membership.membership_version}
                       </td>
                       <td style={actionRowStyle}>
                         <button
-                          data-testid={`patch-membership-${membership.user_id}`}
+                          data-testid={phase2MembershipPatchButtonTestId(
+                            membership.user_id,
+                          )}
                           style={secondaryButtonStyle}
                           type="button"
                           onClick={() => {
@@ -866,7 +890,9 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                           Patch
                         </button>
                         <button
-                          data-testid={`delete-membership-${membership.user_id}`}
+                          data-testid={phase2MembershipDeleteButtonTestId(
+                            membership.user_id,
+                          )}
                           style={dangerButtonStyle}
                           type="button"
                           onClick={() => {
@@ -986,7 +1012,11 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
             <tbody data-testid="extensions-list">
               {extensions.map((extension) => (
                 <tr key={extension.profile_id}>
-                  <td data-testid={`extension-${extension.profile_id}`}>
+                  <td
+                    data-testid={extensionProfileRowTestId(
+                      extension.profile_id,
+                    )}
+                  >
                     {extension.profile_id}
                   </td>
                   <td>{String(extension.claimed)}</td>

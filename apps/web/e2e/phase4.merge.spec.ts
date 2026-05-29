@@ -1,7 +1,9 @@
 import {
+  currentIncidentRoleTestId,
   entityInspectButtonTestId,
   gridRowTestId,
   timelinePreviewRowTestId,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
@@ -144,8 +146,10 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
       hostsViewSchemaId,
     )}`,
   );
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
-  await expect(page.getByText("Current incident role: admin")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    "Current incident role: admin",
+  );
   await expect(
     page.getByTestId(gridRowTestId(hostsViewSchemaId, survivor.record_id)),
   ).toBeVisible();
@@ -233,7 +237,7 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
       identitiesViewSchemaId,
     )}`,
   );
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(
     page.getByTestId(
       gridRowTestId(identitiesViewSchemaId, identitySurvivor.record_id),

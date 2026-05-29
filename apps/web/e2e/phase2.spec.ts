@@ -1,4 +1,19 @@
-import { surfaceTabTestId } from "@cartulary/ui-contracts";
+import {
+  currentIncidentRoleTestId,
+  incidentMembershipAdminNoteTestId,
+  incidentMembershipCreateButtonTestId,
+  incidentMembershipDeleteButtonTestId,
+  incidentMembershipEmailInputTestId,
+  incidentMembershipPatchButtonTestId,
+  incidentMembershipRoleDisplayTestId,
+  incidentMembershipRoleInputTestId,
+  incidentMembershipRoleSelectTestId,
+  incidentMembershipRowTestId,
+  incidentMembershipVersionTestId,
+  landingIncidentCardTestId,
+  landingIncidentOpenButtonTestId,
+  surfaceTabTestId,
+} from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
 import {
@@ -26,7 +41,9 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  await expect(page.getByText("Current incident role: admin")).toBeVisible();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    "Current incident role: admin",
+  );
   await expect(page.getByTestId("incident-summary-key")).toHaveText(
     incidentKey,
   );
@@ -50,12 +67,12 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
 
   await page.goto("/");
   await expect(
-    page.getByTestId(`landing-incident-${incidentId}`),
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toBeVisible();
   await expect(
-    page.getByTestId(`landing-incident-${incidentId}`),
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toContainText(incidentKey);
-  await page.getByTestId(`landing-open-${incidentId}`).click();
+  await page.getByTestId(landingIncidentOpenButtonTestId(incidentId)).click();
 
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await page.goto(`/?incident_id=${incidentId}`);
@@ -97,10 +114,10 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
 
   await page.getByTestId("landing-return").click();
   await expect(
-    page.getByTestId(`landing-incident-${incidentId}`),
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toContainText("containment");
   await expect(
-    page.getByTestId(`landing-incident-${incidentId}`),
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toContainText("amber");
 });
 
@@ -124,29 +141,33 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
 
   await openIncidentFromLanding(page, incidentId);
 
-  await page.getByTestId("incident-membership-email").fill(memberEmail);
-  await page.getByTestId("incident-membership-role").selectOption("viewer");
-  await page.getByTestId("incident-membership-create").click();
+  await page
+    .getByTestId(incidentMembershipEmailInputTestId())
+    .fill(memberEmail);
+  await page
+    .getByTestId(incidentMembershipRoleSelectTestId())
+    .selectOption("viewer");
+  await page.getByTestId(incidentMembershipCreateButtonTestId()).click();
 
   await expect(
-    page.getByTestId(`incident-membership-row-${memberUser.user_id}`),
+    page.getByTestId(incidentMembershipRowTestId(memberUser.user_id)),
   ).toBeVisible();
   await expect(
-    page.getByTestId(`incident-membership-role-input-${memberUser.user_id}`),
+    page.getByTestId(incidentMembershipRoleInputTestId(memberUser.user_id)),
   ).toHaveValue("viewer");
 
   await page
-    .getByTestId(`incident-membership-role-input-${memberUser.user_id}`)
+    .getByTestId(incidentMembershipRoleInputTestId(memberUser.user_id))
     .selectOption("reviewer");
   await page
-    .getByTestId(`incident-membership-patch-${memberUser.user_id}`)
+    .getByTestId(incidentMembershipPatchButtonTestId(memberUser.user_id))
     .click();
 
   await expect(
-    page.getByTestId(`incident-membership-role-input-${memberUser.user_id}`),
+    page.getByTestId(incidentMembershipRoleInputTestId(memberUser.user_id)),
   ).toHaveValue("reviewer");
   await expect(
-    page.getByTestId(`incident-membership-version-${memberUser.user_id}`),
+    page.getByTestId(incidentMembershipVersionTestId(memberUser.user_id)),
   ).toHaveText("Version 2");
 
   const memberPage = await openIncidentAsTrackedUser(browser, sessionTracker, {
@@ -159,29 +180,35 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
   });
 
   await expect(
-    memberPage.getByTestId("incident-membership-admin-note"),
+    memberPage.getByTestId(incidentMembershipAdminNoteTestId()),
   ).toBeVisible();
   await expect(
-    memberPage.getByTestId(`incident-membership-row-${memberUser.user_id}`),
+    memberPage.getByTestId(incidentMembershipRowTestId(memberUser.user_id)),
   ).toBeVisible();
   await expect(
-    memberPage.getByTestId(`incident-membership-role-${memberUser.user_id}`),
+    memberPage.getByTestId(
+      incidentMembershipRoleDisplayTestId(memberUser.user_id),
+    ),
   ).toHaveText("reviewer");
   await expect(
-    memberPage.getByTestId("incident-membership-create"),
+    memberPage.getByTestId(incidentMembershipCreateButtonTestId()),
   ).toHaveCount(0);
   await expect(
-    memberPage.getByTestId(`incident-membership-patch-${memberUser.user_id}`),
+    memberPage.getByTestId(
+      incidentMembershipPatchButtonTestId(memberUser.user_id),
+    ),
   ).toHaveCount(0);
   await expect(
-    memberPage.getByTestId(`incident-membership-delete-${memberUser.user_id}`),
+    memberPage.getByTestId(
+      incidentMembershipDeleteButtonTestId(memberUser.user_id),
+    ),
   ).toHaveCount(0);
   await memberPage.context().close();
 
   await page
-    .getByTestId(`incident-membership-delete-${memberUser.user_id}`)
+    .getByTestId(incidentMembershipDeleteButtonTestId(memberUser.user_id))
     .click();
   await expect(
-    page.getByTestId(`incident-membership-row-${memberUser.user_id}`),
+    page.getByTestId(incidentMembershipRowTestId(memberUser.user_id)),
   ).toHaveCount(0);
 });

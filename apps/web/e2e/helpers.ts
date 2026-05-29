@@ -1,10 +1,13 @@
 import { createHmac } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import {
+  dataTestIdSelector,
   draftCellTestId,
   gridDraftRowSelector,
   gridSavedRowsSelector,
   gridShellTestId,
+  landingIncidentCardTestId,
+  landingIncidentOpenButtonTestId,
   timelineRowVersionTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
@@ -1028,9 +1031,9 @@ export async function reconcileSuiteAdminTotpState(
 export async function openIncidentFromLanding(page: Page, incidentId: string) {
   await page.goto("/");
   await expect(
-    page.getByTestId(`landing-incident-${incidentId}`),
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toBeVisible();
-  await page.getByTestId(`landing-open-${incidentId}`).click();
+  await page.getByTestId(landingIncidentOpenButtonTestId(incidentId)).click();
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
 }
 
@@ -1109,11 +1112,11 @@ async function waitForInputValue(
   },
 ) {
   const start = await page.evaluate(() => performance.now());
+  const selector = dataTestIdSelector(options.testId);
   return page.evaluate(
-    ({ expectedValue, requireFocus, startMark, testId, timeoutMs }) =>
+    ({ expectedValue, requireFocus, selector, startMark, testId, timeoutMs }) =>
       new Promise<number>((resolve, reject) => {
         const deadline = startMark + timeoutMs;
-        const selector = `[data-testid="${CSS.escape(testId)}"]`;
         const tick = () => {
           const element = document.querySelector(selector);
           const isTextInput =
@@ -1142,6 +1145,7 @@ async function waitForInputValue(
     {
       expectedValue: options.expectedValue,
       requireFocus: options.requireFocus,
+      selector,
       startMark: start,
       testId: options.testId,
       timeoutMs: options.timeoutMs,

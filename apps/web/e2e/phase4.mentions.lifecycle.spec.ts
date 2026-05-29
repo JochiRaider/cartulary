@@ -4,6 +4,7 @@ import {
   mentionItemTestId,
   mentionRestoreUnresolvedButtonTestId,
   relationshipItemsTestId,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
@@ -89,7 +90,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(
     page
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))

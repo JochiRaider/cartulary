@@ -1,5 +1,6 @@
 import {
   rowCellTestId,
+  timelineMutationSubstrateReadyTestId,
   timelineCollectionInputTestId,
 } from "@cartulary/ui-contracts";
 
@@ -55,7 +56,9 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
   await expect(
     page.getByTestId(
       rowCellTestId(alpha.record_id as string, "timeline.summary"),
@@ -163,7 +166,9 @@ test("Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
 
   const summary = page.getByTestId(
     rowCellTestId(row.record_id as string, "timeline.summary"),

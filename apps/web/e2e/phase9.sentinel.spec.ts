@@ -5,6 +5,7 @@ import {
 } from "@cartulary/test-utils";
 import {
   conflictMarkerTestId,
+  dataTestIdSelector,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   genericEditActionSelectTestId,
@@ -20,6 +21,8 @@ import {
   rowCellTestId,
   surfaceTabTestId,
   systemViewSelectorTestId,
+  timelineMutationSubstrateReadyTestId,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Request } from "@playwright/test";
 
@@ -129,7 +132,9 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
 
   const seedSummary = page.getByTestId(
     rowCellTestId(seed.record_id as string, "timeline.summary"),
@@ -245,7 +250,9 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
 
   await disableWorkbookSockets(page);
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
 
   const firstSummary = page.getByTestId(
     rowCellTestId(first.record_id as string, "timeline.summary"),
@@ -462,7 +469,9 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     evidenceViewSchemaId,
   );
   const assertEvidenceContextStable = async () => {
-    await expect(page.getByRole("heading", { name: "Evidence" })).toBeVisible();
+    await expect(
+      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+    ).toBeVisible();
     await expect(page).toHaveURL(
       new RegExp(`view_schema_id=${encodeURIComponent(evidenceViewSchemaId)}`),
     );
@@ -618,7 +627,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   const taskScroll = await setGenericGridScroll(page, taskRequestsViewSchemaId);
   const assertTaskContextStable = async () => {
     await expect(
-      page.getByRole("heading", { name: "Task Requests" }),
+      page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
     ).toBeVisible();
     await expect(page).toHaveURL(
       new RegExp(
@@ -749,7 +758,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   const commScroll = await setGenericGridScroll(page, commLogViewSchemaId);
   const assertCommContextStable = async () => {
     await expect(
-      page.getByRole("heading", { name: "Communications Log" }),
+      page.getByTestId(gridShellTestId(commLogViewSchemaId)),
     ).toBeVisible();
     await expect(page).toHaveURL(
       new RegExp(`view_schema_id=${encodeURIComponent(commLogViewSchemaId)}`),
@@ -842,7 +851,7 @@ test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", 
       assessmentsViewSchemaId,
     )}`,
   );
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(page.getByTestId("assessment-create-panel")).toBeVisible();
   await expect(page.getByTestId("assessment-create-subject")).toHaveValue(
     subjectA.record_id as string,
@@ -2153,7 +2162,8 @@ async function openGenericSurface(
       viewSchemaId,
     )}`,
   );
-  await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+  void heading;
+  await expect(page.getByTestId(gridShellTestId(viewSchemaId))).toBeVisible();
 }
 
 async function setPhase9GenericCreateField(
@@ -2232,7 +2242,7 @@ async function waitForPhase9GenericOption(
 async function setGenericGridScroll(page: Page, viewSchemaId: string) {
   return page
     .locator(
-      `[data-testid="${gridShellTestId(viewSchemaId)}"] ${gridScrollportSelector()}`,
+      `${dataTestIdSelector(gridShellTestId(viewSchemaId))} ${gridScrollportSelector()}`,
     )
     .evaluate((element) => {
       element.scrollTop = 16;
@@ -2250,7 +2260,7 @@ async function expectGenericGridScroll(
     .poll(async () =>
       page
         .locator(
-          `[data-testid="${gridShellTestId(viewSchemaId)}"] ${gridScrollportSelector()}`,
+          `${dataTestIdSelector(gridShellTestId(viewSchemaId))} ${gridScrollportSelector()}`,
         )
         .evaluate((element) => ({
           top: element.scrollTop,

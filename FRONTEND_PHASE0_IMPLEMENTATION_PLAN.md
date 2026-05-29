@@ -44,7 +44,8 @@ Source limits:
 - `make phase-ledgers` and `make phase-ledger-drift` passed during Sprint 2 closure after the `FE-U-P0-02` status change; generated ledgers were refreshed by the generator.
 - `make agent-finalize` passed during Sprint 2 closure and refreshed `tools/execution_topology_render_index.json` for the changed frontend phase manifest helper.
 - `FE-U-P0-03` now cites Core 02 Section 18 for `REQ-02-222` and `REQ-02-223`.
-- The current FE-P0 phase map is generated-ledger-consistent after running the ledger generator; blocked support rows require their own row-owned evidence before completion.
+- `FE-U-P0-03` failed audit until selector evidence was remediated repository-wide. Sprint 3 remediation centralizes retained selector families in `/packages/ui-contracts`, validates `view_schema_id` values against the generated contract registry, scopes closed-token proof to selector-relevant vocabularies, migrates app/E2E helpers away from duplicated selector templates, and adds a selector-policy unit guard. Post-remediation `make frontend-typecheck`, `make frontend-unit`, and `make browser-e2e-webserver-backed` passed.
+- The current FE-P0 phase map is generated-ledger-consistent after running the ledger generator and `make phase-ledger-drift`; blocked support rows require their own row-owned evidence before completion.
 
 ## Phase Objective
 
@@ -92,7 +93,7 @@ FE-P0 must introduce no user-observable product behavior by itself.
 | [x] | 0. Frontend phase manifest and ownership setup; owns `FE-S-P0-03` | `make phase-ledger-drift` | None for `FE-S-P0-03`; remaining blocked FE-P0 rows are support rows under their owners | Use `PHASE_NAMESPACE=frontend PHASE=FE-P0`; never append FE rows to base `PHASE=phaseN` maps |
 | [x] | 1. Generated protocol facade and type-consumption baseline; owns `FE-U-P0-01` | `make frontend-typecheck`; `make frontend-unit` | None for `FE-U-P0-01`; Sprint 1 audit passed | Generated outputs were not hand-edited; generated-artifact checks were supporting evidence only |
 | [x] | 2. View-schema and `field_key` adapter contract; owns `FE-U-P0-02` | `make frontend-unit`; `make frontend-typecheck` | None for `FE-U-P0-02`; owner trace corrected to Core 03 Section 14 | Adapters key fields by `field_key`, not labels, indexes, or visible order; duplicate-label coverage is present |
-| [x] | 3. Stable selector and test-id builders; owns `FE-U-P0-03` | `make frontend-unit` | None for `FE-U-P0-03`; owner trace corrected to Core 02 Section 18 | Builders derive from stable IDs, canonical `view_schema_id`, `field_key`, item refs, and closed vocabularies |
+| [x] | 3. Stable selector and test-id builders; owns `FE-U-P0-03` | `make frontend-typecheck`; `make frontend-unit` | None for `FE-U-P0-03`; owner trace corrected to Core 02 Section 18 | Builders derive from stable IDs, registry-backed `view_schema_id`, `field_key`, item refs, and selector-relevant closed vocabularies; app/E2E consumers use shared builders |
 | [ ] | 4. Generated-artifact policy, drift, and codegen hygiene; owns `FE-S-P0-01` | `make generated-artifact-policy-check`; `make generate-drift` | Row remains blocked under Sprint 4 ownership; Sprint 1 audit recorded passing supporting evidence only | Support-only evidence |
 | [ ] | 5. RDG import boundary and stylesheet ownership; owns `FE-S-P0-02` | `make frontend-import-boundary-check` | Row blocked; `/packages/ui` package surface is not fully present | `/apps/web` must consume `/packages/grid-adapter` and must not import RDG directly |
 | [ ] | 6. Frontend namespace, ledger drift, and phase-gate handoff; supports all FE-P0 rows | `make phase-ledger-drift`; row-specific commands above | No primary row ownership; handoff remains blocked until row owners complete or record precise blockers | Generated ledgers must be produced, not hand-edited |
@@ -113,7 +114,7 @@ FE-P0 must introduce no user-observable product behavior by itself.
 | --- | -------------- | -------------- | ------------ |
 | `FE-U-P0-01` | Unit | Product conformance | Generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code; completion must cite confirmed Core owners and ACs |
 | `FE-U-P0-02` | Unit | Product conformance | View-schema adapters key editable and queryable fields by `field_key`, not labels, indexes, or visible column order; completion evidence is recorded under Sprint 2 |
-| `FE-U-P0-03` | Unit | Product conformance | Stable selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels; completion evidence is recorded under Sprint 3 |
+| `FE-U-P0-03` | Unit | Product conformance | Stable selector and test-id builders derive identifiers from stable IDs, registry-backed `view_schema_id` values, and selector-relevant closed vocabularies rather than visible labels; completion evidence is recorded under Sprint 3 |
 | `FE-S-P0-01` | Support | Implementation support | Generated protocol policy and generated contract drift are enforced; this must not be represented as product conformance |
 | `FE-S-P0-02` | Support | Implementation support | `/apps/web` consumes `/packages/grid-adapter` and does not import `react-data-grid` directly; this must not be represented as product conformance |
 | `FE-S-P0-03` | Support | Implementation support | Frontend phase rows are recorded in namespace-specific registry, map, and generated ledger mechanics before any phase-enforced completion claim; this must not be represented as product conformance |
@@ -185,14 +186,14 @@ Deliverables are repository artifacts and validation surfaces:
 
 ## Sprint 3: Stable Selector And Test-ID Builders
 
-- Objective: Ensure selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels.
+- Objective: Ensure selector and test-id builders derive identifiers from stable IDs, registry-backed `view_schema_id` values, and selector-relevant closed vocabularies rather than visible labels.
 - Status: Implemented for `FE-U-P0-03`.
 - Relevant IDs: Owns `FE-U-P0-03`.
 - Files and areas: `/packages/ui-contracts`, `/packages/test-utils`, frontend tests, and any consumer selectors in `/apps/web`.
-- Test-first sequence: Unit coverage proves stable IDs, strict validation, lossless variable encoding, and closed vocabularies drive selectors; run `make frontend-unit`.
-- Implementation tasks: Completed: selector/test-id construction is centralized in `/packages/ui-contracts`; workbook runtime and tests consume canonical `view_schema_id`, `field_key`, `record_id`, item refs, and closed vocabularies where applicable.
-- Validation commands: `make frontend-unit`.
-- Deliverables: Selector/test-id contract evidence and migrated workbook selector consumers.
+- Test-first sequence: Unit coverage proves stable IDs, strict validation, lossless variable encoding, selector-relevant closed vocabularies, registry-backed `view_schema_id` acceptance/rejection, CSS-safe `data-testid` selectors, and policy rejection of duplicated dynamic selector templates; run `make frontend-typecheck` and `make frontend-unit`.
+- Implementation tasks: Completed: selector/test-id construction is centralized in `/packages/ui-contracts`; workbook runtime, app shell surfaces, incident membership controls, Phase 2 harness selectors, E2E helpers/specs, and `/packages/test-utils` consume shared builders for retained cross-boundary selectors.
+- Validation commands: `make agent-finalize` passed unchanged with summary `.cartulary/test-results/20260529T143104Z-p1292954/agent-finalize/tool-run-summary.json`; `make frontend-typecheck` passed with summary `.cartulary/test-results/20260529T143559Z-p1314145/frontend-typecheck/tool-run-summary.json`; `make frontend-unit` passed with summary `.cartulary/test-results/20260529T143559Z-p1314172/frontend-unit/tool-run-summary.json`; `make phase-ledgers` passed with summary `.cartulary/test-results/20260529T143048Z-p1291920/phase-ledgers/tool-run-summary.json`; `make phase-ledger-drift` passed with summary `.cartulary/test-results/20260529T143114Z-p1294277/phase-ledger-drift/tool-run-summary.json`; `make generated-artifact-policy-check` passed with summary `.cartulary/test-results/20260529T143114Z-p1294297/generated-artifact-policy-check/tool-run-summary.json`; `make generate-drift` passed with summary `.cartulary/test-results/20260529T143114Z-p1294326/generate-drift/tool-run-summary.json`; `make browser-e2e-webserver-backed` passed with summary `.cartulary/test-results/20260529T143659Z-p1317161/browser-e2e-webserver-backed/tool-run-summary.json`.
+- Deliverables: Selector/test-id contract evidence, migrated app/E2E/test-utils selector consumers, registry-backed `view_schema_id` validation, and selector-policy unit guard.
 - Risks and assumptions: `data-testid` strings are internal test contracts, not public compatibility commitments.
 - Blockers and follow-up notes: No blocker remains for `FE-U-P0-03`.
 

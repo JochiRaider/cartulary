@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@cartulary/protocol-ts": "workspace:*"
+  },
   "devDependencies": {
     "vitest": "4.1.4"
   }

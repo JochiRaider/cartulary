@@ -1,6 +1,8 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { workbookShellReadyTestId } from "@cartulary/ui-contracts";
+
 import { expect, test } from "./fixtures";
 import {
   applyCookies,
@@ -50,7 +52,7 @@ test("Phase 10 E-10-02 restore recovers workbook surface and executes a built-in
       target.ready.user_password,
     );
     await page.goto(`${target.ready.origin}/?incident_id=${incidentId}`);
-    await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await waitForCommittedRowSummary(page, {
       expectedSummary: summary,
       surface: timelineViewSchemaId,

@@ -1,3 +1,16 @@
+import {
+  incidentMembershipAdminNoteTestId,
+  incidentMembershipCreateButtonTestId,
+  incidentMembershipDeleteButtonTestId,
+  incidentMembershipEmailInputTestId,
+  incidentMembershipListTestId,
+  incidentMembershipPatchButtonTestId,
+  incidentMembershipRoleDisplayTestId,
+  incidentMembershipRoleInputTestId,
+  incidentMembershipRoleSelectTestId,
+  incidentMembershipRowTestId,
+  incidentMembershipVersionTestId,
+} from "@cartulary/ui-contracts";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -495,7 +508,7 @@ export function IncidentAdminPanel({
               <label style={fieldLabelStyle}>
                 User email
                 <input
-                  data-testid="incident-membership-email"
+                  data-testid={incidentMembershipEmailInputTestId()}
                   style={inputStyle}
                   value={membershipEmail}
                   onChange={(event) => {
@@ -507,7 +520,7 @@ export function IncidentAdminPanel({
               <label style={fieldLabelStyle}>
                 Role
                 <select
-                  data-testid="incident-membership-role"
+                  data-testid={incidentMembershipRoleSelectTestId()}
                   style={inputStyle}
                   value={membershipRole}
                   onChange={(event) => {
@@ -521,7 +534,7 @@ export function IncidentAdminPanel({
                 </select>
               </label>
               <button
-                data-testid="incident-membership-create"
+                data-testid={incidentMembershipCreateButtonTestId()}
                 style={primaryButtonStyle}
                 type="button"
                 onClick={() => {
@@ -533,7 +546,7 @@ export function IncidentAdminPanel({
             </div>
           ) : (
             <p
-              data-testid="incident-membership-admin-note"
+              data-testid={incidentMembershipAdminNoteTestId()}
               style={mutedBodyStyle}
             >
               Only incident admins can add, change, or remove memberships.
@@ -541,20 +554,22 @@ export function IncidentAdminPanel({
           )}
 
           <div
-            data-testid="incident-membership-list"
+            data-testid={incidentMembershipListTestId()}
             style={membershipListStyle}
           >
             {memberships.map((membership) => (
               <article
                 key={membership.user_id}
-                data-testid={`incident-membership-row-${membership.user_id}`}
+                data-testid={incidentMembershipRowTestId(membership.user_id)}
                 style={membershipCardStyle}
               >
                 <div style={membershipMetaStyle}>
                   <strong>{membership.display_name}</strong>
                   <span style={valueStyle}>{membership.user_id}</span>
                   <span
-                    data-testid={`incident-membership-version-${membership.user_id}`}
+                    data-testid={incidentMembershipVersionTestId(
+                      membership.user_id,
+                    )}
                     style={subtleValueStyle}
                   >
                     Version {membership.membership_version}
@@ -564,7 +579,9 @@ export function IncidentAdminPanel({
                 {canManageMemberships ? (
                   <div style={membershipControlStyle}>
                     <select
-                      data-testid={`incident-membership-role-input-${membership.user_id}`}
+                      data-testid={incidentMembershipRoleInputTestId(
+                        membership.user_id,
+                      )}
                       style={inputStyle}
                       value={
                         membershipRoleDrafts[membership.user_id] ??
@@ -584,7 +601,9 @@ export function IncidentAdminPanel({
                       <option value="admin">admin</option>
                     </select>
                     <button
-                      data-testid={`incident-membership-patch-${membership.user_id}`}
+                      data-testid={incidentMembershipPatchButtonTestId(
+                        membership.user_id,
+                      )}
                       style={secondaryButtonStyle}
                       type="button"
                       onClick={() => {
@@ -594,7 +613,9 @@ export function IncidentAdminPanel({
                       Save role
                     </button>
                     <button
-                      data-testid={`incident-membership-delete-${membership.user_id}`}
+                      data-testid={incidentMembershipDeleteButtonTestId(
+                        membership.user_id,
+                      )}
                       style={dangerButtonStyle}
                       type="button"
                       onClick={() => {
@@ -606,7 +627,9 @@ export function IncidentAdminPanel({
                   </div>
                 ) : (
                   <p
-                    data-testid={`incident-membership-role-${membership.user_id}`}
+                    data-testid={incidentMembershipRoleDisplayTestId(
+                      membership.user_id,
+                    )}
                     style={valueStyle}
                   >
                     {membership.role}

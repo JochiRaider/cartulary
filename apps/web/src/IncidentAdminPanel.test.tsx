@@ -1,4 +1,15 @@
 import {
+  incidentMembershipAdminNoteTestId,
+  incidentMembershipCreateButtonTestId,
+  incidentMembershipDeleteButtonTestId,
+  incidentMembershipEmailInputTestId,
+  incidentMembershipPatchButtonTestId,
+  incidentMembershipRoleDisplayTestId,
+  incidentMembershipRoleInputTestId,
+  incidentMembershipRowTestId,
+  incidentMembershipVersionTestId,
+} from "@cartulary/ui-contracts";
+import {
   cleanup,
   fireEvent,
   render,
@@ -83,12 +94,15 @@ describe("IncidentAdminPanel", () => {
     expect(
       screen.getByTestId("incident-patch-readonly-note").textContent,
     ).toContain("read-only");
-    expect(screen.queryByTestId("incident-membership-create")).toBeNull();
     expect(
-      screen.getByTestId("incident-membership-admin-note").textContent,
+      screen.queryByTestId(incidentMembershipCreateButtonTestId()),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(incidentMembershipAdminNoteTestId()).textContent,
     ).toContain("Only incident admins");
     expect(
-      screen.getByTestId("incident-membership-role-user-2").textContent,
+      screen.getByTestId(incidentMembershipRoleDisplayTestId("user-2"))
+        .textContent,
     ).toBe("viewer");
 
     view.rerender(
@@ -99,8 +113,12 @@ describe("IncidentAdminPanel", () => {
       />,
     );
     expect(screen.getByTestId("incident-patch-button")).toBeTruthy();
-    expect(screen.queryByTestId("incident-membership-create")).toBeNull();
-    expect(screen.getByTestId("incident-membership-admin-note")).toBeTruthy();
+    expect(
+      screen.queryByTestId(incidentMembershipCreateButtonTestId()),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(incidentMembershipAdminNoteTestId()),
+    ).toBeTruthy();
 
     view.rerender(
       <IncidentAdminPanel
@@ -110,12 +128,18 @@ describe("IncidentAdminPanel", () => {
       />,
     );
     expect(screen.getByTestId("incident-patch-button")).toBeTruthy();
-    expect(screen.getByTestId("incident-membership-create")).toBeTruthy();
-    expect(screen.getByTestId("incident-membership-patch-user-2")).toBeTruthy();
     expect(
-      screen.getByTestId("incident-membership-delete-user-2"),
+      screen.getByTestId(incidentMembershipCreateButtonTestId()),
     ).toBeTruthy();
-    expect(screen.queryByTestId("incident-membership-admin-note")).toBeNull();
+    expect(
+      screen.getByTestId(incidentMembershipPatchButtonTestId("user-2")),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(incidentMembershipDeleteButtonTestId("user-2")),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId(incidentMembershipAdminNoteTestId()),
+    ).toBeNull();
 
     view.rerender(
       <IncidentAdminPanel
@@ -268,40 +292,48 @@ describe("IncidentAdminPanel", () => {
 
     await screen.findByText("Incident controls synced.");
 
-    fireEvent.change(screen.getByTestId("incident-membership-email"), {
+    fireEvent.change(screen.getByTestId(incidentMembershipEmailInputTestId()), {
       target: { value: " analyst@example.test " },
     });
-    fireEvent.click(screen.getByTestId("incident-membership-create"));
+    fireEvent.click(screen.getByTestId(incidentMembershipCreateButtonTestId()));
 
     await waitFor(() => {
       expect(onSessionRoleChange).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
-      expect(screen.getByTestId("incident-membership-row-user-2")).toBeTruthy();
+      expect(
+        screen.getByTestId(incidentMembershipRowTestId("user-2")),
+      ).toBeTruthy();
     });
 
     fireEvent.change(
-      screen.getByTestId("incident-membership-role-input-user-2"),
+      screen.getByTestId(incidentMembershipRoleInputTestId("user-2")),
       {
         target: { value: "reviewer" },
       },
     );
-    fireEvent.click(screen.getByTestId("incident-membership-patch-user-2"));
+    fireEvent.click(
+      screen.getByTestId(incidentMembershipPatchButtonTestId("user-2")),
+    );
 
     await waitFor(() => {
       expect(onSessionRoleChange).toHaveBeenCalledTimes(2);
     });
     expect(
-      screen.getByTestId("incident-membership-version-user-2").textContent,
+      screen.getByTestId(incidentMembershipVersionTestId("user-2")).textContent,
     ).toContain("Version 2");
 
-    fireEvent.click(screen.getByTestId("incident-membership-delete-user-2"));
+    fireEvent.click(
+      screen.getByTestId(incidentMembershipDeleteButtonTestId("user-2")),
+    );
 
     await waitFor(() => {
       expect(onSessionRoleChange).toHaveBeenCalledTimes(3);
     });
     await waitFor(() => {
-      expect(screen.queryByTestId("incident-membership-row-user-2")).toBeNull();
+      expect(
+        screen.queryByTestId(incidentMembershipRowTestId("user-2")),
+      ).toBeNull();
     });
 
     expect(requests).toHaveLength(3);

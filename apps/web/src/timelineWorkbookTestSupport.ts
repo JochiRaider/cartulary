@@ -1,4 +1,5 @@
 import {
+  dataTestIdSelector,
   gridFilterFieldTestId,
   gridSavedRowsSelector,
   gridShellTestId,
@@ -262,7 +263,7 @@ export function visibleGridRows(container: HTMLElement): HTMLDivElement[] {
 }
 
 function testIdSelector(testId: string) {
-  return `[data-testid="${CSS.escape(testId)}"]`;
+  return dataTestIdSelector(testId);
 }
 
 function positiveIntegerEnv(name: string, fallback: number) {

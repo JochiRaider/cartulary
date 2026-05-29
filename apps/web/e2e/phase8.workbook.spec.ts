@@ -10,6 +10,7 @@ import {
   rowCellTestId,
   surfaceTabTestId,
   timelineRowMarkReviewedButtonTestId,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -41,7 +42,7 @@ test("E-8-01 saved-view route foundation persists canonical state while browser 
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
   const listBefore = await page.request.get(
     `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
@@ -124,7 +125,7 @@ test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit
     )}`,
   );
   await expect(
-    page.getByRole("heading", { name: "Hosts surface" }),
+    page.getByTestId(gridShellTestId(hostsViewSchemaId)),
   ).toBeVisible();
   await expect(page).toHaveURL(
     new RegExp(`view_schema_id=${encodeURIComponent(hostsViewSchemaId)}`),
@@ -199,7 +200,7 @@ test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit
     id: timelineViewSchemaId,
   });
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
   ).toBeVisible();
@@ -231,7 +232,7 @@ test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit
     id: timelineViewSchemaId,
   });
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
   expect(
     (await getUserWorkbookPreferences(page, incidentId)).home_sheet_ref,
@@ -474,7 +475,9 @@ test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
       notesViewSchemaId,
     )}`,
   );
-  await expect(page.getByRole("heading", { name: "Notes" })).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(notesViewSchemaId)),
+  ).toBeVisible();
 
   const uiFilterRequest = waitForViewQuery(page, incidentId, notesViewSchemaId);
   await applyFilterChip(

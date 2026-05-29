@@ -168,7 +168,7 @@
       ],
       "scenario_titles": [],
       "claim_status": "implemented",
-      "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs and closed vocabularies rather than visible labels.",
+      "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs, registry-backed view_schema_id values, and selector-relevant closed vocabularies rather than visible labels.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {

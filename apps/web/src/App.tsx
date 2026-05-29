@@ -1,4 +1,8 @@
 import {
+  landingIncidentCardTestId,
+  landingIncidentOpenButtonTestId,
+} from "@cartulary/ui-contracts";
+import {
   lazy,
   Suspense,
   startTransition,
@@ -270,7 +274,7 @@ export function IncidentLanding({
             {incidents.map((incident) => (
               <article
                 key={incident.incident_id}
-                data-testid={`landing-incident-${incident.incident_id}`}
+                data-testid={landingIncidentCardTestId(incident.incident_id)}
                 style={landingIncidentCardStyle}
               >
                 <div style={landingIncidentTextStyle}>
@@ -285,7 +289,9 @@ export function IncidentLanding({
                   </p>
                 </div>
                 <button
-                  data-testid={`landing-open-${incident.incident_id}`}
+                  data-testid={landingIncidentOpenButtonTestId(
+                    incident.incident_id,
+                  )}
                   style={landingPrimaryButtonStyle}
                   type="button"
                   onClick={() => {

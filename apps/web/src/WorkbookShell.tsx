@@ -18,6 +18,8 @@ import {
   autoResolutionUndoButtonTestId,
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  currentIncidentRoleTestId,
+  dataTestIdSelector,
   draftCellTestId,
   draftRelationshipItemsTestId,
   draftRowCreateButtonTestId,
@@ -68,11 +70,14 @@ import {
   timelineDraftEvidenceFileInputTestId,
   timelineEvidenceAttachSectionTestId,
   timelineEvidenceFileInputTestId,
+  timelineMutationSubstrateReadyTestId,
   timelinePreviewRowTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowReplacementInputTestId,
   timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
+  workbookShellReadyTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import {
@@ -683,9 +688,9 @@ function useWorkbookGridFocus<Row>({
       setAnchor({ ...nextAnchor, surface });
       window.setTimeout(() => {
         const element = document.querySelector<HTMLElement>(
-          `[data-testid="${CSS.escape(
+          dataTestIdSelector(
             rowCellTestId(nextAnchor.recordId, nextAnchor.fieldKey),
-          )}"]`,
+          ),
         );
         element?.focus({ preventScroll: true });
       }, 0);
@@ -2034,22 +2039,6 @@ function inputFocusKey(
   return `${rowKey}:${field}:${surface}`;
 }
 
-function focusTestIdForKey(focusKey: string) {
-  const [rowKey, fieldKey, surface = "grid"] = focusKey.split(":");
-  if (!rowKey || !fieldKey) {
-    return null;
-  }
-  const fieldSuffix =
-    fieldKey === "hostRefs" || fieldKey === "identityRefs"
-      ? `${fieldKey}-input`
-      : fieldKey;
-  const surfaceSuffix = surface === "inspector" ? "-inspector" : "";
-  if (rowKey.startsWith("draft-")) {
-    return `draft-row-${fieldSuffix}${surfaceSuffix}`;
-  }
-  return `row-${rowKey}-${fieldSuffix}${surfaceSuffix}`;
-}
-
 function relationshipItemLabel(
   item: CollectionItem | InspectorMention,
   entityIndex: Record<string, EntityRow>,
@@ -2351,6 +2340,7 @@ function TimelineScalarEditor({
     rowKey: string,
     field: FocusFieldKey,
     surface: TimelineScalarEditorSurface,
+    dataTestId: string,
     element: HTMLInputElement | HTMLTextAreaElement | null,
   ) => void;
   readonly presenceFieldKey: string;
@@ -2404,7 +2394,7 @@ function TimelineScalarEditor({
     onPasteCommit(event, rowKey, field, surface);
   };
   const inputRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
-    registerInput(rowKey, field, surface, element);
+    registerInput(rowKey, field, surface, dataTestId, element);
   };
 
   if (multiline) {
@@ -2558,6 +2548,7 @@ export function TimelineWorkbook({
   const rowInputRefs = useRef(
     new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
   );
+  const rowInputTestIdsRef = useRef(new Map<string, string>());
   const timelineAnchorColumnsRef = useRef<readonly GridColumn<WorkbookRow>[]>(
     [],
   );
@@ -2977,12 +2968,12 @@ export function TimelineWorkbook({
   );
 
   const resolveInputElement = useCallback((focusKey: string) => {
-    const selectorTestId = focusTestIdForKey(focusKey);
+    const selectorTestId = rowInputTestIdsRef.current.get(focusKey) ?? null;
     const selector =
       selectorTestId === null
         ? null
         : document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-            `[data-testid="${selectorTestId}"]`,
+            dataTestIdSelector(selectorTestId),
           );
     return selector ?? rowInputRefs.current.get(focusKey) ?? null;
   }, []);
@@ -3004,9 +2995,7 @@ export function TimelineWorkbook({
           : anchor.fieldKey === "row_version"
             ? timelineRowVersionTestId(anchor.recordId)
             : rowCellTestId(anchor.recordId, anchor.fieldKey);
-      return document.querySelector<HTMLElement>(
-        `[data-testid="${CSS.escape(testId)}"]`,
-      );
+      return document.querySelector<HTMLElement>(dataTestIdSelector(testId));
     },
     [resolveInputElement],
   );
@@ -3031,7 +3020,7 @@ export function TimelineWorkbook({
       switch (target.kind) {
         case "row-inspect":
           return document.querySelector<HTMLButtonElement>(
-            `[data-testid="${rowInspectButtonTestId(target.recordId)}"]`,
+            dataTestIdSelector(rowInspectButtonTestId(target.recordId)),
           );
         case "input":
           return resolveInputElement(target.focusKey);
@@ -3778,18 +3767,14 @@ export function TimelineWorkbook({
     [computeSaveState],
   );
 
-  const restoreConflictFocus = useCallback((focusKey: string) => {
-    window.setTimeout(() => {
-      const testId = focusTestIdForKey(focusKey);
-      const element =
-        testId === null
-          ? null
-          : (document.querySelector(
-              `[data-testid="${testId}"]`,
-            ) as HTMLElement | null);
-      element?.focus();
-    }, 0);
-  }, []);
+  const restoreConflictFocus = useCallback(
+    (focusKey: string) => {
+      window.setTimeout(() => {
+        resolveInputElement(focusKey)?.focus();
+      }, 0);
+    },
+    [resolveInputElement],
+  );
 
   const updateSaveStateForConflicts = useCallback(
     (nextQueue: Record<string, LocalConflictState>) => {
@@ -3936,13 +3921,16 @@ export function TimelineWorkbook({
       rowKey: string,
       field: FocusFieldKey,
       surface: TimelineScalarEditorSurface,
+      dataTestId: string,
       element: HTMLInputElement | HTMLTextAreaElement | null,
     ) => {
       const key = inputFocusKey(rowKey, field, surface);
       if (element === null) {
         rowInputRefs.current.delete(key);
+        rowInputTestIdsRef.current.delete(key);
         return;
       }
+      rowInputTestIdsRef.current.set(key, dataTestId);
       rowInputRefs.current.set(key, element);
     },
     [],
@@ -6004,12 +5992,11 @@ export function TimelineWorkbook({
         surface === "grid"
           ? `${label} ${row.recordId ?? "draft row"}`
           : undefined;
-      const gridDataTestId =
-        row.recordId === null
-          ? draftCellTestId(binding.fieldKey)
-          : rowCellTestId(row.recordId, binding.fieldKey);
-      const dataTestId =
-        surface === "grid" ? gridDataTestId : `${gridDataTestId}-inspector`;
+      const dataTestId = timelineScalarEditorTestId({
+        fieldKey: binding.fieldKey,
+        recordId: row.recordId,
+        surface,
+      });
       const conflictKey =
         row.recordId === null ? null : `${row.recordId}:${binding.fieldKey}`;
       const localConflict =
@@ -6132,6 +6119,10 @@ export function TimelineWorkbook({
     (row: WorkbookRow, binding: TimelineCollectionBinding) => {
       const label = timelineBindingLabel(binding.fieldKey);
       const items = row.collectionValues[binding.draftKey];
+      const collectionInputTestId =
+        row.recordId === null
+          ? draftTimelineCollectionInputTestId(binding.fieldKey)
+          : timelineCollectionInputTestId(row.recordId, binding.fieldKey);
       return (
         <>
           <div
@@ -6169,14 +6160,16 @@ export function TimelineWorkbook({
           </div>
           <input
             aria-label={`${label} ${row.recordId ?? "draft row"}`}
-            data-testid={
-              row.recordId === null
-                ? draftTimelineCollectionInputTestId(binding.fieldKey)
-                : timelineCollectionInputTestId(row.recordId, binding.fieldKey)
-            }
+            data-testid={collectionInputTestId}
             key={`${row.key}:${binding.draftKey}:${row.rowVersion ?? "draft"}`}
             ref={(element) => {
-              registerInput(row.key, binding.draftKey, "grid", element);
+              registerInput(
+                row.key,
+                binding.draftKey,
+                "grid",
+                collectionInputTestId,
+                element,
+              );
             }}
             style={inputStyle}
             type="text"
@@ -6918,7 +6911,10 @@ export function TimelineWorkbook({
   const headerPresence = visiblePresence(activeSheetPresenceRecords, 5);
 
   return (
-    <section style={workbookStyle}>
+    <section
+      data-testid={timelineMutationSubstrateReadyTestId()}
+      style={workbookStyle}
+    >
       <header style={headerStyle}>
         <button
           aria-label="Blur timeline inputs"
@@ -11086,7 +11082,7 @@ export function WorkbookShell({
   }, [incidentId, startupSheetRef, surface]);
 
   return (
-    <section style={panelStyle}>
+    <section data-testid={workbookShellReadyTestId()} style={panelStyle}>
       <div style={heroStyle}>
         <p style={eyebrowStyle}>Cartulary</p>
         <h1 style={headlineStyle}>Timeline workbook shell</h1>
@@ -11155,7 +11151,7 @@ export function WorkbookShell({
             </select>
           </label>
         </div>
-        <div style={roleBadgeStyle}>
+        <div data-testid={currentIncidentRoleTestId()} style={roleBadgeStyle}>
           Current incident role: {currentIncidentRole || "viewer"}
         </div>
       </div>

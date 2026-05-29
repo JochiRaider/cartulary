@@ -7,6 +7,7 @@ import {
   relationshipItemsTestId,
   rowInspectButtonTestId,
   timelineCollectionInputTestId,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
@@ -82,7 +83,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   )) as ViewRow;
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   const eligibleHostRefsInputTestId = timelineCollectionInputTestId(
     eligibleRow.record_id,
     hostRefsFieldKey,

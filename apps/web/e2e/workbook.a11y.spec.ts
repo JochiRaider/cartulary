@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { workbookShellReadyTestId } from "@cartulary/ui-contracts";
 import { expect, test } from "./fixtures";
 import { createIncident, uniqueIncidentKey } from "./helpers";
 
@@ -60,7 +61,7 @@ test.describe("frontend accessibility readiness", () => {
       await page.goto(`/?incident_id=${incidentId}`);
 
       await expect(page.locator("body")).toBeVisible();
-      await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
       const focusableSelector =
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';

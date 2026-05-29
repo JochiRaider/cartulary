@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 
 import {
+  dataTestIdSelector,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
   evidencePreviewButtonTestId,
@@ -164,7 +165,7 @@ test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview out
   await expect(
     page
       .frameLocator(
-        `[data-testid="${evidencePreviewFrameTestId(safe.record_id)}"]`,
+        dataTestIdSelector(evidencePreviewFrameTestId(safe.record_id)),
       )
       .locator("body"),
   ).toContainText("safe preview body");
@@ -419,7 +420,9 @@ async function openEvidenceSurface(page: Page, incidentId: string) {
       evidenceViewSchemaId,
     )}`,
   );
-  await expect(page.getByRole("heading", { name: "Evidence" })).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+  ).toBeVisible();
 }
 
 async function openTimelineSurface(page: Page, incidentId: string) {

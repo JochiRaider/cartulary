@@ -1,4 +1,7 @@
-import { draftCellTestId } from "@cartulary/ui-contracts";
+import {
+  draftCellTestId,
+  timelineMutationSubstrateReadyTestId,
+} from "@cartulary/ui-contracts";
 
 import { expect, test } from "../fixtures";
 
@@ -27,7 +30,9 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
 
   const draftSummary = page.getByTestId(draftSummaryTestId);

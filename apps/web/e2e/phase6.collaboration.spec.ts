@@ -14,6 +14,7 @@ import {
 import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  currentIncidentRoleTestId,
   gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
@@ -512,9 +513,9 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
       ).toHaveValue("E-6-05 FIFO A base");
-      await expect(
-        page.getByText("Current incident role: admin"),
-      ).toBeVisible();
+      await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+        "Current incident role: admin",
+      );
 
       await editTimelineSummary(page, firstId, "E-6-05 FIFO A local");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
@@ -584,9 +585,9 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
       ).toHaveValue("E-6-05 auth A base");
-      await expect(
-        page.getByText("Current incident role: editor"),
-      ).toBeVisible();
+      await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+        "Current incident role: editor",
+      );
 
       await page.context().clearCookies();
       await editTimelineSummary(page, firstId, "E-6-05 auth A local");
@@ -651,9 +652,9 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
       ).toHaveValue("E-6-05 halt A base");
-      await expect(
-        page.getByText("Current incident role: admin"),
-      ).toBeVisible();
+      await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+        "Current incident role: admin",
+      );
 
       const heldPatch = patchController.holdNextPatch();
       await editTimelineSummary(page, firstId, "E-6-05 halt A local");
@@ -722,9 +723,9 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
       ).toHaveValue("E-6-05 reload base");
-      await expect(
-        page.getByText("Current incident role: admin"),
-      ).toBeVisible();
+      await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+        "Current incident role: admin",
+      );
 
       await editTimelineSummary(page, recordId, "E-6-05 reload local");
       await expect(

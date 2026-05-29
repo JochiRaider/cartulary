@@ -6,11 +6,16 @@ import {
   autoResolutionUndoButtonTestId,
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  currentIncidentRoleTestId,
+  dataTestIdSelector,
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
   entityInspectButtonTestId,
   entityInspectorTestId,
   entityMentionResolutionStatusTestId,
+  entityMentionResolutionStatuses,
+  entityTypes,
+  extensionProfileRowTestId,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
   evidenceDownloadButtonTestId,
@@ -36,6 +41,19 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentMembershipAdminNoteTestId,
+  incidentMembershipCreateButtonTestId,
+  incidentMembershipDeleteButtonTestId,
+  incidentMembershipEmailInputTestId,
+  incidentMembershipListTestId,
+  incidentMembershipPatchButtonTestId,
+  incidentMembershipRoleDisplayTestId,
+  incidentMembershipRoleInputTestId,
+  incidentMembershipRoleSelectTestId,
+  incidentMembershipRowTestId,
+  incidentMembershipVersionTestId,
+  landingIncidentCardTestId,
+  landingIncidentOpenButtonTestId,
   mentionCreateEntityButtonTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -44,11 +62,19 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  phase2IncidentRowTestId,
+  phase2MembershipDeleteButtonTestId,
+  phase2MembershipPatchButtonTestId,
+  phase2MembershipRoleInputTestId,
+  phase2MembershipRowTestId,
+  phase2MembershipVersionTestId,
+  phase2SelectIncidentButtonTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryItemTestId,
+  rowHistoryRollbackActions,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
@@ -60,11 +86,15 @@ import {
   timelineDraftEvidenceFileInputTestId,
   timelineEvidenceAttachSectionTestId,
   timelineEvidenceFileInputTestId,
+  timelineMutationSubstrateReadyTestId,
   timelinePreviewRowTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowReplacementInputTestId,
   timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorSurfaces,
+  timelineScalarEditorTestId,
+  workbookShellReadyTestId,
 } from "./index";
 
 describe("@cartulary/ui-contracts workbook row selectors", () => {
@@ -265,9 +295,26 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 
   it("validates closed-vocabulary-derived selector tokens", () => {
-    expect(entityMentionResolutionStatusTestId("resolved")).toBe(
-      "entity-mention-resolution-status-resolved",
-    );
+    for (const status of entityMentionResolutionStatuses) {
+      expect(entityMentionResolutionStatusTestId(status)).toBe(
+        `entity-mention-resolution-status-${status}`,
+      );
+    }
+    for (const entityType of entityTypes) {
+      expect(mentionCreateEntityButtonTestId(entityType)).toBe(
+        `inspector-create-${entityType}`,
+      );
+    }
+    for (const action of rowHistoryRollbackActions) {
+      expect(
+        rowHistoryActionTestId({
+          action,
+          changeSetId: "change-set-1",
+          historyEntryRef: "entry-1",
+          operation: "patch",
+        }),
+      ).toContain(`-${action}`);
+    }
     expect(() =>
       entityMentionResolutionStatusTestId("Resolved" as never),
     ).toThrow("Invalid entity_mentions.resolution_status token: Resolved");
@@ -438,6 +485,13 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(() => mentionCreateEntityButtonTestId("account" as never)).toThrow(
       "Invalid entity type selector token: account",
     );
+    expect(() =>
+      rowHistoryActionTestId({
+        action: "rollback" as never,
+        changeSetId: "change-set-1",
+        operation: "patch",
+      }),
+    ).toThrow("Invalid row history rollback action token: rollback");
 
     expect(relationshipChipTestId("a:b")).not.toBe(
       relationshipChipTestId("a-b"),
@@ -445,5 +499,122 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(relationshipChipTestId("a b")).not.toBe(
       relationshipChipTestId("a-b"),
     );
+  });
+
+  it("validates view_schema_id selectors against the generated registry", () => {
+    for (const viewSchemaId of [
+      "cartulary.view.timeline.v1",
+      "cartulary.view.comm_log.v1",
+      "cartulary.view.findings.v1",
+      "cartulary.view.forensic_keywords.v1",
+    ]) {
+      expect(gridShellTestId(viewSchemaId)).toBe(`${viewSchemaId}-grid-shell`);
+    }
+
+    expect(() => gridShellTestId("cartulary.view.future.v1")).toThrow(
+      "Unknown view_schema_id selector token: cartulary.view.future.v1",
+    );
+  });
+
+  it("provides shared builders for app shell and incident membership selectors", () => {
+    expect(workbookShellReadyTestId()).toBe("workbook-shell-ready");
+    expect(timelineMutationSubstrateReadyTestId()).toBe(
+      "timeline-mutation-substrate-ready",
+    );
+    expect(currentIncidentRoleTestId()).toBe("current-incident-role");
+    expect(landingIncidentCardTestId("incident-1")).toBe(
+      "landing-incident-incident-1",
+    );
+    expect(landingIncidentOpenButtonTestId("incident-1")).toBe(
+      "landing-open-incident-1",
+    );
+    expect(landingIncidentCardTestId("incident:1")).toBe(
+      "landing-incident-incident%3A1",
+    );
+    expect(incidentMembershipEmailInputTestId()).toBe(
+      "incident-membership-email",
+    );
+    expect(incidentMembershipRoleSelectTestId()).toBe(
+      "incident-membership-role",
+    );
+    expect(incidentMembershipCreateButtonTestId()).toBe(
+      "incident-membership-create",
+    );
+    expect(incidentMembershipAdminNoteTestId()).toBe(
+      "incident-membership-admin-note",
+    );
+    expect(incidentMembershipListTestId()).toBe("incident-membership-list");
+    expect(incidentMembershipRowTestId("user-2")).toBe(
+      "incident-membership-row-user-2",
+    );
+    expect(incidentMembershipVersionTestId("user-2")).toBe(
+      "incident-membership-version-user-2",
+    );
+    expect(incidentMembershipRoleInputTestId("user-2")).toBe(
+      "incident-membership-role-input-user-2",
+    );
+    expect(incidentMembershipPatchButtonTestId("user-2")).toBe(
+      "incident-membership-patch-user-2",
+    );
+    expect(incidentMembershipDeleteButtonTestId("user-2")).toBe(
+      "incident-membership-delete-user-2",
+    );
+    expect(incidentMembershipRoleDisplayTestId("user-2")).toBe(
+      "incident-membership-role-user-2",
+    );
+    expect(phase2IncidentRowTestId("incident-2")).toBe(
+      "incident-row-incident-2",
+    );
+    expect(phase2SelectIncidentButtonTestId("incident-2")).toBe(
+      "select-incident-incident-2",
+    );
+    expect(phase2MembershipRowTestId("user-2")).toBe("membership-row-user-2");
+    expect(phase2MembershipRoleInputTestId("user-2")).toBe(
+      "membership-role-input-user-2",
+    );
+    expect(phase2MembershipVersionTestId("user-2")).toBe(
+      "membership-version-user-2",
+    );
+    expect(phase2MembershipPatchButtonTestId("user-2")).toBe(
+      "patch-membership-user-2",
+    );
+    expect(phase2MembershipDeleteButtonTestId("user-2")).toBe(
+      "delete-membership-user-2",
+    );
+    expect(extensionProfileRowTestId("profile:core")).toBe(
+      "extension-profile%3Acore",
+    );
+  });
+
+  it("builds escaped data-testid selectors and timeline editor test ids", () => {
+    expect(dataTestIdSelector('row-record"1')).toBe(
+      '[data-testid="row-record\\"1"]',
+    );
+    expect(dataTestIdSelector("row\\record")).toBe(
+      '[data-testid="row\\\\record"]',
+    );
+    expect(() => dataTestIdSelector("")).toThrow(
+      "Invalid data-testid selector token: ",
+    );
+
+    for (const surface of timelineScalarEditorSurfaces) {
+      expect(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.summary",
+          recordId: "record-1",
+          surface,
+        }),
+      ).toBe(
+        surface === "inspector"
+          ? "row-record-1-timeline.summary-inspector"
+          : "row-record-1-timeline.summary",
+      );
+    }
+    expect(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.summary",
+        recordId: null,
+      }),
+    ).toBe("draft-row-timeline.summary");
   });
 });

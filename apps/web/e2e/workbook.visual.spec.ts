@@ -8,6 +8,7 @@ import {
 import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  dataTestIdSelector,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
   evidencePreviewButtonTestId,
@@ -78,6 +79,10 @@ type GridVisualAnchor = {
   rowId: string;
   top: number;
 };
+
+function gridShellSelector(surface: string): string {
+  return dataTestIdSelector(gridShellTestId(surface));
+}
 
 type GridVisualRegressionOptions = {
   maxDiffPixels?: number;
@@ -1040,10 +1045,8 @@ async function setWorkbookGridScroll(
   scroll: GridVisualScrollState,
 ): Promise<WorkbookGridVisualScrollSnapshot> {
   return page.evaluate(
-    ({ left, scrollportSelector, surface, top }) => {
-      const shell = document.querySelector<HTMLElement>(
-        `[data-testid="${surface}-grid-shell"]`,
-      );
+    ({ left, scrollportSelector, shellSelector, surface, top }) => {
+      const shell = document.querySelector<HTMLElement>(shellSelector);
       if (shell === null) {
         throw new Error(`Expected ${surface} grid shell to exist`);
       }
@@ -1082,6 +1085,7 @@ async function setWorkbookGridScroll(
     {
       left: scroll.left,
       scrollportSelector: gridScrollportSelector(),
+      shellSelector: gridShellSelector(surface),
       surface,
       top: scroll.top,
     },
@@ -1126,10 +1130,8 @@ async function setWorkbookGridAnchor(
   anchor: GridVisualAnchor,
 ): Promise<WorkbookGridVisualScrollSnapshot> {
   return page.evaluate(
-    ({ anchor, scrollportSelector, selectors, surface }) => {
-      const shell = document.querySelector<HTMLElement>(
-        `[data-testid="${surface}-grid-shell"]`,
-      );
+    ({ anchor, scrollportSelector, selectors, shellSelector, surface }) => {
+      const shell = document.querySelector<HTMLElement>(shellSelector);
       if (shell === null) {
         throw new Error(`Expected ${surface} grid shell to exist`);
       }
@@ -1209,6 +1211,7 @@ async function setWorkbookGridAnchor(
       anchor,
       scrollportSelector: gridScrollportSelector(),
       selectors: buildWorkbookGridAnchorSelectors(surface, anchor),
+      shellSelector: gridShellSelector(surface),
       surface,
     },
   );
@@ -1220,11 +1223,15 @@ async function readWorkbookGridAnchorState(
   anchor: GridVisualAnchor,
 ) {
   return page.evaluate(
-    async ({ anchor, scrollportSelector, selectors, surface }) => {
+    async ({
+      anchor,
+      scrollportSelector,
+      selectors,
+      shellSelector,
+      surface,
+    }) => {
       const readDiagnostics = () => {
-        const shell = document.querySelector<HTMLElement>(
-          `[data-testid="${surface}-grid-shell"]`,
-        );
+        const shell = document.querySelector<HTMLElement>(shellSelector);
         if (shell === null) {
           throw new Error(`Expected ${surface} grid shell to exist`);
         }
@@ -1385,6 +1392,7 @@ async function readWorkbookGridAnchorState(
       anchor,
       scrollportSelector: gridScrollportSelector(),
       selectors: buildWorkbookGridAnchorSelectors(surface, anchor),
+      shellSelector: gridShellSelector(surface),
       surface,
     },
   );
@@ -1409,10 +1417,8 @@ async function attachWorkbookGridVisualDiagnostics(
 
 async function readWorkbookGridDiagnostics(page: Page, surface: string) {
   return page.evaluate(
-    ({ scrollportSelector, surface }) => {
-      const shell = document.querySelector<HTMLElement>(
-        `[data-testid="${surface}-grid-shell"]`,
-      );
+    ({ scrollportSelector, shellSelector, surface }) => {
+      const shell = document.querySelector<HTMLElement>(shellSelector);
       if (shell === null) {
         throw new Error(`Expected ${surface} grid shell to exist`);
       }
@@ -1488,6 +1494,7 @@ async function readWorkbookGridDiagnostics(page: Page, surface: string) {
     },
     {
       scrollportSelector: gridScrollportSelector(),
+      shellSelector: gridShellSelector(surface),
       surface,
     },
   );
@@ -1498,10 +1505,8 @@ async function readWorkbookGridScroll(
   surface: string,
 ): Promise<WorkbookGridVisualScrollSnapshot> {
   return page.evaluate(
-    ({ scrollportSelector, surface }) => {
-      const shell = document.querySelector<HTMLElement>(
-        `[data-testid="${surface}-grid-shell"]`,
-      );
+    ({ scrollportSelector, shellSelector, surface }) => {
+      const shell = document.querySelector<HTMLElement>(shellSelector);
       if (shell === null) {
         throw new Error(`Expected ${surface} grid shell to exist`);
       }
@@ -1522,6 +1527,7 @@ async function readWorkbookGridScroll(
     },
     {
       scrollportSelector: gridScrollportSelector(),
+      shellSelector: gridShellSelector(surface),
       surface,
     },
   );

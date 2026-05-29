@@ -126,6 +126,8 @@ describe("Phase 8 workbook query controls", () => {
 
   it("Phase 8 U-8-GRID-01 renders group headers as presentation-only rows", () => {
     type HarnessRow = {
+      readonly actionTestId: string;
+      readonly editableTestId: string;
       readonly recordId: string;
       readonly state: string;
       readonly summary: string;
@@ -134,13 +136,25 @@ describe("Phase 8 workbook query controls", () => {
       {
         key: "record-1",
         recordId: "record-1",
-        data: { recordId: "record-1", state: "rough", summary: "Alpha" },
+        data: {
+          actionTestId: "action-record-1",
+          editableTestId: "editable-record-1",
+          recordId: "record-1",
+          state: "rough",
+          summary: "Alpha",
+        },
         testId: "phase8-row-record-1",
       },
       {
         key: "record-2",
         recordId: "record-2",
-        data: { recordId: "record-2", state: "reviewed", summary: "Beta" },
+        data: {
+          actionTestId: "action-record-2",
+          editableTestId: "editable-record-2",
+          recordId: "record-2",
+          state: "reviewed",
+          summary: "Beta",
+        },
         testId: "phase8-row-record-2",
       },
     ];
@@ -149,10 +163,7 @@ describe("Phase 8 workbook query controls", () => {
         fieldKey: "timeline.summary",
         label: "Summary",
         renderCell: (row) => (
-          <input
-            data-testid={`editable-${row.recordId}`}
-            defaultValue={row.summary}
-          />
+          <input data-testid={row.editableTestId} defaultValue={row.summary} />
         ),
       },
       {
@@ -167,10 +178,7 @@ describe("Phase 8 workbook query controls", () => {
         actionsColumn={{
           label: "Actions",
           renderCell: (row) => (
-            <button
-              data-testid={`action-${row.recordId ?? "none"}`}
-              type="button"
-            >
+            <button data-testid={row.data.actionTestId} type="button">
               Mutate
             </button>
           ),
