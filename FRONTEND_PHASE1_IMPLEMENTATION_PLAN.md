@@ -22,14 +22,17 @@ This guide does not implement FE-P1 behavior. It is not behavior authority and m
 
 ## Current Repo Status
 
-The following facts were verified by local inspection and non-mutating command execution during FE-P1 guide creation:
+The following facts were verified by local inspection, non-mutating command execution during FE-P1 guide creation, and Sprint 1 readiness validation:
 
 - `tools/frontend_phase_registry.json` exists and includes `FE-P1` in the `frontend` namespace with `status="planned"`, manifest path `tools/frontend_phase_maps/fe_p1_test_map.json`, ledger path `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`, and dependency on `FE-P0`.
 - `tools/frontend_phase_maps/fe_p1_test_map.json` exists with schema `cartulary.frontend_phase_test_map.v1`, `phase_namespace="frontend"`, and `phase_id="FE-P1"`.
 - The FE-P1 phase map contains exactly these row IDs once each: `FE-U-P1-01`, `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01`.
 - All FE-P1 rows currently have `claim_status="blocked"` in the phase map and generated ledger.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md` exists and states that it is generated from `tools/frontend_phase_maps/fe_p1_test_map.json`; it must not be hand-edited for FE-P1 closure.
-- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1` passed during guide creation and reported FE-P1 as planned, explainable, and non-executable.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1` passed during Sprint 1 readiness validation and reported FE-P1 as planned, explainable, and non-executable.
+- Sprint 1 registry and map invariant checks passed with `jq -e`; the registry tuple is exact and the FE-P1 map contains no missing or duplicate row IDs.
+- `make phase-ledger-drift` passed during Sprint 1 readiness validation with final summary `.cartulary/test-results/20260529T211122Z-p2095159/phase-ledger-drift/tool-run-summary.json`.
+- FE-P0 handoff regressions were rerun during Sprint 1 readiness validation: `make frontend-typecheck`, `make frontend-unit`, `make generated-artifact-policy-check`, `make generate-drift`, `make frontend-import-boundary-check`, and `make phase-ledger-drift` all passed.
 - Target dry-run discovery found these candidate targets available: `make explain-phase`, `make frontend-typecheck`, `make frontend-unit`, `make browser-e2e-webserver-backed`, `make browser-e2e-a11y`, `make browser-e2e-support`, `make phase-ledgers`, `make phase-ledger-drift`, `make generated-artifact-policy-check`, `make generate-drift`, `make frontend-import-boundary-check`, and `make check`.
 - `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md` exists and records FE-P0 handoff state. FE-P1 may consume that handoff, but FE-P0 closure claims are not FE-P1 completion evidence.
 - `/apps/web` contains existing Phase 1 app-shell surfaces by inspection: `AppRoot.tsx`, `App.tsx`, `Phase1Surface.tsx`, `Phase1Harness.tsx`, `phase1Client.ts`, `browserApi.ts`, `App.phase1.test.tsx`, `App.phase1.support.test.tsx`, `e2e/phase1.spec.ts`, `e2e/phase1.clock.spec.ts`, and `e2e/phase1Page.ts`.
@@ -40,10 +43,10 @@ The following facts were verified by local inspection and non-mutating command e
 Source limits:
 
 - No newer root-level frontend phase-plan naming convention was found during inspection; this guide therefore uses the requested `FRONTEND_PHASE1_IMPLEMENTATION_PLAN.md` name, matching the existing root-level `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md` pattern.
-- Row-owned validation commands for FE-P1 were not run for guide creation. `make frontend-unit`, `make browser-e2e-webserver-backed`, `make browser-e2e-a11y`, and `make browser-e2e-support` remain planned validation, not cited evidence.
+- FE-P1 row-owned closure evidence was not collected during Sprint 1. `make frontend-unit` was rerun only as FE-P0 handoff regression evidence; `make browser-e2e-webserver-backed`, `make browser-e2e-a11y`, and `make browser-e2e-support` remain planned FE-P1 validation, not cited completion evidence.
 - `make check` was not run for guide creation because FE-P1 guide creation does not require broad developer-gate evidence and the requested task does not implement FE-P1 product behavior.
 - Test names and existing Phase 1 files were inspected only to identify implementation surfaces; they do not prove FE-P1 completion.
-- FE-P0 handoff state was inspected through the FE-P0 guide and FE-P0 map/ledger artifacts, but FE-P1 must rerun or precisely block P0 regression checks before closure.
+- FE-P0 handoff state was inspected through the FE-P0 guide and FE-P0 map/ledger artifacts, and the Sprint 1 FE-P0 regression set passed. Later FE-P1 closure after product changes must rerun those checks again or precisely block them.
 
 ## Phase Objective
 
@@ -89,7 +92,7 @@ FE-P1 must not treat existing FE-P0 closure claims, generated ledgers, retained 
 
 | Done | Sprint | Primary validation | Blockers | Follow-up notes |
 | ---- | ------ | ------------------ | -------- | --------------- |
-| [ ] | 1. Frontend phase manifest, FE-P1 map, ledger, and P0 handoff validation | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1`; `make phase-ledger-drift` | P0 regression checks must be rerun or precisely blocked before FE-P1 closure | Planned frontend phases are explainable but not executable |
+| [x] | 1. Frontend phase manifest, FE-P1 map, ledger, and P0 handoff validation | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1`; `make phase-ledger-drift`; FE-P0 handoff regression set | None for Sprint 1 metadata readiness | Planned frontend phases are explainable but not executable; no FE-P1 row is complete |
 | [ ] | 2. App bootstrap state model and public error-envelope rendering; owns `FE-U-P1-01` | `make frontend-unit` | Unit evidence not run during guide creation | Keep public error envelopes separate from private server diagnostics |
 | [ ] | 3. API client and route-boundary integration baseline; owns `FE-I-P1-01` | `make frontend-unit`; supporting `make frontend-typecheck` | Integration/unit evidence not run during guide creation | Public-route behavior stays under `/api/v1/` |
 | [ ] | 4. Login, session bootstrap, incident entry, authorization, and revocation E2E flow; owns `FE-E-P1-01` | `make browser-e2e-webserver-backed` | Browser E2E evidence not run during guide creation | Browser-observed authorization is product-conformance only when Core-owned |
@@ -144,16 +147,114 @@ Expected deliverables for FE-P1 implementation are:
 
 ## Sprint 1: Frontend Phase Manifest, FE-P1 Map, Ledger, And P0 Handoff Validation
 
-- Objective: Establish the FE-P1 row inventory, generated-ledger relationship, target availability, and P0 handoff state before any FE-P1 row completion claim.
-- Status: Planned.
-- Relevant IDs: Supports `FE-U-P1-01`, `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01`.
-- Files and areas to inspect or edit: `tools/frontend_phase_registry.json`, `tools/frontend_phase_maps/fe_p1_test_map.json`, `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`, `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md`, `docs/guides/cartulary_frontend_implementation_testing_guide.md`, and phase-ledger scripts.
-- Test-first sequence: Run `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1`; inspect the FE-P1 map for duplicate or missing rows; inspect the generated ledger without hand-editing it; inspect FE-P0 handoff artifacts.
-- Implementation tasks: Keep FE-P1 in the frontend namespace, preserve `status="planned"` until executable evidence is promoted, keep one row-map entry per FE-P1 row, and record P0 handoff as prerequisite state only.
-- Validation commands: `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1`; duplicate-row inspection over `tools/frontend_phase_maps/fe_p1_test_map.json`; `make phase-ledger-drift`; `git diff --check`.
-- Deliverables: FE-P1 metadata inventory, source-limit record, target-availability record, and P0 handoff blockers.
-- Risks and assumptions: Planned frontend phases are explainable but not executable; ledger drift proves map/ledger agreement, not row completion.
-- Blockers and follow-up notes: P0 regression checks must be rerun or precisely blocked before FE-P1 closure; no FE-P1 row can close from metadata inspection alone.
+Status: Complete for Sprint 1 readiness and traceability. This sprint does not complete any FE-P1 row.
+
+### 1. Objective And Non-Goals
+
+- Objective: prove `FE-P1` is explainable in the `frontend` namespace, has the expected row inventory, has a generated ledger consistent with its map, and is gated by current FE-P0 handoff validation before any FE-P1 completion claim.
+- Non-goals: no FE-P1 product behavior, no row completion, no hand edits to generated ledgers, no Core behavior changes, and no Core 05 claim-publication activation.
+- Relevant IDs: supports `FE-U-P1-01`, `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01`.
+
+### 2. Source And Authority Order
+
+1. Core 00 through Core 04 own implementation-conformance behavior.
+2. Core 05 applies only to claim-bearing timed or fixture-sensitive publication.
+3. `docs/guides/cartulary_frontend_implementation_testing_guide.md` owns FE-P1 row planning and frontend phase shape.
+4. `docs/testing-harness-nlspec.md` owns harness mechanics only.
+5. `docs/guides/cartulary_implementation_testing_guide.md` informs shared completion and ledger rules.
+6. `docs/guides/cartulary-dev-guide.md` informs repo/package/Make/generated-artifact boundaries.
+7. `docs/domain.md` is vocabulary support only.
+8. Generated ledgers, retained artifacts, test names, previous summaries, FE-P0 closure claims, and this plan are not FE-P1 product-conformance proof.
+
+### 3. File-By-File Inspection Checklist
+
+- `tools/frontend_phase_registry.json`: schema `cartulary.frontend_phase_registry.v1`, namespace `frontend`, exactly one `FE-P1` entry, `status="planned"`, expected map and ledger paths, owner ref to the frontend guide, and `depends_on=["FE-P0"]` were verified.
+- `tools/frontend_phase_maps/fe_p1_test_map.json`: schema `cartulary.frontend_phase_test_map.v1`, namespace `frontend`, `phase_id="FE-P1"`, and the five expected row IDs exactly once were verified.
+- `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`: states it is generated from `tools/frontend_phase_maps/fe_p1_test_map.json` and mirrors FE-P1 status, dependency, evidence classes, rows, targets, claims, and out-of-scope text.
+- `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md`: FE-P0 handoff requirements and historical evidence were inspected; historical FE-P0 closure claims remain prerequisite context only.
+- `FRONTEND_PHASE1_IMPLEMENTATION_PLAN.md`: this Sprint 1 section records readiness procedure, command results, source limits, blocker language, and binary criteria.
+- `docs/guides/cartulary_frontend_implementation_testing_guide.md`: FE-P1 scope, five-row inventory, evidence-class rules, planned/non-executable phase rule, and completion checklist were inspected.
+- `scripts/lib/frontend-phase-manifest.mjs`, `scripts/render-phase-ledger.mjs`, `scripts/check-phase-ledger-drift.mjs`, and `scripts/print-explain-phase.mjs`: schema validation, ledger rendering, drift comparison, and planned frontend explain behavior were inspected.
+- `Makefile`, `tools/task_surface_manifest.json`, and `scripts/lib/make-node-tools.mjs`: `make explain-phase`, `make phase-ledger-drift`, `make phase-ledgers`, and accepted `PHASE_NAMESPACE` wiring were inspected.
+
+### 4. Registry Invariants
+
+- `FE-P1` resolves through `PHASE_NAMESPACE=frontend PHASE=FE-P1`; FE rows were not added to base `tools/phase_registry.json`.
+- Registry entry points to `tools/frontend_phase_maps/fe_p1_test_map.json` and `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`.
+- `depends_on` remains exactly `["FE-P0"]`.
+- `status` remains `planned`; planned frontend phases are explainable but non-executable.
+
+### 5. FE-P1 Map Invariants
+
+- Row inventory is exactly `FE-U-P1-01`, `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01`; no missing or duplicate IDs.
+- Product-conformance rows are exactly `FE-U-P1-01`, `FE-I-P1-01`, and `FE-E-P1-01`, each with non-empty Core REQ and Core AC IDs.
+- `FE-A11Y-P1-01` remains `design_direction`, has support/design ACs, and has no Core REQ/AC claim.
+- `FE-S-P1-01` remains `implementation_support`, has support ACs, and has no Core REQ/AC claim.
+- `claim_publication_boundary` remains a distinct supported evidence class, but FE-P1 has no claim-publication row; Sprint 1 activates no Core 05 claim-publication review.
+- All five FE-P1 rows remain `claim_status="blocked"` because no direct row-owned FE-P1 evidence was promoted.
+
+### 6. Generated-Ledger Invariants
+
+- The FE-P1 ledger is generated from `tools/frontend_phase_maps/fe_p1_test_map.json`; it was inspected but not hand-edited.
+- Ledger mirrors namespace `frontend`, status `planned`, dependency `FE-P0`, and all five row records.
+- `make phase-ledger-drift` passed, proving generated ledger consistency with the map.
+- `make phase-ledgers` was not run because Sprint 1 made no registry or map metadata changes.
+
+### 7. FE-P0 Handoff Validation Procedure
+
+- Rerun before any FE-P1 closure claim: `make frontend-typecheck`, `make frontend-unit`, `make generated-artifact-policy-check`, `make generate-drift`, `make frontend-import-boundary-check`, and `make phase-ledger-drift`.
+- Sprint 1 reran that FE-P0 handoff regression set and all commands passed.
+- `make phase-slice PHASE=phase7` and `make service-backed-slice PHASE=phase7` were not rerun because Sprint 1 touched only this readiness plan and did not change shared selector, row-history, `history_item_ref`, or view-schema identity surfaces.
+- `make check` was not run because Sprint 1 is metadata/readiness-only; it remains a closure or broad-gate command when repo completion rules require it.
+- If a FE-P0 handoff check cannot run later, record exactly: `BLOCKER: FE-P1 closure blocked because FE-P0 handoff regression <command> was not rerun: <reason>. Last FE-P0 evidence in FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md is historical only and is not current FE-P1 closure evidence. owner=P0-regression-owned minimum_follow_up=<next command/action>.`
+
+### 8. Validation Commands And Outcomes
+
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1`: passed; output reported namespace `frontend`, status `planned`, expected map and ledger paths, dependency `FE-P0`, all five rows, and planned/non-executable diagnostic.
+- Registry invariant check with `jq -e`: passed.
+- Map invariant check with `jq -e`: passed.
+- `make phase-ledger-drift`: passed with final post-edit summary `.cartulary/test-results/20260529T211122Z-p2095159/phase-ledger-drift/tool-run-summary.json`.
+- `make frontend-typecheck`: passed with `.cartulary/test-results/20260529T210821Z-p2088837/frontend-typecheck/tool-run-summary.json`.
+- `make frontend-unit`: passed as FE-P0 handoff regression with `.cartulary/test-results/20260529T210821Z-p2088882/frontend-unit/tool-run-summary.json`.
+- `make generated-artifact-policy-check`: passed with `.cartulary/test-results/20260529T210821Z-p2088832/generated-artifact-policy-check/tool-run-summary.json`.
+- `make frontend-import-boundary-check`: passed with `.cartulary/test-results/20260529T210821Z-p2088856/frontend-import-boundary-check/tool-run-summary.json`.
+- `make generate-drift`: passed with `.cartulary/test-results/20260529T210843Z-p2090950/generate-drift/tool-run-summary.json`.
+
+### 9. Failure Modes And Blocker Language
+
+- Missing or duplicate FE-P1 row: `BLOCKER: FE-P1 map row inventory invalid; expected exactly FE-U/I/E/A11Y/S-P1-01 once each; actual=<ids/counts>.`
+- Wrong namespace or paths: `BLOCKER: FE-P1 registry is not frontend-namespace traceable; expected namespace/path/dependency tuple does not match registry.`
+- Ledger drift: `BLOCKER: FE-P1 generated ledger is stale relative to map; rerun generator only after confirming map is the intended source.`
+- Explain failure: `BLOCKER: FE-P1 is not explainable in frontend namespace; command=<command> output=<diagnostic>.`
+- P0 rerun skipped or failed: use the FE-P0 blocker template in this sprint section.
+- Evidence-class collapse: `BLOCKER: FE-P1 evidence classes collapsed; design/support/claim-publication-boundary evidence cannot be counted as product_conformance.`
+
+### 10. Deliverables
+
+- FE-P1 metadata inventory is recorded in this section: registry tuple, row inventory, evidence classes, row statuses, target mappings, and generated-ledger relationship.
+- FE-P0 handoff validation record is recorded with current passing command artifact paths.
+- Source limits and explicit non-claims are recorded so later agents do not overclaim Sprint 1 evidence.
+- No FE-P1 row is marked complete from metadata inspection alone.
+
+### 11. Binary Acceptance Criteria
+
+| Criterion | Sprint 1 status |
+| --------- | --------------- |
+| `FE-P1` is explainable with `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1` | Satisfied |
+| Registry tuple is exact: namespace `frontend`, expected map path, expected ledger path, dependency `FE-P0`, status `planned` | Satisfied |
+| FE-P1 row inventory has no missing or duplicate row IDs | Satisfied |
+| Evidence classes remain separate and are not collapsed into product conformance | Satisfied |
+| FE-P1 ledger is generated-consistent | Satisfied by `make phase-ledger-drift` |
+| FE-P0 handoff regressions are rerun or precisely blocked | Satisfied; all required commands passed |
+| Source limits are recorded | Satisfied |
+| No FE-P1 row is marked complete from metadata inspection, generated ledger text, retained artifacts, support-only checks, accessibility checks, visual goldens, test names, FE-P0 closure claims, or this plan | Satisfied |
+
+### 12. Explicit Non-Claims
+
+- Sprint 1 does not prove app bootstrap, session, MFA, authorization, incident entry, public error-envelope, accessibility, or selector-builder behavior.
+- Sprint 1 does not activate Core 05 publication review.
+- Sprint 1 `make frontend-unit` evidence is FE-P0 handoff regression evidence only; it does not close `FE-U-P1-01`, `FE-I-P1-01`, or `FE-S-P1-01`.
+- Generated ledger consistency proves map/ledger agreement, not FE-P1 product conformance.
 
 ## Sprint 2: App Bootstrap State Model And Public Error-Envelope Rendering
 
@@ -254,22 +355,22 @@ Do not replace blockers with guesses. If a command is not run, state that it was
 | Criterion | Current status |
 | --------- | -------------- |
 | The guide file exists and states that it is not behavior authority | Satisfied by this file once committed or otherwise accepted |
-| FE-P1 phase registry, phase map, and generated ledger are present or a precise blocker is recorded | Present by local inspection: registry, map, and ledger exist |
-| Every FE-P1 row is represented exactly once in the phase map | Present by local duplicate-row inspection: all five requested rows appear once |
-| Generated ledgers are produced by generator, not hand-edited | Required; ledger states it is generated from the map; do not hand-edit for closure |
-| `FE-U-P1-01` has direct unit evidence or a blocker | Blocked: `make frontend-unit` was not run for guide creation |
-| `FE-I-P1-01` has direct integration/unit evidence or a blocker | Blocked: `make frontend-unit` was not run for guide creation |
+| FE-P1 phase registry, phase map, and generated ledger are present or a precise blocker is recorded | Satisfied by Sprint 1 readiness inspection: registry, map, and ledger exist |
+| Every FE-P1 row is represented exactly once in the phase map | Satisfied by Sprint 1 duplicate-row inspection: all five requested rows appear once |
+| Generated ledgers are produced by generator, not hand-edited | Satisfied for Sprint 1 metadata: ledger states it is generated from the map and `make phase-ledger-drift` passed |
+| `FE-U-P1-01` has direct unit evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 unit evidence was promoted; `make frontend-unit` passed only as FE-P0 handoff regression |
+| `FE-I-P1-01` has direct integration/unit evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 integration evidence was promoted; `make frontend-unit` passed only as FE-P0 handoff regression |
 | `FE-E-P1-01` has browser E2E evidence or a blocker | Blocked: `make browser-e2e-webserver-backed` was not run for guide creation |
 | `FE-A11Y-P1-01` has accessibility evidence or a blocker | Blocked: `make browser-e2e-a11y` was not run for guide creation |
-| `FE-S-P1-01` has selector-builder support evidence or a blocker | Blocked: `make frontend-unit` and `make browser-e2e-support` were not run for guide creation |
+| `FE-S-P1-01` has selector-builder support evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 selector-builder evidence was promoted; `make frontend-unit` passed only as FE-P0 handoff regression and `make browser-e2e-support` was not run |
 | Public-route behavior stays under `/api/v1/` | Required for closure; source inspection found existing `/api/v1/` usage but row-owned evidence is still blocked |
 | Frontend error rendering uses public error envelopes and not private server details | Required for closure; direct row-owned evidence is still blocked |
 | Server-managed session state is respected | Required for closure; direct row-owned evidence is still blocked |
 | Unknown closed request members are tested where route owners require closure | Required for closure; exact route-owner coverage must be verified during implementation |
-| P0 regression checks remain green or exact blockers are recorded | Blocked: P0 regression checks were not rerun for guide creation |
-| Support-only and design-direction evidence are not represented as product-conformance evidence | Required; current FE-P1 map separates product conformance, design direction, and implementation support |
-| No Core 05 claim-publication review is activated unless explicitly requested | Required; this guide does not activate Core 05 publication review |
-| Whitespace checks pass | Passed during guide creation with `git diff --check`; no staged changes existed, so `git diff --cached --check` did not apply |
+| P0 regression checks remain green or exact blockers are recorded | Satisfied for Sprint 1 readiness: `make frontend-typecheck`, `make frontend-unit`, `make generated-artifact-policy-check`, `make generate-drift`, `make frontend-import-boundary-check`, and `make phase-ledger-drift` passed |
+| Support-only and design-direction evidence are not represented as product-conformance evidence | Satisfied for Sprint 1 metadata; current FE-P1 map separates product conformance, design direction, and implementation support |
+| No Core 05 claim-publication review is activated unless explicitly requested | Satisfied for Sprint 1; this guide does not activate Core 05 publication review |
+| Whitespace checks pass | Satisfied for Sprint 1: `git diff --check` and `git diff --cached --check` passed after the plan edit |
 
 FE-P1 must not be marked complete until every criterion is satisfied with direct evidence or an explicit blocker.
 
