@@ -87,7 +87,13 @@ import {
   relationshipItemsTestId,
   rowCellTestId,
   rowHistoryActionTestId,
+  rowHistoryDeleteButtonTestId,
   rowHistoryItemTestId,
+  rowHistoryLoadingTestId,
+  rowHistoryMessageTestId,
+  rowHistoryOpenSelectedButtonTestId,
+  rowHistoryPanelTestId,
+  rowHistoryRestoreButtonTestId,
   rowHistoryRollbackActions,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
@@ -324,6 +330,14 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(rowHistoryItemTestId(reversedRestoreItem)).toBe(restoreItemId);
     expect(rowHistoryActionTestId(reversedRestoreItem)).toBe(restoreActionId);
+    expect(rowHistoryPanelTestId()).toBe("row-history-panel");
+    expect(rowHistoryOpenSelectedButtonTestId()).toBe(
+      "row-history-open-selected",
+    );
+    expect(rowHistoryLoadingTestId()).toBe("row-history-loading");
+    expect(rowHistoryMessageTestId()).toBe("row-history-message");
+    expect(rowHistoryDeleteButtonTestId()).toBe("row-history-delete");
+    expect(rowHistoryRestoreButtonTestId()).toBe("row-history-restore");
   });
 
   it("validates closed-vocabulary-derived selector tokens", () => {
@@ -543,6 +557,25 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(() => rowHistoryItemTestId({ historyItemRef: "" })).toThrow(
       "Invalid history_item_ref selector token: ",
     );
+    expect(() => rowHistoryItemTestId({ historyItemRef: "   " })).toThrow(
+      "Invalid history_item_ref selector token:    ",
+    );
+
+    expect(rowHistoryItemTestId({ historyItemRef: "h:item/1?x=y#z" })).toBe(
+      "row-history-item-h%3Aitem%2F1%3Fx%3Dy%23z",
+    );
+    expect(
+      rowHistoryActionTestId({
+        action: "history_entry",
+        historyItemRef: "h:item/1?x=y#z",
+      }),
+    ).toBe("row-history-action-h%3Aitem%2F1%3Fx%3Dy%23z-history_entry");
+    expect(rowHistoryItemTestId({ historyItemRef: "a:b" })).not.toBe(
+      rowHistoryItemTestId({ historyItemRef: "a-b" }),
+    );
+    expect(rowCellTestId("record/1?x=y#z", "timeline.summary")).toBe(
+      "row-record%2F1%3Fx%3Dy%23z-timeline.summary",
+    );
 
     expect(relationshipChipTestId("a:b")).not.toBe(
       relationshipChipTestId("a-b"),
@@ -644,6 +677,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(dataTestIdSelector("row\\record")).toBe(
       '[data-testid="row\\\\record"]',
     );
+    expect(
+      dataTestIdSelector(rowHistoryItemTestId({ historyItemRef: 'h"1\\2' })),
+    ).toBe('[data-testid="row-history-item-h%221%5C2"]');
     expect(dataTestIdPrefixSelector("saved-view-")).toBe(
       '[data-testid^="saved-view-"]',
     );

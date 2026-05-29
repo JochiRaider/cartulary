@@ -57,9 +57,15 @@ import {
   relationshipItemsTestId,
   rowCellTestId,
   rowHistoryActionTestId,
+  rowHistoryDeleteButtonTestId,
   rowHistoryItemTestId,
+  rowHistoryLoadingTestId,
+  rowHistoryMessageTestId,
   rowHistoryOpenButtonTestId,
   rowHistoryOpenInspectorButtonTestId,
+  rowHistoryOpenSelectedButtonTestId,
+  rowHistoryPanelTestId,
+  rowHistoryRestoreButtonTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
   saveStateTestId,
@@ -6672,7 +6678,10 @@ export function TimelineWorkbook({
         ? selectedRow
         : null;
     return (
-      <section data-testid="row-history-panel" style={inspectorSectionStyle}>
+      <section
+        data-testid={rowHistoryPanelTestId()}
+        style={inspectorSectionStyle}
+      >
         <div style={historySectionHeaderStyle}>
           <h3 style={sectionTitleStyle}>Row history</h3>
           {selectedActiveRow !== null ? (
@@ -6695,7 +6704,7 @@ export function TimelineWorkbook({
         ) : null}
         {rowHistory.status === "idle" && selectedActiveRow !== null ? (
           <button
-            data-testid="row-history-open-selected"
+            data-testid={rowHistoryOpenSelectedButtonTestId()}
             style={actionButtonStyle}
             type="button"
             onClick={() => {
@@ -6706,12 +6715,15 @@ export function TimelineWorkbook({
           </button>
         ) : null}
         {rowHistory.status === "loading" ? (
-          <p data-testid="row-history-loading" style={bodyStyle}>
+          <p data-testid={rowHistoryLoadingTestId()} style={bodyStyle}>
             Loading history...
           </p>
         ) : null}
         {rowHistory.message ? (
-          <p data-testid="row-history-message" style={genericErrorTextStyle}>
+          <p
+            data-testid={rowHistoryMessageTestId()}
+            style={genericErrorTextStyle}
+          >
             {rowHistory.message}
           </p>
         ) : null}
@@ -6732,7 +6744,7 @@ export function TimelineWorkbook({
             <div style={inlineButtonRowStyle}>
               {selectedActiveRow !== null && !historyData.deleted ? (
                 <button
-                  data-testid="row-history-delete"
+                  data-testid={rowHistoryDeleteButtonTestId()}
                   style={destructiveActionButtonStyle}
                   type="button"
                   onClick={() => {
@@ -6744,7 +6756,7 @@ export function TimelineWorkbook({
               ) : null}
               {historyData.deleted ? (
                 <button
-                  data-testid="row-history-restore"
+                  data-testid={rowHistoryRestoreButtonTestId()}
                   style={actionButtonStyle}
                   type="button"
                   onClick={() => {

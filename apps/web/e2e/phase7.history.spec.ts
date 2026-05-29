@@ -3,7 +3,10 @@ import {
   gridShellTestId,
   rowCellTestId,
   rowHistoryActionTestId,
+  rowHistoryDeleteButtonTestId,
   rowHistoryOpenButtonTestId,
+  rowHistoryPanelTestId,
+  rowHistoryRestoreButtonTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -90,16 +93,16 @@ test("E-7-01 opens row history from the workbook surface with legal rollback act
 
   await openTimelineSurface(page, incidentId);
   await page.getByTestId(rowHistoryOpenButtonTestId(row.record_id)).click();
-  await expect(page.getByTestId("row-history-panel")).toContainText(
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
     visibleItem.actor_user_id,
   );
-  await expect(page.getByTestId("row-history-panel")).toContainText(
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
     visibleItem.operation,
   );
-  await expect(page.getByTestId("row-history-panel")).toContainText(
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
     visibleItem.diff_summary.summary,
   );
-  await expect(page.getByTestId("row-history-panel")).toContainText(
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
     new Date(visibleItem.committed_at).toISOString(),
   );
 
@@ -252,14 +255,14 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
   await socketMonitor.waitForMessage("hello_ack");
   await openTimelineSurface(page, incidentId);
   await page.getByTestId(rowHistoryOpenButtonTestId(row.record_id)).click();
-  await expect(page.getByTestId("row-history-delete")).toBeVisible();
+  await expect(page.getByTestId(rowHistoryDeleteButtonTestId())).toBeVisible();
 
   const deleteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" &&
       response.url().endsWith(`/api/v1/records/${row.record_id}`),
   );
-  await page.getByTestId("row-history-delete").click();
+  await page.getByTestId(rowHistoryDeleteButtonTestId()).click();
   const deleted = await deleteResponse;
   expect(deleted.ok()).toBeTruthy();
   const deleteBody = JSON.parse(deleted.request().postData() ?? "{}");
@@ -275,13 +278,13 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
   const tombstoneRowVersion = Number(removeMessage.payload.row_version);
   expect(tombstoneRowVersion).toBeGreaterThan(row.row_version);
 
-  await expect(page.getByTestId("row-history-restore")).toBeVisible();
+  await expect(page.getByTestId(rowHistoryRestoreButtonTestId())).toBeVisible();
   const restoreResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       response.url().endsWith(`/api/v1/records/${row.record_id}/restore`),
   );
-  await page.getByTestId("row-history-restore").click();
+  await page.getByTestId(rowHistoryRestoreButtonTestId()).click();
   const restored = await restoreResponse;
   expect(restored.ok()).toBeTruthy();
   const restoreBody = JSON.parse(restored.request().postData() ?? "{}");

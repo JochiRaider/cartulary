@@ -1,7 +1,11 @@
 import {
   rowHistoryActionTestId,
+  rowHistoryDeleteButtonTestId,
   rowHistoryItemTestId,
+  rowHistoryMessageTestId,
   rowHistoryOpenButtonTestId,
+  rowHistoryPanelTestId,
+  rowHistoryRestoreButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -141,13 +145,13 @@ describe("Phase 7 workbook history support coverage", () => {
       "/api/v1/records/record-1/history",
       expect.objectContaining({ headers: expect.any(Object) }),
     );
-    expect(screen.getByTestId("row-history-panel").textContent).toContain(
+    expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
       actorUserId,
     );
-    expect(screen.getByTestId("row-history-panel").textContent).toContain(
+    expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
       "2026-05-11T12:00:00.000Z",
     );
-    expect(screen.getByTestId("row-history-panel").textContent).toContain(
+    expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
       "field_update timeline_record",
     );
     expect(
@@ -270,10 +274,10 @@ describe("Phase 7 workbook history support coverage", () => {
     );
     fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
 
-    expect((await screen.findByTestId("row-history-message")).textContent).toBe(
-      "Invalid row history response.",
-    );
-    expect(screen.queryByTestId("row-history-delete")).toBeNull();
+    expect(
+      (await screen.findByTestId(rowHistoryMessageTestId())).textContent,
+    ).toBe("Invalid row history response.");
+    expect(screen.queryByTestId(rowHistoryDeleteButtonTestId())).toBeNull();
   });
 
   it("builds rollback targets only from advertised server actions and selectors", () => {
@@ -458,10 +462,10 @@ describe("Phase 7 workbook history support coverage", () => {
       "timeline.summary",
     );
     fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
-    await screen.findByTestId("row-history-delete");
-    fireEvent.click(screen.getByTestId("row-history-delete"));
+    await screen.findByTestId(rowHistoryDeleteButtonTestId());
+    fireEvent.click(screen.getByTestId(rowHistoryDeleteButtonTestId()));
 
-    await screen.findByTestId("row-history-restore");
+    await screen.findByTestId(rowHistoryRestoreButtonTestId());
     await waitFor(() => {
       expect(visibleGridRowRecordIds(container)).toEqual([]);
     });
@@ -474,7 +478,7 @@ describe("Phase 7 workbook history support coverage", () => {
       base_row_version: 5,
     });
 
-    fireEvent.click(screen.getByTestId("row-history-restore"));
+    fireEvent.click(screen.getByTestId(rowHistoryRestoreButtonTestId()));
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,

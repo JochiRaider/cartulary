@@ -1,4 +1,6 @@
 import {
+  evidencePreviewButtonTestId,
+  evidencePreviewFrameTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
@@ -436,10 +438,12 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
     );
-    fireEvent.click(await screen.findByTestId("evidence-preview-evidence-1"));
+    fireEvent.click(
+      await screen.findByTestId(evidencePreviewButtonTestId("evidence-1")),
+    );
 
     const frame = await screen.findByTestId(
-      "evidence-preview-frame-evidence-1",
+      evidencePreviewFrameTestId("evidence-1"),
     );
     expect(frame.getAttribute("src")).toBe(
       "/api/v1/evidence-handles/preview-token",

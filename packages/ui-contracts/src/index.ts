@@ -366,6 +366,30 @@ export function rowHistoryOpenInspectorButtonTestId(recordId: string): string {
   return `${rowHistoryOpenButtonTestId(recordId)}-inspector`;
 }
 
+export function rowHistoryPanelTestId(): string {
+  return "row-history-panel";
+}
+
+export function rowHistoryOpenSelectedButtonTestId(): string {
+  return "row-history-open-selected";
+}
+
+export function rowHistoryLoadingTestId(): string {
+  return "row-history-loading";
+}
+
+export function rowHistoryMessageTestId(): string {
+  return "row-history-message";
+}
+
+export function rowHistoryDeleteButtonTestId(): string {
+  return "row-history-delete";
+}
+
+export function rowHistoryRestoreButtonTestId(): string {
+  return "row-history-restore";
+}
+
 export function rowHistoryItemTestId(anchor: RowHistoryItemAnchor): string {
   return `row-history-item-${encodeSelectorSegment(
     rowHistoryItemIdentity(anchor),

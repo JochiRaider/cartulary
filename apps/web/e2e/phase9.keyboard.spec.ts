@@ -1,5 +1,6 @@
 import {
   rowCellTestId,
+  rowHistoryPanelTestId,
   timelineCollectionInputTestId,
   timelineMutationSubstrateReadyTestId,
 } from "@cartulary/ui-contracts";
@@ -134,7 +135,7 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
   );
 
   await page.keyboard.press("Alt+H");
-  await expect(page.getByTestId("row-history-panel")).toContainText(
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
     String(alpha.record_id),
   );
   expect(page.url()).toBe(initialURL);
@@ -144,7 +145,7 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
   );
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("row-history-panel")).toHaveCount(0);
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toHaveCount(0);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
   );
