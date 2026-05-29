@@ -194,7 +194,7 @@
         "make generate-drift"
       ],
       "scenario_titles": [],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Enforce generated protocol policy and detect generated contract drift.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -216,7 +216,7 @@
         "make frontend-import-boundary-check"
       ],
       "scenario_titles": [],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Enforce frontend import boundaries: /apps/web must consume /packages/grid-adapter and must not import react-data-grid directly.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },

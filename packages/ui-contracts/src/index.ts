@@ -305,7 +305,23 @@ export function gridGroupRowTestId(
   fieldKey: string,
   value: string,
 ): string {
-  return `${requireViewSchemaId(viewSchemaId)}-group-${requireFieldKey(fieldKey)}-${encodeSelectorSegment(value, "group value")}`;
+  return `${gridGroupRowTestIdPrefix(viewSchemaId, fieldKey)}${encodeSelectorSegment(value, "group value")}`;
+}
+
+export function gridGroupRowTestIdPrefix(
+  viewSchemaId: WorkbookSurface,
+  fieldKey: string,
+): string {
+  return `${requireViewSchemaId(viewSchemaId)}-group-${requireFieldKey(fieldKey)}-`;
+}
+
+export function gridGroupRowsSelector(
+  viewSchemaId: WorkbookSurface,
+  fieldKey: string,
+): string {
+  return dataTestIdPrefixSelector(
+    gridGroupRowTestIdPrefix(viewSchemaId, fieldKey),
+  );
 }
 
 export function gridRowTestId(
@@ -443,6 +459,10 @@ export function autoResolutionNoticeTestId(itemRef: string): string {
   return `auto-resolution-notice-${requireItemRef(itemRef)}`;
 }
 
+export function autoResolutionNoticeFamilySelector(): string {
+  return dataTestIdPrefixSelector("auto-resolution-notice-");
+}
+
 export function autoResolutionUndoButtonTestId(itemRef: string): string {
   return `${autoResolutionNoticeTestId(itemRef)}-undo`;
 }
@@ -542,6 +562,16 @@ export function mentionDismissButtonTestId(): string {
 
 export function mentionRestoreUnresolvedButtonTestId(): string {
   return "inspector-restore-unresolved";
+}
+
+export function savedViewFamilySelector(): string {
+  return dataTestIdPrefixSelector("saved-view-");
+}
+
+export function dataTestIdPrefixSelector(testIdPrefix: string): string {
+  return `[data-testid^="${cssAttributeValue(
+    requireNonEmptySelectorValue(testIdPrefix, "data-testid prefix"),
+  )}"]`;
 }
 
 export function dataTestIdSelector(testId: string): string {

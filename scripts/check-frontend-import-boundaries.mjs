@@ -98,6 +98,13 @@ function requireStringArray(value, label) {
   return value.map((entry, index) => requireString(entry, `${label}[${index + 1}]`));
 }
 
+function requirePositiveInteger(value, label) {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${label} must be a positive integer`);
+  }
+  return value;
+}
+
 function requireOptionalStringArray(value, label) {
   if (value === undefined) {
     return [];
@@ -174,12 +181,37 @@ function normalizeConfig(raw) {
     }
     rules.push(normalized);
   }
+  const singletonImports = [];
+  for (const [index, entry] of requireArray(
+    raw.singleton_imports ?? [],
+    "singleton_imports",
+  ).entries()) {
+    const label = `singleton_imports[${index + 1}]`;
+    const normalized = {
+      allowedImporters: (entry.allowed_importers ?? []).map((importer, importerIndex) =>
+        requireString(importer, `${label}.allowed_importers[${importerIndex + 1}]`),
+      ),
+      id: requireString(entry?.id, `${label}.id`),
+      level: requireString(entry.level, `${label}.level`),
+      message: requireString(entry.message, `${label}.message`),
+      requiredCount: requirePositiveInteger(
+        entry.required_count,
+        `${label}.required_count`,
+      ),
+      specifier: requireString(entry.specifier, `${label}.specifier`),
+    };
+    if (!["error", "warning"].includes(normalized.level)) {
+      throw new Error(`${label}.level must be error or warning`);
+    }
+    singletonImports.push(normalized);
+  }
   return {
     scanRoots: requireStringArray(raw.scan_roots, "scan_roots"),
     scanExcludes: (raw.scan_excludes ?? []).map((entry, index) =>
       requireString(entry, `scan_excludes[${index + 1}]`),
     ),
     rules,
+    singletonImports,
   };
 }
 
@@ -530,8 +562,7 @@ function matchesRestriction(root, importerFile, restriction, specifier) {
   return false;
 }
 
-function evaluateFile(root, config, file) {
-  const relativeFile = repoRelative(root, file);
+function fileImports(file) {
   const content = readFileSync(file, "utf8");
   const sourceFile = ts.createSourceFile(
     file,
@@ -540,8 +571,13 @@ function evaluateFile(root, config, file) {
     true,
     scriptKindFor(file),
   );
+  return collectImports(sourceFile);
+}
+
+function evaluateFile(root, config, file, imports) {
+  const relativeFile = repoRelative(root, file);
   const diagnostics = [];
-  for (const imported of collectImports(sourceFile)) {
+  for (const imported of imports) {
     for (const rule of config.rules) {
       if (!isRuleApplicable(rule, relativeFile) || isAllowedImporter(rule, relativeFile)) {
         continue;
@@ -567,6 +603,53 @@ function evaluateFile(root, config, file) {
   return diagnostics;
 }
 
+function evaluateSingletonImports(root, config, fileImportEntries) {
+  const diagnostics = [];
+  for (const singletonImport of config.singletonImports) {
+    const matches = fileImportEntries.flatMap(({ file, imports }) => {
+      const relativeFile = repoRelative(root, file);
+      return imports
+        .filter((imported) => imported.specifier === singletonImport.specifier)
+        .map((imported) => ({
+          ...imported,
+          file: relativeFile,
+        }));
+    });
+
+    for (const imported of matches) {
+      const allowed = singletonImport.allowedImporters.some((pattern) =>
+        matchesGlob(pattern, imported.file),
+      );
+      if (!allowed) {
+        diagnostics.push({
+          column: imported.column,
+          file: imported.file,
+          importKind: imported.kind,
+          level: singletonImport.level,
+          line: imported.line,
+          message: singletonImport.message,
+          ruleID: singletonImport.id,
+          specifier: imported.specifier,
+        });
+      }
+    }
+
+    if (matches.length !== singletonImport.requiredCount) {
+      diagnostics.push({
+        column: 1,
+        file: "tools/frontend_import_boundaries.json",
+        importKind: "singleton import",
+        level: singletonImport.level,
+        line: 1,
+        message: `${singletonImport.message}; expected exactly ${singletonImport.requiredCount}, found ${matches.length}`,
+        ruleID: singletonImport.id,
+        specifier: singletonImport.specifier,
+      });
+    }
+  }
+  return diagnostics;
+}
+
 function formatDiagnostic(diagnostic, warningsAsErrors) {
   const effectiveLevel =
     warningsAsErrors && diagnostic.level === "warning" ? "error" : diagnostic.level;
@@ -581,7 +664,16 @@ function main() {
     normalizeConfig(readJSON(root, options.config)),
   );
   const files = collectSourceFiles(root, config);
-  const diagnostics = files.flatMap((file) => evaluateFile(root, config, file));
+  const fileImportEntries = files.map((file) => ({
+    file,
+    imports: fileImports(file),
+  }));
+  const diagnostics = [
+    ...fileImportEntries.flatMap(({ file, imports }) =>
+      evaluateFile(root, config, file, imports),
+    ),
+    ...evaluateSingletonImports(root, config, fileImportEntries),
+  ];
   const errorCount = diagnostics.filter((diagnostic) => diagnostic.level === "error").length;
   const warningCount = diagnostics.filter((diagnostic) => diagnostic.level === "warning").length;
   for (const diagnostic of diagnostics) {

@@ -65,35 +65,6 @@ const forbiddenPatterns = [
   },
 ] as const;
 
-const localOnlySelectorAllowlist = [
-  {
-    file: "apps/web/e2e/phase8.workbook.spec.ts",
-    message: "raw data-testid prefix or suffix selector",
-    pattern: "[data-testid*='saved-view']",
-  },
-  {
-    file: "apps/web/e2e/phase8.workbook.spec.ts",
-    message: "raw data-testid prefix or suffix selector",
-    pattern:
-      '[data-testid^="cartulary.view.timeline.v1-group-timeline.capture_state-"]',
-  },
-  {
-    file: "apps/web/e2e/phase4.autoresolve.spec.ts",
-    message: "raw data-testid prefix or suffix selector",
-    pattern: '[data-testid^="auto-resolution-notice-"]',
-  },
-  {
-    file: "apps/web/src/WorkbookShell.phase4.support.test.tsx",
-    message: "raw data-testid prefix or suffix selector",
-    pattern: '[data-testid^="auto-resolution-notice-"]',
-  },
-  {
-    file: "apps/web/src/WorkbookShell.phase8.query.test.tsx",
-    message: "raw data-testid prefix or suffix selector",
-    pattern: "[data-testid^='action-']",
-  },
-] as const;
-
 function listSourceFiles(relativeRoot: string): string[] {
   const absoluteRoot = path.join(repoRoot, relativeRoot);
   const entries = readdirSync(absoluteRoot, { withFileTypes: true });
@@ -153,9 +124,6 @@ describe("selector contract policy", () => {
           if (match.index === undefined) {
             continue;
           }
-          if (isAllowedLocalOnlySelector(file, message, content, match.index)) {
-            continue;
-          }
           violations.push(
             `${file}:${lineNumberForOffset(content, match.index)} ${message}`,
           );
@@ -166,18 +134,3 @@ describe("selector contract policy", () => {
     expect(violations).toEqual([]);
   });
 });
-
-function isAllowedLocalOnlySelector(
-  file: string,
-  message: string,
-  content: string,
-  offset: number,
-): boolean {
-  return localOnlySelectorAllowlist.some((entry) => {
-    if (entry.file !== file || entry.message !== message) {
-      return false;
-    }
-    const patternOffset = content.indexOf(entry.pattern, offset);
-    return patternOffset !== -1 && patternOffset === offset;
-  });
-}

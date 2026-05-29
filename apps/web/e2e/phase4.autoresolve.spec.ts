@@ -1,5 +1,6 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
 import {
+  autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
   autoResolutionReviewButtonTestId,
   autoResolutionUndoButtonTestId,
@@ -192,7 +193,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     expect(patchBaseRowVersion).toBe(expectedSuppressedBaseRowVersion);
     expectedSuppressedBaseRowVersion = envelope.data.row.row_version;
     await expect(
-      page.locator('[data-testid^="auto-resolution-notice-"]'),
+      page.locator(autoResolutionNoticeFamilySelector()),
     ).toHaveCount(0);
   }
 

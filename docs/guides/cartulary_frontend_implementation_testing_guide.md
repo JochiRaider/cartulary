@@ -48,7 +48,7 @@ Core 05 does not expand frontend conformance. It applies when visual, timing, be
 
 `docs/guides/cartulary_implementation_testing_guide.md` is the structural model for this guide's row discipline, harness discipline, completion checklist, and coverage-ledger expectations.
 
-`docs/guides/cartulary-dev-guide.md` defines current repo-local frontend package boundaries. In particular, `/apps/web` owns workbook shell, controllers, query state, HTTP mutation submission, pending replay, WebSocket refresh behavior, conflicts, inspector, and presence UI. `/apps/web` must consume `/packages/grid-adapter` and must not import `react-data-grid` directly. `/packages/grid-adapter` owns all direct `react-data-grid` imports, stylesheet import, row and cell identity translation, renderer/editor wiring, focus, selection, sorting, paste, fill, grouping, and imperative API containment. `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/test-utils`, `/packages/protocol-ts`, and `/packages/ui` keep the responsibilities defined in the development guide.
+`docs/guides/cartulary-dev-guide.md` defines current repo-local frontend package boundaries. In particular, `/apps/web` owns workbook shell, controllers, query state, HTTP mutation submission, pending replay, WebSocket refresh behavior, conflicts, inspector, and presence UI. `/apps/web` must consume `/packages/grid-adapter` and must not import `react-data-grid` directly. `/packages/grid-adapter` owns all direct `react-data-grid` imports, stylesheet import, row and cell identity translation, renderer/editor wiring, focus, selection, sorting, paste, fill, grouping, and imperative API containment. `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/test-utils`, and `/packages/protocol-ts` keep the responsibilities defined in the development guide; `/packages/ui` is reserved until a manifest-backed reusable presentational component package is introduced.
 
 `docs/guides/cartulary-ui-ux-design-guide.md` and `docs/design.md` supply design-direction evidence for reviewer discipline, shell composition, density, typography, status patterns, visual affordances, and accessibility posture. Those documents do not create product-conformance behavior unless the same behavior is owned by Core 00 through Core 04 or by an adopted NLSpec.
 
@@ -59,7 +59,7 @@ Core 05 does not expand frontend conformance. It applies when visual, timing, be
 - `docs/testing-harness-nlspec.md` is adopted current authority for harness mechanics only.
 - Frontend-local phase readiness MUST use `tools/frontend_phase_registry.json`, `tools/frontend_phase_maps/fe_p0_test_map.json` through `tools/frontend_phase_maps/fe_p11_test_map.json`, and generated ledgers under `docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md` through `docs/testing/frontend_phase_coverage_ledgers/fe_p11_coverage_ledger.md`. Rows remain blocked from frontend phase completion until the registry, maps, ledgers, and drift checks agree.
 - Frontend accessibility readiness MUST use `make browser-e2e-a11y` and the retained `cartulary.frontend_accessibility_summary.v1` artifact. Accessibility rows remain blocked from frontend phase completion until the target exists, emits the summary artifact, and maps every `FE-A11Y-*` row to an executed scenario.
-- `/packages/ui` is reserved but currently has no source package beyond the reserved directory.
+- `/packages/ui` is future-reserved for reusable presentational components and is not an active FE-P0 package surface until a real manifest-backed package is introduced.
 - Existing visual coverage under `apps/web/e2e/workbook.visual.spec.ts` does not yet include every frontend fixture required by this guide.
 - No repository-local docs index was found that requires this new guide to be listed.
 
@@ -226,10 +226,10 @@ Each phase must satisfy its own rows, shared harnesses introduced or changed by 
 | --- | --- |
 | Scope | Generated protocol facade, view-contract adapters, selector/test-id builders, import-boundary checks, generated drift, and package ownership. |
 | Primary owner sections | Core 00 Section 1; Core 01 Sections 3.3.1, 3.3.4, 7.4, 8.5; development guide Section 6; implementation guide Sections 7, 14, 15. |
-| Frontend package or app surfaces | `/packages/protocol-ts`, `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/grid-adapter`, `/packages/test-utils`, `/packages/ui`, `/apps/web`. |
+| Frontend package or app surfaces | `/packages/protocol-ts`, `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/grid-adapter`, `/packages/test-utils`, `/apps/web`; `/packages/ui` is future-reserved and inactive for FE-P0 closure. |
 | Introduced user-observable behavior | None by itself. This phase creates the typed and stable-selector foundation used by later user-visible phases. |
 | Shared harnesses triggered | Contract-derived view-schema and field-key mapping; stable selector/test-id contracts; generated contract drift; frontend route/API boundary conformance; grid-adapter identity baseline. |
-| Completion criteria | Generated protocol types are consumed without hand edits; `/apps/web` has no direct `react-data-grid` imports; selector/test-id builders are deterministic; contract drift and generated-artifact policy checks pass; missing frontend phase manifest remains explicitly TODO. |
+| Completion criteria | Generated protocol types are consumed without hand edits; `/apps/web` has no direct `react-data-grid` imports; RDG stylesheet ownership is enforced through `/packages/grid-adapter`; selector/test-id builders are deterministic; contract drift, generated-artifact policy checks, frontend phase maps, and generated frontend ledgers agree. |
 | Out of scope | Workbook shell behavior, data mutation UX, browser visual acceptance, accessibility acceptance, and product claim publication. |
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |

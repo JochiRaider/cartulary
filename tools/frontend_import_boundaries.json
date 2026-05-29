@@ -24,6 +24,16 @@
     ".cache/**",
     ".pnpm-store/**"
   ],
+  "singleton_imports": [
+    {
+      "id": "frontend-rdg-stylesheet-singleton",
+      "level": "error",
+      "message": "Import the react-data-grid stylesheet exactly once from the grid adapter.",
+      "specifier": "react-data-grid/lib/styles.css",
+      "required_count": 1,
+      "allowed_importers": ["packages/grid-adapter/src/**"]
+    }
+  ],
   "rules": [
     {
       "id": "frontend-grid-vendor-boundary",

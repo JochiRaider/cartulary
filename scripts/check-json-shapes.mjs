@@ -92,6 +92,7 @@ const frontendBoundaryKeys = new Set([
   "schema_id",
   "scan_roots",
   "scan_excludes",
+  "singleton_imports",
   "rules",
 ]);
 const bootstrapAdminKeys = new Set([
@@ -341,6 +342,14 @@ const restrictedImportKeys = new Set([
   "path",
   "package_roots",
   "include_subpaths",
+]);
+const singletonImportKeys = new Set([
+  "id",
+  "level",
+  "message",
+  "specifier",
+  "required_count",
+  "allowed_importers",
 ]);
 const supportSchemaIDs = new Set([
   "cartulary.harness.defs.v1",
@@ -821,6 +830,30 @@ function validateFrontendImportBoundariesShape(file) {
     nonEmpty: true,
   });
   requireStringArray(config.scan_excludes ?? [], `${file}.scan_excludes`);
+  for (const [index, singletonImport] of requireObjectArray(
+    config.singleton_imports ?? [],
+    `${file}.singleton_imports`,
+  ).entries()) {
+    const label = `${file}.singleton_imports[${index + 1}]`;
+    assertObjectKeys(singletonImport, singletonImportKeys, label);
+    requireString(singletonImport.id, `${label}.id`);
+    requireEnum(
+      singletonImport.level,
+      `${label}.level`,
+      new Set(["error", "warning"]),
+    );
+    requireString(singletonImport.message, `${label}.message`);
+    requireString(singletonImport.specifier, `${label}.specifier`);
+    requirePositiveInteger(
+      singletonImport.required_count,
+      `${label}.required_count`,
+    );
+    requireStringArray(
+      singletonImport.allowed_importers,
+      `${label}.allowed_importers`,
+      { nonEmpty: true },
+    );
+  }
   for (const [index, rule] of requireObjectArray(
     config.rules,
     `${file}.rules`,

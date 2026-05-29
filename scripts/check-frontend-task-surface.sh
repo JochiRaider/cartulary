@@ -321,6 +321,20 @@ if (!(gridRule.allowed_importers ?? []).includes("packages/grid-adapter/src/**")
 if (!JSON.stringify(gridRule.restricted_imports ?? []).includes('"react-data-grid"')) {
   throw new Error("frontend-grid-vendor-boundary must restrict react-data-grid");
 }
+const singletonImports = new Map((config.singleton_imports ?? []).map((entry) => [entry.id, entry]));
+const rdgStylesheet = singletonImports.get("frontend-rdg-stylesheet-singleton");
+if (!rdgStylesheet || rdgStylesheet.level !== "error") {
+  throw new Error("frontend-rdg-stylesheet-singleton must be enforced as an error");
+}
+if (rdgStylesheet.specifier !== "react-data-grid/lib/styles.css") {
+  throw new Error("frontend-rdg-stylesheet-singleton must target react-data-grid/lib/styles.css");
+}
+if (rdgStylesheet.required_count !== 1) {
+  throw new Error("frontend-rdg-stylesheet-singleton must require exactly one import");
+}
+if (!(rdgStylesheet.allowed_importers ?? []).includes("packages/grid-adapter/src/**")) {
+  throw new Error("frontend-rdg-stylesheet-singleton must allow only packages/grid-adapter/src/**");
+}
 const generatedRule = rules.get("frontend-generated-protocol-boundary");
 if (!generatedRule || generatedRule.level !== "error") {
   throw new Error("frontend-generated-protocol-boundary must be enforced as an error");

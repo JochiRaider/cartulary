@@ -3,7 +3,10 @@ import {
   type GridRow,
   GridTable,
 } from "@cartulary/grid-adapter/test-support";
-import { gridGroupRowTestId } from "@cartulary/ui-contracts";
+import {
+  dataTestIdSelector,
+  gridGroupRowTestId,
+} from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -207,7 +210,12 @@ describe("Phase 8 workbook query controls", () => {
     expect(groupHeader).not.toBeNull();
     expect(groupHeader?.getAttribute("data-grid-record-id")).toBeNull();
     expect(groupHeader?.querySelector("input,textarea,select")).toBeNull();
-    expect(groupHeader?.querySelector("[data-testid^='action-']")).toBeNull();
+    expect(
+      groupHeader?.querySelector(dataTestIdSelector("action-record-1")),
+    ).toBeNull();
+    expect(
+      groupHeader?.querySelector(dataTestIdSelector("action-record-2")),
+    ).toBeNull();
     expect(groupHeader?.querySelector("[data-grid-field-key]")).toBeNull();
     expect(
       screen

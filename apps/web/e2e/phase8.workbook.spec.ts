@@ -5,9 +5,11 @@ import {
   sortByHeader,
 } from "@cartulary/test-utils";
 import {
+  gridGroupRowsSelector,
   gridGroupRowTestId,
   gridShellTestId,
   rowCellTestId,
+  savedViewFamilySelector,
   surfaceTabTestId,
   timelineRowMarkReviewedButtonTestId,
   workbookShellReadyTestId,
@@ -102,7 +104,7 @@ test("E-8-01 saved-view route foundation persists canonical state while browser 
     "Phase 8 saved view",
   ]);
 
-  await expect(page.locator("[data-testid*='saved-view']")).toHaveCount(0);
+  await expect(page.locator(savedViewFamilySelector())).toHaveCount(0);
   await expect(
     page.getByRole("button", {
       name: /duplicate saved view|delete saved view/i,
@@ -825,7 +827,7 @@ async function visibleGroupLabels(page: Page) {
   return page
     .getByTestId(gridShellTestId(timelineViewSchemaId))
     .locator(
-      '[data-testid^="cartulary.view.timeline.v1-group-timeline.capture_state-"]',
+      gridGroupRowsSelector(timelineViewSchemaId, "timeline.capture_state"),
     )
     .evaluateAll((nodes) =>
       nodes.map((node) => (node.textContent ?? "").trim()),
@@ -836,7 +838,7 @@ async function visibleGroupTestIds(page: Page) {
   return page
     .getByTestId(gridShellTestId(timelineViewSchemaId))
     .locator(
-      '[data-testid^="cartulary.view.timeline.v1-group-timeline.capture_state-"]',
+      gridGroupRowsSelector(timelineViewSchemaId, "timeline.capture_state"),
     )
     .evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute("data-testid") ?? ""),

@@ -1,4 +1,5 @@
 import {
+  autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
   autoResolutionUndoButtonTestId,
   gridScrollportSelector,
@@ -999,7 +1000,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       ).textContent,
     ).toContain("WS-024");
     expect(
-      document.querySelector('[data-testid^="auto-resolution-notice-"]'),
+      document.querySelector(autoResolutionNoticeFamilySelector()),
     ).toBeNull();
   });
 

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
   autoResolutionReviewButtonTestId,
   autoResolutionUndoButtonTestId,
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   currentIncidentRoleTestId,
+  dataTestIdPrefixSelector,
   dataTestIdSelector,
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
@@ -33,7 +35,9 @@ import {
   gridFilterChipTestId,
   gridFilterFieldTestId,
   gridGroupingSelectTestId,
+  gridGroupRowsSelector,
   gridGroupRowTestId,
+  gridGroupRowTestIdPrefix,
   gridRowTestId,
   gridSavedRowSelector,
   gridSavedRowsSelector,
@@ -88,6 +92,7 @@ import {
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
+  savedViewFamilySelector,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSelectorTestId,
@@ -242,6 +247,20 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
         "rough",
       ),
     ).toBe("cartulary.view.timeline.v1-group-timeline.capture_state-rough");
+    expect(
+      gridGroupRowTestIdPrefix(
+        "cartulary.view.timeline.v1",
+        "timeline.capture_state",
+      ),
+    ).toBe("cartulary.view.timeline.v1-group-timeline.capture_state-");
+    expect(
+      gridGroupRowsSelector(
+        "cartulary.view.timeline.v1",
+        "timeline.capture_state",
+      ),
+    ).toBe(
+      '[data-testid^="cartulary.view.timeline.v1-group-timeline.capture_state-"]',
+    );
   });
 
   it("derives row and row-action selectors from record_id", () => {
@@ -274,6 +293,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(autoResolutionNoticeTestId(renamedItem.itemRef)).toBe(
       autoResolutionNoticeTestId(item.itemRef),
+    );
+    expect(autoResolutionNoticeFamilySelector()).toBe(
+      '[data-testid^="auto-resolution-notice-"]',
     );
   });
 
@@ -379,6 +401,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(pendingQueueNoticeTestId()).toBe("pending-queue-notice");
     expect(pendingQueueCountTestId()).toBe("pending-queue-count");
+    expect(savedViewFamilySelector()).toBe('[data-testid^="saved-view-"]');
   });
 
   it("provides shared builders for workbook action families", () => {
@@ -620,6 +643,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(dataTestIdSelector("row\\record")).toBe(
       '[data-testid="row\\\\record"]',
+    );
+    expect(dataTestIdPrefixSelector("saved-view-")).toBe(
+      '[data-testid^="saved-view-"]',
     );
     expect(() => dataTestIdSelector("")).toThrow(
       "Invalid data-testid selector token: ",

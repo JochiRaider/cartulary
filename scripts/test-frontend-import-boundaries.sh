@@ -87,6 +87,16 @@ write_config() {
   "scan_excludes": [
     "packages/protocol-ts/src/generated/**"
   ],
+  "singleton_imports": [
+    {
+      "id": "frontend-rdg-stylesheet-singleton",
+      "level": "error",
+      "message": "Import the react-data-grid stylesheet exactly once from the grid adapter.",
+      "specifier": "react-data-grid/lib/styles.css",
+      "required_count": 1,
+      "allowed_importers": ["packages/grid-adapter/src/**"]
+    }
+  ],
   "rules": [
     {
       "id": "frontend-grid-vendor-boundary",
@@ -288,6 +298,11 @@ JSON
   }
 }
 JSON
+  cat >"$case_root/packages/grid-adapter/src/index.tsx" <<'TS'
+import "react-data-grid/lib/styles.css";
+
+export const gridStylesheetLoaded = true;
+TS
   write_config "$case_root"
   printf '%s\n' "$case_root"
 }
@@ -322,6 +337,34 @@ TS
 blocked_grid_output="$(assert_fails "blocked app grid import" run_checker "$blocked_grid_root")"
 assert_contains "$blocked_grid_output" "frontend-grid-vendor-boundary" "blocked grid rule"
 assert_contains "$blocked_grid_output" "apps/web/src/GridLeak.tsx" "blocked grid file"
+
+missing_stylesheet_root="$(prepare_case_root missing-stylesheet)"
+cat >"$missing_stylesheet_root/packages/grid-adapter/src/index.tsx" <<'TS'
+export const gridStylesheetLoaded = false;
+TS
+missing_stylesheet_output="$(assert_fails "missing RDG stylesheet singleton" run_checker "$missing_stylesheet_root")"
+assert_contains "$missing_stylesheet_output" "frontend-rdg-stylesheet-singleton" "missing RDG stylesheet singleton rule"
+assert_contains "$missing_stylesheet_output" "expected exactly 1, found 0" "missing RDG stylesheet singleton count"
+
+duplicate_stylesheet_root="$(prepare_case_root duplicate-stylesheet)"
+cat >"$duplicate_stylesheet_root/packages/grid-adapter/src/duplicate.tsx" <<'TS'
+import "react-data-grid/lib/styles.css";
+
+export const duplicateGridStylesheetLoaded = true;
+TS
+duplicate_stylesheet_output="$(assert_fails "duplicate RDG stylesheet singleton" run_checker "$duplicate_stylesheet_root")"
+assert_contains "$duplicate_stylesheet_output" "frontend-rdg-stylesheet-singleton" "duplicate RDG stylesheet singleton rule"
+assert_contains "$duplicate_stylesheet_output" "expected exactly 1, found 2" "duplicate RDG stylesheet singleton count"
+
+outside_stylesheet_root="$(prepare_case_root outside-stylesheet)"
+cat >"$outside_stylesheet_root/apps/web/src/GridStylesheetLeak.tsx" <<'TS'
+import "react-data-grid/lib/styles.css";
+
+export const appGridStylesheetLoaded = true;
+TS
+outside_stylesheet_output="$(assert_fails "outside RDG stylesheet singleton" run_checker "$outside_stylesheet_root")"
+assert_contains "$outside_stylesheet_output" "frontend-rdg-stylesheet-singleton" "outside RDG stylesheet singleton rule"
+assert_contains "$outside_stylesheet_output" "apps/web/src/GridStylesheetLeak.tsx" "outside RDG stylesheet importer"
 
 generated_package_root="$(prepare_case_root generated-package)"
 cat >"$generated_package_root/apps/web/src/generatedProtocol.ts" <<'TS'
