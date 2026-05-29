@@ -258,16 +258,109 @@ Status: Complete for Sprint 1 readiness and traceability. This sprint does not c
 
 ## Sprint 2: App Bootstrap State Model And Public Error-Envelope Rendering
 
-- Objective: Implement and verify the app bootstrap state model for loading, anonymous, MFA-required, authenticated, forbidden, revoked, and public error-envelope states.
-- Status: Planned.
-- Relevant IDs: Owns `FE-U-P1-01`.
-- Files and areas to inspect or edit: `apps/web/src/App.tsx`, `apps/web/src/AppRoot.tsx`, `apps/web/src/Phase1Surface.tsx`, `apps/web/src/browserApi.ts`, `apps/web/src/appShellTestSupport.ts`, `apps/web/src/App.phase1.test.tsx`, and `apps/web/src/App.phase1.support.test.tsx`.
-- Test-first sequence: Add or tighten unit tests for each bootstrap state, including public error envelopes with allowed public fields only; verify rendered text and state transitions before changing implementation.
-- Implementation tasks: Keep bootstrap state explicit; separate anonymous from loading; surface MFA setup/challenge states; treat `session_required` and session revocation as server state; render public `error.code`, public status text, and safe public details only; avoid private diagnostic dependencies.
-- Validation commands: `make frontend-unit`; supporting `make frontend-typecheck` when types change.
-- Deliverables: Unit coverage for FE-P1 bootstrap states and public error rendering; any app-shell state helpers needed to keep transitions deterministic.
-- Risks and assumptions: Existing Phase 1 unit test names are not sufficient evidence unless the row-owned target is run and passes.
-- Blockers and follow-up notes: No FE-U-P1-01 completion claim is allowed until `make frontend-unit` passes with direct evidence or a precise blocker is recorded.
+Status: Planned.
+Relevant IDs: owns `FE-U-P1-01` only.
+
+### 1. Objective and non-goals
+
+- Objective: implement and verify the app bootstrap state model for loading, anonymous, MFA-required, authenticated, forbidden, revoked, and public error-envelope states.
+- Objective: make row-owned Sprint 2 unit evidence precise enough that `FE-U-P1-01` can later be claimed only from direct `make frontend-unit` evidence or a precise blocker.
+- Non-goals: no FE-I/E/A11Y/S row closure, no generated-ledger hand edits, no Core behavior changes, no Core 05 claim publication, no workbook-shell layout work, no grid interaction, no mutation replay, and no live-collaboration work.
+- This Sprint 2 plan is an execution roadmap only. It is not behavior authority, product evidence, or completion evidence.
+
+### 2. Source and authority constraints
+
+- Core 00 through Core 04 own implementation-conformance behavior.
+- Core 05 applies only to claim-bearing timed or fixture-sensitive publication boundaries.
+- `docs/guides/cartulary_frontend_implementation_testing_guide.md` owns FE-P1 row planning and maps `FE-U-P1-01` to `make frontend-unit`.
+- `docs/testing-harness-nlspec.md` owns harness mechanics only and does not define Sprint 2 product behavior.
+- Preserve a server-managed session model: browser state follows `/api/v1/auth/session` and public auth routes; the frontend must not parse, mint, or treat any identity/session token as client authority.
+- No `FE-U-P1-01` completion claim is allowed from metadata inspection, FE-P0 historical evidence, generated ledger consistency, support-only tests, accessibility checks, visual goldens, retained artifacts, test names, or this plan.
+
+### 3. File-by-file inspection checklist
+
+- `apps/web/src/App.tsx`: inspect `AuthShellState`, `LandingRefreshState`, `refreshShell`, incident loading, route reset, and 401/403 handling before edits.
+- `apps/web/src/AppRoot.tsx`: confirm StrictMode/root wiring needs no behavior beyond exercising `App` consistently in tests.
+- `apps/web/src/Phase1Surface.tsx`: inspect auth, MFA, account, and admin error rendering; ensure MFA token use is not conflated with session state.
+- `apps/web/src/browserApi.ts`: inspect `APIError`, `APIResult`, `fetchJSON`, and `extractError`; plan any public-error view model or sanitizer here.
+- `apps/web/src/appShellTestSupport.ts`: extend fixtures for deferred loading, public error envelopes, forbidden, revoked, MFA-required, and private-diagnostic leak probes.
+- `apps/web/src/App.phase1.test.tsx`: add row-owned `FE-U-P1-01` unit coverage here.
+- `apps/web/src/App.phase1.support.test.tsx`: support-only coverage may verify helpers but must not be cited as `FE-U-P1-01` closure evidence by itself.
+
+### 4. Test-first sequence
+
+- Add failing unit tests before implementation changes.
+- Cover initial loading with a deferred `/api/v1/auth/session`; loading must be visibly distinct from anonymous and ready-to-sign-in states.
+- Cover anonymous from an initial `401 session_required` response.
+- Cover `mfa_required` login response with required TOTP details and no session creation.
+- Cover `mfa_setup_required` as an MFA-required setup variant; store the bootstrap token only for follow-up requests and do not render it as safe public detail.
+- Cover authenticated bootstrap after session, credential state, and incident list success.
+- Cover forbidden `403 authorization_denied` while retaining the authenticated session and rendering only public envelope fields.
+- Cover revoked/session-loss after a previously authenticated state by clearing session and showing a re-auth or revoked state, not a generic anonymous first-load state.
+- Cover public error-envelope rendering with safe details plus private diagnostic fields that must not appear.
+
+### 5. Implementation tasks
+
+- Refactor app bootstrap into an explicit deterministic state model if the current split state cannot represent all required states without ambiguity.
+- Keep loading separate from anonymous; a pending session probe must not be treated as no session.
+- Keep MFA state separate from authenticated state; `mfa_required` and `mfa_setup_required` must not create or imply a server session.
+- Treat `session_required` after prior authentication as revoked or session-ended state; treat initial `session_required` as anonymous.
+- Treat 403 public envelopes as forbidden while preserving the current session unless `/api/v1/auth/session` later says otherwise.
+- Centralize public error rendering so all Sprint 2 surfaces use the same allowlist.
+- Do not depend on private server diagnostics, stack text, internal paths, SQL messages, raw transport exception messages, or unknown `error.details` members.
+
+### 6. Public error-envelope rendering contract
+
+- Render only public `error.code`, public status text, and safe public details.
+- Public status text means envelope `error.message` when present and display-safe, otherwise a deterministic fallback from `error.status` or the response status.
+- Safe Sprint 2 detail allowlist: `reason_code`, `field`, `required_role`, `required_second_factor_kinds`, `required_setup_kinds`, and `bootstrap_expires_at`.
+- Never render `bootstrap_token`, `secret_base32`, `otpauth_uri`, password values, provider assertions, `request_id`, stack traces, diagnostic objects, internal file paths, SQL text, or unknown detail keys.
+- Add tests proving unknown/private detail keys are ignored even when the envelope otherwise renders.
+
+### 7. State transition coverage
+
+- `loading`: app starts or refreshes while the session probe is pending.
+- `anonymous`: initial session probe returns `session_required`; login surface is ready.
+- `mfa_required`: login returns `mfa_required` or `mfa_setup_required`; no session is established.
+- `authenticated`: session probe succeeds and app loads credential state plus visible incidents.
+- `forbidden`: authenticated public route returns 403; show forbidden/error state with public envelope only.
+- `revoked`: previously authenticated session later returns `session_required` or a protected route returns 401; clear session and require re-auth.
+- `public_error_envelope`: any non-success JSON envelope displays through the shared public rendering contract.
+
+### 8. Validation commands
+
+- Required row-owned Sprint 2 evidence: `make frontend-unit`.
+- Required when TypeScript state, API, or error type surfaces change: `make frontend-typecheck`.
+- Run `git diff --check`; run `git diff --cached --check` if changes are staged.
+- Do not run or edit generated ledgers unless row metadata changes; if metadata changes, regenerate through the generator, never by hand.
+
+### 9. Deliverables
+
+- Row-owned unit coverage for loading, anonymous, MFA-required, authenticated, forbidden, revoked, and public error-envelope states.
+- Any app-shell state helper and public-error rendering helper needed for deterministic tests.
+- Recorded `make frontend-unit` evidence or a precise blocker.
+- Recorded `make frontend-typecheck` evidence when type surfaces changed, or a precise blocker.
+- No generated-ledger edit unless row metadata changes and the ledger is regenerated through the normal generator.
+
+### 10. Blockers and source limits
+
+- Existing Phase 1 unit/support test names are not completion evidence until the row-owned command passes after Sprint 2 changes.
+- If a public error detail is not in the allowlist, do not render it; record `TODO: owner lookup required` only when Core or contract ownership is genuinely unresolved.
+- If forbidden-state code ownership is unclear for a route, block that scenario rather than inventing a frontend-only error code.
+- If `make frontend-unit` cannot run, record command, failure point, artifact paths when available, owner class, row ID, and minimum follow-up.
+
+### 11. Binary acceptance criteria
+
+- Sprint 2 remains scoped to `FE-U-P1-01`.
+- The implementation plan anchors only to `apps/web/src/App.tsx`, `apps/web/src/AppRoot.tsx`, `apps/web/src/Phase1Surface.tsx`, `apps/web/src/browserApi.ts`, `apps/web/src/appShellTestSupport.ts`, `apps/web/src/App.phase1.test.tsx`, and `apps/web/src/App.phase1.support.test.tsx`.
+- Loading is testably separate from anonymous.
+- Server-managed session authority is preserved.
+- Loading, anonymous, MFA-required, authenticated, forbidden, revoked, and public error-envelope states all have row-owned unit coverage.
+- Public errors render only `error.code`, public status text, and safe public details.
+- Private diagnostics are not rendered or required by tests.
+- `make frontend-unit` passes as direct row-owned evidence, or a precise blocker is recorded.
+- `make frontend-typecheck` passes when type surfaces change, or a precise blocker is recorded.
+- No `FE-U-P1-01` completion claim is made from prohibited evidence sources or from this plan.
 
 ## Sprint 3: API Client And Route-Boundary Integration Baseline
 
