@@ -818,6 +818,106 @@ describe("Phase 1 ordinary app shell", () => {
       "Patch local user failed",
     );
   });
+
+  it("FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Phase 1 Operator",
+      }),
+      onCreateIncident: () =>
+        jsonResponse(
+          {
+            error: {
+              code: "invalid_incident_create",
+              status: 400,
+              message: "Incident create request is invalid.",
+              request_id: "req-private-create",
+              details: {
+                reason_code: "unknown_field",
+                field: "debug_field",
+                request_id: "req-private-detail",
+                internal_path: "/var/lib/cartulary/incidents.go",
+                sql: "select * from incidents",
+                bootstrap_token: "create-bootstrap-token",
+                secret_base32: "CREATESECRETBASE32",
+                otpauth_uri: "otpauth://create-private",
+                stack:
+                  "Error: private stack at /var/lib/cartulary/incidents.go:14",
+                unknown_private_detail: "private-create-detail",
+              },
+            },
+          },
+          400,
+        ),
+    });
+
+    renderApp();
+
+    await screen.findByTestId("landing-current-user");
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/auth/session", "GET"),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/auth/credential-state", "GET"),
+    ).toHaveLength(1);
+    expect(findFetchCalls(fetchMock, "/api/v1/incidents", "GET")).toHaveLength(
+      1,
+    );
+
+    fireEvent.change(screen.getByTestId("landing-incident-key"), {
+      target: { value: "IR-2026-003" },
+    });
+    fireEvent.change(screen.getByTestId("landing-incident-title"), {
+      target: { value: "Phase 1 boundary incident" },
+    });
+    fireEvent.click(screen.getByTestId("landing-create-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("landing-error-code").textContent).toBe(
+        "invalid_incident_create",
+      );
+    });
+
+    const createRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/incidents",
+      "POST",
+    );
+    expect(Object.keys(createRequest.body)).toEqual([
+      "client_txn_id",
+      "incident_key",
+      "title",
+    ]);
+    expect(createRequest.body).toEqual({
+      client_txn_id: expect.any(String),
+      incident_key: "IR-2026-003",
+      title: "Phase 1 boundary incident",
+    });
+    for (const call of fetchMock.mock.calls) {
+      expect(String(call[0]).startsWith("/api/v1/")).toBe(true);
+    }
+
+    expect(screen.getByTestId("landing-error-message").textContent).toBe(
+      "Incident create request is invalid.",
+    );
+    expect(screen.getByTestId("landing-error-details").textContent).toContain(
+      "Reason: unknown_field",
+    );
+    expect(screen.getByTestId("landing-error-details").textContent).toContain(
+      "Field: debug_field",
+    );
+    const renderedText = document.body.textContent ?? "";
+    expect(renderedText).not.toContain("req-private-create");
+    expect(renderedText).not.toContain("req-private-detail");
+    expect(renderedText).not.toContain("/var/lib/cartulary");
+    expect(renderedText).not.toContain("select * from incidents");
+    expect(renderedText).not.toContain("create-bootstrap-token");
+    expect(renderedText).not.toContain("CREATESECRETBASE32");
+    expect(renderedText).not.toContain("otpauth://create-private");
+    expect(renderedText).not.toContain("private stack");
+    expect(renderedText).not.toContain("private-create-detail");
+    await expectStableFetchCount(fetchMock, 4);
+  });
 });
 
 function renderApp() {

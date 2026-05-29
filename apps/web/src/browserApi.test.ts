@@ -19,7 +19,9 @@ describe("fetchJSON", () => {
     vi.spyOn(document, "cookie", "get").mockReturnValue(
       "cartulary_csrf=test-csrf",
     );
-    fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ data: { ok: true } })),
+    );
 
     await fetchJSON("/api/v1/incidents", {
       method: "POST",
@@ -77,7 +79,9 @@ describe("fetchJSON", () => {
     const cookieSpy = vi
       .spyOn(document, "cookie", "get")
       .mockReturnValue("cartulary_csrf=test-csrf");
-    fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ data: { ok: true } })),
+    );
 
     await fetchJSON("/api/v1/incidents");
 
@@ -87,11 +91,68 @@ describe("fetchJSON", () => {
     expect(request.headers.get(csrfHeaderName)).toBeNull();
     expect(cookieSpy).not.toHaveBeenCalled();
   });
+
+  it("FE-I-P1-01 route-boundary CSRF headers follow cookie-backed mutating request rules", async () => {
+    const cookieSpy = vi
+      .spyOn(document, "cookie", "get")
+      .mockReturnValue("cartulary_csrf=test-csrf");
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ data: { ok: true } })),
+    );
+
+    await fetchJSON("/api/v1/incidents", {
+      method: "POST",
+      body: JSON.stringify({ client_txn_id: "txn-include" }),
+    });
+
+    cookieSpy.mockReturnValue("other_cookie=value");
+    await fetchJSON("/api/v1/incidents", {
+      method: "POST",
+      body: JSON.stringify({ client_txn_id: "txn-no-cookie" }),
+    });
+
+    cookieSpy.mockReturnValue("cartulary_csrf=test-csrf");
+    await fetchJSON("/api/v1/auth/mfa/totp/begin", {
+      method: "POST",
+      credentials: "omit",
+      body: JSON.stringify({ client_txn_id: "txn-bootstrap" }),
+    });
+
+    await fetchJSON("/api/v1/auth/session");
+
+    expect(requestAt(fetchMock, 0).credentials).toBe("include");
+    expect(requestAt(fetchMock, 0).headers.get("Content-Type")).toBe(
+      "application/json",
+    );
+    expect(requestAt(fetchMock, 0).headers.get(csrfHeaderName)).toBe(
+      "test-csrf",
+    );
+
+    expect(requestAt(fetchMock, 1).credentials).toBe("include");
+    expect(requestAt(fetchMock, 1).headers.get("Content-Type")).toBe(
+      "application/json",
+    );
+    expect(requestAt(fetchMock, 1).headers.get(csrfHeaderName)).toBeNull();
+
+    expect(requestAt(fetchMock, 2).credentials).toBe("omit");
+    expect(requestAt(fetchMock, 2).headers.get("Content-Type")).toBe(
+      "application/json",
+    );
+    expect(requestAt(fetchMock, 2).headers.get(csrfHeaderName)).toBeNull();
+
+    expect(requestAt(fetchMock, 3).credentials).toBe("include");
+    expect(requestAt(fetchMock, 3).headers.get("Content-Type")).toBeNull();
+    expect(requestAt(fetchMock, 3).headers.get(csrfHeaderName)).toBeNull();
+  });
 });
 
 function capturedRequest(fetchMock: ReturnType<typeof vi.fn>) {
   expect(fetchMock).toHaveBeenCalledTimes(1);
   return new Request("http://localhost/api", fetchMock.mock.calls[0]?.[1]);
+}
+
+function requestAt(fetchMock: ReturnType<typeof vi.fn>, index: number) {
+  return new Request("http://localhost/api", fetchMock.mock.calls[index]?.[1]);
 }
 
 function jsonResponse(payload: unknown, status = 200) {

@@ -54,6 +54,8 @@
       ],
       "core_req_ids": [
         "REQ-01-019",
+        "REQ-01-020",
+        "REQ-01-021",
         "REQ-01-022",
         "REQ-04-052",
         "REQ-04-053",
@@ -61,6 +63,12 @@
       ],
       "core_ac_ids": [
         "AC-124",
+        "AC-125",
+        "AC-126",
+        "AC-127",
+        "AC-128",
+        "AC-129",
+        "AC-130",
         "AC-131",
         "AC-135",
         "AC-136",
@@ -75,8 +83,13 @@
       "targets": [
         "make frontend-unit"
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-I-P1-01 route-boundary client helpers keep auth and account requests under /api/v1/ with cookie-backed session defaults",
+        "FE-I-P1-01 route-boundary bootstrap token authorization is limited to TOTP begin and complete",
+        "FE-I-P1-01 route-boundary CSRF headers follow cookie-backed mutating request rules",
+        "FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors"
+      ],
+      "claim_status": "implemented",
       "claim": "Verify API client requests stay under /api/v1/, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
