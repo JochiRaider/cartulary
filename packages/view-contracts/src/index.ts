@@ -62,7 +62,7 @@ type RawField = {
   readonly direct_scalar_contract_id?: string | null;
   readonly entity_binding_mode?: string | null;
   readonly enum_values?: readonly string[] | null;
-  readonly field_key: string;
+  readonly field_key?: string;
   readonly filter_ops?: readonly string[];
   readonly groupable?: boolean;
   readonly header_sort_field_key?: string | null;
@@ -75,7 +75,7 @@ type RawField = {
 };
 
 type RawSyntheticFilterPredicate = {
-  readonly field_key: string;
+  readonly field_key?: string;
   readonly filter_ops?: readonly string[];
   readonly label: string;
 };
@@ -102,6 +102,115 @@ type RawViewContract = {
   readonly view_schema_id: string;
 };
 
+// FE-U-P0-02 exposes this narrow parser error contract for malformed
+// view-schema adapter inputs that could otherwise drift away from field_key.
+function viewContractInvariant(source: string, detail: string): never {
+  throw new Error(`View contract invariant failed: ${source} ${detail}`);
+}
+
+function requireStableKey(
+  value: unknown,
+  source: string,
+  label: string,
+): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    viewContractInvariant(source, `${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+function stableKeySet(
+  values: readonly string[],
+  source: string,
+  label: string,
+): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const [index, value] of values.entries()) {
+    const fieldKey = requireStableKey(value, source, `${label}[${index + 1}]`);
+    if (keys.has(fieldKey)) {
+      viewContractInvariant(source, `${label} duplicate field_key ${fieldKey}`);
+    }
+    keys.add(fieldKey);
+  }
+  return keys;
+}
+
+function unionKeySet(
+  ...sets: readonly ReadonlySet<string>[]
+): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const set of sets) {
+    for (const key of set) {
+      keys.add(key);
+    }
+  }
+  return keys;
+}
+
+function validateFieldKeyReferences(
+  values: readonly string[],
+  allowedKeys: ReadonlySet<string>,
+  source: string,
+  label: string,
+) {
+  for (const [index, value] of values.entries()) {
+    const fieldKey = requireStableKey(value, source, `${label}[${index + 1}]`);
+    if (!allowedKeys.has(fieldKey)) {
+      viewContractInvariant(
+        source,
+        `${label} references unknown field_key ${fieldKey}`,
+      );
+    }
+  }
+}
+
+function validateDefaultSortReferences(
+  values: readonly SortEntry[],
+  allowedKeys: ReadonlySet<string>,
+  source: string,
+) {
+  for (const [index, entry] of values.entries()) {
+    const fieldKey = requireStableKey(
+      entry.fieldKey,
+      source,
+      `default_sort[${index + 1}].field_key`,
+    );
+    if (!allowedKeys.has(fieldKey)) {
+      viewContractInvariant(
+        source,
+        `default_sort[${index + 1}].field_key references unknown field_key ${fieldKey}`,
+      );
+    }
+  }
+}
+
+function validateHeaderSortReferences(
+  fields: readonly ViewFieldContract[],
+  knownFieldKeys: ReadonlySet<string>,
+  sortFieldKeys: ReadonlySet<string>,
+  source: string,
+) {
+  for (const [index, field] of fields.entries()) {
+    const fieldKey = field.headerSortFieldKey;
+    if (fieldKey === null) {
+      continue;
+    }
+    const label = `fields[${index + 1}].header_sort_field_key`;
+    if (!knownFieldKeys.has(fieldKey)) {
+      viewContractInvariant(
+        source,
+        `${label} references unknown field_key ${fieldKey}`,
+      );
+    }
+    if (!sortFieldKeys.has(fieldKey)) {
+      viewContractInvariant(
+        source,
+        `${label} references non-sortable field_key ${fieldKey}`,
+      );
+    }
+  }
+}
+
 function truthMap(values: readonly string[]): Readonly<Record<string, true>> {
   return Object.freeze(
     Object.fromEntries(values.map((value) => [value, true])) as Record<
@@ -111,12 +220,29 @@ function truthMap(values: readonly string[]): Readonly<Record<string, true>> {
   );
 }
 
-function parseContract(json: string): ViewContract {
-  const raw = JSON.parse(json) as RawViewContract;
+export function parseViewContractJSON(
+  json: string,
+  source = "view contract",
+): ViewContract {
+  let raw: RawViewContract;
+  try {
+    raw = JSON.parse(json) as RawViewContract;
+  } catch (error) {
+    viewContractInvariant(
+      source,
+      `contains invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  requireStableKey(raw.view_schema_id, source, "view_schema_id");
   const fields = Object.freeze(
-    (raw.fields ?? []).map(
-      (field): ViewFieldContract => ({
-        fieldKey: field.field_key,
+    (raw.fields ?? []).map((field, index): ViewFieldContract => {
+      const fieldKey = requireStableKey(
+        field.field_key,
+        source,
+        `fields[${index + 1}].field_key`,
+      );
+      return {
+        fieldKey,
         label: field.label,
         createWritable: field.create_writable ?? false,
         defaultHidden: field.default_hidden ?? false,
@@ -137,33 +263,60 @@ function parseContract(json: string): ViewContract {
         clearable: field.clearable ?? false,
         conflictResolutionClass: field.conflict_resolution_class ?? null,
         entityBindingMode: field.entity_binding_mode ?? null,
-      }),
-    ),
+      };
+    }),
   );
   const syntheticFilterFields = Object.freeze(
     (raw.synthetic_filter_predicates ?? []).map(
-      (field): ViewFieldContract => ({
-        fieldKey: field.field_key,
-        label: field.label,
-        createWritable: false,
-        defaultHidden: true,
-        stringContractId: null,
-        directScalarContractId: null,
-        directReferenceContractId: null,
-        writeAction: null,
-        enumValues: null,
-        headerSortFieldKey: null,
-        filterOps: Object.freeze([...(field.filter_ops ?? [])]),
-        groupable: false,
-        sortable: false,
-        readKind: "synthetic_filter",
-        writeKind: "read_only",
-        clearable: false,
-        conflictResolutionClass: null,
-        entityBindingMode: null,
-      }),
+      (field, index): ViewFieldContract => {
+        const fieldKey = requireStableKey(
+          field.field_key,
+          source,
+          `synthetic_filter_predicates[${index + 1}].field_key`,
+        );
+        return {
+          fieldKey,
+          label: field.label,
+          createWritable: false,
+          defaultHidden: true,
+          stringContractId: null,
+          directScalarContractId: null,
+          directReferenceContractId: null,
+          writeAction: null,
+          enumValues: null,
+          headerSortFieldKey: null,
+          filterOps: Object.freeze([...(field.filter_ops ?? [])]),
+          groupable: false,
+          sortable: false,
+          readKind: "synthetic_filter",
+          writeKind: "read_only",
+          clearable: false,
+          conflictResolutionClass: null,
+          entityBindingMode: null,
+        };
+      },
     ),
   );
+  const fieldKeySet = stableKeySet(
+    fields.map((field) => field.fieldKey),
+    source,
+    "fields",
+  );
+  const syntheticFieldKeySet = stableKeySet(
+    syntheticFilterFields.map((field) => field.fieldKey),
+    source,
+    "synthetic_filter_predicates",
+  );
+  const duplicateSyntheticField = syntheticFilterFields.find((field) =>
+    fieldKeySet.has(field.fieldKey),
+  );
+  if (duplicateSyntheticField !== undefined) {
+    viewContractInvariant(
+      source,
+      `synthetic_filter_predicates duplicate field_key ${duplicateSyntheticField.fieldKey}`,
+    );
+  }
+  const fieldMapKeySet = unionKeySet(fieldKeySet, syntheticFieldKeySet);
   const fieldMap = Object.freeze(
     Object.fromEntries(
       [...fields, ...syntheticFilterFields].map((field) => [
@@ -194,6 +347,47 @@ function parseContract(json: string): ViewContract {
   ]);
   const groupingFields = Object.freeze([...(raw.grouping_fields ?? [])]);
   const technicalFields = Object.freeze([...(raw.technical_fields ?? [])]);
+  const technicalFieldKeySet = stableKeySet(
+    technicalFields,
+    source,
+    "technical_fields",
+  );
+  const fieldOrTechnicalKeySet = unionKeySet(
+    fieldMapKeySet,
+    technicalFieldKeySet,
+  );
+  validateFieldKeyReferences(
+    defaultVisibleFields,
+    fieldMapKeySet,
+    source,
+    "default_visible_fields",
+  );
+  validateFieldKeyReferences(
+    defaultHiddenFields,
+    fieldOrTechnicalKeySet,
+    source,
+    "default_hidden_fields",
+  );
+  validateFieldKeyReferences(sortFields, fieldMapKeySet, source, "sort_fields");
+  validateFieldKeyReferences(
+    raw.filter_fields ?? [],
+    fieldMapKeySet,
+    source,
+    "filter_fields",
+  );
+  validateFieldKeyReferences(
+    groupingFields,
+    fieldMapKeySet,
+    source,
+    "grouping_fields",
+  );
+  validateDefaultSortReferences(defaultSort, fieldOrTechnicalKeySet, source);
+  validateHeaderSortReferences(
+    fields,
+    fieldMapKeySet,
+    new Set(sortFields),
+    source,
+  );
 
   return Object.freeze({
     viewSchemaId: raw.view_schema_id,
@@ -220,7 +414,7 @@ function parseContract(json: string): ViewContract {
 const contracts = Object.freeze(
   listViewSchemaArtifacts()
     .filter((artifact) => !artifact.path.endsWith("/index.json"))
-    .map((artifact) => parseContract(artifact.json)),
+    .map((artifact) => parseViewContractJSON(artifact.json, artifact.path)),
 );
 
 const contractIndex = Object.freeze(
@@ -274,7 +468,14 @@ export function fieldCapability(
 export function visibleFields(
   contract: ViewContract,
 ): readonly ViewFieldContract[] {
-  return contract.defaultVisibleFields
-    .map((fieldKey) => contract.fieldMap[fieldKey])
-    .filter((field): field is ViewFieldContract => field !== undefined);
+  return contract.defaultVisibleFields.map((fieldKey) => {
+    const field = contract.fieldMap[fieldKey];
+    if (field === undefined) {
+      viewContractInvariant(
+        contract.viewSchemaId,
+        `default_visible_fields references unknown field_key ${fieldKey}`,
+      );
+    }
+    return field;
+  });
 }

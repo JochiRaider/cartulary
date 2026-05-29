@@ -9,7 +9,7 @@
       "evidence_class": "product_conformance",
       "owner_refs": [
         "Core 01 Section 3.3.4",
-        "Core 03 Sections 4.1, 4.8",
+        "Core 03 Sections 4.1 and 14",
         "development guide Sections 6.3 and 6.9"
       ],
       "core_req_ids": [
@@ -160,7 +160,7 @@
       "evidence_class": "product_conformance",
       "owner_refs": [
         "Core 01 Section 3.3.4",
-        "Core 03 Sections 4.1, 4.8",
+        "Core 03 Sections 4.1 and 14",
         "development guide Section 6.9"
       ],
       "core_req_ids": [
@@ -208,7 +208,7 @@
       "layer": "browser_integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 03 Sections 4.1, 4.8, 4.13",
+        "Core 03 Sections 4.1, 14, and 4.13",
         "implementation guide Section 14.9A"
       ],
       "core_req_ids": [

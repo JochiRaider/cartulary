@@ -53,7 +53,7 @@
       "evidence_class": "product_conformance",
       "owner_refs": [
         "Core 01 Section 3.3.4",
-        "Core 03 Sections 4.1, 4.8"
+        "Core 03 Section 14"
       ],
       "core_req_ids": [
         "REQ-01-034",
@@ -101,7 +101,7 @@
         "make frontend-unit"
       ],
       "scenario_titles": [],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify view-schema adapters key editable and queryable fields by field_key, not labels, indexes, or visible column order.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },

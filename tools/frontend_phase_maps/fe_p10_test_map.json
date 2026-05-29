@@ -104,7 +104,7 @@
       "layer": "browser_integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 03 Sections 4.1, 4.8, 4.13",
+        "Core 03 Sections 4.1, 14, and 4.13",
         "UI/UX guide Sections 10 and 14"
       ],
       "core_req_ids": [

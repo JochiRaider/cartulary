@@ -74,6 +74,13 @@ const phaseIDPattern = /^FE-P(?:0|[1-9]\d*)$/;
 const phaseMapFilenamePattern = /^fe_p(0|[1-9]\d*)_test_map\.json$/;
 const phaseLedgerFilenamePattern = /^fe_p(0|[1-9]\d*)_coverage_ledger\.md$/;
 const rowIDPattern = /^FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9]\d*)-\d{2}$/;
+const core03SortingFilteringGroupingReqIDs = new Set(
+  Array.from({ length: 13 }, (_, index) => `REQ-03-${223 + index}`),
+);
+const core03Section14OwnerRefPattern =
+  /^Core 03 Section(?:s)?\b.*(?:^|[^\d.])14(?:[^\d.]|$)/;
+const core03Section48OwnerRefPattern =
+  /^Core 03 Section(?:s)?\b.*(?:^|[^\d.])4\.8(?:[^\d.]|$)/;
 
 function repoPath(root, relativePath) {
   return path.join(root, relativePath);
@@ -156,6 +163,27 @@ function validateRowMetadata(row, label) {
         `${label} TODO_owner_lookup rows must declare claim_status=blocked`,
       );
     }
+  }
+}
+
+function validateCore03SortingFilteringGroupingOwnerRefs(row, label) {
+  const coversSortingFilteringGrouping = row.core_req_ids.some((id) =>
+    core03SortingFilteringGroupingReqIDs.has(id),
+  );
+  if (!coversSortingFilteringGrouping) {
+    return;
+  }
+
+  const citesCore03Section14 = row.owner_refs.some((ownerRef) =>
+    core03Section14OwnerRefPattern.test(ownerRef),
+  );
+  const citesCore03Section48 = row.owner_refs.some((ownerRef) =>
+    core03Section48OwnerRefPattern.test(ownerRef),
+  );
+  if (!citesCore03Section14 || citesCore03Section48) {
+    throw new Error(
+      `${label} rows covering REQ-03-223..REQ-03-235 must cite Core 03 Section 14 and must not cite Core 03 Section 4.8`,
+    );
   }
 }
 
@@ -334,6 +362,7 @@ export function validateFrontendPhaseMap(
       );
     }
     validateRowMetadata(row, rowLabel);
+    validateCore03SortingFilteringGroupingOwnerRefs(row, rowLabel);
   }
   assertUnique(ids, `${label}.rows.id`);
 }
