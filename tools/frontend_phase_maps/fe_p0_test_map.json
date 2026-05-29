@@ -43,7 +43,7 @@
         "make frontend-unit"
       ],
       "scenario_titles": [],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },

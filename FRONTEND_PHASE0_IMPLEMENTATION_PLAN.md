@@ -20,27 +20,28 @@ This plan does not implement FE-P0 behavior. It is not behavior authority and mu
 
 ## Current Repo Status
 
-The following facts were verified in the local repository during FE-P0 planning and Sprint 0 update inspection:
+The following facts were verified in the local repository during FE-P0 planning, Sprint 0 update inspection, and Sprint 1 audit inspection:
 
 - `tools/frontend_phase_registry.json` exists and owns the frontend phase catalog under `phase_namespace="frontend"`.
 - `tools/frontend_phase_maps/fe_p0_test_map.json` exists and lists the six FE-P0 rows exactly once.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md` exists as a generated companion ledger for the FE-P0 phase map.
 - `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P0` passes and reports `FE-P0` as `planned`; planned frontend phases are explainable but not executable.
-- `FE-S-P0-03` has `claim_status=implemented` in the current phase map; the other five FE-P0 rows remain blocked.
+- `FE-U-P0-01` and `FE-S-P0-03` have `claim_status=implemented` in the current phase map; `FE-U-P0-02`, `FE-U-P0-03`, `FE-S-P0-01`, and `FE-S-P0-02` remain blocked.
 - Package manifests exist for `/packages/protocol-ts`, `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/grid-adapter`, `/packages/test-utils`, and `/apps/web`.
 - `/packages/ui` exists only as a directory with `.gitkeep`; no `/packages/ui/package.json` was verified.
 - Target discovery verified these targets: `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, and `make phase-ledger-drift`.
 - Source inspection found direct `react-data-grid` imports only under `/packages/grid-adapter/src/**`; FE-P0 completion still requires `make frontend-import-boundary-check`.
-- `packages/protocol-ts/src/generated/**` exists and contains generated-file markers; FE-P0 completion still requires generated-artifact policy and drift validation.
+- `packages/protocol-ts/src/generated/**` exists, contains generated-file markers, and had no tracked diff during Sprint 1 audit inspection.
 - No root-level frontend phase plan naming convention was found. This file uses the instructed root-level name `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md`.
 - Root-level `PHASE5_IMPLEMENTATION_PLAN.md` through `PHASE10_IMPLEMENTATION_PLAN.md` were not present; structural examples were found under `docs/archive/`.
 
 Source limits:
 
-- `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, and `make generate-drift` were not run for this planning artifact.
+- `make frontend-typecheck`, `make frontend-unit`, `make generated-artifact-policy-check`, and `make generate-drift` passed during Sprint 1 audit inspection. This is direct product-conformance evidence for `FE-U-P0-01` and supporting generated-artifact evidence only; it does not complete `FE-S-P0-01`.
+- `make frontend-import-boundary-check` was not run for this planning artifact and remains owned by `FE-S-P0-02`.
 - `make phase-ledger-drift` passed during Sprint 0 audit inspection for `FE-S-P0-03`; this supports the manifest/ledger setup row only and does not complete the other FE-P0 rows.
 - `TODO: owner lookup required` remains for exact `Core 03 Section 4.8` and `Core 02 Section 5.3` anchors before using affected rows for authoritative product-conformance completion.
-- The current FE-P0 phase map is generated-ledger-consistent. Product-row owner lookup and row-owned command evidence remain outside Sprint 0 and must be resolved before completing the affected rows.
+- The current FE-P0 phase map is generated-ledger-consistent. Product-row owner lookup remains unresolved for `FE-U-P0-02` and `FE-U-P0-03`; those rows require their own row-owned evidence before completion.
 
 ## Phase Objective
 
@@ -86,10 +87,10 @@ FE-P0 must introduce no user-observable product behavior by itself.
 | Done | Sprint | Primary validation | Blockers | Follow-up notes |
 | ---- | ------ | ------------------ | -------- | --------------- |
 | [x] | 0. Frontend phase manifest and ownership setup; owns `FE-S-P0-03` | `make phase-ledger-drift` | None for `FE-S-P0-03`; other FE-P0 rows remain blocked under their row owners | Use `PHASE_NAMESPACE=frontend PHASE=FE-P0`; never append FE rows to base `phaseN` maps |
-| [ ] | 1. Generated protocol facade and type-consumption baseline; owns `FE-U-P0-01` | `make frontend-typecheck`; `make frontend-unit` | Row blocked; no current direct unit/typecheck evidence | Generated outputs must not be hand-edited |
+| [x] | 1. Generated protocol facade and type-consumption baseline; owns `FE-U-P0-01` | `make frontend-typecheck`; `make frontend-unit` | None for `FE-U-P0-01`; Sprint 1 audit passed | Generated outputs were not hand-edited; generated-artifact checks were supporting evidence only |
 | [ ] | 2. View-schema and `field_key` adapter contract; owns `FE-U-P0-02` | `make frontend-unit` | Row blocked; `TODO: owner lookup required` for exact Core 03 Section 4.8 heading before product-conformance completion | Adapters must key fields by `field_key`, not labels, indexes, or visible order |
 | [ ] | 3. Stable selector and test-id builders; owns `FE-U-P0-03` | `make frontend-unit` | Row blocked; `TODO: owner lookup required` for exact Core 02 Section 5.3 heading before product-conformance completion | Builders must derive from stable IDs and closed vocabularies |
-| [ ] | 4. Generated-artifact policy, drift, and codegen hygiene; owns `FE-S-P0-01` | `make generated-artifact-policy-check`; `make generate-drift` | Row blocked; validation targets were discovered but not run for this plan | Support-only evidence |
+| [ ] | 4. Generated-artifact policy, drift, and codegen hygiene; owns `FE-S-P0-01` | `make generated-artifact-policy-check`; `make generate-drift` | Row remains blocked under Sprint 4 ownership; Sprint 1 audit recorded passing supporting evidence only | Support-only evidence |
 | [ ] | 5. RDG import boundary and stylesheet ownership; owns `FE-S-P0-02` | `make frontend-import-boundary-check` | Row blocked; `/packages/ui` package surface is not fully present | `/apps/web` must consume `/packages/grid-adapter` and must not import RDG directly |
 | [ ] | 6. Frontend namespace, ledger drift, and phase-gate handoff; supports all FE-P0 rows | `make phase-ledger-drift`; row-specific commands above | No primary row ownership; handoff remains blocked until row owners complete or record precise blockers | Generated ledgers must be produced, not hand-edited |
 
@@ -133,7 +134,7 @@ Deliverables are repository artifacts and validation surfaces:
 
 - `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md`, this planning artifact.
 - `tools/frontend_phase_registry.json`, existing frontend phase registry; any future update must preserve `phase_namespace="frontend"`.
-- `tools/frontend_phase_maps/fe_p0_test_map.json`, existing FE-P0 row map; `FE-S-P0-03` is implemented, while product-row owner lookup remains TODO before product-conformance completion.
+- `tools/frontend_phase_maps/fe_p0_test_map.json`, existing FE-P0 row map; `FE-U-P0-01` and `FE-S-P0-03` are implemented, while product-row owner lookup remains TODO for `FE-U-P0-02` and `FE-U-P0-03` before product-conformance completion.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md`, existing generated companion ledger; must not be hand-edited.
 - Package-boundary validation through `make frontend-import-boundary-check`.
 - Generated-artifact validation through `make generated-artifact-policy-check` and `make generate-drift`.
@@ -156,15 +157,15 @@ Deliverables are repository artifacts and validation surfaces:
 ## Sprint 1: Generated Protocol Facade And Type-Consumption Baseline
 
 - Objective: Ensure generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code.
-- Status: Not started; row remains blocked.
+- Status: Implemented for `FE-U-P0-01` by Sprint 1 audit inspection. `FE-S-P0-01` remains blocked because it is a support row owned by Sprint 4.
 - Relevant IDs: Owns `FE-U-P0-01`.
 - Files and areas: `/packages/protocol-ts`, `/packages/protocol-ts/src/generated/**`, `/contracts/**`, generated-artifact policy configuration, and frontend consumers.
-- Test-first sequence: Run `make frontend-typecheck`; run `make frontend-unit`; inspect generated-artifact policy failures before implementation.
-- Implementation tasks: Keep generated output behind handwritten facade exports; preserve generated markers; prevent direct consumer imports from generated paths except through approved facade code; cover stable identifiers in unit/typecheck evidence.
-- Validation commands: `make frontend-typecheck`; `make frontend-unit`; `make generated-artifact-policy-check`; `make generate-drift`.
-- Deliverables: Facade-backed protocol consumption and validation evidence, or exact blocker records.
-- Risks and assumptions: Existing generated markers were observed, but policy and drift checks were not run for this plan.
-- Blockers and follow-up notes: Row remains blocked until direct unit/typecheck evidence and generated-artifact validation are recorded.
+- Test-first sequence: Completed during Sprint 1 audit inspection: `make frontend-typecheck`, `make frontend-unit`, `make generated-artifact-policy-check`, and `make generate-drift` all passed.
+- Implementation tasks: Completed or verified: generated output is behind handwritten facade exports, generated markers are preserved, consumers avoid direct generated-path imports except through approved facade code, and stable identifiers are covered by unit/typecheck evidence.
+- Validation commands: `make frontend-typecheck` passed with summary `.cartulary/test-results/20260528T235835Z-p565709/frontend-typecheck/tool-run-summary.json`; `make frontend-unit` passed with summary `.cartulary/test-results/20260528T235846Z-p566137/frontend-unit/tool-run-summary.json`; `make generated-artifact-policy-check` passed with summary `.cartulary/test-results/20260528T235902Z-p567563/generated-artifact-policy-check/tool-run-summary.json`; `make generate-drift` passed with summary `.cartulary/test-results/20260528T235906Z-p567902/generate-drift/tool-run-summary.json`.
+- Deliverables: Facade-backed protocol consumption and validation evidence are recorded for `FE-U-P0-01`; no generated protocol file diff was observed under `/packages/protocol-ts/src/generated/**`.
+- Risks and assumptions: The audit started with pre-existing tracked changes in Sprint-related authored files and `pnpm-lock.yaml`; no new tracked mutation was introduced by the audit commands. Retained evidence artifacts were created under ignored `.cartulary/test-results/**`.
+- Blockers and follow-up notes: No blocker remains for `FE-U-P0-01`. `FE-S-P0-01` remains a separate support-row blocker until Sprint 4 records its own completion.
 
 ## Sprint 2: View-Schema And `field_key` Adapter Contract
 
@@ -252,15 +253,15 @@ For every failed validation command or missing prerequisite, record:
 | FE-P0 is represented in the frontend phase namespace or a precise blocker prevents that representation | Present: registry, map, and ledger exist; `FE-S-P0-03` is implemented and other rows remain blocked |
 | `tools/frontend_phase_maps/fe_p0_test_map.json` or equivalent planned manifest covers every FE-P0 row exactly once | Present by local inspection; owner lookup remains TODO for affected product rows |
 | Generated frontend ledger behavior is present or explicitly blocked; any generated ledger is produced by a generator and not hand-edited | Present; `make phase-ledger-drift` passed during Sprint 0 audit inspection |
-| `FE-U-P0-01`, `FE-U-P0-02`, and `FE-U-P0-03` have direct unit/typecheck evidence or explicit blockers | Blocked; unit/typecheck commands were not run for this plan |
+| `FE-U-P0-01`, `FE-U-P0-02`, and `FE-U-P0-03` have direct unit/typecheck evidence or explicit blockers | Partially satisfied: `FE-U-P0-01` has direct passing `make frontend-typecheck` and `make frontend-unit` evidence; `FE-U-P0-02` and `FE-U-P0-03` remain blocked |
 | `FE-S-P0-01`, `FE-S-P0-02`, and `FE-S-P0-03` have implementation-support validation or explicit blockers | Partially satisfied: `FE-S-P0-03` is implemented with phase-ledger drift evidence; `FE-S-P0-01` and `FE-S-P0-02` remain blocked under later sprints |
 | `/apps/web` direct `react-data-grid` imports are prohibited or the absence of an enforcement target is recorded as a blocker | Target exists; completion requires `make frontend-import-boundary-check` |
-| Generated protocol artifacts are not hand-edited | Generated markers observed; completion requires policy and drift checks |
-| Generated-artifact policy and generate-drift checks pass or have precise blockers | Blocked; targets exist but were not run for this plan |
+| Generated protocol artifacts are not hand-edited | Satisfied for Sprint 1: generated markers observed, no generated protocol diff found, and policy/drift checks passed |
+| Generated-artifact policy and generate-drift checks pass or have precise blockers | Passed during Sprint 1 audit inspection as supporting evidence for `FE-U-P0-01`; `FE-S-P0-01` still requires its own Sprint 4 completion decision |
 | Frontend phase selection uses `PHASE_NAMESPACE=frontend PHASE=FE-P0` or the absence of namespace-aware selection is recorded as a blocker | Present and verified by `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P0` |
 | No support-only, visual, accessibility, or measurement evidence is represented as product-conformance evidence | Required; current map distinguishes product conformance from implementation support |
 | No Core 05 claim-publication review is activated unless a claim-bearing publication intent is explicitly declared | Required; FE-P0 has no claim-bearing publication intent |
-| `git diff --check` passes | Must be run after plan edits |
+| `git diff --check` passes | Passed during Sprint 1 audit inspection; must be rerun after subsequent plan edits |
 
 FE-P0 must not be marked complete until every criterion is satisfied with direct evidence or an explicit blocker.
 

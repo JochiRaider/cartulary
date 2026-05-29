@@ -113,7 +113,11 @@ importers:
         specifier: 4.1.4
         version: 4.1.4(@types/node@24.10.0)(jsdom@26.1.0)(vite@8.0.8(@types/node@24.10.0)(yaml@2.8.3))
 
-  packages/protocol-ts: {}
+  packages/protocol-ts:
+    devDependencies:
+      vitest:
+        specifier: 4.1.4
+        version: 4.1.4(@types/node@24.10.0)(jsdom@26.1.0)(vite@8.0.8(@types/node@24.10.0)(yaml@2.8.3))
 
   packages/test-utils:
     dependencies:
