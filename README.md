@@ -2,17 +2,18 @@
 
 Cartulary is an open-source, specification-first incident-response workbook system intended to replace the spreadsheet-centric coordination pattern widely known in DFIR as the **Spreadsheet of Doom**.
 
-The repository now includes a bounded bootstrap shell:
+The repository is an active, specification-first implementation. Alongside the normative specification core in `docs/spec/`, it contains:
 
 - one root Go module with the canonical path `github.com/JochiRaider/cartulary`;
-- one top-level pnpm workspace with a minimal Vite + React web shell;
+- one top-level pnpm workspace with a Vite + React web client under `apps/web` and shared packages under `packages/`;
 - local PostgreSQL and MinIO development services through `docker-compose.dev.yml`;
-- operational `cmd/server` and `cmd/migrate` entrypoints plus platform stubs;
+- buildable `cmd/server`, `cmd/migrate`, and `cmd/operator` entrypoints with their platform and domain modules;
+- generated API and view-schema contracts under `contracts/` and sequential schema migrations under `db/migrations/`;
 - a sample disconnected development config at `configs/dev/config.toml`.
 
-This is still bootstrap infrastructure, not product behavior. Domain routes, workbook features, generated contracts, migrations beyond stubs, and extension-profile behavior remain intentionally unimplemented at this step.
+See [Project status](#project-status) below for how far implementation has progressed.
 
-Pinned repo-control toolchain and Go tool versions for the current bootstrap baseline are:
+Pinned repo-control toolchain and Go tool versions are:
 
 - Go `1.26` with toolchain `go1.26.3`
 - Node.js `24.15.0`
@@ -28,7 +29,7 @@ The default local development loop is:
 2. `make db-up`
 3. `make dev`
 
-`make check` is the developer verification gate for the current bootstrap baseline.
+`make check` is the developer verification gate.
 
 ## Why the Spreadsheet of Doom persists
 
@@ -143,12 +144,12 @@ Within a live incident workspace, data is meant to remain broadly visible to aut
 
 External release is handled separately from live workspace visibility. Cartulary treats reporting as a snapshot-and-render problem, not as a direct read from live workbook tables. The system captures an immutable incident snapshot, materializes a canonical export model, and applies versioned redaction profiles before any release artifact is rendered.
 
-For multi-party incidents, the same snapshot can produce different recipient-specific artifacts. The specification expresses that through disclosure partitions and a closed redaction vocabulary of `allow`, `drop`, `mask`, `truncate`, `hash`, and `stub`. In practice, that means the system can exclude, mask, or pseudonymize other parties' material, including their PII, at release time without hiding the live internal workspace from the incident team.
+For multi-party incidents, the same snapshot can produce different recipient-specific artifacts. The specification expresses that through disclosure partitions and a closed redaction vocabulary of `allow`, `drop`, `mask`, `truncate`, and `stub` (with `hash` reserved and invalid in the current profile until a future specification defines keyed pseudonymization). In practice, that means the system can exclude, mask, or pseudonymize other parties' material, including their PII, at release time without hiding the live internal workspace from the incident team.
 
 ```mermaid
 flowchart LR
     Live[Live incident workspace\nbroad incident-scoped visibility] --> Snap[Immutable snapshot]
-    Snap --> Redact[Versioned redaction profile\nallow or drop or mask or truncate or hash or stub]
+    Snap --> Redact[Versioned redaction profile\nallow or drop or mask or truncate or stub]
     Redact --> A[Audience-specific artifact A]
     Redact --> B[Audience-specific artifact B]
     Views[Private / shared / system saved views] -. not an ACL boundary .-> Live
@@ -204,7 +205,7 @@ Post-MVP reporting direction includes internal incident-start briefings, phase-c
 
 ## Specification structure
 
-Cartulary is currently a specification repository. The normative core is organized as:
+The normative specification core lives under `docs/spec/` and is organized as:
 
 - `00_document_set_status_and_precedence.md`
 - `01_architecture_storage_and_view_contracts.md`
@@ -241,9 +242,11 @@ The current core also defines bounded extension profiles for:
 
 ## Project status
 
-Cartulary is in a pre-implementation planning phase. The repository currently defines the intended architecture, data model, workbook behavior, security posture, deployment model, and conformance boundaries. There is no runnable product yet.
+Cartulary is under active implementation on a specification-first basis. The normative core in `docs/spec/` defines the architecture, data model, workbook behavior, security posture, deployment model, and conformance boundaries, and the implementation is built and verified against it phase by phase.
 
-At this stage, the repository should be read as a buildable specification corpus rather than as an implementation tree. The immediate value is in design review, contradiction repair, implementation planning, and eventual translation of the current normative core into code.
+Backend implementation has progressed through its Phase 11 work. The Go backend builds runnable `server`, `migrate`, and `operator` binaries and carries phase-tagged test coverage (`U-`/`I-`/`E-` identifiers) across the Base Profile and the Import, Snapshot and Reporting, Reference Pack, and Incident Portability extension profiles, backed by sequential migrations under `db/migrations/` and generated contracts under `contracts/`. The Enterprise Authentication extension profile remains reserved and unclaimed.
+
+The web client under `apps/web` is being built out on its own phased track and is at an earlier stage than the backend. The repository remains specification-first: the normative core is authoritative, and this README is a derived overview rather than a source of normative truth.
 
 ## License
 
