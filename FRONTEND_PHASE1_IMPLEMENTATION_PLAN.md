@@ -22,12 +22,12 @@ This guide does not implement FE-P1 behavior. It is not behavior authority and m
 
 ## Current Repo Status
 
-The following facts were verified by local inspection, non-mutating command execution during FE-P1 guide creation, Sprint 1 readiness validation, Sprint 2 validation, Sprint 3 remediation, Sprint 3 audit follow-up, and Sprint 4 browser E2E execution:
+The following facts were verified by local inspection, non-mutating command execution during FE-P1 guide creation, Sprint 1 readiness validation, Sprint 2 validation, Sprint 3 remediation, Sprint 3 audit follow-up, Sprint 4 browser E2E execution, and Sprint 5 accessibility execution:
 
 - `tools/frontend_phase_registry.json` exists and includes `FE-P1` in the `frontend` namespace with `status="planned"`, manifest path `tools/frontend_phase_maps/fe_p1_test_map.json`, ledger path `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`, and dependency on `FE-P0`.
 - `tools/frontend_phase_maps/fe_p1_test_map.json` exists with schema `cartulary.frontend_phase_test_map.v1`, `phase_namespace="frontend"`, and `phase_id="FE-P1"`.
 - The FE-P1 phase map contains exactly these row IDs once each: `FE-U-P1-01`, `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01`.
-- After Sprint 4 execution, `FE-U-P1-01`, `FE-I-P1-01`, and `FE-E-P1-01` have `claim_status="implemented"` in the phase map and generated ledger. `FE-A11Y-P1-01` and `FE-S-P1-01` remain `claim_status="blocked"`, and the FE-P1 registry `status` remains `planned`.
+- After Sprint 5 execution, `FE-U-P1-01`, `FE-I-P1-01`, `FE-E-P1-01`, and `FE-A11Y-P1-01` have `claim_status="implemented"` in the phase map and generated ledger. `FE-S-P1-01` remains `claim_status="blocked"`, and the FE-P1 registry `status` remains `planned`.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md` exists and states that it is generated from `tools/frontend_phase_maps/fe_p1_test_map.json`; it must not be hand-edited for FE-P1 closure.
 - `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1` passed during Sprint 1 readiness validation and reported FE-P1 as planned, explainable, and non-executable.
 - Sprint 1 registry and map invariant checks passed with `jq -e`; the registry tuple is exact and the FE-P1 map contains no missing or duplicate row IDs.
@@ -43,7 +43,7 @@ The following facts were verified by local inspection, non-mutating command exec
 Source limits:
 
 - No newer root-level frontend phase-plan naming convention was found during inspection; this guide therefore uses the requested `FRONTEND_PHASE1_IMPLEMENTATION_PLAN.md` name, matching the existing root-level `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md` pattern.
-- FE-P1 row-owned closure evidence was not collected during Sprint 1. Sprint 4 later collected direct product-conformance evidence for `FE-E-P1-01` from `make browser-e2e-webserver-backed`; `make browser-e2e-a11y` and `make browser-e2e-support` remain planned FE-P1 validation, not cited completion evidence.
+- FE-P1 row-owned closure evidence was not collected during Sprint 1. Sprint 4 later collected direct product-conformance evidence for `FE-E-P1-01` from `make browser-e2e-webserver-backed`; Sprint 5 later collected direct design-direction evidence for `FE-A11Y-P1-01` from `make browser-e2e-a11y`. `make browser-e2e-support` remains planned FE-P1 validation, not cited completion evidence.
 - `make check` was not run for Sprint 4 because the row-owned product-conformance target passed and broad developer-gate evidence remains Sprint 7 closure scope unless repository completion rules require it earlier.
 - Initial test-name and existing Phase 1 file inspection identified implementation surfaces only. Sprint 4 completion evidence is the later `make browser-e2e-webserver-backed` run, not inspection.
 - FE-P0 handoff state was inspected through the FE-P0 guide and FE-P0 map/ledger artifacts, and the Sprint 1 FE-P0 regression set passed. Later FE-P1 closure after product changes must rerun those checks again or precisely block them.
@@ -96,7 +96,7 @@ FE-P1 must not treat existing FE-P0 closure claims, generated ledgers, retained 
 | [x] | 2. App bootstrap state model and public error-envelope rendering; owns `FE-U-P1-01` | `make frontend-unit`; `make frontend-typecheck`; `make phase-ledgers`; `make phase-ledger-drift` | None for Sprint 2 unit scope | `FE-U-P1-01` promoted only; FE-I/E/A11Y/S rows remain blocked |
 | [x] | 3. API client and route-boundary integration baseline; owns `FE-I-P1-01` | `make frontend-unit`; supporting `make frontend-typecheck` | None for Sprint 3 row-owned route-boundary scope | Public-route behavior stays under `/api/v1/`; FE-I owns client serialization and rendering evidence, not backend rejection conformance |
 | [x] | 4. Login, session bootstrap, incident entry, authorization, and revocation E2E flow; owns `FE-E-P1-01` | `make browser-e2e-webserver-backed` | None for Sprint 4 browser E2E scope | `FE-E-P1-01` promoted from direct browser-observed product-conformance evidence through public `/api/v1/` routes |
-| [ ] | 5. Accessibility coverage for session, MFA, incident, forbidden, loading, and error states; owns `FE-A11Y-P1-01` | `make browser-e2e-a11y` | Accessibility evidence not run during guide creation | Design-direction evidence must not be counted as product conformance |
+| [x] | 5. Accessibility coverage for session, MFA, incident, forbidden, loading, and error states; owns `FE-A11Y-P1-01` | `make browser-e2e-a11y` | None for Sprint 5 accessibility scope | `FE-A11Y-P1-01` promoted from direct design-direction accessibility evidence only; no Core product-conformance or Core 05 evidence claimed |
 | [ ] | 6. Stable bootstrap and error-state selector builders; owns `FE-S-P1-01` | `make frontend-unit`; `make browser-e2e-support` | Support evidence not run during guide creation | Promote cross-boundary selectors to shared builders where needed |
 | [ ] | 7. Closure pass, ledger drift, P0 regression check, and FE-P2 handoff | Row-owned commands plus `make phase-ledger-drift`; whitespace checks | Broad `make check` not run unless closure rules require it | Record exact artifact paths and unresolved owner-lookup TODOs |
 
@@ -539,16 +539,134 @@ Sprint 7 must rerun row-owned commands, verify phase-ledger drift, record P0 reg
 
 ## Sprint 5: Accessibility Coverage For Session, MFA, Incident, Forbidden, Loading, And Error States
 
-- Objective: Verify FE-P1 state surfaces are keyboard reachable, visibly focused, and communicated with screen-reader-safe names and non-color-only state cues.
-- Status: Planned.
+- Status: Complete for `FE-A11Y-P1-01`.
 - Relevant IDs: Owns `FE-A11Y-P1-01`.
-- Files and areas to inspect or edit: `apps/web/e2e/workbook.a11y.spec.ts`, FE-P1 app surfaces under `apps/web/src`, accessibility summary tooling, `docs/guides/cartulary-ui-ux-design-guide.md`, and `docs/design.md`.
-- Test-first sequence: Add or tighten accessibility scenarios for session loading, anonymous login, MFA required/setup, authenticated landing, incident empty/list/error, forbidden/access-denied, revoked/session-required, and public error states.
-- Implementation tasks: Ensure form controls have accessible names; keep focus visible; make status and error changes programmatically discoverable where needed; avoid color-only state; preserve keyboard reachability for login, MFA, incident, account, and admin entry controls.
-- Validation commands: `make browser-e2e-a11y`.
-- Deliverables: Accessibility run evidence and any required app-surface accessibility fixes.
-- Risks and assumptions: FE-A11Y-P1-01 is `design_direction`, not product conformance. Its evidence gates readiness but must not be represented as Core-owned product behavior.
-- Blockers and follow-up notes: No FE-A11Y-P1-01 completion claim is allowed until direct accessibility evidence exists or a precise blocker is recorded.
+- Primary validation: `make browser-e2e-a11y`.
+- Evidence class: `design_direction`; gates FE-P1 readiness only.
+
+### 1. Objective And Non-Goals
+
+Close `FE-A11Y-P1-01` by proving FE-P1 session, MFA, incident, forbidden, loading, revoked, and public-error states are keyboard reachable, visibly focused, screen-reader safe, and communicated with non-color-only cues.
+
+Non-goals: Core product-conformance promotion, Core 05 claim-publication evidence, visual-golden acceptance, selector-builder promotion, new public API behavior, generated-ledger hand edits, or treating retained artifacts/test names/the plan itself as completion evidence.
+
+### 2. Source And Authority Constraints
+
+- Core 00 through Core 04 remain behavior authority. `docs/domain.md` supplies vocabulary for incident, user, session, membership, and evidence terms.
+- `docs/guides/cartulary-ui-ux-design-guide.md` Sections 10.5 and 14 plus `docs/design.md` accessibility direction are design-direction inputs only.
+- `docs/testing-harness-nlspec.md` owns `make browser-e2e-a11y` mechanics and `cartulary.frontend_accessibility_summary.v1`; Sprint 5 kept the retained summary compatible with that shape.
+- `FE-A11Y-P1-01` remains `design_direction`, claims no Core REQ/AC ownership, and does not activate Core 05.
+- Row metadata was updated first in `tools/frontend_phase_maps/fe_p1_test_map.json`; `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md` was regenerated by `make phase-ledgers`, not hand-edited.
+
+### 3. File-By-File Inspection Checklist
+
+- `apps/web/e2e/workbook.a11y.spec.ts`: replaced the generic FE-P1 smoke with exact FE-P1 state scenarios while retaining generic non-P1 smoke.
+- `apps/web/e2e/phase1Page.ts`, `apps/web/e2e/helpers.ts`, and auth runtime helpers: reused public-route setup for users, MFA, incidents, membership changes, and session revocation.
+- `apps/web/src/App.tsx`: inspected and fixed loading, authenticated landing, stale incident, forbidden, revoked, and public-error rendering for busy state, status/alert exposure, and focus recovery.
+- `apps/web/src/Phase1Surface.tsx`: inspected and fixed login, `mfa_required`, `mfa_setup_required`, account, admin, retry, re-authentication, status, and public-error controls.
+- `apps/web/src/IncidentAdminPanel.tsx`: inspected and fixed incident selected/error controls, read-only/denied states, membership controls, and incident error status.
+- `apps/web/src/browserApi.ts`: verified public error rendering remains allowlisted and does not render private diagnostics.
+- `apps/web/src/ReferencePackAdminPanel.tsx`: named the always-rendered deployment-admin file input so the FE-P1 all-controls accessibility check is not invalidated by an adjacent admin panel.
+- `scripts/run-browser-e2e-a11y.sh` and `scripts/write-frontend-accessibility-summary.mjs`: extended retained summary evidence so executed FE-P1 scenarios map to `FE-A11Y-P1-01`.
+- `tools/frontend_phase_maps/fe_p1_test_map.json`: replaced the generic FE-A11Y title with exact Sprint 5 titles and promoted `claim_status` only after direct passing evidence.
+
+### 4. Test-First Accessibility Scenarios
+
+Sprint 5 added these exact `FE-A11Y-P1-01` Playwright scenarios:
+
+- `FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable`
+- `FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing`
+- `FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced`
+- `FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics`
+- `FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls`
+- `FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery`
+- `FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics`
+- `FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication`
+- `FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery`
+
+Each scenario asserts accessible names for interactive controls, keyboard reachability by role/name or stable test id, visible focus, no incorrect focus trap, required live/status/alert exposure, non-color-only state text, and absence of private diagnostics in public-error containers.
+
+### 5. Implementation Tasks
+
+- Added shared a11y test helpers for named controls, Tab/Shift+Tab traversal, visible-focus detection, live/status/alert checks, non-color-only cue checks, and private-diagnostic redaction checks.
+- Extended the a11y summary path so per-scenario results populate `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` for `FE-A11Y-P1-01`.
+- Added roles/ARIA only where state changes needed programmatic exposure: loading/retry, forbidden, revoked/session-ended, incident errors, and public error summaries.
+- Fixed app surfaces minimally: added accessible names, `role="status"`/`aria-live`/`aria-busy`/`role="alert"` where needed, preserved visible focus, and added state text where required.
+- Kept public error display allowlisted. Public error rendering does not show stack traces, SQL text, internal paths, raw request IDs, secret material, bootstrap tokens, TOTP secrets in error details, or unknown private detail keys.
+- Kept ordinary public `/api/v1/` session and incident flows. Deterministic private-diagnostic rendering fixtures intercept same-origin public-route responses only as frontend rendering evidence, not backend conformance.
+
+### 6. Accessibility-State Coverage Matrix
+
+| State | Required controls | Required checks | Sprint 5 result |
+| --- | --- | --- | --- |
+| Deferred session loading | login/retry path after load resolves | status/live or busy exposure, visible focus, no trap | Pass |
+| Anonymous after `session_required` | email, password, TOTP, sign in | names, keyboard order, re-auth recovery | Pass |
+| `mfa_required` | TOTP input, sign in retry | announced challenge, error not color-only, no session-only leakage | Pass |
+| `mfa_setup_required` | begin enrollment, setup code, complete enrollment | setup state named, error details safe, focus remains recoverable | Pass |
+| Authenticated landing | incident refresh/create/open, account refresh/logout, admin controls | all controls named and keyboard reachable | Pass |
+| Incident empty/list/selected | empty message, incident cards, open workbook, return landing | non-color state cues, stable focus movement | Pass |
+| Stale-selection/incident-error | stale notice, refresh/open other incident, incident retry/recovery | programmatic status/error exposure | Pass |
+| Forbidden/access denied | public error code/message, retry or landing recovery | `authorization_denied` safe display, no private diagnostics | Pass |
+| Revoked/session ended | sign-in controls after prior auth | announced session end, re-auth keyboard path | Pass |
+| Generic public error | public code/message/details and retry/recovery | allowlisted details only, no private keys or secret text | Pass |
+
+### 7. Validation Commands And Artifact Recording
+
+Primary validation passed:
+
+- `make browser-e2e-a11y` passed with run root `.cartulary/test-results/20260530T022308Z-p2711173`, summary `.cartulary/test-results/20260530T022308Z-p2711173/browser-e2e-a11y/tool-run-summary.json`, and accessibility summary `.cartulary/test-results/20260530T022308Z-p2711173/browser-e2e-a11y/accessibility/frontend-accessibility-summary.json`.
+
+Supporting commands run because Sprint 5 changed TypeScript, app logic, summary tooling, and phase metadata:
+
+- `make frontend-typecheck` passed with `.cartulary/test-results/20260530T022243Z-p2709340/frontend-typecheck/tool-run-summary.json`.
+- `make frontend-unit` passed with `.cartulary/test-results/20260530T022251Z-p2709707/frontend-unit/tool-run-summary.json`.
+- `make lint-scripts` passed with `.cartulary/test-results/20260530T022130Z-p2706276/lint-scripts/tool-run-summary.json`.
+- `make phase-ledgers` passed with `.cartulary/test-results/20260530T022032Z-p2701945/phase-ledgers/tool-run-summary.json`.
+- `make phase-ledger-drift` passed with `.cartulary/test-results/20260530T022035Z-p2702181/phase-ledger-drift/tool-run-summary.json`.
+- `git diff --check` passed after implementation; no staged changes existed, so `git diff --cached --check` was not required.
+- End-of-run maintenance: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260530T022308Z-p2711173` failed at retained-run preflight because the browser-only run root was not accepted as a retained-run maintenance input; rerun `make agent-finalize` passed with `.cartulary/test-results/20260530T022657Z-p2719401/agent-finalize/tool-run-summary.json`, skipped retained-run maintenance because `RESULTS_DIR` was unset, and updated `tools/execution_topology_render_index.json`.
+
+### 8. Promotion And Blocker Rules For `FE-A11Y-P1-01`
+
+Promotion was allowed only after `make browser-e2e-a11y` passed, every exact FE-P1 scenario title was present and passed, the normalized accessibility summary mapped those scenarios to `FE-A11Y-P1-01`, all required matrix entries passed, private diagnostics were absent, and phase-ledger drift passed after metadata changed.
+
+Do not mark `FE-A11Y-P1-01` complete from test names, visual goldens, retained artifacts alone, generated ledger consistency, support-only evidence, FE-P0 historical evidence, or this plan.
+
+Blocker format, if Sprint 5 is reopened: `Blocked: FE-A11Y-P1-01. Command/scenario: <command or title>. Failure point: <assertion/target/tooling step>. Artifact: <path or unavailable>. Evidence class: design_direction. Owner class: <FE-P1-owned|harness-owned|infra-owned|outside-FE-P1>. Minimum follow-up: <smallest required action>.`
+
+Final blocker state: none.
+
+### 9. Deliverables
+
+- Exact FE-P1 a11y Playwright scenarios and shared assertions in `apps/web/e2e/workbook.a11y.spec.ts`.
+- Minimal FE-P1 app-surface accessibility fixes in `apps/web/src/App.tsx`, `apps/web/src/AppRoot.tsx`, `apps/web/src/Phase1Surface.tsx`, `apps/web/src/IncidentAdminPanel.tsx`, and `apps/web/src/ReferencePackAdminPanel.tsx`.
+- Normalized accessibility summary evidence mapped to `FE-A11Y-P1-01`.
+- Phase-map and regenerated ledger updates for exact scenario metadata and implemented claim status.
+- Sprint 5 execution evidence recorded in this section.
+
+### 10. Binary Acceptance Criteria
+
+| Criterion | Required result | Sprint 5 result |
+| --- | --- | --- |
+| `make browser-e2e-a11y` | Passes, or precise blocker recorded | Pass |
+| Scenario coverage | All required FE-P1 states executed directly | Pass: 9/9 mapped scenarios |
+| Keyboard/focus | Required controls reachable, visibly focused, not trapped | Pass |
+| Screen-reader safety | Loading, forbidden, revoked, and error changes programmatically exposed where needed | Pass |
+| State cues | No required state relies on color alone | Pass |
+| Error privacy | No private diagnostics in public-error rendering | Pass |
+| Summary evidence | `frontend-accessibility-summary.json` maps executed evidence to `FE-A11Y-P1-01` | Pass |
+| Classification | Evidence remains `design_direction`, not Core conformance or Core 05 | Pass |
+| Ledgers | Generated only through `make phase-ledgers` when metadata changes | Pass |
+
+### 11. Sprint 5 Completion-Evidence Recording Template
+
+- Design-direction evidence: `make browser-e2e-a11y` passed; run root `.cartulary/test-results/20260530T022308Z-p2711173`; summary `.cartulary/test-results/20260530T022308Z-p2711173/browser-e2e-a11y/tool-run-summary.json`.
+- Normalized accessibility summary: `.cartulary/test-results/20260530T022308Z-p2711173/browser-e2e-a11y/accessibility/frontend-accessibility-summary.json`; `phase_rows[]` contains `FE-A11Y-P1-01` with `evidence_class="design_direction"` and `claim_status="implemented"`; `scenarios[]` maps 9/9 FE-P1 scenarios to pass.
+- Mapped scenario titles: the nine exact titles listed in Section 4.
+- Required checks: keyboard matrix pass; state communication pass; contrast/non-color cues pass; private diagnostics pass; violations none.
+- Supporting evidence: `make frontend-typecheck` pass `.cartulary/test-results/20260530T022243Z-p2709340/frontend-typecheck/tool-run-summary.json`; `make frontend-unit` pass `.cartulary/test-results/20260530T022251Z-p2709707/frontend-unit/tool-run-summary.json`; `make lint-scripts` pass `.cartulary/test-results/20260530T022130Z-p2706276/lint-scripts/tool-run-summary.json`; `make phase-ledgers` pass `.cartulary/test-results/20260530T022032Z-p2701945/phase-ledgers/tool-run-summary.json`; `make phase-ledger-drift` pass `.cartulary/test-results/20260530T022035Z-p2702181/phase-ledger-drift/tool-run-summary.json`; `make agent-finalize` pass `.cartulary/test-results/20260530T022657Z-p2719401/agent-finalize/tool-run-summary.json` after retained-run maintenance was skipped because `RESULTS_DIR` was unset; `git diff --check` pass; `git diff --cached --check` not run because no staged changes existed.
+- Phase metadata: `FE-A11Y-P1-01` implemented; `make phase-ledgers` and `make phase-ledger-drift` passed after metadata changes.
+- Blockers: none.
 
 ## Sprint 6: Stable Bootstrap And Error-State Selector Builders
 
@@ -599,20 +717,20 @@ Do not replace blockers with guesses. If a command is not run, state that it was
 | The guide file exists and states that it is not behavior authority | Satisfied by this file once committed or otherwise accepted |
 | FE-P1 phase registry, phase map, and generated ledger are present or a precise blocker is recorded | Satisfied by Sprint 1 readiness inspection: registry, map, and ledger exist |
 | Every FE-P1 row is represented exactly once in the phase map | Satisfied by Sprint 1 duplicate-row inspection: all five requested rows appear once |
-| Generated ledgers are produced by generator, not hand-edited | Satisfied through Sprint 4 metadata: `make phase-ledgers` regenerated the FE-P1 and Phase 1 ledgers and `make phase-ledger-drift` passed |
+| Generated ledgers are produced by generator, not hand-edited | Satisfied through Sprint 5 metadata: `make phase-ledgers` passed with `.cartulary/test-results/20260530T022032Z-p2701945/phase-ledgers/tool-run-summary.json` and `make phase-ledger-drift` passed with `.cartulary/test-results/20260530T022035Z-p2702181/phase-ledger-drift/tool-run-summary.json` |
 | `FE-U-P1-01` has direct unit evidence or a blocker | Satisfied for Sprint 2 unit scope: `make frontend-unit` passed with `.cartulary/test-results/20260529T222359Z-p2202982/frontend-unit/tool-run-summary.json` and only `FE-U-P1-01` was promoted |
 | `FE-I-P1-01` has direct integration/unit evidence or a blocker | Satisfied for Sprint 3 route-boundary scope: `make frontend-unit` passed with `.cartulary/test-results/20260530T004132Z-p2464041/frontend-unit/tool-run-summary.json`, the summary extension closes `FE-I-P1-01` with 11/11 scenarios passed, and the FE-P1 map lists row-owned FE-I scenario titles |
 | `FE-E-P1-01` has browser E2E evidence or a blocker | Satisfied for Sprint 4 browser E2E scope: `make browser-e2e-webserver-backed` passed with `.cartulary/test-results/20260530T011915Z-p2549929/browser-e2e-webserver-backed/tool-run-summary.json`, all 10 mapped `FE-E-P1-01` scenario titles passed, and the row was promoted |
-| `FE-A11Y-P1-01` has accessibility evidence or a blocker | Blocked: `make browser-e2e-a11y` was not run for guide creation |
+| `FE-A11Y-P1-01` has accessibility evidence or a blocker | Satisfied for Sprint 5 accessibility scope: `make browser-e2e-a11y` passed with `.cartulary/test-results/20260530T022308Z-p2711173/browser-e2e-a11y/tool-run-summary.json`, all 9 mapped scenarios passed, the retained accessibility summary maps evidence to `FE-A11Y-P1-01`, and the row remains `design_direction` |
 | `FE-S-P1-01` has selector-builder support evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 selector-builder evidence was promoted; Sprint 2 selector accounting remains app-local and `make browser-e2e-support` was not run |
 | Public-route behavior stays under `/api/v1/` | Satisfied for `FE-I-P1-01` route-boundary evidence and Sprint 4 `FE-E-P1-01` browser-observed `/api/v1/` auth, session, incident, membership, and revoke-all flows |
 | Frontend error rendering uses public error envelopes and not private server details | Satisfied for `FE-U-P1-01` unit scope, `FE-I-P1-01` route-boundary rendering evidence, and Sprint 4 `FE-E-P1-01` forbidden incident observation through `authorization_denied` without private diagnostics rendered |
 | Server-managed session state is respected | Satisfied for `FE-U-P1-01` unit scope, `FE-I-P1-01` route-boundary client evidence, and Sprint 4 `FE-E-P1-01` browser evidence for login bootstrap, password-change revocation, explicit revoke-all, and re-authentication |
 | Unknown closed request members are tested where route owners require closure | Satisfied for `FE-I-P1-01` client serialization evidence on exercised owner-closed Phase 1 request bodies; backend/API rows remain responsible for server-side rejection conformance |
 | P0 regression checks remain green or exact blockers are recorded | Satisfied for Sprint 1 readiness: `make frontend-typecheck`, `make frontend-unit`, `make generated-artifact-policy-check`, `make generate-drift`, `make frontend-import-boundary-check`, and `make phase-ledger-drift` passed |
-| Support-only and design-direction evidence are not represented as product-conformance evidence | Satisfied for Sprint 1 metadata; current FE-P1 map separates product conformance, design direction, and implementation support |
+| Support-only and design-direction evidence are not represented as product-conformance evidence | Satisfied through Sprint 5 metadata; current FE-P1 map separates product conformance, design direction, and implementation support, and `FE-A11Y-P1-01` remains `design_direction` |
 | No Core 05 claim-publication review is activated unless explicitly requested | Satisfied for Sprint 1; this guide does not activate Core 05 publication review |
-| Whitespace checks pass | Satisfied for Sprint 4: `git diff --check` passed; no staged changes, so `git diff --cached --check` was skipped |
+| Whitespace checks pass | Satisfied for Sprint 5: `git diff --check` passed; no staged changes, so `git diff --cached --check` was skipped |
 
 FE-P1 must not be marked complete until every criterion is satisfied with direct evidence or an explicit blocker.
 

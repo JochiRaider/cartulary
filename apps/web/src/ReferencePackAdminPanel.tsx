@@ -269,6 +269,7 @@ export function ReferencePackAdminPanel({
 
       <div style={uploadRowStyle}>
         <input
+          aria-label="Reference pack bundle file"
           data-testid={referencePackFileInputTestId()}
           type="file"
           onChange={(event) => {

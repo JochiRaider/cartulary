@@ -189,6 +189,7 @@ export function IncidentLanding({
 
   return (
     <section
+      aria-busy={isRefreshing}
       data-bootstrap-state={bootstrapState}
       data-testid="incident-landing"
       style={landingPanelStyle}
@@ -283,7 +284,12 @@ export function IncidentLanding({
         </div>
 
         {isRefreshing ? (
-          <p data-testid="landing-loading" style={landingBodyStyle}>
+          <p
+            aria-live="polite"
+            data-testid="landing-loading"
+            role="status"
+            style={landingBodyStyle}
+          >
             Loading visible incidents…
           </p>
         ) : null}
@@ -331,10 +337,20 @@ export function IncidentLanding({
         ) : null}
       </section>
 
-      <p data-testid="landing-status" style={landingStatusStyle}>
+      <p
+        aria-live="polite"
+        data-testid="landing-status"
+        role="status"
+        style={landingStatusStyle}
+      >
         {statusText}
       </p>
-      <p data-testid="landing-error-code" style={landingErrorStyle}>
+      <p
+        aria-live="assertive"
+        data-testid="landing-error-code"
+        role={error === null ? undefined : "alert"}
+        style={landingErrorStyle}
+      >
         {publicErrorView(error)?.code ?? ""}
       </p>
       <PublicErrorSummary
@@ -720,6 +736,7 @@ export function App() {
   if (route.incidentId !== "" && session !== null) {
     return (
       <main
+        aria-busy={appBootstrapState === "loading"}
         className="cartulary-shell"
         data-bootstrap-state={appBootstrapState}
         data-testid="app-shell"
@@ -758,7 +775,12 @@ export function App() {
 
           <Suspense
             fallback={
-              <p data-testid="workbook-loading" style={routeLoadingStyle}>
+              <p
+                aria-live="polite"
+                data-testid="workbook-loading"
+                role="status"
+                style={routeLoadingStyle}
+              >
                 Loading workbook…
               </p>
             }
@@ -790,7 +812,12 @@ export function App() {
 
           <Suspense
             fallback={
-              <p data-testid="debug-harness-loading" style={routeLoadingStyle}>
+              <p
+                aria-live="polite"
+                data-testid="debug-harness-loading"
+                role="status"
+                style={routeLoadingStyle}
+              >
                 Loading debug harness…
               </p>
             }
@@ -827,6 +854,7 @@ export function App() {
 
   return (
     <main
+      aria-busy={appBootstrapState === "loading"}
       className="cartulary-shell"
       data-bootstrap-state={appBootstrapState}
       data-testid="app-shell"
@@ -884,7 +912,11 @@ function PublicErrorSummary({
 }) {
   const view = publicErrorView(error);
   return (
-    <div data-testid={testIds.container} style={publicErrorStyle}>
+    <div
+      data-testid={testIds.container}
+      role={view === null ? undefined : "alert"}
+      style={publicErrorStyle}
+    >
       <p data-testid={testIds.message} style={errorMessageStyle}>
         {view?.statusText ?? ""}
       </p>

@@ -169,6 +169,7 @@ export function Phase1AuthSurface({
 
   return (
     <main
+      aria-busy={bootstrapState === "loading"}
       className="cartulary-shell"
       data-bootstrap-state={displayedBootstrapState}
       data-testid="auth-shell"
@@ -185,7 +186,11 @@ export function Phase1AuthSurface({
           </div>
           <div style={statusCardStyle}>
             <span style={labelStyle}>Status</span>
-            <strong data-testid="auth-status">
+            <strong
+              aria-live="polite"
+              data-testid="auth-status"
+              role="status"
+            >
               {bootstrapState === "loading"
                 ? "Checking current session…"
                 : statusText}
@@ -253,7 +258,12 @@ export function Phase1AuthSurface({
               Sign in
             </button>
           </div>
-          <p data-testid="auth-error-code" style={errorStyle}>
+          <p
+            aria-live="assertive"
+            data-testid="auth-error-code"
+            role={displayedError === null ? undefined : "alert"}
+            style={errorStyle}
+          >
             {publicErrorView(displayedError)?.code ?? ""}
           </p>
           <PublicErrorSummary
@@ -714,10 +724,20 @@ export function Phase1AccountPanel({
         </div>
       </section>
 
-      <p data-testid="account-status" style={statusTextStyle}>
+      <p
+        aria-live="polite"
+        data-testid="account-status"
+        role="status"
+        style={statusTextStyle}
+      >
         {statusText}
       </p>
-      <p data-testid="account-error-code" style={errorStyle}>
+      <p
+        aria-live="assertive"
+        data-testid="account-error-code"
+        role={error === null && credentialStateError === null ? undefined : "alert"}
+        style={errorStyle}
+      >
         {publicErrorView(error ?? credentialStateError)?.code ?? ""}
       </p>
       <PublicErrorSummary
@@ -1383,10 +1403,20 @@ export function Phase1AdminPanel({
         </div>
       </section>
 
-      <p data-testid="admin-status" style={statusTextStyle}>
+      <p
+        aria-live="polite"
+        data-testid="admin-status"
+        role="status"
+        style={statusTextStyle}
+      >
         {statusText}
       </p>
-      <p data-testid="admin-error-code" style={errorStyle}>
+      <p
+        aria-live="assertive"
+        data-testid="admin-error-code"
+        role={error === null ? undefined : "alert"}
+        style={errorStyle}
+      >
         {publicErrorView(error)?.code ?? ""}
       </p>
       <PublicErrorSummary
@@ -1414,7 +1444,11 @@ function PublicErrorSummary({
 }) {
   const view = publicErrorView(error);
   return (
-    <div data-testid={testIds.container} style={publicErrorStyle}>
+    <div
+      data-testid={testIds.container}
+      role={view === null ? undefined : "alert"}
+      style={publicErrorStyle}
+    >
       <p data-testid={testIds.message} style={errorMessageStyle}>
         {view?.statusText ?? ""}
       </p>

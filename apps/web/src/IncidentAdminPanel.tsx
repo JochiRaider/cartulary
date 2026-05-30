@@ -312,7 +312,7 @@ export function IncidentAdminPanel({
   }
 
   return (
-    <section style={panelStyle}>
+    <section aria-busy={incident === null} style={panelStyle}>
       <div style={headerStyle}>
         <div>
           <p style={eyebrowStyle}>Incident shell</p>
@@ -324,12 +324,23 @@ export function IncidentAdminPanel({
         </div>
         <div style={statusCardStyle}>
           <span style={labelStyle}>Status</span>
-          <strong data-testid="incident-admin-status">{statusText}</strong>
+          <strong
+            aria-live="polite"
+            data-testid="incident-admin-status"
+            role="status"
+          >
+            {statusText}
+          </strong>
         </div>
       </div>
 
       {error ? (
-        <p data-testid="incident-admin-error-code" style={errorStyle}>
+        <p
+          aria-live="assertive"
+          data-testid="incident-admin-error-code"
+          role="alert"
+          style={errorStyle}
+        >
           {error.code}
         </p>
       ) : (

@@ -181,9 +181,17 @@
         "make browser-e2e-a11y"
       ],
       "scenario_titles": [
-        "FE-A11Y-P1-01 Verify session, MFA, incident, forbidden, loading, and error states have keyboard-reachable controls, visible focus, and screen-reader-safe labels."
+        "FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
+        "FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing",
+        "FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
+        "FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
+        "FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
+        "FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
+        "FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
+        "FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication",
+        "FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery"
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify session, MFA, incident, forbidden, loading, and error states have keyboard-reachable controls, visible focus, and screen-reader-safe labels.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },

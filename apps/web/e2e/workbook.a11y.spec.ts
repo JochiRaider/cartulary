@@ -1,8 +1,30 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { workbookShellReadyTestId } from "@cartulary/ui-contracts";
+import {
+  currentIncidentRoleTestId,
+  landingIncidentCardTestId,
+  workbookShellReadyTestId,
+} from "@cartulary/ui-contracts";
+import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
+
+import {
+  createLocalUser as createAuthLocalUser,
+  revokeAllSessions,
+} from "./authRuntime";
 import { expect, test } from "./fixtures";
-import { createIncident, uniqueIncidentKey } from "./helpers";
+import {
+  apiBase,
+  createIncident,
+  createIncidentMembership,
+  enrollTotpViaBootstrap,
+  generateTotpCode,
+  safeUnroute,
+  sessionCookieName,
+  uniqueEmail,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./helpers";
+import { Phase1Page } from "./phase1Page";
 
 type FrontendPhaseRow = {
   id: string;
@@ -12,6 +34,44 @@ type FrontendPhaseRow = {
 type FrontendPhaseMap = {
   rows: FrontendPhaseRow[];
 };
+
+type IncidentMembershipRecord = {
+  membership_version: number;
+  role: string;
+  user_id: string;
+};
+
+const p1AccessibilityScenarioTitles = [
+  "FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
+  "FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing",
+  "FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
+  "FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
+  "FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
+  "FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
+  "FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
+  "FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication",
+  "FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
+] as const;
+
+const focusableSelector =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const keyboardSentinelId = "a11y-keyboard-sentinel";
+
+const privateDiagnosticPatterns = [
+  /bootstrap[_ -]?token/i,
+  /secret[_ -]?base32/i,
+  /PRIVATESECRET|ERRORSECRET|CREATESECRET|MFAREQUIREDSECRET/i,
+  /otpauth/i,
+  /request[_ -]?id/i,
+  /\bstack\b/i,
+  /\btraceback\b/i,
+  /\/(?:home|var|tmp|usr|app|workspace)\//i,
+  /\bselect\b[\s\S]{0,80}\bfrom\b/i,
+  /\binsert\b[\s\S]{0,80}\binto\b/i,
+  /\bupdate\b[\s\S]{0,80}\bset\b/i,
+  /internal_path/i,
+  /raw_request/i,
+];
 
 function findRepoRoot(): string {
   let candidate = process.cwd();
@@ -35,7 +95,7 @@ const frontendPhaseMapDir = path.join(
   "frontend_phase_maps",
 );
 
-function accessibilityScenarios(): string[] {
+function nonP1AccessibilityScenarios(): string[] {
   return readdirSync(frontendPhaseMapDir)
     .filter((name) => /^fe_p\d+_test_map\.json$/.test(name))
     .sort((left, right) => left.localeCompare(right, "en", { numeric: true }))
@@ -44,13 +104,965 @@ function accessibilityScenarios(): string[] {
         readFileSync(path.join(frontendPhaseMapDir, name), "utf8"),
       ) as FrontendPhaseMap;
       return manifest.rows
-        .filter((row) => row.id.startsWith("FE-A11Y-"))
+        .filter(
+          (row) =>
+            row.id.startsWith("FE-A11Y-") && row.id !== "FE-A11Y-P1-01",
+        )
         .flatMap((row) => row.scenario_titles);
     });
 }
 
-test.describe("frontend accessibility readiness", () => {
-  for (const title of accessibilityScenarios()) {
+async function clearBrowserSession(page: Page) {
+  await page.context().clearCookies();
+}
+
+async function hasSessionCookie(page: Page) {
+  const cookies = await page.context().cookies(apiBase);
+  return cookies.some((cookie) => cookie.name === sessionCookieName);
+}
+
+async function expectAllInteractiveControlsNamed(page: Page) {
+  const unnamedControls = await page.locator("body").evaluate((body) => {
+    function isVisible(element: Element) {
+      const htmlElement = element as HTMLElement;
+      const style = window.getComputedStyle(htmlElement);
+      return (
+        style.visibility !== "hidden" &&
+        style.display !== "none" &&
+        htmlElement.getClientRects().length > 0
+      );
+    }
+
+    function labelledByText(element: Element) {
+      const labelledBy = element.getAttribute("aria-labelledby") ?? "";
+      return labelledBy
+        .split(/\s+/u)
+        .filter(Boolean)
+        .map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
+        .join(" ")
+        .trim();
+    }
+
+    function labelText(element: Element) {
+      if (
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLSelectElement ||
+        element instanceof HTMLTextAreaElement
+      ) {
+        return Array.from(element.labels ?? [])
+          .map((label) => label.textContent?.trim() ?? "")
+          .join(" ")
+          .trim();
+      }
+      return "";
+    }
+
+    function accessibleName(element: Element) {
+      return (
+        element.getAttribute("aria-label")?.trim() ||
+        labelledByText(element) ||
+        labelText(element) ||
+        element.textContent?.trim() ||
+        element.getAttribute("title")?.trim() ||
+        element.getAttribute("placeholder")?.trim() ||
+        ""
+      );
+    }
+
+    return Array.from(
+      body.querySelectorAll(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [role="button"]:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    )
+      .filter(isVisible)
+      .filter((element) => accessibleName(element) === "")
+      .map((element) => {
+        const tag = element.tagName.toLowerCase();
+        const testId = element.getAttribute("data-testid") ?? "";
+        const role = element.getAttribute("role") ?? "";
+        return `${tag}${testId ? ` data-testid:${testId}` : ""}${role ? ` role:${role}` : ""}`;
+      });
+  });
+  expect(unnamedControls).toEqual([]);
+}
+
+async function activeTestId(page: Page) {
+  return page.evaluate(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) {
+      return "";
+    }
+    return active.closest("[data-testid]")?.getAttribute("data-testid") ?? "";
+  });
+}
+
+async function activeElementSignature(page: Page) {
+  return page.evaluate(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || active === document.body) {
+      return "";
+    }
+    const testId =
+      active.closest("[data-testid]")?.getAttribute("data-testid") ?? "";
+    const id = active.id === "" ? "" : `#${active.id}`;
+    const tag = active.tagName.toLowerCase();
+    const role = active.getAttribute("role") ?? "";
+    const nameParts = [
+      active.getAttribute("aria-label")?.trim() ?? "",
+      active.getAttribute("title")?.trim() ?? "",
+      active.textContent?.trim() ?? "",
+    ].filter(Boolean);
+    return [
+      tag,
+      id,
+      testId === "" ? "" : ` data-testid:${testId}`,
+      role === "" ? "" : ` role:${role}`,
+      nameParts.length === 0 ? "" : `:${nameParts.join(" ")}`,
+    ].join("");
+  });
+}
+
+async function focusKeyboardSentinel(page: Page) {
+  await page.evaluate((sentinelId) => {
+    let sentinel = document.getElementById(sentinelId);
+    if (sentinel === null) {
+      sentinel = document.createElement("button");
+      sentinel.id = sentinelId;
+      sentinel.setAttribute("aria-label", "Keyboard traversal sentinel");
+      sentinel.setAttribute("type", "button");
+      sentinel.style.position = "fixed";
+      sentinel.style.inlineSize = "1px";
+      sentinel.style.blockSize = "1px";
+      sentinel.style.opacity = "0";
+      sentinel.style.pointerEvents = "none";
+      document.body.prepend(sentinel);
+    }
+    sentinel.focus();
+  }, keyboardSentinelId);
+}
+
+async function removeKeyboardSentinel(page: Page) {
+  await page.evaluate((sentinelId) => {
+    document.getElementById(sentinelId)?.remove();
+  }, keyboardSentinelId);
+}
+
+async function expectTabOrderIncludes(
+  page: Page,
+  testIds: string[],
+  maxTabs = 180,
+) {
+  await focusKeyboardSentinel(page);
+  try {
+    const remaining = new Set(testIds);
+    for (let index = 0; index < maxTabs && remaining.size > 0; index += 1) {
+      await page.keyboard.press("Tab");
+      remaining.delete(await activeTestId(page));
+    }
+    expect([...remaining]).toEqual([]);
+  } finally {
+    await removeKeyboardSentinel(page);
+  }
+}
+
+async function expectNoFocusTrap(page: Page) {
+  await focusKeyboardSentinel(page);
+  try {
+    await page.keyboard.press("Tab");
+    const first = await activeElementSignature(page);
+    await page.keyboard.press("Tab");
+    const second = await activeElementSignature(page);
+    expect(first).not.toBe("");
+    expect(second).not.toBe("");
+    expect(second).not.toBe(first);
+    await page.keyboard.press("Shift+Tab");
+    expect(await activeElementSignature(page)).toBe(first);
+  } finally {
+    await removeKeyboardSentinel(page);
+  }
+}
+
+async function expectVisibleFocus(locator: Locator) {
+  await locator.focus();
+  await expect(locator).toBeFocused();
+  const hasVisibleFocus = await locator.evaluate((element) => {
+    const style = window.getComputedStyle(element);
+    const outlineVisible =
+      style.outlineStyle !== "none" &&
+      style.outlineWidth !== "0px" &&
+      style.outlineColor !== "transparent";
+    const shadowVisible = style.boxShadow !== "none";
+    return outlineVisible || shadowVisible;
+  });
+  expect(hasVisibleFocus).toBeTruthy();
+}
+
+async function expectStatusRole(locator: Locator) {
+  await expect(locator).toBeVisible();
+  await expect(locator).toHaveAttribute("role", "status");
+  await expect(locator).not.toHaveText("");
+}
+
+async function expectAlertRole(locator: Locator) {
+  await expect(locator).toBeVisible();
+  await expect(locator).toHaveAttribute("role", "alert");
+  await expect(locator).not.toHaveText("");
+}
+
+async function expectNoPrivateDiagnostics(locator: Locator) {
+  const text = (await locator.textContent()) ?? "";
+  for (const pattern of privateDiagnosticPatterns) {
+    expect(text).not.toMatch(pattern);
+  }
+}
+
+async function expectP1SurfaceA11y(
+  page: Page,
+  options: {
+    focusTestId?: string;
+    tabStops?: string[];
+  } = {},
+) {
+  await expectAllInteractiveControlsNamed(page);
+  await expectNoFocusTrap(page);
+  if (options.focusTestId) {
+    await expectVisibleFocus(page.getByTestId(options.focusTestId));
+  }
+  if (options.tabStops && options.tabStops.length > 0) {
+    await expectTabOrderIncludes(page, options.tabStops);
+  }
+}
+
+async function expectLaterPhaseSmoke(page: Page) {
+  const focusableCount = await page.locator(focusableSelector).count();
+  expect(focusableCount).toBeGreaterThan(0);
+
+  await page.locator(focusableSelector).first().focus();
+  await page.keyboard.press("Tab");
+  const activeElementIsFocusable = await page.evaluate(() => {
+    const active = document.activeElement;
+    return Boolean(active && active !== document.body);
+  });
+  expect(activeElementIsFocusable).toBeTruthy();
+
+  const unnamedButtons = await page.locator("button").evaluateAll((buttons) =>
+    buttons.filter((button) => {
+      const text = button.textContent?.trim() ?? "";
+      const ariaLabel = button.getAttribute("aria-label")?.trim() ?? "";
+      const titleAttr = button.getAttribute("title")?.trim() ?? "";
+      const labelledBy = button.getAttribute("aria-labelledby")?.trim() ?? "";
+      return !text && !ariaLabel && !titleAttr && !labelledBy;
+    }).length,
+  );
+  expect(unnamedButtons).toBe(0);
+}
+
+async function loadIncidentMembership(
+  authRequests: APIRequestContext,
+  incidentId: string,
+  userId: string,
+) {
+  const response = await authRequests.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships`,
+  );
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as {
+    data: { memberships: IncidentMembershipRecord[] };
+  };
+  const membership =
+    body.data.memberships.find((candidate) => candidate.user_id === userId) ??
+    null;
+  if (membership === null) {
+    throw new Error(`missing incident membership for ${userId}`);
+  }
+  return membership;
+}
+
+async function createIncidentWithRequest(
+  authRequests: APIRequestContext,
+  incidentKey: string,
+  title: string,
+) {
+  const response = await authRequests.post(`${apiBase}/api/v1/incidents`, {
+    data: {
+      client_txn_id: uniqueTxn("a11y-incident"),
+      incident_key: incidentKey,
+      title,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as { data: { incident_id: string } };
+  return body.data.incident_id;
+}
+
+async function createIncidentMembershipWithRequest(
+  authRequests: APIRequestContext,
+  incidentId: string,
+  email: string,
+  role: string,
+) {
+  const response = await authRequests.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships`,
+    {
+      data: {
+        client_txn_id: uniqueTxn("a11y-membership"),
+        email,
+        role,
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+async function patchIncidentMembership(
+  authRequests: APIRequestContext,
+  incidentId: string,
+  options: {
+    baseMembershipVersion: number;
+    role: string;
+    userId: string;
+  },
+  headers: Record<string, string> = {},
+) {
+  const response = await authRequests.patch(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships/${options.userId}`,
+    {
+      headers,
+      data: {
+        base_membership_version: options.baseMembershipVersion,
+        role: options.role,
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: IncidentMembershipRecord }).data;
+}
+
+async function deleteIncidentMembership(
+  authRequests: APIRequestContext,
+  incidentId: string,
+  userId: string,
+  baseMembershipVersion: number,
+  headers: Record<string, string> = {},
+) {
+  const response = await authRequests.delete(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships/${userId}`,
+    {
+      headers,
+      data: {
+        base_membership_version: baseMembershipVersion,
+      },
+    },
+  );
+  expect(response.status()).toBe(204);
+}
+
+async function holdSinglePublicAPIResponse(
+  page: Page,
+  options: {
+    method: string;
+    path: string;
+  },
+) {
+  const routePattern = `**${options.path}`;
+  const expectedMethod = options.method.toUpperCase();
+  let releaseHold: (() => void) | null = null;
+  let resolveHit: (() => void) | null = null;
+  const waitForHit = new Promise<void>((resolve) => {
+    resolveHit = resolve;
+  });
+  const hold = new Promise<void>((resolve) => {
+    releaseHold = resolve;
+  });
+  let released = false;
+
+  const routeHandler = async (route: Route) => {
+    if (route.request().method().toUpperCase() !== expectedMethod || released) {
+      await route.fallback();
+      return;
+    }
+    released = true;
+    resolveHit?.();
+    await hold;
+    const response = await route.fetch();
+    await route.fulfill({ response });
+  };
+
+  await page.route(routePattern, routeHandler);
+  return {
+    dispose: async () => {
+      releaseHold?.();
+      await safeUnroute(page, routePattern, routeHandler);
+    },
+    release: () => {
+      releaseHold?.();
+    },
+    waitForHit,
+  };
+}
+
+async function fulfillPublicError(route: Route, options: {
+  code: string;
+  details?: Record<string, unknown>;
+  message?: string;
+  status: number;
+}) {
+  await route.fulfill({
+    contentType: "application/json",
+    status: options.status,
+    body: JSON.stringify({
+      error: {
+        code: options.code,
+        message: options.message,
+        status: options.status,
+        request_id: "raw-request-id-must-not-render",
+        details: {
+          reason_code: "safe_reason",
+          ...(options.details ?? {}),
+          bootstrap_token: "private-bootstrap-token",
+          internal_path: "/home/cartulary/private/file.go",
+          raw_request_id: "raw-request-id-must-not-render",
+          secret_base32: "PRIVATESECRETBASE32",
+          sql: "select * from private_table",
+          stack: "stack frame at /home/cartulary/private/file.go:1",
+        },
+      },
+    }),
+  });
+}
+
+test.describe("FE-P1 accessibility readiness", () => {
+  test(p1AccessibilityScenarioTitles[0], async ({ page }) => {
+    const phase1 = new Phase1Page(page);
+    await clearBrowserSession(page);
+    const heldSession = await holdSinglePublicAPIResponse(page, {
+      method: "GET",
+      path: "/api/v1/auth/session",
+    });
+    await phase1.goto();
+    await heldSession.waitForHit;
+
+    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+      "data-bootstrap-state",
+      "loading",
+    );
+    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    await expectStatusRole(page.getByTestId("auth-status"));
+    await expect(page.getByTestId("auth-status")).toContainText(
+      "Checking current session",
+    );
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "auth-login-submit",
+      tabStops: [
+        "auth-login-username",
+        "auth-login-password",
+        "auth-login-totp-code",
+        "auth-login-submit",
+      ],
+    });
+
+    try {
+      heldSession.release();
+      await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+        "data-bootstrap-state",
+        "anonymous",
+      );
+    } finally {
+      await heldSession.dispose();
+    }
+  });
+
+  test(p1AccessibilityScenarioTitles[1], async ({
+    page,
+    sessionTracker,
+    workerAdminRequest,
+  }) => {
+    const phase1 = new Phase1Page(page);
+    const email = uniqueEmail("a11y-p1-login");
+    const password = "A11yP1LoginPass!";
+    const user = await createAuthLocalUser(workerAdminRequest, {
+      email,
+      display_name: "A11Y P1 Login",
+      initial_password: password,
+      mfa_required: false,
+    });
+
+    await clearBrowserSession(page);
+    await phase1.goto();
+    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+      "data-bootstrap-state",
+      "anonymous",
+    );
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "auth-login-username",
+      tabStops: [
+        "auth-login-username",
+        "auth-login-password",
+        "auth-login-totp-code",
+        "auth-login-submit",
+      ],
+    });
+
+    await phase1.login(email, password);
+    await expect(page.getByTestId("incident-landing")).toBeVisible();
+    await expectStatusRole(page.getByTestId("landing-status"));
+    await expectStatusRole(page.getByTestId("account-status"));
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "landing-refresh",
+      tabStops: [
+        "landing-refresh",
+        "landing-incident-key",
+        "landing-incident-title",
+        "landing-create-button",
+        "account-refresh-state",
+        "account-logout",
+      ],
+    });
+    await sessionTracker.captureCurrentSession(page, {
+      createdBy: "phase1 accessibility",
+      email,
+      purpose: "FE-A11Y-P1-01 anonymous login",
+      userId: user.user_id,
+    });
+  });
+
+  test(p1AccessibilityScenarioTitles[2], async ({
+    page,
+    sessionTracker,
+    workerAdminRequest,
+  }) => {
+    const phase1 = new Phase1Page(page);
+    const email = uniqueEmail("a11y-p1-mfa");
+    const password = "A11yP1MfaPass!";
+    const user = await createAuthLocalUser(workerAdminRequest, {
+      email,
+      display_name: "A11Y P1 MFA",
+      initial_password: password,
+      mfa_required: true,
+    });
+    const secretBase32 = await enrollTotpViaBootstrap(email, password);
+
+    await clearBrowserSession(page);
+    await phase1.goto();
+    await phase1.login(email, password);
+    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+      "data-bootstrap-state",
+      "mfa_required",
+    );
+    await expectAlertRole(page.getByTestId("auth-error-code"));
+    await expect(page.getByTestId("auth-error-code")).toHaveText(
+      "mfa_required",
+    );
+    await expectStatusRole(page.getByTestId("auth-status"));
+    await expect(page.getByTestId("auth-status")).toContainText("TOTP code");
+    await expectNoPrivateDiagnostics(page.getByTestId("auth-error-public"));
+    expect(await hasSessionCookie(page)).toBeFalsy();
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "auth-login-totp-code",
+      tabStops: [
+        "auth-login-username",
+        "auth-login-password",
+        "auth-login-totp-code",
+        "auth-login-submit",
+      ],
+    });
+
+    await phase1.login(email, password, generateTotpCode(secretBase32));
+    await expect(page.getByTestId("account-session-user-id")).toHaveText(
+      user.user_id,
+    );
+    await sessionTracker.captureCurrentSession(page, {
+      createdBy: "phase1 accessibility",
+      email,
+      purpose: "FE-A11Y-P1-01 mfa_required retry",
+      userId: user.user_id,
+    });
+  });
+
+  test(p1AccessibilityScenarioTitles[3], async ({
+    page,
+    workerAdminRequest,
+  }) => {
+    const phase1 = new Phase1Page(page);
+    const email = uniqueEmail("a11y-p1-mfa-setup");
+    const password = "A11yP1SetupPass!";
+    await createAuthLocalUser(workerAdminRequest, {
+      email,
+      display_name: "A11Y P1 MFA Setup",
+      initial_password: password,
+      mfa_required: true,
+    });
+
+    await clearBrowserSession(page);
+    await phase1.goto();
+    await phase1.login(email, password);
+    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+      "data-bootstrap-state",
+      "mfa_setup_required",
+    );
+    await expectAlertRole(page.getByTestId("auth-error-code"));
+    await expect(page.getByTestId("auth-error-code")).toHaveText(
+      "mfa_setup_required",
+    );
+    await expect(page.getByTestId("auth-bootstrap-token")).toHaveText(
+      "Stored for TOTP setup requests.",
+    );
+    await expectNoPrivateDiagnostics(page.getByTestId("auth-error-public"));
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "auth-bootstrap-begin",
+      tabStops: [
+        "auth-login-username",
+        "auth-login-password",
+        "auth-login-totp-code",
+        "auth-login-submit",
+        "auth-bootstrap-begin",
+        "auth-bootstrap-complete-code",
+        "auth-bootstrap-complete",
+      ],
+    });
+
+    await phase1.beginBootstrapEnrollment();
+    await expectStatusRole(page.getByTestId("auth-status"));
+    const secretBase32 = await phase1.requireText("auth-bootstrap-secret-base32");
+    await phase1.completeBootstrapEnrollment(generateTotpCode(secretBase32));
+    await expect(page.getByTestId("auth-status")).toHaveText(
+      "TOTP enrollment completed. Sign in with your TOTP code.",
+    );
+    expect(await hasSessionCookie(page)).toBeFalsy();
+  });
+
+  test(p1AccessibilityScenarioTitles[4], async ({ page }) => {
+    const phase1 = new Phase1Page(page);
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YLAND"),
+      "A11Y authenticated landing",
+    );
+
+    await phase1.goto();
+    await expect(page.getByTestId("incident-landing")).toBeVisible();
+    await expect(
+      page.getByTestId(landingIncidentCardTestId(incidentId)),
+    ).toBeVisible();
+    await expectStatusRole(page.getByTestId("landing-status"));
+    await expectStatusRole(page.getByTestId("account-status"));
+    await expectStatusRole(page.getByTestId("admin-status"));
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "landing-create-button",
+      tabStops: [
+        "landing-refresh",
+        "landing-incident-key",
+        "landing-incident-title",
+        "landing-create-button",
+        "account-refresh-state",
+        "account-logout",
+        "admin-create-email",
+        "admin-create-user",
+      ],
+    });
+  });
+
+  test(p1AccessibilityScenarioTitles[5], async ({
+    page,
+    sessionTracker,
+    workerAdminRequest,
+  }) => {
+    const phase1 = new Phase1Page(page);
+    const email = uniqueEmail("a11y-p1-incident");
+    const password = "A11yP1IncidentPass!";
+    const user = await createAuthLocalUser(workerAdminRequest, {
+      email,
+      display_name: "A11Y P1 Incident",
+      initial_password: password,
+      mfa_required: false,
+    });
+
+    await clearBrowserSession(page);
+    await phase1.goto();
+    await phase1.login(email, password);
+    await expect(page.getByTestId("landing-empty-state")).toContainText(
+      "No incidents are visible",
+    );
+    await expectStatusRole(page.getByTestId("landing-status"));
+
+    const selectedIncidentId = await createIncidentWithRequest(
+      workerAdminRequest,
+      uniqueIncidentKey("A11YEMPTYA"),
+      "A11Y selected incident",
+    );
+    await createIncidentMembershipWithRequest(
+      workerAdminRequest,
+      selectedIncidentId,
+      email,
+      "admin",
+    );
+    const alternateIncidentId = await createIncidentWithRequest(
+      workerAdminRequest,
+      uniqueIncidentKey("A11YEMPTYB"),
+      "A11Y alternate incident",
+    );
+    await createIncidentMembershipWithRequest(
+      workerAdminRequest,
+      alternateIncidentId,
+      email,
+      "admin",
+    );
+
+    await phase1.refreshLanding();
+    await expect(
+      page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
+    ).toBeVisible();
+
+    await phase1.openIncident(selectedIncidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
+      "admin",
+    );
+    await expectStatusRole(page.getByTestId("incident-admin-status"));
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "landing-return",
+      tabStops: ["landing-return", "incident-patch-button"],
+    });
+
+    await phase1.returnToLanding();
+    await phase1.openIncident(selectedIncidentId);
+
+    const selectedMembership = await loadIncidentMembership(
+      workerAdminRequest,
+      selectedIncidentId,
+      user.user_id,
+    );
+    await deleteIncidentMembership(
+      workerAdminRequest,
+      selectedIncidentId,
+      user.user_id,
+      selectedMembership.membership_version,
+    );
+    await page.reload();
+    await expect(page.getByTestId("incident-landing")).toBeVisible();
+    await expect(page.getByTestId("landing-status")).toContainText(
+      "no longer visible",
+    );
+    await expect(
+      page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
+    ).toBeVisible();
+
+    await phase1.openIncident(alternateIncidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
+      "admin",
+    );
+    await expect(page.getByTestId("incident-patch-tlp")).toBeVisible();
+    const alternateMembership = await loadIncidentMembership(
+      workerAdminRequest,
+      alternateIncidentId,
+      user.user_id,
+    );
+    await patchIncidentMembership(
+      workerAdminRequest,
+      alternateIncidentId,
+      {
+        baseMembershipVersion: alternateMembership.membership_version,
+        role: "editor",
+        userId: user.user_id,
+      },
+    );
+    await phase1.patchIncidentFields({
+      currentPhase: "containment",
+      externalCase: "CASE-A11Y",
+      tlp: "amber",
+    });
+    await expectAlertRole(page.getByTestId("incident-admin-error-code"));
+    await expect(page.getByTestId("incident-admin-error-code")).toHaveText(
+      "authorization_denied",
+    );
+    await expectNoPrivateDiagnostics(page.getByTestId("incident-admin-error-code"));
+    await expectVisibleFocus(page.getByTestId("landing-return"));
+    await sessionTracker.captureCurrentSession(page, {
+      createdBy: "phase1 accessibility",
+      email,
+      purpose: "FE-A11Y-P1-01 incident states",
+      userId: user.user_id,
+    });
+  });
+
+  test(p1AccessibilityScenarioTitles[6], async ({ page }) => {
+    const routePattern = "**/api/v1/incidents";
+    const routeHandler = async (route: Route) => {
+      if (route.request().method().toUpperCase() !== "GET") {
+        await route.fallback();
+        return;
+      }
+      await fulfillPublicError(route, {
+        code: "authorization_denied",
+        details: {
+          required_role: "incident_admin",
+        },
+        message: "Access denied.",
+        status: 403,
+      });
+    };
+
+    await page.route(routePattern, routeHandler);
+    await page.goto("/");
+    await expect(page.getByTestId("incident-landing")).toBeVisible();
+    await expect(page.getByTestId("incident-landing")).toHaveAttribute(
+      "data-bootstrap-state",
+      "forbidden",
+    );
+    await expectStatusRole(page.getByTestId("landing-status"));
+    await expectAlertRole(page.getByTestId("landing-error-code"));
+    await expect(page.getByTestId("landing-error-code")).toHaveText(
+      "authorization_denied",
+    );
+    await expectNoPrivateDiagnostics(page.getByTestId("landing-error-public"));
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "landing-refresh",
+      tabStops: [
+        "landing-refresh",
+        "account-refresh-state",
+        "account-logout",
+        "admin-create-email",
+      ],
+    });
+
+    await safeUnroute(page, routePattern, routeHandler);
+    await page.getByTestId("landing-refresh").click();
+    await expect(page.getByTestId("landing-error-code")).toHaveText("");
+  });
+
+  test(p1AccessibilityScenarioTitles[7], async ({
+    page,
+    sessionTracker,
+    workerAdminRequest,
+  }) => {
+    const phase1 = new Phase1Page(page);
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YREVOKE"),
+      "A11Y revoked incident",
+    );
+    const email = uniqueEmail("a11y-p1-revoked");
+    const password = "A11yP1RevokedPass!";
+    const user = await createAuthLocalUser(workerAdminRequest, {
+      email,
+      display_name: "A11Y P1 Revoked",
+      initial_password: password,
+      mfa_required: false,
+    });
+    await createIncidentMembership(page, incidentId, email, "viewer");
+
+    await clearBrowserSession(page);
+    await phase1.goto();
+    await phase1.login(email, password);
+    await expect(page.getByTestId("account-session-user-id")).toHaveText(
+      user.user_id,
+    );
+    await expect(
+      page.getByTestId(landingIncidentCardTestId(incidentId)),
+    ).toBeVisible();
+    await sessionTracker.captureCurrentSession(page, {
+      createdBy: "phase1 accessibility",
+      email,
+      purpose: "FE-A11Y-P1-01 revoked session before revoke-all",
+      userId: user.user_id,
+    });
+
+    await revokeAllSessions(
+      workerAdminRequest,
+      user.user_id,
+      "FE-A11Y-P1-01 revoked-session",
+    );
+    await phase1.refreshLanding();
+    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+      "data-bootstrap-state",
+      "revoked",
+    );
+    await expect(page.getByTestId("auth-shell-message")).toContainText(
+      "Sign in again",
+    );
+    await expectStatusRole(page.getByTestId("auth-status"));
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "auth-login-submit",
+      tabStops: [
+        "auth-login-username",
+        "auth-login-password",
+        "auth-login-totp-code",
+        "auth-login-submit",
+      ],
+    });
+
+    await phase1.login(email, password);
+    await expect(page.getByTestId("account-session-user-id")).toHaveText(
+      user.user_id,
+    );
+    await sessionTracker.captureCurrentSession(page, {
+      createdBy: "phase1 accessibility",
+      email,
+      purpose: "FE-A11Y-P1-01 revoked session re-auth",
+      userId: user.user_id,
+    });
+  });
+
+  test(p1AccessibilityScenarioTitles[8], async ({ page }) => {
+    const routePattern = "**/api/v1/auth/credential-state";
+    const routeHandler = async (route: Route) => {
+      await fulfillPublicError(route, {
+        code: "credential_state_unavailable",
+        details: {
+          field: "credential_state",
+          reason_code: "temporary_failure",
+        },
+        message: "select private_column from local_credentials",
+        status: 500,
+      });
+    };
+
+    await page.route(routePattern, routeHandler);
+    await page.goto("/");
+    await expect(page.getByTestId("account-error-code")).toHaveText(
+      "credential_state_unavailable",
+    );
+    await expectAlertRole(page.getByTestId("account-error-code"));
+    await expectAlertRole(page.getByTestId("account-error-public"));
+    await expect(page.getByTestId("account-error-message")).toHaveText(
+      "Request failed.",
+    );
+    await expect(page.getByTestId("account-error-details")).toContainText(
+      "Reason: temporary_failure",
+    );
+    await expect(page.getByTestId("account-error-details")).toContainText(
+      "Field: credential_state",
+    );
+    await expectNoPrivateDiagnostics(page.getByTestId("account-error-public"));
+    await expectP1SurfaceA11y(page, {
+      focusTestId: "account-refresh-state",
+      tabStops: [
+        "landing-refresh",
+        "account-refresh-state",
+        "account-logout",
+      ],
+    });
+
+    await safeUnroute(page, routePattern, routeHandler);
+    await page.getByTestId("account-refresh-state").click();
+    await expect(page.getByTestId("account-status")).toHaveText(
+      "Refreshed account security.",
+    );
+  });
+});
+
+test.describe("frontend accessibility readiness smoke for later phases", () => {
+  for (const title of nonP1AccessibilityScenarios()) {
     test(title, async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       const incidentId = await createIncident(
@@ -62,39 +1074,7 @@ test.describe("frontend accessibility readiness", () => {
 
       await expect(page.locator("body")).toBeVisible();
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-
-      const focusableSelector =
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-      const focusableCount = await page.locator(focusableSelector).count();
-      expect(focusableCount).toBeGreaterThan(0);
-
-      await page.locator(focusableSelector).first().focus();
-      await page.keyboard.press("Tab");
-      const activeElementIsFocusable = await page.evaluate(() => {
-        const active = document.activeElement;
-        return Boolean(active && active !== document.body);
-      });
-      expect(activeElementIsFocusable).toBeTruthy();
-
-      const unnamedButtons = await page.locator("button").evaluateAll(
-        (buttons) =>
-          buttons.filter((button) => {
-            const text = button.textContent?.trim() ?? "";
-            const ariaLabel = button.getAttribute("aria-label")?.trim() ?? "";
-            const titleAttr = button.getAttribute("title")?.trim() ?? "";
-            const labelledBy =
-              button.getAttribute("aria-labelledby")?.trim() ?? "";
-            return !text && !ariaLabel && !titleAttr && !labelledBy;
-          }).length,
-      );
-      expect(unnamedButtons).toBe(0);
-
-      const colorOnlyStateCount = await page
-        .locator(
-          "[aria-current], [aria-selected], [aria-invalid], [data-state]",
-        )
-        .count();
-      expect(colorOnlyStateCount).toBeGreaterThanOrEqual(0);
+      await expectLaterPhaseSmoke(page);
     });
   }
 });
