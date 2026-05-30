@@ -2,7 +2,7 @@
 title: Graph Projection NLSpec
 status: draft
 document_class: nlspec
-created_at: 2026-05-19
+created_at: 2026-05-30
 ---
 
 ## 1. Purpose and authority
@@ -99,6 +99,35 @@ The following terms have exactly the meanings in this table.
 
 A projection input object is a JSON-compatible object with the members defined in this section. A conforming implementation MAY receive the object through any transport, but after decoding it MUST validate and normalize it according to this NLSpec before projection begins.
 
+### 4.0 JSON decoding, schema-table notation, and canonical input paths
+
+A projection input received as bytes MUST be decoded as UTF-8 JSON before schema validation. Invalid UTF-8, invalid JSON syntax, or a decoded top-level value that is not a JSON object MUST produce `invalid_input_shape`.
+
+A conforming implementation MUST reject duplicate JSON object member names at every object depth before schema validation. Duplicate member handling MUST NOT depend on parser first-wins, last-wins, insertion-order, or map-overwrite behavior. A duplicate member MUST produce one `invalid_input_shape` issue with:
+
+| Field | Required value |
+| --- | --- |
+| `target_kind` | `projection_input` |
+| `target_id` | `projection_input` |
+| `field_path` | canonical input path to the duplicate member |
+| `details.field` | same canonical input path |
+| `details.reason_code` | `duplicate_object_member` |
+
+Schema tables use `[]` as type notation, not as a literal JSON member-name suffix. A table member written as `source_entities[]` denotes the JSON member named `source_entities` whose value is an array. The canonical input path for that member is `$.source_entities`.
+
+Canonical input paths MUST use this grammar.
+
+| Path part | Required syntax |
+| --- | --- |
+| Root | `$` |
+| Object member with an ASCII path identifier | `.` followed by the exact member name |
+| Object member without an ASCII path identifier | `[` + canonical JSON string for the exact member name + `]` |
+| Array element | `[` + zero-based base-10 index with no leading zeroes except `0` + `]` |
+
+An ASCII path identifier is a non-empty string whose first character is `A-Z`, `a-z`, or `_`, and whose remaining characters are `A-Z`, `a-z`, `0-9`, or `_`. Canonical input paths are diagnostic identifiers only. They do not change the field-path grammar in §4.2.
+
+Validation detail members named `field` MUST use canonical input path syntax unless the owning detail schema explicitly says the member carries a §4.2 `field_path`.
+
 ### 4.1 Common scalar contracts
 
 The following scalar contracts apply wherever referenced.
@@ -111,11 +140,12 @@ The following scalar contracts apply wherever referenced.
 | `property_key` | An `identifier` used as an object member key for projected properties or mapped metadata. It MUST NOT contain `.`. It MUST NOT equal `kind`, `properties`, `metadata`, `source_metadata`, or `projected` when used as a field-path terminal. |
 | `kind` | An `identifier` that names a source entity kind, source relationship kind, projected vertex kind, or projected edge kind. |
 | `finite_integer` | A JSON number with no fractional part in the inclusive range `-9007199254740991` through `9007199254740991`. |
-| `property_value` | One of JSON string, JSON boolean, `finite_integer`, JSON null, or an array of those scalar values. Arrays MUST contain at most 1024 values. Nested arrays and objects are invalid as property values. |
+| `property_value` | One of JSON string, JSON boolean, `finite_integer`, JSON null, or an array of those scalar values. A JSON string value MUST contain no more than `max_string_property_value_length` Unicode scalar values. Arrays MUST contain at most 1024 values. Nested arrays and objects are invalid as property values. |
 | `sha256_hex` | A JSON string containing exactly 64 lowercase hexadecimal characters. |
 | `field_path` | A JSON string matching exactly one row in §4.2. It is parsed by splitting on literal `.` into exactly the declared path segments. No escaping is supported in this NLSpec revision. |
+| `cursor_token` | A JSON string containing 1 to 4096 Unicode scalar values. The token is opaque to the caller and valid only under the query-specific cursor rules that emitted it. |
 
-Object member names in projection inputs MUST be exact code point matches for the member names in this NLSpec. Unknown members are invalid unless a schema table explicitly allows them.
+Object member names in projection inputs MUST be exact code point matches for the member names in this NLSpec after applying the schema-table notation rule in §4.0. Unknown members are invalid unless a schema table explicitly allows them.
 
 ### 4.2 Field-path grammar
 
@@ -192,8 +222,8 @@ The identity participation matrix is the only owner of input-family identity par
 
 The graph-view output metadata MUST include:
 
-- `projection_config_digest`: lowercase SHA-256 over canonical normalized projection configuration, active relationship mapping definitions, property definitions, metadata mappings, filters, and aggregation rules, excluding `custom_config`.
-- `projection_source_digest`: lowercase SHA-256 over canonical normalized source entities, source relationships, and source metadata.
+- `projection_config_digest`: lowercase SHA-256 computed by the exact `GPCONFIG1` digest envelope in §7.3.1.
+- `projection_source_digest`: lowercase SHA-256 computed by the exact `GPSOURCE1` digest envelope in §7.3.1.
 
 These digests are output metadata and verification aids. They do not replace `projection_run_id`.
 
@@ -235,8 +265,8 @@ An `entity_mapping_rule` MUST be an object with exactly the following members.
 | `inclusion_predicate` | Filter predicate or string `always` | No | No | `always` | Applies after global entity filters. |
 | `label_policy` | String | No | No | `mapping_only` | MUST be `mapping_only`, `preserve_source`, or `mapping_then_source`. |
 | `mapping_labels[]` | Array of strings | No | No | `[]` | Labels MUST be non-empty strings with at most 256 Unicode scalar values. Duplicate labels are removed and values sort by code point order. |
-| `required_property_keys[]` | Array of `property_key` | No | No | `[]` | Every key MUST be defined by an applicable property definition or present on every eligible source item; duplicate keys are invalid. |
-| `optional_property_keys[]` | Array of `property_key` | No | No | `[]` | Duplicate keys are invalid. Values MUST NOT overlap `required_property_keys[]`. |
+| `required_property_keys[]` | Array of `property_key` | No | No | `[]` | Keys MUST resolve to applicable `property_definitions[]` after wildcard expansion. Duplicate keys are invalid. |
+| `optional_property_keys[]` | Array of `property_key` | No | No | `[]` | Keys MUST resolve to applicable `property_definitions[]` after wildcard expansion. Duplicate keys are invalid. Values MUST NOT overlap `required_property_keys[]`. |
 
 #### 4.6.2 Relationship mapping rule
 
@@ -253,10 +283,24 @@ A `relationship_mapping_rule` MUST be an object with exactly the following membe
 | `reverse_edge_kind` | `kind` | No | No | `projected_edge_kind` | Valid only when `emit_reverse_edge=true`. |
 | `label_policy` | String | No | No | `mapping_only` | MUST be `mapping_only`, `preserve_source`, or `mapping_then_source`. |
 | `mapping_labels[]` | Array of strings | No | No | `[]` | Labels MUST be non-empty strings with at most 256 Unicode scalar values. Duplicate labels are removed and values sort by code point order. |
-| `required_property_keys[]` | Array of `property_key` | No | No | `[]` | Every key MUST be defined by an applicable property definition or present on every eligible source item; duplicate keys are invalid. |
-| `optional_property_keys[]` | Array of `property_key` | No | No | `[]` | Duplicate keys are invalid. Values MUST NOT overlap `required_property_keys[]`. |
+| `required_property_keys[]` | Array of `property_key` | No | No | `[]` | Keys MUST resolve to applicable `property_definitions[]` after wildcard expansion. Duplicate keys are invalid. |
+| `optional_property_keys[]` | Array of `property_key` | No | No | `[]` | Keys MUST resolve to applicable `property_definitions[]` after wildcard expansion. Duplicate keys are invalid. Values MUST NOT overlap `required_property_keys[]`. |
 
-#### 4.6.3 Metadata mapping rule
+#### 4.6.3 Mapping property-key semantics
+
+`required_property_keys[]` and `optional_property_keys[]` are references to projected property definitions. They MUST NOT read source properties directly. They MUST NOT synthesize passthrough properties. They MUST NOT create an additional property derivation mechanism.
+
+For an entity mapping rule, every key in either array MUST match exactly one property definition whose expanded applicability is `(target_scope=vertex, concrete_target_kind=<projected_vertex_kind>, projected_key=<key>)`. For a relationship mapping rule, every key in either array MUST match exactly one property definition whose expanded applicability is `(target_scope=edge, concrete_target_kind=<projected_edge_kind>, projected_key=<key>)`.
+
+| Mapping key condition | Required validation result |
+| --- | --- |
+| Key appears in both required and optional arrays | `invalid_mapping_rule` with `reason_code=required_optional_overlap`. |
+| Key resolves to no applicable property definition | `invalid_mapping_rule` with `reason_code=property_key_not_defined`. |
+| Key resolves to more than one definition after wildcard expansion | `invalid_property_definition` with `reason_code=duplicate_after_wildcard_expansion`. |
+| Key in `required_property_keys[]` references a definition with `required=false` | `invalid_mapping_rule` with `reason_code=property_requiredness_mismatch`. |
+| Key in `optional_property_keys[]` references a definition with `required=true` | `invalid_mapping_rule` with `reason_code=property_requiredness_mismatch`. |
+
+#### 4.6.4 Metadata mapping rule
 
 A `metadata_mapping_rule` MUST be an object with exactly the following members.
 
@@ -264,9 +308,9 @@ A `metadata_mapping_rule` MUST be an object with exactly the following members.
 | --- | --- | ---: | ---: | --- | --- |
 | `metadata_mapping_id` | `identifier` | Yes | No | None | Unique within `metadata_mappings[]`. |
 | `target_scope` | String | Yes | No | None | MUST be `graph_view`, `vertex`, or `edge`. |
-| `target_kind` | `kind` or `*` | Yes | No | None | `*` applies to all kinds in scope. For `graph_view`, `target_kind` MUST equal `*`. |
+| `target_kind` | `kind` or `*` | Yes | No | None | `*` applies to all concrete kinds in scope after §4.10.2 expansion. For `graph_view`, `target_kind` MUST equal `*`. |
 | `source_field_path` | `field_path` | Yes | No | None | MUST be valid for the target scope and derivation context. |
-| `projected_metadata_key` | `property_key` | Yes | No | None | Unique for `(target_scope,target_kind)`. |
+| `projected_metadata_key` | `property_key` | Yes | No | None | Unique after §4.10.2 wildcard expansion for `(target_scope, concrete_target_kind)`. |
 | `projected_type` | String | Yes | No | None | MUST use the same closed type vocabulary as `property_definition.projected_type`. |
 | `required` | Boolean | No | No | `false` | Missing or invalid source behavior follows `missing_behavior` and `source_null_behavior`. |
 | `default_value` | `property_value` | No | Yes | No default | Required when `missing_behavior=default` or `source_null_behavior=default`. Must be compatible with `projected_type`. |
@@ -277,7 +321,7 @@ A `metadata_mapping_rule` MUST be an object with exactly the following members.
 
 A metadata mapping that would emit a metadata key reserved by this NLSpec is invalid. Reserved metadata keys are the required system metadata members in §5.5.
 
-#### 4.6.4 Aggregation rule
+#### 4.6.5 Aggregation rule
 
 An `aggregation_rule` MUST be an object with exactly the following members.
 
@@ -293,21 +337,21 @@ An `aggregation_rule` MUST be an object with exactly the following members.
 | `source_reference_policy` | String | No | No | `preserve_all` | Only `preserve_all` is defined in this revision. |
 | `property_merge_behavior` | Object | No | No | `{}` | Keys are `property_key`; values are merge behavior tokens from §6.8.6. Unknown behavior tokens are invalid. |
 | `edge_direction` | String | Conditional | No | None | Required when `target_scope=edge`; MUST be `directed`, `undirected`, or `bidirectional`. Forbidden when `target_scope=vertex`. |
-| `endpoint_grouping` | Object | Conditional | No | None | Required when `target_scope=edge`; forbidden when `target_scope=vertex`. Must satisfy §4.6.5. |
+| `endpoint_grouping` | Object | Conditional | No | None | Required when `target_scope=edge`; forbidden when `target_scope=vertex`. Must satisfy §4.6.6. |
 
-#### 4.6.5 Aggregated edge endpoint grouping object
+#### 4.6.6 Aggregated edge endpoint grouping object
 
 An `endpoint_grouping` object MUST have exactly the following members.
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
-| `src_vertex_aggregation_rule_id` | `identifier` | Yes | No | None | MUST reference a vertex aggregation rule. |
-| `src_grouping_keys[]` | Array of `field_path` | Yes | No | None | MUST contain 1 to 32 distinct paths valid for the edge aggregation rule's `input_scope`. |
-| `dst_vertex_aggregation_rule_id` | `identifier` | Yes | No | None | MUST reference a vertex aggregation rule. |
-| `dst_grouping_keys[]` | Array of `field_path` | Yes | No | None | MUST contain 1 to 32 distinct paths valid for the edge aggregation rule's `input_scope`. |
+| `src_vertex_aggregation_rule_id` | `identifier` | Yes | No | None | MUST reference a vertex aggregation rule that executes before the edge aggregation rule. |
+| `src_grouping_keys[]` | Array of `field_path` | Yes | No | None | MUST contain paths valid for the edge aggregation rule's `input_scope`. Its length MUST equal the referenced source vertex aggregation rule's `grouping_keys[]` length. |
+| `dst_vertex_aggregation_rule_id` | `identifier` | Yes | No | None | MUST reference a vertex aggregation rule that executes before the edge aggregation rule. |
+| `dst_grouping_keys[]` | Array of `field_path` | Yes | No | None | MUST contain paths valid for the edge aggregation rule's `input_scope`. Its length MUST equal the referenced destination vertex aggregation rule's `grouping_keys[]` length. |
 | `missing_endpoint_behavior` | String | No | No | `error` | MUST be `error` or `exclude`. |
 
-Aggregated edges connect aggregated vertices. The source and destination endpoint grouping keys MUST serialize to grouping-key digests that match emitted aggregated vertices from the referenced vertex aggregation rules. If no matching endpoint vertex exists, the contributor group is handled by `missing_endpoint_behavior` as defined in §6.8.8.
+A referenced aggregation rule that is absent, is not a vertex aggregation rule, executes after the edge aggregation rule, or has a mismatched grouping-key count MUST produce `invalid_aggregation_rule`. Endpoint digest derivation is defined by §6.8.7.
 
 ### 4.7 Source entity object
 
@@ -359,7 +403,7 @@ A `property_definition` declares how one source or projected field becomes one p
 | `target_scope` | String | Yes | No | None | MUST be `vertex`, `edge`, or `graph_view`. |
 | `target_kind` | `kind` or `*` | Yes | No | None | `*` applies to all projected kinds in the target scope. For `graph_view`, `target_kind` MUST equal `*`. |
 | `source_field_path` | `field_path` | Yes | No | None | MUST be valid for `target_scope` and derivation context. |
-| `projected_key` | `property_key` | Yes | No | None | Unique for `(target_scope,target_kind)`. |
+| `projected_key` | `property_key` | Yes | No | None | Unique after §4.10.2 wildcard expansion for `(target_scope, concrete_target_kind)`. |
 | `projected_type` | String | Yes | No | None | MUST be one of `string`, `integer`, `boolean`, `timestamp`, `identifier`, `string_array`, or `identifier_array`. |
 | `required` | Boolean | No | No | `false` | When `true`, missing, null, and invalid values are errors unless default or null behavior explicitly handles them. |
 | `default_value` | `property_value` | No | Yes | No default | If supplied, MUST be compatible with `projected_type`. Explicit `null` is valid only when `null_output_policy=emit_null`. |
@@ -383,6 +427,21 @@ No JSON type coercion is allowed. Explicit source JSON null is handled only by `
 | `identifier_array` | Array of strings satisfying `identifier`, max 1024 | Same | Preserve declared source order unless aggregation merge changes it. | `invalid_property_type` |
 
 For `target_scope=graph_view`, `source_field_path` MAY use only `source_metadata.<property_key>` unless an aggregation rule explicitly derives a graph-view property in a later NLSpec revision. This revision does not define graph-view property aggregation over source entities or relationships. For direct vertex properties, `source_field_path` MAY read only the mapped source entity. For direct edge properties, `source_field_path` MAY read only the mapped source relationship. For aggregated properties, `source_field_path` MAY read only fields available on the aggregation rule's declared input scope.
+
+#### 4.10.2 Wildcard expansion and collision rules
+
+Wildcard expansion is part of configuration validation and MUST run after mapping and aggregation rules are validated enough to determine concrete projected kinds.
+
+The implementation MUST compute the concrete projected vertex kind set from all valid entity mappings and vertex aggregation rules. It MUST compute the concrete projected edge kind set from all valid relationship mappings and edge aggregation rules. For property definitions and metadata mappings, `target_kind="*"` expands to every concrete kind in the same `target_scope`. For `target_scope=graph_view`, `target_kind` remains exactly `*` and does not expand.
+
+After expansion, property definitions MUST NOT contain duplicate `(target_scope, concrete_target_kind, projected_key)` tuples. After expansion, metadata mappings MUST NOT contain duplicate `(target_scope, concrete_target_kind, projected_metadata_key)` tuples. Concrete definitions MUST NOT override wildcard definitions. A wildcard definition and a concrete definition that emit the same key for the same concrete target are invalid.
+
+| Collision family | Validation result |
+| --- | --- |
+| Property duplicate after wildcard expansion | `invalid_property_definition` with `reason_code=duplicate_after_wildcard_expansion`. |
+| Metadata duplicate after wildcard expansion | `invalid_metadata_mapping` with `reason_code=duplicate_after_wildcard_expansion`. |
+
+Schema-registry output MUST expose the concrete expanded applicability for property and metadata keys. It MUST NOT leave consumers to repeat wildcard expansion privately.
 
 ### 4.11 Filter object
 
@@ -424,6 +483,7 @@ A conforming implementation MUST enforce the following closed resource limits be
 
 | Limit key | Applies to | Required maximum | Overflow behavior |
 | --- | --- | ---: | --- |
+| `max_input_bytes` | UTF-8 JSON projection input before decoding | `268435456` bytes | `resource_limit_exceeded` fatal |
 | `max_source_entities` | `source_entities[]` | `100000` | `resource_limit_exceeded` fatal |
 | `max_source_relationships` | `source_relationships[]` | `250000` | `resource_limit_exceeded` fatal |
 | `max_entity_mappings` | `entity_mappings[]` | `10000` | `resource_limit_exceeded` fatal |
@@ -431,16 +491,25 @@ A conforming implementation MUST enforce the following closed resource limits be
 | `max_property_definitions` | `property_definitions[]` | `10000` | `resource_limit_exceeded` fatal |
 | `max_metadata_mappings` | `metadata_mappings[]` | `10000` | `resource_limit_exceeded` fatal |
 | `max_aggregation_rules` | `aggregation_rules[]` | `1000` | `resource_limit_exceeded` fatal |
-| `max_labels_per_source_item` | `labels[]` | `256` | `resource_limit_exceeded` for that item; item excluded |
+| `max_labels_per_source_item` | `labels[]` on one source entity or source relationship | `256` | `source_item_resource_limit_exceeded`; affected item excluded |
 | `max_label_length` | each label string | `256` Unicode scalar values | `invalid_input_shape` for malformed label |
-| `max_metadata_keys_per_object` | `metadata`, `source_metadata`, `mapped_metadata` objects | `1024` | `resource_limit_exceeded` fatal |
-| `max_properties_per_object` | `properties` objects | `1024` | `resource_limit_exceeded` fatal |
+| `max_string_property_value_length` | each JSON string inside `property_value` | `16384` Unicode scalar values | `invalid_input_shape` for configuration or top-level values; `source_item_resource_limit_exceeded` for source item values |
+| `max_metadata_keys_per_object` | `metadata`, `source_metadata`, `mapped_metadata` objects | `1024` | `resource_limit_exceeded` fatal for top-level or output metadata; `source_item_resource_limit_exceeded` for source item metadata |
+| `max_properties_per_object` | `properties` objects | `1024` | `source_item_resource_limit_exceeded` for source item properties; `projected_output_limit_exceeded` for emitted object properties |
 | `max_custom_config_keys` | `custom_config` | `256` | `resource_limit_exceeded` fatal |
-| `max_validation_issues` | emitted validation issues | `100000` | Emit `validation_issue_limit_exceeded` fatal and stop adding further nonfatal issues. |
+| `max_validation_issues` | emitted validation issues | `100000` | Closed by §9.3: emit first `N-1` issues plus final `validation_issue_limit_exceeded`. |
+| `max_validation_message_length` | validation issue `message` | `1024` Unicode scalar values | Truncate deterministically by preserving the first 1024 Unicode scalar values; issue identity is unaffected. |
+| `max_failure_reason_length` | `failure_reason` | `4096` Unicode scalar values | Truncate deterministically by preserving the first 4096 Unicode scalar values; emit `projection_computation_failed` when the failure reason came from computation failure. |
+| `max_query_error_message_length` | query error message if a transport exposes one | `1024` Unicode scalar values | Truncate deterministically by preserving the first 1024 Unicode scalar values; query error identity is unaffected. |
+| `max_cursor_token_length` | supplied `cursor_token` | `4096` Unicode scalar values | `cursor_invalid` with `reason_code=cursor_token_too_long` |
+| `max_projected_vertices` | total emitted vertices in one result | `500000` | `projected_output_limit_exceeded` fatal |
+| `max_projected_edges` | total emitted edges in one result | `1000000` | `projected_output_limit_exceeded` fatal |
 | `max_traversal_seed_vertices` | `traverse.seed_vertex_ids[]` | `1024` | `invalid_argument` |
 | `max_traversal_kind_filters` | `edge_kinds[]` and `vertex_kinds[]` | `1024` each | `invalid_argument` |
 | `max_traversal_depth` | `traverse.max_depth` | `16` | `invalid_argument` |
 | `max_list_graph_views_limit` | `list_graph_views.limit` | `1000` | `invalid_argument` |
+
+Whole-input limits MUST use `resource_limit_exceeded` and prevent a consumable graph. Item-scoped limits MUST use `source_item_resource_limit_exceeded` and exclude only the affected item. Derived-output limits MUST use `projected_output_limit_exceeded` and prevent a consumable graph.
 
 ### 4.13 Input normalization
 
@@ -583,10 +652,20 @@ Graph-view metadata MUST be a JSON object with exactly the following members.
 | Member | Type | Required | Nullable | Rule |
 | --- | --- | ---: | ---: | --- |
 | `previous_projection_run_id` | `generated_id` with prefix `gpr_` | Yes | Yes | `null` on initial creation; prior available run ID on replacement. |
-| `projection_config_digest` | `sha256_hex` | Yes | No | Digest from §4.4. |
-| `projection_source_digest` | `sha256_hex` | Yes | No | Digest from §4.4. |
+| `projection_config_digest` | `sha256_hex` | Yes | No | Digest from §7.3.1. |
+| `projection_source_digest` | `sha256_hex` | Yes | No | Digest from §7.3.1. |
 | `mapped_metadata` | Object | Yes | No | Contains only metadata emitted by `metadata_mappings[]`; keys sorted by code point order. |
-| `invalidation` | Object | Yes | Yes | `null` unless selected run is invalidated. When non-null, contains `invalidated_at` and `reason_code`. |
+| `invalidation` | Object | Yes | Yes | `null` unless the selected run is invalidated. When non-null, it MUST satisfy the table below. |
+
+A non-null `invalidation` object MUST have exactly these members in this order.
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `invalidated_at` | `timestamp` | Yes | No | Timestamp when invalidation was accepted. |
+| `reason_code` | String | Yes | No | One code from §10.7. |
+| `requested_by` | `identifier` | Yes | No | Actor or system process that requested invalidation. |
+| `target_scope` | String | Yes | No | `graph_view` or `projection_run`. |
+| `target_projection_run_id` | `generated_id` with prefix `gpr_` | Yes | Yes | Non-null for run-specific invalidation; `null` for graph-view cascade. |
 
 #### 5.5.2 Vertex metadata
 
@@ -765,9 +844,32 @@ A source relationship is eligible for direct edge mapping only when all of the f
 
 For each eligible source relationship, the implementation MUST emit one primary direct projected edge.
 
+#### 6.4.1 Direct edge label derivation
+
+For each emitted primary direct edge, output edge labels MUST be derived as follows.
+
+| `label_policy` | Output edge labels |
+| --- | --- |
+| `mapping_only` | `default_edge_labels[] + mapping_labels[]` |
+| `preserve_source` | `default_edge_labels[] + source_relationship.labels[]` |
+| `mapping_then_source` | `default_edge_labels[] + mapping_labels[] + source_relationship.labels[]` |
+
+Label concatenation happens after source relationship direction projection and before direct edge metadata emission. Exact duplicate labels MUST be removed. Remaining labels MUST sort by exact code point order. Reverse edges MUST use the same derived label set as their primary edge. `reverse_edge_kind` MUST NOT alter labels.
+
 ### 6.5 Reverse-edge behavior
 
-A relationship mapping with `emit_reverse_edge=true` MUST emit a second edge only when the primary projected edge direction is `directed`. If the primary projected direction is `undirected` or `bidirectional`, the mapping rule is invalid with `invalid_reverse_edge_policy`.
+Reverse-edge validity is a static mapping-rule property. A conforming implementation MUST validate `emit_reverse_edge` and `direction_policy` before per-source relationship projection.
+
+| `emit_reverse_edge` | `direction_policy` | Mapping-rule validity | Required behavior |
+| --- | --- | --- | --- |
+| `false` | any allowed policy | Valid | Emit only the primary edge. |
+| `true` | `normalize_forward` | Valid | Emit the primary directed edge and one reverse directed edge. |
+| `true` | `normalize_reverse` | Valid | Emit the primary directed edge and one reverse directed edge. |
+| `true` | `preserve` | Invalid | Emit `invalid_reverse_edge_policy`; no graph is consumable. |
+| `true` | `undirected` | Invalid | Emit `invalid_reverse_edge_policy`; no graph is consumable. |
+| `true` | `bidirectional` | Invalid | Emit `invalid_reverse_edge_policy`; no graph is consumable. |
+
+A valid relationship mapping with `emit_reverse_edge=true` MUST emit a second edge for each emitted primary edge.
 
 | Aspect | Required behavior |
 | --- | --- |
@@ -776,16 +878,18 @@ A relationship mapping with `emit_reverse_edge=true` MUST emit a second edge onl
 | Source reference | Same `source_relationship_ref` shape as the primary direct edge, with the same `source_relationship_id`, `source_relationship_kind`, and `mapping_rule_id`. |
 | Endpoints | Primary `dst_vertex_id` becomes reverse `src_vertex_id`; primary `src_vertex_id` becomes reverse `dst_vertex_id`. |
 | Direction | Always `directed`. |
-| Labels | Same label policy as the primary edge. This revision does not define separate reverse labels. |
+| Labels | Same derived label set as the primary edge under §6.4.1. |
 | Properties | Same projected property derivation as the primary edge. |
 | Metadata | Reverse edge metadata sets `is_reverse_edge=true` and `reverse_of_edge_id=<primary edge_id>`. Primary edge metadata sets `is_reverse_edge=false` and `reverse_of_edge_id=null`. |
 | Identity tuple | Uses the `reverse_edge` identity tuple family in §7.6. |
 
-Reverse edge identity MUST NOT collide with the primary edge identity.
+For static invalidity before a source-specific projected direction exists, `invalid_reverse_edge_policy.details.projected_direction` MUST be JSON null. Reverse edge identity MUST NOT collide with the primary edge identity.
 
 ### 6.6 Projected property derivation
 
-For each graph-view, vertex, or edge output object, applicable property definitions are those whose `target_scope` matches the output scope and whose `target_kind` equals the output kind or `*`.
+For each graph-view, vertex, or edge output object, applicable property definitions are those whose `target_scope` matches the output scope and whose expanded concrete target kind equals the output kind. `target_kind="*"` expansion is closed by §4.10.2.
+
+`required_property_keys[]` and `optional_property_keys[]` on mapping rules do not alter property derivation. They are validation references only. The emitted properties are determined solely by applicable `property_definitions[]` and the rules in this section.
 
 For each applicable property definition, the implementation MUST evaluate `source_field_path` in the context allowed by §4.10.1.
 
@@ -807,7 +911,20 @@ A property definition whose cross-field defaults are internally inconsistent is 
 
 Metadata mappings follow the same field-state and compatibility rules as projected property derivation, but emit into `metadata.mapped_metadata`. They MUST NOT emit system metadata keys reserved by §5.5.
 
-When multiple metadata mappings target the same `(target_scope,target_kind,projected_metadata_key)`, validation MUST emit `invalid_metadata_mapping` with severity `fatal`. When no metadata mappings apply, `mapped_metadata` MUST be `{}`.
+Metadata mapping source contexts are closed by this table.
+
+| Output object | Allowed `source_field_path` context |
+| --- | --- |
+| Graph view | `source_metadata.<property_key>` only. |
+| Direct vertex | The mapped source entity only. |
+| Direct edge | The mapped source relationship only. |
+| Reverse edge | The same mapped source relationship as the primary edge. |
+| Aggregated vertex | Contributors from the emitting vertex aggregation rule's `input_scope` and `input_kind`. |
+| Aggregated edge | Contributors from the emitting edge aggregation rule's `input_scope` and `input_kind`. |
+
+Metadata mappings apply to aggregated outputs when `target_scope` and expanded concrete `target_kind` match. For aggregated outputs, `merge_behavior` MUST be interpreted through §6.8.6 and §6.8.6.1. Multiple aggregation rules that emit the same concrete kind evaluate metadata mappings independently for each emitted object.
+
+This revision does not define graph-view metadata aggregation over source entities or source relationships. A graph-view metadata mapping whose `source_field_path` is not `source_metadata.<property_key>` is invalid with `invalid_metadata_mapping`. When no metadata mappings apply, `mapped_metadata` MUST be `{}`.
 
 ### 6.8 Aggregation rules
 
@@ -887,9 +1004,43 @@ When aggregation emits properties or mapped metadata, the effective merge behavi
 
 Canonical value order sorts first by JSON type rank `null`, `boolean`, `integer`, `string`, then by canonical JSON bytes.
 
+#### 6.8.6.1 Merge behavior compatibility
+
+Merge behavior MUST be compatible with the declared `projected_type` for the property definition or metadata mapping that owns the emitted key.
+
+| Merge behavior | Allowed projected types | Null handling | Array handling | Invalid combination |
+| --- | --- | --- | --- | --- |
+| `single_value` | all projected types | Ignore JSON null inputs. | Arrays compare as whole normalized values. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `first_by_sort` | all projected types | Ignore JSON null inputs. | Emits first whole normalized value. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `last_by_sort` | all projected types | Ignore JSON null inputs. | Emits last whole normalized value. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `distinct_sorted_array` | `string_array`, `identifier_array` only | Ignore JSON null inputs. | Flattens scalar strings and array elements of the declared element type. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `count` | `integer` only | Counts contributors, not values. | Arrays are irrelevant. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `omit` | all projected types | No values considered. | No values considered. | Never invalid by type. |
+
+`distinct_sorted_array` for `identifier_array` MUST validate every emitted element as `identifier`. `distinct_sorted_array` for `string_array` MUST accept only JSON strings. `single_value` conflict detection MUST compare canonical JSON bytes after projected-type normalization.
+
+If no non-null values remain after missing/null behavior, the key is omitted unless the property definition or metadata mapping is required. A required property emits `required_property_missing`; a required metadata mapping emits `invalid_metadata_mapping` with `reason_code=required_metadata_missing`.
+
 #### 6.8.7 Aggregated edge emission
 
-For each non-empty edge aggregation group, derive source and destination endpoint grouping digests from `endpoint_grouping.src_grouping_keys[]` and `endpoint_grouping.dst_grouping_keys[]`. Each endpoint digest MUST match an emitted aggregated vertex from the referenced vertex aggregation rule.
+For each non-empty edge aggregation group, the implementation MUST derive source and destination endpoint grouping digests through the referenced vertex aggregation rule context.
+
+Endpoint digest derivation MUST use this algorithm for each endpoint side.
+
+```text
+1. Let R be the referenced vertex aggregation rule for the endpoint side.
+2. Evaluate the endpoint side's grouping key paths in the edge aggregation rule's contributor context.
+3. Construct canonical_endpoint_grouping_key as the canonical JSON array of those values in declared endpoint key order.
+4. Compute endpoint_digest = sha256_hex(serialize_tuple("GPGROUP1\n", [
+     R.aggregation_rule_id,
+     "vertex",
+     R.projected_kind,
+     canonical_endpoint_grouping_key
+   ])).
+5. Match only an emitted aggregated vertex whose canonical_grouping_key_digest equals endpoint_digest and whose aggregation rule ID equals R.aggregation_rule_id.
+```
+
+The endpoint digest MUST NOT match by projected kind alone. The edge aggregation rule is invalid with `invalid_aggregation_rule` when an endpoint grouping key count does not equal the referenced vertex aggregation rule's `grouping_keys[]` count.
 
 For each group whose endpoints are resolved, emit exactly one aggregated edge with:
 
@@ -954,6 +1105,67 @@ serialize_tuple(prefix, fields):
 | JSON null | ASCII `null`. |
 | Object or array | Canonical JSON bytes from §5.8. |
 | SHA-256 digest | Lowercase hex ASCII. |
+
+### 7.3.1 Projection digest envelopes
+
+Projection digest envelopes are byte-level contracts. A conforming implementation MUST compute these digest bytes exactly after JSON decoding, duplicate-member rejection, validation sufficient to materialize defaults, and input normalization.
+
+`projection_config_digest` MUST be the lowercase SHA-256 over `serialize_tuple("GPCONFIG1\n", fields)` with fields in this exact order.
+
+| Field position | Field value |
+| ---: | --- |
+| 1 | `projection_schema_id` |
+| 2 | `projection_config_core` |
+| 3 | `active_relationship_mapping_source` |
+| 4 | `active_relationship_mappings[]` |
+| 5 | normalized `filters` |
+| 6 | normalized `property_definitions[]` |
+| 7 | normalized `metadata_mappings[]` |
+| 8 | normalized `aggregation_rules[]` |
+
+`projection_config_core` MUST be a normalized object with exactly these members in this order: `graph_view_key`, `projection_version`, `declared_source_entity_kinds[]`, `declared_source_relationship_kinds[]`, `entity_mappings[]`, `default_vertex_labels[]`, `default_edge_labels[]`, `allow_empty_kind_registry`, and `retention_policy`. It MUST exclude `custom_config`, `relationship_mappings[]`, `metadata_mappings[]`, and `aggregation_rules[]` because those families are represented by separate digest fields.
+
+`active_relationship_mapping_source` MUST be exactly one of these string tokens.
+
+| Token | Required condition |
+| --- | --- |
+| `top_level_relationship_definitions` | Top-level `relationship_definitions[]` is non-empty and `projection_config.relationship_mappings[]` is empty. |
+| `projection_config_relationship_mappings` | `projection_config.relationship_mappings[]` is non-empty and top-level `relationship_definitions[]` is empty. |
+| `none` | Both relationship mapping arrays are empty. |
+
+`active_relationship_mappings[]` MUST be the normalized relationship mapping array selected by `active_relationship_mapping_source`, or `[]` when the source is `none`.
+
+`projection_source_digest` MUST be the lowercase SHA-256 over `serialize_tuple("GPSOURCE1\n", fields)` with fields in this exact order.
+
+| Field position | Field value |
+| ---: | --- |
+| 1 | `projection_schema_id` |
+| 2 | `source_snapshot_id` |
+| 3 | normalized `source_entities[]` |
+| 4 | normalized `source_relationships[]` |
+| 5 | normalized `source_metadata` |
+
+The following fields MUST be excluded from both digest envelopes: `graph_view_id`, `requested_at`, `requested_by`, `projection_run_nonce`, and every lifecycle timestamp. `custom_config` MUST be excluded from `projection_config_digest` and MUST NOT appear in `projection_source_digest`.
+
+Any validation issue that prevents default materialization or prevents deterministic normalization prevents digest emission for a consumable graph result.
+
+Golden fixture: minimal empty graph digest inputs.
+
+| Digest | Expected lowercase SHA-256 |
+| --- | --- |
+| `projection_config_digest` | `c0d919dc8a5093e2e6f81eab3a4f2b0a9e03381e5fc834144f33a3d737fb2b06` |
+| `projection_source_digest` | `e7bb613e7b8b295359e0ebba2f7ab6fe845b00f5de94f82f599327a409dcc56c` |
+
+This fixture uses `projection_schema_id="graph_projection.v1"`, `graph_view_key="empty"`, `source_snapshot_id="snap_empty_1"`, `allow_empty_kind_registry=true`, default filters, empty source arrays, empty property definitions, empty metadata mappings, empty aggregation rules, no relationship mappings, and the default retention policy from §10.6.
+
+Golden fixture: one host property digest inputs.
+
+| Digest | Expected lowercase SHA-256 |
+| --- | --- |
+| `projection_config_digest` | `b61205128991059ae08ae5c1cd9594b4c8f21b3e0b497e6d8a92cdd27a6dbee5` |
+| `projection_source_digest` | `2a63da49700e5cfe7bfe0fd5e8f9d0e8ccbd03d8297abf3cef6774fd5c578e31` |
+
+This fixture uses one entity mapping `map_host`, one relationship mapping `map_logon` from `projection_config.relationship_mappings[]`, one required string property definition `pd_hostname`, one source entity `host1` with `properties.hostname="WS-023"`, `source_snapshot_id="snap_incident_1"`, `source_metadata.case="alpha"`, default filters, no source relationships, no metadata mappings, no aggregation rules, and the default retention policy from §10.6.
 
 ### 7.4 Graph-view identity
 
@@ -1044,17 +1256,40 @@ When both source arrays are empty and `allow_empty_kind_registry=true`, the grap
 
 ## 9. Validation behavior
 
-### 9.1 Validation phases
+### 9.1 Validation phases and discovery order
 
-Validation MUST execute in these phases.
+Validation MUST execute in the phases in this table. A fatal issue in a phase whose `Stops later phases when fatal?` value is `Yes` prevents all later phases from running.
 
-| Phase | Purpose | Fatal issue effect |
-| --- | --- | --- |
-| Input-shape validation | JSON-compatible shape, scalar contracts, required members, unknown members, duplicates, resource limits | Prevents consumable graph output. |
-| Configuration validation | Projection config, mapping rules, filters, property definitions, metadata mappings, aggregation rules, cross-references | Prevents consumable graph output for fatal issues. |
-| Source-item semantic validation | Per-source item eligibility, declared kinds, endpoints, directions, item-level limits | Excludes affected item unless code severity is fatal. |
-| Derivation validation | Property compatibility, required values, aggregation grouping, merge conflicts, missing endpoints | Excludes affected property, item, or aggregate according to code semantics. |
-| Output validation | Closed output schemas, IDs, ordering, references, schema registry, metadata | Any violation is fatal and prevents publication. |
+| Phase | Scope | Stops later phases when fatal? |
+| ---: | --- | ---: |
+| 1 | JSON decoding and duplicate member detection | Yes |
+| 2 | Top-level object shape, unknown members, requiredness, and nullability | Yes |
+| 3 | Scalar contracts, enum contracts, and whole-input resource limits | Yes |
+| 4 | Projection configuration schemas and default materialization | Yes |
+| 5 | Field-path, filter, mapping, property, metadata, aggregation, retention, wildcard, and merge-compatibility validation | Yes |
+| 6 | Source entity and source relationship item validation and item exclusion | No |
+| 7 | Direct mapping derivation validation | No, unless a fatal issue is produced |
+| 8 | Aggregation derivation validation | No, unless a fatal issue is produced |
+| 9 | Output schema and projected-output resource-limit validation | Yes |
+| 10 | Validation summary construction | N/A |
+
+Validation discovery order inside each phase MUST be deterministic.
+
+| Family | Required discovery order |
+| --- | --- |
+| Closed object members | The member order declared by the schema table. |
+| Dynamic object keys | Exact Unicode code point order. |
+| Arrays before contained IDs are valid | Input order. |
+| Arrays after contained IDs are valid and the section requires normalization | Normalized order from §4.13. |
+| Source entities | `source_entity_kind`, then `source_entity_id` after both fields are valid; otherwise input order. |
+| Source relationships | `source_relationship_kind`, then `source_relationship_id` after both fields are valid; otherwise input order. |
+| Entity and relationship mapping rules | `mapping_rule_id`. |
+| Property definitions | `property_definition_id`. |
+| Metadata mappings | `metadata_mapping_id`. |
+| Aggregation rules | `aggregation_rule_id`. |
+| Cross-reference checks | Referencing object identity, then referenced field path, then referenced identifier. |
+
+The implementation MUST collect all issues reachable under the phase rules until the validation issue cap in §9.3 is reached. It MUST NOT choose an arbitrary subset of issues.
 
 ### 9.2 Validation severities
 
@@ -1067,7 +1302,7 @@ Validation MUST execute in these phases.
 
 No `error` severity issue may by itself make the graph non-consumable. Any behavior that makes a graph non-consumable MUST use a `fatal` issue.
 
-### 9.3 Validation issue shape and ordering
+### 9.3 Validation issue shape, ordering, identity, and cap behavior
 
 A validation issue MUST be a JSON object with exactly the following members.
 
@@ -1077,18 +1312,20 @@ A validation issue MUST be a JSON object with exactly the following members.
 | `severity` | String | Yes | No | `fatal`, `error`, `warning`, or `info`. |
 | `code` | String | Yes | No | One code from §9.5. |
 | `target_kind` | String | Yes | No | One target kind from §9.6. |
-| `target_id` | `identifier` or string | Yes | No | Stable target identifier or field path. |
-| `field_path` | `field_path` or string | Yes | Yes | Field path when applicable; otherwise `null`. |
-| `message` | String | Yes | No | Human-readable non-normative diagnostic. It MUST NOT affect issue identity. |
+| `target_id` | `identifier` or string | Yes | No | Derived by §9.6.1. |
+| `field_path` | `field_path` or canonical input path string | Yes | Yes | The applicable §4.2 field path or §4.0 canonical input path; otherwise `null`. |
+| `message` | String | Yes | No | Human-readable non-normative diagnostic. It MUST NOT affect issue identity. It MUST obey `max_validation_message_length`. |
 | `details` | Object | Yes | No | Closed per validation code by §9.6. Unknown detail keys are forbidden. |
 
-Validation issues MUST sort by:
+Validation issues MUST sort for output by:
 
 1. severity order `fatal`, `error`, `warning`, `info`,
 2. `code`,
 3. `target_kind`,
 4. `target_id`,
 5. `issue_id`.
+
+Issue-cap behavior is closed. Let `N=max_validation_issues`. If total discovered issues are `<= N`, the validation summary MUST emit all sorted issues. If total discovered issues are `> N`, the validation summary MUST emit the first `N-1` issues by deterministic discovery order after issue construction, then emit one `validation_issue_limit_exceeded` issue as the final issue. The cap issue participates in severity counts. The cap issue MUST have `target_kind=projection_input`, `target_id=projection_input`, `field_path=null`, and `details.limit=N`.
 
 ### 9.4 Validation summary shape
 
@@ -1118,7 +1355,7 @@ The implementation MUST emit only the validation codes in this table.
 
 | Code | Severity | Target kind | Required meaning |
 | --- | --- | --- | --- |
-| `invalid_input_shape` | `fatal` | `projection_input` | JSON shape, scalar type, unknown member, or schema structure is invalid. |
+| `invalid_input_shape` | `fatal` | `projection_input` | JSON decoding, JSON shape, scalar type, duplicate object member, or schema structure is invalid. |
 | `missing_required_input` | `fatal` | `projection_input` | A required member is omitted. |
 | `explicit_null_not_allowed` | `fatal` | `projection_input` | Explicit JSON null was supplied where null is forbidden. |
 | `unknown_member` | `fatal` | `projection_input` | A closed object contains an undeclared member. |
@@ -1128,25 +1365,27 @@ The implementation MUST emit only the validation codes in this table.
 | `invalid_projection_config` | `fatal` | `projection_config` | Projection configuration is internally inconsistent. |
 | `invalid_field_path` | `fatal` | `projection_config` | Field path does not match the closed grammar or is invalid for its scope. |
 | `invalid_filter` | `fatal` | `filter` | Filter predicate schema or operator/value combination is invalid. |
-| `invalid_mapping_rule` | `fatal` | `mapping_rule` | Mapping rule schema, uniqueness, or cross-reference is invalid. |
+| `invalid_mapping_rule` | `fatal` | `mapping_rule` | Mapping rule schema, uniqueness, property-key reference, or cross-reference is invalid. |
 | `missing_entity_mapping_rule` | `fatal` | `mapping_rule` | Required entity mapping is absent for a declared source entity kind. |
 | `missing_relationship_mapping_rule` | `error` | `mapping_rule` | Relationship mapping is absent for a declared source relationship kind; affected relationships are excluded. |
-| `invalid_metadata_mapping` | `fatal` | `mapping_rule` | Metadata mapping schema, compatibility, or reserved-key behavior is invalid. |
-| `invalid_property_definition` | `fatal` | `property_definition` | Property definition schema or cross-field behavior is invalid. |
+| `invalid_metadata_mapping` | `fatal` | `mapping_rule` | Metadata mapping schema, compatibility, wildcard collision, or reserved-key behavior is invalid. |
+| `invalid_property_definition` | `fatal` | `property_definition` | Property definition schema, wildcard collision, or cross-field behavior is invalid. |
 | `invalid_property_type` | `error` | `property` | A source or default value is incompatible with the declared projected type. |
 | `required_property_missing` | `error` | `property` | A required property source field is missing. |
 | `source_null_for_required_property` | `error` | `property` | A required property source field is explicit JSON null and null is not allowed. |
 | `undeclared_source_kind` | `error` | `source_item` | Source item kind is not declared and item is excluded. |
+| `source_item_resource_limit_exceeded` | `error` | `source_item` | A source item exceeds an item-scoped resource limit and is excluded. |
 | `missing_relationship_endpoint` | `error` | `source_relationship` | Source relationship endpoint is omitted and relationship is excluded. |
 | `relationship_endpoint_not_projected` | `error` | `source_relationship` | Endpoint source entity is missing, excluded, or unmapped. |
 | `invalid_relationship_direction` | `error` | `source_relationship` | Explicit source relationship direction is invalid and relationship is excluded. |
 | `invalid_direction_policy` | `fatal` | `mapping_rule` | Relationship mapping uses an invalid direction policy. |
-| `invalid_reverse_edge_policy` | `fatal` | `mapping_rule` | Reverse-edge emission is incompatible with projected direction. |
-| `invalid_aggregation_rule` | `fatal` | `mapping_rule` | Aggregation rule schema, dependency, or endpoint reference is invalid. |
+| `invalid_reverse_edge_policy` | `fatal` | `mapping_rule` | Reverse-edge emission is incompatible with the static direction policy. |
+| `invalid_aggregation_rule` | `fatal` | `mapping_rule` | Aggregation rule schema, dependency, merge compatibility, or endpoint reference is invalid. |
 | `aggregation_grouping_key_missing` | `error` | `source_or_projected_item` | Required grouping key is absent under `missing_grouping_key_behavior=error`. |
 | `aggregation_endpoint_missing` | `error` | `mapping_rule` | Aggregated edge endpoint vertex cannot be resolved. |
 | `aggregation_merge_conflict` | `error` | `mapping_rule` | Aggregation merge behavior cannot produce one conforming value. |
-| `resource_limit_exceeded` | `fatal` | `projection_input` | Input exceeds a closed resource limit. |
+| `resource_limit_exceeded` | `fatal` | `projection_input` | Whole projection input exceeds a closed whole-input resource limit. |
+| `projected_output_limit_exceeded` | `fatal` | `graph_view` | Derived output would exceed a closed projected-output limit. |
 | `validation_issue_limit_exceeded` | `fatal` | `projection_input` | Validation issue cap reached. |
 | `invalid_retention_policy` | `fatal` | `projection_config` | Retention policy schema or bounds are invalid. |
 | `output_schema_violation` | `fatal` | `graph_view` | Derived output would violate this NLSpec. |
@@ -1156,7 +1395,7 @@ Implementations MUST NOT emit `missing_mapping_rule`. That token is reserved as 
 
 ### 9.6 Validation detail schemas
 
-For every validation issue, `details` MUST contain exactly the required keys in this table unless `additional_detail_keys` lists optional keys. Optional keys, when present, participate in neither issue identity nor ordering. Unknown detail keys are forbidden.
+For every validation issue, `details` MUST contain exactly the required keys in this table unless optional keys are listed. Optional keys, when present, participate in neither issue identity nor ordering. Unknown detail keys are forbidden.
 
 | Code | Required details | Optional details |
 | --- | --- | --- |
@@ -1179,6 +1418,7 @@ For every validation issue, `details` MUST contain exactly the required keys in 
 | `required_property_missing` | `projected_key`, `source_field_path` | none |
 | `source_null_for_required_property` | `projected_key`, `source_field_path` | none |
 | `undeclared_source_kind` | `source_item_id`, `source_kind` | none |
+| `source_item_resource_limit_exceeded` | `source_item_id`, `limit_key`, `limit`, `observed` | none |
 | `missing_relationship_endpoint` | `source_relationship_id`, `endpoint_field` | none |
 | `relationship_endpoint_not_projected` | `source_relationship_id`, `endpoint_field`, `endpoint_source_entity_id` | none |
 | `invalid_relationship_direction` | `source_relationship_id`, `supplied_value` | none |
@@ -1189,6 +1429,7 @@ For every validation issue, `details` MUST contain exactly the required keys in 
 | `aggregation_endpoint_missing` | `aggregation_rule_id`, `endpoint_side`, `endpoint_digest` | none |
 | `aggregation_merge_conflict` | `aggregation_rule_id`, `projected_key` | none |
 | `resource_limit_exceeded` | `limit_key`, `limit`, `observed` | none |
+| `projected_output_limit_exceeded` | `limit_key`, `limit`, `observed` | none |
 | `validation_issue_limit_exceeded` | `limit` | none |
 | `invalid_retention_policy` | `field`, `reason_code` | none |
 | `output_schema_violation` | `field`, `reason_code` | none |
@@ -1196,18 +1437,94 @@ For every validation issue, `details` MUST contain exactly the required keys in 
 
 Target kinds MUST use this closed vocabulary: `projection_input`, `projection_config`, `graph_view`, `filter`, `mapping_rule`, `property_definition`, `property`, `source_item`, `source_relationship`, `source_or_projected_item`.
 
+#### 9.6.1 Validation issue construction registry
+
+The implementation MUST construct `target_id` and `field_path` by code according to this table.
+
+| Code family | Target ID derivation | `field_path` |
+| --- | --- | --- |
+| `invalid_input_shape`, `missing_required_input`, `explicit_null_not_allowed`, `unknown_member`, `duplicate_identifier`, `invalid_projection_schema`, `resource_limit_exceeded`, `validation_issue_limit_exceeded` | literal `projection_input` | Canonical input path when attributable; otherwise `null`. |
+| `invalid_graph_view_id`, `projected_output_limit_exceeded`, `output_schema_violation`, `projection_computation_failed` | valid supplied or derived `graph_view_id`; otherwise literal `graph_view` | Canonical output or input path when attributable; otherwise `null`. |
+| `invalid_projection_config`, `invalid_field_path`, `invalid_retention_policy` | literal `projection_config` unless a stable child identifier exists | Canonical input path or §4.2 field path, as applicable. |
+| `invalid_filter` | Canonical input path to the filter predicate | Canonical input path to the invalid member. |
+| `invalid_mapping_rule`, `missing_entity_mapping_rule`, `missing_relationship_mapping_rule`, `invalid_direction_policy`, `invalid_reverse_edge_policy` | `mapping_rule_id` when valid; otherwise canonical input path to the rule | Canonical input path when attributable; otherwise `null`. |
+| `invalid_metadata_mapping` | `metadata_mapping_id` when valid; otherwise canonical input path to the mapping | Canonical input path when attributable; otherwise `null`. |
+| `invalid_property_definition` | `property_definition_id` when valid; otherwise canonical input path to the definition | Canonical input path when attributable; otherwise `null`. |
+| `invalid_property_type`, `required_property_missing`, `source_null_for_required_property` | `<output_object_id>#<projected_key>` when the output object ID is derivable; otherwise canonical input path | The owning `source_field_path`. |
+| `undeclared_source_kind`, `source_item_resource_limit_exceeded` | source entity or relationship ID when valid; otherwise canonical input path to the item | Canonical input path when attributable; otherwise `null`. |
+| `missing_relationship_endpoint`, `relationship_endpoint_not_projected`, `invalid_relationship_direction` | `source_relationship_id` when valid; otherwise canonical input path to the source relationship | Canonical input path when attributable; otherwise `null`. |
+| `invalid_aggregation_rule`, `aggregation_endpoint_missing`, `aggregation_merge_conflict` | `aggregation_rule_id` when valid; otherwise canonical input path to the aggregation rule | Canonical input path or §4.2 field path when attributable; otherwise `null`. |
+| `aggregation_grouping_key_missing` | contributor ID from the contributor sort-key family | The missing grouping `field_path`. |
+
+#### 9.6.2 Validation reason-code registries
+
+Reason-code fields are closed. A reason code outside these tables is non-conformant.
+
+| Validation code | Allowed `reason_code` values |
+| --- | --- |
+| `invalid_input_shape` | `invalid_utf8`, `invalid_json_syntax`, `top_level_not_object`, `duplicate_object_member`, `schema_type_mismatch`, `scalar_contract_violation`, `property_value_too_long`, `array_element_invalid`, `array_length_exceeded`, `invalid_label` |
+| `invalid_projection_config` | `custom_config_referenced`, `relationship_mapping_source_conflict`, `empty_kind_registry_not_allowed`, `declared_kind_duplicate`, `mapping_rule_duplicate`, `metadata_mapping_duplicate`, `aggregation_rule_duplicate`, `unknown_configuration_member`, `invalid_default_materialization` |
+| `invalid_filter` | `invalid_operator`, `value_required`, `value_forbidden`, `invalid_field_scope`, `invalid_value_shape`, `unsupported_logic` |
+| `invalid_mapping_rule` | `duplicate_mapping_rule_id`, `declared_source_kind_missing`, `property_key_not_defined`, `property_requiredness_mismatch`, `required_optional_overlap`, `reverse_edge_kind_without_reverse`, `label_invalid` |
+| `invalid_metadata_mapping` | `reserved_metadata_key`, `duplicate_after_wildcard_expansion`, `invalid_source_scope`, `invalid_default_value`, `invalid_merge_behavior_type`, `invalid_projected_type`, `required_metadata_missing` |
+| `invalid_property_definition` | `duplicate_after_wildcard_expansion`, `invalid_source_scope`, `invalid_default_value`, `invalid_null_policy`, `invalid_merge_behavior_type`, `invalid_projected_type` |
+| `invalid_aggregation_rule` | `dependency_on_later_rule`, `aggregation_cycle`, `endpoint_rule_not_vertex_rule`, `endpoint_grouping_key_count_mismatch`, `endpoint_field_scope_invalid`, `grouping_key_invalid`, `invalid_endpoint_behavior`, `invalid_edge_direction`, `input_scope_invalid`, `invalid_merge_behavior_type` |
+| `invalid_retention_policy` | `unknown_member`, `out_of_bounds`, `invalid_type`, `explicit_null_not_allowed` |
+| `output_schema_violation` | `id_mismatch`, `reference_missing`, `sort_order_invalid`, `schema_registry_mismatch`, `metadata_shape_invalid`, `closed_schema_violation`, `canonical_serialization_invalid` |
+| `projection_computation_failed` | `internal_exception`, `dependency_unavailable`, `timeout`, `resource_exhausted`, `implementation_invariant_failed` |
+
 ## 10. Projection lifecycle and retention
 
 Lifecycle state is split into graph-view state and projection-run/result state. A state name belongs to exactly one state machine unless the tables both declare the same token with machine-local meaning.
+
+### 10.0 Lifecycle operation interfaces
+
+Lifecycle operations are abstract interfaces. A conforming implementation MAY expose them through any transport, but the request members, defaults, idempotency, concurrency, state transitions, and errors in this section MUST remain observable.
+
+| Operation | Required request members | Optional request members | Success result | Primary errors |
+| --- | --- | --- | --- | --- |
+| `create_projection` | `projection_input` | `idempotency_key` | Accepted run summary | `invalid_operation`, `operation_conflict`, validation errors |
+| `refresh_projection` | `graph_view_id`, `projection_input` | `idempotency_key` | Accepted run summary | `projection_not_available`, `invalid_operation`, `operation_conflict`, validation errors |
+| `invalidate_graph_view` | `graph_view_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | Invalidation summary | `graph_view_not_found`, `invalid_operation`, `operation_conflict` |
+| `invalidate_projection_run` | `graph_view_id`, `projection_run_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | Invalidation summary | `projection_run_not_found`, `invalid_operation`, `operation_conflict` |
+
+An accepted run summary MUST contain exactly `graph_view_id`, `projection_run_id`, `state`, `source_snapshot_id`, `projection_version`, and `accepted_at`. `state` MUST be `accepted`.
+
+Lifecycle operation errors MUST use this registry.
+
+| Error | Retryable | Required details |
+| --- | ---: | --- |
+| `invalid_operation` | No | `operation`, `reason_code` |
+| `operation_conflict` | Yes only when `reason_code=run_already_active`; otherwise No | `operation`, `reason_code`, optional `active_projection_run_id` |
+
+Reason codes for lifecycle operation errors are closed.
+
+| Reason code | Applies to | Meaning |
+| --- | --- | --- |
+| `graph_view_already_exists` | `create_projection` | A graph view already has a selected available or refreshing run; caller must use refresh. |
+| `graph_view_not_created` | `refresh_projection` | No graph view exists for refresh. |
+| `no_consumable_prior_run` | `refresh_projection` | Refresh requires an available prior run unless the graph view is invalidated. |
+| `run_already_active` | create or refresh | Graph view already has an `accepted` or `computing` run. |
+| `idempotency_key_conflict` | any operation | Same operation idempotency key was reused with different normalized request bytes. |
+| `invalid_invalidation_target` | invalidation operations | Target state cannot be invalidated. |
+| `invalid_reason_code` | invalidation operations | Reason code is outside §10.7. |
+
+`create_projection` is allowed only when graph-view state is `not_created`, `failed`, or absent. It creates a new run in `accepted`. `refresh_projection` is allowed only when graph-view state is `available` or `invalidated`. It creates a new run in `accepted`. Retrying after an initial failed create uses `create_projection`, not `refresh_projection`.
+
+At most one `accepted` or `computing` run may exist per graph view at a time. A concurrent create or refresh with a different idempotency key while a run is active MUST return `operation_conflict` with `reason_code=run_already_active` and `active_projection_run_id` set to the active run.
+
+Without an `idempotency_key`, a successful create or refresh creates a new run only when no run is active. With an `idempotency_key`, exact replay of the same normalized operation request MUST return the original accepted run summary while that run remains inspectable. Reusing the same operation and idempotency key with different normalized request bytes MUST return `operation_conflict` with `reason_code=idempotency_key_conflict`.
+
+Normalized operation request bytes MUST be canonical JSON of an object with exact members `operation`, `graph_view_id` when applicable, `projection_input` after default materialization when applicable, `projection_run_id` when applicable, `reason_code` when applicable, `requested_at` when applicable, and `requested_by` when applicable. Unknown operation request members are invalid.
 
 ### 10.1 Graph-view states
 
 | State | Meaning |
 | --- | --- |
 | `not_created` | No run exists for the graph view. |
-| `creating` | Initial run is computing and no available result exists. |
+| `creating` | Initial run is accepted or computing and no available result exists. |
 | `available` | Latest available result exists. |
-| `refreshing` | Replacement run is computing while latest available result remains consumable. |
+| `refreshing` | Replacement run is accepted or computing while latest available result remains consumable. |
 | `failed` | Latest initial create attempt failed and no available result exists. |
 | `invalidated` | Latest available result has been invalidated and no newer available result exists. |
 
@@ -1230,27 +1547,28 @@ Lifecycle state is split into graph-view state and projection-run/result state. 
 | Machine | From | Event | To | Required effect |
 | --- | --- | --- | --- | --- |
 | Graph view | `not_created` | create accepted | `creating` | Create initial run in `accepted`. |
+| Graph view | `failed` | create accepted | `creating` | Create another initial run in `accepted`. |
 | Graph view | `creating` | run available | `available` | Latest available run becomes selected. |
-| Graph view | `creating` | run failed | `failed` | Failed run summary is retained. |
+| Graph view | `creating` | run failed | `failed` | Failed run summary is retained under §10.6. |
 | Graph view | `available` | refresh accepted | `refreshing` | Prior available result remains consumable. |
 | Graph view | `refreshing` | replacement run available | `available` | Old run becomes `replaced`; new run becomes latest `available`. |
 | Graph view | `refreshing` | replacement run failed | `available` | Failed run retained; prior available result remains selected. |
-| Graph view | `available` | invalidation accepted | `invalidated` | Latest run becomes `invalidated`. |
+| Graph view | `available` | graph-view invalidation accepted | `invalidated` | Invalidation cascade in §10.7 applies. |
 | Graph view | `invalidated` | refresh accepted | `refreshing` | New run may produce replacement. |
 | Run/result | `accepted` | computation starts | `computing` | No graph result is visible yet. |
 | Run/result | `computing` | no fatal issues | `available` | Result is published atomically. |
 | Run/result | `computing` | fatal issues or computation failure | `failed` | Validation summary or failure summary is retained. |
 | Run/result | `available` | newer run published | `replaced` | Exact retention policy applies. |
 | Run/result | `available` or `replaced` | invalidation accepted | `invalidated` | Result is not consumable by graph read queries. |
-| Run/result | `replaced` or `invalidated` | retention expires | `expired` | Run-specific reads return `projection_run_not_found`. |
+| Run/result | `replaced`, `invalidated`, or retained `failed` | retention expires | `expired` | Run-specific reads return `projection_run_not_found`. |
 
 ### 10.4 Creation, refresh, and replacement rules
 
 Publishing a projection result MUST be atomic from the perspective of consumers. A consumer MUST NOT observe a partially replaced graph view.
 
-Initial creation publishes a graph view only when the initial run reaches run/result state `available`. A failed initial creation leaves graph-view state `failed` and MUST preserve the failed run summary for `get_projection_run()`.
+Initial creation publishes a graph view only when the initial run reaches run/result state `available`. A failed initial creation leaves graph-view state `failed` and MUST preserve the failed run summary for `get_projection_run()` under §10.6.
 
-A refresh that succeeds MUST set the previous latest available run to `replaced`, set the new run to `available`, and set graph-view state to `available`. A refresh that fails MUST leave the previous latest available run queryable and MUST retain the failed run summary.
+A refresh that succeeds MUST set the previous latest available run to `replaced`, set the new run to `available`, and set graph-view state to `available`. A refresh that fails MUST leave the previous latest available run queryable and MUST retain the failed run summary under §10.6.
 
 Graph-view metadata for a successful replacement MUST set `previous_projection_run_id` to the previous latest available run ID. Initial creation MUST set it to `null`.
 
@@ -1268,7 +1586,9 @@ A failed projection run MUST retain:
 - `started_at`,
 - `completed_at` when known.
 
-A failed run MUST NOT be returned by `get_graph_view()` as a consumable graph. Failed runs are inspectable only through `get_projection_run()`.
+A failed run MUST NOT be returned by `get_graph_view()` as a consumable graph. Failed runs are inspectable only through `get_projection_run()` while retained.
+
+If computation fails before ordinary validation can produce a summary, the run's `validation_summary` MUST have `status=failed`, `fatal_count=1`, and exactly one `projection_computation_failed` issue.
 
 ### 10.6 Retention policy fields and exact retention
 
@@ -1279,6 +1599,9 @@ A failed run MUST NOT be returned by `get_graph_view()` as a consumable graph. F
 | `retain_replaced_results` | Boolean | No | No | `true` | Boolean only. |
 | `retention_count` | Integer | No | No | `5` | `0` through `100`. |
 | `retention_duration_seconds` | Integer | No | No | `2592000` | `0` through `31536000`. |
+| `retain_failed_results` | Boolean | No | No | `true` | Boolean only. |
+| `failed_retention_count` | Integer | No | No | `20` | `0` through `100`. |
+| `failed_retention_duration_seconds` | Integer | No | No | `2592000` | `0` through `31536000`. |
 
 The latest `available` run is always retained while graph-view state is `available` or `refreshing`.
 
@@ -1287,27 +1610,65 @@ If `retain_replaced_results=false`, a replaced run becomes `expired` immediately
 1. it is within the most recent `retention_count` replaced runs sorted by `replaced_at DESC`, then `projection_run_id ASC`;
 2. `query_received_at < replaced_at + retention_duration_seconds`.
 
-Runs outside either bound are `expired` for all query behavior. Expired runs return `projection_run_not_found`. Retention MUST be evaluated before every run-specific read and immediately after successful replacement publication. Implementations MUST NOT retain additional query-addressable replaced runs beyond this exact policy.
+The latest failed initial-create run is always retained while graph-view state is `failed`. Other failed runs are retained only when `retain_failed_results=true` and both conditions are true:
+
+1. the run is within the most recent `failed_retention_count` failed runs sorted by `completed_at DESC`, then `projection_run_id ASC`;
+2. `query_received_at < completed_at + failed_retention_duration_seconds`.
+
+If `retain_failed_results=false`, a failed run becomes expired immediately unless it is the latest failed initial-create run for a graph view in state `failed`.
+
+Runs outside the applicable bound are `expired` for all query behavior. Expired runs return `projection_run_not_found`. Retention MUST be evaluated before every run-specific read, immediately after successful replacement publication, and immediately after a failed terminal transition. Implementations MUST NOT retain additional query-addressable replaced or failed runs beyond this exact policy.
+
+### 10.7 Invalidation contract
+
+Invalidation reason codes are closed.
+
+| Reason code | Meaning |
+| --- | --- |
+| `operator_requested` | A permitted operator or system process explicitly withdrew the run or graph view. |
+| `source_snapshot_withdrawn` | The source snapshot is no longer valid for consumer use. |
+| `projection_config_retired` | The projection configuration was retired. |
+| `security_withdrawal` | The result was withdrawn for safety or disclosure reasons. |
+| `schema_version_retired` | The projection schema version is no longer accepted for consumption. |
+
+`invalidate_graph_view` MUST invalidate every retained `available` and `replaced` run for that graph view. Failed run summaries remain inspectable after graph-view invalidation until failed-run retention expires. `invalidate_projection_run` MUST invalidate exactly one retained `available` or `replaced` run.
+
+If `invalidate_projection_run` targets the latest selected available run, graph-view state becomes `invalidated`. If it targets a retained replaced run, graph-view state does not change. Invalidated runs are never consumable by graph-reading queries. Invalidated runs remain inspectable by `get_projection_run()` until retention expires.
+
+The invalidation object stored on metadata and run inspection MUST use the shape in §5.5.1. `metadata.invalidation` is `null` for non-invalidated selected runs.
 
 ## 11. Consumer query contract
 
-Query shapes are contract-level interfaces. A conforming implementation MAY expose them through any transport that preserves request shape, defaults, errors, result shape, and ordering.
+Query shapes are contract-level interfaces. A conforming implementation MAY expose them through any transport that preserves request shape, defaults, errors, result shape, retryability, and ordering.
 
-### 11.1 Common query error behavior
+### 11.1 Common query response and error behavior
 
-Query errors MUST use the following closed codes.
+Every query response MUST use one of these abstract variants.
 
-| Error | Required meaning |
+| Variant | Shape |
 | --- | --- |
-| `invalid_argument` | Query request shape, type, bounds, duplicate IDs, forbidden explicit null, or unsupported parameter is invalid. |
-| `graph_view_not_found` | No graph view with the supplied `graph_view_id` is visible to the caller. |
-| `projection_not_available` | The graph view exists but has no consumable available result for the requested read. |
-| `projection_run_not_found` | Supplied run does not exist, does not belong to the graph view, or has expired. |
-| `projection_run_failed` | Supplied run exists but failed and the called query requires a consumable graph. |
-| `projection_run_invalidated` | Supplied run exists but is invalidated and the called query requires a consumable graph. |
-| `vertex_not_found` | Supplied vertex ID does not exist in the selected projection result. |
-| `edge_not_found` | Supplied edge ID does not exist in the selected projection result. |
-| `cursor_invalid` | Pagination cursor is malformed, expired, or not owned by the query shape. |
+| Success | `{ "status": "ok", "data": <query-specific result object> }` |
+| Error | `{ "status": "error", "error": { "code": <query_error_code>, "retryable": <boolean>, "details": <closed object> } }` |
+
+Query-specific sections define the `data` value for success responses. Error responses MUST NOT include partial query data. Unknown request members MUST return `invalid_argument`. Explicit JSON null for a non-nullable request member MUST return `invalid_argument`. A transport may wrap these objects only when the same fields, values, and semantics remain observable.
+
+Query errors MUST use the following closed codes and detail shapes.
+
+| Error | Retryable | Required details |
+| --- | ---: | --- |
+| `invalid_argument` | No | `field`, `reason_code` |
+| `graph_view_not_found` | No | `graph_view_id` |
+| `projection_not_available` | Yes only when `state` is `creating`, `refreshing`, `accepted`, or `computing`; otherwise No | `graph_view_id`, `state` |
+| `projection_run_not_found` | No | `graph_view_id`, `projection_run_id` |
+| `projection_run_failed` | No | `graph_view_id`, `projection_run_id` |
+| `projection_run_invalidated` | No | `graph_view_id`, `projection_run_id`, `invalidation.reason_code`, `invalidation.invalidated_at` |
+| `vertex_not_found` | No | `graph_view_id`, `projection_run_id`, `vertex_id` |
+| `edge_not_found` | No | `graph_view_id`, `projection_run_id`, `edge_id` |
+| `cursor_invalid` | No | `reason_code` |
+
+`invalid_argument.reason_code` MUST be one of: `missing_required_parameter`, `explicit_null_not_allowed`, `invalid_type`, `out_of_bounds`, `duplicate_id`, `unknown_parameter`, `unsupported_parameter`, or `cursor_token_too_long`.
+
+`cursor_invalid.reason_code` MUST be one of: `malformed`, `expired`, `wrong_query_shape`, or `cursor_token_too_long`.
 
 Expired runs MUST use `projection_run_not_found`, not a separate public error. Alternate traversal order MUST use `invalid_argument` because no alternate order is defined in this revision.
 
@@ -1317,11 +1678,17 @@ Every graph-reading query that accepts optional `projection_run_id` MUST select 
 
 | Request state | Selected result or error |
 | --- | --- |
-| `projection_run_id` omitted | Latest available result for graph view, or `projection_not_available` if none exists. |
-| `projection_run_id` supplied and run state is `available` or `replaced` | That run's retained graph result. |
+| `projection_run_id` omitted and latest graph-view state is `available` or `refreshing` | Latest available result for graph view. |
+| `projection_run_id` omitted and graph-view state is `creating` or `refreshing` with no prior available result | `projection_not_available`, retryable `true`. |
+| `projection_run_id` omitted and graph-view state is `not_created`, `failed`, or `invalidated` with no available selected run | `projection_not_available`, retryable `false`. |
+| `projection_run_id` supplied and run state is `accepted` | `projection_not_available`, retryable `true`. |
+| `projection_run_id` supplied and run state is `computing` | `projection_not_available`, retryable `true`. |
+| `projection_run_id` supplied and run state is `available` or retained `replaced` | That run's retained graph result. |
 | `projection_run_id` supplied and run state is `failed` | `projection_run_failed` for graph-reading queries. |
 | `projection_run_id` supplied and run state is `invalidated` | `projection_run_invalidated` for graph-reading queries. |
 | `projection_run_id` supplied and run state is `expired` or unknown | `projection_run_not_found`. |
+
+For `projection_not_available`, `details.state` MUST be the graph-view state when no run is supplied and the run state when a specific nonterminal run is supplied.
 
 ### 11.3 `get_graph_view(graph_view_id, projection_run_id?)`
 
@@ -1332,7 +1699,7 @@ Request members:
 | `graph_view_id` | Yes | No | None | Valid `gv_` generated ID. |
 | `projection_run_id` | No | No | Latest available result | Valid `gpr_` generated ID belonging to the graph view. |
 
-Result: one graph view output object from §5.1.
+Success `data` is one graph view output object from §5.1.
 
 ### 11.4 `get_vertex(graph_view_id, vertex_id, projection_run_id?)`
 
@@ -1344,7 +1711,7 @@ Request members:
 | `vertex_id` | Yes | No | None | Valid `vx_` generated ID. |
 | `projection_run_id` | No | No | Latest available result | Valid `gpr_` generated ID belonging to the graph view. |
 
-Result: one projected vertex object. If the selected projection result exists but `vertex_id` is absent, return `vertex_not_found`.
+Success `data` is one projected vertex object. If the selected projection result exists but `vertex_id` is absent, return `vertex_not_found`.
 
 ### 11.5 `get_edge(graph_view_id, edge_id, projection_run_id?)`
 
@@ -1356,7 +1723,7 @@ Request members:
 | `edge_id` | Yes | No | None | Valid `ed_` generated ID. |
 | `projection_run_id` | No | No | Latest available result | Valid `gpr_` generated ID belonging to the graph view. |
 
-Result: one projected edge object. If the selected projection result exists but `edge_id` is absent, return `edge_not_found`.
+Success `data` is one projected edge object. If the selected projection result exists but `edge_id` is absent, return `edge_not_found`.
 
 ### 11.6 `traverse(...)`
 
@@ -1372,9 +1739,9 @@ Request members:
 | `vertex_kinds[]` | No | No | All vertex kinds | Array of 0 to 1024 distinct `kind` values. Empty array means only existing seed vertices may be returned. |
 | `projection_run_id` | No | No | Latest available result | Valid `gpr_` generated ID belonging to the graph view. |
 
-Traversal result MUST be a JSON object with exactly these members: `graph_view_id`, `projection_run_id`, `seed_vertex_ids[]`, `omitted_seed_vertex_ids[]`, `vertices[]`, `edges[]`, and `metadata`.
+Traversal success `data` MUST be a JSON object with exactly these members: `graph_view_id`, `projection_run_id`, `seed_vertex_ids[]`, `omitted_seed_vertex_ids[]`, `vertices[]`, `edges[]`, and `metadata`.
 
-`vertices[]` and `edges[]` MUST use the same object shapes and ordering as the selected graph view. `omitted_seed_vertex_ids[]` MUST contain unknown seed IDs sorted by input order after duplicate validation.
+`vertices[]` and `edges[]` MUST use the same object shapes and ordering as the selected graph view. `omitted_seed_vertex_ids[]` MUST contain unknown seed IDs sorted by input order after duplicate validation. In this revision, traversal `metadata` MUST be exactly `{}`. Implementations MUST NOT add timing, counts, internal plan details, cache details, or storage-engine diagnostics to traversal metadata.
 
 #### 11.6.1 Traversal direction table
 
@@ -1433,9 +1800,21 @@ Request members:
 | Parameter | Required | Nullable | Default | Bounds and validation |
 | --- | ---: | ---: | --- | --- |
 | `limit` | No | No | `100` | Integer `1` through `1000`. |
-| `cursor_token` | No | No | First page | Opaque string returned by a previous `list_graph_views` page. |
+| `cursor_token` | No | No | First page | `cursor_token` string with maximum length `4096`. |
 
-Result object members:
+Pagination is live keyset pagination over the currently visible graph-view set. No snapshot stability is promised. Sort order is `graph_view_id ASC`. The first page starts after no key.
+
+A cursor token MUST encode:
+
+- operation name `list_graph_views`,
+- `after_graph_view_id`,
+- `issued_at`,
+- query-shape digest excluding `limit`,
+- implementation authentication or visibility scope digest if the implementation has caller-specific visibility below this NLSpec boundary.
+
+A cursor token expires 15 minutes after `issued_at`. `limit` MAY change between pages. If `after_graph_view_id` no longer exists, the next page starts at the first graph view with `graph_view_id > after_graph_view_id`. Graph views created after the first page may appear on later pages if their `graph_view_id` is greater than the cursor's `after_graph_view_id`. Graph views with `graph_view_id <= after_graph_view_id` MUST NOT appear on later pages from that cursor chain.
+
+Success `data` members:
 
 | Member | Rule |
 | --- | --- |
@@ -1444,11 +1823,11 @@ Result object members:
 
 Each graph-view summary object MUST contain exactly `graph_view_id`, `graph_view_key`, `state`, `latest_projection_run_id`, `latest_source_snapshot_id`, `projection_version`, `updated_at`, and `validation_status`. The `state` member is graph-view state from §10.1.
 
-A cursor token MUST encode the last returned `graph_view_id` and MUST be valid only for this query shape. Invalid, expired, or wrong-query cursor tokens return `cursor_invalid`.
+`next_cursor_token` is `null` only when no graph view with `graph_view_id > last_returned_graph_view_id` exists at response construction time. Invalid, expired, oversized, malformed, or wrong-query-shape cursor tokens return `cursor_invalid`.
 
 ### 11.8 `get_projection_run(graph_view_id, projection_run_id)`
 
-`get_projection_run()` is the required failed-run and retained-run inspection query.
+`get_projection_run()` is the required accepted-run, computing-run, failed-run, invalidated-run, and retained-run inspection query.
 
 Request members:
 
@@ -1457,22 +1836,24 @@ Request members:
 | `graph_view_id` | Yes | No | None | Valid `gv_` generated ID. |
 | `projection_run_id` | Yes | No | None | Valid `gpr_` generated ID belonging to the graph view. |
 
-Result object members:
+Success `data` MUST be a JSON object with exactly these members in this order.
 
-| Field | Rule |
-| --- | --- |
-| `graph_view_id` | Selected graph view. |
-| `projection_run_id` | Selected run. |
-| `source_snapshot_id` | Source snapshot for the run. |
-| `projection_version` | Projection version for the run. |
-| `state` | Projection-run/result state from §10.2. |
-| `started_at` | Timestamp or `null` if not started. |
-| `completed_at` | Timestamp or `null` if not completed. |
-| `validation_summary` | Present for completed runs. For computation failures before ordinary validation, contains `failed` summary with `projection_computation_failed`. |
-| `failure_reason` | Non-empty string for failed runs; `null` otherwise. |
-| `has_consumable_graph_view` | Boolean. |
+| Field | Required | Nullable | State-specific rule |
+| --- | ---: | ---: | --- |
+| `graph_view_id` | Yes | No | Selected graph view. |
+| `projection_run_id` | Yes | No | Selected run. |
+| `source_snapshot_id` | Yes | No | Source snapshot for the run. |
+| `projection_version` | Yes | No | Projection version for the run. |
+| `state` | Yes | No | One run/result state from §10.2 except `expired`, which is not returned. |
+| `started_at` | Yes | Yes | `null` in `accepted`; timestamp in all later states. |
+| `completed_at` | Yes | Yes | `null` in `accepted` and `computing`; timestamp in terminal states. |
+| `validation_summary` | Yes | Yes | `null` in `accepted` and `computing`; non-null in `available`, `replaced`, `invalidated`, and `failed`. |
+| `failure_reason` | Yes | Yes | Non-empty string only in `failed`; otherwise `null`. |
+| `has_consumable_graph_view` | Yes | No | `true` only for `available` and retained `replaced`; `false` otherwise. |
+| `invalidation` | Yes | Yes | Non-null only in `invalidated`; shape from §5.5.1. |
+| `retention_expires_at` | Yes | Yes | Non-null only when the run is retained under duration-bound retention; `null` for latest available and always-retained latest failed initial run. |
 
-Expired or unknown runs return `projection_run_not_found`.
+Expired or unknown runs return `projection_run_not_found`. Accepted and computing runs are inspectable through this query but are not graph-readable.
 
 ## 12. Intentional implementation latitude
 
@@ -1492,19 +1873,27 @@ Implementations MAY vary these mechanisms without affecting conformance:
 - diagnostic log text;
 - non-canonical private operator diagnostics that are not returned by consumer query shapes.
 
-### 12.2 Run-specific canonical-output exclusions
+### 12.2 Canonical output comparison inputs and run-specific exclusions
 
-The requirement for byte-identical canonical graph output excludes only these run-specific fields:
+A conformance fixture MUST declare whether it is `run_specific` or `run_independent`.
+
+For `run_independent` canonical graph-result comparison, the comparison input MUST exclude only these run-specific fields:
 
 | Field | Reason |
 | --- | --- |
 | `projection_run_id` | Deliberately unique per accepted run. |
+| `projection_run_nonce` | Deliberately run-specific identity input. |
+| `requested_at` | Request audit input, not graph derivation. |
+| `requested_by` | Request audit input, not graph derivation. |
 | `generated_at` | Deliberately records run publication time. |
 | `metadata.previous_projection_run_id` | Depends on run history. |
-| `validation_summary.issues[].issue_id` | Includes `projection_run_id`. |
-| `get_projection_run().started_at` and `completed_at` | Run inspection fields, not graph object fields. |
+| lifecycle timestamps | State-machine timing, not graph derivation. |
+| retention timestamps | Retention availability, not graph derivation. |
+| `validation_summary.issues[].issue_id` | Includes `projection_run_id`; may be excluded only by run-independent validation fixtures. |
 
-All other canonical graph output bytes MUST match for the same normalized non-run-specific inputs.
+Validation-summary comparison MUST include `issue_id` unless the fixture explicitly declares `run_independent_validation=true`. Graph object IDs, sort keys, property values, mapped metadata excluding lifecycle/run fields, schema registry, source refs, `projection_config_digest`, and `projection_source_digest` are always included.
+
+For `run_specific` comparison, no fields are excluded unless the fixture itself scopes the comparison to a declared subobject. All other canonical graph output bytes MUST match for the same normalized non-run-specific inputs.
 
 ### 12.3 Forbidden implementation leakage
 
@@ -1532,28 +1921,48 @@ A Graph Projection implementation is conformant only when every criterion in thi
 | `GP-AC-003` | Identity participation is complete. | Every top-level input family appears in the identity participation matrix. |
 | `GP-AC-004` | Graph-view ID derivation is enforced. | Supplied `graph_view_id` must equal the canonical derived value and is never silently replaced. |
 | `GP-AC-005` | Field-path grammar is closed. | Every accepted field path matches the grammar, and property keys cannot make dotted paths ambiguous. |
-| `GP-AC-006` | Resource limits are closed. | Every externally supplied unbounded collection has a limit and overflow behavior. |
+| `GP-AC-006` | Resource limits are closed. | Every externally supplied unbounded collection or scalar family has a limit and overflow behavior. |
 | `GP-AC-007` | Mapping schemas are closed. | Entity, relationship, metadata, and aggregation rules each have closed schemas with unknown-member behavior. |
 | `GP-AC-008` | Custom config cannot affect interoperability. | `custom_config` cannot affect output, validation, identity, ordering, lifecycle, traversal, retention, or query behavior. |
 | `GP-AC-009` | Filter truth table is complete. | Missing, null, scalar, and array field states have defined behavior for every operator. |
 | `GP-AC-010` | Property type compatibility is complete. | Every projected type has source compatibility, default compatibility, normalization, and invalid behavior. |
 | `GP-AC-011` | Omission and explicit-null behavior is closed. | Every optional and nullable boundary has distinct omitted and explicit-null semantics. |
 | `GP-AC-012` | Direction policy is exhaustive. | Every `direction_policy × source direction` combination has one projected endpoint and direction result. |
-| `GP-AC-013` | Reverse-edge behavior is closed. | Reverse edge kind, direction, endpoints, properties, metadata, source ref, and identity are defined. |
+| `GP-AC-013` | Reverse-edge behavior is closed. | Reverse edge kind, direction, endpoints, labels, properties, metadata, source ref, static validity, and identity are defined. |
 | `GP-AC-014` | Aggregation is executable. | Aggregation schema, grouping, missing-key behavior, merge behavior, endpoint grouping, source refs, and empty groups are deterministic. |
 | `GP-AC-015` | Metadata schemas are closed. | Graph, vertex, and edge metadata have required members and forbid private canonical-output keys. |
 | `GP-AC-016` | Schema registry is exposed. | Graph-view output includes a parseable schema registry for consumer reliance. |
 | `GP-AC-017` | Sort key derivation is deterministic. | Every emitted vertex and edge has a reproducible `sort_key`. |
-| `GP-AC-018` | Canonical identity tuples are deterministic. | Graph-view, vertex, edge, aggregation, and validation-issue IDs derive from specified tuples. |
+| `GP-AC-018` | Canonical identity tuples are deterministic. | Graph-view, vertex, edge, aggregation, digest, and validation-issue IDs derive from specified tuples. |
 | `GP-AC-019` | Validation issue identity is stable. | Details are closed per code, and issue ordering has a final tie-breaker. |
 | `GP-AC-020` | Validation severity and consumability are aligned. | No nonfatal issue makes the graph non-consumable. |
-| `GP-AC-021` | Source item exclusion is bounded. | Item-level relationship and source-kind errors exclude affected items without rejecting unrelated valid items. |
+| `GP-AC-021` | Source item exclusion is bounded. | Item-level relationship, source-kind, and item-resource errors exclude affected items without rejecting unrelated valid items. |
 | `GP-AC-022` | Lifecycle state ownership is separated. | Graph-view state and projection-run/result state are independently defined. |
 | `GP-AC-023` | Failed-run inspection is portable. | `get_projection_run()` exposes retained failed-run validation or failure details. |
-| `GP-AC-024` | Retention is exact. | Same projection history and retention policy produce the same retained run set. |
+| `GP-AC-024` | Retention is exact. | Same projection history and retention policy produce the same retained replaced and failed run set. |
 | `GP-AC-025` | Query behavior is closed. | Every lifecycle state maps to a query result or query error. |
-| `GP-AC-026` | Traversal is fully deterministic. | BFS pseudocode covers empty seeds, unknown seeds, self-loops, multi-edges, filters, and ordering. |
-| `GP-AC-027` | Pagination is closed. | `list_graph_views()` has default limit, bounds, cursor semantics, ordering, and errors. |
+| `GP-AC-026` | Traversal is fully deterministic. | BFS pseudocode covers empty seeds, unknown seeds, self-loops, multi-edges, filters, metadata, and ordering. |
+| `GP-AC-027` | Pagination is closed. | `list_graph_views()` has default limit, bounds, cursor semantics, mutation behavior, ordering, and errors. |
 | `GP-AC-028` | Canonical output bytes are defined. | Canonical JSON serialization produces byte-identical comparison inputs after allowed run-specific exclusions. |
 | `GP-AC-029` | Implementation latitude is bounded. | Allowed internal variance cannot change observable output, validation, lifecycle, retention, or query behavior. |
 | `GP-AC-030` | The spec is self-contained. | A competent implementer can implement graph projection behavior from this NLSpec without project-specific assumptions or external graph standards. |
+| `GP-AC-031` | JSON duplicate-member behavior is closed. | Duplicate object members at every depth are rejected before schema validation with deterministic `invalid_input_shape` details. |
+| `GP-AC-032` | Digest bytes are canonical. | Golden fixtures produce byte-identical `projection_config_digest` and `projection_source_digest`. |
+| `GP-AC-033` | Lifecycle operation contracts are closed. | Create, refresh, invalidation, idempotency, retry, and concurrent active-run behavior produce the specified states and errors. |
+| `GP-AC-034` | Failed-run retention is exact. | The same failed-run history and retention policy produce the same retained failed-run set. |
+| `GP-AC-035` | Invalidation scope is exact. | Graph-view invalidation cascades and run-specific invalidation affect exactly the specified retained runs. |
+| `GP-AC-036` | Validation issue construction is deterministic. | Every validation code has deterministic target ID, field, detail, reason-code, and issue ID behavior. |
+| `GP-AC-037` | Validation issue cap is deterministic. | Inputs exceeding the issue cap emit the first `N-1` issues by discovery order plus one cap issue. |
+| `GP-AC-038` | Resource-limit severity is aligned. | Whole-input limits are fatal; source-item limits exclude only the affected item; output limits are fatal. |
+| `GP-AC-039` | Wildcard collision behavior is closed. | Wildcard and concrete property or metadata definitions cannot collide after expansion. |
+| `GP-AC-040` | Mapping property-key arrays are operationally closed. | Required and optional mapping property keys resolve only to applicable property definitions and never synthesize passthrough output. |
+| `GP-AC-041` | Edge labels are deterministic. | Direct and reverse edge labels follow the edge label derivation table. |
+| `GP-AC-042` | Reverse-edge validity is static. | `emit_reverse_edge=true` is valid only with `normalize_forward` or `normalize_reverse`. |
+| `GP-AC-043` | Aggregated endpoint matching is deterministic. | Endpoint grouping digests use the referenced vertex aggregation rule's digest context. |
+| `GP-AC-044` | Aggregation merge compatibility is closed. | Every merge behavior and projected type combination is accepted or rejected by table. |
+| `GP-AC-045` | Metadata mapping contexts are closed. | Graph-view, direct, reverse, and aggregated metadata derivation use the specified source contexts. |
+| `GP-AC-046` | Query errors are portable. | Every query error has closed details, retryability, and no partial-result behavior. |
+| `GP-AC-047` | Nonterminal run queries are closed. | Accepted and computing runs are inspectable through `get_projection_run()` and not graph-readable. |
+| `GP-AC-048` | Pagination mutation behavior is closed. | Live keyset pagination, cursor expiry, deletion, insertion, and limit-change cases produce deterministic pages or `cursor_invalid`. |
+| `GP-AC-049` | Traversal metadata is closed. | `traverse(...).metadata` is exactly `{}` in this revision. |
+| `GP-AC-050` | Canonical comparison fixtures state run specificity. | Conformance fixtures declare run-specific versus run-independent comparison inputs and exclude only the allowed fields. |
