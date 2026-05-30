@@ -2,6 +2,12 @@ import { listViewSchemaRegistryEntries } from "@cartulary/protocol-ts";
 
 export type WorkbookSurface = string;
 
+declare const stableTestIdBrand: unique symbol;
+
+export type StableTestId = string & {
+  readonly [stableTestIdBrand]: "StableTestId";
+};
+
 export type EntityType = "host" | "identity";
 
 export const entityTypes = [
@@ -133,9 +139,9 @@ export type Phase1RouteSelector =
   | "workbook-loading";
 
 export type Phase1ErrorSummaryTestIds = {
-  readonly container: string;
-  readonly details: string;
-  readonly message: string;
+  readonly container: StableTestId;
+  readonly details: StableTestId;
+  readonly message: StableTestId;
 };
 
 export type RowHistoryItemAnchor = {
@@ -251,48 +257,52 @@ const phase1ErrorSurfaces = Object.freeze(
   new Set<Phase1ErrorSurface>(["account", "admin", "auth", "landing"]),
 );
 
-export function phase1AuthTestId(selector: Phase1AuthSelector): string {
-  return requireSelectorToken(
-    phase1AuthTestIds,
-    selector,
-    "phase1 auth selector",
+export function phase1AuthTestId(selector: Phase1AuthSelector): StableTestId {
+  return stableTestId(
+    requireSelectorToken(phase1AuthTestIds, selector, "phase1 auth selector"),
   );
 }
 
-export function phase1AccountTestId(selector: Phase1AccountSelector): string {
-  return requireSelectorToken(
-    phase1AccountTestIds,
-    selector,
-    "phase1 account selector",
+export function phase1AccountTestId(
+  selector: Phase1AccountSelector,
+): StableTestId {
+  return stableTestId(
+    requireSelectorToken(
+      phase1AccountTestIds,
+      selector,
+      "phase1 account selector",
+    ),
   );
 }
 
-export function phase1AdminTestId(selector: Phase1AdminSelector): string {
-  return requireSelectorToken(
-    phase1AdminTestIds,
-    selector,
-    "phase1 admin selector",
+export function phase1AdminTestId(selector: Phase1AdminSelector): StableTestId {
+  return stableTestId(
+    requireSelectorToken(phase1AdminTestIds, selector, "phase1 admin selector"),
   );
 }
 
-export function phase1LandingTestId(selector: Phase1LandingSelector): string {
-  return requireSelectorToken(
-    phase1LandingTestIds,
-    selector,
-    "phase1 landing selector",
+export function phase1LandingTestId(
+  selector: Phase1LandingSelector,
+): StableTestId {
+  return stableTestId(
+    requireSelectorToken(
+      phase1LandingTestIds,
+      selector,
+      "phase1 landing selector",
+    ),
   );
 }
 
-export function phase1RouteTestId(selector: Phase1RouteSelector): string {
-  return requireSelectorToken(
-    phase1RouteTestIds,
-    selector,
-    "phase1 route selector",
+export function phase1RouteTestId(selector: Phase1RouteSelector): StableTestId {
+  return stableTestId(
+    requireSelectorToken(phase1RouteTestIds, selector, "phase1 route selector"),
   );
 }
 
-export function phase1ErrorCodeTestId(surface: Phase1ErrorSurface): string {
-  return `${requirePhase1ErrorSurface(surface)}-error-code`;
+export function phase1ErrorCodeTestId(
+  surface: Phase1ErrorSurface,
+): StableTestId {
+  return stableTestId(`${requirePhase1ErrorSurface(surface)}-error-code`);
 }
 
 export function phase1ErrorSummaryTestIds(
@@ -300,9 +310,9 @@ export function phase1ErrorSummaryTestIds(
 ): Phase1ErrorSummaryTestIds {
   const prefix = requirePhase1ErrorSurface(surface);
   return {
-    container: `${prefix}-error-public`,
-    details: `${prefix}-error-details`,
-    message: `${prefix}-error-message`,
+    container: stableTestId(`${prefix}-error-public`),
+    details: stableTestId(`${prefix}-error-details`),
+    message: stableTestId(`${prefix}-error-message`),
   };
 }
 
@@ -330,12 +340,18 @@ export function currentIncidentRoleTestId(): string {
   return "current-incident-role";
 }
 
-export function landingIncidentCardTestId(incidentId: string): string {
-  return `landing-incident-${encodeSelectorSegment(incidentId, "incident_id")}`;
+export function landingIncidentCardTestId(incidentId: string): StableTestId {
+  return stableTestId(
+    `landing-incident-${encodeSelectorSegment(incidentId, "incident_id")}`,
+  );
 }
 
-export function landingIncidentOpenButtonTestId(incidentId: string): string {
-  return `landing-open-${encodeSelectorSegment(incidentId, "incident_id")}`;
+export function landingIncidentOpenButtonTestId(
+  incidentId: string,
+): StableTestId {
+  return stableTestId(
+    `landing-open-${encodeSelectorSegment(incidentId, "incident_id")}`,
+  );
 }
 
 export function incidentMembershipEmailInputTestId(): string {
@@ -913,6 +929,10 @@ function requireSelectorToken<T extends string>(
     throw new Error(`Invalid ${label} token: ${String(value)}`);
   }
   return token;
+}
+
+function stableTestId(value: string): StableTestId {
+  return value as StableTestId;
 }
 
 function requirePhase1ErrorSurface(

@@ -4,6 +4,7 @@ import {
   phase1AdminTestId,
   phase1AuthTestId,
   phase1LandingTestId,
+  type StableTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
@@ -46,7 +47,7 @@ export class Phase1Page {
     await this.page.getByTestId(phase1AuthTestId("login-submit")).click();
   }
 
-  async requireText(testId: string) {
+  async requireText(testId: StableTestId) {
     const locator = this.page.getByTestId(testId);
     await expect
       .poll(async () => (await locator.textContent())?.trim() ?? "")
@@ -188,7 +189,7 @@ export class Phase1Page {
     await this.page.getByTestId(phase1AdminTestId("patch-user")).click();
   }
 
-  async setCheckbox(testId: string, checked: boolean) {
+  async setCheckbox(testId: StableTestId, checked: boolean) {
     const checkbox = this.page.getByTestId(testId);
     await checkbox.setChecked(checked);
     if (checked) {

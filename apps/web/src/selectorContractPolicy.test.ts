@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const thisFile = fileURLToPath(import.meta.url);
@@ -168,12 +169,46 @@ const forbiddenPatterns = [
   },
 ] as const;
 
-const exactDataTestIdLiteralPattern =
-  /data-testid\s*=\s*(["'])([^"'`{}$]+)\1/gu;
-const exactTestIdConsumerPattern =
-  /\b(?:getByTestId|findByTestId|queryByTestId)\(\s*(["'])([^"'`{}$]+)\1/gu;
 const rawDataTestIdSelectorPattern =
   /\[data-testid([*^$|~]?=)(["'])([^"'`{}$]+)\2\]/gu;
+
+const callSelectorSinks = [
+  {
+    argumentIndex: 0,
+    kind: "test-id consumer literal",
+    names: ["getByTestId", "findByTestId", "queryByTestId"],
+  },
+  {
+    argumentIndex: 0,
+    kind: "Phase1Page.requireText literal",
+    names: ["requireText"],
+  },
+  {
+    argumentIndex: 0,
+    kind: "Phase1Page.setCheckbox literal",
+    names: ["setCheckbox"],
+  },
+] as const;
+
+const objectSelectorSinks = [
+  {
+    kind: "P1 accessibility focusTestId literal",
+    mode: "single",
+    name: "focusTestId",
+  },
+  {
+    kind: "P1 accessibility tabStops literal",
+    mode: "array",
+    name: "tabStops",
+  },
+] as const;
+
+const jsxSelectorSinks = [
+  {
+    kind: "data-testid literal",
+    name: "data-testid",
+  },
+] as const;
 
 function listSourceFiles(relativeRoot: string): string[] {
   const absoluteRoot = path.join(repoRoot, relativeRoot);
@@ -273,6 +308,215 @@ function recordExactTokenViolation(
   }
 }
 
+function selectorSinkName(expression: ts.Expression): string | null {
+  if (ts.isPropertyAccessExpression(expression)) {
+    return expression.name.text;
+  }
+  if (ts.isIdentifier(expression)) {
+    return expression.text;
+  }
+  return null;
+}
+
+function propertyNameText(name: ts.PropertyName): string | null {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name)) {
+    return name.text;
+  }
+  return null;
+}
+
+function jsxAttributeNameText(name: ts.JsxAttributeName): string | null {
+  if (ts.isIdentifier(name)) {
+    return name.text;
+  }
+  return null;
+}
+
+function stringLiteralToken(
+  node: ts.Node,
+): ts.StringLiteral | ts.NoSubstitutionTemplateLiteral | null {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    return node;
+  }
+  return null;
+}
+
+function recordSelectorSinkArgument(
+  violations: string[],
+  options: {
+    readonly content: string;
+    readonly file: string;
+    readonly kind: string;
+    readonly node: ts.Node;
+    readonly sourceFile: ts.SourceFile;
+  },
+) {
+  const token = stringLiteralToken(options.node);
+  if (token !== null) {
+    recordExactTokenViolation(violations, {
+      content: options.content,
+      file: options.file,
+      index: token.getStart(options.sourceFile),
+      kind: options.kind,
+      token: token.text,
+    });
+    return;
+  }
+  if (ts.isTemplateExpression(options.node)) {
+    violations.push(
+      `${options.file}:${lineNumberForOffset(
+        options.content,
+        options.node.getStart(options.sourceFile),
+      )} dynamic ${options.kind}`,
+    );
+  }
+}
+
+function scanAstSelectorSinks(
+  violations: string[],
+  options: {
+    readonly content: string;
+    readonly file: string;
+  },
+) {
+  const sourceFile = ts.createSourceFile(
+    options.file,
+    options.content,
+    ts.ScriptTarget.Latest,
+    true,
+    options.file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  function visit(node: ts.Node) {
+    if (ts.isCallExpression(node)) {
+      const name = selectorSinkName(node.expression);
+      const sink =
+        name === null
+          ? undefined
+          : callSelectorSinks.find((entry) =>
+              entry.names.some((candidate) => candidate === name),
+            );
+      const argument =
+        sink === undefined ? undefined : node.arguments[sink.argumentIndex];
+      if (sink !== undefined && argument !== undefined) {
+        recordSelectorSinkArgument(violations, {
+          content: options.content,
+          file: options.file,
+          kind: sink.kind,
+          node: argument,
+          sourceFile,
+        });
+      }
+    }
+
+    if (ts.isJsxAttribute(node)) {
+      const name = jsxAttributeNameText(node.name);
+      const sink = jsxSelectorSinks.find((entry) => entry.name === name);
+      if (sink !== undefined && node.initializer !== undefined) {
+        if (ts.isStringLiteral(node.initializer)) {
+          recordSelectorSinkArgument(violations, {
+            content: options.content,
+            file: options.file,
+            kind: sink.kind,
+            node: node.initializer,
+            sourceFile,
+          });
+        } else if (
+          ts.isJsxExpression(node.initializer) &&
+          node.initializer.expression !== undefined
+        ) {
+          recordSelectorSinkArgument(violations, {
+            content: options.content,
+            file: options.file,
+            kind: sink.kind,
+            node: node.initializer.expression,
+            sourceFile,
+          });
+        }
+      }
+    }
+
+    if (ts.isPropertyAssignment(node)) {
+      const name = propertyNameText(node.name);
+      const sink = objectSelectorSinks.find((entry) => entry.name === name);
+      if (sink?.mode === "single") {
+        recordSelectorSinkArgument(violations, {
+          content: options.content,
+          file: options.file,
+          kind: sink.kind,
+          node: node.initializer,
+          sourceFile,
+        });
+      } else if (
+        sink?.mode === "array" &&
+        ts.isArrayLiteralExpression(node.initializer)
+      ) {
+        for (const element of node.initializer.elements) {
+          recordSelectorSinkArgument(violations, {
+            content: options.content,
+            file: options.file,
+            kind: sink.kind,
+            node: element,
+            sourceFile,
+          });
+        }
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+}
+
+function collectSelectorPolicyViolations(
+  file: string,
+  content: string,
+): string[] {
+  const violations: string[] = [];
+  for (const { message, pattern } of forbiddenPatterns) {
+    const flags = pattern.flags.includes("g")
+      ? pattern.flags
+      : `${pattern.flags}g`;
+    const globalPattern = new RegExp(pattern.source, flags);
+    for (const match of content.matchAll(globalPattern)) {
+      if (match.index === undefined) {
+        continue;
+      }
+      violations.push(
+        `${file}:${lineNumberForOffset(content, match.index)} ${message}`,
+      );
+    }
+  }
+  scanAstSelectorSinks(violations, { content, file });
+  for (const match of content.matchAll(rawDataTestIdSelectorPattern)) {
+    if (
+      match.index === undefined ||
+      match[1] === undefined ||
+      match[3] === undefined
+    ) {
+      continue;
+    }
+    if (match[1] !== "=") {
+      violations.push(
+        `${file}:${lineNumberForOffset(
+          content,
+          match.index,
+        )} raw data-testid prefix or suffix selector`,
+      );
+      continue;
+    }
+    recordExactTokenViolation(violations, {
+      content,
+      file,
+      index: match.index,
+      kind: "raw data-testid selector literal",
+      token: match[3],
+    });
+  }
+  return violations;
+}
+
 describe("selector contract policy", () => {
   it("classifies Phase 1 cross-boundary selector families as shared-builder owned", () => {
     const sharedPhase1Selectors = [
@@ -311,71 +555,38 @@ describe("selector contract policy", () => {
         continue;
       }
       const content = readFileSync(absolutePath, "utf8");
-      for (const { message, pattern } of forbiddenPatterns) {
-        const flags = pattern.flags.includes("g")
-          ? pattern.flags
-          : `${pattern.flags}g`;
-        const globalPattern = new RegExp(pattern.source, flags);
-        for (const match of content.matchAll(globalPattern)) {
-          if (match.index === undefined) {
-            continue;
-          }
-          violations.push(
-            `${file}:${lineNumberForOffset(content, match.index)} ${message}`,
-          );
-        }
-      }
-      for (const match of content.matchAll(exactDataTestIdLiteralPattern)) {
-        if (match.index === undefined || match[2] === undefined) {
-          continue;
-        }
-        recordExactTokenViolation(violations, {
-          content,
-          file,
-          index: match.index,
-          kind: "data-testid literal",
-          token: match[2],
-        });
-      }
-      for (const match of content.matchAll(exactTestIdConsumerPattern)) {
-        if (match.index === undefined || match[2] === undefined) {
-          continue;
-        }
-        recordExactTokenViolation(violations, {
-          content,
-          file,
-          index: match.index,
-          kind: "test-id consumer literal",
-          token: match[2],
-        });
-      }
-      for (const match of content.matchAll(rawDataTestIdSelectorPattern)) {
-        if (
-          match.index === undefined ||
-          match[1] === undefined ||
-          match[3] === undefined
-        ) {
-          continue;
-        }
-        if (match[1] !== "=") {
-          violations.push(
-            `${file}:${lineNumberForOffset(
-              content,
-              match.index,
-            )} raw data-testid prefix or suffix selector`,
-          );
-          continue;
-        }
-        recordExactTokenViolation(violations, {
-          content,
-          file,
-          index: match.index,
-          kind: "raw data-testid selector literal",
-          token: match[3],
-        });
-      }
+      violations.push(...collectSelectorPolicyViolations(file, content));
     }
 
     expect(violations).toEqual([]);
+  });
+
+  it("rejects raw FE-P1 selector literals at helper-level selector sinks", () => {
+    const violations = collectSelectorPolicyViolations(
+      "apps/web/e2e/raw-helper-fixture.ts",
+      `
+        phase1.requireText("auth-bootstrap-secret-base32");
+        phase1.setCheckbox("admin-patch-is-active", false);
+        await expectP1SurfaceA11y(page, {
+          focusTestId: "auth-login-submit",
+          tabStops: ["landing-refresh"],
+        });
+      `,
+    );
+
+    expect(violations).toEqual([
+      expect.stringContaining(
+        'Phase1Page.requireText literal for shared selector "auth-bootstrap-secret-base32"',
+      ),
+      expect.stringContaining(
+        'Phase1Page.setCheckbox literal for shared selector "admin-patch-is-active"',
+      ),
+      expect.stringContaining(
+        'P1 accessibility focusTestId literal for shared selector "auth-login-submit"',
+      ),
+      expect.stringContaining(
+        'P1 accessibility tabStops literal for shared selector "landing-refresh"',
+      ),
+    ]);
   });
 });

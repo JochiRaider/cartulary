@@ -10,6 +10,7 @@ import {
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
   phase1LandingTestId,
+  type StableTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
@@ -38,6 +39,24 @@ type IncidentMembershipRecord = {
   role: string;
   user_id: string;
 };
+
+declare const phase1A11yAppLocalTestIdBrand: unique symbol;
+
+type Phase1A11yAppLocalTestId = string & {
+  readonly [phase1A11yAppLocalTestIdBrand]: "Phase1A11yAppLocalTestId";
+};
+
+type Phase1A11yTestId = StableTestId | Phase1A11yAppLocalTestId;
+
+const phase1A11yAppLocalSelectors = Object.freeze({
+  incidentPatchButton: {
+    owner: "apps/web incident administration",
+    reason:
+      "Incident patch controls are app-local to the incident admin panel until later incident-surface selector promotion.",
+    scope: "FE-P1 selected-incident accessibility recovery path",
+    testId: "incident-patch-button" as Phase1A11yAppLocalTestId,
+  },
+});
 
 const keyboardSentinelId = "a11y-keyboard-sentinel";
 const contrastThreshold = 4.5;
@@ -195,12 +214,12 @@ async function removeKeyboardSentinel(page: Page) {
 
 async function expectTabOrderIncludes(
   page: Page,
-  testIds: string[],
+  testIds: readonly Phase1A11yTestId[],
   maxTabs = 180,
 ) {
   await focusKeyboardSentinel(page);
   try {
-    const remaining = new Set(testIds);
+    const remaining = new Set<string>(testIds);
     for (let index = 0; index < maxTabs && remaining.size > 0; index += 1) {
       await page.keyboard.press("Tab");
       remaining.delete(await activeTestId(page));
@@ -276,7 +295,10 @@ function contrastRecordPath(title: string) {
   return path.join(dir, `${slug}.json`);
 }
 
-async function collectContrastChecks(page: Page, testIds: string[]) {
+async function collectContrastChecks(
+  page: Page,
+  testIds: readonly Phase1A11yTestId[],
+) {
   const targets = [...new Set(testIds)].map((id) => ({
     id,
     selector: dataTestIdSelector(id),
@@ -376,7 +398,10 @@ async function collectContrastChecks(page: Page, testIds: string[]) {
   );
 }
 
-async function expectAndRecordContrast(page: Page, testIds: string[]) {
+async function expectAndRecordContrast(
+  page: Page,
+  testIds: readonly Phase1A11yTestId[],
+) {
   const title = test.info().title;
   const checks = await collectContrastChecks(page, testIds);
   expect(checks.length).toBeGreaterThan(0);
@@ -402,8 +427,8 @@ async function expectAndRecordContrast(page: Page, testIds: string[]) {
 async function expectP1SurfaceA11y(
   page: Page,
   options: {
-    focusTestId?: string;
-    tabStops?: string[];
+    focusTestId?: Phase1A11yTestId;
+    tabStops?: readonly Phase1A11yTestId[];
   } = {},
 ) {
   await expectAllInteractiveControlsNamed(page);
@@ -418,6 +443,20 @@ async function expectP1SurfaceA11y(
     ...(options.focusTestId ? [options.focusTestId] : []),
     ...(options.tabStops ?? []),
   ]);
+}
+
+function phase1A11yAppLocalTestId(
+  key: keyof typeof phase1A11yAppLocalSelectors,
+): Phase1A11yAppLocalTestId {
+  const entry = phase1A11yAppLocalSelectors[key];
+  if (
+    entry.owner.trim() === "" ||
+    entry.reason.trim() === "" ||
+    entry.scope.trim() === ""
+  ) {
+    throw new Error(`missing app-local selector ownership for ${key}`);
+  }
+  return entry.testId;
 }
 
 async function loadIncidentMembership(
@@ -899,7 +938,10 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expectStatusRole(page.getByTestId("incident-admin-status"));
       await expectP1SurfaceA11y(page, {
         focusTestId: phase1LandingTestId("return"),
-        tabStops: [phase1LandingTestId("return"), "incident-patch-button"],
+        tabStops: [
+          phase1LandingTestId("return"),
+          phase1A11yAppLocalTestId("incidentPatchButton"),
+        ],
       });
 
       await phase1.returnToLanding();

@@ -118,7 +118,7 @@ The following support criteria are repository-readiness criteria. They do not de
 | `FE-SUPPORT-AC-002` | The RDG stylesheet MUST be owned by `/packages/grid-adapter` and imported exactly once before workbook-grid rendering. |
 | `FE-SUPPORT-AC-003` | Mutation-capable grid row identity MUST be asserted through `record_id`; presentation rows MUST NOT emit mutation events. |
 | `FE-SUPPORT-AC-004` | Frontend phase completion MUST be derived from `tools/frontend_phase_registry.json`, matching frontend phase maps, generated frontend coverage ledgers, and drift checks. |
-| `FE-SUPPORT-AC-005` | Bootstrap, route, and error-state selectors MUST be produced from stable selector builders rather than visible text. |
+| `FE-SUPPORT-AC-005` | Bootstrap, route, and error-state selectors MUST be produced from stable selector builders rather than visible text wherever they cross runtime, unit, browser, support-test, helper-method, or option-object selector-consuming boundaries. |
 | `FE-SUPPORT-AC-006` | Renderer and editor registry cleanup MUST remove subscriptions, portals, observers, timers, and stale row references. |
 
 ### 2.2 Unit
