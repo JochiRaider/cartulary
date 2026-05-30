@@ -87,7 +87,6 @@ import {
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
-  listViewContracts,
   requireViewContract,
   resolveHeaderSortFieldKey,
   type ViewContract,
@@ -138,36 +137,43 @@ import {
   readCollectionItems,
   shouldIgnoreSelfOriginatedRecordChange,
 } from "./workbookShellPhase4";
+import {
+  assessmentsViewSchemaId,
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId,
+  findingsViewSchemaId,
+  forensicKeywordsViewSchemaId,
+  handoffViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  isBuiltInWorkbookSurfaceId,
+  investigativeQueriesViewSchemaId,
+  knownWorkbookViewSchemaId,
+  lessonViewSchemaId,
+  listSystemWorkbookSurfaceRegistryEntries,
+  listWorkbookSurfaceRegistryEntries,
+  notesViewSchemaId,
+  partiesViewSchemaId,
+  requiredBuiltInWorkbookSurfaceIds,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
+  timelineViewSchemaId,
+} from "./workbookSurfaceRegistry";
+import {
+  normalizeWorkbookStartupSelection,
+  workbookStartupQueryFromURLParams,
+  type WorkbookSheetRef,
+} from "./workbookStartup";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
-const hostsViewSchemaId = "cartulary.view.hosts.v1";
-const identitiesViewSchemaId = "cartulary.view.identities.v1";
-const evidenceViewSchemaId = "cartulary.view.evidence.v1";
-const findingsViewSchemaId = "cartulary.view.findings.v1";
-const forensicKeywordsViewSchemaId = "cartulary.view.forensic_keywords.v1";
-const notesViewSchemaId = "cartulary.view.notes.v1";
-const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
-const taskRequestsViewSchemaId = "cartulary.view.task_requests.v1";
-const decisionsViewSchemaId = "cartulary.view.decisions.v1";
-const partiesViewSchemaId = "cartulary.view.parties.v1";
-const commLogViewSchemaId = "cartulary.view.comm_log.v1";
-const handoffViewSchemaId = "cartulary.view.handoff.v1";
-const investigativeQueriesViewSchemaId =
-  "cartulary.view.investigative_queries.v1";
-const statusReviewViewSchemaId = "cartulary.view.status_review.v1";
-const lessonViewSchemaId = "cartulary.view.lesson.v1";
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
-const allWorkbookContracts = listViewContracts();
-const builtInSurfaceIDs = [
-  timelineViewSchemaId,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-  evidenceViewSchemaId,
-  notesViewSchemaId,
-] as const;
+const allWorkbookContracts = listWorkbookSurfaceRegistryEntries().map(
+  (entry) => entry.contract,
+);
+const systemWorkbookSurfaceEntries = listSystemWorkbookSurfaceRegistryEntries();
 const csrfCookieName = "cartulary_csrf";
 const csrfHeaderName = "X-CSRF-Token";
 
@@ -667,26 +673,8 @@ type TimelineApiRow = {
 
 type EntityApiRow = TimelineApiRow;
 
-type WorkbookSheetRef = {
-  id: string;
-  kind: "saved_view" | "view_schema";
-};
-
 type WorkbookStartupEnvelope = {
-  data?: {
-    incident_id: string;
-    selected_sheet_ref: WorkbookSheetRef;
-    selected_view_schema_id: string;
-    selected_saved_view: unknown | null;
-    source: "default" | "explicit" | "home" | "timeline";
-    cleared_pointers: Array<{
-      source: "default" | "home";
-      sheet_ref: WorkbookSheetRef;
-      reason_code: string;
-    }>;
-    home_sheet_ref: WorkbookSheetRef | null;
-    default_sheet_ref: WorkbookSheetRef | null;
-  };
+  data?: unknown;
 };
 
 type WorkbookPresenceMode = "editing" | "idle" | "viewing";
@@ -10758,38 +10746,6 @@ function supportRowLabel(row: TimelineApiRow): string {
   return row.record_id;
 }
 
-function knownWorkbookViewSchemaID(viewSchemaID: string): string {
-  return allWorkbookContracts.some(
-    (contract) => contract.viewSchemaId === viewSchemaID,
-  )
-    ? viewSchemaID
-    : timelineViewSchemaId;
-}
-
-function isWorkbookSheetRef(value: unknown): value is WorkbookSheetRef {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  return (
-    (record.kind === "view_schema" || record.kind === "saved_view") &&
-    typeof record.id === "string" &&
-    record.id !== ""
-  );
-}
-
-function startupQueryFromURLParams(params: URLSearchParams): string {
-  const startupParams = new URLSearchParams();
-  for (const key of ["view_schema_id", "sheet_ref_kind", "sheet_ref_id"]) {
-    const value = params.get(key);
-    if (value !== null) {
-      startupParams.set(key, value);
-    }
-  }
-  const query = startupParams.toString();
-  return query ? `?${query}` : "";
-}
-
 export function WorkbookShell({
   incidentId,
   apiBase,
@@ -10800,7 +10756,7 @@ export function WorkbookShell({
   const initialViewSchemaID = useMemo(() => {
     const explicit = params.get("view_schema_id");
     return explicit
-      ? knownWorkbookViewSchemaID(explicit)
+      ? knownWorkbookViewSchemaId(explicit)
       : timelineViewSchemaId;
   }, [params]);
   const [surface, setSurface] = useState<SurfaceKind>(initialViewSchemaID);
@@ -10859,7 +10815,7 @@ export function WorkbookShell({
     sequence: 0,
   });
   const selectWorkbookSurface = useCallback((viewSchemaID: string) => {
-    const nextSurface = knownWorkbookViewSchemaID(viewSchemaID);
+    const nextSurface = knownWorkbookViewSchemaId(viewSchemaID);
     setSurface(nextSurface);
     setStartupSheetRef({ kind: "view_schema", id: nextSurface });
   }, []);
@@ -11115,7 +11071,7 @@ export function WorkbookShell({
 
   useEffect(() => {
     let cancelled = false;
-    const startupQuery = startupQueryFromURLParams(params);
+    const startupQuery = workbookStartupQueryFromURLParams(params);
     const loadStartup = async () => {
       const result = await fetchJSON<WorkbookStartupEnvelope>(
         apiPath(
@@ -11127,19 +11083,15 @@ export function WorkbookShell({
         return;
       }
       const envelope = readEnvelope<WorkbookStartupEnvelope>(result.payload);
-      const startup = envelope.data;
-      if (
-        !startup ||
-        !isWorkbookSheetRef(startup.selected_sheet_ref) ||
-        typeof startup.selected_view_schema_id !== "string"
-      ) {
+      const startup = normalizeWorkbookStartupSelection(envelope.data);
+      if (!startup) {
         return;
       }
-      const nextSurface = knownWorkbookViewSchemaID(
-        startup.selected_view_schema_id,
+      const nextSurface = knownWorkbookViewSchemaId(
+        startup.selectedViewSchemaId,
       );
       setSurface(nextSurface);
-      setStartupSheetRef({ ...startup.selected_sheet_ref });
+      setStartupSheetRef({ ...startup.selectedSheetRef });
     };
     void loadStartup();
     return () => {
@@ -11196,7 +11148,7 @@ export function WorkbookShell({
 
       <div style={toolbarStyle}>
         <div style={tabStripStyle}>
-          {builtInSurfaceIDs.map((viewSchemaID) => {
+          {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
             const contract = requireViewContract(viewSchemaID);
             return (
               <button
@@ -11220,13 +11172,7 @@ export function WorkbookShell({
             <select
               data-testid={systemViewSelectorTestId()}
               style={selectStyle}
-              value={
-                builtInSurfaceIDs.includes(
-                  surface as (typeof builtInSurfaceIDs)[number],
-                )
-                  ? ""
-                  : surface
-              }
+              value={isBuiltInWorkbookSurfaceId(surface) ? "" : surface}
               onChange={(event) => {
                 if (event.target.value) {
                   selectWorkbookSurface(event.target.value);
@@ -11234,21 +11180,14 @@ export function WorkbookShell({
               }}
             >
               <option value="">Select view</option>
-              {allWorkbookContracts
-                .filter(
-                  (contract) =>
-                    !builtInSurfaceIDs.includes(
-                      contract.viewSchemaId as (typeof builtInSurfaceIDs)[number],
-                    ),
-                )
-                .map((contract) => (
-                  <option
-                    key={contract.viewSchemaId}
-                    value={contract.viewSchemaId}
-                  >
-                    {contract.title}
-                  </option>
-                ))}
+              {systemWorkbookSurfaceEntries.map(({ contract }) => (
+                <option
+                  key={contract.viewSchemaId}
+                  value={contract.viewSchemaId}
+                >
+                  {contract.title}
+                </option>
+              ))}
             </select>
           </label>
         </div>

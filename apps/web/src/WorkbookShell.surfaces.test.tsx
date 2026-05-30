@@ -30,12 +30,17 @@ import {
   buildGenericPatchChange,
   WorkbookShell,
 } from "./WorkbookShell";
+import {
+  evidenceViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  indicatorsViewSchemaId,
+  optionalStandardizedWorkbookSurfaceIds,
+  requiredBuiltInWorkbookSurfaceIds,
+  requiredSystemWorkbookSurfaceIds,
+  timelineViewSchemaId,
+} from "./workbookSurfaceRegistry";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
-const hostsViewSchemaId = "cartulary.view.hosts.v1";
-const identitiesViewSchemaId = "cartulary.view.identities.v1";
-const evidenceViewSchemaId = "cartulary.view.evidence.v1";
-const indicatorsViewSchemaId = "cartulary.view.indicators.v1";
 const savedViewId = "11111111-1111-4111-8111-111111111111";
 
 function requireField(
@@ -250,6 +255,27 @@ describe("WorkbookShell surface selection", () => {
 
   it("selects required built-in and system view surfaces by view_schema_id", async () => {
     render(<WorkbookShell incidentId="incident-1" />);
+
+    const builtInTabIds = screen
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("data-testid") ?? "")
+      .filter((testId) => testId.startsWith("surface-tab-"));
+    expect(builtInTabIds).toEqual(
+      requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId) =>
+        surfaceTabTestId(viewSchemaId),
+      ),
+    );
+
+    const systemViewOptions = Array.from(
+      (screen.getByTestId(systemViewSelectorTestId()) as HTMLSelectElement)
+        .options,
+    )
+      .map((option) => option.value)
+      .filter((value) => value !== "");
+    expect(systemViewOptions).toEqual([
+      ...requiredSystemWorkbookSurfaceIds,
+      ...optionalStandardizedWorkbookSurfaceIds,
+    ]);
 
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),

@@ -27,8 +27,12 @@
       "targets": [
         "make frontend-unit"
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P2-01 resolves workbook startup fallback order by stable sheet_ref identity",
+        "FE-U-P2-01 skips or clears invalid startup pointers without failing workbook open",
+        "FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id"
+      ],
+      "claim_status": "implemented",
       "claim": "Verify startup-surface resolution order: explicit launch surface, user preference, incident default, Timeline fallback, with invalid pointers clearing and falling through.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -69,8 +73,11 @@
       "targets": [
         "make frontend-unit"
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P2-02 registers built-in and system workbook surfaces by stable IDs",
+        "FE-U-P2-02 keeps optional standardized surfaces additive after required surfaces"
+      ],
+      "claim_status": "implemented",
       "claim": "Verify built-in tabs and required system-view groups are registered by stable surface IDs, not visible labels.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
