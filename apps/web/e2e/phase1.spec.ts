@@ -1,11 +1,23 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 
 import {
+  currentIncidentRoleTestId,
+  incidentMembershipDeleteButtonTestId,
+  incidentMembershipPatchButtonTestId,
+  incidentMembershipRoleDisplayTestId,
+  incidentMembershipRoleInputTestId,
+  incidentMembershipRowTestId,
+  landingIncidentCardTestId,
+  workbookShellReadyTestId,
+} from "@cartulary/ui-contracts";
+
+import {
   authenticatedRequestContextFromStorageState,
   createLocalUser,
   deploymentAdminMutationClient,
   loadUser,
   resetUserTotp,
+  revokeAllSessions,
   withOnlyActiveDeploymentAdmin,
 } from "./authRuntime";
 import { expect, restoreTrackedStorageState, test } from "./fixtures";
@@ -38,7 +50,34 @@ test("E-1-01 signs in as a local user and inspects the ordinary session surface"
 
   await clearBrowserSession(page);
   await phase1.goto();
+  await expect(page.getByTestId("auth-login-username")).toBeVisible();
+  const loginResponse = waitForPublicAPIResponse(page, {
+    method: "POST",
+    path: "/api/v1/auth/login",
+    status: 200,
+  });
+  const sessionResponse = waitForPublicAPIResponse(page, {
+    method: "GET",
+    path: "/api/v1/auth/session",
+    status: 200,
+  });
+  const credentialStateResponse = waitForPublicAPIResponse(page, {
+    method: "GET",
+    path: "/api/v1/auth/credential-state",
+    status: 200,
+  });
+  const incidentListResponse = waitForPublicAPIResponse(page, {
+    method: "GET",
+    path: "/api/v1/incidents",
+    status: 200,
+  });
   await phase1.login(email, password);
+  await Promise.all([
+    loginResponse,
+    sessionResponse,
+    credentialStateResponse,
+    incidentListResponse,
+  ]);
 
   await expect(page.getByTestId("account-session-provider-type")).toHaveText(
     "local",
@@ -85,16 +124,36 @@ test("E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, an
 
   await clearBrowserSession(page);
   await phase1.goto();
+  const missingTotpResponse = waitForPublicAPIResponse(page, {
+    method: "POST",
+    path: "/api/v1/auth/login",
+    status: 401,
+  });
 
   await phase1.login(email, password);
+  await missingTotpResponse;
   await expect(page.getByTestId("auth-error-code")).toHaveText("mfa_required");
+  expect(await hasSessionCookie(page)).toBeFalsy();
 
+  const wrongTotpResponse = waitForPublicAPIResponse(page, {
+    method: "POST",
+    path: "/api/v1/auth/login",
+    status: 401,
+  });
   await phase1.login(email, password, "000000");
+  await wrongTotpResponse;
   await expect(page.getByTestId("auth-error-code")).toHaveText(
     "invalid_second_factor",
   );
+  expect(await hasSessionCookie(page)).toBeFalsy();
 
+  const validTotpResponse = waitForPublicAPIResponse(page, {
+    method: "POST",
+    path: "/api/v1/auth/login",
+    status: 200,
+  });
   await phase1.login(email, password, generateTotpCode(secretBase32));
+  await validTotpResponse;
   await expect(page.getByTestId("account-session-provider-type")).toHaveText(
     "local",
   );
@@ -121,7 +180,13 @@ test("E-1-03 rejects invalid credentials without issuing a session cookie", asyn
 
   await clearBrowserSession(page);
   await phase1.goto();
+  const invalidLoginResponse = waitForPublicAPIResponse(page, {
+    method: "POST",
+    path: "/api/v1/auth/login",
+    status: 401,
+  });
   await phase1.login(email, "WrongPassword1!");
+  await invalidLoginResponse;
   await expect(page.getByTestId("auth-error-code")).toHaveText(
     "invalid_credentials",
   );
@@ -504,6 +569,320 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   );
 });
 
+test("E-1-09 creates an incident from the landing screen, lists it, and opens the workbook as incident admin", async ({
+  page,
+}) => {
+  const phase1 = new Phase1Page(page);
+  const incidentKey = uniqueIncidentKey("E109");
+  const incidentTitle = "Phase 1 E-1-09";
+
+  await phase1.goto();
+  await expect(page.getByTestId("incident-landing")).toBeVisible();
+
+  const createResponsePromise = waitForPublicAPIResponse(page, {
+    method: "POST",
+    path: "/api/v1/incidents",
+    status: [200, 201],
+  });
+  await phase1.createAndOpenIncident(incidentKey, incidentTitle);
+  const createResponse = await createResponsePromise;
+  const createBody = (await createResponse.json()) as {
+    data: { incident_id: string };
+  };
+  const incidentId = createBody.data.incident_id;
+
+  await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    "Current incident role: admin",
+  );
+  await expect(page.getByTestId("incident-summary-key")).toHaveText(
+    incidentKey,
+  );
+
+  await phase1.returnToLanding();
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
+  ).toContainText(incidentTitle);
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
+  ).toContainText(incidentKey);
+
+  await phase1.openIncident(incidentId);
+  await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+});
+
+test("E-1-10 clears a stale selected incident after membership removal while preserving the account session", async ({
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const phase1 = new Phase1Page(page);
+  const selectedIncidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E110A"),
+    "Phase 1 E-1-10 selected",
+  );
+  const alternateIncidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E110B"),
+    "Phase 1 E-1-10 alternate",
+  );
+  const targetEmail = uniqueEmail("phase1-e110-target");
+  const targetPassword = "Phase1E110Pass!";
+  const targetUser = await createLocalUser(workerAdminRequest, {
+    email: targetEmail,
+    display_name: "Phase 1 E110 Target",
+    initial_password: targetPassword,
+    mfa_required: false,
+  });
+  await createIncidentMembership(
+    page,
+    selectedIncidentId,
+    targetEmail,
+    "admin",
+  );
+  await createIncidentMembership(
+    page,
+    alternateIncidentId,
+    targetEmail,
+    "viewer",
+  );
+
+  await clearBrowserSession(page);
+  await phase1.goto();
+  await phase1.login(targetEmail, targetPassword);
+  await expect(page.getByTestId("account-session-user-id")).toHaveText(
+    targetUser.user_id,
+  );
+  await sessionTracker.captureCurrentSession(page, {
+    createdBy: "phase1 ordinary shell",
+    email: targetEmail,
+    purpose: "phase1 e110 stale incident selection target",
+    userId: targetUser.user_id,
+  });
+
+  await phase1.openIncident(selectedIncidentId);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    "Current incident role: admin",
+  );
+  await expect(
+    page.getByTestId(incidentMembershipRowTestId(targetUser.user_id)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(incidentMembershipRoleInputTestId(targetUser.user_id)),
+  ).toHaveValue("admin");
+  await expect(
+    page.getByTestId(incidentMembershipPatchButtonTestId(targetUser.user_id)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(incidentMembershipDeleteButtonTestId(targetUser.user_id)),
+  ).toBeVisible();
+
+  const selectedMembership = await loadIncidentMembership(
+    workerAdminRequest,
+    selectedIncidentId,
+    targetUser.user_id,
+  );
+  await deleteIncidentMembership(
+    workerAdminRequest,
+    selectedIncidentId,
+    targetUser.user_id,
+    selectedMembership.membership_version,
+  );
+
+  await page.reload();
+  await expect(page.getByTestId("incident-landing")).toBeVisible();
+  await expect(page).not.toHaveURL(
+    new RegExp(`incident_id=${selectedIncidentId}`),
+  );
+  await expect(page.getByTestId("landing-status")).toContainText(
+    "no longer visible",
+  );
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
+  ).toBeVisible();
+  await expect(page.getByTestId("account-session-user-id")).toHaveText(
+    targetUser.user_id,
+  );
+
+  await phase1.openIncident(alternateIncidentId);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    "Current incident role: viewer",
+  );
+});
+
+test("E-1-11 observes current-role authorization on a stale reviewer edit through the public incident error envelope", async ({
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const phase1 = new Phase1Page(page);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E111"),
+    "Phase 1 E-1-11",
+  );
+  const targetEmail = uniqueEmail("phase1-e111-reviewer");
+  const targetPassword = "Phase1E111Pass!";
+  const targetUser = await createLocalUser(workerAdminRequest, {
+    email: targetEmail,
+    display_name: "Phase 1 E111 Reviewer",
+    initial_password: targetPassword,
+    mfa_required: false,
+  });
+  await createIncidentMembership(page, incidentId, targetEmail, "reviewer");
+
+  await clearBrowserSession(page);
+  await phase1.goto();
+  await phase1.login(targetEmail, targetPassword);
+  await expect(page.getByTestId("account-session-user-id")).toHaveText(
+    targetUser.user_id,
+  );
+  await sessionTracker.captureCurrentSession(page, {
+    createdBy: "phase1 ordinary shell",
+    email: targetEmail,
+    purpose: "phase1 e111 reviewer stale edit",
+    userId: targetUser.user_id,
+  });
+
+  await phase1.openIncident(incidentId);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    "Current incident role: reviewer",
+  );
+  await expect(page.getByTestId("incident-patch-button")).toBeVisible();
+  await expect(
+    page.getByTestId(incidentMembershipRoleDisplayTestId(targetUser.user_id)),
+  ).toHaveText("reviewer");
+
+  const reviewerMembership = await loadIncidentMembership(
+    workerAdminRequest,
+    incidentId,
+    targetUser.user_id,
+  );
+  await patchIncidentMembership(workerAdminRequest, incidentId, {
+    baseMembershipVersion: reviewerMembership.membership_version,
+    role: "editor",
+    userId: targetUser.user_id,
+  });
+
+  const forbiddenPatchResponse = waitForPublicAPIResponse(page, {
+    method: "PATCH",
+    path: `/api/v1/incidents/${incidentId}`,
+    status: 403,
+  });
+  await phase1.patchIncidentFields({
+    currentPhase: "containment",
+    externalCase: "CASE-E111",
+    tlp: "amber",
+  });
+  const patchResponse = await forbiddenPatchResponse;
+  await expect(patchResponse.json()).resolves.toMatchObject({
+    error: {
+      code: "authorization_denied",
+    },
+  });
+  await expect(page.getByTestId("incident-admin-error-code")).toHaveText(
+    "authorization_denied",
+  );
+  await expect(page.locator("body")).not.toContainText("request_id");
+  await expect(page.locator("body")).not.toContainText("traceback");
+
+  await page.reload();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    "Current incident role: editor",
+  );
+  await expect(page.getByTestId("incident-patch-readonly-note")).toBeVisible();
+});
+
+test("E-1-12 returns a revoked target browser to login and allows re-authentication with unchanged incident membership", async ({
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const phase1 = new Phase1Page(page);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E112"),
+    "Phase 1 E-1-12",
+  );
+  const targetEmail = uniqueEmail("phase1-e112-target");
+  const targetPassword = "Phase1E112Pass!";
+  const targetUser = await createLocalUser(workerAdminRequest, {
+    email: targetEmail,
+    display_name: "Phase 1 E112 Target",
+    initial_password: targetPassword,
+    mfa_required: false,
+  });
+  await createIncidentMembership(page, incidentId, targetEmail, "viewer");
+
+  await clearBrowserSession(page);
+  await phase1.goto();
+  await phase1.login(targetEmail, targetPassword);
+  await expect(page.getByTestId("account-session-user-id")).toHaveText(
+    targetUser.user_id,
+  );
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
+  ).toBeVisible();
+  await sessionTracker.captureCurrentSession(page, {
+    createdBy: "phase1 ordinary shell",
+    email: targetEmail,
+    purpose: "phase1 e112 target before revoke-all",
+    userId: targetUser.user_id,
+  });
+
+  await revokeAllSessions(
+    workerAdminRequest,
+    targetUser.user_id,
+    "phase1 e112 explicit revoke-all",
+  );
+
+  const revokedSessionResponse = waitForPublicAPIResponse(page, {
+    method: "GET",
+    path: "/api/v1/auth/session",
+    status: 401,
+  });
+  await phase1.refreshLanding();
+  const sessionResponse = await revokedSessionResponse;
+  await expect(sessionResponse.json()).resolves.toMatchObject({
+    error: {
+      code: "session_required",
+    },
+  });
+  await expect(page.getByTestId("auth-login-username")).toBeVisible();
+  await expect(page.getByTestId("auth-shell-message")).toContainText(
+    "Sign in again",
+  );
+
+  await phase1.login(targetEmail, targetPassword);
+  await expect(page.getByTestId("account-session-user-id")).toHaveText(
+    targetUser.user_id,
+  );
+  await sessionTracker.captureCurrentSession(page, {
+    createdBy: "phase1 ordinary shell",
+    email: targetEmail,
+    purpose: "phase1 e112 target after revoke-all re-auth",
+    userId: targetUser.user_id,
+  });
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
+  ).toBeVisible();
+
+  await phase1.openIncident(incidentId);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    "Current incident role: viewer",
+  );
+});
+
 async function createIncident(page: Page, incidentKey: string, title: string) {
   const response = await page.request.post(`${apiBase}/api/v1/incidents`, {
     headers: await csrfHeaders(page),
@@ -536,6 +915,101 @@ async function createIncidentMembership(
     },
   );
   expect(response.ok()).toBeTruthy();
+}
+
+type IncidentMembershipRecord = {
+  membership_version: number;
+  role: string;
+  user_id: string;
+};
+
+async function loadIncidentMembership(
+  authRequests: APIRequestContext,
+  incidentId: string,
+  userId: string,
+) {
+  const response = await authRequests.get(
+    `/api/v1/incidents/${incidentId}/memberships`,
+  );
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as {
+    data: { memberships: IncidentMembershipRecord[] };
+  };
+  const membership =
+    body.data.memberships.find((candidate) => candidate.user_id === userId) ??
+    null;
+  if (membership === null) {
+    throw new Error(`missing incident membership for ${userId}`);
+  }
+  return membership;
+}
+
+async function patchIncidentMembership(
+  authRequests: APIRequestContext,
+  incidentId: string,
+  options: {
+    baseMembershipVersion: number;
+    role: string;
+    userId: string;
+  },
+) {
+  const response = await authRequests.patch(
+    `/api/v1/incidents/${incidentId}/memberships/${options.userId}`,
+    {
+      data: {
+        base_membership_version: options.baseMembershipVersion,
+        role: options.role,
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: IncidentMembershipRecord }).data;
+}
+
+async function deleteIncidentMembership(
+  authRequests: APIRequestContext,
+  incidentId: string,
+  userId: string,
+  baseMembershipVersion: number,
+) {
+  const response = await authRequests.delete(
+    `/api/v1/incidents/${incidentId}/memberships/${userId}`,
+    {
+      data: {
+        base_membership_version: baseMembershipVersion,
+      },
+    },
+  );
+  expect(response.status()).toBe(204);
+}
+
+function waitForPublicAPIResponse(
+  page: Page,
+  options: {
+    method: string;
+    path: string;
+    status?: number | number[];
+  },
+) {
+  const expectedMethod = options.method.toUpperCase();
+  const expectedStatuses =
+    options.status === undefined
+      ? null
+      : new Set(
+          Array.isArray(options.status) ? options.status : [options.status],
+        );
+  return page.waitForResponse((candidate) => {
+    const request = candidate.request();
+    if (request.method().toUpperCase() !== expectedMethod) {
+      return false;
+    }
+    if (new URL(candidate.url()).pathname !== options.path) {
+      return false;
+    }
+    return (
+      expectedStatuses === null || expectedStatuses.has(candidate.status())
+    );
+  });
 }
 
 async function expectUnauthorizedCredentialAction(

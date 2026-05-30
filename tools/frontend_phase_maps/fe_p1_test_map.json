@@ -146,9 +146,18 @@
         "make browser-e2e-webserver-backed"
       ],
       "scenario_titles": [
-        "FE-E-P1-01 Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior."
+        "E-1-01 signs in as a local user and inspects the ordinary session surface",
+        "E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code",
+        "E-1-03 rejects invalid credentials without issuing a session cookie",
+        "E-1-06 follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session",
+        "E-1-07 requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password",
+        "E-1-08 keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell",
+        "E-1-09 creates an incident from the landing screen, lists it, and opens the workbook as incident admin",
+        "E-1-10 clears a stale selected incident after membership removal while preserving the account session",
+        "E-1-11 observes current-role authorization on a stale reviewer edit through the public incident error envelope",
+        "E-1-12 returns a revoked target browser to login and allows re-authentication with unchanged incident membership"
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },

@@ -74,7 +74,11 @@
     "E-1-05",
     "E-1-06",
     "E-1-07",
-    "E-1-08"
+    "E-1-08",
+    "E-1-09",
+    "E-1-10",
+    "E-1-11",
+    "E-1-12"
   ],
   "forbidden_id_files": [
     "cmd/server/main_phase1_process_test.go",
@@ -538,6 +542,50 @@
       "evidence_layer": "browser",
       "claim": "The ordinary shell keeps deployment-user administration on deployment-admin sessions, shows a deny-by-UI note for an incident admin, and the incident-admin browser session receives `401 session_required` when it attempts password reset, TOTP reset, or revoke-all directly.",
       "out_of_scope": "Audit persistence and route-owned state consequences remain integration evidence."
+    },
+    {
+      "id": "E-1-09",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-09 creates an incident from the landing screen, lists it, and opens the workbook as incident admin",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "The ordinary authenticated landing screen creates an incident through `POST /api/v1/incidents`, lists the created incident, opens it by `incident_id`, and renders the workbook shell with current role `admin`.",
+      "out_of_scope": "Workbook layout and mutation replay remain later-phase evidence."
+    },
+    {
+      "id": "E-1-10",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-10 clears a stale selected incident after membership removal while preserving the account session",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "A selected incident whose membership is removed fails closed back to the landing screen, disappears from the visible incident list, preserves the account session, and still allows opening another visible incident.",
+      "out_of_scope": "Broader membership administration UX remains Phase 2 evidence."
+    },
+    {
+      "id": "E-1-11",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-11 observes current-role authorization on a stale reviewer edit through the public incident error envelope",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "A reviewer-visible incident edit control fails with `403 authorization_denied` after the user's current role is demoted before submit, and the ordinary shell renders only the public error code before reloading the current editor role.",
+      "out_of_scope": "Private diagnostic filtering has frontend-unit route-boundary support coverage; this row observes the browser E2E consequence."
+    },
+    {
+      "id": "E-1-12",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-12 returns a revoked target browser to login and allows re-authentication with unchanged incident membership",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "Deployment-admin revoke-all invalidates a target browser session, the next public session refresh returns the ordinary shell to login, and a fresh login can reopen the user's unchanged visible incident membership.",
+      "out_of_scope": "Admin credential-action audit persistence remains integration evidence."
     },
     {
       "id": "E-1-SMOKE-01",

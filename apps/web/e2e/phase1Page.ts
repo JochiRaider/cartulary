@@ -1,5 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 
+import { landingIncidentOpenButtonTestId } from "@cartulary/ui-contracts";
+
 import { expect } from "./fixtures";
 import {
   apiBase,
@@ -62,6 +64,47 @@ export class Phase1Page {
 
   async refreshAccount() {
     await this.page.getByTestId("account-refresh-state").click();
+  }
+
+  async refreshLanding() {
+    await this.page.getByTestId("landing-refresh").click();
+  }
+
+  async createAndOpenIncident(incidentKey: string, title: string) {
+    await this.page.getByTestId("landing-incident-key").fill(incidentKey);
+    await this.page.getByTestId("landing-incident-title").fill(title);
+    await this.page.getByTestId("landing-create-button").click();
+  }
+
+  async openIncident(incidentId: string) {
+    await this.page
+      .getByTestId(landingIncidentOpenButtonTestId(incidentId))
+      .click();
+  }
+
+  async returnToLanding() {
+    await this.page.getByTestId("landing-return").click();
+  }
+
+  async patchIncidentFields(options: {
+    currentPhase?: string;
+    externalCase?: string;
+    tlp?: string;
+  }) {
+    if (options.tlp !== undefined) {
+      await this.page.getByTestId("incident-patch-tlp").fill(options.tlp);
+    }
+    if (options.currentPhase !== undefined) {
+      await this.page
+        .getByTestId("incident-patch-current-phase")
+        .fill(options.currentPhase);
+    }
+    if (options.externalCase !== undefined) {
+      await this.page
+        .getByTestId("incident-patch-external-case")
+        .fill(options.externalCase);
+    }
+    await this.page.getByTestId("incident-patch-button").click();
   }
 
   async changePassword(
