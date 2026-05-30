@@ -430,16 +430,104 @@ Validation notes:
 
 ## Sprint 4: Login, Session Bootstrap, Incident Entry, Authorization, And Revocation E2E Flow
 
-- Objective: Verify the browser-visible FE-P1 flow through login, MFA, server session bootstrap, incident entry, deployment-admin controls, current-role/current-membership authorization effects, and revocation handling.
-- Status: Planned.
-- Relevant IDs: Owns `FE-E-P1-01`.
-- Files and areas to inspect or edit: `apps/web/e2e/phase1.spec.ts`, `apps/web/e2e/phase1.clock.spec.ts`, `apps/web/e2e/phase1Page.ts`, `apps/web/e2e/authRuntime.ts`, `apps/web/e2e/sessionSupport.ts`, `apps/web/e2e/helpers.ts`, `apps/web/src/App.tsx`, and `apps/web/src/Phase1Surface.tsx`.
-- Test-first sequence: Add or tighten Playwright scenarios for local login, invalid credentials, MFA required/setup, bootstrap TOTP, password-change revocation, deployment-admin actions, incident-admin denial, incident create/list/open, stale incident selection, forbidden incident observation, and re-auth after revocation.
-- Implementation tasks: Preserve public-route browser flows; ensure incident entry starts from public incident list/create routes; return to anonymous/login state on session loss; surface authorization failures through public error envelopes; keep workbook-shell layout and mutation replay out of FE-P1 scope.
-- Validation commands: `make browser-e2e-webserver-backed`; supporting `make frontend-unit` when browser failures indicate app-state defects.
-- Deliverables: Browser E2E evidence for FE-P1 entry and session flows with retained run artifacts.
-- Risks and assumptions: Browser E2E is service-backed and may be expensive; skipped or failed runs must be recorded as exact blockers rather than inferred from unit evidence.
-- Blockers and follow-up notes: No FE-E-P1-01 completion claim is allowed until direct browser E2E evidence exists or a precise blocker is recorded.
+### 1. Sprint Objective And Non-Goals
+
+Objective: complete `FE-E-P1-01` with browser-observed E2E evidence for login, server-managed session bootstrap, incident entry, authorization, revocation, and re-authentication through public `/api/v1/` routes.
+
+Non-goals: workbook-shell layout, mutation replay, accessibility closure, selector-builder promotion, visual fixtures, FE-P2 work, generated-ledger hand edits, and Core 05 publication claims. Touch those only if they block the `FE-E-P1-01` browser flow.
+
+### 2. Source Limits And Assumptions
+
+Core 00-04 own product behavior. `docs/guides/cartulary_frontend_implementation_testing_guide.md` owns the FE-P1 row shape. `docs/testing-harness-nlspec.md` owns harness mechanics only.
+
+Product-conformance evidence for Sprint 4 must be direct browser E2E evidence from `make browser-e2e-webserver-backed`. Unit tests, support tests, generated ledgers, retained old artifacts, and inferred backend evidence are supporting evidence only.
+
+Assume existing `E-1-01`, `E-1-02`, `E-1-03`, `E-1-05`, `E-1-06`, `E-1-07`, and `E-1-08` can be reused only after the webserver-backed target passes and their exact titles are listed under `FE-E-P1-01`.
+
+### 3. Files And Areas To Inspect Before Editing
+
+Inspect first:
+
+- `FRONTEND_PHASE1_IMPLEMENTATION_PLAN.md`
+- `tools/frontend_phase_maps/fe_p1_test_map.json`
+- `apps/web/e2e/phase1.spec.ts`
+- `apps/web/e2e/phase1Page.ts`
+- `apps/web/e2e/authRuntime.ts`
+- `apps/web/e2e/helpers.ts`
+- `apps/web/src/App.tsx`
+- `apps/web/src/Phase1Surface.tsx`
+- `apps/web/src/IncidentAdminPanel.tsx`
+- `apps/web/src/WorkbookShell.tsx`
+- `packages/ui-contracts/src/index.ts`
+
+Do not edit generated ledgers directly. If phase-map metadata changes, regenerate with `make phase-ledgers`.
+
+### 4. Test-First Scenarios And Expected Browser-Visible Outcomes
+
+Add or tighten Playwright scenarios before implementation changes.
+
+- Local login success: user signs in on `/`, browser observes `/api/v1/auth/login`, `/api/v1/auth/session`, `/api/v1/auth/credential-state`, and `/api/v1/incidents`; session panel shows `provider_type=local`, user ID, MFA state, expiry fields, deployment-admin flag, and `memberships[]`.
+- Invalid credentials: login renders `auth-error-code=invalid_credentials`, no session cookie is issued, and the login surface remains visible.
+- MFA required/setup: omitted TOTP renders `mfa_required`; wrong TOTP renders `invalid_second_factor`; no session cookie exists until valid TOTP succeeds.
+- Bootstrap TOTP: `mfa_setup_required` exposes only safe setup UI, TOTP begin/complete use bootstrap-token routes, completion alone issues no session, and a later normal login with the generated TOTP succeeds.
+- Password change revocation: wrong current password and missing TOTP render public errors; successful password change returns the browser to login/re-auth state, old password fails, new password succeeds.
+- Explicit revoke-all and re-auth: a deployment admin revokes all sessions for a logged-in target through `/api/v1/users/{user_id}/sessions/revoke-all`; the target browser's next public session/incident action returns to login, then fresh login succeeds.
+- Deployment-admin controls: deployment-admin session sees and can use user-admin controls; incident-admin-only session sees the denial note and no deployment-user action controls; any direct public-route denial uses the public error envelope only.
+- Incident list/create/open: authenticated user creates an incident from landing through `POST /api/v1/incidents`; the created incident appears in the visible list; opening it navigates to `/?incident_id=<id>` and renders `workbook-shell-ready` with current role `admin`.
+- Stale incident selection: after membership removal for the selected incident, reload or refresh returns to landing, removes that incident from the list, shows the stale-selection notice, preserves the still-valid session, and allows opening another visible incident.
+- Forbidden incident observation: start as reviewer so edit controls render, demote the same user to editor/admin-lower role through public membership mutation, then submit the stale edit control; browser observes `403` with `error.code=authorization_denied`, `incident-admin-error-code` renders that public code, and private diagnostics are not rendered.
+- Current-role/current-membership effects: role changes affect the next public request; removed membership fails closed for that incident without revoking the account session for other visible incidents.
+
+### 5. Implementation Work Packages
+
+1. Browser tests: extend `apps/web/e2e/phase1.spec.ts` with the missing incident create/open, stale selection, forbidden role-change, and explicit revoke-all re-auth scenarios. Keep assertions on visible UI plus public route responses.
+2. Page helpers: extend `Phase1Page` only for repeated Sprint 4 actions such as landing create/open, refresh, patch incident fields, and account refresh. Prefer existing `@cartulary/ui-contracts` selectors where already available.
+3. Minimal app fixes: adjust `App.tsx`, `IncidentAdminPanel.tsx`, or `Phase1Surface.tsx` only if the tests expose a real FE-P1 flow gap. Preserve public error-envelope rendering via `publicErrorView`; do not render private fields.
+4. Phase map: replace the generic `FE-E-P1-01` `scenario_titles` with exact Playwright titles that cover the scenarios above. Set `claim_status="implemented"` only after the primary validation passes.
+5. Ledger: run `make phase-ledgers` after map metadata changes; never hand-edit `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`.
+
+### 6. Validation Commands And Pass/Fail Interpretation
+
+Primary validation path: `make browser-e2e-webserver-backed`, which invokes `scripts/run-browser-e2e-webserver-backed.sh`, `apps/web/playwright.webserver-backed.config.ts`, and the selected `apps/web/e2e/phase1.spec.ts` browser-functional scenarios.
+
+Required after map edits: `make phase-ledgers` and `make phase-ledger-drift`.
+
+Run `make frontend-typecheck` for TypeScript changes and `make frontend-unit` only when app-state/client logic changes. Run `git diff --check`.
+
+Pass means the primary target exits 0 and every exact `FE-E-P1-01` scenario title is present and passed. If the target is nonzero, scenarios are skipped/missing, or evidence comes only from unit/support/ledger artifacts, `FE-E-P1-01` stays blocked.
+
+### 7. Evidence And Artifact Recording
+
+Record in `FRONTEND_PHASE1_IMPLEMENTATION_PLAN.md`:
+
+- command, status, run root, and summary path for `make browser-e2e-webserver-backed`;
+- Playwright scenario titles mapped to `FE-E-P1-01`;
+- whether evidence is product-conformance or supporting evidence;
+- any `frontend-unit`, `frontend-typecheck`, `phase-ledgers`, and `phase-ledger-drift` artifacts;
+- blockers using the existing blocker format.
+
+Use `make explain-run RESULTS_DIR=<run-root> TARGET=browser-e2e-webserver-backed DETAIL=logs` if artifact paths need confirmation.
+
+### 8. Promotion/Blocker Rules For `FE-E-P1-01`
+
+Promote `FE-E-P1-01` only when all are true:
+
+- `make browser-e2e-webserver-backed` passes;
+- all mapped Sprint 4 Playwright scenario titles pass;
+- scenarios exercise public `/api/v1/` routes and server-managed sessions;
+- public error envelopes remain visible and private diagnostics are not rendered;
+- incident create/open, stale selection, forbidden role observation, current membership/role effects, revocation, and re-auth are covered;
+- phase map and generated ledger drift pass.
+
+Leave `FE-E-P1-01` blocked if any required scenario is absent, skipped, failed, not run, not public-route-backed, or only supported by unit/support/generated evidence.
+
+### 9. Handoff Notes For Sprints 5 Through 7
+
+Sprint 5 may reuse Sprint 4 states for accessibility, but `FE-A11Y-P1-01` remains design-direction evidence, not product conformance.
+
+Sprint 6 promotes selector builders only where selectors cross stable package/test boundaries. Do not fold selector-builder promotion into Sprint 4 unless raw selectors block the E2E flow.
+
+Sprint 7 must rerun row-owned commands, verify phase-ledger drift, record P0 regression status, and keep FE-P2 handoff limited to status and blockers for session, incident entry, authorization, public errors, accessibility, and selector ownership.
 
 ## Sprint 5: Accessibility Coverage For Session, MFA, Incident, Forbidden, Loading, And Error States
 
