@@ -52,6 +52,11 @@ Locally verified facts:
   `.cartulary/test-results/20260530T173423Z-p3940471/phase-ledger-drift/tool-run-summary.json`.
 - `git diff --check` passed with no output. `git diff --cached --check` was not
   required because no staged changes existed.
+- `make agent-finalize` passed with run root
+  `.cartulary/test-results/20260530T174430Z-p3953679` and summary
+  `.cartulary/test-results/20260530T174430Z-p3953679/agent-finalize/tool-run-summary.json`.
+  It reported generated artifacts unchanged and skipped retained-run maintenance
+  because `RESULTS_DIR` was unset.
 - `/packages/ui` exists only as `packages/ui/.gitkeep`; it is inactive until a
   manifest-backed package is introduced.
 - `WorkbookShell` currently has built-in tab selectors, a native `select` for
@@ -169,7 +174,7 @@ Out of scope:
 
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
-| [ ] | 1. Readiness, map, ledger, FE-P1 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`; `make phase-ledger-drift`; `git diff --check` | FE-P2 metadata separation defects must be fixed or blocked |
+| [x] | 1. Readiness, map, ledger, FE-P1 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`; `make phase-ledger-drift`; `git diff --check` | FE-P1 handoff freshness remains a next-sprint constraint |
 | [ ] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck` | Backend `/workbook-startup` contract mismatch blocks `FE-U-P2-01` |
 | [ ] | 3. Continuous shell composition | `make frontend-unit`; `make browser-e2e-webserver-backed` | Missing shell slots block `FE-B-P2-01` |
 | [ ] | 4. `System views` keyboard/focus | `make frontend-unit`; `make browser-e2e-webserver-backed` | Native select is insufficient for roving-focus evidence |
@@ -279,6 +284,10 @@ Validation commands:
   longer present as collapsed Core AC fields.
 - `git diff --check`: passed with no output.
 - `git diff --cached --check`: skipped because no staged changes existed.
+- `make agent-finalize`: passed with run root
+  `.cartulary/test-results/20260530T174430Z-p3953679`; generated artifacts were
+  unchanged and retained-run maintenance was skipped because `RESULTS_DIR` was
+  unset.
 
 Deliverables: plan file, corrected authored metadata, regenerated FE-P2 ledger,
 and generated ledger consistency.
