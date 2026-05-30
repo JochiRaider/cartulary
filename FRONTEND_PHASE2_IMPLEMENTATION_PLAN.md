@@ -202,7 +202,7 @@ Out of scope:
 | [x] | 1. Readiness, map, ledger, FE-P1 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`; `make phase-ledger-drift`; `git diff --check` | FE-P1 handoff freshness remains a next-sprint constraint |
 | [x] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck`; `make generate-drift`; `make phase-ledger-drift`; `git diff --check` | None for `FE-U-P2-01`/`FE-U-P2-02`; saved-view selector runtime proof remains Sprint 5 / `FE-E-P2-01` |
 | [x] | 3. Continuous shell composition | `make frontend-unit`; `make browser-e2e-webserver-backed` | None for Sprint 3 audit scope; `FE-B-P2-01` appears eligible for normal row-owned promotion |
-| [x] | 4. `System views` keyboard/focus | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed` | None for Sprint 4 audit scope; `FE-B-P2-02` has retained row-owned browser evidence |
+| [x] | 4. `System views` keyboard/focus | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed`; conditional `make browser-e2e-support`; `git diff --check` | None for Sprint 4 audit scope; `FE-B-P2-02` has retained row-owned browser evidence and is not FE-P2 completion |
 | [ ] | 5. Saved-view placement and same-shell E2E | `make browser-e2e-webserver-backed` | Missing saved-view selector blocks `FE-E-P2-01` |
 | [ ] | 6. Visual and accessibility readiness | `make browser-e2e-visual`; `make browser-e2e-a11y-preflight` | Missing FE-P2 visual fixture blocks `FE-V-P2-01` |
 | [ ] | 7. Closure and FE-P3 handoff | Row-owned commands plus drift and regression checks | `make check` only if repository completion rules require it |
@@ -503,22 +503,50 @@ Validation commands:
 
 Evidence:
 - `make frontend-unit`: passed,
-  `.cartulary/test-results/20260530T205837Z-p119566/frontend-unit/tool-run-summary.json`.
+  `.cartulary/test-results/20260530T215324Z-p229213/frontend-unit/tool-run-summary.json`.
 - `make frontend-typecheck`: passed,
-  `.cartulary/test-results/20260530T205853Z-p121029/frontend-typecheck/tool-run-summary.json`.
+  `.cartulary/test-results/20260530T215339Z-p230690/frontend-typecheck/tool-run-summary.json`.
 - `make browser-e2e-webserver-backed`: passed, 62 tests, 0 failures,
-  `.cartulary/test-results/20260530T205903Z-p121391/browser-e2e-webserver-backed/tool-run-summary.json`.
+  `.cartulary/test-results/20260530T215349Z-p231033/browser-e2e-webserver-backed/tool-run-summary.json`.
 - `FE-B-P2-02` is closed in frontend row accounting and the underlying
-  Playwright shard contains the passed browser scenario.
+  Playwright shard contains the passed browser scenario:
+  `.cartulary/test-results/20260530T215349Z-p231033/browser-e2e-webserver-backed/frontend-row-accounting.json`
+  and
+  `.cartulary/test-results/20260530T215349Z-p231033/browser-e2e-webserver-backed/playwright-webserver-backed-batch/runner.json`.
+- `make browser-e2e-support`: passed because shared browser helper and selector
+  helper usage was in the Sprint 4 audit surface,
+  `.cartulary/test-results/20260530T215520Z-p239038/browser-e2e-support/tool-run-summary.json`.
+- `git diff --check`: passed.
+- `git diff --cached --check`: skipped because no staged changes existed.
+
+Audit result:
+- scope was `FE-B-P2-02` only;
+- Core 00 through Core 04 were treated as product-conformance authority;
+- `docs/testing-harness-nlspec.md` was treated as harness-mechanics authority;
+- the FE-P2 map and generated FE-P2 coverage ledger were treated only as
+  generated/support evidence;
+- the switcher is keyboard reachable from the shell, Enter/Space open it,
+  Arrow navigation uses deterministic roving focus, Enter selects the focused
+  system view, Escape dismisses it, dismissal restores focus to the trigger,
+  and selection moves focus to the first appropriate grid focus target;
+- the accessible name remains `System views`;
+- system-view identity and selector contracts remain keyed by stable
+  `view_schema_id` values and closed group tokens rather than labels, CSS
+  classes, DOM nesting, render order, or component names;
+- existing later-phase system-view tests continue to use stable selector
+  builders and stable-ID assertions;
+- no command palette, new route family, optional surface semantics, or other
+  behavior outside Sprint 4 scope was found.
 
 Deliverables: satisfied for `FE-B-P2-02`.
 
 Blocker rules: browser focus instability is `FE-P2-owned` unless caused by
 harness/service failure.
 
-Binary acceptance: satisfied for Sprint 4. The switcher scenario passes and
-existing later-phase system-view tests use stable selector builders without
-weakening stable-ID assertions.
+Binary acceptance: satisfied for Sprint 4 / `FE-B-P2-02` only. This does not
+mark FE-P2 complete, does not promote Sprint 5, Sprint 6, visual,
+accessibility, or Core 05 evidence, and does not replace generated-ledger drift
+workflow.
 
 ## Sprint 5: Saved-View Placement And Same-Shell E2E
 
