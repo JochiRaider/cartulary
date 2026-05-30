@@ -215,6 +215,8 @@ If a persisted referenced saved view or view schema is missing, deleted, no long
 Profiles: base
 Verified by: AC-150, AC-153, AC-231
 
+Startup request-validation failures and persisted-pointer clearing reasons MUST use the Core 01 REQ-01-151.1 reason-code registries. The current profile represents hard-deleted and never-existing saved-view references with `saved_view_not_found`; it does not expose a distinct deleted-vs-never-existed public state. Pack-unavailability fallback MUST use `required_reference_pack_unavailable` only when the addressed view contract declares unavailable `required_reference_pack_keys`.
+
 For successful enterprise-auth flows that open a workbook without an explicit valid launch `sheet_ref`, Core 01 §20 reuses this same ordered fallback chain rather than defining a separate workbook-startup order.
 
 **REQ-03-032**

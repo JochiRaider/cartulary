@@ -45,6 +45,7 @@ export type ViewContract = {
   readonly fieldMap: Readonly<Record<string, ViewFieldContract>>;
   readonly groupingFields: readonly string[];
   readonly permitsZeroFieldCreate: boolean;
+  readonly requiredReferencePackKeys: readonly string[];
   readonly sortableFieldMap: Readonly<Record<string, true>>;
   readonly filterableFieldMap: Readonly<Record<string, true>>;
   readonly groupableFieldMap: Readonly<Record<string, true>>;
@@ -93,6 +94,7 @@ type RawViewContract = {
   readonly inline_create?: {
     readonly permits_zero_field_create?: boolean;
   };
+  readonly required_reference_pack_keys?: unknown;
   readonly sort_fields?: readonly string[];
   readonly sort_null_order?: "last";
   readonly surface_kind: string;
@@ -133,6 +135,21 @@ function stableKeySet(
     keys.add(fieldKey);
   }
   return keys;
+}
+
+function stableKeyList(
+  value: unknown,
+  source: string,
+  label: string,
+): readonly string[] {
+  if (value === undefined) {
+    return Object.freeze([]);
+  }
+  if (!Array.isArray(value)) {
+    viewContractInvariant(source, `${label} must be an array`);
+  }
+  const keys = stableKeySet(value, source, label);
+  return Object.freeze([...keys]);
 }
 
 function unionKeySet(
@@ -347,6 +364,11 @@ export function parseViewContractJSON(
   ]);
   const groupingFields = Object.freeze([...(raw.grouping_fields ?? [])]);
   const technicalFields = Object.freeze([...(raw.technical_fields ?? [])]);
+  const requiredReferencePackKeys = stableKeyList(
+    raw.required_reference_pack_keys,
+    source,
+    "required_reference_pack_keys",
+  );
   const technicalFieldKeySet = stableKeySet(
     technicalFields,
     source,
@@ -403,6 +425,7 @@ export function parseViewContractJSON(
     technicalFields,
     permitsZeroFieldCreate:
       raw.inline_create?.permits_zero_field_create ?? false,
+    requiredReferencePackKeys,
     fields,
     fieldMap,
     sortableFieldMap: truthMap(sortFields),

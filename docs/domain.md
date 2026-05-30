@@ -408,6 +408,7 @@ A saved view captures query and layout configuration over exactly one immutable 
 | `system`  | Implementation-owned or admin-seeded saved-view configuration, visible to all incident members, immutable through ordinary saved-view routes. |
 
 Workbook startup selection follows explicit launch reference, user home reference, incident default reference, then `cartulary.view.timeline.v1`.
+Hard-deleted and never-existing saved-view startup references share the public unavailable-saved-view reason `saved_view_not_found` in the current profile. A more precise deleted-versus-never-existed distinction would require a tombstone-owning saved-view specification and migration.
 
 ### 13.10 Same-field conflict workflow
 

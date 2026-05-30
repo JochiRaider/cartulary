@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   fieldCapability,
   getViewContract,
+  listViewContracts,
   parseViewContractJSON,
   requireViewContract,
   resolveHeaderSortFieldKey,
@@ -143,6 +144,20 @@ describe("view-contracts", () => {
       "quarantined",
       "released",
     ]);
+  });
+
+  it("exposes required reference-pack metadata from view contracts", () => {
+    const packBound = parseFixture({
+      ...fixtureRawContract(),
+      required_reference_pack_keys: ["mitre_attack_enterprise"],
+    });
+
+    expect(packBound.requiredReferencePackKeys).toEqual([
+      "mitre_attack_enterprise",
+    ]);
+    expect(
+      listViewContracts().map((contract) => contract.requiredReferencePackKeys),
+    ).toEqual(listViewContracts().map(() => []));
   });
 });
 

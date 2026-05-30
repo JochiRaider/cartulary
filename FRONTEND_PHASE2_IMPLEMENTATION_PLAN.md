@@ -40,7 +40,7 @@ Locally verified facts:
 - `tools/frontend_phase_maps/fe_p2_test_map.json` contains exactly these seven
   rows once each: `FE-U-P2-01`, `FE-U-P2-02`, `FE-B-P2-01`, `FE-B-P2-02`,
   `FE-E-P2-01`, `FE-V-P2-01`, `FE-A11Y-P2-01`.
-- All FE-P2 rows are currently `claim_status="blocked"`.
+- At plan creation, all FE-P2 rows were `claim_status="blocked"`.
 - `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2` passed after Sprint
   1 metadata correction and reports FE-P2 as planned, explainable, and
   non-executable.
@@ -94,11 +94,32 @@ Assumptions:
 - Browser validation uses the repository's existing service-backed Playwright
   targets.
 
-Missing evidence:
-- No direct FE-P2 row-owned evidence has been collected.
+Initial missing evidence at plan creation:
+- No direct FE-P2 row-owned evidence had been collected.
 - No FE-P2-specific visual golden named for a phase-2 shell capture was found;
   visual goldens currently start with `v-3-*` files even though `FE-VFIX-01` is
   marked current.
+
+## Startup And Registry Hardening Addendum
+
+This addendum records post-closure hardening for `FE-U-P2-01` and
+`FE-U-P2-02`. It does not reopen browser, visual, or accessibility FE-P2 rows.
+
+Hardening scope:
+- `FE-U-P2-01` adds direct unit evidence for unsupported startup
+  `sheet_ref.kind` handling, deleted saved-view pointers represented as
+  `saved_view_not_found`, `required_reference_pack_unavailable` preservation,
+  and backend startup responses with non-standardized `selected_view_schema_id`.
+- `FE-U-P2-02` adds direct unit evidence for relabeled registry contracts,
+  optional standardized surface absence, missing required-contract failure, and
+  `requiredReferencePackKeys` parser/registry exposure.
+- Core 01/Core 03 now document startup request-validation reason codes and
+  successful cleared-pointer reason codes. `saved_view_deleted` is intentionally
+  not introduced in FE-P2.
+- Runtime proof that `scope='system'` saved views do not replace canonical
+  system views remains a `FE-E-P2-01` browser scenario. It is sequenced after
+  the active-surface saved-view selector exists, because the current shell still
+  lacks that selector.
 
 Resolved Sprint 1 metadata defects:
 - `FE-B-P2-01` and `FE-B-P2-02` now keep design-direction `R2-AC-*` IDs in
@@ -175,7 +196,7 @@ Out of scope:
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
 | [x] | 1. Readiness, map, ledger, FE-P1 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`; `make phase-ledger-drift`; `git diff --check` | FE-P1 handoff freshness remains a next-sprint constraint |
-| [ ] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck` | Backend `/workbook-startup` contract mismatch blocks `FE-U-P2-01` |
+| [x] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck`; `make generate-drift`; `make phase-ledger-drift`; `git diff --check` | None for `FE-U-P2-01`/`FE-U-P2-02`; saved-view selector runtime proof remains Sprint 5 / `FE-E-P2-01` |
 | [ ] | 3. Continuous shell composition | `make frontend-unit`; `make browser-e2e-webserver-backed` | Missing shell slots block `FE-B-P2-01` |
 | [ ] | 4. `System views` keyboard/focus | `make frontend-unit`; `make browser-e2e-webserver-backed` | Native select is insufficient for roving-focus evidence |
 | [ ] | 5. Saved-view placement and same-shell E2E | `make browser-e2e-webserver-backed` | Missing saved-view selector blocks `FE-E-P2-01` |
@@ -309,34 +330,70 @@ Non-goals: no saved-view CRUD, no grid adapter internals, no mutation replay.
 Source constraints: Core 03 Section 2.4 and Core 01 Section 3.3.5.2 own startup
 behavior.
 
+Status: complete for `FE-U-P2-01` and `FE-U-P2-02` unit scope as of the Sprint 2
+hardening pass. Runtime saved-view placement and `scope='system'` saved-view
+non-conflation remain owned by Sprint 5 / `FE-E-P2-01` because the active-surface
+saved-view selector is still absent.
+
 Inspect: `WorkbookShell.tsx`, `WorkbookShell.surfaces.test.tsx`,
 `packages/ui-contracts`, `packages/view-contracts`.
 
-Test-first sequence:
+Completed test-first sequence:
 - add unit tests for explicit launch, home preference, incident default, Timeline
   fallback;
 - include invalid, missing, invisible, deleted, or unsupported pointers
   clearing/falling through;
 - assert selected `sheet_ref` and base `view_schema_id` remain distinct.
+- add hardening tests for unsupported explicit/persisted `sheet_ref.kind`,
+  deleted saved-view wording as `saved_view_not_found`,
+  `required_reference_pack_unavailable`, non-standard backend
+  `selected_view_schema_id`, relabeled registry contracts, optional standardized
+  surface absence, required surface contract failure, and
+  `requiredReferencePackKeys` exposure.
 
-Implementation tasks:
+Completed implementation tasks:
 - extract startup model and shell registry helpers;
 - define required built-in and required system-view registries by
   `view_schema_id`;
 - keep optional standardized surfaces additive and after required groups.
+- document Core 01/Core 03 startup reason registries and deleted-as-not-found
+  semantics;
+- expose `requiredReferencePackKeys` from parsed view contracts into workbook
+  surface registry entries;
+- update the authored FE-P2 map and regenerate the generated FE-P2 ledger.
 
-Validation commands:
-- `make frontend-unit`
-- `make frontend-typecheck`
-- `make phase-ledger-drift` if metadata changed
+Validation completed:
+- `make generate`: passed,
+  `.cartulary/test-results/20260530T184358Z-p4047333`.
+- `make phase-ledgers`: passed,
+  `.cartulary/test-results/20260530T184407Z-p4047982`.
+- `make format`: passed,
+  `.cartulary/test-results/20260530T184415Z-p4048374`.
+- `make frontend-unit`: passed,
+  `.cartulary/test-results/20260530T184437Z-p4050046`.
+- `make frontend-typecheck`: passed,
+  `.cartulary/test-results/20260530T184454Z-p4051629`.
+- `make agent-finalize`: passed unchanged,
+  `.cartulary/test-results/20260530T184505Z-p4052081`; retained-run
+  maintenance was skipped because `RESULTS_DIR` was unset.
+- `make generate-drift`: passed,
+  `.cartulary/test-results/20260530T184518Z-p4053267`.
+- `make generated-artifact-policy-check`: passed,
+  `.cartulary/test-results/20260530T184518Z-p4053275`.
+- `make phase-ledger-drift`: passed,
+  `.cartulary/test-results/20260530T184518Z-p4053290`.
+- `git diff --check`: passed with no output.
 
-Deliverables: `FE-U-P2-01` and `FE-U-P2-02` unit evidence or blockers.
+Deliverables: `FE-U-P2-01` and `FE-U-P2-02` unit evidence, startup reason-code
+spec cleanup, view-contract pack-key parsing, FE-P2 map updates, generated
+contract refresh, and regenerated FE-P2 coverage ledger.
 
 Blocker rules: backend route/contract mismatch is `outside FE-P2` unless
 frontend adapter behavior is wrong.
 
 Binary acceptance: startup and registry tests pass through `make frontend-unit`;
-no label/order/CSS selectors are used as behavior anchors.
+frontend typecheck passes; generated contract and ledger drift checks pass; no
+label/order/CSS selectors are used as behavior anchors.
 
 ## Sprint 3: Continuous Workbook Shell Composition
 

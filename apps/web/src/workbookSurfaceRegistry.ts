@@ -1,4 +1,7 @@
-import { listViewContracts, type ViewContract } from "@cartulary/view-contracts";
+import {
+  listViewContracts,
+  type ViewContract,
+} from "@cartulary/view-contracts";
 
 export const timelineViewSchemaId = "cartulary.view.timeline.v1";
 export const hostsViewSchemaId = "cartulary.view.hosts.v1";
@@ -58,6 +61,7 @@ export type WorkbookSurfaceKind = "built_in_sheet" | "system_view";
 
 export type WorkbookSurfaceRegistryEntry = {
   readonly contract: ViewContract;
+  readonly requiredReferencePackKeys: readonly string[];
   readonly surfaceKind: WorkbookSurfaceKind;
   readonly surfaceStatus: WorkbookSurfaceStatus;
   readonly viewSchemaId: string;
@@ -68,10 +72,14 @@ const builtInSurfaceIdSet = new Set<string>(requiredBuiltInWorkbookSurfaceIds);
 function contractIndex(
   contracts: readonly ViewContract[],
 ): ReadonlyMap<string, ViewContract> {
-  return new Map(contracts.map((contract) => [contract.viewSchemaId, contract]));
+  return new Map(
+    contracts.map((contract) => [contract.viewSchemaId, contract]),
+  );
 }
 
-function expectedSurfaceKind(status: WorkbookSurfaceStatus): WorkbookSurfaceKind {
+function expectedSurfaceKind(
+  status: WorkbookSurfaceStatus,
+): WorkbookSurfaceKind {
   return status === "required_built_in_sheet"
     ? "built_in_sheet"
     : "system_view";
@@ -94,6 +102,7 @@ function registryEntry(
   }
   return Object.freeze({
     contract,
+    requiredReferencePackKeys: contract.requiredReferencePackKeys,
     surfaceKind,
     surfaceStatus,
     viewSchemaId,

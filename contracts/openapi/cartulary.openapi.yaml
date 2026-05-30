@@ -5356,7 +5356,8 @@
             "$ref": "#/components/schemas/SheetRef"
           },
           "reason_code": {
-            "type": "string"
+            "type": "string",
+            "description": "Current-profile emitted values are drawn from the workbook-startup cleared-pointer registry: invalid_sheet_ref, unsupported_sheet_ref_kind, unknown_view_schema, invalid_saved_view_id, saved_view_not_found, saved_view_not_visible, required_reference_pack_unavailable."
           }
         },
         "required": [

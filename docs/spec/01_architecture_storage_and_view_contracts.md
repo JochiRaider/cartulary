@@ -1881,6 +1881,30 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-
 
 **REQ-01-151.1**
 `GET /api/v1/incidents/{incident_id}/workbook-startup` MUST expose workbook startup selection using the ordered fallback owned by Core 03 §2.4. The route MUST accept either legacy `view_schema_id=<id>` or general `sheet_ref_kind=view_schema|saved_view&sheet_ref_id=<id>` query selectors for an explicit launch pointer; supplying both selector forms MUST fail with `400` and `error.code = invalid_startup_request`. A successful response MUST include `incident_id`, `selected_sheet_ref`, `selected_view_schema_id`, `selected_saved_view`, `source`, `cleared_pointers[]`, `home_sheet_ref`, and `default_sheet_ref`. `selected_view_schema_id` is the base schema used by workbook query routes; `selected_sheet_ref` is the selected startup identity and MAY be a distinct `saved_view` reference. The route MUST NOT treat an empty saved-view list as absence of any pack-independent base-profile surface identified by `view_schema`.
+
+For request-validation failures on this route, `error.details.reason_code` MUST use the `invalid_startup_request` registry. The base-profile registry is exactly:
+
+| `reason_code` | Condition |
+| --- | --- |
+| `ambiguous_explicit_sheet_ref` | The request supplies both legacy `view_schema_id` and general `sheet_ref_kind`/`sheet_ref_id` launch selectors. |
+| `missing_required_field` | A required member of the supplied launch selector is absent or empty. |
+| `unknown_field` | The request supplies a query member outside the startup route contract. |
+| `invalid_saved_view_id` | The explicit saved-view selector does not contain a valid saved-view identifier. |
+| `unsupported_sheet_ref_kind` | The explicit selector uses a `sheet_ref.kind` outside the current `view_schema` and `saved_view` union. |
+
+For successful responses, `cleared_pointers[].reason_code` remains a string on the wire, but current-profile emitted values MUST come from the workbook-startup cleared-pointer registry. The base-profile registry is exactly:
+
+| `reason_code` | Condition |
+| --- | --- |
+| `invalid_sheet_ref` | The persisted pointer cannot be decoded as a usable `sheet_ref`. |
+| `unsupported_sheet_ref_kind` | The persisted pointer uses a `sheet_ref.kind` outside the current `view_schema` and `saved_view` union. |
+| `unknown_view_schema` | The pointer references a view schema outside the current standardized registry. |
+| `invalid_saved_view_id` | The pointer uses the saved-view form but the identifier is malformed. |
+| `saved_view_not_found` | The saved-view object is hard-deleted, missing, or otherwise has no visible current resource representation. |
+| `saved_view_not_visible` | The saved-view object exists but is not visible to the caller. |
+| `required_reference_pack_unavailable` | The addressed view schema declares one or more `required_reference_pack_keys` that are not currently available to the caller or deployment. |
+
+The base profile does not define a distinct public `saved_view_deleted` reason. Hard-deleted and never-existing saved-view references MUST use `saved_view_not_found` unless a later owner spec introduces saved-view tombstones and the required data-model migration. `required_reference_pack_unavailable` applies only to owner-adopted view schemas with non-empty `required_reference_pack_keys`; current pack-independent base-profile surfaces are not made unavailable merely because the saved-view list is empty.
 Profiles: base
 Verified by: AC-150, AC-153, AC-231
 

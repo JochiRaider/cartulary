@@ -138,6 +138,11 @@ import {
   shouldIgnoreSelfOriginatedRecordChange,
 } from "./workbookShellPhase4";
 import {
+  normalizeWorkbookStartupSelection,
+  type WorkbookSheetRef,
+  workbookStartupQueryFromURLParams,
+} from "./workbookStartup";
+import {
   assessmentsViewSchemaId,
   commLogViewSchemaId,
   decisionsViewSchemaId,
@@ -147,8 +152,8 @@ import {
   handoffViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
-  isBuiltInWorkbookSurfaceId,
   investigativeQueriesViewSchemaId,
+  isBuiltInWorkbookSurfaceId,
   knownWorkbookViewSchemaId,
   lessonViewSchemaId,
   listSystemWorkbookSurfaceRegistryEntries,
@@ -160,11 +165,6 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
-import {
-  normalizeWorkbookStartupSelection,
-  workbookStartupQueryFromURLParams,
-  type WorkbookSheetRef,
-} from "./workbookStartup";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const hostsContract = requireViewContract(hostsViewSchemaId);

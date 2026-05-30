@@ -115,6 +115,14 @@ describe("@cartulary/protocol-ts facade", () => {
         expect.objectContaining({ code: "unknown_field_key" }),
       ]),
     );
+    expect(
+      requireReasonCodeRegistry("invalid_startup_request").reason_codes,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "ambiguous_explicit_sheet_ref" }),
+        expect.objectContaining({ code: "unsupported_sheet_ref_kind" }),
+      ]),
+    );
     expect(getReasonCodeRegistry("missing_error_code")).toBeUndefined();
     expect(() => requireReasonCodeRegistry("missing_error_code")).toThrow(
       "missing reason-code registry for missing_error_code",

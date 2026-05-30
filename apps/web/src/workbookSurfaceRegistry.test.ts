@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildWorkbookSurfaceRegistry,
+  findingsViewSchemaId,
   listBuiltInWorkbookSurfaceRegistryEntries,
   listSystemWorkbookSurfaceRegistryEntries,
   listWorkbookSurfaceRegistryEntries,
@@ -60,7 +61,10 @@ describe("workbook surface registry", () => {
     );
     expect(
       entries
-        .filter((entry) => entry.surfaceStatus !== "standardized_optional_workbook_surface")
+        .filter(
+          (entry) =>
+            entry.surfaceStatus !== "standardized_optional_workbook_surface",
+        )
         .map((entry) => entry.viewSchemaId),
     ).toEqual(requiredIds);
 
@@ -68,5 +72,78 @@ describe("workbook surface registry", () => {
       [...entries].reverse().map((entry) => entry.contract),
     );
     expect(shuffled.map((entry) => entry.viewSchemaId)).toEqual(ids);
+  });
+
+  it("FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled", () => {
+    const entries = listWorkbookSurfaceRegistryEntries();
+    const relabeledContracts = entries.map((entry) => ({
+      ...entry.contract,
+      title: `Surface ${entry.viewSchemaId}`,
+    }));
+
+    const relabeled = buildWorkbookSurfaceRegistry(relabeledContracts);
+
+    expect(relabeled.map((entry) => entry.viewSchemaId)).toEqual(
+      entries.map((entry) => entry.viewSchemaId),
+    );
+    expect(relabeled.map((entry) => entry.contract.title)).toEqual(
+      relabeled.map((entry) => `Surface ${entry.viewSchemaId}`),
+    );
+    expect(relabeled.map((entry) => entry.surfaceStatus)).toEqual(
+      entries.map((entry) => entry.surfaceStatus),
+    );
+  });
+
+  it("FE-U-P2-02 tolerates absent optional standardized surfaces while requiring required surfaces", () => {
+    const entries = listWorkbookSurfaceRegistryEntries();
+    const requiredIds = [
+      ...requiredBuiltInWorkbookSurfaceIds,
+      ...requiredSystemWorkbookSurfaceIds,
+    ];
+    const requiredIdSet = new Set<string>(requiredIds);
+    const optionalIdSet = new Set<string>(
+      optionalStandardizedWorkbookSurfaceIds,
+    );
+    const requiredContracts = entries
+      .filter((entry) => requiredIdSet.has(entry.viewSchemaId))
+      .map((entry) => entry.contract);
+
+    const requiredOnly = buildWorkbookSurfaceRegistry(requiredContracts);
+
+    expect(requiredOnly.map((entry) => entry.viewSchemaId)).toEqual(
+      requiredIds,
+    );
+    expect(
+      requiredOnly.some((entry) => optionalIdSet.has(entry.viewSchemaId)),
+    ).toBe(false);
+    expect(() =>
+      buildWorkbookSurfaceRegistry(
+        requiredContracts.filter(
+          (contract) =>
+            contract.viewSchemaId !== requiredBuiltInWorkbookSurfaceIds[0],
+        ),
+      ),
+    ).toThrow(/Missing workbook surface contract/);
+  });
+
+  it("FE-U-P2-02 exposes required reference-pack keys from view contracts", () => {
+    const entries = listWorkbookSurfaceRegistryEntries();
+    const packBoundContracts = entries.map((entry) =>
+      entry.viewSchemaId === findingsViewSchemaId
+        ? {
+            ...entry.contract,
+            requiredReferencePackKeys: ["mitre_attack_enterprise"],
+          }
+        : entry.contract,
+    );
+
+    expect(entries.map((entry) => entry.requiredReferencePackKeys)).toEqual(
+      entries.map(() => []),
+    );
+    expect(
+      buildWorkbookSurfaceRegistry(packBoundContracts).find(
+        (entry) => entry.viewSchemaId === findingsViewSchemaId,
+      )?.requiredReferencePackKeys,
+    ).toEqual(["mitre_attack_enterprise"]);
   });
 });

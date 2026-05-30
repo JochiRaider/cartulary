@@ -8,12 +8,21 @@ export type WorkbookSheetRef = {
   readonly kind: "saved_view" | "view_schema";
 };
 
-export type WorkbookStartupSource = "default" | "explicit" | "home" | "timeline";
+export type WorkbookStartupClearedSheetRef = {
+  readonly id: string;
+  readonly kind: string;
+};
+
+export type WorkbookStartupSource =
+  | "default"
+  | "explicit"
+  | "home"
+  | "timeline";
 export type WorkbookStartupPointerSource = "default" | "home";
 
 export type WorkbookStartupClearedPointer = {
   readonly reasonCode: string;
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: WorkbookStartupClearedSheetRef;
   readonly source: WorkbookStartupPointerSource;
 };
 
@@ -41,10 +50,7 @@ const startupSources = new Set<string>([
   "home",
   "timeline",
 ]);
-const pointerSources = new Set<string>([
-  "default",
-  "home",
-]);
+const pointerSources = new Set<string>(["default", "home"]);
 
 export function isWorkbookSheetRef(value: unknown): value is WorkbookSheetRef {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -53,6 +59,21 @@ export function isWorkbookSheetRef(value: unknown): value is WorkbookSheetRef {
   const record = value as Record<string, unknown>;
   return (
     (record.kind === "view_schema" || record.kind === "saved_view") &&
+    typeof record.id === "string" &&
+    record.id.trim() !== ""
+  );
+}
+
+function isClearedSheetRef(
+  value: unknown,
+): value is WorkbookStartupClearedSheetRef {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.kind === "string" &&
+    record.kind.trim() !== "" &&
     typeof record.id === "string" &&
     record.id.trim() !== ""
   );
@@ -198,7 +219,7 @@ export function normalizeWorkbookStartupSelection(
     const raw = pointer as Record<string, unknown>;
     if (
       !isPointerSource(raw.source) ||
-      !isWorkbookSheetRef(raw.sheet_ref) ||
+      !isClearedSheetRef(raw.sheet_ref) ||
       typeof raw.reason_code !== "string" ||
       raw.reason_code.trim() === ""
     ) {

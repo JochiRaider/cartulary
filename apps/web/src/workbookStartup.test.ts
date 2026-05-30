@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
-
+import {
+  normalizeWorkbookStartupSelection,
+  resolveWorkbookStartupFallback,
+  type WorkbookSheetRef,
+  workbookStartupQueryFromURLParams,
+} from "./workbookStartup";
 import {
   evidenceViewSchemaId,
+  findingsViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
-import {
-  normalizeWorkbookStartupSelection,
-  resolveWorkbookStartupFallback,
-  workbookStartupQueryFromURLParams,
-  type WorkbookSheetRef,
-} from "./workbookStartup";
 
 const savedViewId = "11111111-1111-4111-8111-111111111111";
 
@@ -138,10 +138,9 @@ describe("workbook startup model", () => {
       selectedViewSchemaId: timelineViewSchemaId,
       source: "timeline",
     });
-    expect(timelineAfterInvalid.clearedPointers.map((entry) => entry.source)).toEqual([
-      "home",
-      "default",
-    ]);
+    expect(
+      timelineAfterInvalid.clearedPointers.map((entry) => entry.source),
+    ).toEqual(["home", "default"]);
     expect(
       timelineAfterInvalid.clearedPointers.map((entry) => entry.reasonCode),
     ).toEqual(["invalid_saved_view_id", "saved_view_not_found"]);
@@ -155,6 +154,121 @@ describe("workbook startup model", () => {
         }),
       ),
     ).toBe(`?sheet_ref_kind=saved_view&sheet_ref_id=${savedViewId}`);
+  });
+
+  it("FE-U-P2-01 rejects unsupported startup sheet_ref kinds at the frontend boundary", () => {
+    expect(
+      workbookStartupQueryFromURLParams(
+        new URLSearchParams({
+          sheet_ref_id: "legacy-surface",
+          sheet_ref_kind: "legacy_workspace",
+        }),
+      ),
+    ).toBe("?sheet_ref_kind=legacy_workspace&sheet_ref_id=legacy-surface");
+
+    expect(
+      normalizeWorkbookStartupSelection({
+        cleared_pointers: [],
+        default_sheet_ref: null,
+        home_sheet_ref: null,
+        incident_id: "incident-1",
+        selected_saved_view: null,
+        selected_sheet_ref: { kind: "legacy_workspace", id: "legacy-surface" },
+        selected_view_schema_id: timelineViewSchemaId,
+        source: "explicit",
+      }),
+    ).toBeNull();
+
+    const normalized = normalizeWorkbookStartupSelection({
+      cleared_pointers: [
+        {
+          reason_code: "unsupported_sheet_ref_kind",
+          sheet_ref: { kind: "legacy_workspace", id: "legacy-surface" },
+          source: "home",
+        },
+      ],
+      default_sheet_ref: null,
+      home_sheet_ref: null,
+      incident_id: "incident-1",
+      selected_saved_view: null,
+      selected_sheet_ref: viewSchemaRef(timelineViewSchemaId),
+      selected_view_schema_id: timelineViewSchemaId,
+      source: "timeline",
+    });
+    expect(normalized?.clearedPointers).toEqual([
+      {
+        reasonCode: "unsupported_sheet_ref_kind",
+        sheetRef: { kind: "legacy_workspace", id: "legacy-surface" },
+        source: "home",
+      },
+    ]);
+  });
+
+  it("FE-U-P2-01 treats deleted saved-view pointers as unavailable saved views", () => {
+    const deletedSavedView = resolveWorkbookStartupFallback({
+      default: {
+        invalidReasonCode: "saved_view_not_found",
+        selectedViewSchemaId: evidenceViewSchemaId,
+        sheetRef: savedViewRef("44444444-4444-4444-8444-444444444444"),
+        valid: false,
+      },
+    });
+
+    expect(deletedSavedView).toMatchObject({
+      defaultSheetRef: null,
+      selectedSheetRef: viewSchemaRef(timelineViewSchemaId),
+      selectedViewSchemaId: timelineViewSchemaId,
+      source: "timeline",
+    });
+    expect(deletedSavedView.clearedPointers).toEqual([
+      {
+        reasonCode: "saved_view_not_found",
+        sheetRef: savedViewRef("44444444-4444-4444-8444-444444444444"),
+        source: "default",
+      },
+    ]);
+  });
+
+  it("FE-U-P2-01 preserves required-reference-pack unavailable startup reasons", () => {
+    const packUnavailable = resolveWorkbookStartupFallback({
+      home: {
+        invalidReasonCode: "required_reference_pack_unavailable",
+        sheetRef: viewSchemaRef(findingsViewSchemaId),
+        valid: false,
+      },
+    });
+
+    expect(packUnavailable).toMatchObject({
+      homeSheetRef: null,
+      selectedSheetRef: viewSchemaRef(timelineViewSchemaId),
+      selectedViewSchemaId: timelineViewSchemaId,
+      source: "timeline",
+    });
+    expect(packUnavailable.clearedPointers).toEqual([
+      {
+        reasonCode: "required_reference_pack_unavailable",
+        sheetRef: viewSchemaRef(findingsViewSchemaId),
+        source: "home",
+      },
+    ]);
+  });
+
+  it("FE-U-P2-01 rejects backend startup selections with non-standardized view_schema_id", () => {
+    expect(
+      normalizeWorkbookStartupSelection({
+        cleared_pointers: [],
+        default_sheet_ref: null,
+        home_sheet_ref: null,
+        incident_id: "incident-1",
+        selected_saved_view: null,
+        selected_sheet_ref: {
+          kind: "view_schema",
+          id: "cartulary.view.experimental.v1",
+        },
+        selected_view_schema_id: "cartulary.view.experimental.v1",
+        source: "explicit",
+      }),
+    ).toBeNull();
   });
 
   it("FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id", () => {

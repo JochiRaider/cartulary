@@ -94,6 +94,11 @@
       "summary": "The view query request body failed route-owned validation."
     },
     {
+      "code": "invalid_startup_request",
+      "http_status": 400,
+      "summary": "The workbook startup request query failed route-owned validation."
+    },
+    {
       "code": "authorization_denied",
       "http_status": 403,
       "summary": "The current authenticated session can see the incident but does not hold a sufficient incident role for the requested mutation."
@@ -414,6 +419,31 @@
         {
           "code": "not_cancelable",
           "summary": "The current non-terminal job phase is not cancelable."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_startup_request",
+      "reason_codes": [
+        {
+          "code": "ambiguous_explicit_sheet_ref",
+          "summary": "The request supplies both legacy view_schema_id and general sheet_ref launch selectors."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required workbook startup query selector member is absent or empty."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request supplies a query member outside the workbook startup route contract."
+        },
+        {
+          "code": "invalid_saved_view_id",
+          "summary": "The explicit saved-view launch selector is malformed."
+        },
+        {
+          "code": "unsupported_sheet_ref_kind",
+          "summary": "The explicit launch selector uses a sheet_ref kind outside the current workbook startup union."
         }
       ]
     },

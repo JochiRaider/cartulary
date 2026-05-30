@@ -30,6 +30,10 @@
       "scenario_titles": [
         "FE-U-P2-01 resolves workbook startup fallback order by stable sheet_ref identity",
         "FE-U-P2-01 skips or clears invalid startup pointers without failing workbook open",
+        "FE-U-P2-01 rejects unsupported startup sheet_ref kinds at the frontend boundary",
+        "FE-U-P2-01 treats deleted saved-view pointers as unavailable saved views",
+        "FE-U-P2-01 preserves required-reference-pack unavailable startup reasons",
+        "FE-U-P2-01 rejects backend startup selections with non-standardized view_schema_id",
         "FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id"
       ],
       "claim_status": "implemented",
@@ -75,7 +79,10 @@
       ],
       "scenario_titles": [
         "FE-U-P2-02 registers built-in and system workbook surfaces by stable IDs",
-        "FE-U-P2-02 keeps optional standardized surfaces additive after required surfaces"
+        "FE-U-P2-02 keeps optional standardized surfaces additive after required surfaces",
+        "FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled",
+        "FE-U-P2-02 tolerates absent optional standardized surfaces while requiring required surfaces",
+        "FE-U-P2-02 exposes required reference-pack keys from view contracts"
       ],
       "claim_status": "implemented",
       "claim": "Verify built-in tabs and required system-view groups are registered by stable surface IDs, not visible labels.",
