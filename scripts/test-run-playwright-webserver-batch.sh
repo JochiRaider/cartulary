@@ -353,6 +353,44 @@ expected_derived_phase_count="$(
 assert_equals "$(json_field "$success_target_summary" "kind")" "leaf" "batch target summary kind"
 assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.actual")" "$expected_actual_phase_count" "batch target actual phase count"
 assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.derived")" "$expected_derived_phase_count" "batch target derived phase count"
+browser_row_accounting_root="$tmp_dir/results/batch-success-browser-target/browser-e2e-webserver-backed"
+mkdir -p "$browser_row_accounting_root"
+cp -R "$success_root/." "$browser_row_accounting_root/"
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+CARTULARY_TEST_RUN_ID="batch-success-browser-target" \
+NODE_BIN="${NODE:-node}" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null
+browser_row_accounting_summary="$browser_row_accounting_root/target-summary.json"
+"${NODE:-node}" - "$browser_row_accounting_summary" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const [summaryPath] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
+if (!accounting) {
+  throw new Error("browser-e2e-webserver-backed target summary must include frontend row accounting");
+}
+const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
+const fee = byID.get("FE-E-P1-01");
+if (!fee || fee.closure_status !== "closed") {
+  throw new Error(`FE-E-P1-01 must be closed in browser row accounting: ${JSON.stringify(fee)}`);
+}
+if (fee.scenarios.filter((scenario) => scenario.status === "passed").length !== 10) {
+  throw new Error("FE-E-P1-01 must retain all ten passed browser scenarios");
+}
+const toolSummary = JSON.parse(
+  fs.readFileSync(path.join(path.dirname(summaryPath), "tool-run-summary.json"), "utf8"),
+);
+const toolFee = new Map(
+  (toolSummary.extensions?.["cartulary.frontend_row_accounting"]?.rows ?? [])
+    .map((row) => [row.row_id, row]),
+).get("FE-E-P1-01");
+if (!toolFee || toolFee.closure_status !== "closed") {
+  throw new Error(`FE-E-P1-01 must be closed in browser tool summary: ${JSON.stringify(toolFee)}`);
+}
+NODE
 
 single_shard_invocations="$tmp_dir/batch-single-shard-invocations.log"
 single_shard_output="$(
