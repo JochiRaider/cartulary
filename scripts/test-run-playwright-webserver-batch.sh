@@ -372,6 +372,19 @@ const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
 if (!accounting) {
   throw new Error("browser-e2e-webserver-backed target summary must include frontend row accounting");
 }
+const artifactRel = summary.artifacts?.frontend_row_accounting;
+if (!artifactRel) {
+  throw new Error("browser-e2e-webserver-backed target summary must reference frontend row accounting artifact");
+}
+const artifact = JSON.parse(
+  fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
+);
+if (artifact.schema_id !== "cartulary.frontend_row_accounting.v1") {
+  throw new Error(`browser frontend row accounting artifact has wrong schema: ${artifact.schema_id}`);
+}
+if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {
+  throw new Error("browser frontend row accounting artifact must match compatibility extension");
+}
 const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
 const fee = byID.get("FE-E-P1-01");
 if (!fee || fee.closure_status !== "closed") {
@@ -383,6 +396,11 @@ if (fee.scenarios.filter((scenario) => scenario.status === "passed").length !== 
 const toolSummary = JSON.parse(
   fs.readFileSync(path.join(path.dirname(summaryPath), "tool-run-summary.json"), "utf8"),
 );
+if (!toolSummary.summary_artifacts?.some((entry) =>
+  entry.role === "frontend_row_accounting" && entry.path === artifactRel
+)) {
+  throw new Error("browser tool summary must reference frontend row accounting artifact");
+}
 const toolFee = new Map(
   (toolSummary.extensions?.["cartulary.frontend_row_accounting"]?.rows ?? [])
     .map((row) => [row.row_id, row]),

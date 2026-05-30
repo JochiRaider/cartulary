@@ -64,10 +64,11 @@ Locally verified facts:
   `sheet_ref` preservation.
 - Current shell composition has Sprint 3 row-owned browser evidence for
   `FE-B-P2-01`: required shell slots remain under one workbook shell root and
-  navigation remains on the same workbook route. FE-P2 is still not complete:
-  `System views` still uses native select behavior rather than the Sprint 4
-  roving-focus switcher, the active-surface saved-view selector remains Sprint
-  5 work, and visual/accessibility readiness remains Sprint 6 work.
+  navigation remains on the same workbook route. Sprint 4 row-owned browser
+  evidence for `FE-B-P2-02` now verifies the custom `System views` switcher
+  keyboard entry, roving focus, selection, dismissal, and focus restoration.
+  FE-P2 is still not complete: the active-surface saved-view selector remains
+  Sprint 5 work, and visual/accessibility readiness remains Sprint 6 work.
 
 Inherited FE-P0 handoff state:
 - `FE-P0` remains `planned` but all six FE-P0 rows are `implemented` in the
@@ -201,7 +202,7 @@ Out of scope:
 | [x] | 1. Readiness, map, ledger, FE-P1 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`; `make phase-ledger-drift`; `git diff --check` | FE-P1 handoff freshness remains a next-sprint constraint |
 | [x] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck`; `make generate-drift`; `make phase-ledger-drift`; `git diff --check` | None for `FE-U-P2-01`/`FE-U-P2-02`; saved-view selector runtime proof remains Sprint 5 / `FE-E-P2-01` |
 | [x] | 3. Continuous shell composition | `make frontend-unit`; `make browser-e2e-webserver-backed` | None for Sprint 3 audit scope; `FE-B-P2-01` appears eligible for normal row-owned promotion |
-| [ ] | 4. `System views` keyboard/focus | `make frontend-unit`; `make browser-e2e-webserver-backed` | Native select is insufficient for roving-focus evidence |
+| [x] | 4. `System views` keyboard/focus | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed` | None for Sprint 4 audit scope; `FE-B-P2-02` has retained row-owned browser evidence |
 | [ ] | 5. Saved-view placement and same-shell E2E | `make browser-e2e-webserver-backed` | Missing saved-view selector blocks `FE-E-P2-01` |
 | [ ] | 6. Visual and accessibility readiness | `make browser-e2e-visual`; `make browser-e2e-a11y-preflight` | Missing FE-P2 visual fixture blocks `FE-V-P2-01` |
 | [ ] | 7. Closure and FE-P3 handoff | Row-owned commands plus drift and regression checks | `make check` only if repository completion rules require it |
@@ -500,13 +501,24 @@ Validation commands:
 - `make browser-e2e-webserver-backed`
 - `make browser-e2e-support` if shared helpers change
 
-Deliverables: `FE-B-P2-02` row-owned browser evidence or blocker.
+Evidence:
+- `make frontend-unit`: passed,
+  `.cartulary/test-results/20260530T205837Z-p119566/frontend-unit/tool-run-summary.json`.
+- `make frontend-typecheck`: passed,
+  `.cartulary/test-results/20260530T205853Z-p121029/frontend-typecheck/tool-run-summary.json`.
+- `make browser-e2e-webserver-backed`: passed, 62 tests, 0 failures,
+  `.cartulary/test-results/20260530T205903Z-p121391/browser-e2e-webserver-backed/tool-run-summary.json`.
+- `FE-B-P2-02` is closed in frontend row accounting and the underlying
+  Playwright shard contains the passed browser scenario.
+
+Deliverables: satisfied for `FE-B-P2-02`.
 
 Blocker rules: browser focus instability is `FE-P2-owned` unless caused by
 harness/service failure.
 
-Binary acceptance: switcher scenario passes and existing later-phase system-view
-tests are updated without weakening stable-ID assertions.
+Binary acceptance: satisfied for Sprint 4. The switcher scenario passes and
+existing later-phase system-view tests use stable selector builders without
+weakening stable-ID assertions.
 
 ## Sprint 5: Saved-View Placement And Same-Shell E2E
 

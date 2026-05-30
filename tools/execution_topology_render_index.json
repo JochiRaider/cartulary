@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:10fbe488c4f03f01f51da11d2f6d1f47d7151186872c177b6b30357583ddbd29",
+  "input_digest": "sha256:dc53fccbf4168d81695f36ff072c47a7c9dfdf495ee6cacc9b622aaad2163a83",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -272,12 +272,12 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:1059ac8d0cf54048e905582950f485f50ff3eb1fbec9a5c3c7d8d51fa056d8e9"
+      "hash": "sha256:fc58b9c616088f7721ad87e6f5764faa24fdd10e2c4a5477aed5803008ff176c"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c337266adfa13595c870f4730455aae6c6b15063c5c888bbebeeaf7e50c871e3"
+      "hash": "sha256:342c190acefa852eebde23d31749e56dcf88eba83ad641b83ded87d633f80524"
     },
     {
       "path": "scripts/lib/tool-output.mjs",

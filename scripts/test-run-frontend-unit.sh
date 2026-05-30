@@ -367,6 +367,19 @@ const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
 if (!accounting) {
   throw new Error("frontend-unit target summary must include frontend row accounting");
 }
+const artifactRel = summary.artifacts?.frontend_row_accounting;
+if (!artifactRel) {
+  throw new Error("frontend-unit target summary must reference frontend row accounting artifact");
+}
+const artifact = JSON.parse(
+  fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
+);
+if (artifact.schema_id !== "cartulary.frontend_row_accounting.v1") {
+  throw new Error(`frontend row accounting artifact has wrong schema: ${artifact.schema_id}`);
+}
+if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {
+  throw new Error("frontend row accounting artifact must match compatibility extension");
+}
 const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
 const fei = byID.get("FE-I-P1-01");
 if (!fei || fei.closure_status !== "closed") {
@@ -384,6 +397,11 @@ const toolSummary = JSON.parse(
 );
 if (!toolSummary.extensions?.["cartulary.frontend_row_accounting"]) {
   throw new Error("frontend-unit tool summary must include frontend row accounting");
+}
+if (!toolSummary.summary_artifacts?.some((entry) =>
+  entry.role === "frontend_row_accounting" && entry.path === artifactRel
+)) {
+  throw new Error("frontend-unit tool summary must reference frontend row accounting artifact");
 }
 EOF
 

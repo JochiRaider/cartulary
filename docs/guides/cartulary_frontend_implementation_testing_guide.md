@@ -567,6 +567,8 @@ Each `tools/frontend_phase_maps/fe_p*_test_map.json` file MUST declare `schema_i
 
 Generated frontend ledgers under `docs/testing/frontend_phase_coverage_ledgers/` MUST render registry metadata, row metadata, target mapping, evidence class, owner refs, Core IDs, support/design AC IDs, blocked status, scenario titles, and source-map claims. The maps are the source of truth; ledgers are rendered companions.
 
+Frontend-aware targets that map one or more frontend rows MUST retain `<target>/frontend-row-accounting.json` with schema ID `cartulary.frontend_row_accounting.v1`. That artifact is the durable row-to-scenario closure record for target runs. Target and tool-run summary extensions under `cartulary.frontend_row_accounting` are compatibility copies only; new audit workflows SHOULD prefer the schema-owned artifact. Base browser `manifest-selected-tests.json` files remain base phase inventory and MUST NOT be used as frontend row closure evidence.
+
 ### 7.3 Browser, visual, accessibility, and support classification
 
 Browser rows classify as `product_conformance` only when they verify Core-owned behavior through the public browser-facing boundary. Browser rows that only prove helper choreography, selector stability, timing support, or visual harness mechanics classify as `implementation_support`.

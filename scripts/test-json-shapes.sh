@@ -552,6 +552,55 @@ write_valid_frontend_accessibility_preflight_summary() {
 JSON
 }
 
+write_valid_frontend_row_accounting() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.frontend_row_accounting.v1",
+  "target": "browser-e2e-webserver-backed",
+  "target_status": "pass",
+  "rows": [
+    {
+      "phase_id": "FE-P2",
+      "phase_status": "planned",
+      "row_id": "FE-B-P2-02",
+      "layer": "browser_integration",
+      "evidence_class": "product_conformance",
+      "claim_status": "implemented",
+      "scenario_titles": [
+        "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
+      ],
+      "target": "browser-e2e-webserver-backed",
+      "target_status": "pass",
+      "scenarios": [
+        {
+          "title": "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
+          "status": "passed",
+          "files": ["apps/web/e2e/phase2.spec.ts"]
+        }
+      ],
+      "closure_status": "closed"
+    }
+  ],
+  "counts": {
+    "rows": 1,
+    "scenarios": 1,
+    "closed_rows": 1,
+    "blocked_by_target_rows": 0,
+    "failed_rows": 0,
+    "missing_rows": 0,
+    "not_evaluable_rows": 0,
+    "passed_scenarios": 1,
+    "failed_scenarios": 0,
+    "missing_scenarios": 0,
+    "skipped_scenarios": 0,
+    "unknown_scenarios": 0
+  }
+}
+JSON
+}
+
 write_valid_agent_finalize_summary() {
   local file="$1"
 
@@ -700,6 +749,15 @@ const mutations = {
   },
   "frontend-a11y-preflight-implemented-row": (fixture) => {
     fixture.phase_rows[0].claim_status = "implemented";
+  },
+  "frontend-row-accounting-unknown-key": (fixture) => {
+    fixture.rows[0].legacy_key = true;
+  },
+  "frontend-row-accounting-invalid-closure": (fixture) => {
+    fixture.rows[0].closure_status = "complete";
+  },
+  "frontend-row-accounting-invalid-scenario-status": (fixture) => {
+    fixture.rows[0].scenarios[0].status = "pass";
   },
   "scheduler-manifest-stale-schema": (fixture) => {
     fixture.schema_id = "cartulary.check_schedule.v12";
@@ -891,6 +949,32 @@ mutate_json_fixture frontend-a11y-preflight-implemented-row "$frontend_a11y_pref
 frontend_a11y_preflight_implemented_output="$(assert_fails "frontend accessibility preflight rejects implemented rows" \
   run_schema_validation cartulary.frontend_accessibility_preflight_summary.v1 "$frontend_a11y_preflight_implemented")"
 assert_contains "$frontend_a11y_preflight_implemented_output" "must be equal to constant" "frontend accessibility preflight implemented row"
+
+frontend_row_accounting="$tmp_dir/frontend-row-accounting.json"
+write_valid_frontend_row_accounting "$frontend_row_accounting"
+assert_passes "frontend row accounting validates exact schema" \
+  run_schema_validation cartulary.frontend_row_accounting.v1 "$frontend_row_accounting" >/dev/null
+
+frontend_row_accounting_unknown_key="$tmp_dir/frontend-row-accounting-unknown-key.json"
+write_valid_frontend_row_accounting "$frontend_row_accounting_unknown_key"
+mutate_json_fixture frontend-row-accounting-unknown-key "$frontend_row_accounting_unknown_key"
+frontend_row_accounting_unknown_key_output="$(assert_fails "frontend row accounting rejects unknown row keys" \
+  run_schema_validation cartulary.frontend_row_accounting.v1 "$frontend_row_accounting_unknown_key")"
+assert_contains "$frontend_row_accounting_unknown_key_output" "must NOT have additional properties" "frontend row accounting unknown key"
+
+frontend_row_accounting_bad_closure="$tmp_dir/frontend-row-accounting-bad-closure.json"
+write_valid_frontend_row_accounting "$frontend_row_accounting_bad_closure"
+mutate_json_fixture frontend-row-accounting-invalid-closure "$frontend_row_accounting_bad_closure"
+frontend_row_accounting_bad_closure_output="$(assert_fails "frontend row accounting rejects invalid closure status" \
+  run_schema_validation cartulary.frontend_row_accounting.v1 "$frontend_row_accounting_bad_closure")"
+assert_contains "$frontend_row_accounting_bad_closure_output" "must be equal to one of the allowed values" "frontend row accounting invalid closure"
+
+frontend_row_accounting_bad_scenario="$tmp_dir/frontend-row-accounting-bad-scenario.json"
+write_valid_frontend_row_accounting "$frontend_row_accounting_bad_scenario"
+mutate_json_fixture frontend-row-accounting-invalid-scenario-status "$frontend_row_accounting_bad_scenario"
+frontend_row_accounting_bad_scenario_output="$(assert_fails "frontend row accounting rejects invalid scenario status" \
+  run_schema_validation cartulary.frontend_row_accounting.v1 "$frontend_row_accounting_bad_scenario")"
+assert_contains "$frontend_row_accounting_bad_scenario_output" "must be equal to one of the allowed values" "frontend row accounting invalid scenario"
 
 frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
 frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \

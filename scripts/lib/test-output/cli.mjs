@@ -74,6 +74,7 @@ import {
   verboseOutput,
 } from "../tool-output.mjs";
 import {
+  frontendRowAccountingSchemaID,
   phaseSummarySchemaID,
   repoRoot,
   resolveResultsRoot,
@@ -1305,6 +1306,12 @@ function writePhaseArtifacts(context, details) {
         "phase_summary",
         relToRepo(path.join(context.phaseDir, "phase-summary.json")),
       ),
+      existingTargetSummary?.artifacts?.frontend_row_accounting
+        ? artifactRef(
+            "frontend_row_accounting",
+            existingTargetSummary.artifacts.frontend_row_accounting,
+          )
+        : null,
       details.manifestSummary
         ? artifactRef(
             "manifest_summary",
@@ -2555,7 +2562,7 @@ function frontendRowAccountingForTarget(target, targetStatus, targetDir) {
     row.scenarios.map((scenario) => scenario.status),
   );
   return {
-    schema_id: "cartulary.frontend_row_accounting.v1",
+    schema_id: frontendRowAccountingSchemaID,
     target,
     target_status: targetStatus,
     rows,
@@ -3224,6 +3231,12 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
         path.join(targetArtifactRoot, "target-summary.json"),
       ),
       artifactRef("target_timing", targetSummary.artifacts?.timing_json),
+      targetSummary.artifacts?.frontend_row_accounting
+        ? artifactRef(
+            "frontend_row_accounting",
+            targetSummary.artifacts.frontend_row_accounting,
+          )
+        : null,
       existsSync(runSummaryFile)
         ? artifactRef("run_summary", relToRepo(runSummaryFile))
         : null,
@@ -3826,6 +3839,24 @@ function handleTargetSummary(args) {
     status.toLowerCase(),
     summary.targetDir,
   );
+  const frontendRowAccountingPath = frontendRowAccounting
+    ? path.join(summary.targetDir, "frontend-row-accounting.json")
+    : "";
+  if (frontendRowAccounting) {
+    writeValidatedJson(
+      frontendRowAccountingPath,
+      frontendRowAccountingSchemaID,
+      frontendRowAccounting,
+    );
+    ownSection.artifacts.frontend_row_accounting = relToRepo(
+      frontendRowAccountingPath,
+    );
+    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
+      totalsSection.artifacts.frontend_row_accounting = relToRepo(
+        frontendRowAccountingPath,
+      );
+    }
+  }
   const targetExtensions = {
     ...(schedulerAccounting
       ? {
