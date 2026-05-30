@@ -62,11 +62,12 @@ Locally verified facts:
 - `WorkbookShell` currently has built-in tab selectors, a native `select` for
   system views, backend `/workbook-startup` consumption, and selected saved-view
   `sheet_ref` preservation.
-- Current shell composition is not yet FE-P2-complete: startup and tabs exist,
-  but the shell still has hero/card-shaped sections, a native select instead of
-  roving-focus switcher behavior, no dedicated saved-view selector under the
-  active surface, and status/presence/inspector regions are partly
-  timeline-local.
+- Current shell composition has Sprint 3 row-owned browser evidence for
+  `FE-B-P2-01`: required shell slots remain under one workbook shell root and
+  navigation remains on the same workbook route. FE-P2 is still not complete:
+  `System views` still uses native select behavior rather than the Sprint 4
+  roving-focus switcher, the active-surface saved-view selector remains Sprint
+  5 work, and visual/accessibility readiness remains Sprint 6 work.
 
 Inherited FE-P0 handoff state:
 - `FE-P0` remains `planned` but all six FE-P0 rows are `implemented` in the
@@ -140,7 +141,9 @@ and `/packages/ui` files.
 
 Source limits and blockers:
 - Missing target plan file: resolved by creating this document.
-- FE-P2 phase map/ledger exist but all FE-P2 rows remain blocked.
+- At Sprint 1, the FE-P2 phase map/ledger existed and all FE-P2 rows remained
+  blocked; later sprint sections record row-owned evidence and blockers without
+  treating stale ledger or checklist status as behavior authority.
 - FE-P2 map metadata separation defects were fixed and regenerated during Sprint
   1, but they are readiness evidence only and do not complete any FE-P2 row.
 - Visual fixture status is inconsistent enough to block `FE-V-P2-01` completion
@@ -197,7 +200,7 @@ Out of scope:
 | --- | --- | --- | --- |
 | [x] | 1. Readiness, map, ledger, FE-P1 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`; `make phase-ledger-drift`; `git diff --check` | FE-P1 handoff freshness remains a next-sprint constraint |
 | [x] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck`; `make generate-drift`; `make phase-ledger-drift`; `git diff --check` | None for `FE-U-P2-01`/`FE-U-P2-02`; saved-view selector runtime proof remains Sprint 5 / `FE-E-P2-01` |
-| [ ] | 3. Continuous shell composition | `make frontend-unit`; `make browser-e2e-webserver-backed` | Missing shell slots block `FE-B-P2-01` |
+| [x] | 3. Continuous shell composition | `make frontend-unit`; `make browser-e2e-webserver-backed` | None for Sprint 3 audit scope; `FE-B-P2-01` appears eligible for normal row-owned promotion |
 | [ ] | 4. `System views` keyboard/focus | `make frontend-unit`; `make browser-e2e-webserver-backed` | Native select is insufficient for roving-focus evidence |
 | [ ] | 5. Saved-view placement and same-shell E2E | `make browser-e2e-webserver-backed` | Missing saved-view selector blocks `FE-E-P2-01` |
 | [ ] | 6. Visual and accessibility readiness | `make browser-e2e-visual`; `make browser-e2e-a11y-preflight` | Missing FE-P2 visual fixture blocks `FE-V-P2-01` |
@@ -410,30 +413,59 @@ behavior; UI/UX/design docs guide layout only.
 Inspect: `WorkbookShell.tsx`, `WorkbookGridControls.tsx`, `App.tsx`, existing
 surface tests, Playwright helpers.
 
-Test-first sequence:
+Completed test-first sequence:
 - add browser scenario for `FE-B-P2-01`;
 - assert all shell regions remain within one shell root and same URL/workbook
   route;
 - assert built-in tabs are ordered by registry IDs.
 
-Implementation tasks:
+Completed implementation tasks:
 - introduce shell slot component in `/apps/web`;
 - hoist or bridge current view bar/status/presence/inspector outputs into shell
   slots;
 - keep `IncidentAdminPanel` from becoming FE-P2 shell evidence unless moved into
   an explicit non-primary/support region.
 
-Validation commands:
-- `make frontend-unit`
-- `make frontend-typecheck`
-- `make browser-e2e-webserver-backed`
+Audit inspection completed:
+- `WorkbookShell.tsx`, `WorkbookGridControls.tsx`, `App.tsx`;
+- `WorkbookShell.surfaces.test.tsx`, `workbookSurfaceRegistry.test.ts`, and
+  shared selector-contract coverage;
+- Playwright helpers and `apps/web/e2e/phase2.spec.ts`;
+- `tools/frontend_phase_maps/fe_p2_test_map.json` and generated FE-P2 ledger
+  entries relevant to `FE-B-P2-01`.
+
+Assertions verified:
+- one `workbook-shell-ready` root is present;
+- every required `workbookShellSlots` entry is present exactly once under that
+  root and carries the same `data-workbook-shell-id`;
+- `System views` is inside the `system-views` slot;
+- the workbook remains on `/` with the same `incident_id`;
+- built-in tab identity and order come from `requiredBuiltInWorkbookSurfaceIds`
+  and shared selector builders;
+- `IncidentAdminPanel` is rendered in an explicit support region and is not
+  counted as primary-grid shell evidence.
+
+Validation completed:
+- `make frontend-unit`: passed,
+  `.cartulary/test-results/20260530T200312Z-p13189/frontend-unit/tool-run-summary.json`.
+- `make frontend-typecheck`: passed,
+  `.cartulary/test-results/20260530T200328Z-p14652/frontend-typecheck/tool-run-summary.json`.
+- `make browser-e2e-webserver-backed`: passed, 62 tests, 0 failures,
+  `.cartulary/test-results/20260530T200337Z-p15057/browser-e2e-webserver-backed/tool-run-summary.json`.
+- Phase 2 authoritative browser evidence selected and passed `E-2-01`,
+  `.cartulary/test-results/20260530T200337Z-p15057/browser-e2e-webserver-backed/browser-e2e-functional-phase2-authoritative/phase-summary.json`.
+- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260530T200337Z-p15057`:
+  failed at retained-run preflight because `agent-finalize` requires a
+  successful full warm `make check` retained run root; no files were updated.
 
 Deliverables: browser scenario and app shell composition changes.
 
 Blocker rules: missing slot or fragmented route/shell blocks `FE-B-P2-01`.
+No Sprint 3 blocker remains from the audit evidence.
 
-Binary acceptance: `FE-B-P2-01` scenario is present, mapped, and passes only
-through `make browser-e2e-webserver-backed`.
+Binary acceptance: satisfied for Sprint 3. `FE-B-P2-01` scenario is present,
+mapped, and passes through `make browser-e2e-webserver-backed`. This plan update
+does not itself promote the row or replace the normal phase-ledger workflow.
 
 ## Sprint 4: `System views` Switcher Keyboard And Focus Behavior
 
