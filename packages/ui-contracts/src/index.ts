@@ -161,6 +161,19 @@ export const workbookShellSlots = [
   "presence",
 ] as const satisfies readonly WorkbookShellSlot[];
 
+export type SystemViewSwitcherGroupToken =
+  | "coordination"
+  | "optional-artifact-surfaces"
+  | "review-learning"
+  | "scope-assessment";
+
+export const systemViewSwitcherGroupTokens = [
+  "scope-assessment",
+  "coordination",
+  "review-learning",
+  "optional-artifact-surfaces",
+] as const satisfies readonly SystemViewSwitcherGroupToken[];
+
 export type Phase1ErrorSummaryTestIds = {
   readonly container: StableTestId;
   readonly details: StableTestId;
@@ -348,7 +361,34 @@ export function surfaceTabTestId(viewSchemaId: string): string {
 }
 
 export function systemViewSelectorTestId(): string {
-  return "system-view-selector";
+  return systemViewSwitcherTriggerTestId();
+}
+
+export function systemViewSwitcherTriggerTestId(): StableTestId {
+  return stableTestId("system-view-selector");
+}
+
+export function systemViewSwitcherMenuTestId(): StableTestId {
+  return stableTestId("system-view-switcher-menu");
+}
+
+export function systemViewSwitcherGroupTestId(
+  groupToken: SystemViewSwitcherGroupToken,
+): StableTestId {
+  return stableTestId(
+    `system-view-switcher-group-${requireSystemViewSwitcherGroupToken(groupToken)}`,
+  );
+}
+
+export function systemViewSwitcherOptionTestId(
+  groupToken: SystemViewSwitcherGroupToken,
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(
+    `system-view-switcher-option-${requireSystemViewSwitcherGroupToken(
+      groupToken,
+    )}-${requireViewSchemaId(viewSchemaId)}`,
+  );
 }
 
 export function workbookShellReadyTestId(): string {
@@ -960,6 +1000,19 @@ function requireSelectorToken<T extends string>(
 
 function stableTestId(value: string): StableTestId {
   return value as StableTestId;
+}
+
+function requireSystemViewSwitcherGroupToken(
+  groupToken: SystemViewSwitcherGroupToken,
+): SystemViewSwitcherGroupToken {
+  if (
+    (systemViewSwitcherGroupTokens as readonly string[]).includes(groupToken)
+  ) {
+    return groupToken;
+  }
+  throw new Error(
+    `Invalid system view switcher group token: ${String(groupToken)}`,
+  );
 }
 
 function requireWorkbookShellSlot(slot: WorkbookShellSlot): WorkbookShellSlot {

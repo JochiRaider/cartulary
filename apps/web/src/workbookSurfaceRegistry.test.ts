@@ -1,14 +1,26 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assessmentsViewSchemaId,
   buildWorkbookSurfaceRegistry,
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
   findingsViewSchemaId,
+  forensicKeywordsViewSchemaId,
+  handoffViewSchemaId,
+  indicatorsViewSchemaId,
+  investigativeQueriesViewSchemaId,
+  lessonViewSchemaId,
   listBuiltInWorkbookSurfaceRegistryEntries,
+  listSystemWorkbookSurfaceGroups,
   listSystemWorkbookSurfaceRegistryEntries,
   listWorkbookSurfaceRegistryEntries,
   optionalStandardizedWorkbookSurfaceIds,
+  partiesViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
   requiredSystemWorkbookSurfaceIds,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
 } from "./workbookSurfaceRegistry";
 
 describe("workbook surface registry", () => {
@@ -72,6 +84,50 @@ describe("workbook surface registry", () => {
       [...entries].reverse().map((entry) => entry.contract),
     );
     expect(shuffled.map((entry) => entry.viewSchemaId)).toEqual(ids);
+  });
+
+  it("FE-U-P2-02 groups System views by stable group tokens and registry-backed IDs", () => {
+    const groups = listSystemWorkbookSurfaceGroups();
+
+    expect(groups.map((group) => group.token)).toEqual([
+      "scope-assessment",
+      "coordination",
+      "review-learning",
+      "optional-artifact-surfaces",
+    ]);
+    expect(
+      groups.map((group) => group.entries.map((entry) => entry.viewSchemaId)),
+    ).toEqual([
+      [indicatorsViewSchemaId, assessmentsViewSchemaId, partiesViewSchemaId],
+      [
+        taskRequestsViewSchemaId,
+        decisionsViewSchemaId,
+        commLogViewSchemaId,
+        handoffViewSchemaId,
+      ],
+      [statusReviewViewSchemaId, lessonViewSchemaId],
+      [
+        findingsViewSchemaId,
+        investigativeQueriesViewSchemaId,
+        forensicKeywordsViewSchemaId,
+      ],
+    ]);
+    expect(
+      groups.flatMap((group) =>
+        group.entries.map((entry) => entry.contract.viewSchemaId),
+      ),
+    ).toEqual([
+      indicatorsViewSchemaId,
+      assessmentsViewSchemaId,
+      partiesViewSchemaId,
+      taskRequestsViewSchemaId,
+      decisionsViewSchemaId,
+      commLogViewSchemaId,
+      handoffViewSchemaId,
+      statusReviewViewSchemaId,
+      lessonViewSchemaId,
+      ...optionalStandardizedWorkbookSurfaceIds,
+    ]);
   });
 
   it("FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled", () => {

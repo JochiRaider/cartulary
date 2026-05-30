@@ -109,6 +109,10 @@ import {
   saveStateTestId,
   surfaceTabTestId,
   systemViewSelectorTestId,
+  systemViewSwitcherGroupTestId,
+  systemViewSwitcherMenuTestId,
+  systemViewSwitcherOptionTestId,
+  systemViewSwitcherTriggerTestId,
   timelineCollectionInputTestId,
   timelineDraftEvidenceAttachSectionTestId,
   timelineDraftEvidenceFileInputTestId,
@@ -170,6 +174,69 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       gridShellTestId(originalSurface.viewSchemaId),
     );
     expect(systemViewSelectorTestId()).toBe("system-view-selector");
+  });
+
+  it("builds stable System views switcher selectors from closed groups and view_schema_id", () => {
+    const originalSurface = {
+      title: "Indicators",
+      viewSchemaId: "cartulary.view.indicators.v1",
+    };
+    const renamedSurface = {
+      title: "Observable Signals",
+      viewSchemaId: "cartulary.view.indicators.v1",
+    };
+
+    expect(systemViewSelectorTestId()).toBe(systemViewSwitcherTriggerTestId());
+    expect(systemViewSwitcherTriggerTestId()).toBe("system-view-selector");
+    expect(systemViewSwitcherMenuTestId()).toBe("system-view-switcher-menu");
+    expect(systemViewSwitcherGroupTestId("scope-assessment")).toBe(
+      "system-view-switcher-group-scope-assessment",
+    );
+    expect(
+      systemViewSwitcherOptionTestId(
+        "scope-assessment",
+        originalSurface.viewSchemaId,
+      ),
+    ).toBe(
+      "system-view-switcher-option-scope-assessment-cartulary.view.indicators.v1",
+    );
+    expect(
+      systemViewSwitcherOptionTestId(
+        "scope-assessment",
+        renamedSurface.viewSchemaId,
+      ),
+    ).toBe(
+      systemViewSwitcherOptionTestId(
+        "scope-assessment",
+        originalSurface.viewSchemaId,
+      ),
+    );
+    expect(systemViewSwitcherGroupTestId("coordination")).toBe(
+      "system-view-switcher-group-coordination",
+    );
+    expect(systemViewSwitcherGroupTestId("review-learning")).toBe(
+      "system-view-switcher-group-review-learning",
+    );
+    expect(systemViewSwitcherGroupTestId("optional-artifact-surfaces")).toBe(
+      "system-view-switcher-group-optional-artifact-surfaces",
+    );
+  });
+
+  it("fails closed for System views switcher group and option selector inputs", () => {
+    expect(() => systemViewSwitcherGroupTestId("future" as never)).toThrow(
+      "Invalid system view switcher group token: future",
+    );
+    expect(() =>
+      systemViewSwitcherOptionTestId("scope-assessment", "timeline"),
+    ).toThrow("Invalid view_schema_id selector token: timeline");
+    expect(() =>
+      systemViewSwitcherOptionTestId(
+        "scope-assessment",
+        "cartulary.view.future.v1",
+      ),
+    ).toThrow(
+      "Unknown view_schema_id selector token: cartulary.view.future.v1",
+    );
   });
 
   it("keeps tab, field, column, row, and fixture reordering out of selector identity", () => {

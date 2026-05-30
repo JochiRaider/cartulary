@@ -8,7 +8,9 @@ import {
   gridShellTestId,
   rowInspectButtonTestId,
   surfaceTabTestId,
-  systemViewSelectorTestId,
+  systemViewSwitcherGroupTestId,
+  systemViewSwitcherOptionTestId,
+  systemViewSwitcherTriggerTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -37,7 +39,6 @@ import {
   indicatorsViewSchemaId,
   optionalStandardizedWorkbookSurfaceIds,
   requiredBuiltInWorkbookSurfaceIds,
-  requiredSystemWorkbookSurfaceIds,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
 
@@ -266,16 +267,77 @@ describe("WorkbookShell surface selection", () => {
       ),
     );
 
-    const systemViewOptions = Array.from(
-      (screen.getByTestId(systemViewSelectorTestId()) as HTMLSelectElement)
-        .options,
-    )
-      .map((option) => option.value)
-      .filter((value) => value !== "");
+    fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
+    expect(
+      Array.from(
+        screen
+          .getByTestId(systemViewSwitcherGroupTestId("scope-assessment"))
+          .querySelectorAll("[data-view-schema-id]"),
+      ).map((option) => option.getAttribute("data-view-schema-id")),
+    ).toEqual([
+      "cartulary.view.indicators.v1",
+      "cartulary.view.assessments.v1",
+      "cartulary.view.parties.v1",
+    ]);
+    expect(
+      Array.from(
+        screen
+          .getByTestId(systemViewSwitcherGroupTestId("coordination"))
+          .querySelectorAll("[data-view-schema-id]"),
+      ).map((option) => option.getAttribute("data-view-schema-id")),
+    ).toEqual([
+      "cartulary.view.task_requests.v1",
+      "cartulary.view.decisions.v1",
+      "cartulary.view.comm_log.v1",
+      "cartulary.view.handoff.v1",
+    ]);
+    const systemViewOptions = [
+      ...Array.from(
+        screen
+          .getByTestId(systemViewSwitcherGroupTestId("scope-assessment"))
+          .querySelectorAll("[data-view-schema-id]"),
+      ),
+      ...Array.from(
+        screen
+          .getByTestId(systemViewSwitcherGroupTestId("coordination"))
+          .querySelectorAll("[data-view-schema-id]"),
+      ),
+      ...Array.from(
+        screen
+          .getByTestId(systemViewSwitcherGroupTestId("review-learning"))
+          .querySelectorAll("[data-view-schema-id]"),
+      ),
+      ...Array.from(
+        screen
+          .getByTestId(
+            systemViewSwitcherGroupTestId("optional-artifact-surfaces"),
+          )
+          .querySelectorAll("[data-view-schema-id]"),
+      ),
+    ].map((option) => option.getAttribute("data-view-schema-id"));
     expect(systemViewOptions).toEqual([
-      ...requiredSystemWorkbookSurfaceIds,
+      "cartulary.view.indicators.v1",
+      "cartulary.view.assessments.v1",
+      "cartulary.view.parties.v1",
+      "cartulary.view.task_requests.v1",
+      "cartulary.view.decisions.v1",
+      "cartulary.view.comm_log.v1",
+      "cartulary.view.handoff.v1",
+      "cartulary.view.status_review.v1",
+      "cartulary.view.lesson.v1",
       ...optionalStandardizedWorkbookSurfaceIds,
     ]);
+    expect(
+      screen
+        .getByTestId(
+          systemViewSwitcherOptionTestId(
+            "scope-assessment",
+            indicatorsViewSchemaId,
+          ),
+        )
+        .getAttribute("data-view-schema-id"),
+    ).toBe(indicatorsViewSchemaId);
+    fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
 
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
@@ -291,9 +353,15 @@ describe("WorkbookShell surface selection", () => {
       screen.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     ).toBeTruthy();
 
-    fireEvent.change(screen.getByTestId(systemViewSelectorTestId()), {
-      target: { value: indicatorsViewSchemaId },
-    });
+    fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
+    fireEvent.click(
+      screen.getByTestId(
+        systemViewSwitcherOptionTestId(
+          "scope-assessment",
+          indicatorsViewSchemaId,
+        ),
+      ),
+    );
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(

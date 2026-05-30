@@ -2,6 +2,7 @@ import {
   listViewContracts,
   type ViewContract,
 } from "@cartulary/view-contracts";
+import type { SystemViewSwitcherGroupToken } from "@cartulary/ui-contracts";
 
 export const timelineViewSchemaId = "cartulary.view.timeline.v1";
 export const hostsViewSchemaId = "cartulary.view.hosts.v1";
@@ -67,7 +68,53 @@ export type WorkbookSurfaceRegistryEntry = {
   readonly viewSchemaId: string;
 };
 
+export type SystemWorkbookSurfaceGroup = {
+  readonly entries: readonly WorkbookSurfaceRegistryEntry[];
+  readonly label: string;
+  readonly token: SystemViewSwitcherGroupToken;
+};
+
 const builtInSurfaceIdSet = new Set<string>(requiredBuiltInWorkbookSurfaceIds);
+
+const systemWorkbookSurfaceGroupDefinitions = [
+  {
+    label: "Scope and assessment",
+    token: "scope-assessment",
+    viewSchemaIds: [
+      indicatorsViewSchemaId,
+      assessmentsViewSchemaId,
+      partiesViewSchemaId,
+    ],
+  },
+  {
+    label: "Coordination",
+    token: "coordination",
+    viewSchemaIds: [
+      taskRequestsViewSchemaId,
+      decisionsViewSchemaId,
+      commLogViewSchemaId,
+      handoffViewSchemaId,
+    ],
+  },
+  {
+    label: "Review and learning",
+    token: "review-learning",
+    viewSchemaIds: [statusReviewViewSchemaId, lessonViewSchemaId],
+  },
+  {
+    label: "Optional artifact surfaces",
+    token: "optional-artifact-surfaces",
+    viewSchemaIds: [
+      findingsViewSchemaId,
+      investigativeQueriesViewSchemaId,
+      forensicKeywordsViewSchemaId,
+    ],
+  },
+] as const satisfies ReadonlyArray<{
+  readonly label: string;
+  readonly token: SystemViewSwitcherGroupToken;
+  readonly viewSchemaIds: readonly string[];
+}>;
 
 function contractIndex(
   contracts: readonly ViewContract[],
@@ -154,6 +201,25 @@ export function listSystemWorkbookSurfaceRegistryEntries(): readonly WorkbookSur
   return workbookSurfaceRegistry.filter(
     (entry) => entry.surfaceStatus !== "required_built_in_sheet",
   );
+}
+
+export function listSystemWorkbookSurfaceGroups(): readonly SystemWorkbookSurfaceGroup[] {
+  return systemWorkbookSurfaceGroupDefinitions.flatMap((definition) => {
+    const entries = definition.viewSchemaIds.flatMap((viewSchemaId) => {
+      const entry = workbookSurfaceRegistryIndex.get(viewSchemaId);
+      return entry === undefined ? [] : [entry];
+    });
+    if (entries.length === 0) {
+      return [];
+    }
+    return [
+      Object.freeze({
+        entries: Object.freeze(entries),
+        label: definition.label,
+        token: definition.token,
+      }),
+    ];
+  });
 }
 
 export function getWorkbookSurfaceRegistryEntry(

@@ -169,7 +169,7 @@
       "scenario_titles": [
         "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },

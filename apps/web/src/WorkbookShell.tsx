@@ -72,7 +72,10 @@ import {
   rowPresenceMarkerTestId,
   saveStateTestId,
   surfaceTabTestId,
-  systemViewSelectorTestId,
+  systemViewSwitcherGroupTestId,
+  systemViewSwitcherMenuTestId,
+  systemViewSwitcherOptionTestId,
+  systemViewSwitcherTriggerTestId,
   timelineCollectionInputTestId,
   timelineDraftEvidenceAttachSectionTestId,
   timelineDraftEvidenceFileInputTestId,
@@ -158,10 +161,9 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
   investigativeQueriesViewSchemaId,
-  isBuiltInWorkbookSurfaceId,
   knownWorkbookViewSchemaId,
   lessonViewSchemaId,
-  listSystemWorkbookSurfaceRegistryEntries,
+  listSystemWorkbookSurfaceGroups,
   listWorkbookSurfaceRegistryEntries,
   notesViewSchemaId,
   partiesViewSchemaId,
@@ -178,7 +180,14 @@ const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 const allWorkbookContracts = listWorkbookSurfaceRegistryEntries().map(
   (entry) => entry.contract,
 );
-const systemWorkbookSurfaceEntries = listSystemWorkbookSurfaceRegistryEntries();
+const systemWorkbookSurfaceGroups = listSystemWorkbookSurfaceGroups();
+const systemViewSwitcherEntries = systemWorkbookSurfaceGroups.flatMap((group) =>
+  group.entries.map((entry) => ({
+    contract: entry.contract,
+    groupToken: group.token,
+    viewSchemaId: entry.viewSchemaId,
+  })),
+);
 const csrfCookieName = "cartulary_csrf";
 const csrfHeaderName = "X-CSRF-Token";
 
@@ -10811,6 +10820,229 @@ function supportRowLabel(row: TimelineApiRow): string {
   return row.record_id;
 }
 
+function SystemViewSwitcher({
+  activeViewSchemaId,
+  onSelect,
+}: {
+  readonly activeViewSchemaId: string;
+  readonly onSelect: (viewSchemaId: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const optionRefs = useRef(new Map<string, HTMLButtonElement>());
+  const activeSystemEntryIndex = systemViewSwitcherEntries.findIndex(
+    (entry) => entry.viewSchemaId === activeViewSchemaId,
+  );
+  const activeSystemEntry =
+    activeSystemEntryIndex === -1
+      ? null
+      : (systemViewSwitcherEntries[activeSystemEntryIndex] ?? null);
+
+  const focusOption = useCallback((index: number) => {
+    const entry = systemViewSwitcherEntries[index];
+    if (entry === undefined) {
+      return;
+    }
+    window.setTimeout(() => {
+      optionRefs.current
+        .get(entry.viewSchemaId)
+        ?.focus({ preventScroll: true });
+    }, 0);
+  }, []);
+
+  const openMenu = useCallback(() => {
+    const nextIndex =
+      activeSystemEntryIndex === -1 ? 0 : activeSystemEntryIndex;
+    setActiveIndex(nextIndex);
+    setIsOpen(true);
+    focusOption(nextIndex);
+  }, [activeSystemEntryIndex, focusOption]);
+
+  const closeMenu = useCallback(
+    (options: { readonly restoreTriggerFocus: boolean }) => {
+      setIsOpen(false);
+      if (options.restoreTriggerFocus) {
+        window.setTimeout(() => {
+          triggerRef.current?.focus({ preventScroll: true });
+        }, 0);
+      }
+    },
+    [],
+  );
+
+  const moveOptionFocus = useCallback(
+    (nextIndex: number) => {
+      const optionCount = systemViewSwitcherEntries.length;
+      if (optionCount === 0) {
+        return;
+      }
+      const wrappedIndex = (nextIndex + optionCount) % optionCount;
+      setActiveIndex(wrappedIndex);
+      focusOption(wrappedIndex);
+    },
+    [focusOption],
+  );
+
+  const selectOption = useCallback(
+    (viewSchemaId: string) => {
+      if (viewSchemaId === "") {
+        return;
+      }
+      setIsOpen(false);
+      onSelect(viewSchemaId);
+    },
+    [onSelect],
+  );
+
+  const handleOptionKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+      switch (event.key) {
+        case "ArrowDown":
+          event.preventDefault();
+          moveOptionFocus(index + 1);
+          break;
+        case "ArrowUp":
+          event.preventDefault();
+          moveOptionFocus(index - 1);
+          break;
+        case "Home":
+          event.preventDefault();
+          moveOptionFocus(0);
+          break;
+        case "End":
+          event.preventDefault();
+          moveOptionFocus(systemViewSwitcherEntries.length - 1);
+          break;
+        case "Escape":
+          event.preventDefault();
+          closeMenu({ restoreTriggerFocus: true });
+          break;
+        case "Enter":
+          event.preventDefault();
+          selectOption(systemViewSwitcherEntries[index]?.viewSchemaId ?? "");
+          break;
+        default:
+          break;
+      }
+    },
+    [closeMenu, moveOptionFocus, selectOption],
+  );
+
+  return (
+    <div
+      ref={containerRef}
+      style={systemViewSwitcherStyle}
+      onBlur={(event) => {
+        const nextFocus = event.relatedTarget;
+        if (
+          nextFocus instanceof Node &&
+          containerRef.current?.contains(nextFocus)
+        ) {
+          return;
+        }
+        setIsOpen(false);
+      }}
+    >
+      <button
+        ref={triggerRef}
+        aria-controls={isOpen ? systemViewSwitcherMenuTestId() : undefined}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label="System views"
+        data-testid={systemViewSwitcherTriggerTestId()}
+        data-view-schema-id={activeSystemEntry?.viewSchemaId ?? ""}
+        style={systemViewSwitcherTriggerStyle}
+        type="button"
+        onClick={() => {
+          if (isOpen) {
+            closeMenu({ restoreTriggerFocus: false });
+            return;
+          }
+          openMenu();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openMenu();
+          }
+          if (event.key === "Escape" && isOpen) {
+            event.preventDefault();
+            closeMenu({ restoreTriggerFocus: true });
+          }
+        }}
+      >
+        <span>System views</span>
+        <span aria-hidden="true" style={systemViewSwitcherValueStyle}>
+          {activeSystemEntry?.contract.title ?? "Select view"}
+        </span>
+      </button>
+      {isOpen ? (
+        <div
+          data-testid={systemViewSwitcherMenuTestId()}
+          id={systemViewSwitcherMenuTestId()}
+          role="menu"
+          style={systemViewSwitcherMenuStyle}
+        >
+          {systemWorkbookSurfaceGroups.map((group) => (
+            <div
+              key={group.token}
+              aria-label={group.label}
+              data-testid={systemViewSwitcherGroupTestId(group.token)}
+              role="group"
+              style={systemViewSwitcherGroupStyle}
+            >
+              <p style={systemViewSwitcherGroupLabelStyle}>{group.label}</p>
+              {group.entries.map((entry) => {
+                const optionIndex = systemViewSwitcherEntries.findIndex(
+                  (option) => option.viewSchemaId === entry.viewSchemaId,
+                );
+                const isSelected = entry.viewSchemaId === activeViewSchemaId;
+                return (
+                  <button
+                    key={entry.viewSchemaId}
+                    ref={(node) => {
+                      if (node === null) {
+                        optionRefs.current.delete(entry.viewSchemaId);
+                        return;
+                      }
+                      optionRefs.current.set(entry.viewSchemaId, node);
+                    }}
+                    aria-checked={isSelected}
+                    data-testid={systemViewSwitcherOptionTestId(
+                      group.token,
+                      entry.viewSchemaId,
+                    )}
+                    data-view-schema-id={entry.viewSchemaId}
+                    role="menuitemradio"
+                    style={{
+                      ...systemViewSwitcherOptionStyle,
+                      ...(isSelected
+                        ? systemViewSwitcherOptionSelectedStyle
+                        : null),
+                    }}
+                    tabIndex={optionIndex === activeIndex ? 0 : -1}
+                    type="button"
+                    onClick={() => {
+                      selectOption(entry.viewSchemaId);
+                    }}
+                    onKeyDown={(event) => {
+                      handleOptionKeyDown(event, optionIndex);
+                    }}
+                  >
+                    {entry.contract.title}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function WorkbookShell({
   incidentId,
   apiBase,
@@ -10830,6 +11062,9 @@ export function WorkbookShell({
   const [startupSheetRef, setStartupSheetRef] = useState<WorkbookSheetRef>(
     () => ({ kind: "view_schema", id: initialViewSchemaID }),
   );
+  const [pendingGridFocusSurface, setPendingGridFocusSurface] = useState<
+    string | null
+  >(null);
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
   const [identityRows, setIdentityRows] = useState<EntityRow[]>([]);
   const [entityLoadError, setEntityLoadError] = useState<string | null>(null);
@@ -10881,11 +11116,20 @@ export function WorkbookShell({
     controller: null,
     sequence: 0,
   });
-  const selectWorkbookSurface = useCallback((viewSchemaID: string) => {
-    const nextSurface = knownWorkbookViewSchemaId(viewSchemaID);
-    setSurface(nextSurface);
-    setStartupSheetRef({ kind: "view_schema", id: nextSurface });
-  }, []);
+  const selectWorkbookSurface = useCallback(
+    (
+      viewSchemaID: string,
+      options: { readonly focusFirstGridTarget?: boolean } = {},
+    ) => {
+      const nextSurface = knownWorkbookViewSchemaId(viewSchemaID);
+      setSurface(nextSurface);
+      setStartupSheetRef({ kind: "view_schema", id: nextSurface });
+      if (options.focusFirstGridTarget) {
+        setPendingGridFocusSurface(nextSurface);
+      }
+    },
+    [],
+  );
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -11201,6 +11445,49 @@ export function WorkbookShell({
     window.history.replaceState({}, "", `/?${next.toString()}`);
   }, [incidentId, startupSheetRef, surface]);
 
+  useEffect(() => {
+    if (
+      pendingGridFocusSurface === null ||
+      pendingGridFocusSurface !== surface
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let timer: number | null = null;
+    let attempt = 0;
+    const focusFirstTarget = () => {
+      if (cancelled) {
+        return;
+      }
+      const gridShell = document.querySelector<HTMLElement>(
+        dataTestIdSelector(gridShellTestId(pendingGridFocusSurface)),
+      );
+      const focusTarget = gridShell?.querySelector<HTMLElement>(
+        '[data-testid][tabindex="0"], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]',
+      );
+      if (focusTarget) {
+        focusTarget.focus({ preventScroll: true });
+        setPendingGridFocusSurface((current) =>
+          current === pendingGridFocusSurface ? null : current,
+        );
+        return;
+      }
+      attempt += 1;
+      if (attempt < 30) {
+        timer = window.setTimeout(focusFirstTarget, 50);
+      }
+    };
+
+    timer = window.setTimeout(focusFirstTarget, 0);
+    return () => {
+      cancelled = true;
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [pendingGridFocusSurface, surface]);
+
   return (
     <section
       data-active-view-schema-id={surface}
@@ -11284,29 +11571,14 @@ export function WorkbookShell({
           style={systemViewSlotStyle}
           viewSchemaId={surface}
         >
-          <label style={systemViewSelectLabelStyle}>
-            System view
-            <select
-              data-testid={systemViewSelectorTestId()}
-              style={selectStyle}
-              value={isBuiltInWorkbookSurfaceId(surface) ? "" : surface}
-              onChange={(event) => {
-                if (event.target.value) {
-                  selectWorkbookSurface(event.target.value);
-                }
-              }}
-            >
-              <option value="">Select view</option>
-              {systemWorkbookSurfaceEntries.map(({ contract }) => (
-                <option
-                  key={contract.viewSchemaId}
-                  value={contract.viewSchemaId}
-                >
-                  {contract.title}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SystemViewSwitcher
+            activeViewSchemaId={surface}
+            onSelect={(viewSchemaId) => {
+              selectWorkbookSurface(viewSchemaId, {
+                focusFirstGridTarget: true,
+              });
+            }}
+          />
         </WorkbookShellSlotRegion>
       </div>
 
@@ -12154,13 +12426,75 @@ const surfaceTabActiveStyle = {
   borderColor: "rgb(34 74 63)",
 };
 
-const systemViewSelectLabelStyle = {
-  ...labelStyle,
+const systemViewSlotStyle = {
   minWidth: "16rem",
 };
 
-const systemViewSlotStyle = {
+const systemViewSwitcherStyle = {
+  position: "relative" as const,
   minWidth: "16rem",
+};
+
+const systemViewSwitcherTriggerStyle = {
+  ...surfaceTabStyle,
+  width: "100%",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "0.75rem",
+  borderRadius: "0.5rem",
+};
+
+const systemViewSwitcherValueStyle = {
+  color: "rgb(73 102 94)",
+  fontSize: "0.85rem",
+  fontWeight: 500,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+};
+
+const systemViewSwitcherMenuStyle = {
+  position: "absolute" as const,
+  zIndex: 10,
+  insetBlockStart: "calc(100% + 0.35rem)",
+  insetInlineStart: 0,
+  width: "min(26rem, 80vw)",
+  maxHeight: "28rem",
+  overflowY: "auto" as const,
+  border: "1px solid rgb(176 194 187)",
+  borderRadius: "0.5rem",
+  background: "rgb(255 255 255)",
+  boxShadow: "0 14px 28px rgb(24 54 45 / 0.16)",
+  padding: "0.5rem",
+};
+
+const systemViewSwitcherGroupStyle = {
+  display: "grid",
+  gap: "0.25rem",
+  padding: "0.35rem 0",
+};
+
+const systemViewSwitcherGroupLabelStyle = {
+  ...eyebrowStyle,
+  margin: "0.2rem 0.45rem",
+};
+
+const systemViewSwitcherOptionStyle = {
+  border: "0",
+  borderRadius: "0.375rem",
+  background: "transparent",
+  color: "rgb(34 64 56)",
+  cursor: "pointer",
+  font: "inherit",
+  padding: "0.5rem 0.55rem",
+  textAlign: "left" as const,
+};
+
+const systemViewSwitcherOptionSelectedStyle = {
+  background: "rgb(232 243 238)",
+  color: "rgb(23 75 60)",
+  fontWeight: 700,
 };
 
 const roleBadgeStyle = {

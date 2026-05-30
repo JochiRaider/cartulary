@@ -21,8 +21,12 @@ import {
   rowCellTestId,
   saveStateTestId,
   surfaceTabTestId,
-  systemViewSelectorTestId,
+  systemViewSwitcherGroupTestId,
+  systemViewSwitcherMenuTestId,
+  systemViewSwitcherOptionTestId,
+  systemViewSwitcherTriggerTestId,
   timelineMutationSubstrateReadyTestId,
+  type SystemViewSwitcherGroupToken,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Request } from "@playwright/test";
@@ -84,6 +88,23 @@ const findingsViewSchemaId = "cartulary.view.findings.v1";
 const forensicKeywordsViewSchemaId = "cartulary.view.forensic_keywords.v1";
 const investigativeQueriesViewSchemaId =
   "cartulary.view.investigative_queries.v1";
+const systemViewSwitcherGroupByViewSchemaId = new Map<
+  string,
+  SystemViewSwitcherGroupToken
+>([
+  [indicatorsViewSchemaId, "scope-assessment"],
+  [assessmentsViewSchemaId, "scope-assessment"],
+  [partiesViewSchemaId, "scope-assessment"],
+  [taskRequestsViewSchemaId, "coordination"],
+  [decisionsViewSchemaId, "coordination"],
+  [commLogViewSchemaId, "coordination"],
+  [handoffViewSchemaId, "coordination"],
+  [statusReviewViewSchemaId, "review-learning"],
+  [lessonViewSchemaId, "review-learning"],
+  [findingsViewSchemaId, "optional-artifact-surfaces"],
+  [investigativeQueriesViewSchemaId, "optional-artifact-surfaces"],
+  [forensicKeywordsViewSchemaId, "optional-artifact-surfaces"],
+]);
 
 async function disableWorkbookSockets(page: Page) {
   await page.addInitScript(() => {
@@ -1967,7 +1988,9 @@ test("Phase 9 E-9-07 optional standardized surfaces are workbook-native when exp
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByTestId(systemViewSelectorTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(systemViewSwitcherTriggerTestId()),
+  ).toBeVisible();
 
   const optionValues = await systemViewSelectorValues(page);
   for (const viewSchemaId of optionalStandardizedSurfaceIds) {
@@ -2035,9 +2058,7 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     new RegExp(`view_schema_id=${encodeURIComponent(notesViewSchemaId)}`),
   );
 
-  await page
-    .getByTestId(systemViewSelectorTestId())
-    .selectOption(indicatorsViewSchemaId);
+  await selectSystemViewBySwitcher(page, indicatorsViewSchemaId);
   await expect(
     page.getByTestId(gridShellTestId(indicatorsViewSchemaId)),
   ).toBeVisible();
@@ -2050,9 +2071,7 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     ),
   ).toHaveText("203.0.113.92");
 
-  await page
-    .getByTestId(systemViewSelectorTestId())
-    .selectOption(commLogViewSchemaId);
+  await selectSystemViewBySwitcher(page, commLogViewSchemaId);
   await expect(
     page.getByTestId(gridShellTestId(commLogViewSchemaId)),
   ).toBeVisible();
@@ -2104,12 +2123,31 @@ async function expectOptionalStandardizedSurfacesExposed(page: Page) {
 }
 
 async function systemViewSelectorValues(page: Page) {
-  return page
-    .getByTestId(systemViewSelectorTestId())
-    .locator("option")
+  await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
+  const values = await page
+    .getByTestId(systemViewSwitcherMenuTestId())
+    .locator("[data-view-schema-id]")
     .evaluateAll((options) =>
-      options.map((option) => (option as HTMLOptionElement).value),
+      options
+        .map((option) => option.getAttribute("data-view-schema-id"))
+        .filter((value): value is string => value !== null),
     );
+  await page.keyboard.press("Escape");
+  return values;
+}
+
+async function selectSystemViewBySwitcher(page: Page, viewSchemaId: string) {
+  const groupToken = systemViewSwitcherGroupByViewSchemaId.get(viewSchemaId);
+  if (groupToken === undefined) {
+    throw new Error(`Missing System views switcher group for ${viewSchemaId}`);
+  }
+  await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
+  await expect(
+    page.getByTestId(systemViewSwitcherGroupTestId(groupToken)),
+  ).toBeVisible();
+  await page
+    .getByTestId(systemViewSwitcherOptionTestId(groupToken, viewSchemaId))
+    .click();
 }
 
 function collectionDisplayTexts(value: unknown): string[] {

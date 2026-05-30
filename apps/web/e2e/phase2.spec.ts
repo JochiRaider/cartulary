@@ -14,21 +14,30 @@ import {
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   phase1LandingTestId,
+  gridShellTestId,
+  rowCellTestId,
   surfaceTabTestId,
-  systemViewSelectorTestId,
+  systemViewSwitcherMenuTestId,
+  systemViewSwitcherOptionTestId,
+  systemViewSwitcherTriggerTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
-import { requiredBuiltInWorkbookSurfaceIds } from "../src/workbookSurfaceRegistry";
+import {
+  indicatorsViewSchemaId,
+  requiredBuiltInWorkbookSurfaceIds,
+} from "../src/workbookSurfaceRegistry";
 import { expect, test } from "./fixtures";
 import {
   createIncident,
+  createViewRow,
   createLocalUser,
   openIncidentAsTrackedUser,
   openIncidentFromLanding,
   uniqueEmail,
   uniqueIncidentKey,
+  uniqueTxn,
 } from "./helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -71,7 +80,7 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(
     shell
       .locator(dataTestIdSelector(workbookShellSlotTestId("system-views")))
-      .getByTestId(systemViewSelectorTestId()),
+      .getByTestId(systemViewSwitcherTriggerTestId()),
   ).toBeVisible();
 
   const tabBar = shell.locator(
@@ -121,6 +130,85 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(page.getByTestId("incident-pref-home-sheet-ref")).toHaveText(
     "Unset",
   );
+});
+
+test("FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEBP202"),
+    "FE-B-P2-02 switcher focus",
+  );
+  const indicator = await createViewRow(
+    page,
+    incidentId,
+    indicatorsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("fe-b-p2-02-indicator"),
+      "indicator.indicator_type": "ipv4_addr",
+      "indicator.value_kind": "atomic",
+      "indicator.display_value": "198.51.100.24",
+    },
+  );
+  const timelineUrlPattern = new RegExp(
+    `view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`,
+  );
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(page).toHaveURL(timelineUrlPattern);
+
+  const lastBuiltInTabId =
+    requiredBuiltInWorkbookSurfaceIds[
+      requiredBuiltInWorkbookSurfaceIds.length - 1
+    ];
+  if (!lastBuiltInTabId) {
+    throw new Error("Missing final built-in workbook surface");
+  }
+  await page.getByTestId(surfaceTabTestId(lastBuiltInTabId)).focus();
+  await page.keyboard.press("Tab");
+
+  const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
+  await expect(trigger).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "System views" }),
+  ).toHaveAttribute("data-testid", systemViewSwitcherTriggerTestId());
+
+  await page.keyboard.press("Enter");
+  const indicatorOption = page.getByTestId(
+    systemViewSwitcherOptionTestId("scope-assessment", indicatorsViewSchemaId),
+  );
+  const assessmentOption = page.getByTestId(
+    systemViewSwitcherOptionTestId(
+      "scope-assessment",
+      "cartulary.view.assessments.v1",
+    ),
+  );
+  await expect(page.getByTestId(systemViewSwitcherMenuTestId())).toBeVisible();
+  await expect(indicatorOption).toBeFocused();
+
+  await page.keyboard.press("ArrowDown");
+  await expect(assessmentOption).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId(systemViewSwitcherMenuTestId())).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page).toHaveURL(timelineUrlPattern);
+
+  await page.keyboard.press(" ");
+  await expect(indicatorOption).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  await expect(
+    page.getByTestId(gridShellTestId(indicatorsViewSchemaId)),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`),
+  );
+  const firstGridFocusTarget = page.getByTestId(
+    rowCellTestId(indicator.record_id as string, "indicator.indicator_type"),
+  );
+  await expect(firstGridFocusTarget).toBeFocused();
 });
 
 test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell", async ({

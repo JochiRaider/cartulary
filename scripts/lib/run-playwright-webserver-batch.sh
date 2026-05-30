@@ -178,8 +178,10 @@ for (const shard of plan.shards ?? []) {
   if (selectedShardName && shard.name !== selectedShardName) {
     continue;
   }
-  for (const phase of shard.phases ?? []) {
-    phases.add(phase);
+  for (const entry of shard.entries ?? []) {
+    if (/^E-[0-9]+-/u.test(entry.id ?? "")) {
+      phases.add(entry.phase);
+    }
   }
 }
 for (const phase of [...phases].sort((left, right) => left.localeCompare(right, undefined, { numeric: true }))) {
@@ -537,7 +539,7 @@ for (const shard of plan.shards ?? []) {
     continue;
   }
   for (const entry of shard.entries ?? []) {
-    if (entry.phase === phase) {
+    if (entry.phase === phase && /^E-[0-9]+-/u.test(entry.id ?? "")) {
       ids.push(entry.id);
     }
   }

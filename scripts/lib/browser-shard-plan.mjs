@@ -11,6 +11,10 @@ import {
   playwrightEntryTitles,
 } from "./phase-manifest.mjs";
 import {
+  loadFrontendPhaseMap,
+  loadFrontendPhaseRegistry,
+} from "./frontend-phase-manifest.mjs";
+import {
   durationDriftDescription,
   durationDriftKind,
 } from "./duration-drift.mjs";
@@ -19,7 +23,11 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const baselineSchemaID = "cartulary.browser_e2e_duration_baselines.v2";
 const shardPlanSchemaID = "cartulary.browser_e2e_shard_plan.v2";
-const defaultBaselineFile = path.join(repoRoot, "tools", "browser_e2e_duration_baselines.json");
+const defaultBaselineFile = path.join(
+  repoRoot,
+  "tools",
+  "browser_e2e_duration_baselines.json",
+);
 const baselineNote =
   "Advisory browser functional manifest-entry weights for duration-balanced Playwright sharding. Refresh with make browser-e2e-duration-baselines RESULTS_DIR=<dir>.";
 const defaultEntryWeightMs = 10000;
@@ -48,7 +56,9 @@ function readJSON(file) {
 }
 
 function sortedObject(entries) {
-  return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
+  return Object.fromEntries(
+    [...entries].sort(([left], [right]) => left.localeCompare(right)),
+  );
 }
 
 function normalizeManifestFile(file) {
@@ -96,27 +106,45 @@ function readBaselineDocument(file, { allowMissing = true } = {}) {
   }
   const baseline = readJSON(file);
   if (baseline.schema_id !== baselineSchemaID) {
-    throw new Error(`${path.relative(repoRoot, file)} must declare schema_id ${baselineSchemaID}`);
+    throw new Error(
+      `${path.relative(repoRoot, file)} must declare schema_id ${baselineSchemaID}`,
+    );
   }
   const rawEntries = baseline.entries ?? {};
-  if (!rawEntries || typeof rawEntries !== "object" || Array.isArray(rawEntries)) {
-    throw new Error(`${path.relative(repoRoot, file)} entries must be an object`);
+  if (
+    !rawEntries ||
+    typeof rawEntries !== "object" ||
+    Array.isArray(rawEntries)
+  ) {
+    throw new Error(
+      `${path.relative(repoRoot, file)} entries must be an object`,
+    );
   }
   for (const [id, entry] of Object.entries(rawEntries)) {
     if (!browserManifestIDPattern.test(id)) {
-      throw new Error(`${path.relative(repoRoot, file)} entries key ${id} must be an E-* manifest ID`);
+      throw new Error(
+        `${path.relative(repoRoot, file)} entries key ${id} must be an E-* manifest ID`,
+      );
     }
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      throw new Error(`${path.relative(repoRoot, file)} entries.${id} must be an object`);
+      throw new Error(
+        `${path.relative(repoRoot, file)} entries.${id} must be an object`,
+      );
     }
     if (normalizeManifestFile(entry.file) === "") {
-      throw new Error(`${path.relative(repoRoot, file)} entries.${id}.file must be non-empty`);
+      throw new Error(
+        `${path.relative(repoRoot, file)} entries.${id}.file must be non-empty`,
+      );
     }
     if (typeof entry.title !== "string" || entry.title.trim() === "") {
-      throw new Error(`${path.relative(repoRoot, file)} entries.${id}.title must be non-empty`);
+      throw new Error(
+        `${path.relative(repoRoot, file)} entries.${id}.title must be non-empty`,
+      );
     }
     if (!Number.isInteger(entry.weight_ms) || entry.weight_ms <= 0) {
-      throw new Error(`${path.relative(repoRoot, file)} entries.${id}.weight_ms must be a positive integer`);
+      throw new Error(
+        `${path.relative(repoRoot, file)} entries.${id}.weight_ms must be a positive integer`,
+      );
     }
   }
   return baseline;
@@ -139,7 +167,9 @@ function browserFunctionalEntries(root, { phase: phaseFilter = "" } = {}) {
         entryIsExecutable(entry)
       ) {
         if (seenIDs.has(entry.id)) {
-          throw new Error(`duplicate browser functional manifest ID ${entry.id}`);
+          throw new Error(
+            `duplicate browser functional manifest ID ${entry.id}`,
+          );
         }
         seenIDs.add(entry.id);
         const titles = playwrightEntryTitles(entry);
@@ -182,6 +212,94 @@ function baselineEntryMap(rawEntries) {
   );
 }
 
+let cachedPlaywrightSourceFiles = null;
+
+function playwrightSourceFiles() {
+  if (cachedPlaywrightSourceFiles !== null) {
+    return cachedPlaywrightSourceFiles;
+  }
+  const e2eRoot = path.join(repoRoot, "apps", "web", "e2e");
+  const files = [];
+  const stack = [e2eRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith(".spec.ts")) {
+        files.push(path.relative(repoRoot, next).replaceAll("\\", "/"));
+      }
+    }
+  }
+  cachedPlaywrightSourceFiles = files.sort();
+  return cachedPlaywrightSourceFiles;
+}
+
+function findPlaywrightFileForTitle(title) {
+  for (const file of playwrightSourceFiles()) {
+    if (readFileSync(path.join(repoRoot, file), "utf8").includes(title)) {
+      return file;
+    }
+  }
+  return "";
+}
+
+function frontendPhaseToBasePhase(phaseID) {
+  const match = /^FE-P([0-9]+)$/u.exec(phaseID);
+  return match ? `phase${match[1]}` : "";
+}
+
+function frontendBrowserReadinessEntries(
+  root,
+  { baseEntries, phase = "" } = {},
+) {
+  const baseTitles = new Set(
+    baseEntries.flatMap((entry) => entry.titles ?? [entry.title]),
+  );
+  const seenTitles = new Set();
+  const entries = [];
+  const registry = loadFrontendPhaseRegistry(root);
+  for (const frontendPhase of registry.phases) {
+    const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
+    if (basePhase === "" || (phase && basePhase !== phase)) {
+      continue;
+    }
+    const { manifest } = loadFrontendPhaseMap(root, frontendPhase.phase_id);
+    for (const row of manifest.rows) {
+      if (
+        row.claim_status !== "implemented" ||
+        !row.targets.includes("make browser-e2e-webserver-backed")
+      ) {
+        continue;
+      }
+      for (const title of row.scenario_titles) {
+        if (baseTitles.has(title) || seenTitles.has(title)) {
+          continue;
+        }
+        const file = findPlaywrightFileForTitle(title);
+        if (file === "") {
+          throw new Error(
+            `implemented frontend browser row ${row.id} has no Playwright test title: ${title}`,
+          );
+        }
+        seenTitles.add(title);
+        entries.push({
+          id: row.id,
+          phase: basePhase,
+          file,
+          title,
+          titles: [title],
+          frontend_phase: frontendPhase.phase_id,
+        });
+      }
+    }
+  }
+  return entries.sort(compareEntries);
+}
+
 function readBaseline(file, activeEntries) {
   const baseline = readBaselineDocument(file);
   const activeByID = new Map(activeEntries.map((entry) => [entry.id, entry]));
@@ -189,9 +307,14 @@ function readBaseline(file, activeEntries) {
   for (const [id, baselineEntry] of entries) {
     const active = activeByID.get(id);
     if (!active) {
-      throw new Error(`${path.relative(repoRoot, file)} contains retired browser entry baseline id=${id}`);
+      throw new Error(
+        `${path.relative(repoRoot, file)} contains retired browser entry baseline id=${id}`,
+      );
     }
-    if (active.file !== baselineEntry.file || active.title !== baselineEntry.title) {
+    if (
+      active.file !== baselineEntry.file ||
+      active.title !== baselineEntry.title
+    ) {
       throw new Error(
         `${path.relative(repoRoot, file)} entries.${id} must match active manifest file/title`,
       );
@@ -202,16 +325,31 @@ function readBaseline(file, activeEntries) {
       baseline.default_entry_weight_ms,
       defaultEntryWeightMs,
     ),
-    shardTargetMs: positiveIntegerOrDefault(baseline.shard_target_ms, defaultShardTargetMs),
+    shardTargetMs: positiveIntegerOrDefault(
+      baseline.shard_target_ms,
+      defaultShardTargetMs,
+    ),
     entries,
   };
 }
 
-function collectEntryRows(root, baseline, { phase = "" } = {}) {
-  return browserFunctionalEntries(root, { phase }).map((entry) => ({
-    ...entry,
-    weight_ms: baseline.entries.get(entry.id)?.weight_ms ?? baseline.defaultEntryWeightMs,
-  }));
+function collectEntryRows(
+  root,
+  baseline,
+  { phase = "", frontendEntries = [] } = {},
+) {
+  const entries = [
+    ...browserFunctionalEntries(root, { phase }),
+    ...frontendEntries.filter((entry) => !phase || entry.phase === phase),
+  ];
+  return entries
+    .map((entry) => ({
+      ...entry,
+      weight_ms:
+        baseline.entries.get(entry.id)?.weight_ms ??
+        baseline.defaultEntryWeightMs,
+    }))
+    .sort(compareEntries);
 }
 
 function uniqueSortedFiles(entries) {
@@ -224,13 +362,28 @@ function planShardCount(entries, { minShards, maxShards, shardTargetMs }) {
   }
   const totalWeight = entries.reduce((sum, entry) => sum + entry.weight_ms, 0);
   const targetCount = Math.ceil(totalWeight / Math.max(1, shardTargetMs));
-  return Math.max(1, Math.min(entries.length, maxShards, Math.max(minShards, targetCount)));
+  return Math.max(
+    1,
+    Math.min(entries.length, maxShards, Math.max(minShards, targetCount)),
+  );
 }
 
-export function createPlan({ baselineFile, minShards = 1, maxShards, phase = "" }) {
+export function createPlan({
+  baselineFile,
+  minShards = 1,
+  maxShards,
+  phase = "",
+}) {
   const activeEntries = browserFunctionalEntries(repoRoot);
+  const frontendEntries = frontendBrowserReadinessEntries(repoRoot, {
+    baseEntries: activeEntries,
+    phase,
+  });
   const baseline = readBaseline(baselineFile, activeEntries);
-  const entries = collectEntryRows(repoRoot, baseline, { phase });
+  const entries = collectEntryRows(repoRoot, baseline, {
+    phase,
+    frontendEntries,
+  });
   if (entries.length === 0) {
     throw new Error(
       phase
@@ -259,7 +412,11 @@ export function createPlan({ baselineFile, minShards = 1, maxShards, phase = "" 
   for (const entry of weightedEntries) {
     const shard = shards
       .slice()
-      .sort((left, right) => left.weight_ms - right.weight_ms || left.name.localeCompare(right.name))[0];
+      .sort(
+        (left, right) =>
+          left.weight_ms - right.weight_ms ||
+          left.name.localeCompare(right.name),
+      )[0];
     shard.weight_ms += entry.weight_ms;
     shard.files.add(entry.file);
     shard.phases.add(entry.phase);
@@ -291,7 +448,9 @@ export function createPlan({ baselineFile, minShards = 1, maxShards, phase = "" 
         phases: [...shard.phases].sort((left, right) =>
           left.localeCompare(right, undefined, { numeric: true }),
         ),
-        grep: exactAlternationRegex(shardEntries.flatMap((entry) => entry.titles ?? [entry.title])),
+        grep: exactAlternationRegex(
+          shardEntries.flatMap((entry) => entry.titles ?? [entry.title]),
+        ),
         entries: shardEntries.map((entry) => ({
           id: entry.id,
           phase: entry.phase,
@@ -413,7 +572,10 @@ function observedDurationMs(entryTiming) {
   );
 }
 
-function collectObservedBrowserEntryDurations(resultsDir, { requirePassingPhaseSummary = true } = {}) {
+function collectObservedBrowserEntryDurations(
+  resultsDir,
+  { requirePassingPhaseSummary = true } = {},
+) {
   const observed = new Map();
   const stack = [resultsDir];
   while (stack.length > 0) {
@@ -498,7 +660,9 @@ function updateBaselines(argv) {
   const baseline = readBaselineDocument(baselineFile, { allowMissing: true });
   const authoritativeEntries = browserFunctionalEntries(repoRoot);
   const observed = collectObservedBrowserEntryDurations(resultsDir);
-  const missingObserved = authoritativeEntries.filter((entry) => !observed.has(entry.id));
+  const missingObserved = authoritativeEntries.filter(
+    (entry) => !observed.has(entry.id),
+  );
   if (missingObserved.length > 0) {
     throw new Error(
       `missing observed browser entry timings: ${missingObserved.map((entry) => entry.id).join(", ")}`,
@@ -513,7 +677,10 @@ function updateBaselines(argv) {
   );
   delete baseline.default_spec_weight_ms;
   delete baseline.specs;
-  baseline.shard_target_ms = positiveIntegerOrDefault(baseline.shard_target_ms, defaultShardTargetMs);
+  baseline.shard_target_ms = positiveIntegerOrDefault(
+    baseline.shard_target_ms,
+    defaultShardTargetMs,
+  );
   baseline.updated_at = new Date().toISOString();
   baseline.entries = sortedObject(
     authoritativeEntries.map((entry) => [
@@ -574,7 +741,9 @@ function checkBaselineDrift(argv) {
     );
     process.exit(1);
   }
-  process.stdout.write(`Browser E2E duration baselines match ${observed.size} observed entry timings\n`);
+  process.stdout.write(
+    `Browser E2E duration baselines match ${observed.size} observed entry timings\n`,
+  );
 }
 
 function main(argv) {
@@ -604,7 +773,10 @@ function main(argv) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   try {
     main(process.argv.slice(2));
   } catch (error) {
