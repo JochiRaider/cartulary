@@ -123,6 +123,8 @@ import {
   timelineScalarEditorSurfaces,
   timelineScalarEditorTestId,
   workbookShellReadyTestId,
+  workbookShellSlots,
+  workbookShellSlotTestId,
 } from "./index";
 
 const requireFixtureValue = <T>(value: T | undefined, label: string): T => {
@@ -609,6 +611,26 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
 
   it("provides shared builders for app shell and incident membership selectors", () => {
     expect(workbookShellReadyTestId()).toBe("workbook-shell-ready");
+    expect(workbookShellSlots).toEqual([
+      "top-bar",
+      "tab-bar",
+      "system-views",
+      "current-title",
+      "view-bar",
+      "primary-grid",
+      "inspector",
+      "status-strip",
+      "presence",
+    ]);
+    expect(workbookShellSlotTestId("top-bar")).toBe(
+      "workbook-shell-slot-top-bar",
+    );
+    expect(workbookShellSlotTestId("system-views")).toBe(
+      "workbook-shell-slot-system-views",
+    );
+    expect(() => workbookShellSlotTestId("toolbar" as never)).toThrow(
+      "Invalid workbook shell slot token: toolbar",
+    );
     expect(timelineMutationSubstrateReadyTestId()).toBe(
       "timeline-mutation-substrate-ready",
     );

@@ -124,9 +124,9 @@
         "make browser-e2e-webserver-backed"
       ],
       "scenario_titles": [
-        "FE-B-P2-01 Verify continuous workbook shell composition: top bar, tab bar, System views, view bar, grid slot, inspector tabs, and status strip slots stay in one shell."
+        "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface"
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify continuous workbook shell composition: top bar, tab bar, System views, view bar, grid slot, inspector tabs, and status strip slots stay in one shell.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },

@@ -1,5 +1,6 @@
 import {
   currentIncidentRoleTestId,
+  dataTestIdSelector,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -14,8 +15,12 @@ import {
   landingIncidentOpenButtonTestId,
   phase1LandingTestId,
   surfaceTabTestId,
+  systemViewSelectorTestId,
+  workbookShellReadyTestId,
+  workbookShellSlots,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
-
+import { requiredBuiltInWorkbookSurfaceIds } from "../src/workbookSurfaceRegistry";
 import { expect, test } from "./fixtures";
 import {
   createIncident,
@@ -41,6 +46,62 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await page.getByTestId(phase1LandingTestId("create-button")).click();
 
   await expect(page).toHaveURL(/incident_id=/);
+  const openedWorkbookUrl = new URL(page.url());
+  const openedIncidentId = openedWorkbookUrl.searchParams.get("incident_id");
+  expect(openedWorkbookUrl.pathname).toBe("/");
+  expect(openedIncidentId).not.toBeNull();
+
+  const shell = page.getByTestId(workbookShellReadyTestId());
+  await expect(shell).toHaveCount(1);
+  await expect(shell).toBeVisible();
+
+  const shellId = workbookShellReadyTestId();
+  await expect(shell).toHaveAttribute("data-workbook-shell-id", shellId);
+  for (const slot of workbookShellSlots) {
+    const slotLocator = shell.locator(
+      dataTestIdSelector(workbookShellSlotTestId(slot)),
+    );
+    await expect(slotLocator).toHaveCount(1);
+    await expect(slotLocator).toHaveAttribute(
+      "data-workbook-shell-id",
+      shellId,
+    );
+  }
+
+  await expect(
+    shell
+      .locator(dataTestIdSelector(workbookShellSlotTestId("system-views")))
+      .getByTestId(systemViewSelectorTestId()),
+  ).toBeVisible();
+
+  const tabBar = shell.locator(
+    dataTestIdSelector(workbookShellSlotTestId("tab-bar")),
+  );
+  const builtInTabsByRegistryIndex = await tabBar
+    .locator("[data-workbook-tab-index]")
+    .evaluateAll((nodes) =>
+      nodes
+        .map((node) => ({
+          index: Number(node.getAttribute("data-workbook-tab-index")),
+          testId: node.getAttribute("data-testid"),
+          viewSchemaId: node.getAttribute("data-view-schema-id"),
+        }))
+        .sort((left, right) => left.index - right.index),
+    );
+  expect(builtInTabsByRegistryIndex).toEqual(
+    requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId, index) => ({
+      index,
+      testId: surfaceTabTestId(viewSchemaId),
+      viewSchemaId,
+    })),
+  );
+
+  const currentWorkbookUrl = new URL(page.url());
+  expect(currentWorkbookUrl.pathname).toBe("/");
+  expect(currentWorkbookUrl.searchParams.get("incident_id")).toBe(
+    openedIncidentId,
+  );
+
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
   ).toBeVisible();

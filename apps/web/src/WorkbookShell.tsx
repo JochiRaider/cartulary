@@ -53,6 +53,8 @@ import {
   pasteConflictItemTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  phase1LandingTestId,
+  phase1RouteTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -83,8 +85,10 @@ import {
   timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  type WorkbookShellSlot,
   type WorkbookSurface,
   workbookShellReadyTestId,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -94,6 +98,7 @@ import {
   visibleFields,
 } from "@cartulary/view-contracts";
 import {
+  type CSSProperties,
   type ClipboardEvent as ReactClipboardEvent,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -258,6 +263,7 @@ type TimelineWorkbookProps = {
 type WorkbookShellProps = {
   incidentId: string;
   apiBase?: string | undefined;
+  currentUserLabel?: string | undefined;
   onIncidentSnapshot?:
     | ((incident: {
         incident_id: string;
@@ -272,7 +278,33 @@ type WorkbookShellProps = {
       }) => void)
     | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
+  onReturnToLanding?: (() => void) | undefined;
 };
+
+const workbookShellId = workbookShellReadyTestId();
+
+function WorkbookShellSlotRegion({
+  children,
+  slot,
+  style,
+  viewSchemaId,
+}: {
+  readonly children: ReactNode;
+  readonly slot: WorkbookShellSlot;
+  readonly style?: CSSProperties | undefined;
+  readonly viewSchemaId?: string | undefined;
+}) {
+  return (
+    <div
+      data-testid={workbookShellSlotTestId(slot)}
+      data-view-schema-id={viewSchemaId}
+      data-workbook-shell-id={workbookShellId}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 type WorkbookQueryEnvelope = {
   data: {
@@ -7020,49 +7052,60 @@ export function TimelineWorkbook({
           <h1 style={headlineStyle}>Timeline mutation substrate</h1>
           <p style={bodyStyle}>Incident {incidentId}</p>
         </div>
-        <div style={statusClusterStyle}>
-          <span style={statusLabelStyle}>Save State</span>
-          <strong
-            aria-live="polite"
-            data-testid={saveStateTestId()}
-            style={{
-              ...statusValueStyle,
-              color:
-                saveState === "Conflict"
-                  ? "rgb(145 30 30)"
-                  : saveState === "Syncing"
-                    ? "rgb(146 64 14)"
-                    : "rgb(21 128 61)",
-            }}
+        <div style={statusAndPresenceColumnStyle}>
+          <WorkbookShellSlotRegion
+            slot="status-strip"
+            style={statusClusterStyle}
+            viewSchemaId={timelineViewSchemaId}
           >
-            {saveState}
-          </strong>
-          <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
-          <div
-            aria-label={`${activeSheetPresenceRecords.length} collaborators present on this sheet`}
-            data-testid="presence-header"
-            role="status"
-            style={headerPresenceStyle}
+            <span style={statusLabelStyle}>Save State</span>
+            <strong
+              aria-live="polite"
+              data-testid={saveStateTestId()}
+              style={{
+                ...statusValueStyle,
+                color:
+                  saveState === "Conflict"
+                    ? "rgb(145 30 30)"
+                    : saveState === "Syncing"
+                      ? "rgb(146 64 14)"
+                      : "rgb(21 128 61)",
+              }}
+            >
+              {saveState}
+            </strong>
+            <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
+          </WorkbookShellSlotRegion>
+          <WorkbookShellSlotRegion
+            slot="presence"
+            viewSchemaId={timelineViewSchemaId}
           >
-            {headerPresence.shown.length === 0 ? (
-              <span style={presenceEmptyStyle}>Presence</span>
-            ) : (
-              headerPresence.shown.map((presence) => (
-                <span
-                  key={presence.connection_id}
-                  title={presence.display_name}
-                  style={presenceAvatarStyle}
-                >
-                  {displayInitials(presence.display_name)}
+            <div
+              aria-label={`${activeSheetPresenceRecords.length} collaborators present on this sheet`}
+              data-testid="presence-header"
+              role="status"
+              style={headerPresenceStyle}
+            >
+              {headerPresence.shown.length === 0 ? (
+                <span style={presenceEmptyStyle}>Presence</span>
+              ) : (
+                headerPresence.shown.map((presence) => (
+                  <span
+                    key={presence.connection_id}
+                    title={presence.display_name}
+                    style={presenceAvatarStyle}
+                  >
+                    {displayInitials(presence.display_name)}
+                  </span>
+                ))
+              )}
+              {headerPresence.overflow > 0 ? (
+                <span style={presenceOverflowStyle}>
+                  +{headerPresence.overflow}
                 </span>
-              ))
-            )}
-            {headerPresence.overflow > 0 ? (
-              <span style={presenceOverflowStyle}>
-                +{headerPresence.overflow}
-              </span>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
+          </WorkbookShellSlotRegion>
         </div>
       </header>
 
@@ -7192,34 +7235,46 @@ export function TimelineWorkbook({
               <p style={bodyStyle}>{refreshError}</p>
             </aside>
           ) : null}
-          <WorkbookGridControls
-            contract={timelineContract}
-            filterDraft={filterDraft}
-            onApplyFilter={applyQueryFilter}
-            onFilterDraftChange={setFilterDraft}
-            onGroupByChange={handleQueryGroupByChange}
-            onRemoveFilter={(fieldKey) => {
-              setQueryState((current) => removeFilterField(current, fieldKey));
-            }}
-            queryState={queryState}
-            surface={timelineViewSchemaId}
-          />
-          <GridViewport
-            ref={gridShellRef}
-            style={gridShellStyle}
-            testId={gridShellTestId(timelineViewSchemaId)}
+          <WorkbookShellSlotRegion
+            slot="view-bar"
+            viewSchemaId={timelineViewSchemaId}
           >
-            <GridTable
-              actionsColumn={timelineActionsColumn}
-              columns={timelineColumns}
-              getGroupLabel={getTimelineGroupLabel}
-              getGroupRowTestId={getTimelineGroupRowTestId}
-              groupBy={queryState.groupBy}
-              onToggleSort={handleQuerySortToggle}
-              rows={timelineGridRows}
-              sort={queryState.sort}
+            <WorkbookGridControls
+              contract={timelineContract}
+              filterDraft={filterDraft}
+              onApplyFilter={applyQueryFilter}
+              onFilterDraftChange={setFilterDraft}
+              onGroupByChange={handleQueryGroupByChange}
+              onRemoveFilter={(fieldKey) => {
+                setQueryState((current) =>
+                  removeFilterField(current, fieldKey),
+                );
+              }}
+              queryState={queryState}
+              surface={timelineViewSchemaId}
             />
-          </GridViewport>
+          </WorkbookShellSlotRegion>
+          <WorkbookShellSlotRegion
+            slot="primary-grid"
+            viewSchemaId={timelineViewSchemaId}
+          >
+            <GridViewport
+              ref={gridShellRef}
+              style={gridShellStyle}
+              testId={gridShellTestId(timelineViewSchemaId)}
+            >
+              <GridTable
+                actionsColumn={timelineActionsColumn}
+                columns={timelineColumns}
+                getGroupLabel={getTimelineGroupLabel}
+                getGroupRowTestId={getTimelineGroupRowTestId}
+                groupBy={queryState.groupBy}
+                onToggleSort={handleQuerySortToggle}
+                rows={timelineGridRows}
+                sort={queryState.sort}
+              />
+            </GridViewport>
+          </WorkbookShellSlotRegion>
           {activeConflict ? (
             <section
               data-testid="conflict-resolver"
@@ -7430,199 +7485,227 @@ export function TimelineWorkbook({
           ) : null}
         </div>
 
-        <aside data-testid="timeline-inspector" style={inspectorShellStyle}>
-          <div style={inspectorHeaderStyle}>
-            <p style={eyebrowStyle}>Inspector</p>
-            <h2 style={inspectorTitleStyle}>
-              {selectedRow?.recordId
-                ? `Timeline row ${selectedRow.recordId}`
-                : currentHistoryDeleted && rowHistory.data?.record_id
-                  ? `Deleted row ${rowHistory.data.record_id}`
-                  : draftRow
-                    ? "Draft timeline row"
-                    : "Select a saved row"}
-            </h2>
-            <p style={bodyStyle}>
-              Routine mention review and hidden-field editing stay on the
-              workbook surface.
-            </p>
-          </div>
-          {selectedRow?.recordId ? (
-            <>
-              {renderInspectorFieldEditors(selectedRow)}
-              {renderEvidenceAttachSection(selectedRow)}
-              {renderRowHistorySection()}
-              <section style={inspectorSectionStyle}>
-                <h3 style={sectionTitleStyle}>Mentions</h3>
-                <div style={mentionGroupStyle}>
-                  {["unresolved", "resolved", "dismissed"].map((status) => {
-                    const group = inspectorMentions.filter(
-                      (item) => item.status === status,
-                    );
-                    return (
-                      <div key={status} style={mentionGroupColumnStyle}>
-                        <p style={groupLabelStyle}>
-                          {status === "dismissed"
-                            ? "Dismissed"
-                            : status === "resolved"
-                              ? "Resolved"
-                              : "Unresolved"}
-                        </p>
-                        {group.length > 0 ? (
-                          group.map((item) => (
-                            <button
-                              key={item.itemRef}
-                              data-testid={mentionItemTestId(item.itemRef)}
-                              style={{
-                                ...mentionListButtonStyle,
-                                ...(selectedMention?.itemRef === item.itemRef
-                                  ? mentionListButtonSelectedStyle
-                                  : null),
-                              }}
-                              type="button"
-                              onClick={() => {
-                                handleSelectMention(
-                                  item.rowRecordId,
-                                  item.itemRef,
-                                );
-                              }}
-                            >
-                              <RelationshipChip
-                                entityIndex={entityIndex}
-                                item={item}
-                                selected={
-                                  selectedMention?.itemRef === item.itemRef
-                                }
-                              />
-                            </button>
-                          ))
-                        ) : (
-                          <span style={emptyRelationshipStyle}>None</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {selectedMention ? (
+        <WorkbookShellSlotRegion
+          slot="inspector"
+          viewSchemaId={timelineViewSchemaId}
+        >
+          <aside data-testid="timeline-inspector" style={inspectorShellStyle}>
+            <div style={inspectorHeaderStyle}>
+              <p style={eyebrowStyle}>Inspector</p>
+              <h2 style={inspectorTitleStyle}>
+                {selectedRow?.recordId
+                  ? `Timeline row ${selectedRow.recordId}`
+                  : currentHistoryDeleted && rowHistory.data?.record_id
+                    ? `Deleted row ${rowHistory.data.record_id}`
+                    : draftRow
+                      ? "Draft timeline row"
+                      : "Select a saved row"}
+              </h2>
+              <p style={bodyStyle}>
+                Routine mention review and hidden-field editing stay on the
+                workbook surface.
+              </p>
+            </div>
+            {selectedRow?.recordId ? (
+              <>
+                {renderInspectorFieldEditors(selectedRow)}
+                {renderEvidenceAttachSection(selectedRow)}
+                {renderRowHistorySection()}
                 <section style={inspectorSectionStyle}>
-                  <h3 style={sectionTitleStyle}>Selected mention</h3>
-                  <dl style={detailListStyle}>
-                    <div>
-                      <dt style={detailTermStyle}>Raw token</dt>
-                      <dd style={detailValueStyle}>
-                        {selectedMention.rawText}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt style={detailTermStyle}>Field</dt>
-                      <dd style={detailValueStyle}>
-                        {timelineRelationshipLabel(selectedMention.fieldKey)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt style={detailTermStyle}>Status</dt>
-                      <dd style={detailValueStyle}>{selectedMention.status}</dd>
-                    </div>
-                    <div>
-                      <dt style={detailTermStyle}>Target</dt>
-                      <dd style={detailValueStyle}>
-                        {selectedMention.resolvedRecordId
-                          ? relationshipItemLabel(selectedMention, entityIndex)
-                          : "None"}
-                      </dd>
-                    </div>
-                  </dl>
-
-                  {selectedMention.status === "unresolved" ? (
-                    <div style={inspectorActionStackStyle}>
-                      <label style={labelStyle}>
-                        Resolve to existing
-                        <select
-                          data-testid={mentionResolveTargetSelectTestId()}
-                          style={selectStyle}
-                          value={selectedResolveTargetId}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setSelectedResolveTargetId(value);
-                            if (value !== "") {
-                              setInspectorMessage(`Selected ${value}`);
-                            }
-                          }}
-                        >
-                          <option value="">Select target</option>
-                          {(selectedMention.entityType === "host"
-                            ? hostEntities
-                            : identityEntities
-                          ).map((entity) => (
-                            <option
-                              key={entity.recordId}
-                              value={entity.recordId}
-                            >
-                              {entity.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <div style={inlineButtonRowStyle}>
-                        <button
-                          data-testid={mentionResolveExistingButtonTestId()}
-                          style={secondaryActionButtonStyle}
-                          type="button"
-                          onClick={() => {
-                            if (selectedResolveTargetId === "") {
-                              setInspectorMessage("Select a target first.");
-                              return;
-                            }
-                            submitMentionAction(
-                              selectedMention,
-                              "resolve_item",
-                              selectedResolveTargetId,
-                            );
-                          }}
-                        >
-                          Resolve to existing
-                        </button>
-                        <button
-                          data-testid={mentionCreateEntityButtonTestId(
-                            selectedMention.entityType,
+                  <h3 style={sectionTitleStyle}>Mentions</h3>
+                  <div style={mentionGroupStyle}>
+                    {["unresolved", "resolved", "dismissed"].map((status) => {
+                      const group = inspectorMentions.filter(
+                        (item) => item.status === status,
+                      );
+                      return (
+                        <div key={status} style={mentionGroupColumnStyle}>
+                          <p style={groupLabelStyle}>
+                            {status === "dismissed"
+                              ? "Dismissed"
+                              : status === "resolved"
+                                ? "Resolved"
+                                : "Unresolved"}
+                          </p>
+                          {group.length > 0 ? (
+                            group.map((item) => (
+                              <button
+                                key={item.itemRef}
+                                data-testid={mentionItemTestId(item.itemRef)}
+                                style={{
+                                  ...mentionListButtonStyle,
+                                  ...(selectedMention?.itemRef === item.itemRef
+                                    ? mentionListButtonSelectedStyle
+                                    : null),
+                                }}
+                                type="button"
+                                onClick={() => {
+                                  handleSelectMention(
+                                    item.rowRecordId,
+                                    item.itemRef,
+                                  );
+                                }}
+                              >
+                                <RelationshipChip
+                                  entityIndex={entityIndex}
+                                  item={item}
+                                  selected={
+                                    selectedMention?.itemRef === item.itemRef
+                                  }
+                                />
+                              </button>
+                            ))
+                          ) : (
+                            <span style={emptyRelationshipStyle}>None</span>
                           )}
-                          style={secondaryActionButtonStyle}
-                          type="button"
-                          onClick={() => {
-                            submitMentionAction(
-                              selectedMention,
-                              "resolve_item",
-                            );
-                          }}
-                        >
-                          {selectedMention.entityType === "host"
-                            ? "Create host"
-                            : "Create identity"}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
 
-                  {selectedMention.status === "resolved" ? (
-                    <div style={inlineButtonRowStyle}>
-                      {canManageMentions ? (
-                        <button
-                          data-testid={mentionDismissButtonTestId()}
-                          style={secondaryActionButtonStyle}
-                          type="button"
-                          onClick={() => {
-                            submitMentionAction(
-                              selectedMention,
-                              "dismiss_item",
-                            );
-                          }}
-                        >
-                          Dismiss
-                        </button>
-                      ) : null}
-                      {canManageMentions ? (
+                {selectedMention ? (
+                  <section style={inspectorSectionStyle}>
+                    <h3 style={sectionTitleStyle}>Selected mention</h3>
+                    <dl style={detailListStyle}>
+                      <div>
+                        <dt style={detailTermStyle}>Raw token</dt>
+                        <dd style={detailValueStyle}>
+                          {selectedMention.rawText}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt style={detailTermStyle}>Field</dt>
+                        <dd style={detailValueStyle}>
+                          {timelineRelationshipLabel(selectedMention.fieldKey)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt style={detailTermStyle}>Status</dt>
+                        <dd style={detailValueStyle}>
+                          {selectedMention.status}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt style={detailTermStyle}>Target</dt>
+                        <dd style={detailValueStyle}>
+                          {selectedMention.resolvedRecordId
+                            ? relationshipItemLabel(
+                                selectedMention,
+                                entityIndex,
+                              )
+                            : "None"}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    {selectedMention.status === "unresolved" ? (
+                      <div style={inspectorActionStackStyle}>
+                        <label style={labelStyle}>
+                          Resolve to existing
+                          <select
+                            data-testid={mentionResolveTargetSelectTestId()}
+                            style={selectStyle}
+                            value={selectedResolveTargetId}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setSelectedResolveTargetId(value);
+                              if (value !== "") {
+                                setInspectorMessage(`Selected ${value}`);
+                              }
+                            }}
+                          >
+                            <option value="">Select target</option>
+                            {(selectedMention.entityType === "host"
+                              ? hostEntities
+                              : identityEntities
+                            ).map((entity) => (
+                              <option
+                                key={entity.recordId}
+                                value={entity.recordId}
+                              >
+                                {entity.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div style={inlineButtonRowStyle}>
+                          <button
+                            data-testid={mentionResolveExistingButtonTestId()}
+                            style={secondaryActionButtonStyle}
+                            type="button"
+                            onClick={() => {
+                              if (selectedResolveTargetId === "") {
+                                setInspectorMessage("Select a target first.");
+                                return;
+                              }
+                              submitMentionAction(
+                                selectedMention,
+                                "resolve_item",
+                                selectedResolveTargetId,
+                              );
+                            }}
+                          >
+                            Resolve to existing
+                          </button>
+                          <button
+                            data-testid={mentionCreateEntityButtonTestId(
+                              selectedMention.entityType,
+                            )}
+                            style={secondaryActionButtonStyle}
+                            type="button"
+                            onClick={() => {
+                              submitMentionAction(
+                                selectedMention,
+                                "resolve_item",
+                              );
+                            }}
+                          >
+                            {selectedMention.entityType === "host"
+                              ? "Create host"
+                              : "Create identity"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {selectedMention.status === "resolved" ? (
+                      <div style={inlineButtonRowStyle}>
+                        {canManageMentions ? (
+                          <button
+                            data-testid={mentionDismissButtonTestId()}
+                            style={secondaryActionButtonStyle}
+                            type="button"
+                            onClick={() => {
+                              submitMentionAction(
+                                selectedMention,
+                                "dismiss_item",
+                              );
+                            }}
+                          >
+                            Dismiss
+                          </button>
+                        ) : null}
+                        {canManageMentions ? (
+                          <button
+                            data-testid={mentionRestoreUnresolvedButtonTestId()}
+                            style={secondaryActionButtonStyle}
+                            type="button"
+                            onClick={() => {
+                              submitMentionAction(
+                                selectedMention,
+                                "revert_to_unresolved",
+                              );
+                            }}
+                          >
+                            Revert to unresolved
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {selectedMention.status === "dismissed" ? (
+                      <div style={inlineButtonRowStyle}>
                         <button
                           data-testid={mentionRestoreUnresolvedButtonTestId()}
                           style={secondaryActionButtonStyle}
@@ -7634,62 +7717,44 @@ export function TimelineWorkbook({
                             );
                           }}
                         >
-                          Revert to unresolved
+                          Restore to unresolved
                         </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {selectedMention.status === "dismissed" ? (
-                    <div style={inlineButtonRowStyle}>
-                      <button
-                        data-testid={mentionRestoreUnresolvedButtonTestId()}
-                        style={secondaryActionButtonStyle}
-                        type="button"
-                        onClick={() => {
-                          submitMentionAction(
-                            selectedMention,
-                            "revert_to_unresolved",
-                          );
-                        }}
-                      >
-                        Restore to unresolved
-                      </button>
-                    </div>
-                  ) : null}
-                </section>
-              ) : null}
-              {inspectorMessage ? (
-                <p data-testid="timeline-inspector-message" style={bodyStyle}>
-                  {inspectorMessage}
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+                {inspectorMessage ? (
+                  <p data-testid="timeline-inspector-message" style={bodyStyle}>
+                    {inspectorMessage}
+                  </p>
+                ) : null}
+              </>
+            ) : currentHistoryDeleted && rowHistory.data !== null ? (
+              <>
+                {renderRowHistorySection()}
+                {inspectorMessage ? (
+                  <p data-testid="timeline-inspector-message" style={bodyStyle}>
+                    {inspectorMessage}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {draftRow ? renderInspectorFieldEditors(draftRow) : null}
+                {draftRow ? renderEvidenceAttachSection(draftRow) : null}
+                <p style={bodyStyle}>
+                  Pick a saved row to inspect unresolved, resolved, and
+                  dismissed mentions.
                 </p>
-              ) : null}
-            </>
-          ) : currentHistoryDeleted && rowHistory.data !== null ? (
-            <>
-              {renderRowHistorySection()}
-              {inspectorMessage ? (
-                <p data-testid="timeline-inspector-message" style={bodyStyle}>
-                  {inspectorMessage}
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <>
-              {draftRow ? renderInspectorFieldEditors(draftRow) : null}
-              {draftRow ? renderEvidenceAttachSection(draftRow) : null}
-              <p style={bodyStyle}>
-                Pick a saved row to inspect unresolved, resolved, and dismissed
-                mentions.
-              </p>
-              {inspectorMessage ? (
-                <p data-testid="timeline-inspector-message" style={bodyStyle}>
-                  {inspectorMessage}
-                </p>
-              ) : null}
-            </>
-          )}
-        </aside>
+                {inspectorMessage ? (
+                  <p data-testid="timeline-inspector-message" style={bodyStyle}>
+                    {inspectorMessage}
+                  </p>
+                ) : null}
+              </>
+            )}
+          </aside>
+        </WorkbookShellSlotRegion>
       </div>
     </section>
   );
@@ -10749,8 +10814,10 @@ function supportRowLabel(row: TimelineApiRow): string {
 export function WorkbookShell({
   incidentId,
   apiBase,
+  currentUserLabel,
   onIncidentSnapshot,
   onIncidentAccessLost,
+  onReturnToLanding,
 }: WorkbookShellProps) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const initialViewSchemaID = useMemo(() => {
@@ -11135,25 +11202,69 @@ export function WorkbookShell({
   }, [incidentId, startupSheetRef, surface]);
 
   return (
-    <section data-testid={workbookShellReadyTestId()} style={panelStyle}>
-      <div style={heroStyle}>
+    <section
+      data-active-view-schema-id={surface}
+      data-testid={workbookShellReadyTestId()}
+      data-workbook-shell-id={workbookShellId}
+      style={panelStyle}
+    >
+      <WorkbookShellSlotRegion
+        slot="top-bar"
+        style={shellTopBarStyle}
+        viewSchemaId={surface}
+      >
+        <div>
+          <p style={shellTopBarLabelStyle}>Workbook</p>
+          <p
+            data-testid={phase1RouteTestId("workbook-current-user")}
+            style={shellTopBarValueStyle}
+          >
+            {currentUserLabel ?? "Unknown user"}
+          </p>
+        </div>
+        <div style={shellTopBarActionsStyle}>
+          <div data-testid={currentIncidentRoleTestId()} style={roleBadgeStyle}>
+            Current incident role: {currentIncidentRole || "viewer"}
+          </div>
+          {onReturnToLanding ? (
+            <button
+              data-testid={phase1LandingTestId("return")}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={onReturnToLanding}
+            >
+              Incident landing
+            </button>
+          ) : null}
+        </div>
+      </WorkbookShellSlotRegion>
+
+      <WorkbookShellSlotRegion
+        slot="current-title"
+        style={heroStyle}
+        viewSchemaId={surface}
+      >
         <p style={eyebrowStyle}>Cartulary</p>
-        <h1 style={headlineStyle}>Timeline workbook shell</h1>
-        <p style={bodyStyle}>
-          Phase 3 workbook behavior stays intact while Phase 4 adds entity
-          mention review, stub creation, merge review, and same-surface
-          auto-resolution disclosure.
-        </p>
-      </div>
+        <h1 style={headlineStyle}>{activeContract.title}</h1>
+        <p style={bodyStyle}>Incident {incidentId}</p>
+      </WorkbookShellSlotRegion>
 
       <div style={toolbarStyle}>
-        <div style={tabStripStyle}>
+        <WorkbookShellSlotRegion
+          slot="tab-bar"
+          style={tabStripStyle}
+          viewSchemaId={surface}
+        >
           {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
             const contract = requireViewContract(viewSchemaID);
             return (
               <button
                 key={viewSchemaID}
                 data-testid={surfaceTabTestId(viewSchemaID)}
+                data-view-schema-id={viewSchemaID}
+                data-workbook-tab-index={String(
+                  requiredBuiltInWorkbookSurfaceIds.indexOf(viewSchemaID),
+                )}
                 style={{
                   ...surfaceTabStyle,
                   ...(surface === viewSchemaID ? surfaceTabActiveStyle : null),
@@ -11167,6 +11278,12 @@ export function WorkbookShell({
               </button>
             );
           })}
+        </WorkbookShellSlotRegion>
+        <WorkbookShellSlotRegion
+          slot="system-views"
+          style={systemViewSlotStyle}
+          viewSchemaId={surface}
+        >
           <label style={systemViewSelectLabelStyle}>
             System view
             <select
@@ -11190,20 +11307,19 @@ export function WorkbookShell({
               ))}
             </select>
           </label>
-        </div>
-        <div data-testid={currentIncidentRoleTestId()} style={roleBadgeStyle}>
-          Current incident role: {currentIncidentRole || "viewer"}
-        </div>
+        </WorkbookShellSlotRegion>
       </div>
 
-      <IncidentAdminPanel
-        apiBase={apiBase}
-        currentIncidentRole={currentIncidentRole}
-        incidentId={incidentId}
-        onIncidentAccessLost={onIncidentAccessLost}
-        onIncidentSnapshot={onIncidentSnapshot}
-        onSessionRoleChange={loadSessionRole}
-      />
+      <section data-workbook-shell-region="support" style={supportRegionStyle}>
+        <IncidentAdminPanel
+          apiBase={apiBase}
+          currentIncidentRole={currentIncidentRole}
+          incidentId={incidentId}
+          onIncidentAccessLost={onIncidentAccessLost}
+          onIncidentSnapshot={onIncidentSnapshot}
+          onSessionRoleChange={loadSessionRole}
+        />
+      </section>
 
       {entityLoadError ? (
         <p data-testid="entity-load-error" style={bodyStyle}>
@@ -11381,6 +11497,39 @@ const heroStyle = {
   marginBottom: "1.5rem",
 };
 
+const shellTopBarStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "1rem",
+  flexWrap: "wrap" as const,
+  marginBottom: "1rem",
+  padding: "1rem 1.2rem",
+  borderRadius: "1rem",
+  background: "rgb(233 241 236)",
+};
+
+const shellTopBarActionsStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.75rem",
+  flexWrap: "wrap" as const,
+};
+
+const shellTopBarLabelStyle = {
+  margin: 0,
+  fontSize: "0.72rem",
+  letterSpacing: "0.14em",
+  textTransform: "uppercase" as const,
+  color: "rgb(70 103 96)",
+};
+
+const shellTopBarValueStyle = {
+  margin: "0.3rem 0 0",
+  fontWeight: 700,
+  color: "rgb(31 58 52)",
+};
+
 const toolbarStyle = {
   display: "flex",
   justifyContent: "space-between",
@@ -11428,6 +11577,11 @@ const statusClusterStyle = {
   gap: "0.25rem",
   minWidth: "8rem",
   textAlign: "right" as const,
+};
+
+const statusAndPresenceColumnStyle = {
+  display: "grid",
+  gap: "0.45rem",
 };
 
 const statusLabelStyle = {
@@ -12005,12 +12159,20 @@ const systemViewSelectLabelStyle = {
   minWidth: "16rem",
 };
 
+const systemViewSlotStyle = {
+  minWidth: "16rem",
+};
+
 const roleBadgeStyle = {
   borderRadius: "999px",
   background: "rgb(236 244 239)",
   color: "rgb(44 76 66)",
   padding: "0.45rem 0.8rem",
   fontSize: "0.9rem",
+};
+
+const supportRegionStyle = {
+  marginTop: "1rem",
 };
 
 const selectStyle = {

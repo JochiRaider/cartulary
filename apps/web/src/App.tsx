@@ -742,6 +742,18 @@ export function App() {
     setIncidents((current) => upsertIncident(current, incident));
   }, []);
 
+  const handleReturnToLanding = useCallback(() => {
+    const nextRoute = {
+      incidentId: "",
+      debugHarness: route.debugHarness,
+    };
+    setLandingNotice("Returned to incident landing.");
+    writeRouteState(nextRoute, "push");
+    startTransition(() => {
+      setRoute(nextRoute);
+    });
+  }, [route.debugHarness]);
+
   if (route.incidentId !== "" && session !== null) {
     return (
       <main
@@ -752,36 +764,6 @@ export function App() {
         style={pageStyle}
       >
         <section style={workbookFrameStyle}>
-          <div style={workbookToolbarStyle}>
-            <div>
-              <p style={landingToolbarLabelStyle}>Workbook</p>
-              <p
-                data-testid={phase1RouteTestId("workbook-current-user")}
-                style={landingToolbarValueStyle}
-              >
-                {currentUserLabel}
-              </p>
-            </div>
-            <button
-              data-testid={phase1LandingTestId("return")}
-              style={landingSecondaryButtonStyle}
-              type="button"
-              onClick={() => {
-                const nextRoute = {
-                  incidentId: "",
-                  debugHarness: route.debugHarness,
-                };
-                setLandingNotice("Returned to incident landing.");
-                writeRouteState(nextRoute, "push");
-                startTransition(() => {
-                  setRoute(nextRoute);
-                });
-              }}
-            >
-              Incident landing
-            </button>
-          </div>
-
           <Suspense
             fallback={
               <p
@@ -795,9 +777,11 @@ export function App() {
             }
           >
             <LazyWorkbookShell
+              currentUserLabel={currentUserLabel}
               incidentId={route.incidentId}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentSnapshot={handleIncidentSnapshot}
+              onReturnToLanding={handleReturnToLanding}
             />
           </Suspense>
         </section>
@@ -1011,11 +995,6 @@ const landingToolbarStyle = {
   padding: "1rem 1.2rem",
   borderRadius: "1rem",
   background: "rgb(233 241 236)",
-};
-
-const workbookToolbarStyle = {
-  ...landingToolbarStyle,
-  marginBottom: "1rem",
 };
 
 const landingToolbarLabelStyle = {

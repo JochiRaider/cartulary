@@ -138,6 +138,29 @@ export type Phase1RouteSelector =
   | "workbook-current-user"
   | "workbook-loading";
 
+export type WorkbookShellSlot =
+  | "current-title"
+  | "inspector"
+  | "presence"
+  | "primary-grid"
+  | "status-strip"
+  | "system-views"
+  | "tab-bar"
+  | "top-bar"
+  | "view-bar";
+
+export const workbookShellSlots = [
+  "top-bar",
+  "tab-bar",
+  "system-views",
+  "current-title",
+  "view-bar",
+  "primary-grid",
+  "inspector",
+  "status-strip",
+  "presence",
+] as const satisfies readonly WorkbookShellSlot[];
+
 export type Phase1ErrorSummaryTestIds = {
   readonly container: StableTestId;
   readonly details: StableTestId;
@@ -330,6 +353,10 @@ export function systemViewSelectorTestId(): string {
 
 export function workbookShellReadyTestId(): string {
   return "workbook-shell-ready";
+}
+
+export function workbookShellSlotTestId(slot: WorkbookShellSlot): StableTestId {
+  return stableTestId(`workbook-shell-slot-${requireWorkbookShellSlot(slot)}`);
 }
 
 export function timelineMutationSubstrateReadyTestId(): string {
@@ -933,6 +960,13 @@ function requireSelectorToken<T extends string>(
 
 function stableTestId(value: string): StableTestId {
   return value as StableTestId;
+}
+
+function requireWorkbookShellSlot(slot: WorkbookShellSlot): WorkbookShellSlot {
+  if ((workbookShellSlots as readonly string[]).includes(slot)) {
+    return slot;
+  }
+  throw new Error(`Invalid workbook shell slot token: ${String(slot)}`);
 }
 
 function requirePhase1ErrorSurface(
