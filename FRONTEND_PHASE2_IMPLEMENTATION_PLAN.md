@@ -41,12 +41,17 @@ Locally verified facts:
   rows once each: `FE-U-P2-01`, `FE-U-P2-02`, `FE-B-P2-01`, `FE-B-P2-02`,
   `FE-E-P2-01`, `FE-V-P2-01`, `FE-A11Y-P2-01`.
 - All FE-P2 rows are currently `claim_status="blocked"`.
-- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2` passed and reports
-  FE-P2 as planned, explainable, and non-executable.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2` passed after Sprint
+  1 metadata correction and reports FE-P2 as planned, explainable, and
+  non-executable.
+- `make phase-ledgers` regenerated the FE-P2 generated ledger from the authored
+  map with run root `.cartulary/test-results/20260530T173411Z-p3939879` and
+  summary `.cartulary/test-results/20260530T173411Z-p3939879/phase-ledgers/tool-run-summary.json`.
 - `make phase-ledger-drift` passed with run root
-  `.cartulary/test-results/20260530T165223Z-p3881439` and summary
-  `.cartulary/test-results/20260530T165223Z-p3881439/phase-ledger-drift/tool-run-summary.json`.
-- Both `git diff --check` and `git diff --cached --check` passed with no output.
+  `.cartulary/test-results/20260530T173423Z-p3940471` and summary
+  `.cartulary/test-results/20260530T173423Z-p3940471/phase-ledger-drift/tool-run-summary.json`.
+- `git diff --check` passed with no output. `git diff --cached --check` was not
+  required because no staged changes existed.
 - `/packages/ui` exists only as `packages/ui/.gitkeep`; it is inactive until a
   manifest-backed package is introduced.
 - `WorkbookShell` currently has built-in tab selectors, a native `select` for
@@ -61,18 +66,20 @@ Locally verified facts:
 Inherited FE-P0 handoff state:
 - `FE-P0` remains `planned` but all six FE-P0 rows are `implemented` in the
   current map/ledger.
-- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P0` passed during
-  reconnaissance.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P0` passed during Sprint
+  1 readiness validation.
 
 Inherited FE-P1 handoff state:
 - `FE-P1` remains `planned` but all five FE-P1 rows are `implemented` in the
-  current map/ledger.
-- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1` passed during
-  reconnaissance.
+  current map/ledger, with product-conformance, design-direction, and
+  implementation-support rows still separated.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1` passed during Sprint
+  1 readiness validation.
 - FE-P1 plan Sprint 7 is still unchecked while the binary criteria section
-  records satisfied row evidence; treat the unchecked sprint as stale or
-  unverified handoff bookkeeping until FE-P2 Sprint 1 records current regression
-  status.
+  records satisfied row evidence through Sprint 6. Treat this as stale handoff
+  bookkeeping until the FE-P1 plan is reconciled or relevant row-owned checks are
+  rerun or explicitly accepted; no FE-P2 row should be promoted on this
+  bookkeeping state alone.
 
 Assumptions:
 - FE-P2 implementation may edit authored app/test/package files and authored
@@ -87,12 +94,15 @@ Missing evidence:
 - No FE-P2-specific visual golden named for a phase-2 shell capture was found;
   visual goldens currently start with `v-3-*` files even though `FE-VFIX-01` is
   marked current.
-- FE-P2 map metadata appears to collapse some UI/UX `R2-AC-*` references into
-  unprefixed `AC-*` core fields for `FE-B-P2-01` and `FE-B-P2-02`; this must be
-  corrected before any completion claim.
-- FE-U-P2-01 owner text in generated ledger says Core 03 Section 3, while
-  inspected startup behavior is Core 03 Section 2.4; correct or precisely block
-  this metadata mismatch.
+
+Resolved Sprint 1 metadata defects:
+- `FE-B-P2-01` and `FE-B-P2-02` now keep design-direction `R2-AC-*` IDs in
+  `support_or_design_ac_ids` rather than collapsed unprefixed Core `AC-*`
+  fields.
+- `FE-U-P2-01`, `FE-B-P2-02`, and `FE-E-P2-01` owner references now match the
+  inspected Core owner sections.
+- The generated FE-P2 ledger was refreshed with `make phase-ledgers`; it was not
+  hand-edited.
 
 ## Source Limits
 
@@ -105,11 +115,13 @@ and `/packages/ui` files.
 Source limits and blockers:
 - Missing target plan file: resolved by creating this document.
 - FE-P2 phase map/ledger exist but all FE-P2 rows remain blocked.
-- FE-P2 map metadata separation defects block FE-P2 completion until fixed and
-  regenerated.
+- FE-P2 map metadata separation defects were fixed and regenerated during Sprint
+  1, but they are readiness evidence only and do not complete any FE-P2 row.
 - Visual fixture status is inconsistent enough to block `FE-V-P2-01` completion
   until an owned FE-P2 shell fixture/golden is added or the fixture claim is
   precisely corrected.
+- FE-P1 handoff bookkeeping remains stale until the FE-P1 plan reconciles Sprint
+  7 or row-owned checks are rerun or explicitly accepted.
 - `/packages/ui` is not an active implementation surface.
 - Existing app-shell code is implementation-shape evidence only, not FE-P2
   completion evidence.
@@ -230,6 +242,9 @@ Use these as the FE-P2 source set:
 
 ## Sprint 1: Readiness, Map, Ledger, And FE-P1 Handoff
 
+Status: Complete for Sprint 1 readiness and metadata correction. This sprint
+does not complete or promote any FE-P2 row.
+
 Objective: make FE-P2 planning metadata trustworthy before behavior work.
 
 Non-goals: no product UI changes, no row promotion, no Core 05 activation.
@@ -246,24 +261,34 @@ Test-first sequence:
 - verify owner refs match inspected Core sections.
 
 Implementation tasks:
-- create `FRONTEND_PHASE2_IMPLEMENTATION_PLAN.md`;
-- correct FE-P2 map metadata if needed;
-- run `make phase-ledgers` only after map changes.
+- corrected FE-P2 authored map metadata for owner references and evidence-class
+  separation;
+- refreshed the generated FE-P2 ledger through `make phase-ledgers`;
+- updated the frontend guide FE-P2 row table to match inspected owner sections.
 
 Validation commands:
-- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`
-- `make phase-ledger-drift`
-- `git diff --check`
-- `git diff --cached --check` only when staged changes exist
+- `make phase-ledgers`: passed with run root
+  `.cartulary/test-results/20260530T173411Z-p3939879`.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`: passed and reports
+  all seven rows as blocked under the planned frontend phase.
+- `make phase-ledger-drift`: passed with run root
+  `.cartulary/test-results/20260530T173423Z-p3940471`.
+- Row inventory `jq` check: passed; exactly seven required FE-P2 rows exist once
+  each and all remain blocked.
+- Row-specific R2 split `jq` check: passed; FE-B design-direction IDs are no
+  longer present as collapsed Core AC fields.
+- `git diff --check`: passed with no output.
+- `git diff --cached --check`: skipped because no staged changes existed.
 
-Deliverables: plan file, corrected metadata if needed, generated ledger
-consistency.
+Deliverables: plan file, corrected authored metadata, regenerated FE-P2 ledger,
+and generated ledger consistency.
 
-Blocker rules: metadata mismatch blocks FE-P2 completion but not later
-implementation planning.
+Blocker rules: FE-P1 handoff freshness and missing FE-P2 row-owned behavior
+evidence block FE-P2 row promotion but not later implementation planning.
 
 Binary acceptance: all seven FE-P2 rows appear exactly once; all remain blocked
-until row-owned evidence exists.
+until row-owned evidence exists; product-conformance, design-direction,
+implementation-support, and claim-publication metadata remain separated.
 
 ## Sprint 2: Startup Resolution Model And Shell Registry
 
