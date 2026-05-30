@@ -203,7 +203,7 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y"
+        "make browser-e2e-a11y-preflight"
       ],
       "scenario_titles": [
         "FE-A11Y-P5-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction."

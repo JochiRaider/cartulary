@@ -229,7 +229,7 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y"
+        "make browser-e2e-a11y-preflight"
       ],
       "scenario_titles": [
         "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, tree/group expand-collapse, and default/startup controls are keyboard reachable and announced."

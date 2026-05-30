@@ -1,7 +1,8 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
   currentIncidentRoleTestId,
+  dataTestIdSelector,
   landingIncidentCardTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
@@ -11,6 +12,7 @@ import {
   createLocalUser as createAuthLocalUser,
   revokeAllSessions,
 } from "./authRuntime";
+import { p1AccessibilityScenarioTitles } from "./a11yPhaseMap";
 import { expect, test } from "./fixtures";
 import {
   apiBase,
@@ -26,36 +28,14 @@ import {
 } from "./helpers";
 import { Phase1Page } from "./phase1Page";
 
-type FrontendPhaseRow = {
-  id: string;
-  scenario_titles: string[];
-};
-
-type FrontendPhaseMap = {
-  rows: FrontendPhaseRow[];
-};
-
 type IncidentMembershipRecord = {
   membership_version: number;
   role: string;
   user_id: string;
 };
 
-const p1AccessibilityScenarioTitles = [
-  "FE-A11Y-P1-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
-  "FE-A11Y-P1-01 anonymous login after initial session_required reaches login controls and authenticated landing",
-  "FE-A11Y-P1-01 mfa_required challenge is keyboard reachable, visibly focused, named, and safely announced",
-  "FE-A11Y-P1-01 mfa_setup_required enrollment is keyboard reachable and public errors hide private setup diagnostics",
-  "FE-A11Y-P1-01 authenticated landing exposes account, admin, incident, retry, and visible incident controls",
-  "FE-A11Y-P1-01 incident empty, list, selected, stale-selection, and incident-error states expose keyboard recovery",
-  "FE-A11Y-P1-01 forbidden access-denied public envelope is announced and exposes recovery without private diagnostics",
-  "FE-A11Y-P1-01 revoked session after prior authentication announces session end and supports re-authentication",
-  "FE-A11Y-P1-01 generic public error envelope renders safe diagnostics and keyboard error recovery",
-] as const;
-
-const focusableSelector =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const keyboardSentinelId = "a11y-keyboard-sentinel";
+const contrastThreshold = 4.5;
 
 const privateDiagnosticPatterns = [
   /bootstrap[_ -]?token/i,
@@ -72,45 +52,6 @@ const privateDiagnosticPatterns = [
   /internal_path/i,
   /raw_request/i,
 ];
-
-function findRepoRoot(): string {
-  let candidate = process.cwd();
-  while (true) {
-    if (
-      existsSync(path.join(candidate, "tools", "frontend_phase_registry.json"))
-    ) {
-      return candidate;
-    }
-    const parent = path.dirname(candidate);
-    if (parent === candidate) {
-      throw new Error("could not find tools/frontend_phase_registry.json");
-    }
-    candidate = parent;
-  }
-}
-
-const frontendPhaseMapDir = path.join(
-  findRepoRoot(),
-  "tools",
-  "frontend_phase_maps",
-);
-
-function nonP1AccessibilityScenarios(): string[] {
-  return readdirSync(frontendPhaseMapDir)
-    .filter((name) => /^fe_p\d+_test_map\.json$/.test(name))
-    .sort((left, right) => left.localeCompare(right, "en", { numeric: true }))
-    .flatMap((name) => {
-      const manifest = JSON.parse(
-        readFileSync(path.join(frontendPhaseMapDir, name), "utf8"),
-      ) as FrontendPhaseMap;
-      return manifest.rows
-        .filter(
-          (row) =>
-            row.id.startsWith("FE-A11Y-") && row.id !== "FE-A11Y-P1-01",
-        )
-        .flatMap((row) => row.scenario_titles);
-    });
-}
 
 async function clearBrowserSession(page: Page) {
   await page.context().clearCookies();
@@ -316,6 +257,143 @@ async function expectNoPrivateDiagnostics(locator: Locator) {
   }
 }
 
+function contrastRecordPath(title: string) {
+  const dir = process.env.CARTULARY_FRONTEND_ACCESSIBILITY_CONTRAST_DIR;
+  if (!dir) {
+    return "";
+  }
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 120);
+  mkdirSync(dir, { recursive: true });
+  return path.join(dir, `${slug}.json`);
+}
+
+async function collectContrastChecks(page: Page, testIds: string[]) {
+  const targets = [...new Set(testIds)].map((id) => ({
+    id,
+    selector: dataTestIdSelector(id),
+  }));
+  return page.evaluate(
+    ({ targets, threshold }) => {
+      type Rgba = { a: number; b: number; g: number; r: number };
+
+      function parseRgba(value: string): Rgba | null {
+        const match =
+          /^rgba?\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)(?:,\s*(\d+(?:\.\d+)?))?\)$/i.exec(
+            value.trim(),
+          );
+        if (!match) {
+          return null;
+        }
+        return {
+          r: Number(match[1]),
+          g: Number(match[2]),
+          b: Number(match[3]),
+          a: match[4] === undefined ? 1 : Number(match[4]),
+        };
+      }
+
+      function rgbText(color: Rgba) {
+        return `rgb(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)})`;
+      }
+
+      function channel(value: number) {
+        const normalized = value / 255;
+        if (normalized <= 0.03928) {
+          return normalized / 12.92;
+        }
+        return ((normalized + 0.055) / 1.055) ** 2.4;
+      }
+
+      function luminance(color: Rgba) {
+        return (
+          0.2126 * channel(color.r) +
+          0.7152 * channel(color.g) +
+          0.0722 * channel(color.b)
+        );
+      }
+
+      function contrastRatio(foreground: Rgba, background: Rgba) {
+        const lighter = Math.max(luminance(foreground), luminance(background));
+        const darker = Math.min(luminance(foreground), luminance(background));
+        return (lighter + 0.05) / (darker + 0.05);
+      }
+
+      function backgroundFor(element: Element) {
+        let candidate: Element | null = element;
+        while (candidate) {
+          const color = parseRgba(
+            window.getComputedStyle(candidate).backgroundColor,
+          );
+          if (color && color.a > 0) {
+            return color;
+          }
+          candidate = candidate.parentElement;
+        }
+        return { a: 1, b: 255, g: 255, r: 255 };
+      }
+
+      return targets
+        .map(({ id, selector }) => {
+          const element = document.querySelector(selector);
+          if (!(element instanceof HTMLElement)) {
+            return null;
+          }
+          const style = window.getComputedStyle(element);
+          if (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            element.getClientRects().length === 0
+          ) {
+            return null;
+          }
+          const foreground = parseRgba(style.color);
+          const background = backgroundFor(element);
+          if (!foreground) {
+            return null;
+          }
+          const ratio = contrastRatio(foreground, background);
+          return {
+            background: rgbText(background),
+            foreground: rgbText(foreground),
+            ratio: Math.round(ratio * 100) / 100,
+            result: ratio >= threshold ? "pass" : "fail",
+            target: id,
+            threshold,
+          };
+        })
+        .filter(Boolean);
+    },
+    { targets, threshold: contrastThreshold },
+  );
+}
+
+async function expectAndRecordContrast(page: Page, testIds: string[]) {
+  const title = test.info().title;
+  const checks = await collectContrastChecks(page, testIds);
+  expect(checks.length).toBeGreaterThan(0);
+  expect(checks.filter((check) => check?.result !== "pass")).toEqual([]);
+
+  const recordPath = contrastRecordPath(title);
+  if (recordPath) {
+    writeFileSync(
+      recordPath,
+      `${JSON.stringify(
+        {
+          scenario_title: title,
+          checks,
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+  }
+}
+
 async function expectP1SurfaceA11y(
   page: Page,
   options: {
@@ -331,30 +409,10 @@ async function expectP1SurfaceA11y(
   if (options.tabStops && options.tabStops.length > 0) {
     await expectTabOrderIncludes(page, options.tabStops);
   }
-}
-
-async function expectLaterPhaseSmoke(page: Page) {
-  const focusableCount = await page.locator(focusableSelector).count();
-  expect(focusableCount).toBeGreaterThan(0);
-
-  await page.locator(focusableSelector).first().focus();
-  await page.keyboard.press("Tab");
-  const activeElementIsFocusable = await page.evaluate(() => {
-    const active = document.activeElement;
-    return Boolean(active && active !== document.body);
-  });
-  expect(activeElementIsFocusable).toBeTruthy();
-
-  const unnamedButtons = await page.locator("button").evaluateAll((buttons) =>
-    buttons.filter((button) => {
-      const text = button.textContent?.trim() ?? "";
-      const ariaLabel = button.getAttribute("aria-label")?.trim() ?? "";
-      const titleAttr = button.getAttribute("title")?.trim() ?? "";
-      const labelledBy = button.getAttribute("aria-labelledby")?.trim() ?? "";
-      return !text && !ariaLabel && !titleAttr && !labelledBy;
-    }).length,
-  );
-  expect(unnamedButtons).toBe(0);
+  await expectAndRecordContrast(page, [
+    ...(options.focusTestId ? [options.focusTestId] : []),
+    ...(options.tabStops ?? []),
+  ]);
 }
 
 async function loadIncidentMembership(
@@ -1059,22 +1117,4 @@ test.describe("FE-P1 accessibility readiness", () => {
       "Refreshed account security.",
     );
   });
-});
-
-test.describe("frontend accessibility readiness smoke for later phases", () => {
-  for (const title of nonP1AccessibilityScenarios()) {
-    test(title, async ({ page }) => {
-      await page.setViewportSize({ width: 1440, height: 900 });
-      const incidentId = await createIncident(
-        page,
-        uniqueIncidentKey("A11Y"),
-        `Accessibility ${title.slice(0, 24)}`,
-      );
-      await page.goto(`/?incident_id=${incidentId}`);
-
-      await expect(page.locator("body")).toBeVisible();
-      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-      await expectLaterPhaseSmoke(page);
-    });
-  }
 });

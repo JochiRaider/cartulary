@@ -272,7 +272,7 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y"
+        "make browser-e2e-a11y-preflight"
       ],
       "scenario_titles": [
         "FE-A11Y-P10-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations."

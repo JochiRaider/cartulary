@@ -219,7 +219,7 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y"
+        "make browser-e2e-a11y-preflight"
       ],
       "scenario_titles": [
         "FE-A11Y-P7-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."

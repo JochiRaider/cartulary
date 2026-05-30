@@ -243,7 +243,7 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y"
+        "make browser-e2e-a11y-preflight"
       ],
       "scenario_titles": [
         "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe."

@@ -61,6 +61,7 @@ const browserGroupKinds = new Set([
   "visual",
   "visual_smoke",
   "a11y",
+  "a11y_preflight",
 ]);
 const serviceGeneratedKeys = new Set([
   "generator",

@@ -7,24 +7,20 @@ source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
 
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 
-summary_dir="$(prepare_target_support_dir accessibility)"
-summary_path="${summary_dir}/frontend-accessibility-summary.json"
-contrast_dir="${summary_dir}/contrast-checks"
-phase_secure_mkdir "$contrast_dir"
+summary_dir="$(prepare_target_support_dir accessibility-preflight)"
+summary_path="${summary_dir}/frontend-accessibility-preflight-summary.json"
 
 set +e
 "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
   NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-  CARTULARY_FRONTEND_ACCESSIBILITY_SUMMARY="$summary_path" \
-  CARTULARY_FRONTEND_ACCESSIBILITY_CONTRAST_DIR="$contrast_dir" \
   "$ROOT_DIR/scripts/lib/run-playwright-phase.sh" \
-  "browser-e2e-a11y accessibility" -- \
+  "browser-e2e-a11y-preflight accessibility preflight" -- \
   "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
-  apps/web/e2e/workbook.a11y.spec.ts
+  apps/web/e2e/workbook.a11y-preflight.spec.ts
 status=$?
 set -e
 
-phase_dir="$(find "$(ensure_target_artifact_dir)" -maxdepth 1 -type d -name 'browser-e2e-a11y-accessibility' -print -quit)"
+phase_dir="$(find "$(ensure_target_artifact_dir)" -maxdepth 1 -type d -name 'browser-e2e-a11y-preflight-accessibility-preflight' -print -quit)"
 if [[ -z "$phase_dir" ]]; then
   phase_dir="$(ensure_target_artifact_dir)"
 fi
@@ -39,7 +35,6 @@ fi
   --output "$summary_path" \
   --status "$summary_status" \
   --phase-dir "$phase_dir" \
-  --contrast-dir "$contrast_dir" \
-  --mode evidence
+  --mode preflight
 
 exit "$status"

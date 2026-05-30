@@ -72,6 +72,13 @@ run_schema_validation() {
   "$ROOT_DIR/scripts/harness-contract.sh" validate-schema "$schema_id" "$file"
 }
 
+run_accessibility_summary_writer() {
+  (
+    cd "$ROOT_DIR"
+    "$NODE_BIN" scripts/write-frontend-accessibility-summary.mjs "$@"
+  )
+}
+
 write_valid_phase_map() {
   local file="$1"
 
@@ -433,6 +440,118 @@ write_minimal_scheduler_summary() {
 JSON
 }
 
+write_valid_frontend_accessibility_summary_v2() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.frontend_accessibility_summary.v2",
+  "status": "pass",
+  "phase_rows": [
+    {
+      "row_id": "FE-A11Y-P1-01",
+      "phase_id": "FE-P1",
+      "evidence_class": "design_direction",
+      "claim_status": "implemented",
+      "targets": ["make browser-e2e-a11y"]
+    }
+  ],
+  "scenarios": [
+    {
+      "row_id": "FE-A11Y-P1-01",
+      "title": "implemented scenario passes",
+      "status": "pass"
+    },
+    {
+      "row_id": "FE-A11Y-P1-01",
+      "title": "implemented scenario can fail",
+      "status": "fail"
+    },
+    {
+      "row_id": "FE-A11Y-P1-01",
+      "title": "implemented scenario can be missing",
+      "status": "missing"
+    },
+    {
+      "row_id": "FE-A11Y-P1-01",
+      "title": "implemented scenario can be skipped",
+      "status": "skipped"
+    }
+  ],
+  "keyboard_matrix": [
+    {
+      "row_id": "FE-A11Y-P1-01",
+      "title": "implemented scenario passes",
+      "result": "pass",
+      "coverage": "keyboard"
+    }
+  ],
+  "state_communication_checks": [
+    {
+      "row_id": "FE-A11Y-P1-01",
+      "title": "implemented scenario passes",
+      "result": "pass",
+      "coverage": "state"
+    }
+  ],
+  "contrast_checks": [
+    {
+      "row_id": "FE-A11Y-P1-01",
+      "title": "implemented scenario passes",
+      "result": "pass",
+      "coverage": "contrast",
+      "target": "auth-login-submit",
+      "ratio": 7.2,
+      "threshold": 4.5,
+      "foreground": "rgb(248, 250, 252)",
+      "background": "rgb(15, 23, 42)"
+    }
+  ],
+  "violations": [],
+  "artifact_refs": [
+    {
+      "kind": "playwright_phase",
+      "path": ".cartulary/test-results/run/browser-e2e-a11y/browser-e2e-a11y-accessibility"
+    }
+  ]
+}
+JSON
+}
+
+write_valid_frontend_accessibility_preflight_summary() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.frontend_accessibility_preflight_summary.v1",
+  "status": "pass",
+  "phase_rows": [
+    {
+      "row_id": "FE-A11Y-P2-01",
+      "phase_id": "FE-P2",
+      "evidence_class": "design_direction",
+      "claim_status": "blocked",
+      "targets": ["make browser-e2e-a11y"]
+    }
+  ],
+  "scenarios": [
+    {
+      "row_id": "FE-A11Y-P2-01",
+      "title": "blocked scenario preflight",
+      "status": "pass"
+    }
+  ],
+  "violations": [],
+  "artifact_refs": [
+    {
+      "kind": "playwright_phase",
+      "path": ".cartulary/test-results/run/browser-e2e-a11y-preflight/browser-e2e-a11y-preflight-accessibility-preflight"
+    }
+  ]
+}
+JSON
+}
+
 write_valid_agent_finalize_summary() {
   local file="$1"
 
@@ -566,6 +685,21 @@ const mutations = {
   },
   "agent-finalize-summary-unknown-key": (fixture) => {
     fixture.legacy_key = true;
+  },
+  "frontend-a11y-summary-invalid-status": (fixture) => {
+    fixture.scenarios[0].status = "ok";
+  },
+  "frontend-a11y-summary-unknown-key": (fixture) => {
+    fixture.scenarios[0].legacy_key = true;
+  },
+  "frontend-a11y-summary-missing-required": (fixture) => {
+    delete fixture.contrast_checks[0].ratio;
+  },
+  "frontend-a11y-summary-blocked-row": (fixture) => {
+    fixture.phase_rows[0].claim_status = "blocked";
+  },
+  "frontend-a11y-preflight-implemented-row": (fixture) => {
+    fixture.phase_rows[0].claim_status = "implemented";
   },
   "scheduler-manifest-stale-schema": (fixture) => {
     fixture.schema_id = "cartulary.check_schedule.v12";
@@ -712,6 +846,56 @@ assert_passes "service scheduler summary validates exact schema" \
 mismatched_scheduler_output="$(assert_fails "scheduler summary rejects mismatched schema_id" \
   run_schema_validation cartulary.check_scheduler_summary.v9 "$service_scheduler_summary")"
 assert_contains "$mismatched_scheduler_output" "must be equal to constant" "scheduler summary mismatched schema_id"
+
+frontend_a11y_summary="$tmp_dir/frontend-accessibility-summary-v2.json"
+write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_summary"
+assert_passes "frontend accessibility summary v2 validates exact schema" \
+  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_summary" >/dev/null
+
+frontend_a11y_bad_status="$tmp_dir/frontend-accessibility-summary-v2-bad-status.json"
+write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_bad_status"
+mutate_json_fixture frontend-a11y-summary-invalid-status "$frontend_a11y_bad_status"
+frontend_a11y_bad_status_output="$(assert_fails "frontend accessibility summary rejects invalid scenario status" \
+  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_bad_status")"
+assert_contains "$frontend_a11y_bad_status_output" "must be equal to one of the allowed values" "frontend accessibility invalid scenario status"
+
+frontend_a11y_unknown_key="$tmp_dir/frontend-accessibility-summary-v2-unknown-key.json"
+write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_unknown_key"
+mutate_json_fixture frontend-a11y-summary-unknown-key "$frontend_a11y_unknown_key"
+frontend_a11y_unknown_key_output="$(assert_fails "frontend accessibility summary rejects unknown keys" \
+  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_unknown_key")"
+assert_contains "$frontend_a11y_unknown_key_output" "must NOT have additional properties" "frontend accessibility unknown key"
+
+frontend_a11y_missing_required="$tmp_dir/frontend-accessibility-summary-v2-missing-required.json"
+write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_missing_required"
+mutate_json_fixture frontend-a11y-summary-missing-required "$frontend_a11y_missing_required"
+frontend_a11y_missing_required_output="$(assert_fails "frontend accessibility summary rejects missing required fields" \
+  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_missing_required")"
+assert_contains "$frontend_a11y_missing_required_output" "must have required property 'ratio'" "frontend accessibility missing required"
+
+frontend_a11y_blocked_row="$tmp_dir/frontend-accessibility-summary-v2-blocked-row.json"
+write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_blocked_row"
+mutate_json_fixture frontend-a11y-summary-blocked-row "$frontend_a11y_blocked_row"
+frontend_a11y_blocked_row_output="$(assert_fails "frontend accessibility summary rejects blocked rows" \
+  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_blocked_row")"
+assert_contains "$frontend_a11y_blocked_row_output" "must be equal to constant" "frontend accessibility blocked row"
+
+frontend_a11y_preflight="$tmp_dir/frontend-accessibility-preflight-summary.json"
+write_valid_frontend_accessibility_preflight_summary "$frontend_a11y_preflight"
+assert_passes "frontend accessibility preflight summary validates exact schema" \
+  run_schema_validation cartulary.frontend_accessibility_preflight_summary.v1 "$frontend_a11y_preflight" >/dev/null
+
+frontend_a11y_preflight_implemented="$tmp_dir/frontend-accessibility-preflight-summary-implemented.json"
+write_valid_frontend_accessibility_preflight_summary "$frontend_a11y_preflight_implemented"
+mutate_json_fixture frontend-a11y-preflight-implemented-row "$frontend_a11y_preflight_implemented"
+frontend_a11y_preflight_implemented_output="$(assert_fails "frontend accessibility preflight rejects implemented rows" \
+  run_schema_validation cartulary.frontend_accessibility_preflight_summary.v1 "$frontend_a11y_preflight_implemented")"
+assert_contains "$frontend_a11y_preflight_implemented_output" "must be equal to constant" "frontend accessibility preflight implemented row"
+
+frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
+frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \
+  run_accessibility_summary_writer --output "$frontend_a11y_writer_missing" --status pass --mode evidence)"
+assert_contains "$frontend_a11y_writer_missing_output" "frontend accessibility summary failed: frontend accessibility evidence summary status is fail" "frontend accessibility writer missing evidence"
 
 bad_schema_registry="$tmp_dir/phase_registry_bad_schema.json"
 write_valid_phase_registry "$bad_schema_registry"

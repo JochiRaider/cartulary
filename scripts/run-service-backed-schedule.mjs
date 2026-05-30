@@ -1109,6 +1109,7 @@ function attachRuntime(
           ["stateful", "run-browser-e2e-stateful.sh"],
           ["measurement", "run-browser-e2e-measurement.sh"],
           ["a11y", "run-browser-e2e-a11y.sh"],
+          ["a11y_preflight", "run-browser-e2e-a11y-preflight.sh"],
           ["visual", "run-browser-e2e-visual.sh"],
           ["visual_smoke", "run-browser-e2e-visual-smoke.sh"],
         ]);
