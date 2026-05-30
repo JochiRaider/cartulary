@@ -106,6 +106,8 @@ import {
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
   savedViewFamilySelector,
+  savedViewOptionTestId,
+  savedViewSelectorTestId,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSelectorTestId,
@@ -492,6 +494,20 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(pendingQueueNoticeTestId()).toBe("pending-queue-notice");
     expect(pendingQueueCountTestId()).toBe("pending-queue-count");
     expect(savedViewFamilySelector()).toBe('[data-testid^="saved-view-"]');
+    expect(savedViewSelectorTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-selector-cartulary.view.hosts.v1",
+    );
+    expect(
+      savedViewOptionTestId(
+        "cartulary.view.hosts.v1",
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    ).toBe(
+      "saved-view-option-cartulary.view.hosts.v1-11111111-1111-4111-8111-111111111111",
+    );
+    expect(
+      savedViewOptionTestId("cartulary.view.hosts.v1", "saved/view 1"),
+    ).toBe("saved-view-option-cartulary.view.hosts.v1-saved%2Fview%201");
   });
 
   it("provides shared builders for workbook action families", () => {

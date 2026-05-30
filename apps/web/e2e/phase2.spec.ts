@@ -1,6 +1,7 @@
 import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  gridShellTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -14,8 +15,10 @@ import {
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   phase1LandingTestId,
-  gridShellTestId,
   rowCellTestId,
+  savedViewFamilySelector,
+  savedViewOptionTestId,
+  savedViewSelectorTestId,
   surfaceTabTestId,
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
@@ -24,15 +27,18 @@ import {
   workbookShellSlots,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
+import type { Page } from "@playwright/test";
 import {
+  hostsViewSchemaId,
   indicatorsViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
 } from "../src/workbookSurfaceRegistry";
 import { expect, test } from "./fixtures";
 import {
   createIncident,
-  createViewRow,
   createLocalUser,
+  createSavedView,
+  createViewRow,
   openIncidentAsTrackedUser,
   openIncidentFromLanding,
   uniqueEmail,
@@ -211,6 +217,172 @@ test("FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, sele
   await expect(firstGridFocusTarget).toBeFocused();
 });
 
+test("FE-E-P2-01 Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEEP201"),
+    "FE-E-P2-01 saved-view placement",
+  );
+  const host = await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("fe-e-p2-01-host"),
+    "host.display_name": "FE-E-P2-01 host",
+    "host.hostname": "fe-e-p2-01-host.example.test",
+  });
+  const indicator = await createViewRow(
+    page,
+    incidentId,
+    indicatorsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("fe-e-p2-01-indicator"),
+      "indicator.indicator_type": "ipv4_addr",
+      "indicator.value_kind": "atomic",
+      "indicator.display_value": "203.0.113.45",
+    },
+  );
+  const hostSavedView = await createSavedView(page, incidentId, {
+    display_name: "FE-E-P2-01 host saved view",
+    scope: "shared",
+    view_schema_id: hostsViewSchemaId,
+  });
+  const indicatorSavedView = await createSavedView(page, incidentId, {
+    display_name: "FE-E-P2-01 indicator saved view",
+    scope: "shared",
+    view_schema_id: indicatorsViewSchemaId,
+  });
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      hostsViewSchemaId,
+    )}`,
+  );
+
+  const shell = page.getByTestId(workbookShellReadyTestId());
+  await expect(shell).toBeVisible();
+  await expect(shell).toHaveAttribute(
+    "data-active-view-schema-id",
+    hostsViewSchemaId,
+  );
+  const shellId = await shell.getAttribute("data-workbook-shell-id");
+  expect(shellId).toBe(workbookShellReadyTestId());
+
+  await expect(
+    page.getByTestId(
+      rowCellTestId(host.record_id as string, "host.display_name"),
+    ),
+  ).toBeVisible();
+
+  const tabBar = shell.locator(
+    dataTestIdSelector(workbookShellSlotTestId("tab-bar")),
+  );
+  await expect(tabBar.locator(savedViewFamilySelector())).toHaveCount(0);
+
+  const viewBar = shell.locator(
+    dataTestIdSelector(workbookShellSlotTestId("view-bar")),
+  );
+  const hostSelector = viewBar.getByTestId(
+    savedViewSelectorTestId(hostsViewSchemaId),
+  );
+  await expect(hostSelector).toHaveCount(1);
+  await expect(
+    hostSelector.getByTestId(
+      savedViewOptionTestId(hostsViewSchemaId, hostSavedView.saved_view_id),
+    ),
+  ).toHaveAttribute("data-view-schema-id", hostsViewSchemaId);
+  await expect(
+    hostSelector.getByTestId(
+      savedViewOptionTestId(
+        hostsViewSchemaId,
+        indicatorSavedView.saved_view_id,
+      ),
+    ),
+  ).toHaveCount(0);
+
+  const indicatorsQuery = waitForViewQuery(
+    page,
+    incidentId,
+    indicatorsViewSchemaId,
+  );
+  await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
+  await page
+    .getByTestId(
+      systemViewSwitcherOptionTestId(
+        "scope-assessment",
+        indicatorsViewSchemaId,
+      ),
+    )
+    .click();
+  await indicatorsQuery;
+
+  await expect(shell).toHaveAttribute("data-workbook-shell-id", shellId ?? "");
+  await expect(shell).toHaveAttribute(
+    "data-active-view-schema-id",
+    indicatorsViewSchemaId,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(indicatorsViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(
+      rowCellTestId(indicator.record_id as string, "indicator.indicator_type"),
+    ),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`),
+  );
+  await expect(tabBar.locator(savedViewFamilySelector())).toHaveCount(0);
+
+  const indicatorSelector = viewBar.getByTestId(
+    savedViewSelectorTestId(indicatorsViewSchemaId),
+  );
+  await expect(indicatorSelector).toHaveCount(1);
+  await expect(
+    indicatorSelector.getByTestId(
+      savedViewOptionTestId(
+        indicatorsViewSchemaId,
+        indicatorSavedView.saved_view_id,
+      ),
+    ),
+  ).toHaveAttribute("data-saved-view-id", indicatorSavedView.saved_view_id);
+  await expect(
+    indicatorSelector.getByTestId(
+      savedViewOptionTestId(
+        indicatorsViewSchemaId,
+        hostSavedView.saved_view_id,
+      ),
+    ),
+  ).toHaveCount(0);
+
+  await indicatorSelector.selectOption(indicatorSavedView.saved_view_id);
+  await expect(indicatorSelector).toHaveAttribute(
+    "data-selected-sheet-ref-kind",
+    "saved_view",
+  );
+  await expect(indicatorSelector).toHaveAttribute(
+    "data-selected-saved-view-id",
+    indicatorSavedView.saved_view_id,
+  );
+  const savedViewUrl = new URL(page.url());
+  expect(savedViewUrl.searchParams.get("sheet_ref_kind")).toBe("saved_view");
+  expect(savedViewUrl.searchParams.get("sheet_ref_id")).toBe(
+    indicatorSavedView.saved_view_id,
+  );
+  expect(savedViewUrl.searchParams.get("view_schema_id")).toBeNull();
+  await expect(shell).toHaveAttribute(
+    "data-active-view-schema-id",
+    indicatorsViewSchemaId,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(indicatorsViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(
+      rowCellTestId(indicator.record_id as string, "indicator.indicator_type"),
+    ),
+  ).toBeVisible();
+});
+
 test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell", async ({
   page,
 }) => {
@@ -364,3 +536,19 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
     page.getByTestId(incidentMembershipRowTestId(memberUser.user_id)),
   ).toHaveCount(0);
 });
+
+function waitForViewQuery(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+) {
+  return page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
+        ),
+  );
+}

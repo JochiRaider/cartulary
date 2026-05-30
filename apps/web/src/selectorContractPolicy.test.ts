@@ -35,6 +35,7 @@ const sharedBuilderOwnedSelectorPatterns = [
   /^incident-landing$/u,
   /^landing-/u,
   /^row-history-/u,
+  /^saved-view-/u,
   /^reference-pack-(?:admin-panel|file|import|job-status|reload|cancel|refresh-all|refresh-selected|row|error)(?:-|$)/u,
   /^save-state$/u,
   /^workbook-(?:current-user|loading)$/u,

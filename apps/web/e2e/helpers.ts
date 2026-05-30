@@ -48,6 +48,13 @@ export type ViewApiRow = {
   [key: string]: unknown;
 };
 
+export type SavedViewApiResource = {
+  saved_view_id: string;
+  view_schema_id: string;
+  display_name: string;
+  [key: string]: unknown;
+};
+
 function originFromEnv(name: string, fallback: string) {
   return (process.env[name] ?? fallback).replace(/\/+$/, "");
 }
@@ -561,6 +568,34 @@ export async function createViewRow(
   );
   expect(response.ok()).toBeTruthy();
   return ((await response.json()) as { data: { row: ViewApiRow } }).data.row;
+}
+
+export async function createSavedView(
+  page: Page,
+  incidentId: string,
+  options: {
+    display_name: string;
+    layout_json?: Record<string, unknown>;
+    query_json?: Record<string, unknown>;
+    scope?: "private" | "shared";
+    view_schema_id: string;
+  },
+): Promise<SavedViewApiResource> {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        display_name: options.display_name,
+        layout_json: options.layout_json ?? {},
+        query_json: options.query_json ?? {},
+        ...(options.scope === undefined ? {} : { scope: options.scope }),
+        view_schema_id: options.view_schema_id,
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: SavedViewApiResource }).data;
 }
 
 export async function queryViewRows(

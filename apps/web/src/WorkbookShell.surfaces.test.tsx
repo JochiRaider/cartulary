@@ -1,4 +1,5 @@
 import {
+  dataTestIdSelector,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   gridFilterApplyTestId,
@@ -7,6 +8,8 @@ import {
   gridSavedRowsSelector,
   gridShellTestId,
   rowInspectButtonTestId,
+  savedViewOptionTestId,
+  savedViewSelectorTestId,
   surfaceTabTestId,
   systemViewSwitcherGroupTestId,
   systemViewSwitcherOptionTestId,
@@ -67,6 +70,11 @@ describe("WorkbookShell surface selection", () => {
     row_version: number;
     cells: Record<string, { value: unknown }>;
   }>;
+  let savedViews: Array<{
+    saved_view_id: string;
+    view_schema_id: string;
+    display_name: string;
+  }>;
   let queryResponseOverride:
     | ((
         viewSchemaId: string,
@@ -85,6 +93,7 @@ describe("WorkbookShell surface selection", () => {
     window.history.replaceState({}, "", "/");
     evidenceRows = [];
     timelineRows = [];
+    savedViews = [];
     queryResponseOverride = null;
     startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
@@ -141,6 +150,14 @@ describe("WorkbookShell surface selection", () => {
           cleared_pointers: [],
           home_sheet_ref: null,
           default_sheet_ref: null,
+        });
+      }
+      if (
+        method === "GET" &&
+        url.includes("/api/v1/incidents/incident-1/saved-views")
+      ) {
+        return successEnvelope({
+          saved_views: savedViews,
         });
       }
       if (url.endsWith("/api/v1/evidence-records/evidence-1/preview-handle")) {
@@ -422,6 +439,80 @@ describe("WorkbookShell surface selection", () => {
     });
     expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
     expect(window.location.search).not.toContain("view_schema_id=");
+  });
+
+  it("renders saved views only in the active surface selector and preserves selected saved-view identity", async () => {
+    const evidenceSavedViewId = "22222222-2222-4222-8222-222222222222";
+    savedViews = [
+      {
+        saved_view_id: savedViewId,
+        view_schema_id: timelineViewSchemaId,
+        display_name: "Timeline saved view",
+      },
+      {
+        saved_view_id: evidenceSavedViewId,
+        view_schema_id: evidenceViewSchemaId,
+        display_name: "Evidence saved view",
+      },
+    ];
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    const timelineSelector = await screen.findByTestId(
+      savedViewSelectorTestId(timelineViewSchemaId),
+    );
+    expect(
+      timelineSelector.querySelector(
+        dataTestIdSelector(
+          savedViewOptionTestId(timelineViewSchemaId, savedViewId),
+        ),
+      ),
+    ).not.toBeNull();
+    expect(
+      timelineSelector.querySelector(
+        dataTestIdSelector(
+          savedViewOptionTestId(timelineViewSchemaId, evidenceSavedViewId),
+        ),
+      ),
+    ).toBeNull();
+
+    fireEvent.change(timelineSelector, {
+      target: { value: savedViewId },
+    });
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("sheet_ref_kind=saved_view");
+    });
+    expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
+    expect(window.location.search).not.toContain("view_schema_id=");
+    expect(timelineSelector.getAttribute("data-selected-sheet-ref-kind")).toBe(
+      "saved_view",
+    );
+    expect(timelineSelector.getAttribute("data-selected-saved-view-id")).toBe(
+      savedViewId,
+    );
+
+    fireEvent.click(screen.getByTestId(surfaceTabTestId(evidenceViewSchemaId)));
+    const evidenceSelector = await screen.findByTestId(
+      savedViewSelectorTestId(evidenceViewSchemaId),
+    );
+    expect(
+      evidenceSelector.querySelector(
+        dataTestIdSelector(
+          savedViewOptionTestId(evidenceViewSchemaId, evidenceSavedViewId),
+        ),
+      ),
+    ).not.toBeNull();
+    expect(
+      evidenceSelector.querySelector(
+        dataTestIdSelector(
+          savedViewOptionTestId(evidenceViewSchemaId, savedViewId),
+        ),
+      ),
+    ).toBeNull();
+    expect(window.location.search).toContain(
+      `view_schema_id=${encodeURIComponent(evidenceViewSchemaId)}`,
+    );
   });
 
   it("passes invalid explicit base surfaces to backend startup fallback", async () => {

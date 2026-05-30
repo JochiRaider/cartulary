@@ -70,6 +70,8 @@ import {
   rowHistoryRestoreButtonTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
+  savedViewOptionTestId,
+  savedViewSelectorTestId,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherGroupTestId,
@@ -161,6 +163,7 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
   investigativeQueriesViewSchemaId,
+  isStandardizedWorkbookViewSchemaId,
   knownWorkbookViewSchemaId,
   lessonViewSchemaId,
   listSystemWorkbookSurfaceGroups,
@@ -262,6 +265,7 @@ type TimelineWorkbookProps = {
   incidentId: string;
   apiBase?: string | undefined;
   sheetRef?: WorkbookSheetRef | undefined;
+  savedViewSelector?: ReactNode | undefined;
   hostEntities?: EntityRow[];
   identityEntities?: EntityRow[];
   entityIndex?: Record<string, EntityRow>;
@@ -320,6 +324,24 @@ type WorkbookQueryEnvelope = {
     incident_id: string;
     view_schema_id: string;
     rows: TimelineApiRow[];
+  };
+};
+
+type SavedViewResource = {
+  saved_view_id: string;
+  view_schema_id: string;
+  display_name: string;
+};
+
+type SavedViewListEnvelope = {
+  data: {
+    saved_views: SavedViewResource[];
+  };
+  meta?: {
+    paging?: {
+      has_more?: boolean;
+      next_cursor?: string | null;
+    };
   };
 };
 
@@ -2560,6 +2582,7 @@ export function TimelineWorkbook({
   incidentId,
   apiBase,
   sheetRef,
+  savedViewSelector,
   hostEntities = [],
   identityEntities = [],
   entityIndex = {},
@@ -7248,6 +7271,7 @@ export function TimelineWorkbook({
             slot="view-bar"
             viewSchemaId={timelineViewSchemaId}
           >
+            {savedViewSelector}
             <WorkbookGridControls
               contract={timelineContract}
               filterDraft={filterDraft}
@@ -7773,6 +7797,7 @@ function EntityWorkbookSurface({
   incidentId,
   apiBase,
   entityType,
+  savedViewSelector,
   filterDraft,
   onApplyFilter,
   onFilterDraftChange,
@@ -7788,6 +7813,7 @@ function EntityWorkbookSurface({
   incidentId: string;
   apiBase?: string | undefined;
   entityType: EntityRow["entityType"];
+  savedViewSelector?: ReactNode | undefined;
   filterDraft: FilterDraft;
   onApplyFilter: () => void;
   onFilterDraftChange: (draft: FilterDraft) => void;
@@ -8102,16 +8128,19 @@ function EntityWorkbookSurface({
 
       <div style={splitShellStyle}>
         <div>
-          <WorkbookGridControls
-            contract={contract}
-            filterDraft={filterDraft}
-            onApplyFilter={onApplyFilter}
-            onFilterDraftChange={onFilterDraftChange}
-            onGroupByChange={onGroupByChange}
-            onRemoveFilter={onRemoveFilter}
-            queryState={queryState}
-            surface={surface}
-          />
+          <WorkbookShellSlotRegion slot="view-bar" viewSchemaId={surface}>
+            {savedViewSelector}
+            <WorkbookGridControls
+              contract={contract}
+              filterDraft={filterDraft}
+              onApplyFilter={onApplyFilter}
+              onFilterDraftChange={onFilterDraftChange}
+              onGroupByChange={onGroupByChange}
+              onRemoveFilter={onRemoveFilter}
+              queryState={queryState}
+              surface={surface}
+            />
+          </WorkbookShellSlotRegion>
           <GridViewport
             style={gridShellStyle}
             testId={gridShellTestId(surface)}
@@ -8320,6 +8349,7 @@ function AssessmentWorkbookSurface({
   apiBase,
   assessmentRows,
   currentIncidentRole,
+  savedViewSelector,
   filterDraft,
   hostRows,
   identityRows,
@@ -8336,6 +8366,7 @@ function AssessmentWorkbookSurface({
   apiBase?: string | undefined;
   assessmentRows: EntityApiRow[];
   currentIncidentRole: IncidentRole | null;
+  savedViewSelector?: ReactNode | undefined;
   filterDraft: FilterDraft;
   hostRows: EntityRow[];
   identityRows: EntityRow[];
@@ -8510,16 +8541,22 @@ function AssessmentWorkbookSurface({
 
       <div style={splitShellStyle}>
         <div>
-          <WorkbookGridControls
-            contract={assessmentsContract}
-            filterDraft={filterDraft}
-            onApplyFilter={onApplyFilter}
-            onFilterDraftChange={onFilterDraftChange}
-            onGroupByChange={onGroupByChange}
-            onRemoveFilter={onRemoveFilter}
-            queryState={queryState}
-            surface={assessmentsViewSchemaId}
-          />
+          <WorkbookShellSlotRegion
+            slot="view-bar"
+            viewSchemaId={assessmentsViewSchemaId}
+          >
+            {savedViewSelector}
+            <WorkbookGridControls
+              contract={assessmentsContract}
+              filterDraft={filterDraft}
+              onApplyFilter={onApplyFilter}
+              onFilterDraftChange={onFilterDraftChange}
+              onGroupByChange={onGroupByChange}
+              onRemoveFilter={onRemoveFilter}
+              queryState={queryState}
+              surface={assessmentsViewSchemaId}
+            />
+          </WorkbookShellSlotRegion>
           {loadError ? (
             <p data-testid="assessment-surface-load-error" style={bodyStyle}>
               {loadError}
@@ -8738,6 +8775,7 @@ function GenericWorkbookSurface({
   apiBase,
   contract,
   currentUserId,
+  savedViewSelector,
   filterDraft,
   incidentId,
   loadError,
@@ -8753,6 +8791,7 @@ function GenericWorkbookSurface({
   apiBase?: string | undefined;
   contract: ViewContract;
   currentUserId: string | null;
+  savedViewSelector?: ReactNode | undefined;
   filterDraft: FilterDraft;
   incidentId: string;
   loadError: string | null;
@@ -9919,16 +9958,19 @@ function GenericWorkbookSurface({
         </section>
       ) : null}
 
-      <WorkbookGridControls
-        contract={contract}
-        filterDraft={filterDraft}
-        onApplyFilter={onApplyFilter}
-        onFilterDraftChange={onFilterDraftChange}
-        onGroupByChange={onGroupByChange}
-        onRemoveFilter={onRemoveFilter}
-        queryState={queryState}
-        surface={surface}
-      />
+      <WorkbookShellSlotRegion slot="view-bar" viewSchemaId={surface}>
+        {savedViewSelector}
+        <WorkbookGridControls
+          contract={contract}
+          filterDraft={filterDraft}
+          onApplyFilter={onApplyFilter}
+          onFilterDraftChange={onFilterDraftChange}
+          onGroupByChange={onGroupByChange}
+          onRemoveFilter={onRemoveFilter}
+          queryState={queryState}
+          surface={surface}
+        />
+      </WorkbookShellSlotRegion>
 
       {loadError ? (
         <p data-testid="generic-surface-load-error" style={bodyStyle}>
@@ -11043,6 +11085,81 @@ function SystemViewSwitcher({
   );
 }
 
+function ActiveSurfaceSavedViewSelector({
+  activeViewSchemaId,
+  savedViews,
+  selectedSheetRef,
+  onSelectBaseSurface,
+  onSelectSavedView,
+}: {
+  readonly activeViewSchemaId: string;
+  readonly savedViews: readonly SavedViewResource[];
+  readonly selectedSheetRef: WorkbookSheetRef;
+  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
+  readonly onSelectSavedView: (savedView: SavedViewResource) => void;
+}) {
+  const activeSavedViews = useMemo(
+    () =>
+      savedViews.filter(
+        (savedView) => savedView.view_schema_id === activeViewSchemaId,
+      ),
+    [activeViewSchemaId, savedViews],
+  );
+  const selectedSavedViewId =
+    selectedSheetRef.kind === "saved_view" &&
+    activeSavedViews.some(
+      (savedView) => savedView.saved_view_id === selectedSheetRef.id,
+    )
+      ? selectedSheetRef.id
+      : "";
+
+  return (
+    <label style={savedViewSelectorFrameStyle}>
+      <span style={savedViewSelectorLabelStyle}>Saved view</span>
+      <select
+        aria-label="Saved view"
+        data-active-view-schema-id={activeViewSchemaId}
+        data-selected-saved-view-id={selectedSavedViewId}
+        data-selected-sheet-ref-kind={
+          selectedSavedViewId === "" ? "view_schema" : "saved_view"
+        }
+        data-testid={savedViewSelectorTestId(activeViewSchemaId)}
+        style={savedViewSelectStyle}
+        value={selectedSavedViewId}
+        onChange={(event) => {
+          const nextSavedViewId = event.currentTarget.value;
+          if (nextSavedViewId === "") {
+            onSelectBaseSurface(activeViewSchemaId);
+            return;
+          }
+          const savedView = activeSavedViews.find(
+            (candidate) => candidate.saved_view_id === nextSavedViewId,
+          );
+          if (savedView !== undefined) {
+            onSelectSavedView(savedView);
+          }
+        }}
+      >
+        <option value="">Base view</option>
+        {activeSavedViews.map((savedView) => (
+          <option
+            key={savedView.saved_view_id}
+            data-saved-view-id={savedView.saved_view_id}
+            data-testid={savedViewOptionTestId(
+              activeViewSchemaId,
+              savedView.saved_view_id,
+            )}
+            data-view-schema-id={activeViewSchemaId}
+            value={savedView.saved_view_id}
+          >
+            {savedView.display_name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function WorkbookShell({
   incidentId,
   apiBase,
@@ -11074,6 +11191,7 @@ export function WorkbookShell({
   const [assessmentLoadError, setAssessmentLoadError] = useState<string | null>(
     null,
   );
+  const [savedViews, setSavedViews] = useState<SavedViewResource[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
@@ -11130,6 +11248,14 @@ export function WorkbookShell({
     },
     [],
   );
+  const selectSavedView = useCallback((savedView: SavedViewResource) => {
+    const nextSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
+    setSurface(nextSurface);
+    setStartupSheetRef({
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    });
+  }, []);
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -11411,6 +11537,70 @@ export function WorkbookShell({
   }, [apiBase, incidentId, params]);
 
   useEffect(() => {
+    let cancelled = false;
+    const nextSavedViews: SavedViewResource[] = [];
+    const loadSavedViews = async () => {
+      let cursorToken: string | null = null;
+      do {
+        const query = new URLSearchParams({ limit: "100" });
+        if (cursorToken !== null) {
+          query.set("cursor_token", cursorToken);
+        }
+        const result = await fetchJSON<SavedViewListEnvelope>(
+          apiPath(
+            apiBase,
+            `/api/v1/incidents/${incidentId}/saved-views?${query.toString()}`,
+          ),
+        );
+        if (cancelled) {
+          return;
+        }
+        if (!result.ok) {
+          const message = parseErrorMessage(result.payload);
+          if (
+            message.includes("incident_not_found") ||
+            message.includes("authorization_denied")
+          ) {
+            onIncidentAccessLost?.();
+          }
+          setSavedViews([]);
+          return;
+        }
+
+        const envelope = readEnvelope<SavedViewListEnvelope>(result.payload);
+        for (const savedView of envelope.data.saved_views) {
+          if (
+            typeof savedView.saved_view_id === "string" &&
+            typeof savedView.view_schema_id === "string" &&
+            typeof savedView.display_name === "string" &&
+            isStandardizedWorkbookViewSchemaId(savedView.view_schema_id)
+          ) {
+            nextSavedViews.push({
+              saved_view_id: savedView.saved_view_id,
+              view_schema_id: savedView.view_schema_id,
+              display_name: savedView.display_name,
+            });
+          }
+        }
+        const paging = envelope.meta?.paging;
+        cursorToken =
+          paging?.has_more === true && paging.next_cursor
+            ? paging.next_cursor
+            : null;
+      } while (cursorToken !== null);
+
+      if (!cancelled) {
+        setSavedViews(nextSavedViews);
+      }
+    };
+
+    void loadSavedViews();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, incidentId, onIncidentAccessLost]);
+
+  useEffect(() => {
     void Promise.all([loadEntities(), loadSessionRole()]);
   }, [loadEntities, loadSessionRole]);
 
@@ -11487,6 +11677,16 @@ export function WorkbookShell({
       }
     };
   }, [pendingGridFocusSurface, surface]);
+
+  const activeSavedViewSelector = (
+    <ActiveSurfaceSavedViewSelector
+      activeViewSchemaId={surface}
+      onSelectBaseSurface={selectWorkbookSurface}
+      onSelectSavedView={selectSavedView}
+      savedViews={savedViews}
+      selectedSheetRef={startupSheetRef}
+    />
+  );
 
   return (
     <section
@@ -11608,6 +11808,7 @@ export function WorkbookShell({
           identityEntities={identityRows}
           incidentId={incidentId}
           onRefreshEntities={loadEntities}
+          savedViewSelector={activeSavedViewSelector}
           sheetRef={startupSheetRef}
         />
       ) : surface === hostsViewSchemaId ||
@@ -11671,6 +11872,7 @@ export function WorkbookShell({
             surface === hostsViewSchemaId ? hostQueryState : identityQueryState
           }
           rows={surface === hostsViewSchemaId ? hostRows : identityRows}
+          savedViewSelector={activeSavedViewSelector}
         />
       ) : surface === assessmentsViewSchemaId ? (
         <AssessmentWorkbookSurface
@@ -11710,6 +11912,7 @@ export function WorkbookShell({
             );
           }}
           queryState={assessmentQueryState}
+          savedViewSelector={activeSavedViewSelector}
         />
       ) : (
         <GenericWorkbookSurface
@@ -11749,6 +11952,7 @@ export function WorkbookShell({
           }}
           queryState={genericQueryState}
           rows={genericRows}
+          savedViewSelector={activeSavedViewSelector}
         />
       )}
     </section>
@@ -12497,6 +12701,17 @@ const systemViewSwitcherOptionSelectedStyle = {
   fontWeight: 700,
 };
 
+const savedViewSelectorFrameStyle = {
+  display: "grid",
+  gap: "0.25rem",
+  minWidth: "16rem",
+};
+
+const savedViewSelectorLabelStyle = {
+  ...eyebrowStyle,
+  fontSize: "0.68rem",
+};
+
 const roleBadgeStyle = {
   borderRadius: "999px",
   background: "rgb(236 244 239)",
@@ -12512,6 +12727,12 @@ const supportRegionStyle = {
 const selectStyle = {
   ...inputStyle,
   appearance: "auto" as const,
+};
+
+const savedViewSelectStyle = {
+  ...selectStyle,
+  borderRadius: "0.5rem",
+  paddingBlock: "0.5rem",
 };
 
 const mergePlanStyle = {

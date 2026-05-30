@@ -931,6 +931,23 @@ export function savedViewFamilySelector(): string {
   return dataTestIdPrefixSelector("saved-view-");
 }
 
+export function savedViewSelectorTestId(viewSchemaId: string): StableTestId {
+  return stableTestId(
+    `saved-view-selector-${requireViewSchemaId(viewSchemaId)}`,
+  );
+}
+
+export function savedViewOptionTestId(
+  viewSchemaId: string,
+  savedViewId: string,
+): StableTestId {
+  return stableTestId(
+    `saved-view-option-${requireViewSchemaId(
+      viewSchemaId,
+    )}-${encodeSelectorSegment(savedViewId, "saved_view_id")}`,
+  );
+}
+
 export function dataTestIdPrefixSelector(testIdPrefix: string): string {
   return `[data-testid^="${cssAttributeValue(
     requireNonEmptySelectorValue(testIdPrefix, "data-testid prefix"),

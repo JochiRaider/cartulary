@@ -207,7 +207,7 @@
       "scenario_titles": [
         "FE-E-P2-01 Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
