@@ -1,3 +1,10 @@
+import {
+  phase1AccountTestId,
+  phase1AdminTestId,
+  phase1AuthTestId,
+  phase1ErrorCodeTestId,
+  phase1ErrorSummaryTestIds,
+} from "@cartulary/ui-contracts";
 import { type CSSProperties, useRef, useState } from "react";
 
 import { type APIError, extractError, publicErrorView } from "./browserApi";
@@ -172,7 +179,7 @@ export function Phase1AuthSurface({
       aria-busy={bootstrapState === "loading"}
       className="cartulary-shell"
       data-bootstrap-state={displayedBootstrapState}
-      data-testid="auth-shell"
+      data-testid={phase1AuthTestId("shell")}
       style={shellStyle}
     >
       <section style={shellPanelStyle}>
@@ -180,7 +187,10 @@ export function Phase1AuthSurface({
           <div>
             <p style={eyebrowStyle}>Cartulary</p>
             <h1 style={headlineStyle}>Local sign-in</h1>
-            <p data-testid="auth-shell-message" style={bodyStyle}>
+            <p
+              data-testid={phase1AuthTestId("shell-message")}
+              style={bodyStyle}
+            >
               {message}
             </p>
           </div>
@@ -188,7 +198,7 @@ export function Phase1AuthSurface({
             <span style={labelStyle}>Status</span>
             <strong
               aria-live="polite"
-              data-testid="auth-status"
+              data-testid={phase1AuthTestId("status")}
               role="status"
             >
               {bootstrapState === "loading"
@@ -212,7 +222,7 @@ export function Phase1AuthSurface({
               Email
             </label>
             <input
-              data-testid="auth-login-username"
+              data-testid={phase1AuthTestId("login-username")}
               id="auth-login-username"
               style={inputStyle}
               value={username}
@@ -224,7 +234,7 @@ export function Phase1AuthSurface({
               Password
             </label>
             <input
-              data-testid="auth-login-password"
+              data-testid={phase1AuthTestId("login-password")}
               id="auth-login-password"
               style={inputStyle}
               type="password"
@@ -237,7 +247,7 @@ export function Phase1AuthSurface({
               TOTP code
             </label>
             <input
-              data-testid="auth-login-totp-code"
+              data-testid={phase1AuthTestId("login-totp-code")}
               id="auth-login-totp-code"
               style={inputStyle}
               value={totpCode}
@@ -248,7 +258,7 @@ export function Phase1AuthSurface({
           </div>
           <div style={buttonRowStyle}>
             <button
-              data-testid="auth-login-submit"
+              data-testid={phase1AuthTestId("login-submit")}
               style={buttonStyle}
               type="button"
               onClick={() => {
@@ -260,7 +270,7 @@ export function Phase1AuthSurface({
           </div>
           <p
             aria-live="assertive"
-            data-testid="auth-error-code"
+            data-testid={phase1ErrorCodeTestId("auth")}
             role={displayedError === null ? undefined : "alert"}
             style={errorStyle}
           >
@@ -268,11 +278,7 @@ export function Phase1AuthSurface({
           </p>
           <PublicErrorSummary
             error={displayedError}
-            testIds={{
-              container: "auth-error-public",
-              details: "auth-error-details",
-              message: "auth-error-message",
-            }}
+            testIds={phase1ErrorSummaryTestIds("auth")}
           />
         </section>
 
@@ -291,14 +297,17 @@ export function Phase1AuthSurface({
             <div style={detailGridStyle}>
               <div>
                 <span style={labelStyle}>Setup token</span>
-                <div data-testid="auth-bootstrap-token" style={monoTextStyle}>
+                <div
+                  data-testid={phase1AuthTestId("bootstrap-token")}
+                  style={monoTextStyle}
+                >
                   Stored for TOTP setup requests.
                 </div>
               </div>
               <div>
                 <span style={labelStyle}>Enrollment id</span>
                 <div
-                  data-testid="auth-bootstrap-enrollment-id"
+                  data-testid={phase1AuthTestId("bootstrap-enrollment-id")}
                   style={monoTextStyle}
                 >
                   {bootstrapEnrollmentId}
@@ -307,7 +316,7 @@ export function Phase1AuthSurface({
               <div style={wideCellStyle}>
                 <span style={labelStyle}>Secret base32</span>
                 <div
-                  data-testid="auth-bootstrap-secret-base32"
+                  data-testid={phase1AuthTestId("bootstrap-secret-base32")}
                   style={monoTextStyle}
                 >
                   {bootstrapSecretBase32}
@@ -316,7 +325,7 @@ export function Phase1AuthSurface({
             </div>
             <div style={buttonRowStyle}>
               <button
-                data-testid="auth-bootstrap-begin"
+                data-testid={phase1AuthTestId("bootstrap-begin")}
                 style={buttonStyle}
                 type="button"
                 onClick={() => {
@@ -334,7 +343,7 @@ export function Phase1AuthSurface({
                 TOTP code
               </label>
               <input
-                data-testid="auth-bootstrap-complete-code"
+                data-testid={phase1AuthTestId("bootstrap-complete-code")}
                 id="auth-bootstrap-complete-code"
                 style={inputStyle}
                 value={bootstrapCompleteCode}
@@ -345,7 +354,7 @@ export function Phase1AuthSurface({
             </div>
             <div style={buttonRowStyle}>
               <button
-                data-testid="auth-bootstrap-complete"
+                data-testid={phase1AuthTestId("bootstrap-complete")}
                 style={buttonStyle}
                 type="button"
                 onClick={() => {
@@ -468,7 +477,7 @@ export function Phase1AccountPanel({
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid="account-refresh-state"
+            data-testid={phase1AccountTestId("refresh-state")}
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -478,7 +487,7 @@ export function Phase1AccountPanel({
             Refresh
           </button>
           <button
-            data-testid="account-logout"
+            data-testid={phase1AccountTestId("logout")}
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -493,53 +502,61 @@ export function Phase1AccountPanel({
       <div style={detailGridStyle}>
         <div>
           <span style={labelStyle}>User id</span>
-          <div data-testid="account-session-user-id" style={monoTextStyle}>
+          <div
+            data-testid={phase1AccountTestId("session-user-id")}
+            style={monoTextStyle}
+          >
             {session.user_id}
           </div>
         </div>
         <div>
           <span style={labelStyle}>Provider</span>
-          <div data-testid="account-session-provider-type">
+          <div data-testid={phase1AccountTestId("session-provider-type")}>
             {session.provider_type}
           </div>
         </div>
         <div>
           <span style={labelStyle}>MFA state</span>
-          <div data-testid="account-session-mfa-state">{session.mfa_state}</div>
+          <div data-testid={phase1AccountTestId("session-mfa-state")}>
+            {session.mfa_state}
+          </div>
         </div>
         <div>
           <span style={labelStyle}>Deployment admin</span>
-          <div data-testid="account-session-is-deployment-admin">
+          <div data-testid={phase1AccountTestId("session-is-deployment-admin")}>
             {String(session.is_deployment_admin)}
           </div>
         </div>
         <div>
           <span style={labelStyle}>Authenticated at</span>
-          <div data-testid="account-session-authenticated-at">
+          <div data-testid={phase1AccountTestId("session-authenticated-at")}>
             {session.authenticated_at}
           </div>
         </div>
         <div>
           <span style={labelStyle}>Idle expires at</span>
-          <div data-testid="account-session-idle-expires-at">
+          <div data-testid={phase1AccountTestId("session-idle-expires-at")}>
             {session.idle_expires_at}
           </div>
         </div>
         <div>
           <span style={labelStyle}>Absolute expires at</span>
-          <div data-testid="account-session-absolute-expires-at">
+          <div data-testid={phase1AccountTestId("session-absolute-expires-at")}>
             {session.absolute_expires_at}
           </div>
         </div>
         <div>
           <span style={labelStyle}>Session expires at</span>
-          <div data-testid="account-session-session-expires-at">
+          <div data-testid={phase1AccountTestId("session-session-expires-at")}>
             {session.session_expires_at}
           </div>
         </div>
         <div style={wideCellStyle}>
           <span style={labelStyle}>Incident memberships</span>
-          <ul data-testid="account-session-memberships" style={plainListStyle}>
+          <ul
+            data-testid={phase1AccountTestId("session-memberships")}
+            style={plainListStyle}
+          >
             {session.memberships.map((membership) => (
               <li key={`${membership.incident_id}:${membership.role}`}>
                 {membership.incident_id} · {membership.role}
@@ -552,31 +569,35 @@ export function Phase1AccountPanel({
       <div style={detailGridStyle}>
         <div>
           <span style={labelStyle}>Auth kind</span>
-          <div data-testid="account-credential-auth-kind">
+          <div data-testid={phase1AccountTestId("credential-auth-kind")}>
             {credentialState?.auth_kind ?? ""}
           </div>
         </div>
         <div>
           <span style={labelStyle}>Recovery model</span>
-          <div data-testid="account-credential-recovery-model">
+          <div data-testid={phase1AccountTestId("credential-recovery-model")}>
             {credentialState?.recovery_model ?? ""}
           </div>
         </div>
         <div>
           <span style={labelStyle}>Password changed at</span>
-          <div data-testid="account-credential-password-changed-at">
+          <div
+            data-testid={phase1AccountTestId("credential-password-changed-at")}
+          >
             {credentialState?.password_changed_at ?? ""}
           </div>
         </div>
         <div>
           <span style={labelStyle}>TOTP state</span>
-          <div data-testid="account-credential-totp-state">
+          <div data-testid={phase1AccountTestId("credential-totp-state")}>
             {credentialState?.totp.state ?? ""}
           </div>
         </div>
         <div style={wideCellStyle}>
           <span style={labelStyle}>Pending expires at</span>
-          <div data-testid="account-credential-pending-expires-at">
+          <div
+            data-testid={phase1AccountTestId("credential-pending-expires-at")}
+          >
             {credentialState?.totp.pending_expires_at ?? ""}
           </div>
         </div>
@@ -589,7 +610,7 @@ export function Phase1AccountPanel({
             Current password
           </label>
           <input
-            data-testid="account-password-current"
+            data-testid={phase1AccountTestId("password-current")}
             id="account-password-current"
             style={inputStyle}
             type="password"
@@ -602,7 +623,7 @@ export function Phase1AccountPanel({
             New password
           </label>
           <input
-            data-testid="account-password-next"
+            data-testid={phase1AccountTestId("password-next")}
             id="account-password-next"
             style={inputStyle}
             type="password"
@@ -615,7 +636,7 @@ export function Phase1AccountPanel({
             Current TOTP code
           </label>
           <input
-            data-testid="account-password-factor-code"
+            data-testid={phase1AccountTestId("password-factor-code")}
             id="account-password-factor"
             style={inputStyle}
             value={passwordFactorCode}
@@ -626,7 +647,7 @@ export function Phase1AccountPanel({
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid="account-password-change"
+            data-testid={phase1AccountTestId("password-change")}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -648,7 +669,7 @@ export function Phase1AccountPanel({
             Current password
           </label>
           <input
-            data-testid="account-totp-current-password"
+            data-testid={phase1AccountTestId("totp-current-password")}
             id="account-totp-current-password"
             style={inputStyle}
             type="password"
@@ -661,7 +682,7 @@ export function Phase1AccountPanel({
             Current TOTP code
           </label>
           <input
-            data-testid="account-totp-current-factor"
+            data-testid={phase1AccountTestId("totp-current-factor")}
             id="account-totp-current-factor"
             style={inputStyle}
             value={totpCurrentFactorCode}
@@ -672,7 +693,7 @@ export function Phase1AccountPanel({
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid="account-totp-begin"
+            data-testid={phase1AccountTestId("totp-begin")}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -685,13 +706,19 @@ export function Phase1AccountPanel({
         <div style={detailGridStyle}>
           <div>
             <span style={labelStyle}>Enrollment id</span>
-            <div data-testid="account-totp-enrollment-id" style={monoTextStyle}>
+            <div
+              data-testid={phase1AccountTestId("totp-enrollment-id")}
+              style={monoTextStyle}
+            >
               {totpEnrollmentId}
             </div>
           </div>
           <div style={wideCellStyle}>
             <span style={labelStyle}>Secret base32</span>
-            <div data-testid="account-totp-secret-base32" style={monoTextStyle}>
+            <div
+              data-testid={phase1AccountTestId("totp-secret-base32")}
+              style={monoTextStyle}
+            >
               {totpSecretBase32}
             </div>
           </div>
@@ -701,7 +728,7 @@ export function Phase1AccountPanel({
             Replacement TOTP code
           </label>
           <input
-            data-testid="account-totp-complete-code"
+            data-testid={phase1AccountTestId("totp-complete-code")}
             id="account-totp-complete-code"
             style={inputStyle}
             value={totpCompleteCode}
@@ -712,7 +739,7 @@ export function Phase1AccountPanel({
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid="account-totp-complete"
+            data-testid={phase1AccountTestId("totp-complete")}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -726,7 +753,7 @@ export function Phase1AccountPanel({
 
       <p
         aria-live="polite"
-        data-testid="account-status"
+        data-testid={phase1AccountTestId("status")}
         role="status"
         style={statusTextStyle}
       >
@@ -734,19 +761,17 @@ export function Phase1AccountPanel({
       </p>
       <p
         aria-live="assertive"
-        data-testid="account-error-code"
-        role={error === null && credentialStateError === null ? undefined : "alert"}
+        data-testid={phase1ErrorCodeTestId("account")}
+        role={
+          error === null && credentialStateError === null ? undefined : "alert"
+        }
         style={errorStyle}
       >
         {publicErrorView(error ?? credentialStateError)?.code ?? ""}
       </p>
       <PublicErrorSummary
         error={error ?? credentialStateError}
-        testIds={{
-          container: "account-error-public",
-          details: "account-error-details",
-          message: "account-error-message",
-        }}
+        testIds={phase1ErrorSummaryTestIds("account")}
       />
     </section>
   );
@@ -1093,7 +1118,7 @@ export function Phase1AdminPanel({
             <h2 style={sectionTitleStyle}>User administration</h2>
           </div>
         </div>
-        <p data-testid="admin-access-note" style={bodyStyle}>
+        <p data-testid={phase1AdminTestId("access-note")} style={bodyStyle}>
           Deployment admin access is required for user creation, patching, and
           credential actions. Incident-admin membership alone does not unlock
           these controls.
@@ -1118,7 +1143,7 @@ export function Phase1AdminPanel({
             Email
           </label>
           <input
-            data-testid="admin-create-email"
+            data-testid={phase1AdminTestId("create-email")}
             id="admin-create-email"
             disabled={targetOperationPending}
             style={inputStyle}
@@ -1131,7 +1156,7 @@ export function Phase1AdminPanel({
             Display name
           </label>
           <input
-            data-testid="admin-create-display-name"
+            data-testid={phase1AdminTestId("create-display-name")}
             id="admin-create-display-name"
             disabled={targetOperationPending}
             style={inputStyle}
@@ -1144,7 +1169,7 @@ export function Phase1AdminPanel({
             Initial password
           </label>
           <input
-            data-testid="admin-create-password"
+            data-testid={phase1AdminTestId("create-password")}
             id="admin-create-password"
             disabled={targetOperationPending}
             style={inputStyle}
@@ -1158,7 +1183,7 @@ export function Phase1AdminPanel({
         <div style={checkboxRowStyle}>
           <label style={checkboxLabelStyle}>
             <input
-              data-testid="admin-create-mfa-required"
+              data-testid={phase1AdminTestId("create-mfa-required")}
               type="checkbox"
               disabled={targetOperationPending}
               checked={createMfaRequired}
@@ -1170,7 +1195,7 @@ export function Phase1AdminPanel({
           </label>
           <label style={checkboxLabelStyle}>
             <input
-              data-testid="admin-create-is-deployment-admin"
+              data-testid={phase1AdminTestId("create-is-deployment-admin")}
               type="checkbox"
               disabled={targetOperationPending}
               checked={createIsDeploymentAdmin}
@@ -1183,7 +1208,7 @@ export function Phase1AdminPanel({
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid="admin-create-user"
+            data-testid={phase1AdminTestId("create-user")}
             disabled={targetOperationPending}
             style={buttonStyle}
             type="button"
@@ -1203,7 +1228,7 @@ export function Phase1AdminPanel({
             User id
           </label>
           <input
-            data-testid="admin-target-user-id-input"
+            data-testid={phase1AdminTestId("target-user-id-input")}
             id="admin-target-user-id-input"
             disabled={targetOperationPending}
             style={inputStyle}
@@ -1215,7 +1240,7 @@ export function Phase1AdminPanel({
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid="admin-load-user"
+            data-testid={phase1AdminTestId("load-user")}
             disabled={!canLoadTargetUser}
             style={secondaryButtonStyle}
             type="button"
@@ -1229,25 +1254,28 @@ export function Phase1AdminPanel({
         <div style={detailGridStyle}>
           <div>
             <span style={labelStyle}>Loaded user id</span>
-            <div data-testid="admin-target-user-id" style={monoTextStyle}>
+            <div
+              data-testid={phase1AdminTestId("target-user-id")}
+              style={monoTextStyle}
+            >
               {selectedUser?.user_id ?? ""}
             </div>
           </div>
           <div>
             <span style={labelStyle}>User version</span>
-            <div data-testid="admin-target-user-version">
+            <div data-testid={phase1AdminTestId("target-user-version")}>
               {selectedUser?.user_version ?? ""}
             </div>
           </div>
           <div>
             <span style={labelStyle}>Is active</span>
-            <div data-testid="admin-target-is-active">
+            <div data-testid={phase1AdminTestId("target-is-active")}>
               {selectedUser ? String(selectedUser.is_active) : ""}
             </div>
           </div>
           <div>
             <span style={labelStyle}>Deployment admin</span>
-            <div data-testid="admin-target-is-deployment-admin">
+            <div data-testid={phase1AdminTestId("target-is-deployment-admin")}>
               {selectedUser ? String(selectedUser.is_deployment_admin) : ""}
             </div>
           </div>
@@ -1261,7 +1289,7 @@ export function Phase1AdminPanel({
             Base user version
           </label>
           <input
-            data-testid="admin-patch-base-version"
+            data-testid={phase1AdminTestId("patch-base-version")}
             id="admin-patch-base-version"
             disabled={!canSubmitTargetAction}
             style={inputStyle}
@@ -1274,7 +1302,7 @@ export function Phase1AdminPanel({
             Display name
           </label>
           <input
-            data-testid="admin-patch-display-name"
+            data-testid={phase1AdminTestId("patch-display-name")}
             id="admin-patch-display-name"
             disabled={!canSubmitTargetAction}
             style={inputStyle}
@@ -1287,7 +1315,7 @@ export function Phase1AdminPanel({
         <div style={checkboxRowStyle}>
           <label style={checkboxLabelStyle}>
             <input
-              data-testid="admin-patch-mfa-required"
+              data-testid={phase1AdminTestId("patch-mfa-required")}
               type="checkbox"
               disabled={!canSubmitTargetAction}
               checked={patchMfaRequired}
@@ -1299,7 +1327,7 @@ export function Phase1AdminPanel({
           </label>
           <label style={checkboxLabelStyle}>
             <input
-              data-testid="admin-patch-is-active"
+              data-testid={phase1AdminTestId("patch-is-active")}
               type="checkbox"
               disabled={!canSubmitTargetAction}
               checked={patchIsActive}
@@ -1311,7 +1339,7 @@ export function Phase1AdminPanel({
           </label>
           <label style={checkboxLabelStyle}>
             <input
-              data-testid="admin-patch-is-deployment-admin"
+              data-testid={phase1AdminTestId("patch-is-deployment-admin")}
               type="checkbox"
               disabled={!canSubmitTargetAction}
               checked={patchIsDeploymentAdmin}
@@ -1324,7 +1352,7 @@ export function Phase1AdminPanel({
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid="admin-patch-user"
+            data-testid={phase1AdminTestId("patch-user")}
             disabled={!canSubmitVersionedTargetAction}
             style={buttonStyle}
             type="button"
@@ -1344,7 +1372,7 @@ export function Phase1AdminPanel({
             New password
           </label>
           <input
-            data-testid="admin-new-password"
+            data-testid={phase1AdminTestId("new-password")}
             id="admin-new-password"
             style={inputStyle}
             type="password"
@@ -1357,7 +1385,7 @@ export function Phase1AdminPanel({
             Reason
           </label>
           <input
-            data-testid="admin-reason"
+            data-testid={phase1AdminTestId("reason")}
             id="admin-reason"
             style={inputStyle}
             value={adminReason}
@@ -1368,7 +1396,7 @@ export function Phase1AdminPanel({
         </div>
         <div style={buttonRowStyle}>
           <button
-            data-testid="admin-password-reset"
+            data-testid={phase1AdminTestId("password-reset")}
             disabled={!canSubmitVersionedTargetAction}
             style={buttonStyle}
             type="button"
@@ -1379,7 +1407,7 @@ export function Phase1AdminPanel({
             Reset password
           </button>
           <button
-            data-testid="admin-totp-reset"
+            data-testid={phase1AdminTestId("totp-reset")}
             disabled={!canSubmitVersionedTargetAction}
             style={buttonStyle}
             type="button"
@@ -1390,7 +1418,7 @@ export function Phase1AdminPanel({
             Reset TOTP
           </button>
           <button
-            data-testid="admin-revoke-all"
+            data-testid={phase1AdminTestId("revoke-all")}
             disabled={!canSubmitTargetAction}
             style={buttonStyle}
             type="button"
@@ -1405,7 +1433,7 @@ export function Phase1AdminPanel({
 
       <p
         aria-live="polite"
-        data-testid="admin-status"
+        data-testid={phase1AdminTestId("status")}
         role="status"
         style={statusTextStyle}
       >
@@ -1413,7 +1441,7 @@ export function Phase1AdminPanel({
       </p>
       <p
         aria-live="assertive"
-        data-testid="admin-error-code"
+        data-testid={phase1ErrorCodeTestId("admin")}
         role={error === null ? undefined : "alert"}
         style={errorStyle}
       >
@@ -1421,11 +1449,7 @@ export function Phase1AdminPanel({
       </p>
       <PublicErrorSummary
         error={error}
-        testIds={{
-          container: "admin-error-public",
-          details: "admin-error-details",
-          message: "admin-error-message",
-        }}
+        testIds={phase1ErrorSummaryTestIds("admin")}
       />
     </section>
   );

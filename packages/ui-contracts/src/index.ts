@@ -38,6 +38,106 @@ export const timelineScalarEditorSurfaces = [
   "inspector",
 ] as const satisfies readonly TimelineScalarEditorSurface[];
 
+export type Phase1ErrorSurface = "account" | "admin" | "auth" | "landing";
+
+export type Phase1AuthSelector =
+  | "bootstrap-begin"
+  | "bootstrap-complete"
+  | "bootstrap-complete-code"
+  | "bootstrap-enrollment-id"
+  | "bootstrap-secret-base32"
+  | "bootstrap-token"
+  | "login-password"
+  | "login-submit"
+  | "login-totp-code"
+  | "login-username"
+  | "shell"
+  | "shell-message"
+  | "status";
+
+export type Phase1AccountSelector =
+  | "credential-auth-kind"
+  | "credential-password-changed-at"
+  | "credential-pending-expires-at"
+  | "credential-recovery-model"
+  | "credential-totp-state"
+  | "logout"
+  | "password-change"
+  | "password-current"
+  | "password-factor-code"
+  | "password-next"
+  | "refresh-state"
+  | "session-absolute-expires-at"
+  | "session-authenticated-at"
+  | "session-idle-expires-at"
+  | "session-is-deployment-admin"
+  | "session-memberships"
+  | "session-mfa-state"
+  | "session-provider-type"
+  | "session-session-expires-at"
+  | "session-user-id"
+  | "status"
+  | "totp-begin"
+  | "totp-complete"
+  | "totp-complete-code"
+  | "totp-current-factor"
+  | "totp-current-password"
+  | "totp-enrollment-id"
+  | "totp-secret-base32";
+
+export type Phase1AdminSelector =
+  | "access-note"
+  | "create-display-name"
+  | "create-email"
+  | "create-is-deployment-admin"
+  | "create-mfa-required"
+  | "create-password"
+  | "create-user"
+  | "load-user"
+  | "new-password"
+  | "password-reset"
+  | "patch-base-version"
+  | "patch-display-name"
+  | "patch-is-active"
+  | "patch-is-deployment-admin"
+  | "patch-mfa-required"
+  | "patch-user"
+  | "reason"
+  | "revoke-all"
+  | "status"
+  | "target-is-active"
+  | "target-is-deployment-admin"
+  | "target-user-id"
+  | "target-user-id-input"
+  | "target-user-version"
+  | "totp-reset";
+
+export type Phase1LandingSelector =
+  | "create-button"
+  | "current-user"
+  | "empty-state"
+  | "incident-key"
+  | "incident-list"
+  | "incident-title"
+  | "incidents-count"
+  | "loading"
+  | "refresh"
+  | "return"
+  | "shell"
+  | "status";
+
+export type Phase1RouteSelector =
+  | "app-shell"
+  | "debug-harness-loading"
+  | "workbook-current-user"
+  | "workbook-loading";
+
+export type Phase1ErrorSummaryTestIds = {
+  readonly container: string;
+  readonly details: string;
+  readonly message: string;
+};
+
 export type RowHistoryItemAnchor = {
   readonly historyItemRef: string;
 };
@@ -49,6 +149,162 @@ export type RowHistoryActionAnchor = RowHistoryItemAnchor & {
 const registeredViewSchemaIds = Object.freeze(
   new Set(listViewSchemaRegistryEntries().map((entry) => entry.view_schema_id)),
 );
+
+const phase1AuthTestIds = Object.freeze({
+  "bootstrap-begin": "auth-bootstrap-begin",
+  "bootstrap-complete": "auth-bootstrap-complete",
+  "bootstrap-complete-code": "auth-bootstrap-complete-code",
+  "bootstrap-enrollment-id": "auth-bootstrap-enrollment-id",
+  "bootstrap-secret-base32": "auth-bootstrap-secret-base32",
+  "bootstrap-token": "auth-bootstrap-token",
+  "login-password": "auth-login-password",
+  "login-submit": "auth-login-submit",
+  "login-totp-code": "auth-login-totp-code",
+  "login-username": "auth-login-username",
+  shell: "auth-shell",
+  "shell-message": "auth-shell-message",
+  status: "auth-status",
+} satisfies Record<Phase1AuthSelector, string>);
+
+const phase1AccountTestIds = Object.freeze({
+  "credential-auth-kind": "account-credential-auth-kind",
+  "credential-password-changed-at": "account-credential-password-changed-at",
+  "credential-pending-expires-at": "account-credential-pending-expires-at",
+  "credential-recovery-model": "account-credential-recovery-model",
+  "credential-totp-state": "account-credential-totp-state",
+  logout: "account-logout",
+  "password-change": "account-password-change",
+  "password-current": "account-password-current",
+  "password-factor-code": "account-password-factor-code",
+  "password-next": "account-password-next",
+  "refresh-state": "account-refresh-state",
+  "session-absolute-expires-at": "account-session-absolute-expires-at",
+  "session-authenticated-at": "account-session-authenticated-at",
+  "session-idle-expires-at": "account-session-idle-expires-at",
+  "session-is-deployment-admin": "account-session-is-deployment-admin",
+  "session-memberships": "account-session-memberships",
+  "session-mfa-state": "account-session-mfa-state",
+  "session-provider-type": "account-session-provider-type",
+  "session-session-expires-at": "account-session-session-expires-at",
+  "session-user-id": "account-session-user-id",
+  status: "account-status",
+  "totp-begin": "account-totp-begin",
+  "totp-complete": "account-totp-complete",
+  "totp-complete-code": "account-totp-complete-code",
+  "totp-current-factor": "account-totp-current-factor",
+  "totp-current-password": "account-totp-current-password",
+  "totp-enrollment-id": "account-totp-enrollment-id",
+  "totp-secret-base32": "account-totp-secret-base32",
+} satisfies Record<Phase1AccountSelector, string>);
+
+const phase1AdminTestIds = Object.freeze({
+  "access-note": "admin-access-note",
+  "create-display-name": "admin-create-display-name",
+  "create-email": "admin-create-email",
+  "create-is-deployment-admin": "admin-create-is-deployment-admin",
+  "create-mfa-required": "admin-create-mfa-required",
+  "create-password": "admin-create-password",
+  "create-user": "admin-create-user",
+  "load-user": "admin-load-user",
+  "new-password": "admin-new-password",
+  "password-reset": "admin-password-reset",
+  "patch-base-version": "admin-patch-base-version",
+  "patch-display-name": "admin-patch-display-name",
+  "patch-is-active": "admin-patch-is-active",
+  "patch-is-deployment-admin": "admin-patch-is-deployment-admin",
+  "patch-mfa-required": "admin-patch-mfa-required",
+  "patch-user": "admin-patch-user",
+  reason: "admin-reason",
+  "revoke-all": "admin-revoke-all",
+  status: "admin-status",
+  "target-is-active": "admin-target-is-active",
+  "target-is-deployment-admin": "admin-target-is-deployment-admin",
+  "target-user-id": "admin-target-user-id",
+  "target-user-id-input": "admin-target-user-id-input",
+  "target-user-version": "admin-target-user-version",
+  "totp-reset": "admin-totp-reset",
+} satisfies Record<Phase1AdminSelector, string>);
+
+const phase1LandingTestIds = Object.freeze({
+  "create-button": "landing-create-button",
+  "current-user": "landing-current-user",
+  "empty-state": "landing-empty-state",
+  "incident-key": "landing-incident-key",
+  "incident-list": "landing-incident-list",
+  "incident-title": "landing-incident-title",
+  "incidents-count": "landing-incidents-count",
+  loading: "landing-loading",
+  refresh: "landing-refresh",
+  return: "landing-return",
+  shell: "incident-landing",
+  status: "landing-status",
+} satisfies Record<Phase1LandingSelector, string>);
+
+const phase1RouteTestIds = Object.freeze({
+  "app-shell": "app-shell",
+  "debug-harness-loading": "debug-harness-loading",
+  "workbook-current-user": "workbook-current-user",
+  "workbook-loading": "workbook-loading",
+} satisfies Record<Phase1RouteSelector, string>);
+
+const phase1ErrorSurfaces = Object.freeze(
+  new Set<Phase1ErrorSurface>(["account", "admin", "auth", "landing"]),
+);
+
+export function phase1AuthTestId(selector: Phase1AuthSelector): string {
+  return requireSelectorToken(
+    phase1AuthTestIds,
+    selector,
+    "phase1 auth selector",
+  );
+}
+
+export function phase1AccountTestId(selector: Phase1AccountSelector): string {
+  return requireSelectorToken(
+    phase1AccountTestIds,
+    selector,
+    "phase1 account selector",
+  );
+}
+
+export function phase1AdminTestId(selector: Phase1AdminSelector): string {
+  return requireSelectorToken(
+    phase1AdminTestIds,
+    selector,
+    "phase1 admin selector",
+  );
+}
+
+export function phase1LandingTestId(selector: Phase1LandingSelector): string {
+  return requireSelectorToken(
+    phase1LandingTestIds,
+    selector,
+    "phase1 landing selector",
+  );
+}
+
+export function phase1RouteTestId(selector: Phase1RouteSelector): string {
+  return requireSelectorToken(
+    phase1RouteTestIds,
+    selector,
+    "phase1 route selector",
+  );
+}
+
+export function phase1ErrorCodeTestId(surface: Phase1ErrorSurface): string {
+  return `${requirePhase1ErrorSurface(surface)}-error-code`;
+}
+
+export function phase1ErrorSummaryTestIds(
+  surface: Phase1ErrorSurface,
+): Phase1ErrorSummaryTestIds {
+  const prefix = requirePhase1ErrorSurface(surface);
+  return {
+    container: `${prefix}-error-public`,
+    details: `${prefix}-error-details`,
+    message: `${prefix}-error-message`,
+  };
+}
 
 export function gridShellTestId(viewSchemaId: WorkbookSurface): string {
   return `${requireViewSchemaId(viewSchemaId)}-grid-shell`;
@@ -645,6 +901,27 @@ function requireNonEmptySelectorValue(value: string, label: string): string {
     throw new Error(`Invalid ${label} selector token: ${value}`);
   }
   return value;
+}
+
+function requireSelectorToken<T extends string>(
+  tokens: Readonly<Record<T, string>>,
+  value: T,
+  label: string,
+): string {
+  const token = tokens[value];
+  if (token === undefined) {
+    throw new Error(`Invalid ${label} token: ${String(value)}`);
+  }
+  return token;
+}
+
+function requirePhase1ErrorSurface(
+  value: Phase1ErrorSurface,
+): Phase1ErrorSurface {
+  if (phase1ErrorSurfaces.has(value)) {
+    return value;
+  }
+  throw new Error(`Invalid phase1 error surface selector token: ${value}`);
 }
 
 function cssAttributeValue(value: string): string {

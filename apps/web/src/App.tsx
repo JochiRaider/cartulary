@@ -1,6 +1,10 @@
 import {
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
+  phase1ErrorCodeTestId,
+  phase1ErrorSummaryTestIds,
+  phase1LandingTestId,
+  phase1RouteTestId,
 } from "@cartulary/ui-contracts";
 import {
   lazy,
@@ -191,7 +195,7 @@ export function IncidentLanding({
     <section
       aria-busy={isRefreshing}
       data-bootstrap-state={bootstrapState}
-      data-testid="incident-landing"
+      data-testid={phase1LandingTestId("shell")}
       style={landingPanelStyle}
     >
       <div style={landingHeroStyle}>
@@ -207,14 +211,14 @@ export function IncidentLanding({
         <div>
           <p style={landingToolbarLabelStyle}>Current session</p>
           <p
-            data-testid="landing-current-user"
+            data-testid={phase1LandingTestId("current-user")}
             style={landingToolbarValueStyle}
           >
             {currentUserLabel}
           </p>
         </div>
         <button
-          data-testid="landing-refresh"
+          data-testid={phase1LandingTestId("refresh")}
           style={landingSecondaryButtonStyle}
           type="button"
           onClick={() => {
@@ -237,7 +241,7 @@ export function IncidentLanding({
             Incident key
           </label>
           <input
-            data-testid="landing-incident-key"
+            data-testid={phase1LandingTestId("incident-key")}
             id={incidentKeyFieldId}
             style={landingInputStyle}
             value={createIncidentKey}
@@ -250,7 +254,7 @@ export function IncidentLanding({
             Title
           </label>
           <input
-            data-testid="landing-incident-title"
+            data-testid={phase1LandingTestId("incident-title")}
             id={incidentTitleFieldId}
             style={landingInputStyle}
             value={createIncidentTitle}
@@ -261,7 +265,7 @@ export function IncidentLanding({
           />
         </div>
         <button
-          data-testid="landing-create-button"
+          data-testid={phase1LandingTestId("create-button")}
           style={landingPrimaryButtonStyle}
           type="button"
           onClick={() => {
@@ -278,7 +282,10 @@ export function IncidentLanding({
             <p style={landingSectionEyebrowStyle}>Visible incidents</p>
             <h2 style={landingSectionTitleStyle}>Workbook access</h2>
           </div>
-          <p data-testid="landing-incidents-count" style={landingCountStyle}>
+          <p
+            data-testid={phase1LandingTestId("incidents-count")}
+            style={landingCountStyle}
+          >
             {incidents.length}
           </p>
         </div>
@@ -286,7 +293,7 @@ export function IncidentLanding({
         {isRefreshing ? (
           <p
             aria-live="polite"
-            data-testid="landing-loading"
+            data-testid={phase1LandingTestId("loading")}
             role="status"
             style={landingBodyStyle}
           >
@@ -295,13 +302,19 @@ export function IncidentLanding({
         ) : null}
 
         {!isRefreshing && !hasIncidents ? (
-          <p data-testid="landing-empty-state" style={landingBodyStyle}>
+          <p
+            data-testid={phase1LandingTestId("empty-state")}
+            style={landingBodyStyle}
+          >
             No incidents are visible for this session yet.
           </p>
         ) : null}
 
         {hasIncidents ? (
-          <div data-testid="landing-incident-list" style={landingListStyle}>
+          <div
+            data-testid={phase1LandingTestId("incident-list")}
+            style={landingListStyle}
+          >
             {incidents.map((incident) => (
               <article
                 key={incident.incident_id}
@@ -339,7 +352,7 @@ export function IncidentLanding({
 
       <p
         aria-live="polite"
-        data-testid="landing-status"
+        data-testid={phase1LandingTestId("status")}
         role="status"
         style={landingStatusStyle}
       >
@@ -347,7 +360,7 @@ export function IncidentLanding({
       </p>
       <p
         aria-live="assertive"
-        data-testid="landing-error-code"
+        data-testid={phase1ErrorCodeTestId("landing")}
         role={error === null ? undefined : "alert"}
         style={landingErrorStyle}
       >
@@ -355,11 +368,7 @@ export function IncidentLanding({
       </p>
       <PublicErrorSummary
         error={error}
-        testIds={{
-          container: "landing-error-public",
-          details: "landing-error-details",
-          message: "landing-error-message",
-        }}
+        testIds={phase1ErrorSummaryTestIds("landing")}
       />
     </section>
   );
@@ -739,7 +748,7 @@ export function App() {
         aria-busy={appBootstrapState === "loading"}
         className="cartulary-shell"
         data-bootstrap-state={appBootstrapState}
-        data-testid="app-shell"
+        data-testid={phase1RouteTestId("app-shell")}
         style={pageStyle}
       >
         <section style={workbookFrameStyle}>
@@ -747,14 +756,14 @@ export function App() {
             <div>
               <p style={landingToolbarLabelStyle}>Workbook</p>
               <p
-                data-testid="workbook-current-user"
+                data-testid={phase1RouteTestId("workbook-current-user")}
                 style={landingToolbarValueStyle}
               >
                 {currentUserLabel}
               </p>
             </div>
             <button
-              data-testid="landing-return"
+              data-testid={phase1LandingTestId("return")}
               style={landingSecondaryButtonStyle}
               type="button"
               onClick={() => {
@@ -777,7 +786,7 @@ export function App() {
             fallback={
               <p
                 aria-live="polite"
-                data-testid="workbook-loading"
+                data-testid={phase1RouteTestId("workbook-loading")}
                 role="status"
                 style={routeLoadingStyle}
               >
@@ -814,7 +823,7 @@ export function App() {
             fallback={
               <p
                 aria-live="polite"
-                data-testid="debug-harness-loading"
+                data-testid={phase1RouteTestId("debug-harness-loading")}
                 role="status"
                 style={routeLoadingStyle}
               >
@@ -857,7 +866,7 @@ export function App() {
       aria-busy={appBootstrapState === "loading"}
       className="cartulary-shell"
       data-bootstrap-state={appBootstrapState}
-      data-testid="app-shell"
+      data-testid={phase1RouteTestId("app-shell")}
       style={pageStyle}
     >
       <div style={shellStackStyle}>

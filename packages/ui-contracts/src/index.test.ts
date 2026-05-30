@@ -66,6 +66,13 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  phase1AccountTestId,
+  phase1AdminTestId,
+  phase1AuthTestId,
+  phase1ErrorCodeTestId,
+  phase1ErrorSummaryTestIds,
+  phase1LandingTestId,
+  phase1RouteTestId,
   phase2IncidentRowTestId,
   phase2MembershipDeleteButtonTestId,
   phase2MembershipPatchButtonTestId,
@@ -667,6 +674,259 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(extensionProfileRowTestId("profile:core")).toBe(
       "extension-profile%3Acore",
+    );
+  });
+
+  it("provides stable Phase 1 bootstrap, landing, session, admin, and error selectors", () => {
+    expect(phase1AuthTestId("shell")).toBe("auth-shell");
+    expect(phase1AuthTestId("shell-message")).toBe("auth-shell-message");
+    expect(phase1AuthTestId("status")).toBe("auth-status");
+    expect(phase1AuthTestId("login-username")).toBe("auth-login-username");
+    expect(phase1AuthTestId("login-password")).toBe("auth-login-password");
+    expect(phase1AuthTestId("login-totp-code")).toBe("auth-login-totp-code");
+    expect(phase1AuthTestId("login-submit")).toBe("auth-login-submit");
+    expect(phase1AuthTestId("bootstrap-token")).toBe("auth-bootstrap-token");
+    expect(phase1AuthTestId("bootstrap-enrollment-id")).toBe(
+      "auth-bootstrap-enrollment-id",
+    );
+    expect(phase1AuthTestId("bootstrap-secret-base32")).toBe(
+      "auth-bootstrap-secret-base32",
+    );
+    expect(phase1AuthTestId("bootstrap-begin")).toBe("auth-bootstrap-begin");
+    expect(phase1AuthTestId("bootstrap-complete-code")).toBe(
+      "auth-bootstrap-complete-code",
+    );
+    expect(phase1AuthTestId("bootstrap-complete")).toBe(
+      "auth-bootstrap-complete",
+    );
+
+    expect(phase1LandingTestId("shell")).toBe("incident-landing");
+    expect(phase1LandingTestId("current-user")).toBe("landing-current-user");
+    expect(phase1LandingTestId("refresh")).toBe("landing-refresh");
+    expect(phase1LandingTestId("incident-key")).toBe("landing-incident-key");
+    expect(phase1LandingTestId("incident-title")).toBe(
+      "landing-incident-title",
+    );
+    expect(phase1LandingTestId("create-button")).toBe("landing-create-button");
+    expect(phase1LandingTestId("incidents-count")).toBe(
+      "landing-incidents-count",
+    );
+    expect(phase1LandingTestId("loading")).toBe("landing-loading");
+    expect(phase1LandingTestId("empty-state")).toBe("landing-empty-state");
+    expect(phase1LandingTestId("incident-list")).toBe("landing-incident-list");
+    expect(phase1LandingTestId("status")).toBe("landing-status");
+    expect(phase1LandingTestId("return")).toBe("landing-return");
+
+    expect(phase1RouteTestId("app-shell")).toBe("app-shell");
+    expect(phase1RouteTestId("workbook-current-user")).toBe(
+      "workbook-current-user",
+    );
+    expect(phase1RouteTestId("workbook-loading")).toBe("workbook-loading");
+    expect(phase1RouteTestId("debug-harness-loading")).toBe(
+      "debug-harness-loading",
+    );
+
+    expect(phase1AccountTestId("refresh-state")).toBe("account-refresh-state");
+    expect(phase1AccountTestId("logout")).toBe("account-logout");
+    expect(phase1AccountTestId("session-user-id")).toBe(
+      "account-session-user-id",
+    );
+    expect(phase1AccountTestId("session-provider-type")).toBe(
+      "account-session-provider-type",
+    );
+    expect(phase1AccountTestId("session-mfa-state")).toBe(
+      "account-session-mfa-state",
+    );
+    expect(phase1AccountTestId("session-is-deployment-admin")).toBe(
+      "account-session-is-deployment-admin",
+    );
+    expect(phase1AccountTestId("session-authenticated-at")).toBe(
+      "account-session-authenticated-at",
+    );
+    expect(phase1AccountTestId("session-idle-expires-at")).toBe(
+      "account-session-idle-expires-at",
+    );
+    expect(phase1AccountTestId("session-absolute-expires-at")).toBe(
+      "account-session-absolute-expires-at",
+    );
+    expect(phase1AccountTestId("session-session-expires-at")).toBe(
+      "account-session-session-expires-at",
+    );
+    expect(phase1AccountTestId("session-memberships")).toBe(
+      "account-session-memberships",
+    );
+    expect(phase1AccountTestId("credential-auth-kind")).toBe(
+      "account-credential-auth-kind",
+    );
+    expect(phase1AccountTestId("credential-recovery-model")).toBe(
+      "account-credential-recovery-model",
+    );
+    expect(phase1AccountTestId("credential-password-changed-at")).toBe(
+      "account-credential-password-changed-at",
+    );
+    expect(phase1AccountTestId("credential-totp-state")).toBe(
+      "account-credential-totp-state",
+    );
+    expect(phase1AccountTestId("credential-pending-expires-at")).toBe(
+      "account-credential-pending-expires-at",
+    );
+    expect(phase1AccountTestId("password-current")).toBe(
+      "account-password-current",
+    );
+    expect(phase1AccountTestId("password-next")).toBe("account-password-next");
+    expect(phase1AccountTestId("password-factor-code")).toBe(
+      "account-password-factor-code",
+    );
+    expect(phase1AccountTestId("password-change")).toBe(
+      "account-password-change",
+    );
+    expect(phase1AccountTestId("totp-current-password")).toBe(
+      "account-totp-current-password",
+    );
+    expect(phase1AccountTestId("totp-current-factor")).toBe(
+      "account-totp-current-factor",
+    );
+    expect(phase1AccountTestId("totp-begin")).toBe("account-totp-begin");
+    expect(phase1AccountTestId("totp-enrollment-id")).toBe(
+      "account-totp-enrollment-id",
+    );
+    expect(phase1AccountTestId("totp-secret-base32")).toBe(
+      "account-totp-secret-base32",
+    );
+    expect(phase1AccountTestId("totp-complete-code")).toBe(
+      "account-totp-complete-code",
+    );
+    expect(phase1AccountTestId("totp-complete")).toBe("account-totp-complete");
+    expect(phase1AccountTestId("status")).toBe("account-status");
+
+    expect(phase1AdminTestId("access-note")).toBe("admin-access-note");
+    expect(phase1AdminTestId("create-email")).toBe("admin-create-email");
+    expect(phase1AdminTestId("create-display-name")).toBe(
+      "admin-create-display-name",
+    );
+    expect(phase1AdminTestId("create-password")).toBe("admin-create-password");
+    expect(phase1AdminTestId("create-mfa-required")).toBe(
+      "admin-create-mfa-required",
+    );
+    expect(phase1AdminTestId("create-is-deployment-admin")).toBe(
+      "admin-create-is-deployment-admin",
+    );
+    expect(phase1AdminTestId("create-user")).toBe("admin-create-user");
+    expect(phase1AdminTestId("target-user-id-input")).toBe(
+      "admin-target-user-id-input",
+    );
+    expect(phase1AdminTestId("load-user")).toBe("admin-load-user");
+    expect(phase1AdminTestId("target-user-id")).toBe("admin-target-user-id");
+    expect(phase1AdminTestId("target-user-version")).toBe(
+      "admin-target-user-version",
+    );
+    expect(phase1AdminTestId("target-is-active")).toBe(
+      "admin-target-is-active",
+    );
+    expect(phase1AdminTestId("target-is-deployment-admin")).toBe(
+      "admin-target-is-deployment-admin",
+    );
+    expect(phase1AdminTestId("patch-base-version")).toBe(
+      "admin-patch-base-version",
+    );
+    expect(phase1AdminTestId("patch-display-name")).toBe(
+      "admin-patch-display-name",
+    );
+    expect(phase1AdminTestId("patch-mfa-required")).toBe(
+      "admin-patch-mfa-required",
+    );
+    expect(phase1AdminTestId("patch-is-active")).toBe("admin-patch-is-active");
+    expect(phase1AdminTestId("patch-is-deployment-admin")).toBe(
+      "admin-patch-is-deployment-admin",
+    );
+    expect(phase1AdminTestId("patch-user")).toBe("admin-patch-user");
+    expect(phase1AdminTestId("new-password")).toBe("admin-new-password");
+    expect(phase1AdminTestId("reason")).toBe("admin-reason");
+    expect(phase1AdminTestId("password-reset")).toBe("admin-password-reset");
+    expect(phase1AdminTestId("totp-reset")).toBe("admin-totp-reset");
+    expect(phase1AdminTestId("revoke-all")).toBe("admin-revoke-all");
+    expect(phase1AdminTestId("status")).toBe("admin-status");
+
+    expect(phase1ErrorCodeTestId("auth")).toBe("auth-error-code");
+    expect(phase1ErrorSummaryTestIds("auth")).toEqual({
+      container: "auth-error-public",
+      details: "auth-error-details",
+      message: "auth-error-message",
+    });
+    expect(phase1ErrorCodeTestId("account")).toBe("account-error-code");
+    expect(phase1ErrorSummaryTestIds("account")).toEqual({
+      container: "account-error-public",
+      details: "account-error-details",
+      message: "account-error-message",
+    });
+    expect(phase1ErrorCodeTestId("admin")).toBe("admin-error-code");
+    expect(phase1ErrorSummaryTestIds("admin")).toEqual({
+      container: "admin-error-public",
+      details: "admin-error-details",
+      message: "admin-error-message",
+    });
+    expect(phase1ErrorCodeTestId("landing")).toBe("landing-error-code");
+    expect(phase1ErrorSummaryTestIds("landing")).toEqual({
+      container: "landing-error-public",
+      details: "landing-error-details",
+      message: "landing-error-message",
+    });
+  });
+
+  it("keeps Phase 1 selector identity on semantic state and stable field identifiers", () => {
+    const renamedSession = {
+      displayLabel: "Current operator",
+      field: "session-user-id" as const,
+    };
+    const relabeledSession = {
+      displayLabel: "Signed-in user",
+      field: "session-user-id" as const,
+    };
+    const authControls = [
+      { field: "login-password" as const, label: "Password" },
+      { field: "login-username" as const, label: "Email address" },
+    ];
+
+    expect(phase1AccountTestId(renamedSession.field)).toBe(
+      phase1AccountTestId(relabeledSession.field),
+    );
+    expect(
+      phase1AuthTestId(
+        authControls.find((control) => control.label === "Email address")
+          ?.field ?? "login-password",
+      ),
+    ).toBe("auth-login-username");
+    expect(
+      phase1AuthTestId(
+        [...authControls]
+          .reverse()
+          .find((control) => control.field === "login-username")?.field ??
+          "login-password",
+      ),
+    ).toBe("auth-login-username");
+    expect(landingIncidentCardTestId("incident:stable")).toBe(
+      "landing-incident-incident%3Astable",
+    );
+  });
+
+  it("rejects invalid Phase 1 selector vocabularies", () => {
+    expect(() => phase1AuthTestId("username" as never)).toThrow(
+      "Invalid phase1 auth selector token: username",
+    );
+    expect(() => phase1AccountTestId("user-id" as never)).toThrow(
+      "Invalid phase1 account selector token: user-id",
+    );
+    expect(() => phase1AdminTestId("target-user" as never)).toThrow(
+      "Invalid phase1 admin selector token: target-user",
+    );
+    expect(() => phase1LandingTestId("incident-card" as never)).toThrow(
+      "Invalid phase1 landing selector token: incident-card",
+    );
+    expect(() => phase1RouteTestId("shell" as never)).toThrow(
+      "Invalid phase1 route selector token: shell",
+    );
+    expect(() => phase1ErrorCodeTestId("session" as never)).toThrow(
+      "Invalid phase1 error surface selector token: session",
     );
   });
 

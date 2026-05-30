@@ -28,26 +28,24 @@ type SelectorOwnership = {
 };
 
 const sharedBuilderOwnedSelectorPatterns = [
+  /^(?:auth|account|admin)-/u,
+  /^app-shell$/u,
+  /^debug-harness-loading$/u,
+  /^incident-landing$/u,
+  /^landing-/u,
   /^row-history-/u,
   /^reference-pack-(?:admin-panel|file|import|job-status|reload|cancel|refresh-all|refresh-selected|row|error)(?:-|$)/u,
   /^save-state$/u,
+  /^workbook-(?:current-user|loading)$/u,
 ] as const;
 
 const appLocalSelectorOwnership = [
   {
-    owner: "apps/web phase 1 auth/account/admin surfaces",
-    pattern: /^(?:auth|account|admin)-/u,
+    owner: "apps/web workbook route focus support",
+    pattern: /^workbook-focus-anchor$/u,
     reason:
-      "Phase 1 selectors are retained app-local surface anchors until the FE-P1 selector row promotes them.",
-    scope: "apps/web Phase1Surface, Phase1Harness, and phase1 browser coverage",
-  },
-  {
-    owner: "apps/web landing and route shell",
-    pattern:
-      /^(?:app-shell$|incident-landing$|landing-|workbook-(?:current-user|loading|focus-anchor)$|debug-harness-loading$)/u,
-    reason:
-      "Landing and route-shell selectors are app-local until FE-P1/FE-P2 promote shared shell builders.",
-    scope: "apps/web App landing, route handoff, and keyboard focus coverage",
+      "The workbook focus anchor is a keyboard support fixture retained app-local until its owning focus surface is promoted.",
+    scope: "apps/web route handoff and keyboard focus coverage",
   },
   {
     owner: "apps/web incident administration",
@@ -59,7 +57,7 @@ const appLocalSelectorOwnership = [
   {
     owner: "apps/web phase harnesses",
     pattern:
-      /^(?:phase1-|phase2-|session-|create-|probe-|current-incident-|patch-|incident-discovery$|default-workbook-pref$|user-workbook-pref$|membership-|reload-extensions$|extensions-list$|last-)/u,
+      /^(?:phase1-|phase2-|session-|create-|probe-|current-incident-(?:id|key|title|version)$|patch-|incident-discovery$|default-workbook-pref$|user-workbook-pref$|membership-|reload-extensions$|extensions-list$|last-)/u,
     reason:
       "Debug phase harness selectors are retained app-local harness controls, not shared product selectors.",
     scope: "apps/web Phase1Harness, Phase2Harness, and phase support specs",
@@ -276,6 +274,33 @@ function recordExactTokenViolation(
 }
 
 describe("selector contract policy", () => {
+  it("classifies Phase 1 cross-boundary selector families as shared-builder owned", () => {
+    const sharedPhase1Selectors = [
+      "account-session-user-id",
+      "account-error-public",
+      "admin-create-user",
+      "admin-error-code",
+      "app-shell",
+      "auth-login-username",
+      "auth-error-details",
+      "debug-harness-loading",
+      "incident-landing",
+      "landing-current-user",
+      "landing-error-message",
+      "workbook-current-user",
+      "workbook-loading",
+    ];
+
+    for (const token of sharedPhase1Selectors) {
+      expect(sharedBuilderOwns(token), token).toBe(true);
+      expect(appLocalOwnershipFor(token), token).toBeNull();
+    }
+
+    expect(appLocalOwnershipFor("phase1-debug-request")).not.toBeNull();
+    expect(appLocalOwnershipFor("incident-patch-button")).not.toBeNull();
+    expect(appLocalOwnershipFor("workbook-focus-anchor")).not.toBeNull();
+  });
+
   it("keeps cross-boundary selector templates behind shared builders", () => {
     assertOwnershipEntriesAreDocumented();
     const violations: string[] = [];

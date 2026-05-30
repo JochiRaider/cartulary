@@ -12,6 +12,7 @@ import {
   incidentMembershipVersionTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
+  phase1LandingTestId,
   surfaceTabTestId,
 } from "@cartulary/ui-contracts";
 
@@ -33,9 +34,11 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await page.goto("/");
 
   const incidentKey = uniqueIncidentKey("E201");
-  await page.getByTestId("landing-incident-key").fill(incidentKey);
-  await page.getByTestId("landing-incident-title").fill("Phase 2 E-2-01");
-  await page.getByTestId("landing-create-button").click();
+  await page.getByTestId(phase1LandingTestId("incident-key")).fill(incidentKey);
+  await page
+    .getByTestId(phase1LandingTestId("incident-title"))
+    .fill("Phase 2 E-2-01");
+  await page.getByTestId(phase1LandingTestId("create-button")).click();
 
   await expect(page).toHaveURL(/incident_id=/);
   await expect(
@@ -112,7 +115,7 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
     page.getByTestId("incident-summary-primary-external-case-ref"),
   ).toHaveText("CASE-E202-PRIMARY");
 
-  await page.getByTestId("landing-return").click();
+  await page.getByTestId(phase1LandingTestId("return")).click();
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toContainText("containment");

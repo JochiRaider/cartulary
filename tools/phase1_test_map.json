@@ -588,6 +588,17 @@
       "out_of_scope": "Admin credential-action audit persistence remains integration evidence."
     },
     {
+      "id": "E-1-SUPPORT-01",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase1.support.spec.ts",
+      "title": "FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders.",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support",
+      "claim": "Supplemental browser support verifies FE-P1 ordinary shell selectors are consumed through shared builders across route, landing, auth, account, admin, session, bootstrap, and public-error surfaces.",
+      "out_of_scope": "This support row does not change Core product behavior, FE-P2 incident-admin selector ownership, accessibility evidence, or visual-golden evidence."
+    },
+    {
       "id": "E-1-SMOKE-01",
       "coverage": "supplemental",
       "runner": "go_test",

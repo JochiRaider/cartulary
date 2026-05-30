@@ -4,15 +4,20 @@ import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
   landingIncidentCardTestId,
+  phase1AccountTestId,
+  phase1AdminTestId,
+  phase1AuthTestId,
+  phase1ErrorCodeTestId,
+  phase1ErrorSummaryTestIds,
+  phase1LandingTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
-
+import { p1AccessibilityScenarioTitles } from "./a11yPhaseMap";
 import {
   createLocalUser as createAuthLocalUser,
   revokeAllSessions,
 } from "./authRuntime";
-import { p1AccessibilityScenarioTitles } from "./a11yPhaseMap";
 import { expect, test } from "./fixtures";
 import {
   apiBase,
@@ -559,12 +564,15 @@ async function holdSinglePublicAPIResponse(
   };
 }
 
-async function fulfillPublicError(route: Route, options: {
-  code: string;
-  details?: Record<string, unknown>;
-  message?: string;
-  status: number;
-}) {
+async function fulfillPublicError(
+  route: Route,
+  options: {
+    code: string;
+    details?: Record<string, unknown>;
+    message?: string;
+    status: number;
+  },
+) {
   await route.fulfill({
     contentType: "application/json",
     status: options.status,
@@ -600,31 +608,31 @@ test.describe("FE-P1 accessibility readiness", () => {
     await phase1.goto();
     await heldSession.waitForHit;
 
-    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "loading",
     );
-    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
       "aria-busy",
       "true",
     );
-    await expectStatusRole(page.getByTestId("auth-status"));
-    await expect(page.getByTestId("auth-status")).toContainText(
+    await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
+    await expect(page.getByTestId(phase1AuthTestId("status"))).toContainText(
       "Checking current session",
     );
     await expectP1SurfaceA11y(page, {
-      focusTestId: "auth-login-submit",
+      focusTestId: phase1AuthTestId("login-submit"),
       tabStops: [
-        "auth-login-username",
-        "auth-login-password",
-        "auth-login-totp-code",
-        "auth-login-submit",
+        phase1AuthTestId("login-username"),
+        phase1AuthTestId("login-password"),
+        phase1AuthTestId("login-totp-code"),
+        phase1AuthTestId("login-submit"),
       ],
     });
 
     try {
       heldSession.release();
-      await expect(page.getByTestId("auth-shell")).toHaveAttribute(
+      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "anonymous",
       );
@@ -633,164 +641,172 @@ test.describe("FE-P1 accessibility readiness", () => {
     }
   });
 
-  test(p1AccessibilityScenarioTitles[1], async ({
-    page,
-    sessionTracker,
-    workerAdminRequest,
-  }) => {
-    const phase1 = new Phase1Page(page);
-    const email = uniqueEmail("a11y-p1-login");
-    const password = "A11yP1LoginPass!";
-    const user = await createAuthLocalUser(workerAdminRequest, {
-      email,
-      display_name: "A11Y P1 Login",
-      initial_password: password,
-      mfa_required: false,
-    });
+  test(
+    p1AccessibilityScenarioTitles[1],
+    async ({ page, sessionTracker, workerAdminRequest }) => {
+      const phase1 = new Phase1Page(page);
+      const email = uniqueEmail("a11y-p1-login");
+      const password = "A11yP1LoginPass!";
+      const user = await createAuthLocalUser(workerAdminRequest, {
+        email,
+        display_name: "A11Y P1 Login",
+        initial_password: password,
+        mfa_required: false,
+      });
 
-    await clearBrowserSession(page);
-    await phase1.goto();
-    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
-      "data-bootstrap-state",
-      "anonymous",
-    );
-    await expectP1SurfaceA11y(page, {
-      focusTestId: "auth-login-username",
-      tabStops: [
-        "auth-login-username",
-        "auth-login-password",
-        "auth-login-totp-code",
-        "auth-login-submit",
-      ],
-    });
+      await clearBrowserSession(page);
+      await phase1.goto();
+      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+        "data-bootstrap-state",
+        "anonymous",
+      );
+      await expectP1SurfaceA11y(page, {
+        focusTestId: phase1AuthTestId("login-username"),
+        tabStops: [
+          phase1AuthTestId("login-username"),
+          phase1AuthTestId("login-password"),
+          phase1AuthTestId("login-totp-code"),
+          phase1AuthTestId("login-submit"),
+        ],
+      });
 
-    await phase1.login(email, password);
-    await expect(page.getByTestId("incident-landing")).toBeVisible();
-    await expectStatusRole(page.getByTestId("landing-status"));
-    await expectStatusRole(page.getByTestId("account-status"));
-    await expectP1SurfaceA11y(page, {
-      focusTestId: "landing-refresh",
-      tabStops: [
-        "landing-refresh",
-        "landing-incident-key",
-        "landing-incident-title",
-        "landing-create-button",
-        "account-refresh-state",
-        "account-logout",
-      ],
-    });
-    await sessionTracker.captureCurrentSession(page, {
-      createdBy: "phase1 accessibility",
-      email,
-      purpose: "FE-A11Y-P1-01 anonymous login",
-      userId: user.user_id,
-    });
-  });
+      await phase1.login(email, password);
+      await expect(
+        page.getByTestId(phase1LandingTestId("shell")),
+      ).toBeVisible();
+      await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
+      await expectStatusRole(page.getByTestId(phase1AccountTestId("status")));
+      await expectP1SurfaceA11y(page, {
+        focusTestId: phase1LandingTestId("refresh"),
+        tabStops: [
+          phase1LandingTestId("refresh"),
+          phase1LandingTestId("incident-key"),
+          phase1LandingTestId("incident-title"),
+          phase1LandingTestId("create-button"),
+          phase1AccountTestId("refresh-state"),
+          phase1AccountTestId("logout"),
+        ],
+      });
+      await sessionTracker.captureCurrentSession(page, {
+        createdBy: "phase1 accessibility",
+        email,
+        purpose: "FE-A11Y-P1-01 anonymous login",
+        userId: user.user_id,
+      });
+    },
+  );
 
-  test(p1AccessibilityScenarioTitles[2], async ({
-    page,
-    sessionTracker,
-    workerAdminRequest,
-  }) => {
-    const phase1 = new Phase1Page(page);
-    const email = uniqueEmail("a11y-p1-mfa");
-    const password = "A11yP1MfaPass!";
-    const user = await createAuthLocalUser(workerAdminRequest, {
-      email,
-      display_name: "A11Y P1 MFA",
-      initial_password: password,
-      mfa_required: true,
-    });
-    const secretBase32 = await enrollTotpViaBootstrap(email, password);
+  test(
+    p1AccessibilityScenarioTitles[2],
+    async ({ page, sessionTracker, workerAdminRequest }) => {
+      const phase1 = new Phase1Page(page);
+      const email = uniqueEmail("a11y-p1-mfa");
+      const password = "A11yP1MfaPass!";
+      const user = await createAuthLocalUser(workerAdminRequest, {
+        email,
+        display_name: "A11Y P1 MFA",
+        initial_password: password,
+        mfa_required: true,
+      });
+      const secretBase32 = await enrollTotpViaBootstrap(email, password);
 
-    await clearBrowserSession(page);
-    await phase1.goto();
-    await phase1.login(email, password);
-    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
-      "data-bootstrap-state",
-      "mfa_required",
-    );
-    await expectAlertRole(page.getByTestId("auth-error-code"));
-    await expect(page.getByTestId("auth-error-code")).toHaveText(
-      "mfa_required",
-    );
-    await expectStatusRole(page.getByTestId("auth-status"));
-    await expect(page.getByTestId("auth-status")).toContainText("TOTP code");
-    await expectNoPrivateDiagnostics(page.getByTestId("auth-error-public"));
-    expect(await hasSessionCookie(page)).toBeFalsy();
-    await expectP1SurfaceA11y(page, {
-      focusTestId: "auth-login-totp-code",
-      tabStops: [
-        "auth-login-username",
-        "auth-login-password",
-        "auth-login-totp-code",
-        "auth-login-submit",
-      ],
-    });
+      await clearBrowserSession(page);
+      await phase1.goto();
+      await phase1.login(email, password);
+      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+        "data-bootstrap-state",
+        "mfa_required",
+      );
+      await expectAlertRole(page.getByTestId(phase1ErrorCodeTestId("auth")));
+      await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+        "mfa_required",
+      );
+      await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
+      await expect(page.getByTestId(phase1AuthTestId("status"))).toContainText(
+        "TOTP code",
+      );
+      await expectNoPrivateDiagnostics(
+        page.getByTestId(phase1ErrorSummaryTestIds("auth").container),
+      );
+      expect(await hasSessionCookie(page)).toBeFalsy();
+      await expectP1SurfaceA11y(page, {
+        focusTestId: phase1AuthTestId("login-totp-code"),
+        tabStops: [
+          phase1AuthTestId("login-username"),
+          phase1AuthTestId("login-password"),
+          phase1AuthTestId("login-totp-code"),
+          phase1AuthTestId("login-submit"),
+        ],
+      });
 
-    await phase1.login(email, password, generateTotpCode(secretBase32));
-    await expect(page.getByTestId("account-session-user-id")).toHaveText(
-      user.user_id,
-    );
-    await sessionTracker.captureCurrentSession(page, {
-      createdBy: "phase1 accessibility",
-      email,
-      purpose: "FE-A11Y-P1-01 mfa_required retry",
-      userId: user.user_id,
-    });
-  });
+      await phase1.login(email, password, generateTotpCode(secretBase32));
+      await expect(
+        page.getByTestId(phase1AccountTestId("session-user-id")),
+      ).toHaveText(user.user_id);
+      await sessionTracker.captureCurrentSession(page, {
+        createdBy: "phase1 accessibility",
+        email,
+        purpose: "FE-A11Y-P1-01 mfa_required retry",
+        userId: user.user_id,
+      });
+    },
+  );
 
-  test(p1AccessibilityScenarioTitles[3], async ({
-    page,
-    workerAdminRequest,
-  }) => {
-    const phase1 = new Phase1Page(page);
-    const email = uniqueEmail("a11y-p1-mfa-setup");
-    const password = "A11yP1SetupPass!";
-    await createAuthLocalUser(workerAdminRequest, {
-      email,
-      display_name: "A11Y P1 MFA Setup",
-      initial_password: password,
-      mfa_required: true,
-    });
+  test(
+    p1AccessibilityScenarioTitles[3],
+    async ({ page, workerAdminRequest }) => {
+      const phase1 = new Phase1Page(page);
+      const email = uniqueEmail("a11y-p1-mfa-setup");
+      const password = "A11yP1SetupPass!";
+      await createAuthLocalUser(workerAdminRequest, {
+        email,
+        display_name: "A11Y P1 MFA Setup",
+        initial_password: password,
+        mfa_required: true,
+      });
 
-    await clearBrowserSession(page);
-    await phase1.goto();
-    await phase1.login(email, password);
-    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
-      "data-bootstrap-state",
-      "mfa_setup_required",
-    );
-    await expectAlertRole(page.getByTestId("auth-error-code"));
-    await expect(page.getByTestId("auth-error-code")).toHaveText(
-      "mfa_setup_required",
-    );
-    await expect(page.getByTestId("auth-bootstrap-token")).toHaveText(
-      "Stored for TOTP setup requests.",
-    );
-    await expectNoPrivateDiagnostics(page.getByTestId("auth-error-public"));
-    await expectP1SurfaceA11y(page, {
-      focusTestId: "auth-bootstrap-begin",
-      tabStops: [
-        "auth-login-username",
-        "auth-login-password",
-        "auth-login-totp-code",
-        "auth-login-submit",
-        "auth-bootstrap-begin",
-        "auth-bootstrap-complete-code",
-        "auth-bootstrap-complete",
-      ],
-    });
+      await clearBrowserSession(page);
+      await phase1.goto();
+      await phase1.login(email, password);
+      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+        "data-bootstrap-state",
+        "mfa_setup_required",
+      );
+      await expectAlertRole(page.getByTestId(phase1ErrorCodeTestId("auth")));
+      await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+        "mfa_setup_required",
+      );
+      await expect(
+        page.getByTestId(phase1AuthTestId("bootstrap-token")),
+      ).toHaveText("Stored for TOTP setup requests.");
+      await expectNoPrivateDiagnostics(
+        page.getByTestId(phase1ErrorSummaryTestIds("auth").container),
+      );
+      await expectP1SurfaceA11y(page, {
+        focusTestId: phase1AuthTestId("bootstrap-begin"),
+        tabStops: [
+          phase1AuthTestId("login-username"),
+          phase1AuthTestId("login-password"),
+          phase1AuthTestId("login-totp-code"),
+          phase1AuthTestId("login-submit"),
+          phase1AuthTestId("bootstrap-begin"),
+          phase1AuthTestId("bootstrap-complete-code"),
+          phase1AuthTestId("bootstrap-complete"),
+        ],
+      });
 
-    await phase1.beginBootstrapEnrollment();
-    await expectStatusRole(page.getByTestId("auth-status"));
-    const secretBase32 = await phase1.requireText("auth-bootstrap-secret-base32");
-    await phase1.completeBootstrapEnrollment(generateTotpCode(secretBase32));
-    await expect(page.getByTestId("auth-status")).toHaveText(
-      "TOTP enrollment completed. Sign in with your TOTP code.",
-    );
-    expect(await hasSessionCookie(page)).toBeFalsy();
-  });
+      await phase1.beginBootstrapEnrollment();
+      await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
+      const secretBase32 = await phase1.requireText(
+        phase1AuthTestId("bootstrap-secret-base32"),
+      );
+      await phase1.completeBootstrapEnrollment(generateTotpCode(secretBase32));
+      await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
+        "TOTP enrollment completed. Sign in with your TOTP code.",
+      );
+      expect(await hasSessionCookie(page)).toBeFalsy();
+    },
+  );
 
   test(p1AccessibilityScenarioTitles[4], async ({ page }) => {
     const phase1 = new Phase1Page(page);
@@ -801,157 +817,156 @@ test.describe("FE-P1 accessibility readiness", () => {
     );
 
     await phase1.goto();
-    await expect(page.getByTestId("incident-landing")).toBeVisible();
+    await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
     await expect(
       page.getByTestId(landingIncidentCardTestId(incidentId)),
     ).toBeVisible();
-    await expectStatusRole(page.getByTestId("landing-status"));
-    await expectStatusRole(page.getByTestId("account-status"));
-    await expectStatusRole(page.getByTestId("admin-status"));
+    await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
+    await expectStatusRole(page.getByTestId(phase1AccountTestId("status")));
+    await expectStatusRole(page.getByTestId(phase1AdminTestId("status")));
     await expectP1SurfaceA11y(page, {
-      focusTestId: "landing-create-button",
+      focusTestId: phase1LandingTestId("create-button"),
       tabStops: [
-        "landing-refresh",
-        "landing-incident-key",
-        "landing-incident-title",
-        "landing-create-button",
-        "account-refresh-state",
-        "account-logout",
-        "admin-create-email",
-        "admin-create-user",
+        phase1LandingTestId("refresh"),
+        phase1LandingTestId("incident-key"),
+        phase1LandingTestId("incident-title"),
+        phase1LandingTestId("create-button"),
+        phase1AccountTestId("refresh-state"),
+        phase1AccountTestId("logout"),
+        phase1AdminTestId("create-email"),
+        phase1AdminTestId("create-user"),
       ],
     });
   });
 
-  test(p1AccessibilityScenarioTitles[5], async ({
-    page,
-    sessionTracker,
-    workerAdminRequest,
-  }) => {
-    const phase1 = new Phase1Page(page);
-    const email = uniqueEmail("a11y-p1-incident");
-    const password = "A11yP1IncidentPass!";
-    const user = await createAuthLocalUser(workerAdminRequest, {
-      email,
-      display_name: "A11Y P1 Incident",
-      initial_password: password,
-      mfa_required: false,
-    });
+  test(
+    p1AccessibilityScenarioTitles[5],
+    async ({ page, sessionTracker, workerAdminRequest }) => {
+      const phase1 = new Phase1Page(page);
+      const email = uniqueEmail("a11y-p1-incident");
+      const password = "A11yP1IncidentPass!";
+      const user = await createAuthLocalUser(workerAdminRequest, {
+        email,
+        display_name: "A11Y P1 Incident",
+        initial_password: password,
+        mfa_required: false,
+      });
 
-    await clearBrowserSession(page);
-    await phase1.goto();
-    await phase1.login(email, password);
-    await expect(page.getByTestId("landing-empty-state")).toContainText(
-      "No incidents are visible",
-    );
-    await expectStatusRole(page.getByTestId("landing-status"));
+      await clearBrowserSession(page);
+      await phase1.goto();
+      await phase1.login(email, password);
+      await expect(
+        page.getByTestId(phase1LandingTestId("empty-state")),
+      ).toContainText("No incidents are visible");
+      await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
 
-    const selectedIncidentId = await createIncidentWithRequest(
-      workerAdminRequest,
-      uniqueIncidentKey("A11YEMPTYA"),
-      "A11Y selected incident",
-    );
-    await createIncidentMembershipWithRequest(
-      workerAdminRequest,
-      selectedIncidentId,
-      email,
-      "admin",
-    );
-    const alternateIncidentId = await createIncidentWithRequest(
-      workerAdminRequest,
-      uniqueIncidentKey("A11YEMPTYB"),
-      "A11Y alternate incident",
-    );
-    await createIncidentMembershipWithRequest(
-      workerAdminRequest,
-      alternateIncidentId,
-      email,
-      "admin",
-    );
+      const selectedIncidentId = await createIncidentWithRequest(
+        workerAdminRequest,
+        uniqueIncidentKey("A11YEMPTYA"),
+        "A11Y selected incident",
+      );
+      await createIncidentMembershipWithRequest(
+        workerAdminRequest,
+        selectedIncidentId,
+        email,
+        "admin",
+      );
+      const alternateIncidentId = await createIncidentWithRequest(
+        workerAdminRequest,
+        uniqueIncidentKey("A11YEMPTYB"),
+        "A11Y alternate incident",
+      );
+      await createIncidentMembershipWithRequest(
+        workerAdminRequest,
+        alternateIncidentId,
+        email,
+        "admin",
+      );
 
-    await phase1.refreshLanding();
-    await expect(
-      page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
-    ).toBeVisible();
+      await phase1.refreshLanding();
+      await expect(
+        page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
+      ).toBeVisible();
 
-    await phase1.openIncident(selectedIncidentId);
-    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
-      "admin",
-    );
-    await expectStatusRole(page.getByTestId("incident-admin-status"));
-    await expectP1SurfaceA11y(page, {
-      focusTestId: "landing-return",
-      tabStops: ["landing-return", "incident-patch-button"],
-    });
+      await phase1.openIncident(selectedIncidentId);
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+      await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
+        "admin",
+      );
+      await expectStatusRole(page.getByTestId("incident-admin-status"));
+      await expectP1SurfaceA11y(page, {
+        focusTestId: phase1LandingTestId("return"),
+        tabStops: [phase1LandingTestId("return"), "incident-patch-button"],
+      });
 
-    await phase1.returnToLanding();
-    await phase1.openIncident(selectedIncidentId);
+      await phase1.returnToLanding();
+      await phase1.openIncident(selectedIncidentId);
 
-    const selectedMembership = await loadIncidentMembership(
-      workerAdminRequest,
-      selectedIncidentId,
-      user.user_id,
-    );
-    await deleteIncidentMembership(
-      workerAdminRequest,
-      selectedIncidentId,
-      user.user_id,
-      selectedMembership.membership_version,
-    );
-    await page.reload();
-    await expect(page.getByTestId("incident-landing")).toBeVisible();
-    await expect(page.getByTestId("landing-status")).toContainText(
-      "no longer visible",
-    );
-    await expect(
-      page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
-    ).toHaveCount(0);
-    await expect(
-      page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
-    ).toBeVisible();
+      const selectedMembership = await loadIncidentMembership(
+        workerAdminRequest,
+        selectedIncidentId,
+        user.user_id,
+      );
+      await deleteIncidentMembership(
+        workerAdminRequest,
+        selectedIncidentId,
+        user.user_id,
+        selectedMembership.membership_version,
+      );
+      await page.reload();
+      await expect(
+        page.getByTestId(phase1LandingTestId("shell")),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(phase1LandingTestId("status")),
+      ).toContainText("no longer visible");
+      await expect(
+        page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
+      ).toHaveCount(0);
+      await expect(
+        page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
+      ).toBeVisible();
 
-    await phase1.openIncident(alternateIncidentId);
-    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
-      "admin",
-    );
-    await expect(page.getByTestId("incident-patch-tlp")).toBeVisible();
-    const alternateMembership = await loadIncidentMembership(
-      workerAdminRequest,
-      alternateIncidentId,
-      user.user_id,
-    );
-    await patchIncidentMembership(
-      workerAdminRequest,
-      alternateIncidentId,
-      {
+      await phase1.openIncident(alternateIncidentId);
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+      await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
+        "admin",
+      );
+      await expect(page.getByTestId("incident-patch-tlp")).toBeVisible();
+      const alternateMembership = await loadIncidentMembership(
+        workerAdminRequest,
+        alternateIncidentId,
+        user.user_id,
+      );
+      await patchIncidentMembership(workerAdminRequest, alternateIncidentId, {
         baseMembershipVersion: alternateMembership.membership_version,
         role: "editor",
         userId: user.user_id,
-      },
-    );
-    await phase1.patchIncidentFields({
-      currentPhase: "containment",
-      externalCase: "CASE-A11Y",
-      tlp: "amber",
-    });
-    await expectAlertRole(page.getByTestId("incident-admin-error-code"));
-    await expect(page.getByTestId("incident-admin-error-code")).toHaveText(
-      "authorization_denied",
-    );
-    await expectNoPrivateDiagnostics(page.getByTestId("incident-admin-error-code"));
-    await expectVisibleFocus(page.getByTestId("landing-return"));
-    await sessionTracker.captureCurrentSession(page, {
-      createdBy: "phase1 accessibility",
-      email,
-      purpose: "FE-A11Y-P1-01 incident states",
-      userId: user.user_id,
-    });
-  });
+      });
+      await phase1.patchIncidentFields({
+        currentPhase: "containment",
+        externalCase: "CASE-A11Y",
+        tlp: "amber",
+      });
+      await expectAlertRole(page.getByTestId("incident-admin-error-code"));
+      await expect(page.getByTestId("incident-admin-error-code")).toHaveText(
+        "authorization_denied",
+      );
+      await expectNoPrivateDiagnostics(
+        page.getByTestId("incident-admin-error-code"),
+      );
+      await expectVisibleFocus(page.getByTestId(phase1LandingTestId("return")));
+      await sessionTracker.captureCurrentSession(page, {
+        createdBy: "phase1 accessibility",
+        email,
+        purpose: "FE-A11Y-P1-01 incident states",
+        userId: user.user_id,
+      });
+    },
+  );
 
   test(p1AccessibilityScenarioTitles[6], async ({ page }) => {
     const routePattern = "**/api/v1/incidents";
@@ -972,104 +987,106 @@ test.describe("FE-P1 accessibility readiness", () => {
 
     await page.route(routePattern, routeHandler);
     await page.goto("/");
-    await expect(page.getByTestId("incident-landing")).toBeVisible();
-    await expect(page.getByTestId("incident-landing")).toHaveAttribute(
-      "data-bootstrap-state",
-      "forbidden",
-    );
-    await expectStatusRole(page.getByTestId("landing-status"));
-    await expectAlertRole(page.getByTestId("landing-error-code"));
-    await expect(page.getByTestId("landing-error-code")).toHaveText(
+    await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
+    await expect(
+      page.getByTestId(phase1LandingTestId("shell")),
+    ).toHaveAttribute("data-bootstrap-state", "forbidden");
+    await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
+    await expectAlertRole(page.getByTestId(phase1ErrorCodeTestId("landing")));
+    await expect(page.getByTestId(phase1ErrorCodeTestId("landing"))).toHaveText(
       "authorization_denied",
     );
-    await expectNoPrivateDiagnostics(page.getByTestId("landing-error-public"));
+    await expectNoPrivateDiagnostics(
+      page.getByTestId(phase1ErrorSummaryTestIds("landing").container),
+    );
     await expectP1SurfaceA11y(page, {
-      focusTestId: "landing-refresh",
+      focusTestId: phase1LandingTestId("refresh"),
       tabStops: [
-        "landing-refresh",
-        "account-refresh-state",
-        "account-logout",
-        "admin-create-email",
+        phase1LandingTestId("refresh"),
+        phase1AccountTestId("refresh-state"),
+        phase1AccountTestId("logout"),
+        phase1AdminTestId("create-email"),
       ],
     });
 
     await safeUnroute(page, routePattern, routeHandler);
-    await page.getByTestId("landing-refresh").click();
-    await expect(page.getByTestId("landing-error-code")).toHaveText("");
+    await page.getByTestId(phase1LandingTestId("refresh")).click();
+    await expect(page.getByTestId(phase1ErrorCodeTestId("landing"))).toHaveText(
+      "",
+    );
   });
 
-  test(p1AccessibilityScenarioTitles[7], async ({
-    page,
-    sessionTracker,
-    workerAdminRequest,
-  }) => {
-    const phase1 = new Phase1Page(page);
-    const incidentId = await createIncident(
-      page,
-      uniqueIncidentKey("A11YREVOKE"),
-      "A11Y revoked incident",
-    );
-    const email = uniqueEmail("a11y-p1-revoked");
-    const password = "A11yP1RevokedPass!";
-    const user = await createAuthLocalUser(workerAdminRequest, {
-      email,
-      display_name: "A11Y P1 Revoked",
-      initial_password: password,
-      mfa_required: false,
-    });
-    await createIncidentMembership(page, incidentId, email, "viewer");
+  test(
+    p1AccessibilityScenarioTitles[7],
+    async ({ page, sessionTracker, workerAdminRequest }) => {
+      const phase1 = new Phase1Page(page);
+      const incidentId = await createIncident(
+        page,
+        uniqueIncidentKey("A11YREVOKE"),
+        "A11Y revoked incident",
+      );
+      const email = uniqueEmail("a11y-p1-revoked");
+      const password = "A11yP1RevokedPass!";
+      const user = await createAuthLocalUser(workerAdminRequest, {
+        email,
+        display_name: "A11Y P1 Revoked",
+        initial_password: password,
+        mfa_required: false,
+      });
+      await createIncidentMembership(page, incidentId, email, "viewer");
 
-    await clearBrowserSession(page);
-    await phase1.goto();
-    await phase1.login(email, password);
-    await expect(page.getByTestId("account-session-user-id")).toHaveText(
-      user.user_id,
-    );
-    await expect(
-      page.getByTestId(landingIncidentCardTestId(incidentId)),
-    ).toBeVisible();
-    await sessionTracker.captureCurrentSession(page, {
-      createdBy: "phase1 accessibility",
-      email,
-      purpose: "FE-A11Y-P1-01 revoked session before revoke-all",
-      userId: user.user_id,
-    });
+      await clearBrowserSession(page);
+      await phase1.goto();
+      await phase1.login(email, password);
+      await expect(
+        page.getByTestId(phase1AccountTestId("session-user-id")),
+      ).toHaveText(user.user_id);
+      await expect(
+        page.getByTestId(landingIncidentCardTestId(incidentId)),
+      ).toBeVisible();
+      await sessionTracker.captureCurrentSession(page, {
+        createdBy: "phase1 accessibility",
+        email,
+        purpose: "FE-A11Y-P1-01 revoked session before revoke-all",
+        userId: user.user_id,
+      });
 
-    await revokeAllSessions(
-      workerAdminRequest,
-      user.user_id,
-      "FE-A11Y-P1-01 revoked-session",
-    );
-    await phase1.refreshLanding();
-    await expect(page.getByTestId("auth-shell")).toHaveAttribute(
-      "data-bootstrap-state",
-      "revoked",
-    );
-    await expect(page.getByTestId("auth-shell-message")).toContainText(
-      "Sign in again",
-    );
-    await expectStatusRole(page.getByTestId("auth-status"));
-    await expectP1SurfaceA11y(page, {
-      focusTestId: "auth-login-submit",
-      tabStops: [
-        "auth-login-username",
-        "auth-login-password",
-        "auth-login-totp-code",
-        "auth-login-submit",
-      ],
-    });
+      await revokeAllSessions(
+        workerAdminRequest,
+        user.user_id,
+        "FE-A11Y-P1-01 revoked-session",
+      );
+      await phase1.refreshLanding();
+      await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+        "data-bootstrap-state",
+        "revoked",
+      );
+      await expect(
+        page.getByTestId(phase1AuthTestId("shell-message")),
+      ).toContainText("Sign in again");
+      await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
+      await expectP1SurfaceA11y(page, {
+        focusTestId: phase1AuthTestId("login-submit"),
+        tabStops: [
+          phase1AuthTestId("login-username"),
+          phase1AuthTestId("login-password"),
+          phase1AuthTestId("login-totp-code"),
+          phase1AuthTestId("login-submit"),
+        ],
+      });
 
-    await phase1.login(email, password);
-    await expect(page.getByTestId("account-session-user-id")).toHaveText(
-      user.user_id,
-    );
-    await sessionTracker.captureCurrentSession(page, {
-      createdBy: "phase1 accessibility",
-      email,
-      purpose: "FE-A11Y-P1-01 revoked session re-auth",
-      userId: user.user_id,
-    });
-  });
+      await phase1.login(email, password);
+      await expect(
+        page.getByTestId(phase1AccountTestId("session-user-id")),
+      ).toHaveText(user.user_id);
+      await sessionTracker.captureCurrentSession(page, {
+        createdBy: "phase1 accessibility",
+        email,
+        purpose: "FE-A11Y-P1-01 revoked session re-auth",
+        userId: user.user_id,
+      });
+    },
+  );
 
   test(p1AccessibilityScenarioTitles[8], async ({ page }) => {
     const routePattern = "**/api/v1/auth/credential-state";
@@ -1087,33 +1104,37 @@ test.describe("FE-P1 accessibility readiness", () => {
 
     await page.route(routePattern, routeHandler);
     await page.goto("/");
-    await expect(page.getByTestId("account-error-code")).toHaveText(
+    await expect(page.getByTestId(phase1ErrorCodeTestId("account"))).toHaveText(
       "credential_state_unavailable",
     );
-    await expectAlertRole(page.getByTestId("account-error-code"));
-    await expectAlertRole(page.getByTestId("account-error-public"));
-    await expect(page.getByTestId("account-error-message")).toHaveText(
-      "Request failed.",
+    await expectAlertRole(page.getByTestId(phase1ErrorCodeTestId("account")));
+    await expectAlertRole(
+      page.getByTestId(phase1ErrorSummaryTestIds("account").container),
     );
-    await expect(page.getByTestId("account-error-details")).toContainText(
-      "Reason: temporary_failure",
+    await expect(
+      page.getByTestId(phase1ErrorSummaryTestIds("account").message),
+    ).toHaveText("Request failed.");
+    await expect(
+      page.getByTestId(phase1ErrorSummaryTestIds("account").details),
+    ).toContainText("Reason: temporary_failure");
+    await expect(
+      page.getByTestId(phase1ErrorSummaryTestIds("account").details),
+    ).toContainText("Field: credential_state");
+    await expectNoPrivateDiagnostics(
+      page.getByTestId(phase1ErrorSummaryTestIds("account").container),
     );
-    await expect(page.getByTestId("account-error-details")).toContainText(
-      "Field: credential_state",
-    );
-    await expectNoPrivateDiagnostics(page.getByTestId("account-error-public"));
     await expectP1SurfaceA11y(page, {
-      focusTestId: "account-refresh-state",
+      focusTestId: phase1AccountTestId("refresh-state"),
       tabStops: [
-        "landing-refresh",
-        "account-refresh-state",
-        "account-logout",
+        phase1LandingTestId("refresh"),
+        phase1AccountTestId("refresh-state"),
+        phase1AccountTestId("logout"),
       ],
     });
 
     await safeUnroute(page, routePattern, routeHandler);
-    await page.getByTestId("account-refresh-state").click();
-    await expect(page.getByTestId("account-status")).toHaveText(
+    await page.getByTestId(phase1AccountTestId("refresh-state")).click();
+    await expect(page.getByTestId(phase1AccountTestId("status"))).toHaveText(
       "Refreshed account security.",
     );
   });

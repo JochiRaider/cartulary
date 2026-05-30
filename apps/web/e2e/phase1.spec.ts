@@ -1,5 +1,3 @@
-import type { APIRequestContext, Page } from "@playwright/test";
-
 import {
   currentIncidentRoleTestId,
   incidentMembershipDeleteButtonTestId,
@@ -8,8 +6,14 @@ import {
   incidentMembershipRoleInputTestId,
   incidentMembershipRowTestId,
   landingIncidentCardTestId,
+  phase1AccountTestId,
+  phase1AdminTestId,
+  phase1AuthTestId,
+  phase1ErrorCodeTestId,
+  phase1LandingTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 import {
   authenticatedRequestContextFromStorageState,
@@ -50,7 +54,9 @@ test("E-1-01 signs in as a local user and inspects the ordinary session surface"
 
   await clearBrowserSession(page);
   await phase1.goto();
-  await expect(page.getByTestId("auth-login-username")).toBeVisible();
+  await expect(
+    page.getByTestId(phase1AuthTestId("login-username")),
+  ).toBeVisible();
   const loginResponse = waitForPublicAPIResponse(page, {
     method: "POST",
     path: "/api/v1/auth/login",
@@ -79,24 +85,26 @@ test("E-1-01 signs in as a local user and inspects the ordinary session surface"
     incidentListResponse,
   ]);
 
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
-  await expect(page.getByTestId("account-session-user-id")).not.toHaveText("");
   await expect(
-    page.getByTestId("account-session-authenticated-at"),
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-user-id")),
   ).not.toHaveText("");
   await expect(
-    page.getByTestId("account-session-idle-expires-at"),
+    page.getByTestId(phase1AccountTestId("session-authenticated-at")),
   ).not.toHaveText("");
   await expect(
-    page.getByTestId("account-session-absolute-expires-at"),
+    page.getByTestId(phase1AccountTestId("session-idle-expires-at")),
   ).not.toHaveText("");
   await expect(
-    page.getByTestId("account-session-session-expires-at"),
+    page.getByTestId(phase1AccountTestId("session-absolute-expires-at")),
   ).not.toHaveText("");
   await expect(
-    page.locator('[data-testid="account-session-memberships"] li'),
+    page.getByTestId(phase1AccountTestId("session-session-expires-at")),
+  ).not.toHaveText("");
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-memberships")).locator("li"),
   ).toHaveCount(0);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
@@ -132,7 +140,9 @@ test("E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, an
 
   await phase1.login(email, password);
   await missingTotpResponse;
-  await expect(page.getByTestId("auth-error-code")).toHaveText("mfa_required");
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+    "mfa_required",
+  );
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   const wrongTotpResponse = waitForPublicAPIResponse(page, {
@@ -142,7 +152,7 @@ test("E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, an
   });
   await phase1.login(email, password, "000000");
   await wrongTotpResponse;
-  await expect(page.getByTestId("auth-error-code")).toHaveText(
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
     "invalid_second_factor",
   );
   expect(await hasSessionCookie(page)).toBeFalsy();
@@ -154,9 +164,9 @@ test("E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, an
   });
   await phase1.login(email, password, generateTotpCode(secretBase32));
   await validTotpResponse;
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -187,7 +197,7 @@ test("E-1-03 rejects invalid credentials without issuing a session cookie", asyn
   });
   await phase1.login(email, "WrongPassword1!");
   await invalidLoginResponse;
-  await expect(page.getByTestId("auth-error-code")).toHaveText(
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
     "invalid_credentials",
   );
   expect(await hasSessionCookie(page)).toBeFalsy();
@@ -208,25 +218,29 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
     mfaRequired: false,
   });
 
-  await expect(page.getByTestId("admin-status")).toHaveText(
+  await expect(page.getByTestId(phase1AdminTestId("status"))).toHaveText(
     "Created local user",
   );
-  await expect(page.getByTestId("admin-target-user-version")).toHaveText("1");
+  await expect(
+    page.getByTestId(phase1AdminTestId("target-user-version")),
+  ).toHaveText("1");
 
   await page
-    .getByTestId("admin-patch-display-name")
+    .getByTestId(phase1AdminTestId("patch-display-name"))
     .fill("Phase 1 E105 Patched");
   await phase1.patchTargetUser();
-  await expect(page.getByTestId("admin-target-user-version")).toHaveText("2");
+  await expect(
+    page.getByTestId(phase1AdminTestId("target-user-version")),
+  ).toHaveText("2");
 
-  await page.getByTestId("admin-patch-base-version").fill("1");
+  await page.getByTestId(phase1AdminTestId("patch-base-version")).fill("1");
   await phase1.patchTargetUser();
-  await expect(page.getByTestId("admin-error-code")).toHaveText(
+  await expect(page.getByTestId(phase1ErrorCodeTestId("admin"))).toHaveText(
     "user_version_conflict",
   );
 
   const currentAdminID = await page
-    .getByTestId("account-session-user-id")
+    .getByTestId(phase1AccountTestId("session-user-id"))
     .textContent();
   if (!currentAdminID) {
     throw new Error("missing current admin user id");
@@ -237,23 +251,28 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
     async () => {
       await phase1.loadTargetUser(currentAdminID);
       await expect(
-        page.getByTestId("admin-patch-is-deployment-admin"),
+        page.getByTestId(phase1AdminTestId("patch-is-deployment-admin")),
       ).toBeChecked();
-      await expect(page.getByTestId("admin-patch-is-active")).toBeChecked();
+      await expect(
+        page.getByTestId(phase1AdminTestId("patch-is-active")),
+      ).toBeChecked();
 
-      await phase1.setCheckbox("admin-patch-is-deployment-admin", false);
+      await phase1.setCheckbox(
+        phase1AdminTestId("patch-is-deployment-admin"),
+        false,
+      );
       await phase1.patchTargetUser();
-      await expect(page.getByTestId("admin-error-code")).toHaveText(
+      await expect(page.getByTestId(phase1ErrorCodeTestId("admin"))).toHaveText(
         "last_deployment_admin",
       );
 
       await phase1.loadTargetUser(currentAdminID);
       await expect(
-        page.getByTestId("admin-patch-is-deployment-admin"),
+        page.getByTestId(phase1AdminTestId("patch-is-deployment-admin")),
       ).toBeChecked();
-      await phase1.setCheckbox("admin-patch-is-active", false);
+      await phase1.setCheckbox(phase1AdminTestId("patch-is-active"), false);
       await phase1.patchTargetUser();
-      await expect(page.getByTestId("admin-error-code")).toHaveText(
+      await expect(page.getByTestId(phase1ErrorCodeTestId("admin"))).toHaveText(
         "last_deployment_admin",
       );
     },
@@ -278,31 +297,37 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(email, password);
-  await expect(page.getByTestId("auth-error-code")).toHaveText(
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
     "mfa_setup_required",
   );
-  await expect(page.getByTestId("auth-bootstrap-token")).not.toHaveText("");
+  await expect(
+    page.getByTestId(phase1AuthTestId("bootstrap-token")),
+  ).not.toHaveText("");
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await phase1.beginBootstrapEnrollment();
-  await expect(page.getByTestId("auth-status")).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
     "Began TOTP enrollment",
   );
-  const secretBase32 = await phase1.requireText("auth-bootstrap-secret-base32");
+  const secretBase32 = await phase1.requireText(
+    phase1AuthTestId("bootstrap-secret-base32"),
+  );
 
   await phase1.completeBootstrapEnrollment(generateTotpCode(secretBase32));
-  await expect(page.getByTestId("auth-status")).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
     "TOTP enrollment completed. Sign in with your TOTP code.",
   );
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await phase1.login(email, password);
-  await expect(page.getByTestId("auth-error-code")).toHaveText("mfa_required");
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+    "mfa_required",
+  );
 
   await phase1.login(email, password, generateTotpCode(secretBase32));
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -321,39 +346,43 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(email, password);
-  await expect(page.getByTestId("auth-error-code")).toHaveText(
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
     "mfa_setup_required",
   );
-  await expect(page.getByTestId("auth-bootstrap-token")).not.toHaveText("");
+  await expect(
+    page.getByTestId(phase1AuthTestId("bootstrap-token")),
+  ).not.toHaveText("");
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await phase1.beginBootstrapEnrollment();
-  await expect(page.getByTestId("auth-status")).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
     "Began TOTP enrollment",
   );
   const replacementSecretBase32 = await phase1.requireText(
-    "auth-bootstrap-secret-base32",
+    phase1AuthTestId("bootstrap-secret-base32"),
   );
 
   await phase1.completeBootstrapEnrollment(
     generateTotpCode(replacementSecretBase32),
   );
-  await expect(page.getByTestId("auth-status")).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
     "TOTP enrollment completed. Sign in with your TOTP code.",
   );
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await phase1.login(email, password);
-  await expect(page.getByTestId("auth-error-code")).toHaveText("mfa_required");
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+    "mfa_required",
+  );
 
   await phase1.login(
     email,
     password,
     generateTotpCode(replacementSecretBase32),
   );
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -381,9 +410,9 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(email, password, generateTotpCode(secretBase32));
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -396,12 +425,12 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
     "Phase1E107Changed!",
     generateTotpCode(secretBase32),
   );
-  await expect(page.getByTestId("account-error-code")).toHaveText(
+  await expect(page.getByTestId(phase1ErrorCodeTestId("account"))).toHaveText(
     "invalid_current_password",
   );
 
   await phase1.changePassword(password, "Phase1E107Changed!", "");
-  await expect(page.getByTestId("account-error-code")).toHaveText(
+  await expect(page.getByTestId(phase1ErrorCodeTestId("account"))).toHaveText(
     "invalid_second_factor",
   );
 
@@ -410,10 +439,12 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
     "Phase1E107Changed!",
     generateTotpCode(secretBase32),
   );
-  await expect(page.getByTestId("auth-login-username")).toBeVisible();
+  await expect(
+    page.getByTestId(phase1AuthTestId("login-username")),
+  ).toBeVisible();
 
   await phase1.login(email, password, generateTotpCode(secretBase32));
-  await expect(page.getByTestId("auth-error-code")).toHaveText(
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
     "invalid_credentials",
   );
 
@@ -422,9 +453,9 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
     "Phase1E107Changed!",
     generateTotpCode(secretBase32),
   );
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -468,19 +499,23 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(incidentAdminEmail, incidentAdminPassword);
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: incidentAdminEmail,
     purpose: "phase1 e108 incident-admin login",
     userId: incidentAdminUser.user_id,
   });
-  await expect(page.getByTestId("admin-access-note")).toContainText(
+  await expect(
+    page.getByTestId(phase1AdminTestId("access-note")),
+  ).toContainText(
     "Incident-admin membership alone does not unlock these controls",
   );
-  await expect(page.getByTestId("admin-password-reset")).toHaveCount(0);
+  await expect(
+    page.getByTestId(phase1AdminTestId("password-reset")),
+  ).toHaveCount(0);
 
   const targetUserVersion = (
     await loadUser(workerAdminRequest, targetUser.user_id)
@@ -524,49 +559,55 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   await restoreTrackedStorageState(page, workerAdmin.storageState);
   await phase1.goto();
   await phase1.loadTargetUser(targetUser.user_id);
-  await expect(page.getByTestId("admin-target-user-version")).toHaveText(
-    String(targetUserVersion),
-  );
-  await page.getByTestId("admin-new-password").fill("Phase1E108Changed!");
-  await page.getByTestId("admin-reason").fill("deployment admin action");
+  await expect(
+    page.getByTestId(phase1AdminTestId("target-user-version")),
+  ).toHaveText(String(targetUserVersion));
+  await page
+    .getByTestId(phase1AdminTestId("new-password"))
+    .fill("Phase1E108Changed!");
+  await page
+    .getByTestId(phase1AdminTestId("reason"))
+    .fill("deployment admin action");
 
-  await page.getByTestId("admin-password-reset").click();
-  await expect(page.getByTestId("admin-status")).toHaveText(
+  await page.getByTestId(phase1AdminTestId("password-reset")).click();
+  await expect(page.getByTestId(phase1AdminTestId("status"))).toHaveText(
     "Reset user password",
   );
-  await expect(page.getByTestId("admin-target-user-version")).toHaveText(
-    String(targetUserVersion + 1),
-  );
+  await expect(
+    page.getByTestId(phase1AdminTestId("target-user-version")),
+  ).toHaveText(String(targetUserVersion + 1));
 
-  await page.getByTestId("admin-totp-reset").click();
-  await expect(page.getByTestId("admin-status")).toHaveText("Reset user TOTP");
-  await expect(page.getByTestId("admin-target-user-version")).toHaveText(
-    String(targetUserVersion + 2),
+  await page.getByTestId(phase1AdminTestId("totp-reset")).click();
+  await expect(page.getByTestId(phase1AdminTestId("status"))).toHaveText(
+    "Reset user TOTP",
   );
+  await expect(
+    page.getByTestId(phase1AdminTestId("target-user-version")),
+  ).toHaveText(String(targetUserVersion + 2));
 
-  await page.getByTestId("admin-revoke-all").click();
-  await expect(page.getByTestId("admin-status")).toHaveText(
+  await page.getByTestId(phase1AdminTestId("revoke-all")).click();
+  await expect(page.getByTestId(phase1AdminTestId("status"))).toHaveText(
     "Revoked every user session",
   );
-  await expect(page.getByTestId("admin-target-user-version")).toHaveText(
-    String(targetUserVersion + 2),
-  );
+  await expect(
+    page.getByTestId(phase1AdminTestId("target-user-version")),
+  ).toHaveText(String(targetUserVersion + 2));
 
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(incidentAdminEmail, incidentAdminPassword);
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: incidentAdminEmail,
     purpose: "phase1 e108 incident-admin login after admin actions",
     userId: incidentAdminUser.user_id,
   });
-  await expect(page.getByTestId("account-session-user-id")).toHaveText(
-    incidentAdminUser.user_id,
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-user-id")),
+  ).toHaveText(incidentAdminUser.user_id);
 });
 
 test("E-1-09 creates an incident from the landing screen, lists it, and opens the workbook as incident admin", async ({
@@ -577,7 +618,7 @@ test("E-1-09 creates an incident from the landing screen, lists it, and opens th
   const incidentTitle = "Phase 1 E-1-09";
 
   await phase1.goto();
-  await expect(page.getByTestId("incident-landing")).toBeVisible();
+  await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
 
   const createResponsePromise = waitForPublicAPIResponse(page, {
     method: "POST",
@@ -653,9 +694,9 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(targetEmail, targetPassword);
-  await expect(page.getByTestId("account-session-user-id")).toHaveText(
-    targetUser.user_id,
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-user-id")),
+  ).toHaveText(targetUser.user_id);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: targetEmail,
@@ -694,11 +735,11 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   );
 
   await page.reload();
-  await expect(page.getByTestId("incident-landing")).toBeVisible();
+  await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
   await expect(page).not.toHaveURL(
     new RegExp(`incident_id=${selectedIncidentId}`),
   );
-  await expect(page.getByTestId("landing-status")).toContainText(
+  await expect(page.getByTestId(phase1LandingTestId("status"))).toContainText(
     "no longer visible",
   );
   await expect(
@@ -707,9 +748,9 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   await expect(
     page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
   ).toBeVisible();
-  await expect(page.getByTestId("account-session-user-id")).toHaveText(
-    targetUser.user_id,
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-user-id")),
+  ).toHaveText(targetUser.user_id);
 
   await phase1.openIncident(alternateIncidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -742,9 +783,9 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(targetEmail, targetPassword);
-  await expect(page.getByTestId("account-session-user-id")).toHaveText(
-    targetUser.user_id,
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-user-id")),
+  ).toHaveText(targetUser.user_id);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: targetEmail,
@@ -826,9 +867,9 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(targetEmail, targetPassword);
-  await expect(page.getByTestId("account-session-user-id")).toHaveText(
-    targetUser.user_id,
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-user-id")),
+  ).toHaveText(targetUser.user_id);
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toBeVisible();
@@ -857,15 +898,17 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
       code: "session_required",
     },
   });
-  await expect(page.getByTestId("auth-login-username")).toBeVisible();
-  await expect(page.getByTestId("auth-shell-message")).toContainText(
-    "Sign in again",
-  );
+  await expect(
+    page.getByTestId(phase1AuthTestId("login-username")),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(phase1AuthTestId("shell-message")),
+  ).toContainText("Sign in again");
 
   await phase1.login(targetEmail, targetPassword);
-  await expect(page.getByTestId("account-session-user-id")).toHaveText(
-    targetUser.user_id,
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-user-id")),
+  ).toHaveText(targetUser.user_id);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: targetEmail,

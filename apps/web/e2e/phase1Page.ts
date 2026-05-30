@@ -1,6 +1,11 @@
+import {
+  landingIncidentOpenButtonTestId,
+  phase1AccountTestId,
+  phase1AdminTestId,
+  phase1AuthTestId,
+  phase1LandingTestId,
+} from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
-
-import { landingIncidentOpenButtonTestId } from "@cartulary/ui-contracts";
 
 import { expect } from "./fixtures";
 import {
@@ -19,15 +24,15 @@ export class Phase1Page {
   constructor(private readonly page: Page) {}
 
   get loginUsername(): Locator {
-    return this.page.getByTestId("auth-login-username");
+    return this.page.getByTestId(phase1AuthTestId("login-username"));
   }
 
   get loginPassword(): Locator {
-    return this.page.getByTestId("auth-login-password");
+    return this.page.getByTestId(phase1AuthTestId("login-password"));
   }
 
   get loginTotpCode(): Locator {
-    return this.page.getByTestId("auth-login-totp-code");
+    return this.page.getByTestId(phase1AuthTestId("login-totp-code"));
   }
 
   async goto() {
@@ -38,7 +43,7 @@ export class Phase1Page {
     await this.loginUsername.fill(email);
     await this.loginPassword.fill(password);
     await this.loginTotpCode.fill(totpCode);
-    await this.page.getByTestId("auth-login-submit").click();
+    await this.page.getByTestId(phase1AuthTestId("login-submit")).click();
   }
 
   async requireText(testId: string) {
@@ -54,26 +59,32 @@ export class Phase1Page {
   }
 
   async beginBootstrapEnrollment() {
-    await this.page.getByTestId("auth-bootstrap-begin").click();
+    await this.page.getByTestId(phase1AuthTestId("bootstrap-begin")).click();
   }
 
   async completeBootstrapEnrollment(code: string) {
-    await this.page.getByTestId("auth-bootstrap-complete-code").fill(code);
-    await this.page.getByTestId("auth-bootstrap-complete").click();
+    await this.page
+      .getByTestId(phase1AuthTestId("bootstrap-complete-code"))
+      .fill(code);
+    await this.page.getByTestId(phase1AuthTestId("bootstrap-complete")).click();
   }
 
   async refreshAccount() {
-    await this.page.getByTestId("account-refresh-state").click();
+    await this.page.getByTestId(phase1AccountTestId("refresh-state")).click();
   }
 
   async refreshLanding() {
-    await this.page.getByTestId("landing-refresh").click();
+    await this.page.getByTestId(phase1LandingTestId("refresh")).click();
   }
 
   async createAndOpenIncident(incidentKey: string, title: string) {
-    await this.page.getByTestId("landing-incident-key").fill(incidentKey);
-    await this.page.getByTestId("landing-incident-title").fill(title);
-    await this.page.getByTestId("landing-create-button").click();
+    await this.page
+      .getByTestId(phase1LandingTestId("incident-key"))
+      .fill(incidentKey);
+    await this.page
+      .getByTestId(phase1LandingTestId("incident-title"))
+      .fill(title);
+    await this.page.getByTestId(phase1LandingTestId("create-button")).click();
   }
 
   async openIncident(incidentId: string) {
@@ -83,7 +94,7 @@ export class Phase1Page {
   }
 
   async returnToLanding() {
-    await this.page.getByTestId("landing-return").click();
+    await this.page.getByTestId(phase1LandingTestId("return")).click();
   }
 
   async patchIncidentFields(options: {
@@ -113,13 +124,15 @@ export class Phase1Page {
     factorCode: string,
   ) {
     await this.page
-      .getByTestId("account-password-current")
+      .getByTestId(phase1AccountTestId("password-current"))
       .fill(currentPassword);
-    await this.page.getByTestId("account-password-next").fill(nextPassword);
     await this.page
-      .getByTestId("account-password-factor-code")
+      .getByTestId(phase1AccountTestId("password-next"))
+      .fill(nextPassword);
+    await this.page
+      .getByTestId(phase1AccountTestId("password-factor-code"))
       .fill(factorCode);
-    await this.page.getByTestId("account-password-change").click();
+    await this.page.getByTestId(phase1AccountTestId("password-change")).click();
   }
 
   async createUser(options: {
@@ -129,25 +142,31 @@ export class Phase1Page {
     mfaRequired?: boolean;
     password: string;
   }) {
-    await this.page.getByTestId("admin-create-email").fill(options.email);
     await this.page
-      .getByTestId("admin-create-display-name")
+      .getByTestId(phase1AdminTestId("create-email"))
+      .fill(options.email);
+    await this.page
+      .getByTestId(phase1AdminTestId("create-display-name"))
       .fill(options.displayName);
-    await this.page.getByTestId("admin-create-password").fill(options.password);
+    await this.page
+      .getByTestId(phase1AdminTestId("create-password"))
+      .fill(options.password);
     await this.setCheckbox(
-      "admin-create-mfa-required",
+      phase1AdminTestId("create-mfa-required"),
       options.mfaRequired ?? true,
     );
     await this.setCheckbox(
-      "admin-create-is-deployment-admin",
+      phase1AdminTestId("create-is-deployment-admin"),
       options.isDeploymentAdmin ?? false,
     );
-    await this.page.getByTestId("admin-create-user").click();
+    await this.page.getByTestId(phase1AdminTestId("create-user")).click();
   }
 
   async loadTargetUser(userId: string) {
     const targetPath = `/api/v1/users/${userId}`;
-    await this.page.getByTestId("admin-target-user-id-input").fill(userId);
+    await this.page
+      .getByTestId(phase1AdminTestId("target-user-id-input"))
+      .fill(userId);
     const [response] = await Promise.all([
       this.page.waitForResponse((candidate) => {
         const method = candidate.request().method().toUpperCase();
@@ -156,17 +175,17 @@ export class Phase1Page {
         }
         return new URL(candidate.url()).pathname === targetPath;
       }),
-      this.page.getByTestId("admin-load-user").click(),
+      this.page.getByTestId(phase1AdminTestId("load-user")).click(),
     ]);
     expect(response.ok()).toBeTruthy();
-    await expect(this.page.getByTestId("admin-target-user-id")).toHaveText(
-      userId,
-    );
-    await this.requireText("admin-target-user-version");
+    await expect(
+      this.page.getByTestId(phase1AdminTestId("target-user-id")),
+    ).toHaveText(userId);
+    await this.requireText(phase1AdminTestId("target-user-version"));
   }
 
   async patchTargetUser() {
-    await this.page.getByTestId("admin-patch-user").click();
+    await this.page.getByTestId(phase1AdminTestId("patch-user")).click();
   }
 
   async setCheckbox(testId: string, checked: boolean) {

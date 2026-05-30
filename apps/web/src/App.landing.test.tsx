@@ -1,6 +1,8 @@
 import {
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
+  phase1AuthTestId,
+  phase1LandingTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -123,12 +125,15 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(
-      (await screen.findByTestId("landing-empty-state")).textContent,
+      (await screen.findByTestId(phase1LandingTestId("empty-state")))
+        .textContent,
     ).toContain("No incidents are visible");
-    expect(screen.getByTestId("landing-incidents-count").textContent).toBe("0");
-    expect(screen.getByTestId("landing-current-user").textContent).toBe(
-      "Bootstrap Admin · deployment admin",
-    );
+    expect(
+      screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
+    ).toBe("0");
+    expect(
+      screen.getByTestId(phase1LandingTestId("current-user")).textContent,
+    ).toBe("Bootstrap Admin · deployment admin");
     await expectStableFetchCount(fetchMock, 3);
   });
 
@@ -145,8 +150,12 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    expect(await screen.findByTestId("landing-incident-list")).toBeTruthy();
-    expect(screen.getByTestId("landing-incidents-count").textContent).toBe("2");
+    expect(
+      await screen.findByTestId(phase1LandingTestId("incident-list")),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
+    ).toBe("2");
     expect(
       screen.getByTestId(landingIncidentCardTestId("incident-1")).textContent,
     ).toContain("First Incident");
@@ -187,14 +196,17 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    await screen.findByTestId("landing-empty-state");
-    fireEvent.change(screen.getByTestId("landing-incident-key"), {
+    await screen.findByTestId(phase1LandingTestId("empty-state"));
+    fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
       target: { value: "IR-203" },
     });
-    fireEvent.change(screen.getByTestId("landing-incident-title"), {
-      target: { value: "Created Incident" },
-    });
-    fireEvent.click(screen.getByTestId("landing-create-button"));
+    fireEvent.change(
+      screen.getByTestId(phase1LandingTestId("incident-title")),
+      {
+        target: { value: "Created Incident" },
+      },
+    );
+    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
@@ -219,13 +231,15 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    expect(await screen.findByTestId("landing-incident-list")).toBeTruthy();
+    expect(
+      await screen.findByTestId(phase1LandingTestId("incident-list")),
+    ).toBeTruthy();
     expect(
       screen.getByTestId(landingIncidentOpenButtonTestId("incident-live")),
     ).toBeTruthy();
-    expect(screen.getByTestId("landing-status").textContent).toContain(
-      "no longer visible",
-    );
+    expect(
+      screen.getByTestId(phase1LandingTestId("status")).textContent,
+    ).toContain("no longer visible");
     expect(window.location.search).not.toContain("incident_id=");
   });
 
@@ -283,11 +297,13 @@ describe("Incident landing", () => {
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("landing-empty-state")).toBeTruthy();
+      expect(
+        screen.getByTestId(phase1LandingTestId("empty-state")),
+      ).toBeTruthy();
     });
-    expect(screen.getByTestId("landing-status").textContent).toContain(
-      "no longer visible",
-    );
+    expect(
+      screen.getByTestId(phase1LandingTestId("status")).textContent,
+    ).toContain("no longer visible");
     expect(window.location.search).not.toContain("incident_id=");
     await expectStableFetchCount(fetchMock, 8);
   });
@@ -343,7 +359,7 @@ describe("Incident landing", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
-    expect(screen.getByTestId("auth-status").textContent).toBe(
+    expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
       "Checking current session…",
     );
 
@@ -359,10 +375,12 @@ describe("Incident landing", () => {
     window.history.pushState({}, "", "/");
     fireEvent.popState(window);
 
-    expect(await screen.findByTestId("landing-empty-state")).toBeTruthy();
-    expect(screen.getByTestId("landing-current-user").textContent).toBe(
-      "Operator",
-    );
+    expect(
+      await screen.findByTestId(phase1LandingTestId("empty-state")),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(phase1LandingTestId("current-user")).textContent,
+    ).toBe("Operator");
     await expectStableFetchCount(fetchMock, 4);
   });
 });

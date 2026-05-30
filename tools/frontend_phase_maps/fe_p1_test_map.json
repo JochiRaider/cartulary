@@ -215,7 +215,7 @@
       "scenario_titles": [
         "FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify bootstrap route selectors and error-state selectors use stable test-id builders.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     }

@@ -1,3 +1,4 @@
+import { phase1AccountTestId, phase1AuthTestId } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { createLocalUser } from "./authRuntime";
@@ -32,9 +33,9 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(email, password);
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -57,15 +58,17 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
       phase1.refreshAccount(),
     ]);
     expect(sessionResponse.status()).toBe(401);
-    await expect(page.getByTestId("auth-login-username")).toBeVisible();
+    await expect(
+      page.getByTestId(phase1AuthTestId("login-username")),
+    ).toBeVisible();
   } finally {
     await phase1.resetClockOffset();
   }
 
   await phase1.login(email, password);
-  await expect(page.getByTestId("account-session-provider-type")).toHaveText(
-    "local",
-  );
+  await expect(
+    page.getByTestId(phase1AccountTestId("session-provider-type")),
+  ).toHaveText("local");
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
