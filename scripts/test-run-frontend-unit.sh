@@ -118,17 +118,19 @@ const phaseFiles = (phaseRegistry.phases ?? [])
   .map((entry) => entry.manifest_path);
 const manifestSections = ["unit", "integration", "e2e", "visual"];
 const authoritative = [];
+const manifestSupport = [];
 
 for (const manifestPath of phaseFiles) {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, manifestPath), "utf8"));
   for (const section of manifestSections) {
     for (const row of manifest[section] ?? []) {
-      if (
-        row.runner === "vitest" &&
-        row.coverage === "authoritative" &&
-        row.execution_dependency === "frontend_unit"
-      ) {
+      if (row.runner !== "vitest" || row.execution_dependency !== "frontend_unit") {
+        continue;
+      }
+      if (row.coverage === "authoritative") {
         authoritative.push(row);
+      } else {
+        manifestSupport.push(row);
       }
     }
   }
@@ -170,6 +172,47 @@ for (const [index, row] of authoritative.entries()) {
   }
   byFile.set(absolute, entries);
 }
+
+for (const [index, row] of manifestSupport.entries()) {
+  const absolute = path.join(root, row.file);
+  const entries = byFile.get(absolute) ?? [];
+  const titles = Array.isArray(row.titles) ? row.titles : [row.title];
+  for (const title of titles.filter(Boolean)) {
+    entries.push(
+      assertion(
+        title,
+        mode === "manifest-support-failure" && index === 0
+          ? "failed"
+          : "passed",
+      ),
+    );
+  }
+  byFile.set(absolute, entries);
+}
+
+const frontendPhase1 = JSON.parse(
+  fs.readFileSync(path.join(root, "tools", "frontend_phase_maps", "fe_p1_test_map.json"), "utf8"),
+);
+const frontendPhase1Entries = [];
+for (const row of frontendPhase1.rows ?? []) {
+  if (!["FE-I-P1-01", "FE-S-P1-01"].includes(row.id)) {
+    continue;
+  }
+  for (const [index, title] of (row.scenario_titles ?? []).entries()) {
+    frontendPhase1Entries.push(
+      assertion(
+        title,
+        mode === "frontend-row-failure" && row.id === "FE-I-P1-01" && index === 0
+          ? "failed"
+          : "passed",
+      ),
+    );
+  }
+}
+byFile.set(path.join(root, "apps/web/src/App.phase1.test.tsx"), [
+  ...(byFile.get(path.join(root, "apps/web/src/App.phase1.test.tsx")) ?? []),
+  ...frontendPhase1Entries,
+]);
 
 byFile.set(path.join(root, "apps/web/src/App.phase1.support.test.tsx"), [
   assertion("Phase 1 support smoke keeps ordinary shell helpers stable", "passed"),
@@ -261,6 +304,9 @@ const [root] = process.argv.slice(2);
 const registry = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase_registry.json"), "utf8"));
 const sections = ["unit", "integration", "e2e", "visual"];
 let authoritative = 0;
+let support = 0;
+let frontendAuthoritative = 0;
+let frontendSupport = 0;
 const phases = new Set();
 for (const entry of (registry.phases ?? [])
   .filter((phase) => phase.status === "active")
@@ -270,34 +316,92 @@ for (const entry of (registry.phases ?? [])
     for (const row of manifest[section] ?? []) {
       if (
         row.runner === "vitest" &&
-        row.coverage === "authoritative" &&
         row.execution_dependency === "frontend_unit"
       ) {
-        authoritative += Array.isArray(row.titles) ? row.titles.length : 1;
+        const count = Array.isArray(row.titles) ? row.titles.length : 1;
+        if (row.coverage === "authoritative") {
+          authoritative += count;
+        } else {
+          support += count;
+        }
         phases.add(entry.phase);
       }
     }
   }
 }
-process.stdout.write(`${authoritative},${phases.size}`);
+const frontendPhase1 = JSON.parse(
+  fs.readFileSync(path.join(root, "tools", "frontend_phase_maps", "fe_p1_test_map.json"), "utf8"),
+);
+for (const row of frontendPhase1.rows ?? []) {
+  if (!["FE-I-P1-01", "FE-S-P1-01"].includes(row.id)) {
+    continue;
+  }
+  const count = (row.scenario_titles ?? []).length;
+  if (row.evidence_class === "product_conformance") {
+    frontendAuthoritative += count;
+  } else {
+    frontendSupport += count;
+  }
+}
+process.stdout.write(`${authoritative},${support},${phases.size},${frontendAuthoritative},${frontendSupport}`);
 EOF
 )"
-expected_authoritative="${frontend_counts%,*}"
-expected_derived="$(( ${frontend_counts#*,} + 1 ))"
-expected_total="$(( expected_authoritative + 2 ))"
+IFS=',' read -r base_authoritative base_support phase_count frontend_authoritative frontend_support <<<"$frontend_counts"
+expected_authoritative="$(( base_authoritative + frontend_authoritative ))"
+expected_support="$(( base_support + 1 + frontend_support ))"
+expected_derived="$(( phase_count + 1 ))"
+expected_total="$(( expected_authoritative + expected_support + 1 ))"
 assert_equals "$(json_field "$success_summary" "own.counts.tests")" "$expected_total" "success total tests"
 assert_equals "$(json_field "$success_summary" "own.counts.authoritative")" "$expected_authoritative" "success authoritative count"
-assert_equals "$(json_field "$success_summary" "own.counts.support")" "1" "success support count"
+assert_equals "$(json_field "$success_summary" "own.counts.support")" "$expected_support" "success support count"
 assert_equals "$(json_field "$success_summary" "own.counts.unowned_regression")" "1" "success unowned regression count"
 assert_equals "$(json_field "$success_summary" "own.counts.unmapped")" "0" "success unmapped count"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.actual")" "1" "success raw actual phase"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "$expected_derived" "success derived slices"
+"${NODE:-node}" - "$success_summary" <<'EOF'
+const fs = require("node:fs");
+const path = require("node:path");
+const [summaryPath] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
+if (!accounting) {
+  throw new Error("frontend-unit target summary must include frontend row accounting");
+}
+const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
+const fei = byID.get("FE-I-P1-01");
+if (!fei || fei.closure_status !== "closed") {
+  throw new Error(`FE-I-P1-01 must be closed in success accounting: ${JSON.stringify(fei)}`);
+}
+if (fei.scenarios.filter((scenario) => scenario.status === "passed").length !== 11) {
+  throw new Error("FE-I-P1-01 must retain per-scenario passed accounting");
+}
+const missing = byID.get("FE-I-P3-01");
+if (!missing || missing.closure_status !== "missing") {
+  throw new Error(`planned FE-I-P3-01 scenario must be represented as missing: ${JSON.stringify(missing)}`);
+}
+const toolSummary = JSON.parse(
+  fs.readFileSync(path.join(path.dirname(summaryPath), "tool-run-summary.json"), "utf8"),
+);
+if (!toolSummary.extensions?.["cartulary.frontend_row_accounting"]) {
+  throw new Error("frontend-unit tool summary must include frontend row accounting");
+}
+EOF
 
 residual_summary="$(run_case residual residual-failure fail)"
 assert_equals "$(json_field "$residual_summary" "own.counts.failed")" "1" "residual failure count"
 assert_equals "$(json_field "$residual_summary" "own.counts.unowned_regression_failed")" "1" "residual unowned regression failure count"
 assert_equals "$(json_field "$residual_summary" "own.counts.unmapped_failed")" "0" "residual unmapped failure count"
 assert_equals "$(json_field "$residual_summary" "own.counts.authoritative_failed")" "0" "residual authoritative failure count"
+"${NODE:-node}" - "$residual_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryPath] = process.argv.slice(2);
+const accounting = JSON.parse(fs.readFileSync(summaryPath, "utf8"))
+  .extensions?.["cartulary.frontend_row_accounting"];
+const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
+if (!fei || fei.closure_status !== "blocked_by_target") {
+  throw new Error(`unrelated target failure must block, not fail, FE-I-P1-01: ${JSON.stringify(fei)}`);
+}
+EOF
 
 unknown_summary="$(run_case unknown unknown-failure fail)"
 assert_equals "$(json_field "$unknown_summary" "own.counts.failed")" "1" "unknown residual failure count"
@@ -308,6 +412,27 @@ authoritative_summary="$(run_case authoritative authoritative-failure fail)"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.failed")" "1" "authoritative failure count"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.authoritative_failed")" "1" "authoritative authoritative failure count"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.unmapped_failed")" "0" "authoritative unmapped failure count"
+manifest_support_summary="$(run_case manifest-support manifest-support-failure fail)"
+assert_equals "$(json_field "$manifest_support_summary" "own.counts.failed")" "1" "manifest support failure count"
+assert_equals "$(json_field "$manifest_support_summary" "own.counts.support_failed")" "1" "manifest support support failure count"
+assert_equals "$(json_field "$manifest_support_summary" "own.counts.authoritative_failed")" "0" "manifest support authoritative failure count"
+assert_equals "$(json_field "$manifest_support_summary" "own.counts.unmapped_failed")" "0" "manifest support unmapped failure count"
+frontend_row_summary="$(run_case frontend-row frontend-row-failure fail)"
+assert_equals "$(json_field "$frontend_row_summary" "own.counts.failed")" "1" "frontend row failure count"
+assert_equals "$(json_field "$frontend_row_summary" "own.counts.authoritative_failed")" "1" "frontend row authoritative failure count"
+"${NODE:-node}" - "$frontend_row_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryPath] = process.argv.slice(2);
+const accounting = JSON.parse(fs.readFileSync(summaryPath, "utf8"))
+  .extensions?.["cartulary.frontend_row_accounting"];
+const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
+if (!fei || fei.closure_status !== "failed") {
+  throw new Error(`mapped FE-I-P1-01 assertion failure must mark the row failed: ${JSON.stringify(fei)}`);
+}
+if (!fei.scenarios.some((scenario) => scenario.status === "failed")) {
+  throw new Error("mapped FE-I-P1-01 failure must retain failed scenario accounting");
+}
+EOF
 success_target_dir="${success_summary%/target-summary.json}"
 "${NODE:-node}" - "$success_target_dir" <<'EOF'
 const fs = require("node:fs");

@@ -22,7 +22,7 @@ This guide does not implement FE-P1 behavior. It is not behavior authority and m
 
 ## Current Repo Status
 
-The following facts were verified by local inspection, non-mutating command execution during FE-P1 guide creation, Sprint 1 readiness validation, Sprint 2 validation, and Sprint 3 remediation:
+The following facts were verified by local inspection, non-mutating command execution during FE-P1 guide creation, Sprint 1 readiness validation, Sprint 2 validation, Sprint 3 remediation, and Sprint 3 audit follow-up:
 
 - `tools/frontend_phase_registry.json` exists and includes `FE-P1` in the `frontend` namespace with `status="planned"`, manifest path `tools/frontend_phase_maps/fe_p1_test_map.json`, ledger path `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`, and dependency on `FE-P0`.
 - `tools/frontend_phase_maps/fe_p1_test_map.json` exists with schema `cartulary.frontend_phase_test_map.v1`, `phase_namespace="frontend"`, and `phase_id="FE-P1"`.
@@ -391,7 +391,7 @@ Generated artifacts:
 - Validation commands: `make frontend-unit`; supporting `make frontend-typecheck`, `make generated-artifact-policy-check`, `make generate-drift`, and `make frontend-import-boundary-check` when implementation touches contracts, generated inputs, or package boundaries.
 - Deliverables: API route-boundary tests and client behavior that can be traced to Core-owned public routes and public error envelopes.
 - Risks and assumptions: FE-P1 must not infer new route closure policy from frontend convenience; closure expectations must follow route owners.
-- Blockers and follow-up notes: No Core 00-04 owner text, OpenAPI, generated protocol, or public API behavior changes were required. Server-side rejection of unknown request members remains backend/API owner evidence; `FE-I-P1-01` asserts that the frontend client does not send unknown members on exercised owner-closed Phase 1 routes. The audit-identified gaps for route-specific CSRF evidence, login second-factor serialization, logout/TOTP-complete/load-user/revoke-all public-error rendering, FE-P1 map titles, and generated ledger traceability are remediated by the validation artifacts below.
+- Blockers and follow-up notes: No Core 00-04 owner text, OpenAPI, generated protocol, or public API behavior changes were required. Server-side rejection of unknown request members remains backend/API owner evidence; `FE-I-P1-01` asserts that the frontend client does not send unknown members on exercised owner-closed Phase 1 routes. The audit-identified gaps for route-specific CSRF evidence, login second-factor serialization, logout/TOTP-complete/load-user/revoke-all public-error rendering, FE-P1 map titles, and generated ledger traceability are remediated by the validation artifacts below. A later audit found no remaining FE-I route-boundary product gap, but `make frontend-unit` was blocked by an unrelated Phase 9 jsdom grouped-paste conflict test; the audit blocker and follow-up remediation are recorded below.
 
 ### Sprint 3 remediation checklist
 
@@ -406,18 +406,27 @@ Validation artifacts:
 
 | Command | Status | Artifact |
 | ------- | ------ | -------- |
-| `make phase-ledgers` | Passed | `.cartulary/test-results/20260530T000708Z-p2391169/phase-ledgers/tool-run-summary.json` |
-| `make frontend-typecheck` | Passed | `.cartulary/test-results/20260530T000718Z-p2391696/frontend-typecheck/tool-run-summary.json` |
-| `make phase-ledger-drift` | Passed | `.cartulary/test-results/20260530T000718Z-p2391694/phase-ledger-drift/tool-run-summary.json` |
-| `make frontend-unit` | Passed | `.cartulary/test-results/20260530T000752Z-p2394122/frontend-unit/tool-run-summary.json` |
-| `make generated-artifact-policy-check` | Passed | `.cartulary/test-results/20260530T000948Z-p2399583/generated-artifact-policy-check/tool-run-summary.json` |
-| `make generate-drift` | Passed | `.cartulary/test-results/20260530T000948Z-p2399587/generate-drift/tool-run-summary.json` |
-| `make frontend-import-boundary-check` | Passed | `.cartulary/test-results/20260530T000948Z-p2399594/frontend-import-boundary-check/tool-run-summary.json` |
-| `make agent-finalize` | Passed; generated artifacts unchanged and retained-run maintenance skipped because `RESULTS_DIR` was unset | `.cartulary/test-results/20260530T000823Z-p2395921/agent-finalize/tool-run-summary.json` |
+| `make frontend-unit` | Passed; `cartulary.frontend_row_accounting` closes `FE-I-P1-01` with 11/11 scenarios passed | `.cartulary/test-results/20260530T004132Z-p2464041/frontend-unit/tool-run-summary.json` |
+| `make frontend-typecheck` | Passed | `.cartulary/test-results/20260530T004157Z-p2465698/frontend-typecheck/tool-run-summary.json` |
+| `make phase-ledgers` | Passed | `.cartulary/test-results/20260530T004206Z-p2466008/phase-ledgers/tool-run-summary.json` |
+| `make phase-ledger-drift` | Passed | `.cartulary/test-results/20260530T004209Z-p2466250/phase-ledger-drift/tool-run-summary.json` |
+| `make generated-artifact-policy-check` | Passed | `.cartulary/test-results/20260530T004213Z-p2466491/generated-artifact-policy-check/tool-run-summary.json` |
+| `make generate-drift` | Passed | `.cartulary/test-results/20260530T004722Z-p2480005/generate-drift/tool-run-summary.json` |
+| `make frontend-import-boundary-check` | Passed | `.cartulary/test-results/20260530T004221Z-p2467353/frontend-import-boundary-check/tool-run-summary.json` |
+| `make json-shape-check` | Passed | `.cartulary/test-results/20260530T004228Z-p2467671/json-shape-check/tool-run-summary.json` |
+| `bash scripts/test-run-frontend-unit.sh` | Passed; covers frontend row pass/fail/missing/target-blocked cases and manifest supplemental Vitest support failure accounting | Console output only |
+| `make lint-scripts` | Passed | `.cartulary/test-results/20260530T004630Z-p2478313/lint-scripts/tool-run-summary.json` |
+| `make lint-shell` | Passed | `.cartulary/test-results/20260530T004634Z-p2478586/lint-shell/tool-run-summary.json` |
+| `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1` | Passed; reports `FE-I-P1-01 claim_status=implemented` and FE-P1 overall `planned` | Console output only |
+| `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260530T003729Z-p2453010` | Failed in retained-run preflight because `agent-finalize` currently requires a successful full warm `make check` retained root, not a standalone `frontend-unit` run root | `.cartulary/test-results/20260530T003937Z-p2460587/agent-finalize/tool-run-summary.json` |
+| `make agent-finalize` | Passed; updated `tools/execution_topology_render_index.json`; retained-run maintenance skipped because `RESULTS_DIR` was unset | `.cartulary/test-results/20260530T004012Z-p2461540/agent-finalize/tool-run-summary.json` |
 
 Validation notes:
 
-- An intervening `make frontend-unit` run at `.cartulary/test-results/20260530T000718Z-p2391641` failed in unrelated Phase 9 test `Phase 9 E-9-02 registers grouped paste conflicts without losing selection continuity`; the immediate rerun passed and is the FE-I closure evidence above.
+- The audit-only `make frontend-unit` run at `.cartulary/test-results/20260530T001459Z-p2412280` failed in unrelated Phase 9 test `Phase 9 E-9-02 registers grouped paste conflicts without losing selection continuity`. The runner JSON reported all 11 `FE-I-P1-01` scenario titles as passed, but the target failed overall, so that run is not FE-I closure evidence.
+- The Phase 9 grouped-paste jsdom failure was remediated without quarantine by adding bounded async waits around paste conflict registration, conflict panel update, and focus-anchor restoration in `apps/web/src/WorkbookShell.phase9.sentinel.test.tsx`.
+- The same Phase 9 jsdom test is now explicit supplemental frontend-unit evidence through `I-9-SUPPORT-01` in `tools/phase9_test_map.json`; browser row `E-9-CONFLICT-02` remains the authoritative conflict evidence owner. `make phase-ledgers` regenerated `docs/testing/phase9_coverage_ledger.md`.
+- `frontend-unit` summaries now include additive `cartulary.frontend_row_accounting` extensions derived from frontend phase maps. Row closure remains strict: `FE-I-P1-01` is closed only when all mapped scenarios pass and the canonical target exits 0; unrelated target failures are reported as `blocked_by_target`.
 
 ## Sprint 4: Login, Session Bootstrap, Incident Entry, Authorization, And Revocation E2E Flow
 
@@ -496,7 +505,7 @@ Do not replace blockers with guesses. If a command is not run, state that it was
 | Every FE-P1 row is represented exactly once in the phase map | Satisfied by Sprint 1 duplicate-row inspection: all five requested rows appear once |
 | Generated ledgers are produced by generator, not hand-edited | Satisfied through Sprint 3 metadata: `make phase-ledgers` regenerated the FE-P1 ledger and `make phase-ledger-drift` passed |
 | `FE-U-P1-01` has direct unit evidence or a blocker | Satisfied for Sprint 2 unit scope: `make frontend-unit` passed with `.cartulary/test-results/20260529T222359Z-p2202982/frontend-unit/tool-run-summary.json` and only `FE-U-P1-01` was promoted |
-| `FE-I-P1-01` has direct integration/unit evidence or a blocker | Satisfied for Sprint 3 route-boundary scope: `make frontend-unit` passed with `.cartulary/test-results/20260529T232533Z-p2326116/frontend-unit/tool-run-summary.json`, and the FE-P1 map now lists row-owned FE-I scenario titles |
+| `FE-I-P1-01` has direct integration/unit evidence or a blocker | Satisfied for Sprint 3 route-boundary scope: `make frontend-unit` passed with `.cartulary/test-results/20260530T004132Z-p2464041/frontend-unit/tool-run-summary.json`, the summary extension closes `FE-I-P1-01` with 11/11 scenarios passed, and the FE-P1 map lists row-owned FE-I scenario titles |
 | `FE-E-P1-01` has browser E2E evidence or a blocker | Blocked: `make browser-e2e-webserver-backed` was not run for guide creation |
 | `FE-A11Y-P1-01` has accessibility evidence or a blocker | Blocked: `make browser-e2e-a11y` was not run for guide creation |
 | `FE-S-P1-01` has selector-builder support evidence or a blocker | Blocked for FE-P1 closure: no row-owned FE-P1 selector-builder evidence was promoted; Sprint 2 selector accounting remains app-local and `make browser-e2e-support` was not run |

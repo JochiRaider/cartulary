@@ -47,6 +47,7 @@ const pasteColumns: readonly GridColumn<PasteHarnessRow>[] = [
     renderCell: (row) => row.state,
   },
 ];
+const pasteConflictWait = { timeout: 3000 };
 
 function pasteGridRow(
   key: string,
@@ -716,47 +717,65 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
-    });
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
-    expect(
-      screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
-    ).toBeTruthy();
-    expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
-      `${timelineViewSchemaId}:record-1:timeline.summary`,
-    );
-    expect(
-      screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),
-    ).toBeTruthy();
-    expect(
-      screen.getByTestId(conflictMarkerTestId("record-2", "timeline.summary")),
-    ).toBeTruthy();
-    expect(screen.getByTestId("paste-conflict-navigator")).toBeTruthy();
-    expect(screen.getByTestId("paste-conflict-position").textContent).toBe(
-      "1 of 2",
-    );
-    expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
-      "value",
-      "Client first",
-    );
+    }, pasteConflictWait);
+    await waitFor(() => {
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
+      expect(
+        screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
+      ).toBeTruthy();
+      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+        `${timelineViewSchemaId}:record-1:timeline.summary`,
+      );
+      expect(
+        screen.getByTestId(
+          conflictMarkerTestId("record-1", "timeline.summary"),
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.getByTestId(
+          conflictMarkerTestId("record-2", "timeline.summary"),
+        ),
+      ).toBeTruthy();
+      expect(screen.getByTestId("paste-conflict-navigator")).toBeTruthy();
+      expect(screen.getByTestId("paste-conflict-position").textContent).toBe(
+        "1 of 2",
+      );
+      expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
+        "value",
+        "Client first",
+      );
+    }, pasteConflictWait);
 
     fireEvent.click(screen.getByTestId("paste-conflict-next"));
-    expect(screen.getByTestId("paste-conflict-position").textContent).toBe(
-      "2 of 2",
-    );
-    expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
-      "value",
-      "Client second",
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId("paste-conflict-position").textContent).toBe(
+        "2 of 2",
+      );
+      expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
+        "value",
+        "Client second",
+      );
+    }, pasteConflictWait);
 
     fireEvent.click(screen.getByTestId("conflict-close"));
-    expect(screen.queryByTestId("conflict-resolver")).toBeNull();
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
-    expect(
-      screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),
-    ).toBeTruthy();
-    expect(
-      screen.getByTestId(conflictMarkerTestId("record-2", "timeline.summary")),
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
+      expect(
+        screen.getByTestId(
+          conflictMarkerTestId("record-1", "timeline.summary"),
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.getByTestId(
+          conflictMarkerTestId("record-2", "timeline.summary"),
+        ),
+      ).toBeTruthy();
+    }, pasteConflictWait);
   });
 
   it("Phase 9 I-9-GRID-01 maps filtered overflow to explicit create-row anchors", () => {

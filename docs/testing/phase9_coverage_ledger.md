@@ -31,6 +31,7 @@ This ledger is generated from `tools/phase9_test_map.json`. Update the manifest 
 - Phase 6 grid, collaboration, pending-queue, and conflict marker evidence remains support-only substrate and cannot claim Phase 9 keyboard, clipboard, or shared-grid completion.
 - Phase 8 query, saved-view, grouping, sorting, filtering, and startup evidence remains support-only substrate and cannot claim Phase 9 workbook behavior.
 - Phase 9 timeline clipboard and tabular-ingest helper tests remain support-only substrate and cannot claim U-9-02 by themselves.
+- Phase 9 grouped paste conflict jsdom coverage remains supplemental frontend-unit evidence and cannot replace E-9-CONFLICT-02 browser-functional ownership.
 - Support-only carryover files are listed in forbidden_id_files so they cannot accidentally claim Phase 9 identifiers.
 
 ## Unit

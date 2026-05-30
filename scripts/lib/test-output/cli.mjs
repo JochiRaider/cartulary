@@ -95,6 +95,7 @@ const runId = resolveRunId();
 
 let cachedGoModulePath;
 let cachedManifestIndex;
+let cachedFrontendVitestIndex;
 let cachedFrontendPlaywrightIndex;
 let cachedTestAccountingClassification;
 
@@ -643,6 +644,7 @@ function loadManifestIndex() {
     authoritativeGo: new Map(),
     authoritativeVitest: new Map(),
     authoritativePlaywright: new Map(),
+    manifestVitest: new Map(),
     manifestPlaywright: new Map(),
     forbiddenFilesByPhase: new Map(),
   };
@@ -657,6 +659,14 @@ function loadManifestIndex() {
       index.forbiddenFilesByPhase.get(phase).add(normalizePath(forbidden));
     }
     for (const entry of entries) {
+      if (entry.runner === "vitest") {
+        for (const title of vitestEntryTitles(entry)) {
+          index.manifestVitest.set(
+            `${normalizePath(entry.file)}::${title}`,
+            { ...entry, phase, title },
+          );
+        }
+      }
       if (entry.runner === "playwright") {
         for (const title of playwrightEntryTitles(entry)) {
           index.manifestPlaywright.set(
@@ -1136,6 +1146,13 @@ function writePhaseArtifacts(context, details) {
   const finalizeSummary = finalizeSummaryRel
     ? readJsonIfExists(finalizeSummaryPath)
     : null;
+  const existingTargetSummary = readJsonIfExists(
+    path.join(targetRunRoot, "target-summary.json"),
+  );
+  const existingTargetExtensions =
+    existingTargetSummary && typeof existingTargetSummary.extensions === "object"
+      ? existingTargetSummary.extensions
+      : {};
   const failureRecords = [
     ...failuresFromDossiers(details.dossiers ?? [], {
       target: context.target,
@@ -1332,6 +1349,7 @@ function writePhaseArtifacts(context, details) {
     slowest: [],
     rerunCommands: context.command ? [context.command] : [],
     extensions: {
+      ...existingTargetExtensions,
       ...(shellcheckFilesChecked !== null
         ? { "cartulary.lint_shell": { files_checked: shellcheckFilesChecked } }
         : {}),
@@ -2233,6 +2251,166 @@ function printInventory(targetSummary) {
   }
 }
 
+function frontendRowsForTarget(target) {
+  const makeTarget = `make ${target}`;
+  let registry;
+  try {
+    registry = loadFrontendPhaseRegistry(repoRoot);
+  } catch {
+    return [];
+  }
+  const rows = [];
+  for (const phase of registry.phases) {
+    const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
+    for (const row of manifest.rows) {
+      if (!row.targets.includes(makeTarget)) {
+        continue;
+      }
+      rows.push({
+        phase_id: phase.phase_id,
+        phase_status: phase.status,
+        row_id: row.id,
+        layer: row.layer,
+        evidence_class: row.evidence_class,
+        claim_status: row.claim_status,
+        scenario_titles: row.scenario_titles,
+      });
+    }
+  }
+  return rows;
+}
+
+function collectVitestTitleObservations(reportFile) {
+  const byTitle = new Map();
+  if (!existsSync(reportFile)) {
+    return byTitle;
+  }
+  const report = JSON.parse(readFileSync(reportFile, "utf8"));
+  for (const fileResult of collectVitestFileResults(report)) {
+    const ownerPath = normalizeVitestOwnerPath(fileResult.name ?? "");
+    for (const assertion of fileResult.assertionResults ?? []) {
+      const title = assertion.title ?? "";
+      if (title === "") {
+        continue;
+      }
+      const observations = byTitle.get(title) ?? [];
+      observations.push({
+        file: ownerPath,
+        status: assertion.status ?? "unknown",
+      });
+      byTitle.set(title, observations);
+    }
+  }
+  return byTitle;
+}
+
+function frontendScenarioStatus(observations) {
+  if (!observations || observations.length === 0) {
+    return "missing";
+  }
+  if (observations.some((entry) => entry.status === "failed")) {
+    return "failed";
+  }
+  if (observations.some((entry) => entry.status === "passed")) {
+    return "passed";
+  }
+  if (observations.every((entry) => entry.status === "skipped")) {
+    return "skipped";
+  }
+  return "unknown";
+}
+
+function frontendRowClosureStatus(row, targetStatus) {
+  if (row.scenarios.length === 0) {
+    return "not_evaluable";
+  }
+  if (row.scenarios.some((scenario) => scenario.status === "failed")) {
+    return "failed";
+  }
+  if (
+    row.scenarios.some((scenario) =>
+      ["missing", "skipped", "unknown"].includes(scenario.status),
+    )
+  ) {
+    return "missing";
+  }
+  if (targetStatus !== "pass") {
+    return "blocked_by_target";
+  }
+  return "closed";
+}
+
+function frontendRowAccountingForTarget(target, targetStatus, targetDir) {
+  const frontendRows = frontendRowsForTarget(target);
+  if (frontendRows.length === 0) {
+    return null;
+  }
+  const titleObservations =
+    target === "frontend-unit"
+      ? collectVitestTitleObservations(
+          path.join(targetDir, "raw", "frontend-unit", "runner.json"),
+        )
+      : new Map();
+  const rows = frontendRows.map((row) => {
+    const scenarios = row.scenario_titles.map((title) => {
+      const observations = titleObservations.get(title) ?? [];
+      return {
+        title,
+        status: frontendScenarioStatus(observations),
+        files: [...new Set(observations.map((entry) => entry.file))].sort(),
+      };
+    });
+    const output = {
+      ...row,
+      target,
+      target_status: targetStatus,
+      scenarios,
+    };
+    return {
+      ...output,
+      closure_status: frontendRowClosureStatus(output, targetStatus),
+    };
+  });
+  const scenarioStatuses = rows.flatMap((row) =>
+    row.scenarios.map((scenario) => scenario.status),
+  );
+  return {
+    schema_id: "cartulary.frontend_row_accounting.v1",
+    target,
+    target_status: targetStatus,
+    rows,
+    counts: {
+      rows: rows.length,
+      scenarios: scenarioStatuses.length,
+      closed_rows: rows.filter((row) => row.closure_status === "closed")
+        .length,
+      blocked_by_target_rows: rows.filter(
+        (row) => row.closure_status === "blocked_by_target",
+      ).length,
+      failed_rows: rows.filter((row) => row.closure_status === "failed")
+        .length,
+      missing_rows: rows.filter((row) => row.closure_status === "missing")
+        .length,
+      not_evaluable_rows: rows.filter(
+        (row) => row.closure_status === "not_evaluable",
+      ).length,
+      passed_scenarios: scenarioStatuses.filter((status) => status === "passed")
+        .length,
+      failed_scenarios: scenarioStatuses.filter((status) => status === "failed")
+        .length,
+      missing_scenarios: scenarioStatuses.filter(
+        (status) => status === "missing",
+      ).length,
+      skipped_scenarios: scenarioStatuses.filter(
+        (status) => status === "skipped",
+      ).length,
+      unknown_scenarios: scenarioStatuses.filter(
+        (status) => status === "unknown",
+      ).length,
+    },
+  };
+}
+
 function parseTargetList(value) {
   return value
     .split(",")
@@ -2928,6 +3106,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     rerunCommands: [`make ${targetSummary.target}`],
     schedulerTiming,
     extensions: {
+      ...(targetSummary.extensions ?? {}),
       ...(serviceMetadata
         ? { "cartulary.service_backed": serviceMetadata }
         : {}),
@@ -3462,6 +3641,23 @@ function handleTargetSummary(args) {
       reportCollationEndTime,
     ...durationFieldsForJSON(totalsSection),
   };
+  const frontendRowAccounting = frontendRowAccountingForTarget(
+    target,
+    status.toLowerCase(),
+    summary.targetDir,
+  );
+  const targetExtensions = {
+    ...(schedulerAccounting
+      ? {
+          "cartulary.scheduler_accounting": schedulerAccounting,
+        }
+      : {}),
+    ...(frontendRowAccounting
+      ? {
+          "cartulary.frontend_row_accounting": frontendRowAccounting,
+        }
+      : {}),
+  };
   const targetSummary = {
     schema_id: targetSummarySchemaID,
     target,
@@ -3489,12 +3685,8 @@ function handleTargetSummary(args) {
       ...durationFieldsForJSON(totalsSection),
     },
     scheduler_timing: schedulerTiming,
-    ...(schedulerAccounting
-      ? {
-          extensions: {
-            "cartulary.scheduler_accounting": schedulerAccounting,
-          },
-        }
+    ...(Object.keys(targetExtensions).length > 0
+      ? { extensions: targetExtensions }
       : {}),
   };
   writeValidatedJson(
@@ -4998,6 +5190,17 @@ function handleGoPhase({ manifestAware }) {
 
 function classifyVitestCase(ownerPath, title, phaseLabel) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
+  const manifested = loadManifestIndex().manifestVitest.get(
+    `${manifestFile}::${title}`,
+  );
+  if (manifested && manifested.coverage !== "authoritative") {
+    return {
+      coverage: "support",
+      phase: manifested.phase,
+      id: manifested.id,
+      owner: ownerPath,
+    };
+  }
   const authoritative = loadManifestIndex().authoritativeVitest.get(
     `${manifestFile}::${title}`,
   );
@@ -5006,6 +5209,15 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
       coverage: "authoritative",
       phase: authoritative.phase,
       id: authoritative.id,
+      owner: ownerPath,
+    };
+  }
+  const frontendManifested = loadFrontendVitestIndex().byTitle.get(title);
+  if (frontendManifested) {
+    return {
+      coverage: frontendManifested.coverage,
+      phase: frontendManifested.phase,
+      id: frontendManifested.id,
       owner: ownerPath,
     };
   }
@@ -5771,6 +5983,41 @@ function isForbiddenFile(file, phase) {
 
 function frontendEvidenceCoverage(evidenceClass) {
   return evidenceClass === "product_conformance" ? "authoritative" : "support";
+}
+
+function loadFrontendVitestIndex() {
+  if (cachedFrontendVitestIndex) {
+    return cachedFrontendVitestIndex;
+  }
+  const byTitle = new Map();
+  let registry;
+  try {
+    registry = loadFrontendPhaseRegistry(repoRoot);
+  } catch {
+    cachedFrontendVitestIndex = { byTitle };
+    return cachedFrontendVitestIndex;
+  }
+  for (const phase of registry.phases) {
+    const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
+    for (const row of manifest.rows) {
+      if (
+        !row.targets.includes("make frontend-unit") ||
+        row.scenario_titles.length === 0
+      ) {
+        continue;
+      }
+      for (const title of row.scenario_titles) {
+        byTitle.set(title, {
+          coverage: frontendEvidenceCoverage(row.evidence_class),
+          phase: phase.phase_id,
+          id: row.id,
+          evidence_class: row.evidence_class,
+        });
+      }
+    }
+  }
+  cachedFrontendVitestIndex = { byTitle };
+  return cachedFrontendVitestIndex;
 }
 
 function loadFrontendPlaywrightIndex() {

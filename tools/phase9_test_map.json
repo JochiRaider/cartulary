@@ -27,6 +27,7 @@
         "Phase 6 grid, collaboration, pending-queue, and conflict marker evidence remains support-only substrate and cannot claim Phase 9 keyboard, clipboard, or shared-grid completion.",
         "Phase 8 query, saved-view, grouping, sorting, filtering, and startup evidence remains support-only substrate and cannot claim Phase 9 workbook behavior.",
         "Phase 9 timeline clipboard and tabular-ingest helper tests remain support-only substrate and cannot claim U-9-02 by themselves.",
+        "Phase 9 grouped paste conflict jsdom coverage remains supplemental frontend-unit evidence and cannot replace E-9-CONFLICT-02 browser-functional ownership.",
         "Support-only carryover files are listed in forbidden_id_files so they cannot accidentally claim Phase 9 identifiers."
       ],
     "sections": {
@@ -462,6 +463,18 @@
       "evidence_layer": "frontend_unit",
       "claim": "Sorted and filtered paste translation uses stable Cartulary anchors, excludes group and presentation-only rows, creates explicit create-row anchors for overflow, rejects vendor coordinates alone, treats single-line comma-only clipboard text as scalar default input, and rendered WorkbookShell dispatch posts stable record_id/base_row_version/create anchors with quote-aware clipboard dimensions.",
       "out_of_scope": "File-based import and Host/Identity browser paste behavior remain owned by the E-9-GRID-01 browser rows.",
+      "claim_status": "implemented"
+    },
+    {
+      "id": "I-9-SUPPORT-01",
+      "coverage": "supplemental",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase9.sentinel.test.tsx",
+      "title": "Phase 9 E-9-02 registers grouped paste conflicts without losing selection continuity",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "frontend_unit",
+      "claim": "Supplemental jsdom coverage keeps grouped paste conflict registration and focus continuity stable while browser-visible ownership remains with E-9-CONFLICT-02.",
+      "out_of_scope": "This supplemental row does not replace E-9-CONFLICT-02 browser-functional evidence and does not add a new authoritative Phase 9 claim.",
       "claim_status": "implemented"
     }
   ],
