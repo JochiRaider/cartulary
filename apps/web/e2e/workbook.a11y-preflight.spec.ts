@@ -20,14 +20,15 @@ async function expectLaterPhaseSmoke(page: Page) {
   });
   expect(activeElementIsFocusable).toBeTruthy();
 
-  const unnamedButtons = await page.locator("button").evaluateAll((buttons) =>
-    buttons.filter((button) => {
-      const text = button.textContent?.trim() ?? "";
-      const ariaLabel = button.getAttribute("aria-label")?.trim() ?? "";
-      const titleAttr = button.getAttribute("title")?.trim() ?? "";
-      const labelledBy = button.getAttribute("aria-labelledby")?.trim() ?? "";
-      return !text && !ariaLabel && !titleAttr && !labelledBy;
-    }).length,
+  const unnamedButtons = await page.locator("button").evaluateAll(
+    (buttons) =>
+      buttons.filter((button) => {
+        const text = button.textContent?.trim() ?? "";
+        const ariaLabel = button.getAttribute("aria-label")?.trim() ?? "";
+        const titleAttr = button.getAttribute("title")?.trim() ?? "";
+        const labelledBy = button.getAttribute("aria-labelledby")?.trim() ?? "";
+        return !text && !ariaLabel && !titleAttr && !labelledBy;
+      }).length,
   );
   expect(unnamedButtons).toBe(0);
 }

@@ -460,6 +460,70 @@ export function gridScalarInput(
   return within(row).getByTestId(rowCellTestId(recordId, fieldKey));
 }
 
+function elementDiagnostic(element: Element | null) {
+  if (!(element instanceof HTMLElement)) {
+    return "(none)";
+  }
+  const parts = [element.tagName.toLowerCase()];
+  const testId = element.getAttribute("data-testid");
+  const role = element.getAttribute("role");
+  if (element.id) {
+    parts.push(`#${element.id}`);
+  }
+  if (testId) {
+    parts.push(`data-testid=${testId}`);
+  }
+  if (role) {
+    parts.push(`role=${role}`);
+  }
+  return parts.join(" ");
+}
+
+export async function focusReadyGridScalarInput({
+  container,
+  fieldKey,
+  recordId,
+  surface = timelineViewSchemaId,
+}: {
+  readonly container: HTMLElement;
+  readonly fieldKey: string;
+  readonly recordId: string;
+  readonly surface?: WorkbookSurface | undefined;
+}) {
+  const input = gridScalarInput(container, recordId, fieldKey, surface);
+  const expectedAnchor = `${surface}:${recordId}:${fieldKey}`;
+
+  input.focus();
+  await waitFor(
+    () => {
+      expect(document.activeElement).toBe(input);
+      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+        expectedAnchor,
+      );
+    },
+    {
+      onTimeout: (error) => {
+        const focusAnchor =
+          screen.queryByTestId("workbook-focus-anchor")?.textContent ??
+          "(missing)";
+        return new Error(
+          `${error.message}\nExpected ready focus anchor ${expectedAnchor}.\n` +
+            `Actual focus anchor=${focusAnchor}.\n` +
+            `Active element=${elementDiagnostic(document.activeElement)}.\n` +
+            workbookRowDiagnostic({
+              container,
+              expectedRecordIds: [recordId],
+              surface,
+            }),
+        );
+      },
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
+
+  return input;
+}
+
 export async function findWorkbookCell(
   container: HTMLElement,
   surface: WorkbookSurface,

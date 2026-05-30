@@ -470,7 +470,7 @@
       "coverage": "supplemental",
       "runner": "vitest",
       "file": "apps/web/src/WorkbookShell.phase9.sentinel.test.tsx",
-      "title": "Phase 9 E-9-02 registers grouped paste conflicts without losing selection continuity",
+      "title": "Phase 9 I-9-SUPPORT-01 registers grouped paste conflicts without losing selection continuity",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "frontend_unit",
       "claim": "Supplemental jsdom coverage keeps grouped paste conflict registration and focus continuity stable while browser-visible ownership remains with E-9-CONFLICT-02.",

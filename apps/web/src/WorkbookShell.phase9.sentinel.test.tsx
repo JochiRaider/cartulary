@@ -19,6 +19,7 @@ import {
   cleanupTimelineWorkbookTestGlobals,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
+  focusReadyGridScalarInput,
   gridScalarInput,
   installTimelineWorkbookTestGlobals,
   successEnvelope,
@@ -48,6 +49,68 @@ const pasteColumns: readonly GridColumn<PasteHarnessRow>[] = [
   },
 ];
 const pasteConflictWait = { timeout: 3000 };
+
+function fetchCallURL(call: readonly unknown[]) {
+  const input = call[0];
+  if (typeof input === "string") {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.toString();
+  }
+  if (typeof Request !== "undefined" && input instanceof Request) {
+    return input.url;
+  }
+  return "";
+}
+
+function fetchCallMethod(call: readonly unknown[]) {
+  const input = call[0];
+  const init = call[1] as RequestInit | undefined;
+  if (init?.method) {
+    return init.method.toUpperCase();
+  }
+  if (typeof Request !== "undefined" && input instanceof Request) {
+    return input.method.toUpperCase();
+  }
+  return "GET";
+}
+
+function fetchCallSummary(fetchMock: TimelineWorkbookFetchMock) {
+  return fetchMock.mock.calls
+    .map((call, index) => {
+      const method = fetchCallMethod(call);
+      const url = fetchCallURL(call);
+      return `${index}: ${method} ${url || "(unknown url)"}`;
+    })
+    .join("\n");
+}
+
+async function waitForFetchCallIndex(
+  fetchMock: TimelineWorkbookFetchMock,
+  description: string,
+  predicate: (call: readonly unknown[]) => boolean,
+) {
+  let matchIndex = -1;
+  await waitFor(
+    () => {
+      matchIndex = fetchMock.mock.calls.findIndex((call) => predicate(call));
+      if (matchIndex < 0) {
+        throw new Error(`Expected fetch call for ${description}.`);
+      }
+    },
+    {
+      onTimeout: (error) =>
+        new Error(
+          `${error.message}\nObserved fetch calls:\n${fetchCallSummary(
+            fetchMock,
+          )}`,
+        ),
+      timeout: pasteConflictWait.timeout,
+    },
+  );
+  return matchIndex;
+}
 
 function pasteGridRow(
   key: string,
@@ -609,7 +672,7 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     );
   });
 
-  it("Phase 9 E-9-02 registers grouped paste conflicts without losing selection continuity", async () => {
+  it("Phase 9 I-9-SUPPORT-01 registers grouped paste conflicts without losing selection continuity", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -703,21 +766,42 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     await screen.findByTestId(saveStateTestId());
     await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
 
-    const summary = gridScalarInput(
+    const summary = (await focusReadyGridScalarInput({
       container,
-      "record-1",
-      "timeline.summary",
-    ) as HTMLInputElement;
-    summary.focus();
+      fieldKey: "timeline.summary",
+      recordId: "record-1",
+    })) as HTMLInputElement;
     fireEvent.paste(summary, {
       clipboardData: {
         getData: () => "Client first\nClient second\nCreated after conflicts",
       },
     });
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-    }, pasteConflictWait);
+    const pasteCallIndex = await waitForFetchCallIndex(
+      fetchMock,
+      "Timeline grouped paste conflict mutation",
+      (call) =>
+        fetchCallMethod(call) === "POST" &&
+        fetchCallURL(call).includes(
+          `/api/v1/incidents/incident-1/views/${timelineViewSchemaId}/clipboard-paste`,
+        ),
+    );
+    expect(extractTimelineJSONBody(fetchMock, pasteCallIndex)).toMatchObject({
+      view_schema_id: timelineViewSchemaId,
+      format: "csv",
+      start_field_key: "timeline.summary",
+      columns: ["timeline.summary"],
+      targets: [
+        { kind: "record", record_id: "record-1", base_row_version: 1 },
+        { kind: "record", record_id: "record-2", base_row_version: 1 },
+        { kind: "create" },
+      ],
+    });
+    await waitForVisibleGridRowRecordIds(container, [
+      "record-1",
+      "record-2",
+      "record-3",
+    ]);
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",

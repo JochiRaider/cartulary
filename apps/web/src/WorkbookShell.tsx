@@ -6586,7 +6586,7 @@ export function TimelineWorkbook({
     [handleSelectRow, rows, selectedRowId],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     timelineAnchorColumnsRef.current = timelineColumns;
     timelineAnchorRowsRef.current = timelineGridRows;
   }, [timelineColumns, timelineGridRows]);

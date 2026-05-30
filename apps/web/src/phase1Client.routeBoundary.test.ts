@@ -24,9 +24,11 @@ describe("Phase 1 API route boundaries", () => {
 
   beforeEach(() => {
     cookieValue = "";
-    fetchMock = vi.fn().mockImplementation(() =>
-      Promise.resolve(jsonResponse({ data: { ok: true } })),
-    );
+    fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(jsonResponse({ data: { ok: true } })),
+      );
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(document, "cookie", "get").mockImplementation(() => cookieValue);
   });

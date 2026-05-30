@@ -67,17 +67,7 @@ export function blockedAccessibilityScenarioTitles(): string[] {
 
 export const p1AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P1-01",
-) as [
-  string,
-  string,
-  string,
-  string,
-  string,
-  string,
-  string,
-  string,
-  string,
-];
+) as [string, string, string, string, string, string, string, string, string];
 
 if (p1AccessibilityScenarioTitles.length !== 9) {
   throw new Error(
