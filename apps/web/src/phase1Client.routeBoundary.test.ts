@@ -36,19 +36,26 @@ describe("Phase 1 API route boundaries", () => {
     vi.unstubAllGlobals();
   });
 
-  it("FE-I-P1-01 route-boundary client helpers keep auth and account requests under /api/v1/ with cookie-backed session defaults", async () => {
+  it("FE-I-P1-01 route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies", async () => {
+    cookieValue = "cartulary_csrf=session-csrf";
+
     await loadSession();
     await loadCredentialState();
     await loginLocal({
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
+    await loginLocal({
+      username: "operator@example.test",
+      password: "OperatorPass1!",
+      secondFactorCode: "123456",
+    });
     await logoutCurrentSession();
     await changePassword({
       clientTxnId: "txn-password-change",
       currentPassword: "CurrentPass1!",
       newPassword: "ReplacementPass1!",
-      secondFactorCode: "123456",
+      secondFactorCode: "654321",
     });
     await createLocalUser({
       clientTxnId: "txn-user-create",
@@ -87,76 +94,134 @@ describe("Phase 1 API route boundaries", () => {
     });
 
     const requests = capturedRequests(fetchMock);
-    expect(
-      requests.map((request) => `${request.method} ${request.url}`),
-    ).toEqual([
-      "GET /api/v1/auth/session",
-      "GET /api/v1/auth/credential-state",
-      "POST /api/v1/auth/login",
-      "POST /api/v1/auth/logout",
-      "POST /api/v1/auth/password/change",
-      "POST /api/v1/users",
-      "GET /api/v1/users/user-2",
-      "PATCH /api/v1/users/user-2",
-      "POST /api/v1/users/user-2/password/reset",
-      "POST /api/v1/users/user-2/mfa/totp/reset",
-      "POST /api/v1/users/user-2/sessions/revoke-all",
-    ]);
-
-    for (const request of requests) {
-      expectCookieBackedAPIRequest(request);
-    }
-
-    expectClosedJSONBody(requests[0], null);
-    expectClosedJSONBody(requests[1], null);
-    expectClosedJSONBody(requests[2], {
-      username: "operator@example.test",
-      password: "OperatorPass1!",
-    });
-    expectClosedJSONBody(requests[3], {});
-    expectClosedJSONBody(requests[4], {
-      client_txn_id: "txn-password-change",
-      current_password: "CurrentPass1!",
-      new_password: "ReplacementPass1!",
-      second_factor: {
-        kind: "totp",
-        assertion: {
-          code: "123456",
-        },
+    const expectedRequests: ExpectedRouteRequest[] = [
+      {
+        body: null,
+        csrfHeader: "",
+        method: "GET",
+        url: "/api/v1/auth/session",
       },
-    });
-    expectClosedJSONBody(requests[5], {
-      client_txn_id: "txn-user-create",
-      auth_kind: "local",
-      email: "phase1-user@example.test",
-      display_name: "Phase 1 User",
-      initial_password: "InitialPass1!",
-      mfa_required: true,
-      is_deployment_admin: false,
-    });
-    expectClosedJSONBody(requests[6], null);
-    expectClosedJSONBody(requests[7], {
-      base_user_version: 7,
-      display_name: "Updated User",
-      mfa_required: true,
-      is_active: true,
-      is_deployment_admin: false,
-    });
-    expectClosedJSONBody(requests[8], {
-      base_user_version: 7,
-      client_txn_id: "txn-admin-password-reset",
-      new_password: "AdminResetPass1!",
-      reason: "routine reset",
-    });
-    expectClosedJSONBody(requests[9], {
-      base_user_version: 7,
-      client_txn_id: "txn-admin-totp-reset",
-      reason: "routine reset",
-    });
-    expectClosedJSONBody(requests[10], {
-      client_txn_id: "txn-admin-revoke-all",
-      reason: "routine revoke",
-    });
+      {
+        body: null,
+        csrfHeader: "",
+        method: "GET",
+        url: "/api/v1/auth/credential-state",
+      },
+      {
+        body: {
+          username: "operator@example.test",
+          password: "OperatorPass1!",
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/auth/login",
+      },
+      {
+        body: {
+          username: "operator@example.test",
+          password: "OperatorPass1!",
+          second_factor: {
+            kind: "totp",
+            assertion: {
+              code: "123456",
+            },
+          },
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/auth/login",
+      },
+      {
+        body: {},
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/auth/logout",
+      },
+      {
+        body: {
+          client_txn_id: "txn-password-change",
+          current_password: "CurrentPass1!",
+          new_password: "ReplacementPass1!",
+          second_factor: {
+            kind: "totp",
+            assertion: {
+              code: "654321",
+            },
+          },
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/auth/password/change",
+      },
+      {
+        body: {
+          client_txn_id: "txn-user-create",
+          auth_kind: "local",
+          email: "phase1-user@example.test",
+          display_name: "Phase 1 User",
+          initial_password: "InitialPass1!",
+          mfa_required: true,
+          is_deployment_admin: false,
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/users",
+      },
+      {
+        body: null,
+        csrfHeader: "",
+        method: "GET",
+        url: "/api/v1/users/user-2",
+      },
+      {
+        body: {
+          base_user_version: 7,
+          display_name: "Updated User",
+          mfa_required: true,
+          is_active: true,
+          is_deployment_admin: false,
+        },
+        csrfHeader: "session-csrf",
+        method: "PATCH",
+        url: "/api/v1/users/user-2",
+      },
+      {
+        body: {
+          base_user_version: 7,
+          client_txn_id: "txn-admin-password-reset",
+          new_password: "AdminResetPass1!",
+          reason: "routine reset",
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/users/user-2/password/reset",
+      },
+      {
+        body: {
+          base_user_version: 7,
+          client_txn_id: "txn-admin-totp-reset",
+          reason: "routine reset",
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/users/user-2/mfa/totp/reset",
+      },
+      {
+        body: {
+          client_txn_id: "txn-admin-revoke-all",
+          reason: "routine revoke",
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/users/user-2/sessions/revoke-all",
+      },
+    ];
+
+    expect(requests).toHaveLength(expectedRequests.length);
+    for (const [index, expected] of expectedRequests.entries()) {
+      expectCookieBackedAPIRequest(requests[index], expected);
+      expectClosedJSONBody(requests[index], expected.body);
+    }
   });
 
   it("FE-I-P1-01 route-boundary bootstrap token authorization is limited to TOTP begin and complete", async () => {
@@ -248,6 +313,13 @@ type CapturedRequest = {
   url: string;
 };
 
+type ExpectedRouteRequest = {
+  body: Record<string, unknown> | null;
+  csrfHeader: string;
+  method: string;
+  url: string;
+};
+
 function capturedRequests(fetchMock: ReturnType<typeof vi.fn>) {
   return fetchMock.mock.calls.map((call): CapturedRequest => {
     const input = call[0] as RequestInfo | URL;
@@ -265,11 +337,17 @@ function capturedRequests(fetchMock: ReturnType<typeof vi.fn>) {
   });
 }
 
-function expectCookieBackedAPIRequest(request: CapturedRequest | undefined) {
+function expectCookieBackedAPIRequest(
+  request: CapturedRequest | undefined,
+  expected: ExpectedRouteRequest,
+) {
   expect(request).toBeDefined();
+  expect(request?.method).toBe(expected.method);
+  expect(request?.url).toBe(expected.url);
   expect(request?.url.startsWith("/api/v1/")).toBe(true);
   expect(request?.init?.credentials).toBe("include");
   expect(readHeader(request?.init, "Authorization")).toBe("");
+  expect(readHeader(request?.init, csrfHeaderName)).toBe(expected.csrfHeader);
 }
 
 function expectClosedJSONBody(

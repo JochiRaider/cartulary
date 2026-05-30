@@ -696,6 +696,245 @@ describe("Phase 1 ordinary app shell", () => {
     await expectStableFetchCount(fetchMock, 5);
   });
 
+  it("FE-I-P1-01 route-boundary logout failures render public envelopes without ending the visible session", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Phase 1 Operator",
+      }),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/logout",
+          handler: () =>
+            publicErrorResponse("csrf_verification_failed", 403, {
+              message: "Sign out request failed.",
+              publicDetails: {
+                reason_code: "csrf_token_missing",
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId("account-session-user-id");
+    fireEvent.click(screen.getByTestId("account-logout"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("account-error-code").textContent).toBe(
+        "csrf_verification_failed",
+      );
+    });
+    expect(screen.getByTestId("account-status").textContent).toBe(
+      "Sign out failed",
+    );
+    expect(screen.getByTestId("account-error-message").textContent).toBe(
+      "Sign out request failed.",
+    );
+    expect(screen.getByTestId("account-error-details").textContent).toContain(
+      "Reason: csrf_token_missing",
+    );
+    expect(screen.getByTestId("account-session-user-id").textContent).toBe(
+      "user-1",
+    );
+    expect(screen.queryByTestId("auth-login-username")).toBeNull();
+    expectPrivateErrorProbeNotRendered();
+    await expectStableFetchCount(fetchMock, 4);
+  });
+
+  it("FE-I-P1-01 route-boundary bootstrap TOTP complete errors render public envelopes without private details", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: errorResponse("session_required", 401),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/login",
+          handler: () =>
+            jsonResponse(
+              {
+                error: {
+                  code: "mfa_setup_required",
+                  status: 401,
+                  message: "TOTP setup is required.",
+                  request_id: "req-private-setup",
+                  details: {
+                    required_setup_kinds: ["totp"],
+                    bootstrap_token: "bootstrap-token-123",
+                    bootstrap_expires_at: "2026-04-17T12:10:00Z",
+                    secret_base32: "ERRORSECRETBASE32",
+                    otpauth_uri: "otpauth://private-error",
+                    request_id: "req-private-detail",
+                    stack:
+                      "Error: private stack at /var/lib/cartulary/auth.go:12",
+                  },
+                },
+              },
+              401,
+            ),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/auth/mfa/totp/begin",
+          handler: () =>
+            jsonResponse({
+              data: {
+                enrollment_id: "enrollment-1",
+                totp_setup: {
+                  secret_base32: "JBSWY3DPEHPK3PXP",
+                },
+              },
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/auth/mfa/totp/complete",
+          handler: () =>
+            publicErrorResponse("invalid_second_factor", 401, {
+              message: "TOTP completion failed.",
+              publicDetails: {
+                reason_code: "totp_code_invalid",
+                field: "code",
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId("auth-login-username");
+    fireEvent.change(screen.getByTestId("auth-login-username"), {
+      target: { value: "bootstrap@example.test" },
+    });
+    fireEvent.change(screen.getByTestId("auth-login-password"), {
+      target: { value: "BootstrapPass1!" },
+    });
+    fireEvent.click(screen.getByTestId("auth-login-submit"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error-code").textContent).toBe(
+        "mfa_setup_required",
+      );
+    });
+    fireEvent.click(screen.getByTestId("auth-bootstrap-begin"));
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("auth-bootstrap-secret-base32").textContent,
+      ).toBe("JBSWY3DPEHPK3PXP");
+    });
+
+    fireEvent.change(screen.getByTestId("auth-bootstrap-complete-code"), {
+      target: { value: "000000" },
+    });
+    fireEvent.click(screen.getByTestId("auth-bootstrap-complete"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error-code").textContent).toBe(
+        "invalid_second_factor",
+      );
+    });
+    expect(screen.getByTestId("auth-status").textContent).toBe(
+      "TOTP complete failed",
+    );
+    expect(screen.getByTestId("auth-error-message").textContent).toBe(
+      "TOTP completion failed.",
+    );
+    expect(screen.getByTestId("auth-error-details").textContent).toContain(
+      "Reason: totp_code_invalid",
+    );
+    expect(screen.getByTestId("auth-error-details").textContent).toContain(
+      "Field: code",
+    );
+    expect(screen.queryByTestId("landing-current-user")).toBeNull();
+    expectPrivateErrorProbeNotRendered();
+    await expectStableFetchCount(fetchMock, 4);
+  });
+
+  it("FE-I-P1-01 route-boundary session TOTP complete errors render public envelopes without private details", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Phase 1 Operator",
+        mfa_state: "satisfied",
+      }),
+      credentialState: credentialStateResource({
+        totp: {
+          state: "active",
+          enrolled_at: "2026-04-20T11:00:00Z",
+          pending_expires_at: null,
+        },
+      }),
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/mfa/totp/begin",
+          handler: () =>
+            jsonResponse({
+              data: {
+                enrollment_id: "replacement-enrollment-1",
+                totp_setup: {
+                  secret_base32: "JBSWY3DPEHPK3PXP",
+                },
+              },
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/auth/mfa/totp/complete",
+          handler: () =>
+            publicErrorResponse("invalid_second_factor", 401, {
+              message: "Replacement TOTP completion failed.",
+              publicDetails: {
+                reason_code: "totp_code_invalid",
+                field: "code",
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId("account-session-user-id");
+    fireEvent.change(screen.getByTestId("account-totp-current-password"), {
+      target: { value: "Current Phase 1 Password!" },
+    });
+    fireEvent.change(screen.getByTestId("account-totp-current-factor"), {
+      target: { value: "111111" },
+    });
+    fireEvent.click(screen.getByTestId("account-totp-begin"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("account-totp-enrollment-id").textContent).toBe(
+        "replacement-enrollment-1",
+      );
+    });
+    fireEvent.change(screen.getByTestId("account-totp-complete-code"), {
+      target: { value: "000000" },
+    });
+    fireEvent.click(screen.getByTestId("account-totp-complete"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("account-error-code").textContent).toBe(
+        "invalid_second_factor",
+      );
+    });
+    expect(screen.getByTestId("account-status").textContent).toBe(
+      "TOTP complete failed",
+    );
+    expect(screen.getByTestId("account-error-message").textContent).toBe(
+      "Replacement TOTP completion failed.",
+    );
+    expect(screen.getByTestId("account-error-details").textContent).toContain(
+      "Reason: totp_code_invalid",
+    );
+    expect(screen.getByTestId("account-error-details").textContent).toContain(
+      "Field: code",
+    );
+    expectPrivateErrorProbeNotRendered();
+    await expectStableFetchCount(fetchMock, 5);
+  });
+
   it("Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
     const createdUser = userResource({
       user_id: "user-2",
@@ -1003,13 +1242,14 @@ describe("Phase 1 ordinary app shell", () => {
     );
   });
 
-  it("FE-I-P1-01 route-boundary deployment-admin action errors render public envelopes without private details", async () => {
+  it("FE-I-P1-01 route-boundary deployment-admin load and action errors render public envelopes without private details", async () => {
     const loadedUser = userResource({
       user_id: "user-2",
       email: "loaded-target@example.test",
       display_name: "Loaded Target",
       user_version: 7,
     });
+    let loadAttempt = 0;
     let resetAttempt = 0;
 
     installLandingShellFetch(fetchMock, {
@@ -1033,10 +1273,21 @@ describe("Phase 1 ordinary app shell", () => {
         {
           method: "GET",
           url: "/api/v1/users/user-2",
-          handler: () =>
-            jsonResponse({
+          handler: () => {
+            loadAttempt += 1;
+            if (loadAttempt === 1) {
+              return publicErrorResponse("user_not_found", 404, {
+                message: "Target user was not found.",
+                publicDetails: {
+                  reason_code: "target_not_visible",
+                  field: "user_id",
+                },
+              });
+            }
+            return jsonResponse({
               data: loadedUser,
-            }),
+            });
+          },
         },
         {
           method: "PATCH",
@@ -1076,6 +1327,18 @@ describe("Phase 1 ordinary app shell", () => {
             });
           },
         },
+        {
+          method: "POST",
+          url: "/api/v1/users/user-2/sessions/revoke-all",
+          handler: () =>
+            publicErrorResponse("authorization_denied", 403, {
+              message: "Revoke-all request is denied.",
+              publicDetails: {
+                reason_code: "deployment_admin_required",
+                required_role: "deployment_admin",
+              },
+            }),
+        },
       ],
     });
 
@@ -1112,6 +1375,34 @@ describe("Phase 1 ordinary app shell", () => {
     fireEvent.change(screen.getByTestId("admin-target-user-id-input"), {
       target: { value: "user-2" },
     });
+    fireEvent.click(screen.getByTestId("admin-load-user"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-error-code").textContent).toBe(
+        "user_not_found",
+      );
+    });
+    expect(screen.getByTestId("admin-status").textContent).toBe(
+      "Load target user failed",
+    );
+    expect(screen.getByTestId("admin-error-message").textContent).toBe(
+      "Target user was not found.",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Reason: target_not_visible",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Field: user_id",
+    );
+    expect(screen.getByTestId("admin-target-user-id").textContent).toBe("");
+    expect(screen.getByTestId("admin-target-user-version").textContent).toBe(
+      "",
+    );
+    expect(
+      (screen.getByTestId("admin-patch-user") as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expectPrivateErrorProbeNotRendered();
+
     fireEvent.click(screen.getByTestId("admin-load-user"));
     await waitFor(() => {
       expect(screen.getByTestId("admin-target-user-version").textContent).toBe(
@@ -1177,7 +1468,28 @@ describe("Phase 1 ordinary app shell", () => {
       "Field: reason",
     );
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 8);
+
+    fireEvent.click(screen.getByTestId("admin-revoke-all"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-error-code").textContent).toBe(
+        "authorization_denied",
+      );
+    });
+    expect(screen.getByTestId("admin-status").textContent).toBe(
+      "Revoke-all failed",
+    );
+    expect(screen.getByTestId("admin-error-message").textContent).toBe(
+      "Revoke-all request is denied.",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Reason: deployment_admin_required",
+    );
+    expect(screen.getByTestId("admin-error-details").textContent).toContain(
+      "Required role: deployment_admin",
+    );
+    expectPrivateErrorProbeNotRendered();
+    await expectStableFetchCount(fetchMock, 10);
   });
 
   it("FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors", async () => {

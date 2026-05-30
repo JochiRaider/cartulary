@@ -383,7 +383,7 @@ Generated artifacts:
 ## Sprint 3: API Client And Route-Boundary Integration Baseline
 
 - Objective: Ensure the frontend API client and route-boundary tests preserve public `/api/v1/` routing, server-managed sessions, and public error-envelope rendering.
-- Status: Complete for `FE-I-P1-01` route-boundary evidence after remediation. FE-P1 overall remains planned because `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01` remain blocked.
+- Status: Complete for `FE-I-P1-01` route-boundary evidence after audit follow-up remediation. FE-P1 overall remains planned because `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01` remain blocked.
 - Relevant IDs: Owns `FE-I-P1-01`.
 - Files and areas to inspect or edit: `apps/web/src/phase1Client.ts`, `apps/web/src/browserApi.ts`, `apps/web/src/fetchMockTestSupport.ts`, `apps/web/src/App.phase1.test.tsx`, `/packages/protocol-ts`, `/packages/ui-contracts`, and route-boundary fixtures.
 - Test-first sequence: Add or tighten integration-style unit tests for every FE-P1 client route family before implementation changes; assert method, path, credentials, CSRF behavior, body shape, and error rendering.
@@ -391,22 +391,33 @@ Generated artifacts:
 - Validation commands: `make frontend-unit`; supporting `make frontend-typecheck`, `make generated-artifact-policy-check`, `make generate-drift`, and `make frontend-import-boundary-check` when implementation touches contracts, generated inputs, or package boundaries.
 - Deliverables: API route-boundary tests and client behavior that can be traced to Core-owned public routes and public error envelopes.
 - Risks and assumptions: FE-P1 must not infer new route closure policy from frontend convenience; closure expectations must follow route owners.
-- Blockers and follow-up notes: No Core 00-04 owner text, OpenAPI, generated protocol, or public API behavior changes were required. Server-side rejection of unknown request members remains backend/API owner evidence; `FE-I-P1-01` asserts that the frontend client does not send unknown members on exercised owner-closed Phase 1 routes.
+- Blockers and follow-up notes: No Core 00-04 owner text, OpenAPI, generated protocol, or public API behavior changes were required. Server-side rejection of unknown request members remains backend/API owner evidence; `FE-I-P1-01` asserts that the frontend client does not send unknown members on exercised owner-closed Phase 1 routes. The audit-identified gaps for route-specific CSRF evidence, login second-factor serialization, logout/TOTP-complete/load-user/revoke-all public-error rendering, FE-P1 map titles, and generated ledger traceability are remediated by the validation artifacts below.
 
 ### Sprint 3 remediation checklist
 
-- Route-boundary request evidence asserts method, `/api/v1/` confinement, `credentials="include"`, absent `Authorization`, and cookie-backed CSRF behavior for the exercised Phase 1 auth, account, deployment-admin, and incident route families.
-- Closed request-body evidence asserts exact serialized keys for logout `{}`, session-mode TOTP complete, admin password reset, admin TOTP reset, and the previously covered owner-closed client helpers.
+- Route-boundary request evidence asserts method, `/api/v1/` confinement, `credentials="include"`, absent `Authorization`, and route-specific cookie-backed CSRF behavior for the exercised Phase 1 auth, account, deployment-admin, and incident route families, including read-route no-CSRF behavior.
+- Closed request-body evidence asserts exact serialized keys for primary and TOTP-assisted login, logout `{}`, session-mode TOTP complete, admin password reset, admin TOTP reset, revoke-all sessions, and the previously covered owner-closed client helpers.
 - Bootstrap-token evidence remains limited to `POST /api/v1/auth/mfa/totp/begin` and `POST /api/v1/auth/mfa/totp/complete` in bootstrap mode, with no cookie credentials or CSRF on those bearer-token calls.
 - Incident landing evidence directly asserts both `GET /api/v1/incidents` and `POST /api/v1/incidents` use cookie-backed sessions, omit `Authorization`, and send CSRF on the mutating request when the CSRF cookie exists.
-- Public error-envelope evidence is row-owned for auth login, credential-state/account bootstrap, account password/TOTP, deployment-admin actions, and incident create. Tests assert public `code`, `message`, `reason_code`, and `field` where allowed, and reject private probes such as request IDs, bootstrap tokens, secrets, paths, SQL, stacks, and unknown private details.
+- Public error-envelope evidence is row-owned for auth login, credential-state/account bootstrap, logout, account password/TOTP begin and complete, deployment-admin load/create/patch/password-reset/TOTP-reset/revoke-all actions, and incident create. Tests assert public `code`, `message`, `reason_code`, `field`, and `required_role` where allowed, and reject private probes such as request IDs, bootstrap tokens, secrets, paths, SQL, stacks, and unknown private details.
 - Scenario titles in `tools/frontend_phase_maps/fe_p1_test_map.json` match the FE-I-labeled tests in `apps/web/src/phase1Client.routeBoundary.test.ts` and `apps/web/src/App.phase1.test.tsx`.
 
 Validation artifacts:
 
 | Command | Status | Artifact |
 | ------- | ------ | -------- |
-| `make frontend-unit` | Passed | `.cartulary/test-results/20260529T232533Z-p2326116/frontend-unit/tool-run-summary.json` |
+| `make phase-ledgers` | Passed | `.cartulary/test-results/20260530T000708Z-p2391169/phase-ledgers/tool-run-summary.json` |
+| `make frontend-typecheck` | Passed | `.cartulary/test-results/20260530T000718Z-p2391696/frontend-typecheck/tool-run-summary.json` |
+| `make phase-ledger-drift` | Passed | `.cartulary/test-results/20260530T000718Z-p2391694/phase-ledger-drift/tool-run-summary.json` |
+| `make frontend-unit` | Passed | `.cartulary/test-results/20260530T000752Z-p2394122/frontend-unit/tool-run-summary.json` |
+| `make generated-artifact-policy-check` | Passed | `.cartulary/test-results/20260530T000948Z-p2399583/generated-artifact-policy-check/tool-run-summary.json` |
+| `make generate-drift` | Passed | `.cartulary/test-results/20260530T000948Z-p2399587/generate-drift/tool-run-summary.json` |
+| `make frontend-import-boundary-check` | Passed | `.cartulary/test-results/20260530T000948Z-p2399594/frontend-import-boundary-check/tool-run-summary.json` |
+| `make agent-finalize` | Passed; generated artifacts unchanged and retained-run maintenance skipped because `RESULTS_DIR` was unset | `.cartulary/test-results/20260530T000823Z-p2395921/agent-finalize/tool-run-summary.json` |
+
+Validation notes:
+
+- An intervening `make frontend-unit` run at `.cartulary/test-results/20260530T000718Z-p2391641` failed in unrelated Phase 9 test `Phase 9 E-9-02 registers grouped paste conflicts without losing selection continuity`; the immediate rerun passed and is the FE-I closure evidence above.
 
 ## Sprint 4: Login, Session Bootstrap, Incident Entry, Authorization, And Revocation E2E Flow
 
