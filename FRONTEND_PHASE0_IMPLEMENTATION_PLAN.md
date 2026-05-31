@@ -23,10 +23,10 @@ This plan does not implement FE-P0 behavior. It is not behavior authority and mu
 The following facts were verified in the local repository during FE-P0 planning, Sprint 0 update inspection, and Sprint 1 audit inspection:
 
 - `tools/frontend_phase_registry.json` exists and owns the frontend phase catalog under `phase_namespace="frontend"`.
-- `tools/frontend_phase_maps/fe_p0_test_map.json` exists and lists the six FE-P0 rows exactly once.
+- `tools/frontend_phase_maps/fe_p0_test_map.json` exists and lists the seven FE-P0 rows exactly once.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md` exists as a generated companion ledger for the FE-P0 phase map.
 - `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P0` passes and reports `FE-P0` as `planned`; planned frontend phases are explainable but not executable.
-- All six FE-P0 rows have `claim_status=implemented` in the current phase map.
+- All seven FE-P0 rows have `claim_status=implemented` in the current phase map.
 - Package manifests exist for `/packages/protocol-ts`, `/packages/view-contracts`, `/packages/ui-contracts`, `/packages/grid-adapter`, `/packages/test-utils`, and `/apps/web`.
 - `/packages/ui` is future-reserved and intentionally inactive for FE-P0 closure; no empty package manifest is introduced.
 - Target discovery verified these targets: `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, and `make phase-ledger-drift`.

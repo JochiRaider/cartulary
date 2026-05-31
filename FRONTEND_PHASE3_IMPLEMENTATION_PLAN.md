@@ -230,7 +230,7 @@ Explicitly out of scope for FE-P3:
 
 ## Sprint Checklist
 
-- [ ] Sprint 1: Readiness, registry, map, ledger, and FE-P2 handoff intake.
+- [x] Sprint 1: Readiness, registry, map, ledger, and FE-P2 handoff intake.
 - [ ] Sprint 2: RDG containment, stylesheet ownership, and package boundary
   enforcement.
 - [ ] Sprint 3: Row identity, cell identity, and presentation-row write gating.
@@ -242,7 +242,8 @@ Explicitly out of scope for FE-P3:
   readiness.
 - [ ] Sprint 7: Closure, drift, regression, and FE-P4 handoff.
 
-Checklist status at plan creation: not started. All FE-P3 map rows are blocked.
+Checklist status after Sprint 1: readiness and FE-P2 intake complete. All FE-P3
+map rows remain blocked.
 
 ## Global References
 
@@ -369,7 +370,7 @@ Generated or tool-managed deliverables:
 
 ## Sprint 1: Readiness, Registry, Map, Ledger, And FE-P2 Handoff Intake
 
-Status: planned.
+Status: complete for readiness/intake on 2026-05-31.
 
 Objective: establish FE-P3's metadata, naming, package, command, and inherited
 phase context before implementation.
@@ -408,6 +409,77 @@ Validation commands:
 - `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`
 - `make phase-ledger-drift`
 - `git diff --check`
+
+Sprint 1 execution record:
+
+- Naming precedent was verified with
+  `rg --files -g 'FRONTEND_PHASE*_IMPLEMENTATION_PLAN.md'`; the root contains
+  FE-P0 through FE-P3 plan files.
+- The guide row inventories match the authored frontend phase maps for FE-P0,
+  FE-P1, FE-P2, and FE-P3. No registry or map metadata change was required, so
+  `make phase-ledgers` was not run as a standalone Sprint 1 command.
+- Active package manifests exist for `apps/web`, `packages/grid-adapter`,
+  `packages/view-contracts`, `packages/ui-contracts`, `packages/test-utils`,
+  and `packages/protocol-ts`. `packages/ui/package.json` is absent, but
+  `packages/ui` is future-reserved via `.gitkeep` and is not an active package
+  manifest blocker.
+- RDG containment was verified by source inspection: `react-data-grid` and
+  `react-data-grid/lib/styles.css` are imported from
+  `packages/grid-adapter/src/index.tsx`; `/apps/web` imports
+  `@cartulary/grid-adapter`, not RDG directly.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P3` passed and reports
+  FE-P3 as `planned`, explainable, non-executable, and blocked for all nine
+  FE-P3 rows.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P0`,
+  `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P1`, and
+  `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2` passed and report
+  those phases as `planned`, explainable, and non-executable.
+- `make phase-ledger-drift` passed with run root
+  `.cartulary/test-results/20260531T052900Z-p1219605` and summary
+  `.cartulary/test-results/20260531T052900Z-p1219605/phase-ledger-drift/tool-run-summary.json`.
+- `git diff --check` passed with no output after the Sprint 1 documentation
+  updates.
+- `make agent-finalize` passed with run root
+  `.cartulary/test-results/20260531T052956Z-p1220952` and summary
+  `.cartulary/test-results/20260531T052956Z-p1220952/agent-finalize/tool-run-summary.json`;
+  generated maintenance artifacts were unchanged and retained-run maintenance was
+  skipped because `RESULTS_DIR` was unset.
+
+FE-P2 handoff intake verified from retained row-owned artifacts:
+
+- FE-P2 registry remains `planned`; map and ledger paths are present and
+  explainable.
+- FE-P2 has seven rows, all `claim_status="implemented"` in the map and
+  generated ledger.
+- Unit row accounting was read from
+  `.cartulary/test-results/20260531T031120Z-p874196/frontend-unit/frontend-row-accounting.json`;
+  `FE-U-P2-01` and `FE-U-P2-02` show `closure_status="closed"`.
+- Browser row accounting was read from
+  `.cartulary/test-results/20260531T031139Z-p875748/browser-e2e-webserver-backed/frontend-row-accounting.json`;
+  `FE-B-P2-01`, `FE-B-P2-02`, and `FE-E-P2-01` show
+  `closure_status="closed"`.
+- Visual row accounting was read from
+  `.cartulary/test-results/20260531T031306Z-p883678/browser-e2e-visual/frontend-row-accounting.json`;
+  `FE-V-P2-01` shows `closure_status="closed"` as design-direction evidence.
+- Accessibility row accounting was read from
+  `.cartulary/test-results/20260531T031357Z-p888634/browser-e2e-a11y/frontend-row-accounting.json`;
+  `FE-A11Y-P2-01` shows `closure_status="closed"` as design-direction
+  evidence.
+- Accessibility summary
+  `.cartulary/test-results/20260531T031357Z-p888634/browser-e2e-a11y/accessibility/frontend-accessibility-summary.json`
+  reports `schema_id="cartulary.frontend_accessibility_summary.v2"` and zero
+  violations.
+- FE-P3 accessibility preflight summary
+  `.cartulary/test-results/20260531T031420Z-p891647/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json`
+  lists `FE-A11Y-P3-01` as blocked preflight smoke only.
+
+Sprint 1 blockers and follow-up:
+
+| Item | Ownership | Blocks FE-P3 completion | Affects FE-P4 handoff | Minimum follow-up |
+| --- | --- | --- | --- | --- |
+| All FE-P3 rows remain blocked with no Sprint 1 row-owned implementation evidence. | `FE-P3-owned` | yes | yes, if unresolved | Later FE-P3 sprints must emit direct row-owned accounting before promotion. |
+| `FE-V-P3-01` visual fixture ownership and missing-fixture reconciliation remains open. | `FE-P3-owned/design-direction` | yes | yes, if unresolved | Reconcile the visual fixture matrix and close only from `browser-e2e-visual` frontend row accounting. |
+| `FE-A11Y-P3-01` maps to preflight smoke, not implemented accessibility evidence. | `FE-P3-owned/design-direction` | yes | yes, if unresolved | Keep blocked or intentionally promote target/metadata, regenerate ledgers, and validate. |
 
 Sprint 1 does not close any FE-P3 row.
 
