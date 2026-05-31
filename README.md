@@ -232,6 +232,8 @@ Supporting appendices preserve rationale, diagrams, schema reference material, w
 
 The project-wide domain vocabulary and concept reference lives at `docs/domain.md`. Use it to interpret Cartulary terms and find the relevant owner sections; it does not replace the normative core or define new implementation-conformance behavior.
 
+Frontend design direction lives at `docs/design.md`. It defines observable UI design constraints and the design-token registry consumed through generated `@cartulary/ui-contracts` artifacts, but it does not create product-conformance behavior, routes, schemas, authorization rules, evidence access semantics, lifecycle transitions, storage boundaries, field registries, record types, or public wire shapes. Core 00 through Core 04 remain the implementation-conformance authority, Core 05 remains claim-publication-only, and design-direction visual or accessibility evidence must stay classified separately from product conformance. UI changes that affect visual goldens follow `docs/guides/cartulary_visual_golden_maintenance.md`.
+
 The current core also defines bounded extension profiles for:
 
 - **Import** — file-based structured import from spreadsheet and CSV sources through a session-based contract.

@@ -194,16 +194,16 @@ const labelStyle = {
   display: "grid",
   gap: "0.35rem",
   minWidth: "12rem",
-  color: "rgb(52 79 72)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const inputStyle = {
-  borderRadius: "0.75rem",
-  border: "1px solid rgb(192 205 198)",
-  background: "rgb(255 255 255)",
-  padding: "0.65rem 0.75rem",
+  borderRadius: "var(--ct-component-text-input-rounded)",
+  border: "var(--ct-component-text-input-border)",
+  background: "var(--ct-component-text-input-backgroundColor)",
+  padding: "var(--ct-component-text-input-padding)",
   font: "inherit",
-  color: "inherit",
+  color: "var(--ct-component-text-input-textColor)",
 };
 
 const selectStyle = {
@@ -211,11 +211,11 @@ const selectStyle = {
 };
 
 const actionButtonStyle = {
-  borderRadius: "999px",
-  border: "1px solid rgb(129 165 154)",
-  background: "rgb(234 244 239)",
-  color: "rgb(34 74 63)",
-  padding: "0.55rem 0.9rem",
+  borderRadius: "var(--ct-component-button-secondary-rounded)",
+  border: "var(--ct-component-button-secondary-border)",
+  background: "var(--ct-component-button-secondary-backgroundColor)",
+  color: "var(--ct-component-button-secondary-textColor)",
+  padding: "var(--ct-component-button-secondary-padding)",
   font: "inherit",
   cursor: "pointer",
   height: "fit-content",
@@ -223,9 +223,9 @@ const actionButtonStyle = {
 
 const chipButtonStyle = {
   ...actionButtonStyle,
-  background: "rgb(247 249 247)",
+  background: "var(--ct-colors-surface-3)",
 };
 
 const hintStyle = {
-  color: "rgb(87 112 104)",
+  color: "var(--ct-colors-ink-muted)",
 };

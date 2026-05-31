@@ -7107,10 +7107,10 @@ export function TimelineWorkbook({
                 ...statusValueStyle,
                 color:
                   saveState === "Conflict"
-                    ? "rgb(145 30 30)"
+                    ? "var(--ct-colors-semantic-conflict)"
                     : saveState === "Syncing"
-                      ? "rgb(146 64 14)"
-                      : "rgb(21 128 61)",
+                      ? "var(--ct-colors-semantic-caution)"
+                      : "var(--ct-colors-semantic-success)",
               }}
             >
               {saveState}
@@ -11992,10 +11992,10 @@ const panelStyle = {
   width: "min(96rem, 100%)",
   margin: "0 auto",
   padding: "2rem",
-  borderRadius: "1.5rem",
-  background: "rgb(255 252 247 / 0.92)",
-  boxShadow: "0 24px 80px rgb(29 78 70 / 0.12)",
-  border: "1px solid rgb(185 204 196 / 0.8)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-panel)",
+  border: "var(--ct-border-hairline)",
 };
 
 const heroStyle = {
@@ -12010,8 +12010,8 @@ const shellTopBarStyle = {
   flexWrap: "wrap" as const,
   marginBottom: "1rem",
   padding: "1rem 1.2rem",
-  borderRadius: "1rem",
-  background: "rgb(233 241 236)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const shellTopBarActionsStyle = {
@@ -12026,13 +12026,13 @@ const shellTopBarLabelStyle = {
   fontSize: "0.72rem",
   letterSpacing: "0.14em",
   textTransform: "uppercase" as const,
-  color: "rgb(70 103 96)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const shellTopBarValueStyle = {
   margin: "0.3rem 0 0",
   fontWeight: 700,
-  color: "rgb(31 58 52)",
+  color: "var(--ct-colors-ink)",
 };
 
 const toolbarStyle = {
@@ -12093,7 +12093,7 @@ const statusLabelStyle = {
   fontSize: "0.75rem",
   letterSpacing: "0.08em",
   textTransform: "uppercase" as const,
-  color: "rgb(81 110 103)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const statusValueStyle = {
@@ -12113,10 +12113,10 @@ const presenceAvatarStyle = {
   placeItems: "center",
   width: "1.5rem",
   height: "1.5rem",
-  borderRadius: "999px",
-  border: "1px solid rgb(56 126 104)",
-  background: "rgb(236 253 245)",
-  color: "rgb(20 83 45)",
+  borderRadius: "var(--ct-rounded-pill)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-semantic-presence-self)",
   fontSize: "0.72rem",
   fontWeight: 700,
 };
@@ -12130,7 +12130,7 @@ const presenceOverflowStyle = {
 
 const presenceEmptyStyle = {
   fontSize: "0.75rem",
-  color: "rgb(87 112 104)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const eyebrowStyle = {
@@ -12138,7 +12138,7 @@ const eyebrowStyle = {
   fontSize: "0.78rem",
   letterSpacing: "0.12em",
   textTransform: "uppercase" as const,
-  color: "rgb(87 112 104)",
+  color: "var(--ct-colors-accent)",
 };
 
 const headlineStyle = {
@@ -12150,12 +12150,12 @@ const headlineStyle = {
 const bodyStyle = {
   margin: 0,
   lineHeight: 1.5,
-  color: "rgb(53 79 72)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const splitShellStyle = {
   display: "grid",
-  gap: "1rem",
+  gap: "var(--ct-spacing-shell-gap)",
   alignItems: "start",
   gridTemplateColumns: "minmax(0, 3fr) minmax(20rem, 1.25fr)",
 };
@@ -12163,9 +12163,9 @@ const splitShellStyle = {
 const gridShellStyle = {
   overflow: "hidden",
   overflowAnchor: "none" as const,
-  borderRadius: "1rem",
-  border: "1px solid rgb(199 214 207)",
-  background: "rgb(255 255 255 / 0.82)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
   blockSize: "min(70vh, 46rem)",
   minBlockSize: "18rem",
 };
@@ -12193,10 +12193,10 @@ const rowPresenceStyle = {
   alignItems: "center",
   width: "fit-content",
   maxWidth: "100%",
-  borderRadius: "999px",
-  border: "1px solid rgb(56 126 104)",
-  background: "rgb(236 253 245)",
-  color: "rgb(20 83 45)",
+  borderRadius: "var(--ct-rounded-pill)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-semantic-presence-other)",
   padding: "0.15rem 0.4rem",
   fontSize: "0.72rem",
   fontWeight: 700,
@@ -12218,9 +12218,9 @@ const genericMutationPanelStyle = {
   display: "grid",
   gap: "0.75rem",
   padding: "1rem",
-  borderRadius: "1rem",
-  border: "1px solid rgb(199 214 207)",
-  background: "rgb(247 250 248)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const genericFormGridStyle = {
@@ -12242,12 +12242,12 @@ const inputStyle = {
   display: "block",
   minWidth: 0,
   width: "100%",
-  borderRadius: "0.75rem",
-  border: "1px solid rgb(192 205 198)",
-  background: "rgb(255 255 255)",
+  borderRadius: "var(--ct-component-text-input-rounded)",
+  border: "var(--ct-component-text-input-border)",
+  background: "var(--ct-component-text-input-backgroundColor)",
   padding: "0.65rem 0.75rem",
   font: "inherit",
-  color: "inherit",
+  color: "var(--ct-component-text-input-textColor)",
 };
 
 const textareaStyle = {
@@ -12268,10 +12268,10 @@ const timelineReplacementInputStyle = {
 };
 
 const actionButtonStyle = {
-  borderRadius: "999px",
-  border: "1px solid rgb(129 165 154)",
-  background: "rgb(234 244 239)",
-  color: "rgb(34 74 63)",
+  borderRadius: "var(--ct-component-button-secondary-rounded)",
+  border: "var(--ct-component-button-secondary-border)",
+  background: "var(--ct-component-button-secondary-backgroundColor)",
+  color: "var(--ct-component-button-secondary-textColor)",
   padding: "0.55rem 0.9rem",
   font: "inherit",
   cursor: "pointer",
@@ -12288,22 +12288,22 @@ const timelineActionButtonStyle = {
 
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
-  background: "rgb(247 249 247)",
+  background: "var(--ct-colors-surface-3)",
 };
 
 const destructiveActionButtonStyle = {
   ...actionButtonStyle,
-  borderColor: "rgb(180 83 9)",
-  background: "rgb(255 247 237)",
-  color: "rgb(146 64 14)",
+  borderColor: "var(--ct-colors-semantic-destructive)",
+  background: "transparent",
+  color: "var(--ct-colors-semantic-destructive)",
 };
 
 const conflictMarkerStyle = {
   ...secondaryActionButtonStyle,
   marginTop: "0.35rem",
-  borderColor: "rgb(180 83 9)",
-  color: "rgb(146 64 14)",
-  background: "rgb(255 251 235)",
+  borderColor: "var(--ct-colors-semantic-conflict)",
+  color: "var(--ct-colors-semantic-conflict)",
+  background: "var(--ct-colors-surface-2)",
   padding: "0.35rem 0.6rem",
   fontSize: "0.85rem",
 };
@@ -12312,10 +12312,10 @@ const cellPresenceStyle = {
   display: "inline-flex",
   width: "fit-content",
   marginTop: "0.35rem",
-  borderRadius: "999px",
-  border: "1px solid rgb(37 99 235)",
-  background: "rgb(239 246 255)",
-  color: "rgb(30 64 175)",
+  borderRadius: "var(--ct-rounded-pill)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-semantic-presence-other)",
   padding: "0.2rem 0.45rem",
   fontSize: "0.75rem",
   fontWeight: 700,
@@ -12325,8 +12325,8 @@ const conflictResolverStyle = {
   display: "grid",
   gap: "0.75rem",
   padding: "1rem",
-  borderTop: "1px solid rgb(199 214 207)",
-  background: "rgb(255 251 235)",
+  borderTop: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const conflictResolverGridStyle = {
@@ -12337,14 +12337,14 @@ const conflictResolverGridStyle = {
 
 const genericErrorTextStyle = {
   margin: 0,
-  color: "rgb(153 27 27)",
+  color: "var(--ct-colors-semantic-conflict)",
   fontWeight: 700,
 };
 
 const evidenceAccessMessageStyle = {
   margin: 0,
   fontSize: "0.85rem",
-  color: "rgb(87 109 103)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const timelineEvidenceCellStyle = {
@@ -12363,16 +12363,16 @@ const timelineEvidenceFlagBaseStyle = {
 
 const timelineEvidenceFlagOnStyle = {
   ...timelineEvidenceFlagBaseStyle,
-  border: "1px solid rgb(73 143 108)",
-  background: "rgb(225 245 233)",
-  color: "rgb(29 90 59)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-semantic-success)",
 };
 
 const timelineEvidenceFlagOffStyle = {
   ...timelineEvidenceFlagBaseStyle,
-  border: "1px solid rgb(178 191 184)",
-  background: "rgb(242 246 243)",
-  color: "rgb(54 74 67)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const evidencePreviewPanelStyle = {
@@ -12380,9 +12380,9 @@ const evidencePreviewPanelStyle = {
   gap: "0.75rem",
   margin: "1rem 0",
   padding: "1rem",
-  borderRadius: "1rem",
-  border: "1px solid rgb(199 214 207)",
-  background: "rgb(255 255 255 / 0.86)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
 };
 
 const evidencePreviewHeaderStyle = {
@@ -12395,23 +12395,24 @@ const evidencePreviewHeaderStyle = {
 const evidencePreviewFrameStyle = {
   width: "100%",
   minHeight: "28rem",
-  border: "1px solid rgb(199 214 207)",
-  borderRadius: "0.75rem",
-  background: "rgb(255 255 255)",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-md)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const labelStyle = {
   display: "grid",
   gap: "0.4rem",
   fontSize: "0.95rem",
-  color: "rgb(52 79 72)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const inspectorShellStyle = {
-  borderRadius: "1rem",
-  border: "1px solid rgb(199 214 207)",
-  background: "rgb(248 251 249)",
-  padding: "1rem",
+  borderRadius: "var(--ct-component-inspector-rounded)",
+  border: "var(--ct-component-inspector-border)",
+  background: "var(--ct-component-inspector-backgroundColor)",
+  color: "var(--ct-component-inspector-textColor)",
+  padding: "var(--ct-component-inspector-padding)",
   position: "sticky" as const,
   top: "1rem",
 };
@@ -12443,7 +12444,7 @@ const historySectionHeaderStyle = {
 
 const historyMetaStyle = {
   margin: 0,
-  color: "rgb(87 109 103)",
+  color: "var(--ct-colors-ink-muted)",
   fontSize: "0.85rem",
   overflowWrap: "anywhere" as const,
 };
@@ -12467,8 +12468,8 @@ const historyItemStyle = {
   gap: "0.65rem",
   padding: "0.75rem",
   borderRadius: "0.5rem",
-  border: "1px solid rgb(212 224 218)",
-  background: "rgb(255 255 255)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const historyItemHeaderStyle = {
@@ -12497,8 +12498,8 @@ const relationshipChipStyle = {
   display: "inline-flex",
   alignItems: "center",
   gap: "0.35rem",
-  borderRadius: "999px",
-  padding: "0.35rem 0.65rem",
+  borderRadius: "var(--ct-component-chip-rounded)",
+  padding: "var(--ct-component-chip-padding)",
   font: "inherit",
   lineHeight: 1.2,
   maxWidth: "100%",
@@ -12507,31 +12508,31 @@ const relationshipChipStyle = {
 };
 
 const unresolvedChipStyle = {
-  border: "1px dashed rgb(188 118 23)",
-  background: "rgb(255 246 219)",
-  color: "rgb(124 71 10)",
+  border: "1px dashed var(--ct-colors-semantic-caution)",
+  background: "var(--ct-component-chip-backgroundColor)",
+  color: "var(--ct-colors-semantic-caution)",
 };
 
 const resolvedChipStyle = {
-  border: "1px solid rgb(73 143 108)",
-  background: "rgb(225 245 233)",
-  color: "rgb(29 90 59)",
+  border: "var(--ct-component-chip-border)",
+  background: "var(--ct-component-chip-backgroundColor)",
+  color: "var(--ct-colors-ink)",
 };
 
 const autoResolvedChipStyle = {
-  border: "1px solid rgb(44 100 138)",
-  background: "rgb(223 241 255)",
-  color: "rgb(20 67 97)",
+  border: "var(--ct-component-chip-border)",
+  background: "var(--ct-component-chip-backgroundColor)",
+  color: "var(--ct-colors-semantic-info)",
 };
 
 const dismissedChipStyle = {
-  border: "1px solid rgb(128 128 128)",
-  background: "rgb(240 240 240)",
-  color: "rgb(76 76 76)",
+  border: "var(--ct-border-hairline)",
+  background: "transparent",
+  color: "var(--ct-colors-ink-tertiary)",
 };
 
 const selectedChipStyle = {
-  boxShadow: "0 0 0 2px rgb(31 94 70 / 0.22)",
+  boxShadow: "0 0 0 2px var(--ct-colors-accent)",
 };
 
 const chipMetaStyle = {
@@ -12548,13 +12549,13 @@ const entityAliasListStyle = {
 
 const tagChipStyle = {
   ...relationshipChipStyle,
-  border: "1px solid rgb(178 191 184)",
-  background: "rgb(242 246 243)",
-  color: "rgb(54 74 67)",
+  border: "var(--ct-component-chip-border)",
+  background: "var(--ct-component-chip-backgroundColor)",
+  color: "var(--ct-component-chip-textColor)",
 };
 
 const emptyRelationshipStyle = {
-  color: "rgb(117 136 130)",
+  color: "var(--ct-colors-ink-tertiary)",
   fontSize: "0.9rem",
 };
 
@@ -12573,7 +12574,7 @@ const groupLabelStyle = {
   fontSize: "0.8rem",
   letterSpacing: "0.08em",
   textTransform: "uppercase" as const,
-  color: "rgb(89 112 105)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const mentionListButtonStyle = {
@@ -12598,7 +12599,7 @@ const detailTermStyle = {
   fontSize: "0.75rem",
   letterSpacing: "0.08em",
   textTransform: "uppercase" as const,
-  color: "rgb(87 109 103)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const detailValueStyle = {
@@ -12623,9 +12624,9 @@ const noticeStackStyle = {
 };
 
 const noticeCardStyle = {
-  borderRadius: "1rem",
-  border: "1px solid rgb(158 194 214)",
-  background: "rgb(240 248 255)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
   padding: "0.85rem 1rem",
   display: "grid",
   gap: "0.5rem",
@@ -12644,19 +12645,19 @@ const tabStripStyle = {
 };
 
 const surfaceTabStyle = {
-  borderRadius: "999px",
-  border: "1px solid rgb(176 194 187)",
-  background: "rgb(248 251 249)",
-  color: "rgb(42 77 67)",
+  borderRadius: "var(--ct-rounded-pill)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink-muted)",
   padding: "0.55rem 0.9rem",
   font: "inherit",
   cursor: "pointer",
 };
 
 const surfaceTabActiveStyle = {
-  background: "rgb(34 74 63)",
-  color: "rgb(250 252 251)",
-  borderColor: "rgb(34 74 63)",
+  background: "var(--ct-colors-accent)",
+  color: "var(--ct-colors-on-accent)",
+  borderColor: "var(--ct-colors-accent)",
 };
 
 const systemViewSlotStyle = {
@@ -12682,7 +12683,7 @@ const systemViewSwitcherTriggerStyle = {
 };
 
 const systemViewSwitcherValueStyle = {
-  color: "rgb(73 102 94)",
+  color: "var(--ct-colors-ink-muted)",
   fontSize: "0.85rem",
   fontWeight: 500,
   overflow: "hidden",
@@ -12698,10 +12699,10 @@ const systemViewSwitcherMenuStyle = {
   width: "min(26rem, 80vw)",
   maxHeight: "28rem",
   overflowY: "auto" as const,
-  border: "1px solid rgb(176 194 187)",
-  borderRadius: "0.5rem",
-  background: "rgb(255 255 255)",
-  boxShadow: "0 14px 28px rgb(24 54 45 / 0.16)",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-md)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-popover)",
   padding: "0.5rem",
 };
 
@@ -12722,9 +12723,9 @@ const systemViewSwitcherGroupLabelStyle = {
 
 const systemViewSwitcherOptionStyle = {
   border: "0",
-  borderRadius: "0.375rem",
+  borderRadius: "var(--ct-rounded-sm)",
   background: "transparent",
-  color: "rgb(34 64 56)",
+  color: "var(--ct-colors-ink-muted)",
   cursor: "pointer",
   font: "inherit",
   padding: "0.5rem 0.55rem",
@@ -12732,8 +12733,8 @@ const systemViewSwitcherOptionStyle = {
 };
 
 const systemViewSwitcherOptionSelectedStyle = {
-  background: "rgb(232 243 238)",
-  color: "rgb(23 75 60)",
+  background: "var(--ct-colors-surface-3)",
+  color: "var(--ct-colors-ink)",
   fontWeight: 700,
 };
 
@@ -12749,9 +12750,9 @@ const savedViewSelectorLabelStyle = {
 };
 
 const roleBadgeStyle = {
-  borderRadius: "999px",
-  background: "rgb(236 244 239)",
-  color: "rgb(44 76 66)",
+  borderRadius: "var(--ct-rounded-pill)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink-muted)",
   padding: "0.45rem 0.8rem",
   fontSize: "0.9rem",
 };
@@ -12772,9 +12773,9 @@ const savedViewSelectStyle = {
 };
 
 const mergePlanStyle = {
-  borderRadius: "1rem",
-  border: "1px solid rgb(205 219 213)",
-  background: "rgb(255 255 255)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
   padding: "0.9rem",
   display: "grid",
   gap: "0.65rem",
@@ -12793,9 +12794,9 @@ const timelinePreviewStackStyle = {
 };
 
 const timelinePreviewCardStyle = {
-  borderRadius: "0.9rem",
-  border: "1px solid rgb(210 222 216)",
-  background: "rgb(255 255 255)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
   padding: "0.85rem",
   display: "grid",
   gap: "0.55rem",

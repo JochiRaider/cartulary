@@ -1,3 +1,7 @@
+import {
+  cartularyDefaultThemeId,
+  cartularyDesignThemeCssText,
+} from "@cartulary/ui-contracts";
 import { StrictMode } from "react";
 
 import { App } from "./App";
@@ -5,15 +9,16 @@ import { App } from "./App";
 export function AppRoot() {
   return (
     <StrictMode>
+      <style>{cartularyDesignThemeCssText}</style>
       <style>
         {`
           .cartulary-shell :where(button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])):focus {
-            outline: 3px solid rgb(20 83 45);
-            outline-offset: 2px;
+            outline: var(--ct-component-focus-ring-border);
+            outline-offset: var(--ct-component-focus-ring-offset);
           }
         `}
       </style>
-      <App />
+      <App themeId={cartularyDefaultThemeId} />
     </StrictMode>
   );
 }

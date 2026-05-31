@@ -240,6 +240,37 @@
       "claim_status": "implemented",
       "claim": "Record frontend phase rows in a scheduler-enforced manifest or ledger before claiming phase-enforced completion.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+    },
+    {
+      "id": "FE-S-P0-04",
+      "layer": "support",
+      "evidence_class": "implementation_support",
+      "owner_refs": [
+        "docs/design.md Sections 1 and 3",
+        "development guide Sections 6.1 and 6.6"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "FE-SUPPORT-AC-007",
+        "D-AC-010",
+        "D-AC-011",
+        "D-AC-012",
+        "D-AC-013",
+        "D-AC-014",
+        "D-AC-015",
+        "D-AC-073"
+      ],
+      "targets": [
+        "make generate",
+        "make generated-artifact-policy-check",
+        "make generate-drift",
+        "make frontend-import-boundary-check"
+      ],
+      "scenario_titles": [],
+      "claim_status": "implemented",
+      "claim": "Validate docs/design.md token front matter and generated @cartulary/ui-contracts token artifacts without treating design tokens as product-conformance behavior.",
+      "out_of_scope": "This frontend readiness row does not create routes, schemas, authorization, lifecycle, storage, field registries, record types, public wire shapes, Core product behavior, or Core 05 publication authority."
     }
   ]
 }

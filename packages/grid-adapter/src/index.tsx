@@ -458,9 +458,9 @@ function headerContentStyle(
 const viewportStyle = {
   overflow: "hidden",
   overflowAnchor: "none" as const,
-  borderRadius: "1rem",
-  border: "1px solid rgb(199 214 207)",
-  background: "rgb(255 255 255 / 0.82)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
   blockSize: "min(70vh, 46rem)",
   minBlockSize: "18rem",
 };
@@ -469,15 +469,18 @@ const gridStyle = {
   blockSize: "100%",
   minWidth: "78rem",
   width: "max-content",
-  fontFamily: "var(--font-grid)",
+  fontFamily: "var(--ct-typography-grid-cell-fontFamily)",
+  fontSize: "var(--ct-typography-grid-cell-fontSize)",
   fontVariantNumeric: "tabular-nums",
   fontFeatureSettings: '"tnum" 1, "zero" 1',
-  "--rdg-background-color": "rgb(255 255 255 / 0.82)",
-  "--rdg-border-color": "rgb(199 214 207)",
-  "--rdg-header-background-color": "rgb(242 247 243)",
-  "--rdg-row-hover-background-color": "rgb(247 250 248)",
-  "--rdg-row-selected-background-color": "rgb(232 244 239)",
-  "--rdg-row-selected-hover-background-color": "rgb(232 244 239)",
+  color: "var(--ct-component-grid-cell-textColor)",
+  "--rdg-background-color": "var(--ct-colors-surface-1)",
+  "--rdg-border-color": "var(--ct-colors-hairline)",
+  "--rdg-color": "var(--ct-colors-ink)",
+  "--rdg-header-background-color": "var(--ct-colors-surface-2)",
+  "--rdg-row-hover-background-color": "var(--ct-colors-surface-2)",
+  "--rdg-row-selected-background-color": "var(--ct-colors-surface-3)",
+  "--rdg-row-selected-hover-background-color": "var(--ct-colors-surface-3)",
 } satisfies CSSProperties & Record<string, string | number>;
 
 const headerContentBaseStyle = {
@@ -490,34 +493,34 @@ const headerContentBaseStyle = {
 
 const headerMetaStyle = {
   fontSize: "0.7rem",
-  color: "rgb(87 112 104)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const bodyCellStyle = {
-  padding: "0.75rem",
-  borderBottom: "1px solid rgb(232 238 234)",
+  padding: "var(--ct-component-grid-cell-padding)",
+  borderBottom: "var(--ct-border-hairline)",
   verticalAlign: "top" as const,
 };
 
 const groupCellStyle = {
   ...bodyCellStyle,
-  background: "rgb(247 249 247)",
-  color: "rgb(53 79 72)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const emptyStateStyle = {
   gridColumn: "1 / -1",
   padding: "0.75rem",
   textAlign: "center" as const,
-  color: "rgb(70 92 85)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const draftRowStyle = {
-  background: "rgb(252 249 241)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const selectedRowStyle = {
-  background: "rgb(232 244 239)",
+  background: "var(--ct-colors-surface-3)",
 };
 
 const rightAlignedStyle = {

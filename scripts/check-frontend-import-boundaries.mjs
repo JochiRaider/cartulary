@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
 
+import { loadDesignTokenDocument } from "./lib/design-tokens.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "..");
 const schemaID = "cartulary.frontend_import_boundaries.v2";
@@ -212,7 +214,30 @@ function normalizeConfig(raw) {
     ),
     rules,
     singletonImports,
+    rawDesignTokenLiteralChecks: normalizeRawDesignTokenLiteralChecks(
+      raw.raw_design_token_literal_checks ?? [],
+    ),
   };
+}
+
+function normalizeRawDesignTokenLiteralChecks(checks) {
+  return requireArray(checks, "raw_design_token_literal_checks").map((check, index) => {
+    const label = `raw_design_token_literal_checks[${index + 1}]`;
+    const normalized = {
+      appliesTo: normalizeAppliesTo(check?.applies_to, `${label}.applies_to`),
+      designDocument: requireString(check?.design_document, `${label}.design_document`),
+      id: requireString(check?.id, `${label}.id`),
+      level: requireString(check?.level, `${label}.level`),
+      message: requireString(check?.message, `${label}.message`),
+      tokenNamespaces: new Set(
+        requireStringArray(check?.token_namespaces, `${label}.token_namespaces`),
+      ),
+    };
+    if (!["error", "warning"].includes(normalized.level)) {
+      throw new Error(`${label}.level must be error or warning`);
+    }
+    return normalized;
+  });
 }
 
 function normalizeAppliesTo(value, label) {
@@ -650,6 +675,66 @@ function evaluateSingletonImports(root, config, fileImportEntries) {
   return diagnostics;
 }
 
+function evaluateRawDesignTokenLiterals(root, config, files) {
+  const diagnostics = [];
+  const documentCache = new Map();
+  const tokenValuesForCheck = (check) => {
+    const designPath = resolvePath(root, check.designDocument);
+    if (!documentCache.has(designPath)) {
+      documentCache.set(designPath, loadDesignTokenDocument(designPath));
+    }
+    const document = documentCache.get(designPath);
+    return new Set(
+      [...document.tokenMap.values()]
+        .filter(
+          (entry) =>
+            check.tokenNamespaces.has(entry.namespace) &&
+            typeof entry.raw === "string" &&
+            entry.raw !== "transparent",
+        )
+        .map((entry) => entry.raw),
+    );
+  };
+
+  for (const check of config.rawDesignTokenLiteralChecks) {
+    const forbiddenValues = tokenValuesForCheck(check);
+    for (const file of files) {
+      const relativeFile = repoRelative(root, file);
+      if (!isRuleApplicable(check, relativeFile)) {
+        continue;
+      }
+      const content = readFileSync(file, "utf8");
+      for (const value of forbiddenValues) {
+        const index = content.indexOf(value);
+        if (index < 0) {
+          continue;
+        }
+        const { column, line } = lineColumnForIndex(content, index);
+        diagnostics.push({
+          column,
+          file: relativeFile,
+          importKind: "raw design token literal",
+          level: check.level,
+          line,
+          message: `${check.message} Found ${value}.`,
+          ruleID: check.id,
+          specifier: value,
+        });
+      }
+    }
+  }
+  return diagnostics;
+}
+
+function lineColumnForIndex(content, index) {
+  const prefix = content.slice(0, index);
+  const lines = prefix.split(/\r?\n/);
+  return {
+    column: lines[lines.length - 1].length + 1,
+    line: lines.length,
+  };
+}
+
 function formatDiagnostic(diagnostic, warningsAsErrors) {
   const effectiveLevel =
     warningsAsErrors && diagnostic.level === "warning" ? "error" : diagnostic.level;
@@ -673,6 +758,7 @@ function main() {
       evaluateFile(root, config, file, imports),
     ),
     ...evaluateSingletonImports(root, config, fileImportEntries),
+    ...evaluateRawDesignTokenLiterals(root, config, files),
   ];
   const errorCount = diagnostics.filter((diagnostic) => diagnostic.level === "error").length;
   const warningCount = diagnostics.filter((diagnostic) => diagnostic.level === "warning").length;

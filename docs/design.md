@@ -48,13 +48,13 @@ typography:
     fontSize: 18px
     fontWeight: 600
     lineHeight: 1.25
-    letterSpacing: -0.2px
+    letterSpacing: 0
   section-heading:
     fontFamily: "Inter, Geist, ui-sans-serif, system-ui, sans-serif"
     fontSize: 16px
     fontWeight: 600
     lineHeight: 1.30
-    letterSpacing: -0.1px
+    letterSpacing: 0
   grid-cell:
     fontFamily: "Inter, Geist, ui-sans-serif, system-ui, sans-serif"
     fontSize: 14px

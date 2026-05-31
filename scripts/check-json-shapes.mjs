@@ -94,6 +94,7 @@ const frontendBoundaryKeys = new Set([
   "scan_excludes",
   "singleton_imports",
   "rules",
+  "raw_design_token_literal_checks",
 ]);
 const bootstrapAdminKeys = new Set([
   "bootstrap_schema_id",
@@ -335,6 +336,14 @@ const frontendBoundaryRuleKeys = new Set([
   "restricted_imports",
 ]);
 const frontendBoundaryAppliesToKeys = new Set(["include", "exclude"]);
+const frontendBoundaryRawDesignLiteralCheckKeys = new Set([
+  "id",
+  "level",
+  "message",
+  "design_document",
+  "token_namespaces",
+  "applies_to",
+]);
 const restrictedImportKeys = new Set([
   "kind",
   "name",
@@ -923,6 +932,30 @@ function validateFrontendImportBoundariesShape(file) {
         throw new Error(`${importLabel}.include_subpaths must be a boolean`);
       }
     }
+  }
+  for (const [index, check] of requireObjectArray(
+    config.raw_design_token_literal_checks ?? [],
+    `${file}.raw_design_token_literal_checks`,
+  ).entries()) {
+    const label = `${file}.raw_design_token_literal_checks[${index + 1}]`;
+    assertObjectKeys(check, frontendBoundaryRawDesignLiteralCheckKeys, label);
+    requireString(check.id, `${label}.id`);
+    requireEnum(check.level, `${label}.level`, new Set(["error", "warning"]));
+    requireString(check.message, `${label}.message`);
+    requireRepoRelativePath(check.design_document, `${label}.design_document`);
+    requireStringArray(check.token_namespaces, `${label}.token_namespaces`, {
+      nonEmpty: true,
+    });
+    const appliesTo = requireObject(check.applies_to, `${label}.applies_to`);
+    assertObjectKeys(
+      appliesTo,
+      frontendBoundaryAppliesToKeys,
+      `${label}.applies_to`,
+    );
+    requireStringArray(appliesTo.include, `${label}.applies_to.include`, {
+      nonEmpty: true,
+    });
+    requireStringArray(appliesTo.exclude ?? [], `${label}.applies_to.exclude`);
   }
 }
 

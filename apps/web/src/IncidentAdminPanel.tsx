@@ -674,7 +674,7 @@ const eyebrowStyle = {
   fontSize: "0.76rem",
   letterSpacing: "0.18em",
   textTransform: "uppercase" as const,
-  color: "rgb(55 92 86)",
+  color: "var(--ct-colors-accent)",
 };
 
 const titleStyle = {
@@ -685,27 +685,27 @@ const titleStyle = {
 
 const bodyStyle = {
   margin: 0,
-  color: "rgb(63 83 78)",
+  color: "var(--ct-colors-ink-muted)",
   maxWidth: "42rem",
 };
 
 const mutedBodyStyle = {
   margin: 0,
-  color: "rgb(94 107 103)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const errorStyle = {
   margin: 0,
-  color: "rgb(151 53 38)",
+  color: "var(--ct-colors-semantic-conflict)",
   minHeight: "1.25rem",
 };
 
 const statusCardStyle = {
   minWidth: "14rem",
   padding: "0.9rem 1rem",
-  borderRadius: "1rem",
-  background: "rgb(239 245 240)",
-  border: "1px solid rgb(194 210 201)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-2)",
+  border: "var(--ct-border-hairline)",
   display: "grid",
   gap: "0.35rem",
 };
@@ -714,7 +714,7 @@ const labelStyle = {
   margin: 0,
   fontSize: "0.8rem",
   fontWeight: 600,
-  color: "rgb(63 83 78)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const gridStyle = {
@@ -724,9 +724,9 @@ const gridStyle = {
 };
 
 const cardStyle = {
-  borderRadius: "1.2rem",
-  border: "1px solid rgb(204 216 210)",
-  background: "rgb(250 248 242)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
   padding: "1rem",
   display: "grid",
   gap: "0.85rem",
@@ -744,7 +744,7 @@ const cardEyebrowStyle = {
   fontSize: "0.74rem",
   letterSpacing: "0.16em",
   textTransform: "uppercase" as const,
-  color: "rgb(92 108 103)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const cardTitleStyle = {
@@ -754,10 +754,10 @@ const cardTitleStyle = {
 
 const versionBadgeStyle = {
   alignSelf: "start",
-  borderRadius: "999px",
+  borderRadius: "var(--ct-rounded-pill)",
   padding: "0.35rem 0.7rem",
-  background: "rgb(233 239 234)",
-  color: "rgb(43 69 63)",
+  background: "var(--ct-colors-surface-3)",
+  color: "var(--ct-colors-ink-muted)",
   fontWeight: 600,
 };
 
@@ -770,12 +770,12 @@ const definitionGridStyle = {
 
 const valueStyle = {
   margin: "0.25rem 0 0",
-  color: "rgb(29 47 43)",
+  color: "var(--ct-colors-ink)",
   wordBreak: "break-word" as const,
 };
 
 const subtleValueStyle = {
-  color: "rgb(94 107 103)",
+  color: "var(--ct-colors-ink-subtle)",
   fontSize: "0.85rem",
 };
 
@@ -794,48 +794,48 @@ const inlineFormStyle = {
 const fieldLabelStyle = {
   display: "grid",
   gap: "0.35rem",
-  color: "rgb(43 69 63)",
+  color: "var(--ct-colors-ink-muted)",
   fontWeight: 600,
   fontSize: "0.88rem",
 };
 
 const inputStyle = {
-  borderRadius: "0.8rem",
-  border: "1px solid rgb(187 202 195)",
-  padding: "0.75rem 0.85rem",
+  borderRadius: "var(--ct-component-text-input-rounded)",
+  border: "var(--ct-component-text-input-border)",
+  padding: "var(--ct-component-text-input-padding)",
   font: "inherit",
-  color: "rgb(24 38 35)",
-  background: "rgb(255 255 255)",
+  color: "var(--ct-component-text-input-textColor)",
+  background: "var(--ct-component-text-input-backgroundColor)",
 };
 
 const primaryButtonStyle = {
-  borderRadius: "999px",
+  borderRadius: "var(--ct-component-button-primary-rounded)",
   border: "none",
-  padding: "0.8rem 1rem",
-  background: "rgb(34 84 73)",
-  color: "white",
+  padding: "var(--ct-component-button-primary-padding)",
+  background: "var(--ct-component-button-primary-backgroundColor)",
+  color: "var(--ct-component-button-primary-textColor)",
   font: "inherit",
   fontWeight: 700,
   cursor: "pointer",
 };
 
 const secondaryButtonStyle = {
-  borderRadius: "999px",
-  border: "1px solid rgb(134 164 154)",
-  padding: "0.75rem 0.95rem",
-  background: "rgb(244 248 245)",
-  color: "rgb(34 84 73)",
+  borderRadius: "var(--ct-component-button-secondary-rounded)",
+  border: "var(--ct-component-button-secondary-border)",
+  padding: "var(--ct-component-button-secondary-padding)",
+  background: "var(--ct-component-button-secondary-backgroundColor)",
+  color: "var(--ct-component-button-secondary-textColor)",
   font: "inherit",
   fontWeight: 700,
   cursor: "pointer",
 };
 
 const dangerButtonStyle = {
-  borderRadius: "999px",
-  border: "1px solid rgb(210 176 168)",
-  padding: "0.75rem 0.95rem",
-  background: "rgb(250 242 239)",
-  color: "rgb(138 52 38)",
+  borderRadius: "var(--ct-component-button-danger-rounded)",
+  border: "1px solid var(--ct-colors-semantic-destructive)",
+  padding: "var(--ct-component-button-danger-padding)",
+  background: "var(--ct-component-button-danger-backgroundColor)",
+  color: "var(--ct-component-button-danger-textColor)",
   font: "inherit",
   fontWeight: 700,
   cursor: "pointer",
@@ -847,10 +847,10 @@ const membershipListStyle = {
 };
 
 const membershipCardStyle = {
-  borderRadius: "1rem",
-  border: "1px solid rgb(214 222 217)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
   padding: "0.85rem",
-  background: "rgb(255 255 255 / 0.65)",
+  background: "var(--ct-colors-surface-2)",
   display: "grid",
   gap: "0.75rem",
 };

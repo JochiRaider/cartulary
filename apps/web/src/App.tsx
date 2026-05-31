@@ -97,6 +97,10 @@ type IncidentLandingProps = {
   statusText: string;
 };
 
+type AppProps = {
+  readonly themeId?: string | undefined;
+};
+
 const defaultAuthPrompt =
   "Sign in with your local account to open incidents, manage account security, and administer deployment users.";
 const defaultStaleIncidentMessage =
@@ -374,7 +378,7 @@ export function IncidentLanding({
   );
 }
 
-export function App() {
+export function App({ themeId }: AppProps = {}) {
   const [route, setRoute] = useState<RouteState>(() => readRouteState());
   const [session, setSession] = useState<SessionData | null>(null);
   const [credentialState, setCredentialState] =
@@ -760,6 +764,7 @@ export function App() {
         aria-busy={appBootstrapState === "loading"}
         className="cartulary-shell"
         data-bootstrap-state={appBootstrapState}
+        data-cartulary-theme={themeId}
         data-testid={phase1RouteTestId("app-shell")}
         style={pageStyle}
       >
@@ -791,7 +796,11 @@ export function App() {
 
   if (route.debugHarness) {
     return (
-      <main className="cartulary-shell" style={pageStyle}>
+      <main
+        className="cartulary-shell"
+        data-cartulary-theme={themeId}
+        style={pageStyle}
+      >
         <section style={landingPanelStyle}>
           <div style={landingHeroStyle}>
             <p style={landingEyebrowStyle}>Cartulary</p>
@@ -850,6 +859,7 @@ export function App() {
       aria-busy={appBootstrapState === "loading"}
       className="cartulary-shell"
       data-bootstrap-state={appBootstrapState}
+      data-cartulary-theme={themeId}
       data-testid={phase1RouteTestId("app-shell")}
       style={pageStyle}
     >
@@ -926,20 +936,21 @@ const pageStyle = {
   minHeight: "100vh",
   margin: 0,
   padding: "2rem",
-  background:
-    "linear-gradient(135deg, rgb(242 236 225) 0%, rgb(229 235 225) 50%, rgb(214 229 224) 100%)",
-  color: "rgb(24 38 35)",
-  fontFamily: "var(--font-ui)",
+  background: "var(--ct-colors-canvas)",
+  color: "var(--ct-colors-ink)",
+  fontFamily: "var(--ct-typography-ui-fontFamily)",
+  fontSize: "var(--ct-typography-ui-fontSize)",
+  lineHeight: "var(--ct-typography-ui-lineHeight)",
 };
 
 const landingPanelStyle = {
   width: "min(78rem, 100%)",
   margin: "0 auto",
   padding: "2rem",
-  borderRadius: "1.5rem",
-  background: "rgb(255 251 244 / 0.94)",
-  boxShadow: "0 24px 80px rgb(29 78 70 / 0.12)",
-  border: "1px solid rgb(185 204 196 / 0.8)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-panel)",
+  border: "var(--ct-border-hairline)",
 };
 
 const workbookFrameStyle = {
@@ -970,7 +981,7 @@ const landingEyebrowStyle = {
   fontSize: "0.78rem",
   letterSpacing: "0.18em",
   textTransform: "uppercase" as const,
-  color: "rgb(55 92 86)",
+  color: "var(--ct-colors-accent)",
 };
 
 const landingHeadlineStyle = {
@@ -983,7 +994,7 @@ const landingBodyStyle = {
   margin: "0.9rem 0 0",
   maxWidth: "42rem",
   lineHeight: 1.6,
-  color: "rgb(67 90 85)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const landingToolbarStyle = {
@@ -993,8 +1004,8 @@ const landingToolbarStyle = {
   gap: "1rem",
   marginBottom: "1.5rem",
   padding: "1rem 1.2rem",
-  borderRadius: "1rem",
-  background: "rgb(233 241 236)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const landingToolbarLabelStyle = {
@@ -1002,7 +1013,7 @@ const landingToolbarLabelStyle = {
   fontSize: "0.72rem",
   letterSpacing: "0.14em",
   textTransform: "uppercase" as const,
-  color: "rgb(70 103 96)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const landingToolbarValueStyle = {
@@ -1013,9 +1024,9 @@ const landingToolbarValueStyle = {
 const landingSectionStyle = {
   marginTop: "1.5rem",
   padding: "1.25rem",
-  borderRadius: "1.1rem",
-  background: "rgb(248 244 236)",
-  border: "1px solid rgb(218 227 219)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-2)",
+  border: "var(--ct-border-hairline)",
 };
 
 const landingSectionHeaderStyle = {
@@ -1031,7 +1042,7 @@ const landingSectionEyebrowStyle = {
   fontSize: "0.72rem",
   letterSpacing: "0.14em",
   textTransform: "uppercase" as const,
-  color: "rgb(75 108 100)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const landingSectionTitleStyle = {
@@ -1043,8 +1054,8 @@ const landingCountStyle = {
   margin: 0,
   minWidth: "2.5rem",
   padding: "0.5rem 0.75rem",
-  borderRadius: "999px",
-  background: "rgb(215 228 221)",
+  borderRadius: "var(--ct-rounded-pill)",
+  background: "var(--ct-colors-surface-3)",
   textAlign: "center" as const,
   fontWeight: 600,
 };
@@ -1063,28 +1074,28 @@ const landingLabelStyle = {
 const landingInputStyle = {
   width: "100%",
   padding: "0.8rem 0.9rem",
-  borderRadius: "0.85rem",
-  border: "1px solid rgb(191 207 199)",
-  background: "white",
-  color: "inherit",
+  borderRadius: "var(--ct-component-text-input-rounded)",
+  border: "var(--ct-component-text-input-border)",
+  background: "var(--ct-component-text-input-backgroundColor)",
+  color: "var(--ct-component-text-input-textColor)",
 };
 
 const landingPrimaryButtonStyle = {
   padding: "0.8rem 1rem",
-  borderRadius: "0.85rem",
+  borderRadius: "var(--ct-component-button-primary-rounded)",
   border: "none",
-  background: "rgb(37 89 79)",
-  color: "white",
+  background: "var(--ct-component-button-primary-backgroundColor)",
+  color: "var(--ct-component-button-primary-textColor)",
   fontWeight: 600,
   cursor: "pointer",
 };
 
 const landingSecondaryButtonStyle = {
   padding: "0.8rem 1rem",
-  borderRadius: "0.85rem",
-  border: "1px solid rgb(157 182 174)",
-  background: "rgb(250 253 250)",
-  color: "rgb(28 64 58)",
+  borderRadius: "var(--ct-component-button-secondary-rounded)",
+  border: "var(--ct-component-button-secondary-border)",
+  background: "var(--ct-component-button-secondary-backgroundColor)",
+  color: "var(--ct-component-button-secondary-textColor)",
   fontWeight: 600,
   cursor: "pointer",
 };
@@ -1100,9 +1111,9 @@ const landingIncidentCardStyle = {
   alignItems: "center",
   gap: "1rem",
   padding: "1rem",
-  borderRadius: "1rem",
-  background: "rgb(255 255 255 / 0.92)",
-  border: "1px solid rgb(211 223 216)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-1)",
+  border: "var(--ct-border-hairline)",
 };
 
 const landingIncidentTextStyle = {
@@ -1114,7 +1125,7 @@ const landingIncidentKeyStyle = {
   fontSize: "0.78rem",
   letterSpacing: "0.14em",
   textTransform: "uppercase" as const,
-  color: "rgb(75 108 100)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const landingIncidentTitleStyle = {
@@ -1124,27 +1135,27 @@ const landingIncidentTitleStyle = {
 
 const landingIncidentMetaStyle = {
   margin: "0.4rem 0 0",
-  color: "rgb(89 109 103)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const landingStatusStyle = {
   margin: "1.25rem 0 0",
   minHeight: "1.5rem",
-  color: "rgb(45 82 75)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const routeLoadingStyle = {
   margin: "1rem 0 0",
   padding: "1rem 1.2rem",
-  borderRadius: "1rem",
-  background: "rgb(233 241 236)",
-  color: "rgb(45 82 75)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const landingErrorStyle = {
   margin: "0.25rem 0 0",
   minHeight: "1.25rem",
-  color: "rgb(147 47 47)",
+  color: "var(--ct-colors-semantic-conflict)",
   fontWeight: 600,
 };
 
@@ -1155,12 +1166,12 @@ const publicErrorStyle = {
 const errorMessageStyle = {
   margin: 0,
   minHeight: "1.25rem",
-  color: "rgb(126 45 45)",
+  color: "var(--ct-colors-semantic-conflict)",
 };
 
 const errorDetailStyle = {
   margin: "0.2rem 0 0",
   minHeight: "1.25rem",
-  color: "rgb(126 45 45)",
+  color: "var(--ct-colors-semantic-conflict)",
   overflowWrap: "anywhere" as const,
 };

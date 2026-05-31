@@ -85,7 +85,8 @@ write_config() {
     "packages/view-contracts/src"
   ],
   "scan_excludes": [
-    "packages/protocol-ts/src/generated/**"
+    "packages/protocol-ts/src/generated/**",
+    "packages/ui-contracts/src/generated/**"
   ],
   "singleton_imports": [
     {
@@ -137,6 +138,24 @@ write_config() {
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-design-token-boundary",
+      "level": "error",
+      "message": "Import generated design token artifacts only through the @cartulary/ui-contracts facade.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/ui-contracts/src/index.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/ui-contracts/src/generated"
         }
       ]
     },
@@ -240,6 +259,19 @@ write_config() {
         }
       ]
     }
+  ],
+  "raw_design_token_literal_checks": [
+    {
+      "id": "frontend-runtime-raw-design-color-literals",
+      "level": "error",
+      "message": "Runtime UI code must use generated Cartulary design token artifacts instead of raw docs/design.md color token literals.",
+      "design_document": "docs/design.md",
+      "token_namespaces": ["colors"],
+      "applies_to": {
+        "include": ["apps/web/src/**", "packages/grid-adapter/src/**"],
+        "exclude": ["apps/web/src/*.test.ts", "apps/web/src/*.test.tsx", "packages/grid-adapter/src/*.test.tsx"]
+      }
+    }
   ]
 }
 JSON
@@ -255,8 +287,11 @@ prepare_case_root() {
     "$case_root/packages/grid-adapter/src" \
     "$case_root/packages/protocol-ts/src/generated" \
     "$case_root/packages/test-utils/src" \
+    "$case_root/packages/ui-contracts/src/generated" \
     "$case_root/packages/ui-contracts/src" \
-    "$case_root/packages/view-contracts/src"
+    "$case_root/packages/view-contracts/src" \
+    "$case_root/docs"
+  cp "$ROOT_DIR/docs/design.md" "$case_root/docs/design.md"
   cat >"$case_root/packages/grid-adapter/package.json" <<'JSON'
 {
   "name": "@cartulary/grid-adapter",
@@ -414,6 +449,31 @@ export const contracts = contractArtifactIndex;
 TS
 protocol_owner_output="$(assert_passes "protocol facade generated import" run_checker "$protocol_owner_root")"
 assert_contains "$protocol_owner_output" "frontend import boundaries verified" "protocol owner generated import output"
+
+design_token_owner_root="$(prepare_case_root design-token-owner)"
+cat >"$design_token_owner_root/packages/ui-contracts/src/index.ts" <<'TS'
+export { cartularyDesignTokenVars } from "./generated/design-tokens";
+TS
+design_token_owner_output="$(assert_passes "ui-contracts generated token import" run_checker "$design_token_owner_root")"
+assert_contains "$design_token_owner_output" "frontend import boundaries verified" "ui-contracts generated token import output"
+
+design_token_relative_root="$(prepare_case_root design-token-relative)"
+cat >"$design_token_relative_root/apps/web/src/designTokenBypass.ts" <<'TS'
+import { cartularyDesignTokenVars } from "../../../packages/ui-contracts/src/generated/design-tokens";
+
+export const vars = cartularyDesignTokenVars;
+TS
+design_token_relative_output="$(assert_fails "generated design token relative error" run_checker "$design_token_relative_root")"
+assert_contains "$design_token_relative_output" "frontend-generated-design-token-boundary" "generated design token relative rule"
+assert_contains "$design_token_relative_output" "apps/web/src/designTokenBypass.ts" "generated design token relative file"
+
+raw_design_literal_root="$(prepare_case_root raw-design-literal)"
+cat >"$raw_design_literal_root/apps/web/src/rawDesignLiteral.tsx" <<'TS'
+export const accent = "#FACC15";
+TS
+raw_design_literal_output="$(assert_fails "raw design color literal error" run_checker "$raw_design_literal_root")"
+assert_contains "$raw_design_literal_output" "frontend-runtime-raw-design-color-literals" "raw design color literal rule"
+assert_contains "$raw_design_literal_output" "#FACC15" "raw design color literal value"
 
 node_runtime_root="$(prepare_case_root node-runtime)"
 cat >"$node_runtime_root/apps/web/src/nodeRuntimeLeak.ts" <<'TS'

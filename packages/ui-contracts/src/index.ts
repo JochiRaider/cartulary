@@ -1,5 +1,13 @@
 import { listViewSchemaRegistryEntries } from "@cartulary/protocol-ts";
 
+export {
+  type CartularyDefaultThemeId,
+  type CartularyDesignTokenVarName,
+  cartularyDefaultThemeId,
+  cartularyDesignThemeCssText,
+  cartularyDesignTokenVars,
+} from "./generated/design-tokens";
+
 export type WorkbookSurface = string;
 
 declare const stableTestIdBrand: unique symbol;

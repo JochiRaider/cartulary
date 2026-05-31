@@ -3,6 +3,7 @@
 ## Authority and placeholders
 
 - Normative behavior is owned by the Cartulary normative core under `docs/spec/00_document_set_status_and_precedence.md` through Core 04. The guides under `docs/guides/` are implementation-support inputs, not independent behavior owners.
+- `docs/design.md` supplies frontend design-direction constraints and token definitions only. It is not Base Profile or extension-profile implementation conformance, and design-direction evidence must not be represented as product-conformance evidence. Core 05 remains claim-publication-only for timed or fixture-sensitive claims.
 - Consult `docs/domain.md` before domain-facing changes, terminology-sensitive changes, view-schema work, record-model work, workbook-surface work, or documentation edits that touch project vocabulary. It is a vocabulary and concept reference, not a replacement for owner specs.
 - The canonical Go module path is `github.com/JochiRaider/cartulary`.
 - Supported toolchain baseline: `Go 1.26` with `toolchain go1.26.3`, `Node 24.15.0`, and `pnpm 10.33.0`.
@@ -42,10 +43,12 @@
 - The normative core owns behavior. Change owner text first when behavior changes.
 - `/contracts/*` contains repo-local derived contract artifacts. Hand-edit them only as owner-driven contract updates, and do not treat them as the behavioral owner.
 - `/internal/gen/**` and `/packages/protocol-ts/src/generated/**` are generated outputs. Do not hand-edit either path.
+- `/packages/ui-contracts/src/generated/**` is generated frontend design-token output derived from `docs/design.md`. Do not hand-edit it; update `docs/design.md` or the generator and run `make generate`.
 - `pnpm-lock.yaml` and `go.sum` are tool-managed. Do not hand-edit either file.
 - Keep codegen drift and migration drift separate.
 - Codegen drift means generated outputs change after `make generate`.
 - Migration drift means schema-affecting changes are missing from numbered migrations or migrations do not apply cleanly.
+- UI changes that affect visual goldens must follow `docs/guides/cartulary_visual_golden_maintenance.md`; visual and accessibility artifacts remain design-direction or implementation-support evidence unless a Core 05 claim-publication boundary is separately satisfied.
 
 ## Local execution procedure
 

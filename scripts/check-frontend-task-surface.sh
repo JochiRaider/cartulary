@@ -81,6 +81,9 @@ fi
 if ! grep -Fq '"generate sqlc"' "$repo_root/scripts/generate-artifacts.sh"; then
   fail "scripts/generate-artifacts.sh must run sqlc generation"
 fi
+if ! grep -Fq 'generate-design-tokens.mjs' "$repo_root/scripts/generate-artifacts.sh"; then
+  fail "scripts/generate-artifacts.sh must run design token generation"
+fi
 generate_drift_block="$(extract_target_block generate-drift)"
 assert_text_contains "generate-drift recipe" "$generate_drift_block" "codegen-toolchain" "generate-drift must prepare the codegen toolchain outside the drift body"
 assert_text_order "generate-drift recipe" "$generate_drift_block" "codegen-toolchain" "./scripts/check-generate-drift.sh" "generate-drift must prepare the codegen toolchain outside the drift body"
@@ -310,6 +313,10 @@ for (const required of ["apps/web/src", "apps/web/e2e", "packages/grid-adapter/s
     throw new Error(`frontend import boundary scan roots missing ${required}`);
   }
 }
+const scanExcludes = new Set(config.scan_excludes ?? []);
+if (!scanExcludes.has("packages/ui-contracts/src/generated/**")) {
+  throw new Error("frontend import boundary scan excludes must exclude generated ui-contracts design tokens");
+}
 const rules = new Map((config.rules ?? []).map((rule) => [rule.id, rule]));
 const gridRule = rules.get("frontend-grid-vendor-boundary");
 if (!gridRule || gridRule.level !== "error") {
@@ -338,6 +345,22 @@ if (!(rdgStylesheet.allowed_importers ?? []).includes("packages/grid-adapter/src
 const generatedRule = rules.get("frontend-generated-protocol-boundary");
 if (!generatedRule || generatedRule.level !== "error") {
   throw new Error("frontend-generated-protocol-boundary must be enforced as an error");
+}
+const generatedDesignTokenRule = rules.get("frontend-generated-design-token-boundary");
+if (!generatedDesignTokenRule || generatedDesignTokenRule.level !== "error") {
+  throw new Error("frontend-generated-design-token-boundary must be enforced as an error");
+}
+if (!(generatedDesignTokenRule.allowed_importers ?? []).includes("packages/ui-contracts/src/index.ts")) {
+  throw new Error("frontend-generated-design-token-boundary must allow the ui-contracts facade");
+}
+if (!JSON.stringify(generatedDesignTokenRule.restricted_imports ?? []).includes("packages/ui-contracts/src/generated")) {
+  throw new Error("frontend-generated-design-token-boundary must restrict packages/ui-contracts/src/generated");
+}
+const rawDesignLiteralCheck = (config.raw_design_token_literal_checks ?? []).find(
+  (entry) => entry.id === "frontend-runtime-raw-design-color-literals",
+);
+if (!rawDesignLiteralCheck || rawDesignLiteralCheck.level !== "error") {
+  throw new Error("frontend-runtime-raw-design-color-literals must be enforced as an error");
 }
 if (!(generatedRule.allowed_importers ?? []).includes("packages/protocol-ts/src/index.ts")) {
   throw new Error("frontend-generated-protocol-boundary must allow the protocol-ts facade");

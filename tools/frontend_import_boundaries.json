@@ -15,6 +15,7 @@
   ],
   "scan_excludes": [
     "packages/protocol-ts/src/generated/**",
+    "packages/ui-contracts/src/generated/**",
     "apps/web/dist/**",
     "apps/web/test-results/**",
     "apps/web/playwright-report/**",
@@ -74,6 +75,24 @@
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-design-token-boundary",
+      "level": "error",
+      "message": "Import generated design token artifacts only through the @cartulary/ui-contracts facade.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/ui-contracts/src/index.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/ui-contracts/src/generated"
         }
       ]
     },
@@ -240,6 +259,38 @@
           "path": "apps/web/src/timelineWorkbookTestSupport"
         }
       ]
+    }
+  ],
+  "raw_design_token_literal_checks": [
+    {
+      "id": "frontend-runtime-raw-design-color-literals",
+      "level": "error",
+      "message": "Runtime UI code must use generated Cartulary design token artifacts instead of raw docs/design.md color token literals.",
+      "design_document": "docs/design.md",
+      "token_namespaces": ["colors"],
+      "applies_to": {
+        "include": [
+          "apps/web/src/**",
+          "packages/grid-adapter/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/*TestSupport.ts",
+          "apps/web/src/*TestSupport.tsx",
+          "apps/web/src/fetchMockTestSupport.ts",
+          "apps/web/src/testSetup.ts",
+          "apps/web/src/testSetup.dom.ts",
+          "apps/web/src/timelineWorkbookTestSupport.ts",
+          "packages/grid-adapter/src/*.test.ts",
+          "packages/grid-adapter/src/*.test.tsx",
+          "packages/grid-adapter/src/**/*.test.ts",
+          "packages/grid-adapter/src/**/*.test.tsx",
+          "packages/grid-adapter/src/test-support.tsx"
+        ]
+      }
     }
   ]
 }

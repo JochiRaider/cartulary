@@ -3,7 +3,8 @@
   "generated_paths": [
     "internal/gen/contracts",
     "internal/gen/sql",
-    "packages/protocol-ts/src/generated"
+    "packages/protocol-ts/src/generated",
+    "packages/ui-contracts/src/generated"
   ],
   "copy_paths": [
     "Makefile",
@@ -11,9 +12,12 @@
     "go.mod",
     "go.sum",
     "scripts/harness-contract.mjs",
+    "scripts/bootstrap-node-runtime.sh",
     "scripts/list-build-inputs.sh",
     "scripts/generate-artifacts.sh",
+    "scripts/generate-design-tokens.mjs",
     "scripts/lib",
+    "docs/design.md",
     "tools/execution_topology_manifest.json",
     "tools/scheduler_resource_registry.json",
     "tools/service_backed_make_target_duration_baselines.json",
@@ -30,7 +34,8 @@
     "db/queries",
     "internal/gen/contracts",
     "internal/gen/sql",
-    "packages/protocol-ts/src/generated"
+    "packages/protocol-ts/src/generated",
+    "packages/ui-contracts/src/generated"
   ],
   "placeholder_dirs": [
     "apps/web",
