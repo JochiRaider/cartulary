@@ -19,6 +19,7 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
+  type SystemViewSwitcherGroupToken,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherGroupTestId,
@@ -26,7 +27,6 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineMutationSubstrateReadyTestId,
-  type SystemViewSwitcherGroupToken,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Request } from "@playwright/test";

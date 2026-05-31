@@ -320,16 +320,15 @@ function WorkbookShellSlotRegion({
   readonly viewSchemaId?: string | undefined;
 }) {
   return (
-    <div
+    <section
       aria-label={workbookShellSlotLabels[slot]}
       data-testid={workbookShellSlotTestId(slot)}
       data-view-schema-id={viewSchemaId}
       data-workbook-shell-id={workbookShellId}
-      role="region"
       style={style}
     >
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -3792,6 +3791,9 @@ export function TimelineWorkbook({
   );
 
   useEffect(() => {
+    // Keep saved-view reselection and shell-level refreshes observable here even
+    // though loadRows owns the actual query inputs.
+    void reloadToken;
     void loadRows({ showLoading: true });
   }, [loadRows, reloadToken]);
 
@@ -10892,7 +10894,7 @@ function SystemViewSwitcher({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLFieldSetElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const optionRefs = useRef(new Map<string, HTMLButtonElement>());
   const activeSystemEntryIndex = systemViewSwitcherEntries.findIndex(
@@ -10994,7 +10996,8 @@ function SystemViewSwitcher({
   );
 
   return (
-    <div
+    <fieldset
+      aria-label="System view switcher"
       ref={containerRef}
       style={systemViewSwitcherStyle}
       onBlur={(event) => {
@@ -11049,14 +11052,15 @@ function SystemViewSwitcher({
           style={systemViewSwitcherMenuStyle}
         >
           {systemWorkbookSurfaceGroups.map((group) => (
-            <div
+            <fieldset
               key={group.token}
               aria-label={group.label}
               data-testid={systemViewSwitcherGroupTestId(group.token)}
-              role="group"
               style={systemViewSwitcherGroupStyle}
             >
-              <p style={systemViewSwitcherGroupLabelStyle}>{group.label}</p>
+              <legend style={systemViewSwitcherGroupLabelStyle}>
+                {group.label}
+              </legend>
               {group.entries.map((entry) => {
                 const optionIndex = systemViewSwitcherEntries.findIndex(
                   (option) => option.viewSchemaId === entry.viewSchemaId,
@@ -11098,11 +11102,11 @@ function SystemViewSwitcher({
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
           ))}
         </div>
       ) : null}
-    </div>
+    </fieldset>
   );
 }
 
@@ -11642,10 +11646,12 @@ export function WorkbookShell({
   }, [activeContract]);
 
   useEffect(() => {
+    void sheetReloadToken;
     void loadGenericSurface();
   }, [loadGenericSurface, sheetReloadToken]);
 
   useEffect(() => {
+    void sheetReloadToken;
     void loadAssessmentSurface();
   }, [loadAssessmentSurface, sheetReloadToken]);
 
@@ -12670,6 +12676,9 @@ const systemViewSlotStyle = {
 const systemViewSwitcherStyle = {
   position: "relative" as const,
   minWidth: "16rem",
+  border: 0,
+  margin: 0,
+  padding: 0,
 };
 
 const systemViewSwitcherTriggerStyle = {
@@ -12710,11 +12719,15 @@ const systemViewSwitcherGroupStyle = {
   display: "grid",
   gap: "0.25rem",
   padding: "0.35rem 0",
+  border: 0,
+  margin: 0,
+  minInlineSize: 0,
 };
 
 const systemViewSwitcherGroupLabelStyle = {
   ...eyebrowStyle,
   margin: "0.2rem 0.45rem",
+  padding: 0,
 };
 
 const systemViewSwitcherOptionStyle = {

@@ -5,8 +5,8 @@ import {
   gridGroupingSelectTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
-  saveStateTestId,
   savedViewSelectorTestId,
+  saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
@@ -16,18 +16,22 @@ import {
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
-
-import {
-  blockedAccessibilityScenarioTitles,
-  scenarioTitlesForAccessibilityRow,
-} from "./a11yPhaseMap";
-import { expect, test } from "./fixtures";
-import { createIncident, createViewRow, uniqueIncidentKey, uniqueTxn } from "./helpers";
 import {
   indicatorsViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
   timelineViewSchemaId,
 } from "../src/workbookSurfaceRegistry";
+import {
+  blockedAccessibilityScenarioTitles,
+  scenarioTitlesForAccessibilityRow,
+} from "./a11yPhaseMap";
+import { expect, test } from "./fixtures";
+import {
+  createIncident,
+  createViewRow,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./helpers";
 
 type ViewRow = {
   record_id: string;
@@ -234,10 +238,9 @@ test.describe("frontend accessibility preflight smoke for blocked later phases",
       await expect(tab).toBeVisible();
       await expect(tab).not.toHaveText("");
     }
-    await expect(page.getByTestId(surfaceTabTestId(timelineViewSchemaId))).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(
+      page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+    ).toHaveAttribute("aria-current", "page");
 
     const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
     await expect(trigger).toBeVisible();
@@ -249,7 +252,10 @@ test.describe("frontend accessibility preflight smoke for blocked later phases",
     await expect(menu).toBeVisible();
     await expect(menu).toHaveAttribute("role", "menu");
     const indicatorOption = page.getByTestId(
-      systemViewSwitcherOptionTestId("scope-assessment", indicatorsViewSchemaId),
+      systemViewSwitcherOptionTestId(
+        "scope-assessment",
+        indicatorsViewSchemaId,
+      ),
     );
     await expect(indicatorOption).toBeFocused();
     await expect(indicatorOption).toHaveAttribute("role", "menuitemradio");

@@ -1,8 +1,8 @@
+import type { SystemViewSwitcherGroupToken } from "@cartulary/ui-contracts";
 import {
   listViewContracts,
   type ViewContract,
 } from "@cartulary/view-contracts";
-import type { SystemViewSwitcherGroupToken } from "@cartulary/ui-contracts";
 
 export const timelineViewSchemaId = "cartulary.view.timeline.v1";
 export const hostsViewSchemaId = "cartulary.view.hosts.v1";
