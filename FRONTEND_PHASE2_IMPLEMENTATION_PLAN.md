@@ -211,7 +211,7 @@ Out of scope:
 | [x] | 4. `System views` keyboard/focus | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed`; conditional `make browser-e2e-support`; `git diff --check` | None for Sprint 4 audit scope; `FE-B-P2-02` has retained row-owned browser evidence and is not FE-P2 completion |
 | [x] | 5. Saved-view placement and same-shell E2E | `make frontend-unit`; `make frontend-typecheck`; `make backend-store`; `make backend-integration`; `make browser-e2e-webserver-backed`; `make phase-ledger-drift`; `git diff --check` | None for Sprint 5 audit scope |
 | [x] | 6. Visual and accessibility readiness | `make browser-e2e-visual`; `make browser-e2e-a11y`; `make browser-e2e-a11y-preflight` | None for Sprint 6 audit scope; rows remain design-direction evidence |
-| [ ] | 7. Closure and FE-P3 handoff | Row-owned commands plus drift and regression checks | `make check` only if repository completion rules require it |
+| [x] | 7. Closure and FE-P3 handoff | Row-owned commands plus drift and regression checks | None for FE-P2 closure; `make check` skipped because broad repository closure was not required |
 
 ## Global References
 
@@ -816,6 +816,8 @@ Audit failures: none.
 
 ## Sprint 7: Closure, Drift, Regression, And FE-P3 Handoff
 
+Status: complete for FE-P2 Sprint 7 closure audit on 2026-05-31.
+
 Objective: close FE-P2 only with row-owned evidence or exact blockers, then
 prepare FE-P3 handoff.
 
@@ -824,39 +826,157 @@ visual/a11y evidence, or support-only checks.
 
 Source constraints: phase maps are source of truth; ledgers generated.
 
-Inspect: plan file, FE-P2 map/ledger, FE-P0/FE-P1 handoff, app shell selectors,
-visual/a11y artifacts.
+Inspected:
+- this plan file;
+- `tools/frontend_phase_registry.json`;
+- `tools/frontend_phase_maps/fe_p0_test_map.json`,
+  `tools/frontend_phase_maps/fe_p1_test_map.json`, and
+  `tools/frontend_phase_maps/fe_p2_test_map.json`;
+- generated frontend ledgers for FE-P0, FE-P1, and FE-P2;
+- app shell selector/test-id usage in `/apps/web/src`, `/apps/web/e2e`, and
+  `/packages/ui-contracts/src`;
+- retained visual and accessibility artifacts as prior context only, not as
+  standalone closure proof.
 
 Test-first sequence:
-- rerun all FE-P2 row-owned commands;
-- rerun FE-P0/FE-P1 regression commands or record blockers;
-- verify generated artifacts and import boundaries.
+- reran all FE-P2 row-owned commands;
+- reran FE-P0/FE-P1 regression commands;
+- verified generated-artifact policy, generate drift, import boundaries,
+  ledger drift, and whitespace;
+- read target-owned `frontend-row-accounting.json` artifacts for row closure;
+- read normalized accessibility artifacts for implemented-row and preflight
+  separation.
 
-Validation commands:
-- `make frontend-typecheck`
-- `make frontend-unit`
-- `make browser-e2e-webserver-backed`
-- `make browser-e2e-visual`
-- `make browser-e2e-a11y`
-- `make browser-e2e-a11y-preflight`
-- `make browser-e2e-support`
-- `make generated-artifact-policy-check`
-- `make generate-drift`
-- `make frontend-import-boundary-check`
-- `make phase-ledgers` when metadata changed
-- `make phase-ledger-drift`
-- `git diff --check`
-- `git diff --cached --check` when staged changes exist
-- `make check` only if repository completion rules require broad closure
+Audit summary:
+- FE-P2 remains `status="planned"` in the frontend registry, as expected while
+  the frontend phase sequence remains planned/non-executable.
+- The FE-P2 map contains exactly seven distinct rows and no
+  `TODO_owner_lookup` rows.
+- Product-conformance rows keep non-empty Core requirement and acceptance IDs.
+- Design-direction rows keep empty Core requirement and acceptance IDs and do
+  not activate Core 05.
+- Every FE-P2 row has fresh direct row-owned evidence from the intended target.
+- No FE-P2 blocker remains.
 
-Deliverables: final FE-P2 evidence table, blockers, artifact paths, regression
-status, FE-P3 handoff.
+Command execution:
 
-Blocker rules: unresolved row evidence keeps that row blocked and prevents FE-P2
-completion.
+| Command | Result | Run root / summary | Logs and notes |
+| --- | --- | --- | --- |
+| `make frontend-typecheck` | pass | `.cartulary/test-results/20260531T031111Z-p873820/frontend-typecheck/tool-run-summary.json` | `frontend-typecheck/frontend-typecheck/stdout.log` |
+| `make frontend-unit` | pass | `.cartulary/test-results/20260531T031120Z-p874196/frontend-unit/tool-run-summary.json` | `frontend-unit/frontend-unit/stdout.log` |
+| `make browser-e2e-webserver-backed` | pass; 62 tests, 0 failures | `.cartulary/test-results/20260531T031139Z-p875748/browser-e2e-webserver-backed/tool-run-summary.json` | `playwright-webserver-backed-batch/stdout.log`, `playwright-webserver-backed-batch/stderr.log` |
+| `make browser-e2e-visual` | pass; 12 tests, 0 failures | `.cartulary/test-results/20260531T031306Z-p883678/browser-e2e-visual/tool-run-summary.json` | `browser-e2e-visual-frontend-readiness/stdout.log`, `browser-e2e-visual-frontend-readiness/stderr.log` |
+| `make browser-e2e-a11y` | pass; 10 tests, 0 failures | `.cartulary/test-results/20260531T031357Z-p888634/browser-e2e-a11y/tool-run-summary.json` | `browser-e2e-a11y-accessibility/stdout.log`, `browser-e2e-a11y-accessibility/stderr.log` |
+| `make browser-e2e-a11y-preflight` | pass; 9 tests, 0 failures | `.cartulary/test-results/20260531T031420Z-p891647/browser-e2e-a11y-preflight/tool-run-summary.json` | `browser-e2e-a11y-preflight-accessibility-preflight/stdout.log`, `browser-e2e-a11y-preflight-accessibility-preflight/stderr.log` |
+| `make browser-e2e-support` | pass; 7 support tests, 0 failures | `.cartulary/test-results/20260531T031446Z-p894777/browser-e2e-support/tool-run-summary.json` | `playwright-support-batch/stdout.log`, `playwright-support-batch/stderr.log` |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260531T031510Z-p897786/generated-artifact-policy-check/tool-run-summary.json` | `generated-artifact-policy-check/stdout.log` |
+| `make generate-drift` | pass | `.cartulary/test-results/20260531T031514Z-p898010/generate-drift/tool-run-summary.json` | no stdout/stderr artifact |
+| `make frontend-import-boundary-check` | pass | `.cartulary/test-results/20260531T031518Z-p898716/frontend-import-boundary-check/tool-run-summary.json` | `frontend-import-boundary-check/stdout.log` |
+| `make phase-ledgers` | skipped as standalone command | no run root | no authored frontend metadata changed during the audit |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260531T031525Z-p899006/phase-ledger-drift/tool-run-summary.json` | `phase-ledger-drift/stdout.log` |
+| `git diff --check` | pass | no run root | no output |
+| `git diff --cached --check` | skipped | no run root | no staged changes existed |
+| `make check` | skipped | no run root | broad repository closure was not required by FE-P2 completion rules |
+| `make agent-finalize` | pass | `.cartulary/test-results/20260531T031537Z-p899473/agent-finalize/tool-run-summary.json` | `agent-finalize/finalize-summary.json`; generated artifacts unchanged, retained-run checks skipped because `RESULTS_DIR` was unset |
 
-Binary acceptance: every FE-P2 row has direct row-owned evidence or an exact
-blocker, and all evidence classes remain separated.
+FE-P2 row evidence:
+
+| Row | Evidence class | Closure evidence |
+| --- | --- | --- |
+| `FE-U-P2-01` | `product_conformance` | Closed by `.cartulary/test-results/20260531T031120Z-p874196/frontend-unit/frontend-row-accounting.json`; 7/7 startup-resolution scenarios passed. |
+| `FE-U-P2-02` | `product_conformance` | Closed by `.cartulary/test-results/20260531T031120Z-p874196/frontend-unit/frontend-row-accounting.json`; 5/5 built-in/system-view registry scenarios passed. |
+| `FE-B-P2-01` | `product_conformance` | Closed by `.cartulary/test-results/20260531T031139Z-p875748/browser-e2e-webserver-backed/frontend-row-accounting.json`; continuous shell composition scenario passed. |
+| `FE-B-P2-02` | `product_conformance` | Closed by `.cartulary/test-results/20260531T031139Z-p875748/browser-e2e-webserver-backed/frontend-row-accounting.json`; `System views` keyboard/focus scenario passed. |
+| `FE-E-P2-01` | `product_conformance` | Closed by `.cartulary/test-results/20260531T031139Z-p875748/browser-e2e-webserver-backed/frontend-row-accounting.json`; saved-view placement and same-shell scenario passed. |
+| `FE-V-P2-01` | `design_direction` | Closed by `.cartulary/test-results/20260531T031306Z-p883678/browser-e2e-visual/frontend-row-accounting.json`; visual readiness scenario passed. |
+| `FE-A11Y-P2-01` | `design_direction` | Closed by `.cartulary/test-results/20260531T031357Z-p888634/browser-e2e-a11y/frontend-row-accounting.json`; normalized summary `.cartulary/test-results/20260531T031357Z-p888634/browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` emitted `cartulary.frontend_accessibility_summary.v2`, included `FE-A11Y-P2-01` as implemented design-direction evidence, and reported zero violations. |
+
+Accessibility preflight separation:
+- `make browser-e2e-a11y-preflight` emitted
+  `.cartulary/test-results/20260531T031420Z-p891647/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json`.
+- The preflight summary lists blocked future-row smoke for `FE-A11Y-P3-01`
+  through `FE-A11Y-P11-01`.
+- The preflight summary does not list or complete `FE-A11Y-P2-01`.
+
+Blockers:
+
+| Item | Ownership | Blocks FE-P2 | Affects FE-P3 | Minimum follow-up |
+| --- | --- | --- | --- | --- |
+| `make phase-ledgers` skipped as standalone command | `support-tooling-owned` | no | no | Run only after authored frontend metadata changes. |
+| `git diff --cached --check` skipped | `support-tooling-owned` | no | no | Run when staged changes exist. |
+| `make check` skipped | `outside FE-P2` | no | no | Run only for broad repository closure. |
+
+Generated-artifact and drift status:
+- `make generated-artifact-policy-check` passed.
+- `make generate-drift` passed.
+- `make frontend-import-boundary-check` passed.
+- `make phase-ledger-drift` passed.
+- `git diff --check` passed.
+- `make agent-finalize` passed with generated artifacts unchanged. It ran
+  generated structure maintenance and validation, including `phase-ledgers`,
+  `phase-ledger-drift`, `phase-schedules`, `phase-schedule-drift`,
+  `json-shape-check`, and duration-baseline coverage.
+
+FE-P0 regression status:
+- Fresh FE-P0 regression commands passed: `make frontend-typecheck`,
+  `make frontend-unit`, `make generated-artifact-policy-check`,
+  `make generate-drift`, `make frontend-import-boundary-check`, and
+  `make phase-ledger-drift`.
+- FE-P0 unit rows with no scenario titles report `not_evaluable` in frontend
+  row accounting, but the target-level regression checks passed.
+
+FE-P1 regression status:
+- `FE-U-P1-01` closed in
+  `.cartulary/test-results/20260531T031120Z-p874196/frontend-unit/frontend-row-accounting.json`.
+- `FE-I-P1-01` closed in
+  `.cartulary/test-results/20260531T031120Z-p874196/frontend-unit/frontend-row-accounting.json`.
+- `FE-E-P1-01` closed in
+  `.cartulary/test-results/20260531T031139Z-p875748/browser-e2e-webserver-backed/frontend-row-accounting.json`.
+- `FE-A11Y-P1-01` closed in
+  `.cartulary/test-results/20260531T031357Z-p888634/browser-e2e-a11y/frontend-row-accounting.json`.
+- `FE-S-P1-01` closed in both `make frontend-unit` and
+  `.cartulary/test-results/20260531T031446Z-p894777/browser-e2e-support/frontend-row-accounting.json`.
+
+FE-P3 handoff:
+- Shell composition: one continuous workbook shell is present, with top bar,
+  built-in tabs, `System views`, view bar, primary grid slot, inspector, status
+  strip, and presence slot covered by FE-P2 row evidence.
+- Startup-surface resolution: explicit launch, user preference, incident
+  default, invalid pointer handling, and Timeline fallback are covered by
+  `FE-U-P2-01`.
+- Built-in tabs and system-view registry: stable `view_schema_id` registries
+  and group tokens are covered by `FE-U-P2-02`.
+- Saved-view placement: active-surface saved-view selector behavior,
+  `scope='system'` saved-view non-conflation, and same-shell navigation are
+  covered by `FE-E-P2-01`.
+- Focus and keyboard: `System views` trigger, menu, roving focus, selection,
+  dismissal, and focus restoration are covered by `FE-B-P2-02`.
+- Selectors and test IDs: shell, system-view, saved-view, and row-history
+  selectors use stable IDs, `view_schema_id`, `saved_view_id`, `sheet_ref`,
+  closed vocabularies, and encoded stable segments rather than labels, render
+  order, DOM nesting, CSS classes, or incidental component names.
+- Visual fixtures: FE-P2 default shell visual readiness is covered by
+  `FE-V-P2-01`. FE-P3 visual row `FE-V-P3-01` remains blocked and missing in
+  row accounting, as expected.
+- Accessibility: implemented-row evidence for `FE-A11Y-P2-01` is normalized
+  under `cartulary.frontend_accessibility_summary.v2`. FE-P3 preflight smoke
+  for `FE-A11Y-P3-01` passed but remains blocked future-row readiness evidence,
+  not FE-P3 completion.
+- Command blockers and artifact paths: no FE-P2 blockers remain. Future FE-P3
+  rows still blocked/missing in row accounting include `FE-I-P3-01`,
+  `FE-B-P3-01`, and `FE-V-P3-01`; `FE-A11Y-P3-01` has preflight smoke only.
+- Phase-map and ledger drift: FE-P2 map/ledger agree and drift checks passed.
+- Generated-artifact policy: passed, with no generated protocol, ledger,
+  schedule, lockfile, or checksum hand edits.
+- Unresolved owner-lookup TODOs: none in FE-P2.
+
+Final closure judgment: `complete`.
+
+Reasons: every FE-P2 row has direct row-owned closure evidence, drift and
+generated-artifact checks passed, FE-P0 and FE-P1 regression status is recorded,
+evidence classes remain separated, no FE-P2 owner-lookup TODO remains, visual
+and accessibility evidence remain design-direction only, and Core 05 was not
+activated.
 
 ## Blocker Recording Rules
 
